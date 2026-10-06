@@ -81,8 +81,8 @@ function CredentialFields({ kind, label, required = false, form, setForm, readOn
   </div>;
 }
 
-function CommandExample({ title, children, defaultOpen = false }: { title: string; children: string; defaultOpen?: boolean }) {
-  return <UiDetails className="settings-stack" defaultOpen={defaultOpen}>
+function CommandExample({ title, children }: { title: string; children: string }) {
+  return <UiDetails className="settings-stack">
     <summary className="settings-label">{title}</summary>
     <pre className="whitespace-pre-wrap break-all rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 settings-body">
       <code>{children}</code>
@@ -128,10 +128,16 @@ export default function StorageEndpointCredentialsFields(props: Props) {
     if (status === "revocation_pending") return "Revocation pending";
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
+  const managedRuntimeCheck = props.identities?.some(identity =>
+    identity.kind === "runtime" && identity.mode === "managed" && identity.credentials_configured
+  ) ? props.statuses.runtime : null;
+  const managedSupervisionCheck = props.identities?.some(identity =>
+    identity.kind === "supervision" && identity.mode === "managed" && identity.credentials_configured
+  ) ? props.statuses.supervision : null;
   return <>
     <SettingsSection title="Administration (Admin Ops)" description="Bootstrap and delegated administration." presentation="compact">
       <CredentialFields {...props} kind="admin" label="Admin" required={props.form.features.admin.enabled} />
-      {!props.readOnly && <CommandExample title="Recommended Admin Ops" defaultOpen={!props.form.has_admin_secret}>{ADMIN_OPS_FULL_COMMAND}</CommandExample>}
+      {!props.readOnly && <CommandExample title="Recommended Admin Ops">{ADMIN_OPS_FULL_COMMAND}</CommandExample>}
     </SettingsSection>
     <SettingsSection title="Service identities" description="Runtime handles live reads; Supervision handles usage and metrics. Both are required for Ceph." presentation="compact">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -172,6 +178,19 @@ export default function StorageEndpointCredentialsFields(props: Props) {
         {identity.rotation_pending && <UiInlineMessage tone="warning">Rotation pending · {identity.rotation_phase}. Retry this category from S3 key rotation.</UiInlineMessage>}
         {identity.last_error && <UiInlineMessage tone="error">{identity.last_error}</UiInlineMessage>}
       </div>)}
+      {props.form.service_identity_mode === "managed" && (managedRuntimeCheck || managedSupervisionCheck) && <>
+        <p className="settings-label">Live checks</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {managedRuntimeCheck && <div role="group" aria-label="Live reads checks" className="settings-stack">
+            <p className="settings-description">Live reads</p>
+            {managedRuntimeCheck}
+          </div>}
+          {managedSupervisionCheck && <div role="group" aria-label="Monitoring checks" className="settings-stack">
+            <p className="settings-description">Monitoring</p>
+            {managedSupervisionCheck}
+          </div>}
+        </div>
+      </>}
       {plannedManagedProvisioning && <>
         <p className="settings-label">{props.editing ? "After save" : "Planned configuration"}</p>
         <div role="status" className="settings-stack"><p>Runtime Read Ops · Managed · Not created</p></div>
@@ -186,11 +205,11 @@ export default function StorageEndpointCredentialsFields(props: Props) {
     </SettingsSection>
     {props.form.service_identity_mode === "external" && <SettingsSection title="Live reads (Runtime Read Ops)" description="Read-only accounts, users without keys, and bucket statistics for Manager and Portal." presentation="compact">
       <CredentialFields {...props} kind="runtime" label="Runtime" required />
-      {!props.readOnly && <CommandExample title="Create Runtime Read Ops" defaultOpen={!props.form.has_runtime_secret}>{RUNTIME_READ_OPS_COMMAND}</CommandExample>}
+      {!props.readOnly && <CommandExample title="Create Runtime Read Ops">{RUNTIME_READ_OPS_COMMAND}</CommandExample>}
     </SettingsSection>}
     {props.form.service_identity_mode === "external" && <SettingsSection title="Monitoring (Supervision Ops)" description="Read-only usage and metrics collection." presentation="compact">
       <CredentialFields {...props} kind="supervision" label="Supervision" required />
-      {!props.readOnly && <CommandExample title="Create Supervision Ops" defaultOpen={!props.form.has_supervision_secret}>{SUPERVISION_OPS_COMMAND}</CommandExample>}
+      {!props.readOnly && <CommandExample title="Create Supervision Ops">{SUPERVISION_OPS_COMMAND}</CommandExample>}
     </SettingsSection>}
     <SettingsSection title="Ceph Admin" description="Use keys from an RGW user configured externally with admin=true and system=false." presentation="compact">
       <SettingsItem compact title="Allow Ceph Admin on this endpoint" description="Access also requires global enablement and validated credentials."
@@ -203,7 +222,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
         <p className="settings-description">Saved validation: {identity.status === "ready" ? "Ready" : identity.status.replaceAll("_", " ")}</p>
         {identity.last_error && <UiInlineMessage tone="error">{identity.last_error}</UiInlineMessage>}
       </div>)}
-      {!props.readOnly && <CommandExample title="Create Ceph Admin externally" defaultOpen={!props.form.has_ceph_admin_secret}>{CEPH_ADMIN_COMMAND}</CommandExample>}
+      {!props.readOnly && <CommandExample title="Create Ceph Admin externally">{CEPH_ADMIN_COMMAND}</CommandExample>}
       <p className="settings-description">Disabling access preserves the configured keys. Manage the RGW user and rotate its keys externally, then enter the replacement pair here.</p>
     </SettingsSection>
   </>;

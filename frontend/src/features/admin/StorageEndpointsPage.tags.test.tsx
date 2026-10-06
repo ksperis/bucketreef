@@ -412,15 +412,20 @@ describe("StorageEndpointsPage tags", () => {
     const adminSection = screen.getByRole("region", { name: "Administration (Admin Ops)" });
     expect(screen.queryByText("Advanced: restrict Admin Ops permissions")).not.toBeInTheDocument();
     expect(within(adminSection).getByText("Recommended Admin Ops")).toBeVisible();
+    expect(within(adminSection).getByText("Recommended Admin Ops").closest("details")).not.toHaveAttribute("open");
     fireEvent.click(within(adminSection).getByText("Recommended Admin Ops"));
     expect(within(adminSection).getByText(/users=read,write;accounts=read,write/)).toBeVisible();
     expect(within(adminSection).queryByText(/buckets=write/)).not.toBeInTheDocument();
     const runtimeSection = screen.getByRole("region", { name: "Live reads (Runtime Read Ops)" });
+    expect(within(runtimeSection).getByText("Create Runtime Read Ops").closest("details")).not.toHaveAttribute("open");
     fireEvent.click(within(runtimeSection).getByText("Create Runtime Read Ops"));
     expect(within(runtimeSection).getByText(/accounts=read;user-info-without-keys=read;buckets=read/)).toBeVisible();
     const supervisionSection = screen.getByRole("region", { name: "Monitoring (Supervision Ops)" });
+    expect(within(supervisionSection).getByText("Create Supervision Ops").closest("details")).not.toHaveAttribute("open");
     fireEvent.click(within(supervisionSection).getByText("Create Supervision Ops"));
     expect(within(supervisionSection).getByText(/usage=read;buckets=read/)).toBeVisible();
+    const cephAdminSection = screen.getByRole("region", { name: "Ceph Admin" });
+    expect(within(cephAdminSection).getByText("Create Ceph Admin externally").closest("details")).not.toHaveAttribute("open");
   });
 
   it("validates all operational credential pairs without blocking endpoint updates", async () => {
@@ -508,6 +513,15 @@ describe("StorageEndpointsPage tags", () => {
     await waitFor(() => expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(8));
     expect(screen.getByText("Runtime Read Ops · Managed · Ready")).toBeVisible();
     expect(screen.getByText("Supervision Ops · Managed · Ready")).toBeVisible();
+    const serviceIdentities = screen.getByRole("region", { name: "Service identities" });
+    const liveReadsChecks = within(serviceIdentities).getByRole("group", { name: "Live reads checks" });
+    const monitoringChecks = within(serviceIdentities).getByRole("group", { name: "Monitoring checks" });
+    expect(within(liveReadsChecks).getByText("Live reads")).toBeVisible();
+    expect(await within(liveReadsChecks).findByText("Access validated")).toBeVisible();
+    expect(within(monitoringChecks).getByText("Monitoring")).toBeVisible();
+    expect(await within(monitoringChecks).findByText("Access validated")).toBeVisible();
+    expect(within(monitoringChecks).getByText("✓ Bucket stats · available")).toBeVisible();
+    expect(within(monitoringChecks).getByText("! Usage data · no values")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Create managed identities" })).not.toBeInTheDocument();
   });
 
@@ -615,6 +629,8 @@ describe("StorageEndpointsPage tags", () => {
     await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     const create = await screen.findByRole("button", { name: "Create managed identities" });
+    expect(screen.queryByRole("group", { name: "Live reads checks" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Monitoring checks" })).not.toBeInTheDocument();
     await waitFor(() => expect(create).toBeEnabled());
     const validationCallsBefore = detectStorageEndpointFeaturesMock.mock.calls.length;
     fireEvent.click(create);
