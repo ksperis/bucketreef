@@ -211,6 +211,8 @@ class StorageEndpointsService:
     def _apply_external_credentials(identity, access, secret):
         if (identity.access_key, identity.secret_key) != (access, secret):
             identity.access_key, identity.secret_key = access, secret
+            if identity.kind == "ceph_admin":
+                identity.legacy_system_compat = False
             identity.status = "missing"
             identity.last_error = None
             identity.last_reconciled_at = None

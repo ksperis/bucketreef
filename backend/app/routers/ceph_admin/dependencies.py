@@ -86,12 +86,23 @@ def probe_ceph_admin_service_identity(endpoint: StorageEndpoint) -> CephAdminIde
             warning=f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': access key does not map to an RGW user.",
         )
     is_admin, is_system = extract_ceph_admin_flags(user_payload)
-    if not is_admin or is_system:
+    legacy_system_compat = bool(getattr(identity, "legacy_system_compat", False))
+    invalid_flags = (
+        not (is_admin or is_system)
+        if legacy_system_compat
+        else (not is_admin or is_system)
+    )
+    if invalid_flags:
+        expected_flags = (
+            "admin=true or system=true for this migrated credential"
+            if legacy_system_compat
+            else "admin=true and system=false"
+        )
         return CephAdminIdentityProbe(
             status="denied",
             warning=(
                 f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': the dedicated access key must belong "
-                "to an RGW user configured with admin=true and system=false."
+                f"to an RGW user configured with {expected_flags}."
             ),
         )
     return CephAdminIdentityProbe(status="available", user_payload=user_payload)

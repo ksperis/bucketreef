@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.core.security import EncryptedString
@@ -26,6 +26,7 @@ class EndpointServiceIdentity(Base):
     access_key = Column(String, nullable=True)
     secret_key = Column(EncryptedString, nullable=True)
     provenance = Column(String(128), nullable=True)
+    legacy_system_compat = Column(Boolean, nullable=False, default=False, server_default="0")
     status = Column(String(24), nullable=False, default="missing")
     last_error = Column(String(256), nullable=True)
     last_reconciled_at = Column(UTCDateTime(), nullable=True)

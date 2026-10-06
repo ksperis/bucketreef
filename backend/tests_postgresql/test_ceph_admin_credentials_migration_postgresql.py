@@ -72,7 +72,7 @@ def test_postgresql_upgrade_from_0_2_13_preserves_ceph_admin_credentials() -> No
         with scoped_engine.connect() as connection:
             identity = connection.execute(
                 sa.text(
-                    "SELECT mode, access_key, secret_key, status, rgw_uid, provenance "
+                    "SELECT mode, access_key, secret_key, status, rgw_uid, provenance, legacy_system_compat "
                     "FROM endpoint_service_identities WHERE kind = 'ceph_admin'"
                 )
             ).mappings().one()
@@ -83,7 +83,8 @@ def test_postgresql_upgrade_from_0_2_13_preserves_ceph_admin_credentials() -> No
             assert identity["status"] == "missing"
             assert identity["rgw_uid"] is None
             assert identity["provenance"] is None
-            assert connection.scalar(sa.text("SELECT version_num FROM alembic_version")) == "0143_external_ceph_admin_credentials"
+            assert bool(identity["legacy_system_compat"]) is True
+            assert connection.scalar(sa.text("SELECT version_num FROM alembic_version")) == "0144_legacy_ceph_admin_system_compat"
     finally:
         clear_credential_keys_override()
         if scoped_engine is not None:

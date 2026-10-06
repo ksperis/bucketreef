@@ -26,7 +26,7 @@ def _alembic_config() -> Config:
 def test_alembic_exposes_single_merge_head():
     script = ScriptDirectory.from_config(_alembic_config())
 
-    assert script.get_heads() == ["0143_external_ceph_admin_credentials"]
+    assert script.get_heads() == ["0144_legacy_ceph_admin_system_compat"]
 
 
 def test_alembic_head_matches_sqlalchemy_metadata(tmp_path, monkeypatch):
@@ -91,7 +91,7 @@ def test_alembic_merge_head_upgrades_from_each_branch(
         with engine.connect() as connection:
             assert connection.scalars(
                 sa.text("SELECT version_num FROM alembic_version")
-            ).all() == ["0143_external_ceph_admin_credentials"]
+            ).all() == ["0144_legacy_ceph_admin_system_compat"]
             table_names = set(sa.inspect(connection).get_table_names())
             assert "browser_favorites" in table_names
             assert "browser_presets" not in table_names

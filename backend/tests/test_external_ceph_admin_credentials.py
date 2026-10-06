@@ -62,6 +62,24 @@ def test_invalid_flags_block_access_without_remote_mutation(identities, db_sessi
     assert not ceph_admin_identity_active(endpoint, ceph_admin_enabled=True) and not rgw.calls
 
 
+def test_migrated_system_ceph_admin_remains_usable_until_credentials_are_replaced(
+    identities, db_session
+):
+    service, endpoint, rgw = identities
+    configure(db_session, endpoint, rgw, admin=False, system=True)
+    identity = endpoint.service_identity("ceph_admin")
+    identity.legacy_system_compat = True
+    db_session.commit()
+
+    service.validate_ceph_admin(endpoint)
+
+    assert identity.status == "ready"
+    assert ceph_admin_identity_active(endpoint, ceph_admin_enabled=True)
+
+    StorageEndpointsService._apply_external_credentials(identity, "NEW-AK", "NEW-SK")
+    assert identity.legacy_system_compat is False
+
+
 @pytest.mark.parametrize("status,message", [(403, "denied"), (503, "connectivity")])
 def test_signed_pair_failure_blocks_access_and_sanitizes_errors(identities, db_session, monkeypatch, status, message):
     service, endpoint, rgw = identities
@@ -168,6 +186,30 @@ def test_feature_detection_requires_complete_replacement_pair(identities, db_ses
         endpoint_id=endpoint.id, endpoint_url=endpoint.endpoint_url))
     assert result.credential_checks.ceph_admin.status == "valid"
     assert not rgw.calls or all(call[0] in ("list", "usage") for call in rgw.calls)
+
+
+def test_feature_detection_reuses_migrated_system_ceph_admin_credentials(
+    identities, db_session, monkeypatch
+):
+    _, endpoint, rgw = identities
+    configure(db_session, endpoint, rgw, admin=False, system=True)
+    identity = endpoint.service_identity("ceph_admin")
+    identity.legacy_system_compat = True
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **kwargs: rgw.signed(kwargs["access_key"]),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_id=endpoint.id,
+            endpoint_url=endpoint.endpoint_url,
+        )
+    )
+
+    assert result.credential_checks.ceph_admin.status == "valid"
+    assert "legacy" in result.credential_checks.ceph_admin.message.lower()
 
 
 @pytest.mark.parametrize("blocked", [None, "global", "allowed", "validation", "incomplete", "system"])

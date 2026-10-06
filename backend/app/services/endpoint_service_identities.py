@@ -128,11 +128,17 @@ class EndpointServiceIdentityService:
         return admin, permissions
 
     @staticmethod
-    def validate_payload(kind, payload):
+    def validate_payload(kind, payload, *, allow_legacy_system=False):
         if not isinstance(payload, dict) or not payload:
             raise ValueError(f"{kind} access key is not recognized by RGW.")
         is_admin, is_system = extract_ceph_admin_flags(payload)
         if kind == "ceph_admin":
+            if allow_legacy_system:
+                if not (is_admin or is_system):
+                    raise ValueError(
+                        "Migrated Ceph Admin credentials require admin=true or system=true."
+                    )
+                return
             if not is_admin or is_system:
                 raise ValueError("Ceph Admin requires admin=true and system=false.")
             return
@@ -151,6 +157,7 @@ class EndpointServiceIdentityService:
         bucket_uid=None,
         check_buckets=True,
         check_usage=True,
+        allow_legacy_system=False,
     ):
         if kind == "runtime":
             if not access_key:
@@ -183,6 +190,7 @@ class EndpointServiceIdentityService:
             cls.validate_payload(
                 "ceph_admin",
                 client.get_user_by_access_key(access_key, allow_not_found=True),
+                allow_legacy_system=allow_legacy_system,
             )
             return None
 
@@ -199,6 +207,9 @@ class EndpointServiceIdentityService:
             client,
             access_key=identity.access_key,
             bucket_uid=identity.rgw_uid,
+            allow_legacy_system=bool(
+                getattr(identity, "legacy_system_compat", False)
+            ),
         )
 
     def _ensure(self, endpoint, kind, admin, permissions, *, managed):
@@ -285,7 +296,11 @@ class EndpointServiceIdentityService:
                     verify_tls=endpoint.verify_tls,
                 )
                 payload = client.get_user_by_access_key(identity.access_key, allow_not_found=True)
-                self.validate_payload("ceph_admin", payload)
+                self.validate_payload(
+                    "ceph_admin",
+                    payload,
+                    allow_legacy_system=bool(identity.legacy_system_compat),
+                )
                 uid = payload.get("user_id") or payload.get("uid")
                 if not uid:
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
