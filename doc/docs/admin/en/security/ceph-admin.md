@@ -137,10 +137,12 @@ switches remain fixed. Configure switches in `backend.env`, not `extraEnv`.
 
 ## Verification and migration
 
-Migration `0143_external_ceph_admin_credentials` erases previously stored Ceph Admin
-keys and pending rotations. Supply the manual pair in ENV configuration again after
-upgrade. Endpoint authorizations remain, while old RGW users are left untouched;
-inspect and remove obsolete users manually without purging data.
+Migration `0143_external_ceph_admin_credentials` preserves complete Ceph Admin pairs
+from `0.2.13`, removes pending managed rotations and managed-only metadata, then
+revalidates the preserved external pair. Supply credentials again only when the
+stored pair is incomplete or invalid. Endpoint authorizations remain, while old RGW
+users are left untouched; inspect and remove obsolete users manually without purging
+data.
 
 Issue the normal bootstrap token against the empty isolated database. After
 login, the only workspace should be Ceph Admin. Enroll a passkey from **Profile

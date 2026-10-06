@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-"""Make Ceph Admin endpoint identities exclusively BucketReef-managed."""
+"""Make Ceph Admin identities managed without discarding existing credentials."""
 
 import sqlalchemy as sa
 from alembic import op
@@ -28,8 +28,6 @@ def upgrade():
         .values(
             mode="managed",
             rgw_uid=None,
-            access_key=None,
-            secret_key=None,
             previous_access_key=None,
             provenance=None,
             status="missing",

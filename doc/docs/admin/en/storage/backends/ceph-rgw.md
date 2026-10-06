@@ -169,11 +169,12 @@ Access requires global enablement, endpoint authorization and a validated extern
 identity with complete credentials. Disabling access preserves the pair and never
 changes the RGW user. Rotate it externally and supply the replacement pair.
 
-Migration `0143_external_ceph_admin_credentials` clears all stored Ceph Admin pairs,
-UIDs, provenance, validation state and pending rotations. Re-enter valid keys after
-upgrading. Endpoint authorizations remain, but access stays inactive until validation.
-Previously created RGW users remain untouched; inspect and clean up obsolete users
-and keys manually, without purging buckets or data.
+Migration `0143_external_ceph_admin_credentials` preserves complete Ceph Admin pairs
+from `0.2.13` while removing managed-only UIDs, provenance, validation state and
+pending rotations. The preserved pair is revalidated after upgrade; re-enter it only
+when it is incomplete or invalid. Endpoint authorizations and RGW users remain
+untouched; inspect and clean up obsolete users and keys manually, without purging
+buckets or data.
 
 ## Revalidation and recovery
 
