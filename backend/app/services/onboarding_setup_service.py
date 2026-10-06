@@ -130,7 +130,7 @@ class OnboardingSetupService:
             options=list(draft.selected_options),
         )
 
-    def _detect(self, draft, endpoint, admin, supervision):
+    def _detect(self, draft, endpoint, admin, supervision, ceph_admin=("", "", False)):
         payload = StorageEndpointFeatureDetectionRequest(
             endpoint_id=endpoint.id if endpoint else None,
             endpoint_url=endpoint.endpoint_url if endpoint else draft.endpoint_url,
@@ -138,6 +138,8 @@ class OnboardingSetupService:
             verify_tls=endpoint.verify_tls if endpoint else True,
             admin_access_key=admin[0] or None,
             admin_secret_key=admin[1] or None,
+            ceph_admin_access_key=ceph_admin[0] or None,
+            ceph_admin_secret_key=ceph_admin[1] or None,
             supervision_access_key=supervision[0] or None,
             supervision_secret_key=supervision[1] or None,
         )
@@ -158,6 +160,9 @@ class OnboardingSetupService:
         admin = ("", "", False)
         runtime = ("", "", False)
         supervision = ("", "", False)
+        ceph_admin = ("", "", False)
+        if needs_ceph_admin:
+            ceph_admin = self._management_credentials(payload, endpoint, "ceph_admin", "ceph_admin_credentials_required")
         if needs_ceph:
             admin = self._management_credentials(
                 payload,
@@ -176,7 +181,7 @@ class OnboardingSetupService:
             )
 
         supplied_management_credentials = any(
-            item[2] for item in (admin, runtime, supervision)
+            item[2] for item in (admin, runtime, supervision, ceph_admin)
         )
         editable = endpoint is None or (
             endpoint.is_editable and not self.endpoints.env_endpoints_locked()
@@ -186,7 +191,7 @@ class OnboardingSetupService:
 
         detection = None
         if needs_ceph:
-            detection = self._detect(draft, endpoint, admin, supervision)
+            detection = self._detect(draft, endpoint, admin, supervision, ceph_admin)
         if needs_account_api:
             if detection.credential_checks.admin.status != "valid" or not detection.admin:
                 raise OnboardingError("endpoint_credentials_invalid")
@@ -201,8 +206,8 @@ class OnboardingSetupService:
             or not detection.metrics
         ):
             raise OnboardingError("supervision_credentials_invalid")
-        if needs_ceph_admin and not detection.admin_ops_permissions.users_write:
-            raise OnboardingError("admin_ops_permissions_insufficient")
+        if needs_ceph_admin and detection.credential_checks.ceph_admin.status != "valid":
+            raise OnboardingError("ceph_identity_denied")
 
         if endpoint is None:
             features = StorageEndpointFeatures()
@@ -228,6 +233,8 @@ class OnboardingSetupService:
                 ceph_admin_allowed=needs_ceph_admin,
                 admin_access_key=admin[0] or None,
                 admin_secret_key=admin[1] or None,
+                ceph_admin_access_key=ceph_admin[0] or None,
+                ceph_admin_secret_key=ceph_admin[1] or None,
                 supervision_access_key=supervision[0] or None,
                 supervision_secret_key=supervision[1] or None,
                 features_config=dump_features_config(features.model_dump()),
@@ -261,6 +268,9 @@ class OnboardingSetupService:
             if needs_ceph_admin and not endpoint.ceph_admin_allowed:
                 update["ceph_admin_allowed"] = True
             credential_kinds: list[str] = []
+            if ceph_admin[2]:
+                update.update(ceph_admin_access_key=ceph_admin[0], ceph_admin_secret_key=ceph_admin[1])
+                credential_kinds.append("ceph_admin")
             if admin[2]:
                 update.update(
                     admin_access_key=admin[0],
@@ -307,11 +317,8 @@ class OnboardingSetupService:
         if needs_ceph:
             self.endpoints.reconcile_identities(endpoint.id)
         if needs_ceph_admin:
-            from app.services.ceph_admin_activation_service import CephAdminActivationService
-            selected = [ep.id for ep in self.db.query(StorageEndpoint).filter(StorageEndpoint.ceph_admin_allowed.is_(True)).all()]
-            CephAdminActivationService(self.db, actor).apply(enabled=True, endpoint_ids=selected)
             ceph_identity = endpoint.service_identity("ceph_admin")
-            if ceph_identity is None or ceph_identity.mode != "managed" or ceph_identity.status != "ready":
+            if ceph_identity is None or ceph_identity.mode != "external" or ceph_identity.status != "ready":
                 raise OnboardingError("ceph_identity_denied")
         if needs_ceph:
             runtime_identity = endpoint.service_identity("runtime")

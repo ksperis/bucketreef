@@ -88,13 +88,13 @@ Admin Ops `users=write`.
 
 Admin Ops and externally supplied Runtime/Supervision credentials remain
 operator-managed when an endpoint is configured through `ENV_STORAGE_ENDPOINTS`.
-External service identities are never rotated automatically. Ceph Admin is always a
-BucketReef-managed identity; managed Runtime, Supervision and Ceph Admin keys are
+External service identities are never rotated automatically. Ceph Admin keys must
+be replaced manually in endpoint settings or ENV configuration. Managed Runtime and Supervision keys are
 stored in DB and remain eligible even on an ENV-configured endpoint. Rotation validates
 and saves the new key before retiring the old one; pending retirement is retained and
 retryable without generating another key.
 
-Managed Runtime, Supervision and Ceph Admin rotations require **delete previous
+Managed Runtime and Supervision rotations require **delete previous
 keys** mode. The UI disables **disable previous keys** when a technical category is selected,
 and the API rejects the entire incompatible request before any mutation; it remains available for operator-owned
 Admin Ops, account and S3 user keys. Deleting the tracked old key is confirmed through
@@ -113,8 +113,7 @@ Rotate environment-managed endpoint credentials without interruption:
 2. Replace the access key and secret together in the deployment secret or
    configuration that supplies `ENV_STORAGE_ENDPOINTS`.
 3. Redeploy every backend replica, then validate Admin Ops and supervision or
-   metrics access as applicable. Ceph Admin is reconciled separately as a managed
-   identity.
+   metrics access as applicable. Validate the supplied Ceph Admin pair if it changed.
 4. Disable or delete the old key only after every replica is using the new
    environment values and the validation checks pass.
 

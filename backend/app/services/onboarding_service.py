@@ -203,12 +203,12 @@ class OnboardingService:
                     else:
                         result.blockers.append("endpoint_features_locked")
             if draft.ceph_admin:
-                result.changes.append("provision_ceph_admin_identity")
+                result.changes.append("configure_ceph_admin_credentials")
 
         if endpoint is None and (draft.manager or draft.portal):
             result.changes.append("validate_ceph_account_api")
         if endpoint is None and draft.ceph_admin:
-            result.changes.append("provision_ceph_admin_identity")
+            result.changes.append("configure_ceph_admin_credentials")
         if endpoint is None and draft.supervision:
             result.changes.extend(
                 ["validate_supervision", "enable_endpoint_supervision_features"]

@@ -63,6 +63,7 @@ import {
 } from "./StorageEndpointValidationStatus";
 import {
   ADMIN_OPS_FULL_COMMAND,
+  CEPH_ADMIN_COMMAND,
   RUNTIME_READ_OPS_COMMAND,
   PRIVATE_S3_USER_COMMAND,
   SUPERVISION_OPS_COMMAND,
@@ -230,14 +231,14 @@ function hasStoredAdminCredentials(endpoint: StorageEndpoint | null): boolean {
 
 function serviceIdentity(
   endpoint: StorageEndpoint | null,
-  kind: "runtime" | "supervision",
+  kind: "runtime" | "supervision" | "ceph_admin",
 ) {
   return endpoint?.service_identities?.find((identity) => identity.kind === kind);
 }
 
 function hasStoredServiceCredentials(
   endpoint: StorageEndpoint | null,
-  kind: "runtime" | "supervision",
+  kind: "runtime" | "supervision" | "ceph_admin",
 ): boolean {
   return Boolean(serviceIdentity(endpoint, kind)?.credentials_configured);
 }
@@ -292,6 +293,8 @@ export default function OnboardingPage() {
   const [adminSecretKey, setAdminSecretKey] = useState("");
   const [supervisionAccessKey, setSupervisionAccessKey] = useState("");
   const [supervisionSecretKey, setSupervisionSecretKey] = useState("");
+  const [cephAdminAccessKey, setCephAdminAccessKey] = useState("");
+  const [cephAdminSecretKey, setCephAdminSecretKey] = useState("");
   const [runtimeAccessKey, setRuntimeAccessKey] = useState("");
   const [runtimeSecretKey, setRuntimeSecretKey] = useState("");
   const [identityMode, setIdentityMode] = useState<"managed" | "external">("managed");
@@ -320,6 +323,8 @@ export default function OnboardingPage() {
       adminSecretKey ||
       supervisionAccessKey ||
       supervisionSecretKey ||
+      cephAdminAccessKey ||
+      cephAdminSecretKey ||
       runtimeAccessKey ||
       runtimeSecretKey ||
       privateAccessKey ||
@@ -344,6 +349,7 @@ export default function OnboardingPage() {
     selectedEndpoint,
     "supervision",
   );
+  const storedCephAdminCredentials = hasStoredServiceCredentials(selectedEndpoint, "ceph_admin");
   const storedRuntimeCredentials = hasStoredServiceCredentials(
     selectedEndpoint,
     "runtime",
@@ -388,6 +394,8 @@ export default function OnboardingPage() {
             supervision_secret_key: identityMode === "external" && needsSupervision
               ? supervisionSecretKey.trim() || null
               : null,
+            ceph_admin_access_key: draft.ceph_admin ? cephAdminAccessKey.trim() || null : null,
+            ceph_admin_secret_key: draft.ceph_admin ? cephAdminSecretKey.trim() || null : null,
             runtime_access_key: identityMode === "external" && needsCeph
               ? runtimeAccessKey.trim() || null
               : null,
@@ -397,6 +405,9 @@ export default function OnboardingPage() {
           }
         : null,
     [
+      cephAdminAccessKey,
+      cephAdminSecretKey,
+      draft.ceph_admin,
       runtimeAccessKey,
       runtimeSecretKey,
       identityMode,
@@ -426,6 +437,7 @@ export default function OnboardingPage() {
     endpointValidation.result?.credential_checks?.admin ?? EMPTY_CREDENTIAL_CHECK;
   const supervisionCredentialCheck =
     endpointValidation.result?.credential_checks?.supervision ?? EMPTY_CREDENTIAL_CHECK;
+  const cephAdminCredentialCheck = endpointValidation.result?.credential_checks?.ceph_admin ?? EMPTY_CREDENTIAL_CHECK;
   const runtimeCredentialCheck =
     endpointValidation.result?.credential_checks?.runtime ?? EMPTY_CREDENTIAL_CHECK;
   useEffect(() => {
@@ -567,6 +579,8 @@ export default function OnboardingPage() {
     setAdminSecretKey("");
     setSupervisionAccessKey("");
     setSupervisionSecretKey("");
+    setCephAdminAccessKey("");
+    setCephAdminSecretKey("");
     setRuntimeAccessKey("");
     setRuntimeSecretKey("");
     setPrivateAccessKey("");
@@ -686,7 +700,9 @@ export default function OnboardingPage() {
     (supervisionCredentialCheck.status === "valid" &&
       endpointValidation.result?.metrics === true);
   const cephAdminValidationReady =
-    !draft.ceph_admin || endpointValidation.result?.admin_ops_permissions.users_write === true;
+    !draft.ceph_admin || (cephAdminCredentialCheck.status === "valid" &&
+      Boolean(cephAdminAccessKey) === Boolean(cephAdminSecretKey) &&
+      (Boolean(cephAdminAccessKey && cephAdminSecretKey) || storedCephAdminCredentials));
   const runtimeValidationReady = identityMode === "managed" || !needsCeph || runtimeCredentialCheck.status === "valid";
   const privateValidationReady =
     !draft.private_connection ||
@@ -741,6 +757,8 @@ export default function OnboardingPage() {
           service_identity_mode: identityMode,
           runtime_access_key: identityMode === "external" ? runtimeAccessKey || undefined : undefined,
           runtime_secret_key: identityMode === "external" ? runtimeSecretKey || undefined : undefined,
+          ceph_admin_access_key: draft.ceph_admin ? cephAdminAccessKey || undefined : undefined,
+          ceph_admin_secret_key: draft.ceph_admin ? cephAdminSecretKey || undefined : undefined,
           private_access_key: privateAccessKey || undefined,
           private_secret_key: privateSecretKey || undefined,
         }),
@@ -1180,7 +1198,15 @@ export default function OnboardingPage() {
                   />
                 )}
 
-                {draft.ceph_admin && <UiInlineMessage tone="info">A dedicated managed Ceph Admin identity will be created for this endpoint. Admin Ops users=write is required.</UiInlineMessage>}
+                {draft.ceph_admin && <CredentialSection
+                  title="Ceph Admin" description="Keys from an externally configured RGW user with admin=true and system=false."
+                  accessLabel="Ceph Admin access key" secretLabel="Ceph Admin secret key"
+                  accessKey={cephAdminAccessKey} secretKey={cephAdminSecretKey}
+                  required={!storedCephAdminCredentials} stored={storedCephAdminCredentials}
+                  command={CEPH_ADMIN_COMMAND} commandHelp={t(copy.rgwCommandHelp)} storedLabel={t(copy.storedCredentials)}
+                  onAccessChange={setCephAdminAccessKey} onSecretChange={setCephAdminSecretKey}
+                  validation={<CredentialStatusBadge status={endpointValidation.status === "loading" ? "checking" : cephAdminCredentialCheck.status} message={cephAdminCredentialCheck.message} />}
+                />}
                 {draft.private_connection && (
                   <CredentialSection
                     title={t(copy.privateCredentials)}
@@ -1268,13 +1294,11 @@ export default function OnboardingPage() {
                     {draft.ceph_admin && (
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="ui-caption font-semibold text-[var(--ui-text)]">
-                          Managed Ceph Admin identity
+                          Ceph Admin credentials
                         </span>
                         <CredentialStatusBadge
-                          status={endpointValidation.result?.admin_ops_permissions.users_write ? "valid" : "denied"}
-                          message={endpointValidation.result?.admin_ops_permissions.users_write
-                            ? "Admin Ops users=write is available for provisioning."
-                            : "Admin Ops users=write is required for provisioning."}
+                          status={cephAdminCredentialCheck.status}
+                          message={cephAdminCredentialCheck.message}
                         />
                       </div>
                     )}

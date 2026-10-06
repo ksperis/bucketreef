@@ -36,10 +36,11 @@ Browser, connections, execution-context and internal scheduled-job routes are
 not mounted. The first superadministrator automatically receives Ceph Admin
 access only when Ceph Admin is the sole enabled surface.
 
-Configure endpoints with `ENV_STORAGE_ENDPOINTS`. Each Ceph entry must specify
-`service_identity_mode: managed`, `ceph_admin_allowed: true`, and Admin Ops credentials
-with `users=read,write;accounts=read`. BucketReef creates and validates the dedicated
-Ceph Admin identity; never inject a pre-existing privileged key. For example:
+Configure endpoints with `ENV_STORAGE_ENDPOINTS`. Each Ceph entry specifies
+`ceph_admin_allowed: true` and separate
+`ceph_admin_access_key` and `ceph_admin_secret_key` from an externally configured RGW
+user with `admin=true` and `system=false`. BucketReef validates that pair without
+creating or modifying the Ceph Admin user. For example:
 
 ```json
 [{
@@ -48,18 +49,20 @@ Ceph Admin identity; never inject a pre-existing privileged key. For example:
   "provider": "ceph",
   "service_identity_mode": "managed",
   "ceph_admin_allowed": true,
-  "admin_access_key": "ADMIN_OPS_ACCESS_KEY",
-  "admin_secret_key": "ADMIN_OPS_SECRET_KEY"
+  "ceph_admin_access_key": "CEPH_ADMIN_ACCESS_KEY",
+  "ceph_admin_secret_key": "CEPH_ADMIN_SECRET_KEY"
 }]
 ```
 
-The isolated instance retains its bootstrap Admin Ops secret to manage the technical
-identities. These stored secrets require the same network/database isolation as the
-Ceph Admin identity. Startup reconciles persisted endpoints even if they were not
+Ceph Admin validation does not require Admin Ops credentials. If Runtime/Supervision
+are also needed, provide their external pairs or Admin Ops credentials with
+`users=read,write;accounts=read` for managed provisioning. Any additional stored
+secrets require the same network/database isolation as the Ceph Admin identity.
+Startup reconciles persisted endpoints even if they were not
 changed by ENV synchronization. Disabling the global feature blocks access and
-retries managed revocation without clearing endpoint authorization.
+preserves the stored Ceph Admin keys and endpoint authorization; it does not revoke RGW users.
 
-ENV endpoint metadata They are synchronized into this instance's isolated
+ENV endpoint metadata are synchronized into this instance's isolated
 database and remain environment-managed/read-only. Back up the database and its
 credential ring together, independently of the main deployment.
 
@@ -133,6 +136,11 @@ On the main `admin` release set
 switches remain fixed. Configure switches in `backend.env`, not `extraEnv`.
 
 ## Verification and migration
+
+Migration `0143_external_ceph_admin_credentials` erases previously stored Ceph Admin
+keys and pending rotations. Supply the manual pair in ENV configuration again after
+upgrade. Endpoint authorizations remain, while old RGW users are left untouched;
+inspect and remove obsolete users manually without purging data.
 
 Issue the normal bootstrap token against the empty isolated database. After
 login, the only workspace should be Ceph Admin. Enroll a passkey from **Profile

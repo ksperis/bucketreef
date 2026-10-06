@@ -54,8 +54,8 @@ def guided(db_session, monkeypatch):
     rgw.users["operator"]["caps"] = "users=read,write;accounts=read,write"
     original_lookup = rgw.get_user_by_access_key
     rgw.get_user_by_access_key = lambda key, **kwargs: rgw.users["operator"] if key == "admin-ak" else original_lookup(key, **kwargs)
-    for kind, access, secret in [("runtime", "runtime-ak", "runtime-sk"), ("supervision", "supervision-ak", "supervision-sk")]:
-        rgw.users[kind] = {"user_id": kind, "caps": SERVICE_CAPS[kind], "keys": [{"access_key": access, "secret_key": secret}]}
+    for kind, access, secret in [("runtime", "runtime-ak", "runtime-sk"), ("supervision", "supervision-ak", "supervision-sk"), ("ceph_admin", "ceph-ak", "ceph-sk")]:
+        rgw.users[kind] = {"user_id": kind, "caps": SERVICE_CAPS.get(kind, ""), "admin": kind == "ceph_admin", "system": False, "keys": [{"access_key": access, "secret_key": secret}]}
     monkeypatch.setattr("app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client", lambda endpoint: rgw)
     monkeypatch.setattr("app.services.storage_endpoints_service.get_rgw_admin_client", lambda **kwargs: rgw)
     monkeypatch.setattr("app.services.rgw_admin.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
@@ -96,6 +96,7 @@ def detection(
     account=True,
     supervision="valid",
     admin_ops_permissions=None,
+    ceph_admin="valid",
 ):
     permissions = admin_ops_permissions or StorageEndpointAdminOpsPermissions(
         users_read=True,
@@ -111,6 +112,7 @@ def detection(
         metrics=True,
         admin_ops_permissions=permissions,
         credential_checks=StorageEndpointCredentialChecks(
+            ceph_admin=StorageEndpointCredentialCheck(status=ceph_admin),
             admin=StorageEndpointCredentialCheck(
                 status="valid" if admin else "denied"
             ),
@@ -242,7 +244,7 @@ def test_preview_does_not_block_editable_ceph_choices_when_credentials_are_missi
     assert result.blockers == []
     assert "validate_ceph_account_api" in result.changes
     assert "validate_supervision" in result.changes
-    assert "provision_ceph_admin_identity" in result.changes
+    assert "configure_ceph_admin_credentials" in result.changes
 
 
 def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypatch):
@@ -553,6 +555,7 @@ def test_new_endpoint_keeps_ceph_admin_credentials_separate_from_admin_ops(
             ceph_admin=True,
         ),
         admin_access_key="admin-ak", admin_secret_key="admin-sk",
+        ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk",
     )
 
     ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
@@ -561,7 +564,8 @@ def test_new_endpoint_keeps_ceph_admin_credentials_separate_from_admin_ops(
     assert ep.admin_secret_key == "admin-sk"
     ceph_admin = ep.service_identity("ceph_admin")
     assert ceph_admin.access_key != ep.admin_access_key
-    assert ceph_admin.mode == "managed"
+    assert ceph_admin.mode == "external"
+    assert ceph_admin.access_key == "ceph-ak" and ceph_admin.secret_key == "ceph-sk"
     assert ceph_admin.secret_key
     db_session.refresh(user)
     assert user.can_access_ceph_admin is True
@@ -623,7 +627,7 @@ def test_ceph_admin_requires_valid_dedicated_identity_and_grants_access(
         admin_access_key="admin-ak", admin_secret_key="admin-sk",
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
-    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, ceph_admin=True))
+    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, ceph_admin=True), ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
     db_session.refresh(user)
     assert result.configured
     assert user.can_access_ceph_admin is True
@@ -638,12 +642,35 @@ def test_ceph_admin_requires_valid_dedicated_identity_and_grants_access(
     monkeypatch.setattr(
         guided.endpoints,
         "detect_features",
-        lambda *_args, **_kwargs: detection(admin_ops_permissions=StorageEndpointAdminOpsPermissions(users_read=True, accounts_read=True)),
+        lambda *_args, **_kwargs: detection(ceph_admin="denied", admin_ops_permissions=StorageEndpointAdminOpsPermissions(users_read=True, accounts_read=True)),
     )
-    with pytest.raises(OnboardingError, match="admin_ops_permissions_insufficient"):
-        apply(guided, denied_user, denied)
+    with pytest.raises(OnboardingError, match="ceph_identity_denied"):
+        apply(guided, denied_user, denied, ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
     db_session.refresh(denied_user)
     assert denied_user.can_access_ceph_admin is False
+
+
+def test_ceph_admin_onboarding_reuses_keys_with_read_only_admin_ops(guided, db_session, monkeypatch):
+    from copy import deepcopy
+    from app.services.endpoint_service_identities import get_endpoint_bootstrap_rgw_client
+
+    user = actor(db_session)
+    ep = endpoint(db_session, admin_access_key="admin-ak", admin_secret_key="admin-sk")
+    for kind in ("runtime", "supervision", "ceph_admin"):
+        prefix = "ceph" if kind == "ceph_admin" else kind
+        ep.service_identities.append(service_identity(kind, f"{prefix}-ak", f"{prefix}-sk", mode="external"))
+    db_session.commit()
+    rgw = get_endpoint_bootstrap_rgw_client(ep)
+    rgw.users["operator"]["caps"] = "users=read;accounts=read"
+    before = deepcopy(rgw.users)
+    monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection(
+        admin_ops_permissions=StorageEndpointAdminOpsPermissions(users_read=True, accounts_read=True)))
+
+    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, ceph_admin=True), service_identity_mode="external")
+    assert result.configured and user.can_access_ceph_admin
+    assert ep.service_identity("ceph_admin").mode == "external"
+    assert ep.service_identity("ceph_admin").status == "ready"
+    assert rgw.users == before
 
 
 def test_review_token_and_revision_prevent_stale_apply(guided, db_session, monkeypatch):
@@ -804,5 +831,6 @@ def test_external_ceph_admin_setup_requires_supervision_even_without_collectors(
     with pytest.raises(OnboardingError, match="supervision_credentials_required"):
         apply(guided, user, save(guided, user, endpoint_url="https://ceph-only.example.test", ceph_admin=True),
               admin_access_key="admin-ak", admin_secret_key="admin-sk", service_identity_mode="external",
-              runtime_access_key="runtime-ak", runtime_secret_key="runtime-sk")
+              runtime_access_key="runtime-ak", runtime_secret_key="runtime-sk",
+              ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
     assert db_session.query(StorageEndpoint).count() == 0

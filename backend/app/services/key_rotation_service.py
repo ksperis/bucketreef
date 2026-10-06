@@ -92,6 +92,9 @@ class KeyRotationService:
 
     def _rotate_by_type(self, *, endpoint, key_type, deactivate_only):
         from app.services.durable_key_rotation_service import DurableKeyRotationService, SERVICE_TYPES, pending_rotation
+        if key_type == KeyRotationType.CEPH_ADMIN:
+            return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
+                status="skipped", message="Ceph Admin keys must be replaced manually in endpoint settings.")], 0, 0)
         if endpoint.provider != "ceph":
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
                 status="failed", message="Key rotation is only supported for Ceph endpoints.")], 0, 0)

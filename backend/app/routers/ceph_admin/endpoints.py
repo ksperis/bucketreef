@@ -41,7 +41,8 @@ def list_ceph_admin_endpoints(
     )
     results: list[CephAdminEndpoint] = []
     for endpoint in endpoints:
-        if endpoint.provider != StorageProvider.CEPH.value or not endpoint.ceph_admin_allowed:
+        if (endpoint.provider != StorageProvider.CEPH.value
+                or validate_ceph_admin_service_configuration(endpoint)):
             continue
         payload = build_ceph_admin_endpoint_payload(endpoint)
         payload["tags"] = tags_service.filter_selector_visible(tags_service.get_storage_endpoint_tags(endpoint))

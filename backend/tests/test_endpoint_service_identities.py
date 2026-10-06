@@ -44,7 +44,7 @@ class FakeRGW:
         self.users[uid]["caps"] = caps
 
     def update_user(self, uid, **kwargs):
-        self.users[uid].update(kwargs)
+        raise AssertionError("Service provisioning must not attempt to set admin=true via REST")
 
     def delete_user(self, uid, **kwargs):
         assert not kwargs.get("purge_data")
@@ -274,20 +274,6 @@ def test_rotation_persists_validated_new_key_before_retirement_and_retries(ident
     assert rgw.users[identity.rgw_uid]["keys"] == [{"access_key": identity.access_key, "secret_key": identity.secret_key}]
 
 
-def test_ceph_admin_creation_and_pending_revocation_preserve_allowed(identities, db_session):
-    service, endpoint, rgw = identities
-    endpoint.ceph_admin_allowed = True; db_session.commit()
-    service.reconcile(endpoint, ceph_admin_enabled=True)
-    identity = endpoint.service_identity("ceph_admin")
-    assert identity.status == "ready" and rgw.users[identity.rgw_uid]["admin"] is True
-    uid = identity.rgw_uid
-    rgw.fail_delete = True
-    service.reconcile(endpoint, ceph_admin_enabled=False)
-    assert identity.status == "revocation_pending" and endpoint.ceph_admin_allowed
-    rgw.fail_delete = False
-    service.reconcile(endpoint, ceph_admin_enabled=False)
-    assert identity.status == "disabled" and identity.secret_key is None and uid not in rgw.users
-
 
 def test_explicit_conversion_preserves_external_user(identities, db_session):
     from app.models.storage_endpoint import StorageEndpointUpdate
@@ -324,33 +310,6 @@ def test_read_only_admin_registration_and_external_mode(identities, db_session):
     assert not any(call[0] in ("create", "caps", "delete") for call in rgw.calls)
 
 
-def test_ceph_activation_selects_endpoints_and_optional_grant(identities, db_session):
-    from app.db import User, UserRole
-    from app.services.ceph_admin_activation_service import CephAdminActivationService
-    from app.services.app_settings_service import load_app_settings_for_db_readonly
-    _, endpoint, rgw = identities
-    actor = User(email="operator@example.test", hashed_password="x", role=UserRole.UI_SUPERADMIN.value, can_access_ceph_admin=False)
-    db_session.add(actor); db_session.commit()
-    activation = CephAdminActivationService(db_session, actor)
-    response = activation.apply(enabled=True, endpoint_ids=[endpoint.id])
-    assert response["endpoints"][0]["active"] and actor.can_access_ceph_admin is False
-    activation.apply(enabled=True, endpoint_ids=[endpoint.id], grant_current_user=True)
-    assert actor.can_access_ceph_admin is True
-    rgw.fail_delete = True
-    response = activation.apply(enabled=False, endpoint_ids=[])
-    assert not response["endpoints"][0]["active"] and response["endpoints"][0]["status"] == "revocation_pending"
-    assert not load_app_settings_for_db_readonly(db_session).general.ceph_admin_enabled and endpoint.ceph_admin_allowed
-    rgw.fail_delete = False
-    assert activation.apply(enabled=False, endpoint_ids=[])["endpoints"][0]["status"] == "disabled"
-
-
-def test_ceph_activation_denies_endpoint_without_users_write(identities, db_session):
-    from app.services.ceph_admin_activation_service import CephAdminActivationService
-    _, endpoint, rgw = identities
-    rgw.users["operator"]["caps"] = "users=read;accounts=read"
-    with pytest.raises(ValueError, match="users=write"):
-        CephAdminActivationService(db_session, None).apply(enabled=True, endpoint_ids=[endpoint.id])
-    assert not endpoint.ceph_admin_allowed and not rgw.calls
 
 
 def test_revocation_requires_confirmed_remote_deletion(identities):
@@ -398,24 +357,6 @@ def test_rotation_requires_installation_provenance(identities, db_session):
     assert not any(call[0] == "key_create" for call in rgw.calls)
 
 
-def test_managed_ceph_admin_identity_can_rotate(identities, db_session):
-    service, endpoint, rgw = identities
-    endpoint.ceph_admin_allowed = True
-    db_session.commit()
-    service.reconcile(endpoint, ceph_admin_enabled=True)
-    identity = endpoint.service_identity("ceph_admin")
-    assert identity is not None and identity.status == "ready"
-    old_access = identity.access_key
-
-    old, new, retired = service.rotate(endpoint, "ceph_admin")
-
-    assert old == old_access
-    assert new == identity.access_key and new != old_access
-    assert retired == "deleted"
-    assert old_access not in {
-        key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]
-    }
-
 
 @pytest.mark.parametrize("invalid_field", ["missing_uid", "temp_url_keys"])
 def test_read_only_runtime_detection_never_lists_without_scope_or_accepts_keys(identities, db_session, invalid_field):
@@ -451,7 +392,7 @@ def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(
     assert endpoint.admin_secret_key is None and endpoint.provider == "other"
 
 
-@pytest.mark.parametrize("kind", ["runtime", "supervision", "ceph_admin"])
+@pytest.mark.parametrize("kind", ["runtime", "supervision"])
 @pytest.mark.parametrize("key_type", ["keys", "disabled_keys", "swift_keys", "temp_url_keys"])
 def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(identities, db_session, kind, key_type):
     service, endpoint, rgw = identities
@@ -509,7 +450,7 @@ def test_managed_key_drift_recovers_only_after_operator_removes_unknown_key(iden
 
 
 @pytest.mark.parametrize("operation", ["rotate", "revoke"])
-@pytest.mark.parametrize("kind", ["runtime", "supervision", "ceph_admin"])
+@pytest.mark.parametrize("kind", ["runtime", "supervision"])
 def test_managed_key_drift_blocks_rotation_and_revocation(identities, db_session, operation, kind):
     service, endpoint, rgw = identities
     endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"

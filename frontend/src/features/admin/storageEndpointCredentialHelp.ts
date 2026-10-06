@@ -26,3 +26,10 @@ export const RUNTIME_READ_OPS_COMMAND = [
   '  --display-name="BucketReef Runtime Read Ops" \\',
   '  --caps="accounts=read;user-info-without-keys=read;buckets=read" --max-buckets=0',
 ].join("\n");
+
+export const CEPH_ADMIN_COMMAND = [
+  'radosgw-admin user create \\',
+  '  --uid="bkr-ceph-admin" \\',
+  '  --display-name="BucketReef Ceph Admin" \\',
+  '  --admin --system=false',
+].join("\n");

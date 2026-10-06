@@ -85,7 +85,7 @@ describe("KeyRotationPage", () => {
     await waitFor(() =>
       expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
         endpoint_ids: [7],
-        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "account", "s3_user", "ceph_admin"],
+        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "account", "s3_user"],
         deactivate_only: false,
       })
     );
@@ -150,7 +150,7 @@ describe("KeyRotationPage", () => {
     await waitFor(() =>
       expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
         endpoint_ids: [7],
-        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "account", "s3_user", "ceph_admin"],
+        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "account", "s3_user"],
         deactivate_only: false,
       })
     );
@@ -172,7 +172,7 @@ describe("KeyRotationPage", () => {
   it("prevents duplicate launches and freezes selections while running", async () => {
     mocks.rotateS3Keys.mockImplementationOnce(() => new Promise(() => {}));
     renderPage(); await screen.findByText("Ceph main");
-    for (const label of ["Runtime Read Ops", "Endpoint supervision keys", "Ceph-admin keys"]) {
+    for (const label of ["Runtime Read Ops", "Endpoint supervision keys"]) {
       fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(label) }));
     }
     fireEvent.click(screen.getByRole("switch", { name: "Disable old keys only" }));

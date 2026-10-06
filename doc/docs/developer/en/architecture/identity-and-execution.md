@@ -167,8 +167,9 @@ Provisioning persists the intended key before RGW mutations; endpoint operation
 leases serialize reconciliation and rotation. A UID collision is never adopted.
 Revocation blocks local access before deleting an owned RGW user without purge.
 Ceph Admin requires global activation, persistent endpoint `allowed`, and a ready
-managed admin identity. Existing external Ceph Admin users are preserved during
-explicit conversion. ENV synchronization preserves generated DB credentials.
+external admin identity validated with its manually supplied key pair.
+Ceph Admin users are operator-owned and never provisioned, revoked or rotated by
+BucketReef. Disabling access preserves their stored pair. ENV synchronization preserves generated DB credentials.
 
 Usage-history subjects are local RGW accounts or S3 users, scoped to their
 storage endpoint. Trend filters use the explicit execution kind and the

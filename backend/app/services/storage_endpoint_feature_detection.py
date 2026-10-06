@@ -56,6 +56,7 @@ class _FeatureDetectionContext:
     admin_credentials: _FeatureDetectionCredentials
     runtime_credentials: _FeatureDetectionCredentials
     supervision_credentials: _FeatureDetectionCredentials
+    ceph_admin_credentials: _FeatureDetectionCredentials
 
 
 class StorageEndpointFeatureDetector:
@@ -74,6 +75,7 @@ class StorageEndpointFeatureDetector:
         *,
         stored_access_key: Optional[str] = None,
         stored_secret_key: Optional[str] = None,
+        reuse_matching_access_secret: bool = True,
     ) -> _FeatureDetectionCredentials:
         normalized_access_key = normalize_optional_string(access_key)
         secret_value = (
@@ -91,7 +93,8 @@ class StorageEndpointFeatureDetector:
             normalized_access_key = stored_access_key
             normalized_secret_key = stored_secret_key
         if (
-            normalized_access_key
+            reuse_matching_access_secret
+            and normalized_access_key
             and not normalized_secret_key
             and normalized_access_key == (stored_access_key or "")
         ):
@@ -160,6 +163,7 @@ class StorageEndpointFeatureDetector:
             region=region,
             verify_tls=verify_tls,
         )
+        stored_ceph_admin = stored_endpoint.service_identity("ceph_admin") if stored_endpoint else None
         stored_runtime = stored_endpoint.service_identity("runtime") if stored_endpoint else None
         stored_supervision = stored_endpoint.service_identity("supervision") if stored_endpoint else None
 
@@ -203,6 +207,12 @@ class StorageEndpointFeatureDetector:
                 stored_secret_key=stored_runtime.secret_key if stored_runtime and allow_stored_secret_reuse else None,
             ),
             supervision_credentials=supervision_credentials,
+            ceph_admin_credentials=self._credentials(
+                payload.ceph_admin_access_key, payload.ceph_admin_secret_key,
+                stored_access_key=stored_ceph_admin.access_key if stored_ceph_admin and allow_stored_secret_reuse else None,
+                stored_secret_key=stored_ceph_admin.secret_key if stored_ceph_admin and allow_stored_secret_reuse else None,
+                reuse_matching_access_secret=False,
+            ),
         )
 
     @staticmethod
@@ -235,12 +245,13 @@ class StorageEndpointFeatureDetector:
         *,
         denied_message: str,
         unavailable_message: str,
+        misconfigured_message: str | None = None,
     ) -> StorageEndpointCredentialCheck:
         failure = classify_rgw_credential_failure(error)
         if failure == "misconfigured":
             return StorageEndpointCredentialCheck(
                 status="misconfigured",
-                message=str(error),
+                message=misconfigured_message or str(error),
             )
         return StorageEndpointCredentialCheck(
             status=failure,
@@ -431,6 +442,29 @@ class StorageEndpointFeatureDetector:
                     ),
                 )
 
+    def _detect_ceph_admin_credentials(self, context, result):
+        credentials = context.ceph_admin_credentials
+        if credentials.partial:
+            result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
+                status="incomplete", message="Enter both Ceph Admin keys.")
+        elif credentials.complete:
+            try:
+                client = self._client(context, credentials)
+                payload = client.get_user_by_access_key(credentials.access_key, allow_not_found=True)
+                EndpointServiceIdentityService.validate_payload("ceph_admin", payload)
+                if not (payload.get("user_id") or payload.get("uid")):
+                    raise ValueError("Ceph Admin user could not be identified by RGW.")
+                result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
+                    status="valid", message="Ceph Admin credentials were validated with admin=true and system=false.")
+            except ValueError as exc:
+                result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
+                    status="denied", message=str(exc))
+            except RGWAdminError as exc:
+                result.credential_checks.ceph_admin = self._failed_check(
+                    exc, denied_message="Ceph Admin credentials were denied by RGW.",
+                    misconfigured_message="Ceph Admin endpoint configuration is invalid; check the RGW Admin Ops URL and redirects.",
+                    unavailable_message="Ceph Admin could not be checked because the RGW endpoint is unavailable.")
+
     def detect(
         self,
         payload: StorageEndpointFeatureDetectionRequest,
@@ -451,6 +485,7 @@ class StorageEndpointFeatureDetector:
                     result.metrics = True
                 except RGWAdminError:
                     result.metrics = False
+        self._detect_ceph_admin_credentials(context, result)
         self._detect_runtime_credentials(context, result)
         if context.supervision_credentials.complete or context.supervision_credentials.partial:
             self._detect_supervision_features(context, result)

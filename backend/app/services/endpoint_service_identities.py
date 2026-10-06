@@ -23,7 +23,7 @@ SERVICE_CAPS = {
     "supervision": "usage=read;buckets=read",
 }
 INSTALLATION_KEY = "endpoint-service-identity-installation"
-STARTUP_RECOVERY_KEY_TYPES = frozenset({"endpoint_runtime", "endpoint_supervision", "ceph_admin"})
+STARTUP_RECOVERY_KEY_TYPES = frozenset({"endpoint_runtime", "endpoint_supervision"})
 
 
 class ManagedIdentityKeyDriftError(ValueError):
@@ -74,7 +74,7 @@ class EndpointServiceIdentityService:
         if not isinstance(payload, dict):
             raise ManagedIdentityKeyDriftError()
         from app.services.durable_key_rotation_service import pending_rotation
-        key_type = "ceph_admin" if identity.kind == "ceph_admin" else f"endpoint_{identity.kind}"
+        key_type = f"endpoint_{identity.kind}"
         intent = pending_rotation(self.db, identity.endpoint_id, key_type, identity.id)
         allowed = {identity.access_key}
         if intent is not None:
@@ -134,7 +134,7 @@ class EndpointServiceIdentityService:
         is_admin, is_system = extract_ceph_admin_flags(payload)
         if kind == "ceph_admin":
             if not is_admin or is_system:
-                raise ValueError("Managed Ceph Admin requires admin=true and system=false.")
+                raise ValueError("Ceph Admin requires admin=true and system=false.")
             return
         expected = _parse_caps_payload(SERVICE_CAPS[kind])
         actual = _parse_caps_payload(payload.get("caps"))
@@ -202,6 +202,8 @@ class EndpointServiceIdentityService:
         )
 
     def _ensure(self, endpoint, kind, admin, permissions, *, managed):
+        if kind == "ceph_admin":
+            raise ValueError("Ceph Admin credentials must be supplied manually.")
         identity = endpoint.service_identity(kind)
         if managed:
             if identity is None:
@@ -245,10 +247,7 @@ class EndpointServiceIdentityService:
             # Only bootstrap an identity that has never passed validation. Do not
             # rewrite permissions or interrupt a previously operational identity.
             if (created or identity.last_reconciled_at is None) and permissions.users_write:
-                if kind == "ceph_admin":
-                    admin.update_user(identity.rgw_uid, admin=True, system=False)
-                else:
-                    admin.set_user_caps(identity.rgw_uid, SERVICE_CAPS[kind])
+                admin.set_user_caps(identity.rgw_uid, SERVICE_CAPS[kind])
         else:
             if identity is None or not identity.access_key or not identity.secret_key:
                 raise ValueError(f"Externally managed endpoints require complete {kind} credentials.")
@@ -266,7 +265,50 @@ class EndpointServiceIdentityService:
         self._audit(endpoint, identity, "validated")
         return identity
 
+    def validate_ceph_admin(self, endpoint):
+        """Authenticate the supplied pair without using bootstrap credentials or RGW writes."""
+        identity = endpoint.service_identity("ceph_admin")
+        if identity is None:
+            return {"kind": "ceph_admin", "status": "missing"}
+        if not identity.access_key or not identity.secret_key:
+            identity.status, identity.last_error = "missing", None
+            identity.last_reconciled_at = None
+        else:
+            try:
+                if identity.mode != "external":
+                    raise ValueError("Ceph Admin credentials must be supplied manually.")
+                from app.services.rgw_admin import get_rgw_admin_client
+                from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
+                client = get_rgw_admin_client(
+                    access_key=identity.access_key, secret_key=identity.secret_key,
+                    endpoint=resolve_rgw_admin_api_endpoint(endpoint), region=endpoint.region,
+                    verify_tls=endpoint.verify_tls,
+                )
+                payload = client.get_user_by_access_key(identity.access_key, allow_not_found=True)
+                self.validate_payload("ceph_admin", payload)
+                uid = payload.get("user_id") or payload.get("uid")
+                if not uid:
+                    raise ValueError("Ceph Admin user could not be identified by RGW.")
+                identity.rgw_uid = str(uid)
+                identity.status, identity.last_error = "ready", None
+                self._audit(endpoint, identity, "validated")
+            except ValueError as exc:
+                identity.status, identity.last_error = "error", str(exc)
+            except RGWAdminError as exc:
+                failure = classify_rgw_credential_failure(exc)
+                identity.status = "error"
+                identity.last_error = (
+                    "Ceph Admin credentials were denied by RGW."
+                    if failure == "denied" else
+                    "Ceph Admin validation failed; check the RGW endpoint configuration and connectivity."
+                )
+            identity.last_reconciled_at = utcnow()
+        self.db.commit()
+        return {"kind": "ceph_admin", "status": identity.status}
+
     def revoke(self, endpoint, kind):
+        if kind == "ceph_admin":
+            return True  # External principals and keys belong to the operator.
         identity = endpoint.service_identity(kind)
         if identity is None or identity.mode == "external":
             return True
@@ -292,7 +334,7 @@ class EndpointServiceIdentityService:
             identity.status = "disabled"
             identity.access_key = identity.secret_key = None
             from app.db import KeyRotationIntent
-            key_type = "ceph_admin" if kind == "ceph_admin" else f"endpoint_{kind}"
+            key_type = f"endpoint_{kind}"
             self.db.query(KeyRotationIntent).filter_by(endpoint_id=endpoint.id, key_type=key_type, target_id=identity.id).delete(synchronize_session=False)
             identity.last_error = None
             identity.last_reconciled_at = utcnow()
@@ -315,7 +357,7 @@ class EndpointServiceIdentityService:
         identity = endpoint.service_identity(kind)
         if identity is None or identity.mode != "managed":
             raise ValueError("Only ready managed service identities can be rotated.")
-        key_type = "ceph_admin" if kind == "ceph_admin" else f"endpoint_{kind}"
+        key_type = f"endpoint_{kind}"
         return DurableKeyRotationService(self.db, actor=self.actor, identity_service=self).rotate(
             endpoint, key_type, identity.id, deactivate_only=deactivate_only)
 
@@ -348,12 +390,9 @@ class EndpointServiceIdentityService:
                 return True
 
         ceph_admin = endpoint.service_identity("ceph_admin")
-        ceph_admin_desired = bool(ceph_admin_enabled and endpoint.ceph_admin_allowed)
-        if ceph_admin_desired:
+        if ceph_admin is not None and ceph_admin.access_key and ceph_admin.secret_key:
             if not self._identity_is_locally_ready(ceph_admin):
                 return True
-        elif ceph_admin is not None and ceph_admin.status != "disabled":
-            return True
 
         return any(
             intent.key_type in STARTUP_RECOVERY_KEY_TYPES
@@ -373,12 +412,7 @@ class EndpointServiceIdentityService:
         lease, handle = (None, None) if locked else self._lease(endpoint)
         results = []
         try:
-            if ceph_admin_enabled is None:
-                from app.services.app_settings_service import load_app_settings_for_db_readonly
-                ceph_admin_enabled = load_app_settings_for_db_readonly(self.db).general.ceph_admin_enabled
-            desired_ceph = bool(ceph_admin_enabled and endpoint.ceph_admin_allowed)
-            if not desired_ceph:
-                self.revoke(endpoint, "ceph_admin")
+            results.append(self.validate_ceph_admin(endpoint))
             if not endpoint.admin_access_key or not endpoint.admin_secret_key:
                 return results
             try:
@@ -389,7 +423,7 @@ class EndpointServiceIdentityService:
                     if isinstance(exc, RGWAdminError)
                     else None
                 )
-                for kind in ("runtime", "supervision", "ceph_admin"):
+                for kind in ("runtime", "supervision"):
                     identity = endpoint.service_identity(kind)
                     if (
                         not provision_unprovisioned
@@ -409,8 +443,6 @@ class EndpointServiceIdentityService:
                 return [{"kind": "admin", "status": "error"}]
             # Baseline endpoint identities persist independently of feature activation.
             desired = ["runtime", "supervision"]
-            if desired_ceph:
-                desired.append("ceph_admin")
             runtime = endpoint.service_identity("runtime")
             if runtime is None:
                 runtime = EndpointServiceIdentity(
@@ -435,11 +467,7 @@ class EndpointServiceIdentityService:
                         self.revoke(endpoint, kind)
                         results.append({"kind": kind, "status": identity.status})
                         continue
-                    mode = (
-                        "managed"
-                        if kind == "ceph_admin"
-                        else identity.mode if identity is not None else runtime.mode
-                    )
+                    mode = identity.mode if identity is not None else runtime.mode
                     identity = self._ensure(endpoint, kind, admin, permissions,
                                             managed=mode == "managed")
                     results.append({"kind": kind, "status": identity.status})
@@ -454,7 +482,7 @@ class EndpointServiceIdentityService:
                     if identity is None:
                         identity = EndpointServiceIdentity(
                             kind=kind,
-                            mode="managed" if kind == "ceph_admin" else runtime.mode,
+                            mode=runtime.mode,
                             status="error",
                         )
                         endpoint.service_identities.append(identity)

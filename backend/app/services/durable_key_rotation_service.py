@@ -16,7 +16,7 @@ from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint, resolve_feature_flags
 from app.utils.time import utcnow
 
-SERVICE_TYPES = {"endpoint_runtime": "runtime", "endpoint_supervision": "supervision", "ceph_admin": "ceph_admin"}
+SERVICE_TYPES = {"endpoint_runtime": "runtime", "endpoint_supervision": "supervision"}
 
 
 def pending_rotation(db, endpoint_id, key_type, target_id):

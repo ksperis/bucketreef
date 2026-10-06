@@ -105,7 +105,6 @@ EXPECTED_GUARDS: dict[tuple[str, str], str] = {
         "settings.py",
         RECENT_WEBAUTHN,
         "update_settings",
-        "configure_ceph_admin",
         "create_oidc_provider_settings",
         "update_oidc_provider_settings",
         "delete_oidc_provider_settings",

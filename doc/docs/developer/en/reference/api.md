@@ -60,7 +60,7 @@ in full. The version-2 draft contains only endpoint selection/options and the
 five preparation booleans (`manager`, `portal`, `private_connection`,
 `ceph_admin`, `supervision`). The strict draft stores no credential fields.
 Apply accepts separate write-only `admin_access_key` / `admin_secret_key`,
-`service_identity_mode` (`managed` or `external`), Runtime/Supervision in external mode and private-S3 credentials. Ceph Admin is provisioned as managed. Existing complete
+`service_identity_mode` (`managed` or `external`), Runtime/Supervision in external mode and private-S3 credentials. Ceph Admin uses separate write-only `ceph_admin_access_key` / `ceph_admin_secret_key` credentials. Existing complete
 endpoint credentials are reused; newly submitted credentials are validated
 before they enter the existing encrypted credential store. The onboarding API
 no longer exposes the legacy `endpoint_access_key` / `endpoint_secret_key`
@@ -68,7 +68,7 @@ fields from the former first-step endpoint credential flow.
 
 Endpoint create/update uses a write contract that accepts `service_identity_mode`,
 external Runtime/Supervision access-key IDs and write-only secret keys, plus
-`ceph_admin_allowed`. Feature detection uses the same write-only credential rule.
+`ceph_admin_allowed` and the independent Ceph Admin credential pair. Feature detection uses the same write-only credential rule.
 Admin Ops requires `users=read;accounts=read`; writes are optional. Without
 `users=write`, use external mode and supply complete Runtime and Supervision pairs
 for every Ceph endpoint. Feature flags control their use, not their existence.
@@ -77,16 +77,18 @@ Ops capabilities. Managed onboarding probes Usage after provisioning Supervision
 
 Endpoint read responses use a separate contract. They keep the Admin Ops access-key
 ID and `has_admin_secret` for the administrator edit flow, but never return Runtime
-or Supervision access-key IDs or secret-presence fields. Instead,
+, Supervision or Ceph Admin access-key IDs or secret-presence fields. Instead,
 `service_identities[]` exposes only lifecycle metadata such as `kind`, `mode`,
 `status`, `rgw_uid`, `credentials_configured`, reconciliation timestamps and errors.
 Secret keys are never present in read responses. Responses also include
 `ceph_admin_allowed` and computed `ceph_admin_active`.
 `POST /api/admin/storage-endpoints/{id}/service-identities/reconcile` retries pending
-configuration/revocation. `POST /api/admin/settings/ceph-admin` accepts `enabled`,
-`endpoint_ids`, and default-false `grant_current_user`, returning per-endpoint results.
-A false-to-true global toggle through generic settings PUT is rejected. Existing
-external Ceph Admin identities require explicit conversion through activation.
+Runtime/Supervision configuration and validates externally supplied Ceph Admin keys.
+Global Ceph Admin enablement uses the ordinary settings PUT, with sensitive-action
+verification. Endpoint authorization is configured in the endpoint editor.
+Disabling either flag preserves Ceph Admin keys and does not mutate RGW.
+Ceph Admin validation reports `credential_checks.ceph_admin` and requires
+`admin=true`, `system=false` and successful authentication with the supplied pair.
 
 
 The onboarding and endpoint editor share

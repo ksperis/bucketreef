@@ -60,7 +60,7 @@ radosgw-admin user create --uid="bkr-admin" --display-name="BucketReef Admin Ops
 This enables provisioning, account/user quotas and managed technical identities.
 Individual bucket quota changes remain unavailable until `buckets=write` is added.
 Runtime reads and monitoring use separate restricted identities. Admin Ops does
-not need Usage capabilities. Ceph Admin remains separately authorized and managed.
+not need Usage capabilities. Ceph Admin remains separately authorized and always uses externally supplied keys.
 
 ### Advanced: restrict Admin Ops permissions
 
@@ -136,15 +136,35 @@ BucketReef never adopts or removes unexpected keys automatically. Inspect the RG
 user, remove the unexpected keys externally, then retry service identity configuration
 or pending revocation. These ownership rules do not restrict external identities.
 
-Enable Ceph Admin through **General settings → Ceph Admin** and select the allowed
-Ceph endpoints. `users=write` is required. Ceph Admin identities are always managed
-by BucketReef and cannot be supplied through the endpoint API, onboarding,
-`ENV_STORAGE_ENDPOINTS`, or seed variables. The optional workspace grant to the
-current user is unchecked by default. Access is active only when the global feature,
-endpoint authorization and managed identity readiness all hold. Disabling the global
-feature preserves endpoint authorizations and immediately blocks access, then removes
-managed users without purging data.
-A failed remote removal stays `revocation_pending` until a confirmed retry succeeds.
+Configure **Ceph Admin** in an endpoint's **Credentials** tab: enter both keys
+and enable its endpoint authorization. These fields are independent of the
+Runtime/Supervision management mode and remain available while the global feature
+is disabled. Enable the workspace in **General settings → Ceph Admin**. User access
+is assigned separately through user/group settings, or explicitly by onboarding.
+
+Create the dedicated RGW user externally, for example:
+
+```bash
+radosgw-admin user create --uid="bkr-ceph-admin" \
+  --display-name="BucketReef Ceph Admin" --admin --system=false
+```
+
+Ceph Admin requires `admin=true`, `system=false` and authentication with its own
+pair; `users=write` on Admin Ops is not required for this validation. BucketReef
+never sets the admin flag via REST. Endpoint and onboarding forms accept the keys;
+ENV entries use `ceph_admin_access_key` and `ceph_admin_secret_key`. Leave both
+fields empty while editing to retain stored credentials; replacing them requires
+both values. Secrets and Ceph Admin access-key IDs are absent from read responses.
+
+Access requires global enablement, endpoint authorization and a validated external
+identity with complete credentials. Disabling access preserves the pair and never
+changes the RGW user. Rotate it externally and supply the replacement pair.
+
+Migration `0143_external_ceph_admin_credentials` clears all stored Ceph Admin pairs,
+UIDs, provenance, validation state and pending rotations. Re-enter valid keys after
+upgrading. Endpoint authorizations remain, but access stays inactive until validation.
+Previously created RGW users remain untouched; inspect and clean up obsolete users
+and keys manually, without purging buckets or data.
 
 ## Revalidation and recovery
 
@@ -159,9 +179,10 @@ its validation state. Changing the pair or RGW target requires revalidation. Rem
 `users=write` preserves ready managed identities; restore it to create, convert or
 rotate them. Both fields are required to replace an external service credential pair.
 
-Administration instances and dedicated Ceph Admin instances reconcile all persisted
-Ceph endpoints at startup, including interrupted provisioning, pending revocations and
-allowed identities that are absent. A managed Runtime/Supervision identity explicitly
+Administration instances and dedicated Ceph Admin instances reconcile persisted
+Ceph endpoints at startup, recovering interrupted Runtime/Supervision provisioning
+and revocations and retrying pending validation of supplied Ceph Admin pairs. Missing
+Ceph Admin keys are never generated. A managed Runtime/Supervision identity explicitly
 saved as **not provisioned** is not created by startup reconciliation; interactive
 provisioning still requires the button. Declarative `ENV_STORAGE_ENDPOINTS`, seed setup
 and the setup assistant provision managed identities automatically because those flows

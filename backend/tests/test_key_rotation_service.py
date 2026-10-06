@@ -589,7 +589,7 @@ def test_rotate_supervision_skips_without_admin_ops_key(db_session):
     assert "External service credentials" in (result.results[0].message or "")
 
 
-@pytest.mark.parametrize("technical", [KeyRotationType.ENDPOINT_RUNTIME, KeyRotationType.ENDPOINT_SUPERVISION, KeyRotationType.CEPH_ADMIN])
+@pytest.mark.parametrize("technical", [KeyRotationType.ENDPOINT_RUNTIME, KeyRotationType.ENDPOINT_SUPERVISION])
 def test_disable_only_mixed_request_is_rejected_before_mutation(technical):
     from pydantic import ValidationError
     with pytest.raises(ValidationError, match="require delete mode"):
