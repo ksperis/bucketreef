@@ -379,9 +379,8 @@ def test_read_only_runtime_detection_never_lists_without_scope_or_accepts_keys(i
 
 def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(identities, db_session, monkeypatch):
     service, endpoint, rgw = identities
-    endpoint.ceph_admin_allowed = True
     db_session.commit()
-    service.reconcile(endpoint, ceph_admin_enabled=True)
+    service.reconcile(endpoint)
     managed_uids = {identity.rgw_uid for identity in endpoint.service_identities}
     monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
         "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "other",
@@ -397,9 +396,8 @@ def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(
 def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(identities, db_session, kind, key_type):
     service, endpoint, rgw = identities
     endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
-    endpoint.ceph_admin_allowed = True
     db_session.commit()
-    service.reconcile(endpoint, ceph_admin_enabled=True)
+    service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
     user = rgw.users[identity.rgw_uid]
     unknown = {"access_key": "UNEXPECTED-KEY", "secret_key": "UNEXPECTED-SECRET"}
@@ -414,7 +412,7 @@ def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(id
     original = deepcopy(user)
     rgw.calls.clear()
 
-    results = service.reconcile(endpoint, ceph_admin_enabled=True)
+    results = service.reconcile(endpoint)
 
     assert {"kind": kind, "status": "error"} in results
     assert identity.status == "error" and "key drift" in identity.last_error
@@ -454,9 +452,8 @@ def test_managed_key_drift_recovers_only_after_operator_removes_unknown_key(iden
 def test_managed_key_drift_blocks_rotation_and_revocation(identities, db_session, operation, kind):
     service, endpoint, rgw = identities
     endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
-    endpoint.ceph_admin_allowed = True
     db_session.commit()
-    service.reconcile(endpoint, ceph_admin_enabled=True)
+    service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
     user = rgw.users[identity.rgw_uid]
     user["keys"].append({"access_key": "UNKNOWN", "secret_key": "UNKNOWN-SECRET"})
@@ -547,10 +544,7 @@ def test_endpoint_creation_waits_for_explicit_provisioning_and_failure_is_retrya
     assert supervision.status == "not_provisioned"
     assert identity.access_key is None and identity.provenance is None
     assert not any(call[0] == "create" for call in rgw.calls)
-    assert not EndpointServiceIdentityService(db_session).needs_startup_reconciliation(
-        endpoint,
-        ceph_admin_enabled=False,
-    )
+    assert not EndpointServiceIdentityService(db_session).needs_startup_reconciliation(endpoint)
 
     StorageEndpointsService(db_session).reconcile_identities(endpoint.id)
     assert identity.status == "error" and identity.access_key and identity.provenance

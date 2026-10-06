@@ -373,7 +373,7 @@ class EndpointServiceIdentityService:
             return False
         return identity.mode != "managed" or bool(identity.provenance)
 
-    def needs_startup_reconciliation(self, endpoint, *, ceph_admin_enabled: bool) -> bool:
+    def needs_startup_reconciliation(self, endpoint) -> bool:
         """Return whether persisted local state requires an RGW recovery pass."""
         if endpoint.provider != "ceph":
             return False
@@ -403,7 +403,6 @@ class EndpointServiceIdentityService:
         self,
         endpoint,
         *,
-        ceph_admin_enabled=None,
         locked=False,
         provision_unprovisioned=False,
     ):
