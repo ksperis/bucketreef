@@ -378,10 +378,10 @@ describe("manager shell pages", () => {
     expect(screen.getByText("Transfer")).toBeInTheDocument();
     expect(screen.queryByText("Active transfers")).not.toBeInTheDocument();
     expect(fetchManagerTrafficMock).not.toHaveBeenCalled();
-    expect(await screen.findByText("Access management")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Access management" })).not.toBeInTheDocument();
   });
 
-  it("shows access management for IAM-capable connection contexts", async () => {
+  it("shows IAM resource actions in quota status for IAM-capable connection contexts", async () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [
         {
@@ -416,11 +416,12 @@ describe("manager shell pages", () => {
     );
 
     await waitFor(() => expect(listBucketsMock).toHaveBeenCalledWith("conn-1", { with_stats: false }));
-    const accessSection = screen.getByText("Access management").closest("section");
-    expect(accessSection).not.toBeNull();
+    const quotaStatus = screen.getByRole("heading", { name: "Quota status" }).closest("section");
+    expect(quotaStatus).not.toBeNull();
     expect(useIamOverviewMock).toHaveBeenCalledWith("conn-1", true, true, "connection:0");
-    expect(within(accessSection!).getByText("Users")).toBeInTheDocument();
-    expect(within(accessSection!).getByText("1")).toBeInTheDocument();
+    expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("Users1");
+    expect(within(quotaStatus!).getByRole("link", { name: "View all users" })).toHaveAttribute("href", "/manager/users");
+    expect(screen.queryByRole("heading", { name: "Access management" })).not.toBeInTheDocument();
   });
 
   it("keeps the redesigned dashboard structure stable when storage metrics are disabled", async () => {
@@ -456,7 +457,7 @@ describe("manager shell pages", () => {
     expect(screen.getByText("Top buckets by storage")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Quick actions" })).not.toBeInTheDocument();
     expect(screen.getByTestId("manager-dashboard-resource-grid")).toHaveClass(
-      "2xl:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)_minmax(280px,1fr)]",
+      "lg:grid-cols-[minmax(0,1.44fr)_minmax(280px,1fr)]",
     );
     expect(screen.getByText("Storage backend health")).toBeInTheDocument();
     expect(screen.queryByText("Availability (24h)")).not.toBeInTheDocument();
@@ -1072,13 +1073,17 @@ describe("manager shell pages", () => {
     expect(quotaStatus).not.toBeNull();
     const quotaStatusScope = within(quotaStatus!);
     expect(quotaStatusScope.getByText("Buckets")).toBeInTheDocument();
-    expect(quotaStatusScope.getByText("2 / 4")).toBeInTheDocument();
+    expect(quotaStatus!.querySelector('[data-quota-status-row="Buckets"]')).toHaveTextContent("2 / 4");
     expect(quotaStatusScope.getByText("Users")).toBeInTheDocument();
-    expect(quotaStatusScope.getByText("2 / 5")).toBeInTheDocument();
+    expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("2 / 5");
+    expect(quotaStatusScope.getByRole("link", { name: "View all users" })).toHaveAttribute("href", "/manager/users");
     expect(quotaStatusScope.getByText("Roles")).toBeInTheDocument();
-    expect(quotaStatusScope.getByText("3 / 6")).toBeInTheDocument();
+    expect(quotaStatus!.querySelector('[data-quota-status-row="Roles"]')).toHaveTextContent("3 / 6");
+    expect(quotaStatusScope.getByRole("link", { name: "View all roles" })).toHaveAttribute("href", "/manager/roles");
     expect(quotaStatusScope.getByText("Groups")).toBeInTheDocument();
-    expect(quotaStatusScope.getByText("1 / 4")).toBeInTheDocument();
+    expect(quotaStatus!.querySelector('[data-quota-status-row="Groups"]')).toHaveTextContent("1 / 4");
+    expect(quotaStatusScope.getByRole("link", { name: "View all groups" })).toHaveAttribute("href", "/manager/groups");
+    expect(screen.queryByRole("heading", { name: "Access management" })).not.toBeInTheDocument();
     expect(quotaStatusScope.queryByText("Bandwidth (month)")).not.toBeInTheDocument();
     expect(await screen.findByText(trendText("1.0 GB vs last 30 days"))).toBeInTheDocument();
     expect(screen.getByText("Growth (last 30 days)")).toBeInTheDocument();
