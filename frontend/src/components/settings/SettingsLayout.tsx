@@ -26,6 +26,7 @@ type SettingsSectionProps = {
 
 type SettingsItemProps = {
   title: string;
+  ariaLabel?: string;
   description?: ReactNode;
   icon?: ReactNode;
   status?: ReactNode;
@@ -121,6 +122,7 @@ export const SettingsSection = ({
 
 export const SettingsItem = ({
   title,
+  ariaLabel,
   description,
   action,
   children,
@@ -130,7 +132,7 @@ export const SettingsItem = ({
   compact,
 }: SettingsItemProps) =>
   compact ? (
-    <div className={cx("settings-item-compact", className)}>
+    <div role={ariaLabel ? "group" : undefined} aria-label={ariaLabel} className={cx("settings-item-compact", className)}>
       <div className="flex min-w-0 items-center gap-3">
         {icon && (
           <span

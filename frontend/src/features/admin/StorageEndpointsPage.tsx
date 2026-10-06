@@ -29,7 +29,6 @@ import PageHeader from "../../components/PageHeader";
 import PageTabs from "../../components/PageTabs";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
-import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { ListActionButton } from "../../components/list/ListControls";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
@@ -61,11 +60,8 @@ import { buildStorageEndpointSubmission } from "./storageEndpointSubmission";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import StorageEndpointList, { type EndpointListFilters } from "./StorageEndpointList";
 import {
-  AdminOpsPermissionsBadges,
-  CredentialStatusBadge,
   EndpointHttpStatusBadge,
   resolveCredentialCheckView,
-  SupervisionValidationBadges,
 } from "./StorageEndpointValidationStatus";
 import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
 
@@ -847,29 +843,11 @@ export default function StorageEndpointsPage() {
                   .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setFormError(extractError(cause)); })
                   .finally(() => { mutationPending.current = false; setSaving(false); });
               } : undefined}
-              errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} statuses={{
-                ceph_admin: cephAdminCredentialCheck && <CredentialStatusBadge {...cephAdminCredentialCheck} />,
-                runtime: runtimeCredentialCheck && <CredentialStatusBadge {...runtimeCredentialCheck} />,
-                admin: adminCredentialCheck && <>
-                  <CredentialStatusBadge {...adminCredentialCheck} />
-                  {adminCredentialCheck.status === "misconfigured" && adminCredentialCheck.message && (
-                    <UiInlineMessage tone="error">{adminCredentialCheck.message}</UiInlineMessage>
-                  )}
-                  {adminCredentialCheck.status === "valid" && (
-                    <AdminOpsPermissionsBadges permissions={detection?.admin_ops_permissions} />
-                  )}
-                </>,
-                supervision: supervisionCredentialCheck && <>
-                  <CredentialStatusBadge {...supervisionCredentialCheck} />
-                  {supervisionCredentialCheck.status === "valid" && detection && (
-                    <SupervisionValidationBadges
-                      metrics={detection.metrics}
-                      usage={detection.usage}
-                      metricsError={detection.metrics_error}
-                      usageError={detection.usage_error}
-                    />
-                  )}
-                </>,
+              errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} detection={detection} checks={{
+                ceph_admin: cephAdminCredentialCheck,
+                runtime: runtimeCredentialCheck,
+                admin: adminCredentialCheck,
+                supervision: supervisionCredentialCheck,
               }} />}
             {activeTab === "capabilities" && <StorageEndpointCapabilitiesFields features={form.features} provider={form.provider}
               region={form.region} readOnly={configurationReadOnly} updateFeatures={updateFeatures}

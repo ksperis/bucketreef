@@ -416,11 +416,11 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(within(adminSection).getByText("Recommended Admin Ops"));
     expect(within(adminSection).getByText(/users=read,write;accounts=read,write/)).toBeVisible();
     expect(within(adminSection).queryByText(/buckets=write/)).not.toBeInTheDocument();
-    const runtimeSection = screen.getByRole("region", { name: "Live reads (Runtime Read Ops)" });
+    const runtimeSection = screen.getByRole("group", { name: "Runtime Read Ops" });
     expect(within(runtimeSection).getByText("Create Runtime Read Ops").closest("details")).not.toHaveAttribute("open");
     fireEvent.click(within(runtimeSection).getByText("Create Runtime Read Ops"));
     expect(within(runtimeSection).getByText(/accounts=read;user-info-without-keys=read;buckets=read/)).toBeVisible();
-    const supervisionSection = screen.getByRole("region", { name: "Monitoring (Supervision Ops)" });
+    const supervisionSection = screen.getByRole("group", { name: "Supervision Ops" });
     expect(within(supervisionSection).getByText("Create Supervision Ops").closest("details")).not.toHaveAttribute("open");
     fireEvent.click(within(supervisionSection).getByText("Create Supervision Ops"));
     expect(within(supervisionSection).getByText(/usage=read;buckets=read/)).toBeVisible();
@@ -448,8 +448,8 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByText("Bucket quotas · optional cap not granted")).toBeInTheDocument();
     expect(screen.getByText("✓ Bucket stats · available")).toBeInTheDocument();
     expect(screen.getByText("! Usage data · no values")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Retry service identity configuration" })).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Stored credentials are configured/)).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Retry configuration" })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Leave both fields empty to keep the current keys/)).toHaveLength(2);
     expect(detectStorageEndpointFeaturesMock).toHaveBeenCalledWith(
       expect.objectContaining({
         admin_access_key: "admin-key",
@@ -503,22 +503,22 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "admin-key" } });
     fireEvent.change(screen.getByLabelText("Admin secret key"), { target: { value: "admin-secret" } });
-    expect(screen.getByText("Runtime Read Ops · Managed · Not created")).toBeVisible();
-    expect(screen.getByText("Supervision Ops · Managed · Not created")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Runtime Read Ops" })).getByText("Creation planned")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Supervision Ops" })).getByText("Creation planned")).toBeVisible();
     const saveAndCreate = await screen.findByRole("button", { name: "Save endpoint & create managed identities" });
     fireEvent.click(saveAndCreate);
 
     expect(await screen.findByRole("heading", { name: "Edit storage endpoint · New Managed" })).toBeVisible();
     expect(screen.getByRole("tab", { name: "Credentials" })).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(8));
-    expect(screen.getByText("Runtime Read Ops · Managed · Ready")).toBeVisible();
-    expect(screen.getByText("Supervision Ops · Managed · Ready")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Runtime Read Ops" })).getByText("Configured")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Supervision Ops" })).getByText("Configured")).toBeVisible();
     const serviceIdentities = screen.getByRole("region", { name: "Service identities" });
-    const liveReadsChecks = within(serviceIdentities).getByRole("group", { name: "Live reads checks" });
-    const monitoringChecks = within(serviceIdentities).getByRole("group", { name: "Monitoring checks" });
-    expect(within(liveReadsChecks).getByText("Live reads")).toBeVisible();
+    const liveReadsChecks = within(serviceIdentities).getByRole("group", { name: "Runtime Read Ops" });
+    const monitoringChecks = within(serviceIdentities).getByRole("group", { name: "Supervision Ops" });
+    expect(within(liveReadsChecks).getByText("Live reads for Manager and Portal.")).toBeVisible();
     expect(await within(liveReadsChecks).findByText("Access validated")).toBeVisible();
-    expect(within(monitoringChecks).getByText("Monitoring")).toBeVisible();
+    expect(within(monitoringChecks).getByText("Usage and metrics collection.")).toBeVisible();
     expect(await within(monitoringChecks).findByText("Access validated")).toBeVisible();
     expect(within(monitoringChecks).getByText("✓ Bucket stats · available")).toBeVisible();
     expect(within(monitoringChecks).getByText("! Usage data · no values")).toBeVisible();
@@ -561,7 +561,7 @@ describe("StorageEndpointsPage tags", () => {
     expect(await screen.findByRole("heading", { name: "Edit storage endpoint · New Managed" })).toBeVisible();
     expect(await screen.findByText(/Endpoint saved, but managed service identities could not be created/)).toBeVisible();
     expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(8);
-    expect(await screen.findByText("Runtime Read Ops · Managed · Error")).toBeVisible();
+    expect(await within(screen.getByRole("group", { name: "Runtime Read Ops" })).findByText("Needs attention")).toBeVisible();
   });
 
   it("offers save and create when converting external service identities to managed", async () => {
@@ -577,10 +577,11 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     fireEvent.change(screen.getByLabelText("Identity management"), { target: { value: "managed" } });
 
-    expect(screen.getByText("Current saved configuration")).toBeVisible();
-    expect(screen.getByText("Runtime Read Ops · External · Ready")).toBeVisible();
-    expect(screen.getByText("Runtime Read Ops · Managed · Not created")).toBeVisible();
-    expect(screen.getByText("Supervision Ops · Managed · Not created")).toBeVisible();
+    expect(screen.getByText(/Pending save · Current saved configuration:/)).toBeVisible();
+    expect(screen.getByText(/Current saved configuration: Provided externally/)).toBeVisible();
+    expect(screen.getAllByText("Configured")).toHaveLength(2);
+    expect(screen.queryByText("After save")).not.toBeInTheDocument();
+    expect(screen.getByText(/On save: BucketReef will create Runtime and Supervision identities/)).toBeVisible();
     expect(await screen.findByRole("button", { name: "Save & create managed identities" })).toBeEnabled();
   });
 
@@ -637,8 +638,8 @@ describe("StorageEndpointsPage tags", () => {
 
     await waitFor(() => expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(7));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Create managed identities" })).not.toBeInTheDocument());
-    expect(screen.getByText("Runtime Read Ops · Managed · Ready")).toBeVisible();
-    expect(screen.getByText("Supervision Ops · Managed · Ready")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Runtime Read Ops" })).getByText("Configured")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Supervision Ops" })).getByText("Configured")).toBeVisible();
     await waitFor(() => expect(detectStorageEndpointFeaturesMock.mock.calls.length).toBeGreaterThan(validationCallsBefore));
   });
 
@@ -693,12 +694,12 @@ describe("StorageEndpointsPage tags", () => {
     renderPage("/admin/storage-endpoints/7");
     await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
-    const retry = screen.getByRole("button", { name: "Retry service identity configuration" });
+    const retry = screen.getByRole("button", { name: "Retry configuration" });
     fireEvent.click(retry);
     expect(await screen.findByText("RGW retry failed")).toBeVisible();
     expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(7);
     fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-admin" } });
-    expect(screen.queryByRole("button", { name: "Retry service identity configuration" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry configuration" })).not.toBeInTheDocument();
     expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/Save or discard endpoint changes before retrying/)).toBeVisible();
   });
@@ -714,12 +715,104 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     expect(screen.getByText("Recommended Admin Ops").closest("details")).not.toHaveAttribute("open");
     fireEvent.change(screen.getByLabelText("Identity management"), { target: { value: "external" } });
-    expect(screen.getByText("Current saved configuration")).toBeVisible();
-    expect(screen.getByText("Runtime Read Ops · Managed · Ready")).toBeVisible();
+    expect(screen.getByText(/Pending save · Current saved configuration:/)).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Runtime Read Ops" })).getByText("Configured")).toBeVisible();
     expect(screen.getByText(/Saving replaces and revokes the current managed identities/)).toBeVisible();
     expect(screen.getAllByText("Enter the secret key for this identity.")).toHaveLength(2);
     expect(screen.getByLabelText("Runtime secret key")).toBeRequired();
     expect(screen.getByLabelText("Supervision secret key")).toBeRequired();
+  });
+
+  it("keeps stored pairs folded and validates explicit replacements without losing their values", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({
+      admin_access_key: "admin-key", has_admin_secret: true,
+      service_identities: externalServiceIdentities(true),
+    })]);
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    const runtime = screen.getByRole("group", { name: "Runtime Read Ops" });
+    expect(within(runtime).getByLabelText("Runtime access key")).not.toBeVisible();
+    expect(within(runtime).getByLabelText("Runtime secret key")).not.toBeVisible();
+    fireEvent.click(within(runtime).getByRole("button", { name: "Replace Runtime keys" }));
+    expect(within(runtime).getByLabelText("Runtime access key")).toBeVisible();
+    fireEvent.change(within(runtime).getByLabelText("Runtime access key"), { target: { value: "replacement-key" } });
+    expect(within(runtime).getByText("Complete both keys")).toBeVisible();
+    fireEvent.click(screen.getByRole("tab", { name: "Connection" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    expect(screen.getByLabelText("Runtime access key")).toBeVisible();
+    expect(screen.getByLabelText("Runtime access key")).toHaveValue("replacement-key");
+    expect(screen.getByLabelText("Supervision access key")).not.toBeVisible();
+    expect(updateStorageEndpointMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves saved readiness when current access is unavailable and exposes diagnostics inline", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({
+      admin_access_key: "admin-key", has_admin_secret: true,
+      service_identities: externalServiceIdentities(true).map(identity => ({ ...identity, mode: "managed" })),
+    })]);
+    detectStorageEndpointFeaturesMock.mockResolvedValue({
+      admin: true, account: true, usage: true, metrics: true, warnings: [],
+      credential_checks: {
+        admin: { status: "valid" }, runtime: { status: "unavailable", message: "RGW request timed out." },
+        supervision: { status: "valid" },
+      },
+    });
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    const runtime = screen.getByRole("group", { name: "Runtime Read Ops" });
+    expect(await within(runtime).findByText("Check unavailable")).toBeVisible();
+    expect(within(runtime).getByText("Configured")).toBeVisible();
+    expect(within(runtime).queryByText("Access validated")).not.toBeInTheDocument();
+    expect(within(runtime).queryByText("Live enrichment is unavailable.")).not.toBeInTheDocument();
+    expect(within(runtime).getByText("RGW request timed out.")).not.toBeVisible();
+    fireEvent.click(within(runtime).getByText("Runtime diagnostics"));
+    expect(within(runtime).getByText("RGW request timed out.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Retry configuration" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Saved configuration")).not.toBeInTheDocument();
+    expect(screen.queryByText("Live checks")).not.toBeInTheDocument();
+  });
+
+  it("keeps identity failures and rotation recovery visible without repeating diagnostics", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({
+      admin_access_key: "admin-key", has_admin_secret: true,
+      service_identities: externalServiceIdentities(true).map(identity => ({
+        ...identity, mode: "managed", status: identity.kind === "runtime" ? "error" : "ready",
+        last_error: identity.kind === "runtime" ? "Unexpected RGW keys." : null,
+        rotation_pending: identity.kind === "supervision", rotation_phase: "activated",
+      })),
+    })]);
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    const runtime = screen.getByRole("group", { name: "Runtime Read Ops" });
+    expect(within(runtime).getByText("Needs attention")).toBeVisible();
+    expect(within(runtime).getByText("Live enrichment is unavailable.")).toBeVisible();
+    expect(screen.getAllByText("Unexpected RGW keys.")).toHaveLength(1);
+    expect(screen.getByText("Unexpected RGW keys.")).not.toBeVisible();
+    const supervision = screen.getByRole("group", { name: "Supervision Ops" });
+    expect(within(supervision).getByText(/Rotation pending/)).toBeVisible();
+    expect(within(supervision).getByRole("link", { name: "Resume key rotation" })).toHaveAttribute("href", "/admin/key-rotation");
+    expect(screen.getAllByRole("button", { name: "Retry configuration" })).toHaveLength(1);
+    expect(screen.queryByText(/Configure Runtime Read Ops to restore/)).not.toBeInTheDocument();
+  });
+
+  it("allows preparing Ceph Admin keys while authorization remains disabled", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    expect(screen.getByRole("switch", { name: "Allow Ceph Admin on this endpoint" })).not.toBeChecked();
+    expect(screen.getByLabelText("Ceph Admin access key")).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Prepare Ceph Admin keys" }));
+    fireEvent.change(screen.getByLabelText("Ceph Admin access key"), { target: { value: "external-admin-key" } });
+    expect(screen.getByLabelText("Ceph Admin secret key")).toBeVisible();
+    expect(screen.getByRole("switch", { name: "Allow Ceph Admin on this endpoint" })).not.toBeChecked();
+    expect(updateStorageEndpointMock).not.toHaveBeenCalled();
   });
 
   it("distinguishes rejected credentials from an unavailable validation endpoint", async () => {

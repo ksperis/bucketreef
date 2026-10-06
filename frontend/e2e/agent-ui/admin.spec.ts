@@ -67,8 +67,8 @@ test("keeps Runtime and Supervision permanent and requires explicit external rep
   } }));
   await page.goto("/admin/storage-endpoints/901");
   await page.getByRole("tab", { name: "Credentials", exact: true }).click();
-  await expect(page.getByText("Runtime Read Ops · Managed · Ready", { exact: true })).toBeVisible();
-  await expect(page.getByText("Supervision Ops · Managed · Ready", { exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Runtime Read Ops", exact: true }).getByText("Configured", { exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Supervision Ops", exact: true }).getByText("Configured", { exact: true })).toBeVisible();
   await expect(page.getByText("Recommended Admin Ops", { exact: true })).toBeVisible();
   await expect(page.getByText("Advanced: restrict Admin Ops permissions", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Runtime access key", { exact: true })).toHaveCount(0);
@@ -77,12 +77,13 @@ test("keeps Runtime and Supervision permanent and requires explicit external rep
   await expect(page.getByLabel("Ceph Admin secret key", { exact: true })).toHaveValue("");
   await expect(page.getByRole("switch", { name: "Allow Ceph Admin on this endpoint" })).toBeVisible();
   await page.getByLabel("Identity management").selectOption("external");
-  await expect(page.getByText("Current saved configuration", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Pending save · Current saved configuration: Managed by BucketReef/)).toBeVisible();
   await expect(page.getByText(/Saving replaces and revokes the current managed identities/)).toBeVisible();
   await expect(page.getByLabel("Runtime access key", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Runtime secret key", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Supervision access key", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Supervision secret key", { exact: true })).toHaveValue("");
+  await page.getByText("Prepare Ceph Admin keys", { exact: true }).click();
   await expect(page.getByLabel("Ceph Admin access key", { exact: true })).toBeVisible();
   for (const label of ["Runtime access key", "Runtime secret key", "Supervision access key", "Supervision secret key"]) {
     await expect(page.getByLabel(label, { exact: true })).toHaveAttribute("required", "");

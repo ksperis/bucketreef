@@ -8,6 +8,7 @@ import type {
 import UiBadge from "../../components/ui/UiBadge";
 
 type CredentialCheckViewStatus = StorageEndpointCredentialCheckStatus | "checking";
+export type CredentialCheckView = { status: CredentialCheckViewStatus; message?: string | null };
 
 export function hasAccountProvisioningPermissions(
   permissions?: StorageEndpointAdminOpsPermissions | null,
@@ -176,7 +177,7 @@ export function resolveCredentialCheckView({
   checking: boolean;
   check: StorageEndpointCredentialCheck;
   incompleteMessage: string;
-}): { status: CredentialCheckViewStatus; message?: string | null } | null {
+}): CredentialCheckView | null {
   const normalizedAccessKey = accessKey.trim();
   const normalizedSecretKey = secretKey.trim();
   if (!normalizedAccessKey && !normalizedSecretKey && !reuseStoredCredentials) return null;
