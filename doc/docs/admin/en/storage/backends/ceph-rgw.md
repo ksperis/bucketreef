@@ -100,9 +100,9 @@ and admin/system flags rather than using Admin Ops as a fallback.
 
 Managed identities have distinct installation/endpoint-based UIDs, encrypted
 secrets, ownership provenance, and resumable states. In the interactive Admin UI,
-Runtime and Supervision are shown as **Not created** while managed provisioning is
-pending. When Admin Ops credentials are present and validated with `users=write`, the
-primary action becomes **Save endpoint & create managed identities** (or **Save & create
+Runtime and Supervision are shown as **Creation planned** before the initial save
+and **Not created** on a saved endpoint awaiting managed provisioning. When Admin Ops
+credentials are present and validated with `users=write`, the primary action becomes **Save endpoint & create managed identities** (or **Save & create
 managed identities** while editing). BucketReef persists the endpoint first as
 `not_provisioned`, then creates both identities, validates Runtime access, bucket
 statistics and Usage, and keeps the editor open on the resulting state. If Admin Ops
@@ -111,7 +111,7 @@ completed with **Create managed identities**. Feature detection remains read-onl
 Admin Ops inspects administration and Account support, while Supervision is the sole
 identity used to probe Usage. Empty usage data does not block identity readiness, but
 Usage availability needs recorded traffic. After an attempted provisioning failure,
-fix RGW access and use **Retry service identity configuration**.
+fix RGW access and use **Retry configuration**.
 
 Existing Supervision credentials migrate as external without changing their RGW
 users. Existing endpoints need Runtime configured before live enrichment resumes.
@@ -141,9 +141,10 @@ BucketReef never adopts or removes unexpected keys automatically. Inspect the RG
 user, remove the unexpected keys externally, then retry service identity configuration
 or pending revocation. These ownership rules do not restrict external identities.
 
-Configure **Ceph Admin** in an endpoint's **Credentials** tab: enter both keys
-and enable its endpoint authorization. These fields are independent of the
-Runtime/Supervision management mode and remain available while the global feature
+Configure **Ceph Admin** in an endpoint's **Credentials** tab: expand **Prepare
+Ceph Admin keys**, enter both keys and enable its endpoint authorization. These
+fields are independent of the Runtime/Supervision management mode and remain
+available while the global feature
 is disabled. Enable the workspace in **General settings → Ceph Admin**. User access
 is assigned separately through user/group settings, or explicitly by onboarding.
 
@@ -182,7 +183,16 @@ There is no fallback to Admin Ops for live reads or monitoring.
 Renaming an endpoint or resynchronizing an identical external credential pair keeps
 its validation state. Changing the pair or RGW target requires revalidation. Removing
 `users=write` preserves ready managed identities; restore it to create, convert or
-rotate them. Both fields are required to replace an external service credential pair.
+rotate them. Both fields are required to replace an external service credential pair. Expand
+**Replace Runtime keys** or **Replace Supervision keys** to enter a replacement;
+leave both fields empty to retain the stored pair.
+
+The Credentials tab groups each service identity with its saved configuration state
+and current access check. **Configured** is a saved state, not proof that a current
+check succeeded. Diagnostics and monitoring checks expand inline; missing usage data
+is distinct from rejected access. A draft mode change displays **Pending save** and
+its effect before the saved configuration is replaced. Admin Ops permission details
+are folded when complete and remain visible when required capabilities are missing.
 
 Administration instances and dedicated Ceph Admin instances reconcile persisted
 Ceph endpoints at startup, recovering interrupted Runtime/Supervision provisioning
@@ -200,7 +210,7 @@ through the database commit.
 
 Use **Save endpoint & create managed identities** when creating an endpoint with
 validated Admin Ops, **Create managed identities** for a saved `not_provisioned`
-endpoint, and **Retry service identity configuration** only after an attempted
+endpoint, and **Retry configuration** only after an attempted
 provisioning or validation failure.
 For a pending rotation use **Key Rotation**, select the same endpoint, category and
 old-key handling, then run it again. See [Key Rotation](../../platform/key-rotation.md)
