@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import User
+from app.db import StorageEndpoint as DBStorageEndpoint, User
 from app.models.storage_endpoint import (
     StorageEndpoint,
     StorageEndpointCreate,
@@ -215,7 +215,7 @@ def delete_storage_endpoint(
 
 @router.post("/{endpoint_id}/service-identities/reconcile", response_model=StorageEndpoint)
 def reconcile_service_identities(
-    endpoint_id: int, request: Request,
+    endpoint_id: int, request: Request, background_tasks: BackgroundTasks,
     service: StorageEndpointsService = Depends(get_service),
     current_user: User = Depends(get_current_ui_superadmin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -223,10 +223,22 @@ def reconcile_service_identities(
     require_admin_sensitive_action(request, service.db, current_user)
     service.actor = current_user
     try:
+        endpoint = service.db.get(DBStorageEndpoint, endpoint_id)
+        initial_provisioning = bool(
+            endpoint
+            and any(
+                identity.kind in ("runtime", "supervision")
+                and identity.mode == "managed"
+                and identity.status == "not_provisioned"
+                for identity in endpoint.service_identities
+            )
+        )
         result = service.reconcile_identities(endpoint_id)
         audit_service.record_action(user=current_user, scope="admin", action="endpoint_service_identity.reconcile",
                                     entity_type="storage_endpoint", entity_id=str(endpoint_id),
-                                    metadata={"endpoint_id": endpoint_id})
+                                    metadata={"endpoint_id": endpoint_id,
+                                              "operation": "provision" if initial_provisioning else "retry"})
+        background_tasks.add_task(run_initial_healthchecks, endpoint_id=endpoint_id)
         return result
     except ValueError as exc:
         raise_http_error_from_value_error(exc)

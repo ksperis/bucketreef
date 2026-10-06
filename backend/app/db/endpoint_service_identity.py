@@ -16,7 +16,7 @@ class EndpointServiceIdentity(Base):
         CheckConstraint("kind IN ('runtime', 'supervision', 'ceph_admin')", name="ck_endpoint_service_identity_kind"),
         CheckConstraint("mode IN ('managed', 'external')", name="ck_endpoint_service_identity_mode"),
         CheckConstraint("kind != 'ceph_admin' OR mode = 'managed'", name="ck_endpoint_service_identity_ceph_admin_managed"),
-        CheckConstraint("status IN ('missing', 'provisioning', 'ready', 'error', 'revocation_pending', 'disabled')", name="ck_endpoint_service_identity_status"),
+        CheckConstraint("status IN ('not_provisioned', 'missing', 'provisioning', 'ready', 'error', 'revocation_pending', 'disabled')", name="ck_endpoint_service_identity_status"),
     )
     id = Column(Integer, primary_key=True)
     endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id", ondelete="CASCADE"), nullable=False, index=True)

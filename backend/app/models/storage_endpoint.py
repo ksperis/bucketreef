@@ -52,7 +52,15 @@ class EndpointServiceIdentityStatus(ApiModel):
     kind: Literal["runtime", "supervision", "ceph_admin"]
     mode: Literal["managed", "external"]
     rgw_uid: Optional[str] = None
-    status: str
+    status: Literal[
+        "not_provisioned",
+        "missing",
+        "provisioning",
+        "ready",
+        "error",
+        "revocation_pending",
+        "disabled",
+    ]
     credentials_configured: bool = False
     rotation_pending: bool = False
     rotation_phase: Optional[Literal["prepared", "activated"]] = None

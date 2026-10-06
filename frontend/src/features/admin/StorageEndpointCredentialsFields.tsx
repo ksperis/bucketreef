@@ -96,48 +96,71 @@ export default function StorageEndpointCredentialsFields(props: Props) {
   </UiInlineMessage>;
   const savedMode = props.identities?.find(identity => identity.kind === "runtime")?.mode;
   const modeChanged = props.editing && savedMode && savedMode !== props.form.service_identity_mode;
+  const initialProvisioning = props.form.service_identity_mode === "managed" && Boolean(
+    props.identities?.some(identity =>
+      (identity.kind === "runtime" || identity.kind === "supervision") &&
+      identity.mode === "managed" &&
+      identity.status === "not_provisioned"
+    )
+  );
   const needsReconciliation = ["runtime", "supervision", ...(props.cephAdminEnabled && props.form.ceph_admin_allowed ? ["ceph_admin"] : [])]
     .some(kind => {
       const identity = props.identities?.find(candidate => candidate.kind === kind);
+      if (identity?.mode === "managed" && identity.status === "not_provisioned") return false;
       return !identity || identity.status !== "ready" || Boolean(identity.last_error);
     });
+  const showIdentityAction = Boolean(props.onReconcile && (initialProvisioning || needsReconciliation));
+  const identityActionDisabled = Boolean(
+    props.reconciling ||
+    props.configurationDirty ||
+    (initialProvisioning && props.usersWrite !== true)
+  );
   return <>
     <SettingsSection title="Administration (Admin Ops)" description="Bootstrap and delegated administration." presentation="compact">
       <CredentialFields {...props} kind="admin" label="Admin" required={props.form.features.admin.enabled} />
       {!props.readOnly && <CommandExample title="Recommended Admin Ops" defaultOpen={!props.form.has_admin_secret}>{ADMIN_OPS_FULL_COMMAND}</CommandExample>}
     </SettingsSection>
     <SettingsSection title="Service identities" description="Runtime handles live reads; Supervision handles usage and metrics. Both are required for Ceph." presentation="compact">
-      <SettingsSelect label="Identity management" value={props.form.service_identity_mode} disabled={props.readOnly}
-        onChange={event => {
-          const mode = event.target.value as FormState["service_identity_mode"];
-          props.invalidateChecks();
-          props.setForm(previous => ({ ...previous, service_identity_mode: mode,
-            ...(mode === "external" && previous.service_identity_mode === "managed" ? {
-              runtime_access_key: "", runtime_secret_key: "", has_runtime_secret: false,
-              supervision_access_key: "", supervision_secret_key: "", has_supervision_secret: false,
-            } : {}),
-          }));
-        }}>
-        <option value="managed" disabled={props.usersWrite === false && !props.identities?.some(identity => identity.mode === "managed" && identity.status === "ready")}>Managed by BucketReef</option>
-        <option value="external">Provided externally</option>
-      </SettingsSelect>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
+          <SettingsSelect label="Identity management" value={props.form.service_identity_mode} disabled={props.readOnly}
+            onChange={event => {
+              const mode = event.target.value as FormState["service_identity_mode"];
+              props.invalidateChecks();
+              props.setForm(previous => ({ ...previous, service_identity_mode: mode,
+                ...(mode === "external" && previous.service_identity_mode === "managed" ? {
+                  runtime_access_key: "", runtime_secret_key: "", has_runtime_secret: false,
+                  supervision_access_key: "", supervision_secret_key: "", has_supervision_secret: false,
+                } : {}),
+              }));
+            }}>
+            <option value="managed">Managed by BucketReef</option>
+            <option value="external">Provided externally</option>
+          </SettingsSelect>
+        </div>
+        {showIdentityAction && <SettingsButton variant="secondary" disabled={identityActionDisabled} onClick={props.onReconcile}>
+          {initialProvisioning ? "Create managed identities" : "Retry service identity configuration"}
+        </SettingsButton>}
+      </div>
       {props.usersWrite === false && <UiInlineMessage tone="info">Admin Ops has no users=write permission. Ready managed identities remain usable. Creating, converting or rotating identities requires this permission; otherwise supply external credentials.</UiInlineMessage>}
-      {props.form.service_identity_mode === "managed" && <p className="settings-description">BucketReef manages these identities and keeps their secrets hidden. Disabling features preserves them.</p>}
+      {props.form.service_identity_mode === "managed" && <p className="settings-description">BucketReef manages these identities and keeps their secrets hidden. Save the endpoint first, then create the managed identities explicitly. Disabling features preserves them.</p>}
       {modeChanged && <UiInlineMessage tone="warning">{props.form.service_identity_mode === "external"
         ? "Enter both Runtime and Supervision pairs. Saving replaces and revokes the current managed identities."
-        : "Saving creates managed Runtime and Supervision identities. Existing external RGW users are left unchanged."}</UiInlineMessage>}
+        : "Saving prepares managed Runtime and Supervision identities. Create them explicitly after saving; existing external RGW users are left unchanged."}</UiInlineMessage>}
       {Boolean(props.identities?.length) && <p className="settings-label">Saved configuration</p>}
       {props.identities?.map(identity => <div key={identity.kind} role="status" className="settings-stack">
         <p>{identity.kind === "runtime" ? "Runtime Read Ops" : identity.kind === "supervision" ? "Supervision Ops" : "Ceph Admin"} · {identity.mode === "managed" ? "Managed" : "External"} · {identity.status === "ready" ? "Ready" : identity.status.replaceAll("_", " ")}</p>
         {identity.rotation_pending && <UiInlineMessage tone="warning">Rotation pending · {identity.rotation_phase}. Retry this category from S3 key rotation.</UiInlineMessage>}
         {identity.last_error && <UiInlineMessage tone="error">{identity.last_error}</UiInlineMessage>}
       </div>)}
-      {props.editing && !props.identities?.some(identity => identity.kind === "runtime" && identity.status === "ready") && <UiInlineMessage tone="warning">Configure Runtime Read Ops to restore live enrichment. Admin Ops is never used as a fallback.</UiInlineMessage>}
+      {props.editing && !props.identities?.some(identity => identity.kind === "runtime" && identity.status === "ready") && <UiInlineMessage tone="warning">{initialProvisioning
+        ? "Create the managed Runtime and Supervision identities to enable live enrichment and monitoring. Admin Ops is never used as a fallback."
+        : "Configure Runtime Read Ops to restore live enrichment. Admin Ops is never used as a fallback."}</UiInlineMessage>}
       {props.identities?.some(identity => identity.rotation_pending) && <UiButtonLink to="/admin/key-rotation" variant="secondary" size="sm">Resume key rotation</UiButtonLink>}
-      {props.onReconcile && needsReconciliation && <>
-        <SettingsButton variant="secondary" disabled={props.reconciling || props.configurationDirty} onClick={props.onReconcile}>Retry service identity configuration</SettingsButton>
-        {props.configurationDirty && <p className="settings-description">Save or discard endpoint changes before retrying the saved configuration.</p>}
-      </>}
+      {showIdentityAction && props.configurationDirty && <p className="settings-description">{initialProvisioning
+        ? "Save or discard endpoint changes before creating the managed identities."
+        : "Save or discard endpoint changes before retrying the saved configuration."}</p>}
+      {initialProvisioning && props.usersWrite !== true && props.usersWrite !== false && <p className="settings-description">Validate Admin Ops with users=write before creating managed identities.</p>}
     </SettingsSection>
     {props.form.service_identity_mode === "external" && <SettingsSection title="Live reads (Runtime Read Ops)" description="Read-only accounts, users without keys, and bucket statistics for Manager and Portal." presentation="compact">
       <CredentialFields {...props} kind="runtime" label="Runtime" required />

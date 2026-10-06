@@ -141,7 +141,7 @@ class StorageEndpointsService:
         identity.access_key = None
         identity.secret_key = None
         identity.provenance = None
-        identity.status = "missing"
+        identity.status = "not_provisioned" if mode == "managed" else "missing"
         identity.last_error = None
         identity.last_reconciled_at = None
 
@@ -173,7 +173,7 @@ class StorageEndpointsService:
                 runtime = EndpointServiceIdentity(
                     kind="runtime",
                     mode=identity_mode,
-                    status="missing",
+                    status="not_provisioned" if identity_mode == "managed" else "missing",
                 )
                 endpoint.service_identities.append(runtime)
             else:
@@ -188,7 +188,7 @@ class StorageEndpointsService:
                 supervision = EndpointServiceIdentity(
                     kind="supervision",
                     mode=runtime.mode,
-                    status="missing",
+                    status="not_provisioned" if runtime.mode == "managed" else "missing",
                 )
                 endpoint.service_identities.append(supervision)
             if supervision is not None and supervision.mode == "external":
@@ -263,7 +263,11 @@ class StorageEndpointsService:
             self.db.add(endpoint)
             self.db.commit()
             if endpoint_identity_management_enabled(settings) and endpoint.admin_access_key and endpoint.admin_secret_key:
-                identities.reconcile(endpoint, locked=handle is not None)
+                identities.reconcile(
+                    endpoint,
+                    locked=handle is not None,
+                    provision_unprovisioned=True,
+                )
         finally:
             if lease is not None:
                 lease.release(handle)
@@ -421,10 +425,14 @@ class StorageEndpointsService:
         self._apply_endpoint_state(endpoint, state)
         endpoint.is_default = False
         endpoint.is_editable = True
-        # Durable endpoint IDs are required for resumable remote provisioning.
+        # Durable endpoint IDs are required before any remote validation or provisioning.
         self._persist_endpoint(endpoint, commit=True)
         if endpoint.provider == "ceph" and endpoint.admin_access_key:
-            self.reconcile_identities(endpoint.id)
+            from app.services.endpoint_service_identities import EndpointServiceIdentityService
+            EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(
+                endpoint,
+                provision_unprovisioned=False,
+            )
         return self._serialize(endpoint)
 
     def update_endpoint(self, endpoint_id: int, payload: StorageEndpointUpdate) -> StorageEndpointSchema:
@@ -442,11 +450,6 @@ class StorageEndpointsService:
         lease, handle = identities._lease(endpoint)
         try:
             state = normalize_storage_endpoint_update(endpoint, payload)
-            runtime = endpoint.service_identity("runtime")
-            if state.service_identity_mode == "managed" and runtime is not None and runtime.mode == "external":
-                _, permissions = identities.admin_permissions(state)
-                if not permissions.users_write:
-                    raise ValueError("Managed identity conversion requires Admin Ops users=write.")
             if state.service_identity_mode == "external" or state.provider != StorageProvider.CEPH:
                 for kind in ("runtime", "supervision"):
                     identity = endpoint.service_identity(kind)
@@ -459,7 +462,11 @@ class StorageEndpointsService:
             self._apply_endpoint_state(endpoint, state)
             self._persist_endpoint(endpoint)
             if endpoint.provider == "ceph":
-                identities.reconcile(endpoint, locked=True)
+                identities.reconcile(
+                    endpoint,
+                    locked=True,
+                    provision_unprovisioned=False,
+                )
         finally:
             lease.release(handle)
         return self._serialize(endpoint)
@@ -469,7 +476,10 @@ class StorageEndpointsService:
         endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if endpoint is None:
             raise StorageEndpointNotFoundError("Endpoint not found.")
-        EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(endpoint)
+        EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(
+            endpoint,
+            provision_unprovisioned=True,
+        )
         return self._serialize(endpoint)
 
     def delete_endpoint(self, endpoint_id: int) -> None:
