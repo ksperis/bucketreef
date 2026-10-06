@@ -1072,8 +1072,12 @@ describe("manager shell pages", () => {
     const quotaStatus = screen.getByRole("heading", { name: "Quota status" }).closest("section");
     expect(quotaStatus).not.toBeNull();
     const quotaStatusScope = within(quotaStatus!);
+    expect(
+      Array.from(quotaStatus!.querySelectorAll("[data-quota-status-row]"), (row) => row.getAttribute("data-quota-status-row")),
+    ).toEqual(["Storage", "Objects", "Buckets", "Users", "Roles", "Groups"]);
     expect(quotaStatusScope.getByText("Buckets")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Buckets"]')).toHaveTextContent("2 / 4");
+    expect(quotaStatusScope.getByRole("link", { name: "View all buckets" })).toHaveAttribute("href", "/manager/buckets");
     expect(quotaStatusScope.getByText("Users")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("2 / 5");
     expect(quotaStatusScope.getByRole("link", { name: "View all users" })).toHaveAttribute("href", "/manager/users");
@@ -1089,7 +1093,9 @@ describe("manager shell pages", () => {
     expect(screen.getByText("Growth (last 30 days)")).toBeInTheDocument();
     expect(screen.getByText(trendText("1 vs last 30 days"))).toBeInTheDocument();
     expect(screen.getByText(trendText("4 vs last 30 days"))).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /View all buckets/ })).toHaveAttribute("href", "/manager/buckets");
+    expect(
+      within(screen.getByTestId("manager-dashboard-top-buckets-card")).getByRole("link", { name: "View all buckets" }),
+    ).toHaveAttribute("href", "/manager/buckets");
   });
 
   it("renders fallback usage trend labels with negative and neutral deltas", async () => {
