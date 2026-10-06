@@ -33,6 +33,7 @@ class KeyRotationService:
     _ENV_MANAGED_ENDPOINT_KEY_TYPES: frozenset[KeyRotationType] = frozenset(
         {
             KeyRotationType.ENDPOINT_ADMIN,
+            KeyRotationType.CEPH_ADMIN,
         }
     )
 
@@ -92,9 +93,6 @@ class KeyRotationService:
 
     def _rotate_by_type(self, *, endpoint, key_type, deactivate_only):
         from app.services.durable_key_rotation_service import DurableKeyRotationService, SERVICE_TYPES, pending_rotation
-        if key_type == KeyRotationType.CEPH_ADMIN:
-            return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
-                status="skipped", message="Ceph Admin keys must be replaced manually in endpoint settings.")], 0, 0)
         if endpoint.provider != "ceph":
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
                 status="failed", message="Key rotation is only supported for Ceph endpoints.")], 0, 0)
@@ -106,6 +104,13 @@ class KeyRotationService:
             if identity is None or identity.mode != "managed":
                 return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
                     status="skipped", message="External service credentials must be rotated by their operator.")], 0, 0)
+            targets = [identity]
+            target_type = "endpoint"
+        elif key_type == KeyRotationType.CEPH_ADMIN:
+            identity = endpoint.service_identity("ceph_admin")
+            if identity is None or identity.mode != "external":
+                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
+                    status="skipped", message="Ceph Admin credentials are not configured for this endpoint.")], 0, 0)
             targets = [identity]
             target_type = "endpoint"
         elif key_type == KeyRotationType.ACCOUNT:

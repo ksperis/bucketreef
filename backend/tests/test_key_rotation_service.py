@@ -402,19 +402,21 @@ def test_env_managed_endpoint_credentials_are_skipped_without_rgw_calls(db_sessi
             key_types=[
                 KeyRotationType.ENDPOINT_ADMIN,
                 KeyRotationType.ENDPOINT_SUPERVISION,
+                KeyRotationType.CEPH_ADMIN,
             ],
             deactivate_only=False,
         )
     )
 
     db_session.refresh(endpoint)
-    assert result.summary.total == 2
+    assert result.summary.total == 3
     assert result.summary.rotated == 0
     assert result.summary.failed == 0
-    assert result.summary.skipped == 2
+    assert result.summary.skipped == 3
     assert {item.key_type for item in result.results} == {
         KeyRotationType.ENDPOINT_ADMIN,
         KeyRotationType.ENDPOINT_SUPERVISION,
+        KeyRotationType.CEPH_ADMIN,
     }
     assert all("ENV_STORAGE_ENDPOINTS" in (item.message or "") or "External service" in (item.message or "") for item in result.results)
     assert endpoint.admin_access_key == "ADM-OLD"

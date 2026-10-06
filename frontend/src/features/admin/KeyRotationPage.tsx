@@ -64,6 +64,12 @@ const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
       "Rotate supervision credentials used for usage and metrics collection.",
   },
   {
+    value: "ceph_admin",
+    label: "Ceph Admin keys",
+    description:
+      "Rotate the dedicated Ceph Admin credentials configured on each selected endpoint.",
+  },
+  {
     value: "account",
     label: "Account keys",
     description: "Rotate interface keys for managed RGW accounts.",
@@ -84,7 +90,7 @@ const KEY_TYPE_LABEL: Record<KeyRotationType, string> = {
   ceph_admin: "Ceph-admin",
 };
 
-const ENV_MANAGED_ENDPOINT_KEY_TYPES: KeyRotationType[] = ["endpoint_admin"];
+const ENV_MANAGED_ENDPOINT_KEY_TYPES: KeyRotationType[] = ["endpoint_admin", "ceph_admin"];
 const TECHNICAL_TYPES: KeyRotationType[] = ["endpoint_runtime", "endpoint_supervision"];
 
 function isEndpointEligible(endpoint: StorageEndpoint, types: KeyRotationType[]): boolean {
@@ -93,6 +99,14 @@ function isEndpointEligible(endpoint: StorageEndpoint, types: KeyRotationType[])
     if (TECHNICAL_TYPES.includes(type)) {
       const kind = type === "endpoint_runtime" ? "runtime" : type === "endpoint_supervision" ? "supervision" : "ceph_admin";
       return endpoint.service_identities?.some(identity => identity.kind === kind && identity.mode === "managed" && (identity.status === "ready" || identity.rotation_pending)) ?? false;
+    }
+    if (type === "ceph_admin") {
+      const identity = endpoint.service_identities?.find(candidate => candidate.kind === "ceph_admin");
+      return Boolean(
+        endpoint.is_editable !== false &&
+        identity?.mode === "external" &&
+        (identity.status === "ready" || identity.rotation_pending)
+      );
     }
     return Boolean(endpoint.capabilities?.admin ?? endpoint.features?.admin?.enabled);
   });
@@ -167,7 +181,8 @@ export default function KeyRotationPage() {
   const [selectedTypes, setSelectedTypes] = useState<KeyRotationType[]>([
     "endpoint_admin",
     "endpoint_runtime",
-  "endpoint_supervision",
+    "endpoint_supervision",
+    "ceph_admin",
     "account",
     "s3_user",
   ]);
@@ -319,7 +334,7 @@ export default function KeyRotationPage() {
   return (
     <PageShell actionPresentation="listing"
       title="S3 key rotation"
-      description="Replace managed RGW keys on selected Ceph endpoints."
+      description="Replace RGW keys managed by BucketReef on selected Ceph endpoints."
       breadcrumbs={adminPageBreadcrumbs("key-rotation")}
     >
       <div className="settings-compact">
@@ -436,9 +451,9 @@ export default function KeyRotationPage() {
         >
           {hasSelectedEnvManagedEndpointKeys && (
             <PageBanner tone="warning">
-              Admin Ops keys supplied by ENV_STORAGE_ENDPOINTS will be skipped.
+              Admin Ops and Ceph Admin keys supplied by ENV_STORAGE_ENDPOINTS will be skipped.
               Rotate them externally and update the environment values. Managed service identities,
-              account keys and S3 user keys remain eligible. External service identities are rotated by their operator.
+              account keys and S3 user keys remain eligible. Other external service identities are rotated by their operator.
             </PageBanner>
           )}
           <SettingsItem

@@ -85,7 +85,7 @@ describe("KeyRotationPage", () => {
     await waitFor(() =>
       expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
         endpoint_ids: [7],
-        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "account", "s3_user"],
+        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "ceph_admin", "account", "s3_user"],
         deactivate_only: false,
       })
     );
@@ -139,7 +139,7 @@ describe("KeyRotationPage", () => {
 
     expect(await screen.findByText("Ceph env")).toBeInTheDocument();
     expect(
-      screen.getByText(/Admin Ops keys supplied by ENV_STORAGE_ENDPOINTS/)
+      screen.getByText(/Admin Ops and Ceph Admin keys supplied by ENV_STORAGE_ENDPOINTS/)
     ).toBeInTheDocument();
     expect(screen.getByText(/Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS/)).toBeInTheDocument();
 
@@ -150,7 +150,7 @@ describe("KeyRotationPage", () => {
     await waitFor(() =>
       expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
         endpoint_ids: [7],
-        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "account", "s3_user"],
+        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "ceph_admin", "account", "s3_user"],
         deactivate_only: false,
       })
     );
@@ -214,6 +214,24 @@ describe("KeyRotationPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm rotation" }));
     await waitFor(() => expect(mocks.rotateS3Keys).toHaveBeenCalledWith({endpoint_ids: [7], key_types: ["endpoint_runtime"], deactivate_only: false}));
+  });
+
+  it("can target a ready Ceph Admin identity as its own rotation category", async () => {
+    mocks.listStorageEndpoints.mockResolvedValue([{
+      id: 7, name: "Ceph Admin endpoint", endpoint_url: "https://rgw.example.test", provider: "ceph",
+      capabilities: { admin: false }, is_editable: true,
+      service_identities: [{ kind: "ceph_admin", mode: "external", status: "ready", credentials_configured: true }],
+    }]);
+    renderPage(); await screen.findByText("Ceph Admin endpoint");
+    fireEvent.click(screen.getByRole("button", { name: "Clear categories" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Ceph Admin keys/ }));
+    expect(screen.getByRole("button", { name: "Run rotation" })).toBeEnabled();
+    expect(screen.getByRole("switch", { name: "Disable old keys only" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rotation" }));
+    await waitFor(() => expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
+      endpoint_ids: [7], key_types: ["ceph_admin"], deactivate_only: false,
+    }));
   });
 
 });

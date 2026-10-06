@@ -17,6 +17,7 @@ from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint, 
 from app.utils.time import utcnow
 
 SERVICE_TYPES = {"endpoint_runtime": "runtime", "endpoint_supervision": "supervision"}
+IDENTITY_TYPES = {**SERVICE_TYPES, "ceph_admin": "ceph_admin"}
 
 
 def pending_rotation(db, endpoint_id, key_type, target_id):
@@ -43,17 +44,19 @@ class DurableKeyRotationService:
         )
 
     def _target(self, endpoint, key_type, target_id):
-        model = EndpointServiceIdentity if key_type in SERVICE_TYPES else S3Account if key_type == "account" else S3User if key_type == "s3_user" else StorageEndpoint
+        model = EndpointServiceIdentity if key_type in IDENTITY_TYPES else S3Account if key_type == "account" else S3User if key_type == "s3_user" else StorageEndpoint
         target = self.db.query(model).populate_existing().filter(model.id == target_id).first()
         if target is None or ((target.id if model == StorageEndpoint else target.endpoint_id if model == EndpointServiceIdentity else target.storage_endpoint_id) != endpoint.id):
             raise ValueError("Rotation target no longer belongs to this endpoint.")
         if key_type in SERVICE_TYPES and (target.kind != SERVICE_TYPES[key_type] or target.mode != "managed"):
             raise ValueError("Only managed service identities can be rotated.")
+        if key_type == "ceph_admin" and (target.kind != "ceph_admin" or target.mode != "external"):
+            raise ValueError("Ceph Admin rotation requires the configured external identity.")
         return target
 
     @staticmethod
     def _fields(key_type):
-        return ("access_key", "secret_key") if key_type in SERVICE_TYPES else ("admin_access_key", "admin_secret_key") if key_type == "endpoint_admin" else ("rgw_access_key", "rgw_secret_key")
+        return ("access_key", "secret_key") if key_type in IDENTITY_TYPES else ("admin_access_key", "admin_secret_key") if key_type == "endpoint_admin" else ("rgw_access_key", "rgw_secret_key")
 
     def _validate(self, endpoint, key_type, target, admin, payload, access, secret):
         entries = RgwUserKeyParser.to_access_keys(admin.extract_keys(payload), ui_managed_access_key=None)
@@ -75,6 +78,24 @@ class DurableKeyRotationService:
                 if classify_rgw_credential_failure(exc) == "denied":
                     raise ReplacementValidationError("Replacement service key was rejected by RGW.") from exc
                 raise
+        elif key_type == "ceph_admin":
+            try:
+                self.identities.validate_payload("ceph_admin", payload)
+                self.identities._functional_check(
+                    endpoint,
+                    SimpleNamespace(
+                        kind="ceph_admin",
+                        rgw_uid=target.rgw_uid,
+                        access_key=access,
+                        secret_key=secret,
+                    ),
+                )
+            except ValueError as exc:
+                raise ReplacementValidationError(str(exc)) from exc
+            except RGWAdminError as exc:
+                if classify_rgw_credential_failure(exc) == "denied":
+                    raise ReplacementValidationError("Replacement Ceph Admin key was rejected by RGW.") from exc
+                raise
         elif key_type == "endpoint_admin":
             from app.services.storage_endpoint_admin_permissions import admin_ops_permissions_from_caps
             client = get_rgw_admin_client(access_key=access, secret_key=secret, endpoint=resolve_rgw_admin_api_endpoint(endpoint), region=endpoint.region, verify_tls=endpoint.verify_tls)
@@ -86,7 +107,7 @@ class DurableKeyRotationService:
     def rotate(self, endpoint, key_type, target_id, *, deactivate_only=False):
         if deactivate_only and key_type in SERVICE_TYPES:
             raise ValueError("Managed service identities require deleting previous keys; select delete mode.")
-        if key_type not in (*SERVICE_TYPES, "endpoint_admin", "account", "s3_user"):
+        if key_type not in (*SERVICE_TYPES, "ceph_admin", "endpoint_admin", "account", "s3_user"):
             raise ValueError("Unsupported rotation category.")
         lease, handle = self.identities._lease(endpoint)
         intent = None
@@ -98,10 +119,10 @@ class DurableKeyRotationService:
             target = self._target(endpoint, key_type, target_id)
             access_field, secret_field = self._fields(key_type)
             intent = pending_rotation(self.db, endpoint.id, key_type, target.id)
-            if key_type not in SERVICE_TYPES and intent is None and not resolve_feature_flags(endpoint).admin_enabled:
+            if key_type not in IDENTITY_TYPES and intent is None and not resolve_feature_flags(endpoint).admin_enabled:
                 raise ValueError("Admin feature is disabled for this category.")
-            if key_type in SERVICE_TYPES and target.status != "ready" and intent is None:
-                raise ValueError("Only ready managed service identities can be rotated.")
+            if key_type in IDENTITY_TYPES and target.status != "ready" and intent is None:
+                raise ValueError("Only ready service identities can be rotated.")
             admin, permissions = self.identities.admin_permissions(endpoint)
             if not permissions.users_write:
                 raise ValueError("Key rotation requires Admin Ops users=write.")
@@ -109,7 +130,7 @@ class DurableKeyRotationService:
                 old_access = getattr(target, access_field)
                 if not old_access or not getattr(target, secret_field):
                     raise ValueError("Rotation credentials are not configured.")
-                uid = target.rgw_uid if key_type in SERVICE_TYPES else getattr(target, "rgw_user_uid", None)
+                uid = target.rgw_uid if key_type in IDENTITY_TYPES else getattr(target, "rgw_user_uid", None)
                 tenant = None
                 if uid is None:
                     from app.services.key_rotation_rgw import RgwAccessKeyRotator
@@ -177,7 +198,7 @@ class DurableKeyRotationService:
             result = intent.old_access_key, intent.new_access_key, "disabled" if intent.deactivate_only else "deleted"
             self._audit(endpoint, intent, "completed")
             self.db.delete(intent)
-            if key_type in SERVICE_TYPES:
+            if key_type in IDENTITY_TYPES:
                 target.last_error = None
                 target.status = "ready"
                 target.last_reconciled_at = utcnow()

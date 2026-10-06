@@ -49,7 +49,7 @@ never automatically repeats an uncertain operation.
 
 ### Durable rotation and recovery
 
-Admin Ops, account interface keys, S3 user interface keys and managed technical keys
+Admin Ops, Ceph Admin, account interface keys, S3 user interface keys and managed technical keys
 use the same endpoint-locked rotation process. The journal stores the intended pair
 encrypted before RGW receives the create request. RGW is asked to create exactly
 that pair (`generate-key=false`, explicit S3 access/secret keys); a lost response
@@ -80,16 +80,19 @@ the journal. Existing `previous_access_key` retirements migrate into activated j
 entries with the encrypted current secret intact. Downgrade requires completing all
 pending rotations first. Back up the database and credential ring together.
 
-Ready managed Runtime/Supervision/Ceph Admin identities are eligible even when the
-endpoint's Admin feature is disabled. Creating replacement keys still requires
-Admin Ops `users=write`.
+Ready managed Runtime/Supervision identities are eligible even when the endpoint's
+Admin feature is disabled. Ceph Admin rotation uses its configured external identity,
+keeps that identity external, and requires working Admin Ops with `users=write` to
+create and retire keys on the same Ceph Admin principal.
 
 ### Endpoints managed by the environment
 
 Admin Ops and externally supplied Runtime/Supervision credentials remain
 operator-managed when an endpoint is configured through `ENV_STORAGE_ENDPOINTS`.
-External service identities are never rotated automatically. Ceph Admin keys must
-be replaced manually in endpoint settings or ENV configuration. Managed Runtime and Supervision keys are
+External Runtime/Supervision identities are never rotated automatically. Ceph Admin
+keys configured on editable endpoints can be rotated from this page; Ceph Admin keys
+supplied by `ENV_STORAGE_ENDPOINTS` must still be replaced in environment configuration.
+Managed Runtime and Supervision keys are
 stored in DB and remain eligible even on an ENV-configured endpoint. Rotation validates
 and saves the new key before retiring the old one; pending retirement is retained and
 retryable without generating another key.
