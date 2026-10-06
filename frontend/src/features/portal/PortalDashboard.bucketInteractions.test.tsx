@@ -245,8 +245,12 @@ describe("PortalDashboard storage workspace UX", () => {
       </MemoryRouter>
     );
 
-    expect(document.querySelector('[data-workspace-dashboard-kpi-row="true"]')).toBeInTheDocument();
-    expect(document.querySelector('[data-workspace-dashboard-kpi-row="true"]')).toHaveClass("xl:grid-cols-5");
+    const kpiRow = document.querySelector('[data-workspace-dashboard-kpi-row="true"]');
+    expect(kpiRow).toBeInTheDocument();
+    expect(kpiRow).toHaveClass("xl:grid-cols-5");
+    expect(
+      Array.from(kpiRow!.querySelectorAll("[data-kpi-card]"), (card) => card.getAttribute("data-kpi-card")),
+    ).toEqual(["Storage used", "Files", "Storage spaces", "Transfer", "Collaborators"]);
     expect(screen.getByText(trendText("256 B vs last 30 days"))).toBeInTheDocument();
     expect(screen.getAllByText(trendText("1 vs last 30 days")).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(trendText("4 vs last 30 days"))).toBeInTheDocument();
