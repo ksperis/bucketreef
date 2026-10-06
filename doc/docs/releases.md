@@ -8,6 +8,7 @@ Current release dates come from the changelog; reconstructed historical dates re
 
 | Version | Date | Notes | Publications |
 | --- | --- | --- | --- |
+| [0.2.14](#release-0-2-14) | 2026-10-06 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.14) |
 | [0.2.13](#release-0-2-13) | 2026-10-01 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.13) |
 | [0.2.12](#release-0-2-12) | 2026-09-29 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.12) |
 | [0.2.11](#release-0-2-11) | 2026-09-29 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.11) |
@@ -34,6 +35,51 @@ Current release dates come from the changelog; reconstructed historical dates re
 | [0.1.2](#release-0-1-2) | 2026-01-09 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.2) |
 | [0.1.1](#release-0-1-1) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.1) |
 | [0.1.0](#release-0-1-0) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.0) |
+
+## 0.2.14 {#release-0-2-14}
+
+[GitHub release](https://github.com/ksperis/bucketreef/releases/tag/v0.2.14)
+
+Compare v0.2.13 → v0.2.14: [GitHub](https://github.com/ksperis/bucketreef/compare/v0.2.13...v0.2.14)
+
+
+### Added
+
+- Add dedicated Runtime Read Ops and Supervision service identities for Ceph RGW endpoints, with explicit validation, provisioning state, rotation recovery, and signed S3 health probes.
+- Add cached Admin dashboard metrics collected through supervision credentials, plus clearer endpoint identity health and recovery feedback.
+- Split the documentation into audience-specific Admin, Manager, Portal, Browser, and Developer guides, including a French Portal guide and contextual documentation links from application workspaces.
+
+### Changed
+
+- Restore manually supplied Ceph Admin credentials in endpoint settings and onboarding; remove the activation dialog and automatic Ceph Admin provisioning/rotation.
+
+- Simplify endpoint Credentials: keep Admin Ops hardening in documentation, fold creation commands for configured identities, and distinguish saved identity state from mode changes.
+- Show service identity retries only when needed, block retries of unsaved endpoint configuration, and report retry failures inside the editor.
+
+- Make Runtime and Supervision permanent service identities for every Ceph endpoint; feature toggles only control their use.
+- Detect Usage exclusively with Supervision, including after managed onboarding provisioning, without requiring Usage capabilities on Admin Ops.
+- Recommend complete provisioning/quota Admin Ops permissions for normal setup and place reduced permissions under advanced hardening guidance.
+
+- Validate the complete ENV endpoint inventory before synchronization and use the same external Runtime credential requirements as the endpoint API.
+- Remove the misleading `commit` argument from endpoint creation; registration persists a durable endpoint before reconciling RGW identities.
+- Detect untracked S3, Swift and temporary URL keys on managed endpoint identities, block their mutations, and report auditable drift without exposing key material.
+- Simplify Portal external-tool configuration and Manager/Admin dashboards while keeping workspace-specific permissions and execution contexts explicit.
+
+### Fixed
+
+- Preserve legacy and externally managed Ceph Admin credentials across the `0.2.13` upgrade path, including endpoints that expose only dedicated Ceph Admin credentials.
+- Namespace automatically generated RGW user identifiers and preserve uniqueness for externally provisioned Portal IAM users.
+- Protect Helm deployments from slow backend startup and refresh frontend base-image security packages.
+- Restore full regression validation and scheduled secret-scan baselines in CI.
+
+### Upgrade notes
+
+- **Breaking change:** Ceph Admin credentials are now operator-managed external pairs. Upgrades from `0.2.13` preserve complete stored Ceph Admin credentials and RGW users, then revalidate the pair after migration; pending managed rotations and managed-only metadata are discarded. Per-endpoint Ceph Admin authorization is intentionally reset to disabled during migration and must be explicitly re-enabled after validating the preserved credentials. Re-enter keys only when the stored pair is incomplete or invalid.
+
+- **Breaking change:** upgrades from `0.2.13` create a Runtime Read Ops identity in `external` / `missing` state for every existing Ceph endpoint because `0.2.13` had no dedicated Runtime credentials. Configure a Runtime pair with exactly `accounts=read;user-info-without-keys=read;buckets=read` and no admin/system flag before Manager/Portal live account, user and bucket reads resume; Admin Ops is not used as a fallback. Existing Supervision credentials are preserved as external and must validate with exactly `usage=read;buckets=read` and no admin/system flag. External Ceph endpoints require complete Runtime and Supervision pairs even when monitoring is disabled. Existing managed endpoints provision missing Supervision at administration startup or reconciliation and need Admin Ops `users=write` for that provisioning.
+
+- **Breaking change:** administered Ceph endpoints configured through `ENV_STORAGE_ENDPOINTS` in external mode must supply both Runtime keys. Incomplete inventories now prevent startup.
+- **Breaking change:** managed Runtime and Supervision rotation requires deletion of the previous key. Disable-only rotation is refused for these identities. Remove previously disabled or manually added keys externally, then retry identity configuration; pending revocations are never announced as successful while unexpected keys remain.
 
 ## 0.2.13 {#release-0-2-13}
 
