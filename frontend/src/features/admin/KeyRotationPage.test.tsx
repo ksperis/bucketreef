@@ -77,6 +77,9 @@ describe("KeyRotationPage", () => {
 
     expect(await screen.findByText("Ceph main")).toBeInTheDocument();
     expect(screen.getByText("Archive S3")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Manually provisioned keys may also be used outside BucketReef.")
+    ).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
     expect(mocks.rotateS3Keys).not.toHaveBeenCalled();

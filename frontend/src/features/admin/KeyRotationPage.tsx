@@ -39,6 +39,7 @@ type RotationTypeOption = {
   value: KeyRotationType;
   label: string;
   description: string;
+  manuallyProvisioned?: boolean;
 };
 
 type KeyRotationResultRow = KeyRotationResultItem & {
@@ -51,6 +52,7 @@ const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
     label: "Endpoint admin keys",
     description:
       "Rotate admin credentials configured on each selected endpoint.",
+    manuallyProvisioned: true,
   },
   {
     value: "endpoint_runtime",
@@ -68,6 +70,7 @@ const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
     label: "Ceph Admin keys",
     description:
       "Rotate the dedicated Ceph Admin credentials configured on each selected endpoint.",
+    manuallyProvisioned: true,
   },
   {
     value: "account",
@@ -414,7 +417,13 @@ export default function KeyRotationPage() {
                 description={option.description}
                 checked={selectedTypes.includes(option.value)}
                 onChange={() => toggleType(option.value)}
-              />
+              >
+                {option.manuallyProvisioned && (
+                  <span className="block text-[var(--ui-text-muted)]">
+                    Manually provisioned keys may also be used outside BucketReef.
+                  </span>
+                )}
+              </SettingsChoiceRow>
             ))}
             {!selectedTypes.length && (
               <p className="settings-readonly">
