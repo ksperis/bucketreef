@@ -129,10 +129,13 @@ function formatQuotaStatusValue(
   used: number | null | undefined,
   quota: number | null | undefined,
   formatter: (value: number) => string
-): string {
-  if (used == null) return "";
+): { current: string; quota: string | null } {
+  if (used == null) return { current: "", quota: null };
   const usableQuota = quota != null && quota > 0 ? quota : null;
-  return usableQuota == null ? formatter(used) : `${formatter(used)} / ${formatter(usableQuota)}`;
+  return {
+    current: formatter(used),
+    quota: usableQuota == null ? null : formatter(usableQuota),
+  };
 }
 
 function formatStatus(status: HealthCheckStatus): string {
@@ -454,6 +457,7 @@ function QuotaStatusCard({
       label: "Users",
       value: formatQuotaStatusValue(visibleUserCount, visibleUserQuota, formatSpacedCompactNumber),
       percent: userPercent,
+      to: "/manager/users",
       tone: "blue" as DashboardTone,
       icon: <UserIcon className="h-3.5 w-3.5" />,
     },
@@ -461,6 +465,7 @@ function QuotaStatusCard({
       label: "Roles",
       value: formatQuotaStatusValue(visibleRoleCount, visibleRoleQuota, formatSpacedCompactNumber),
       percent: rolePercent,
+      to: "/manager/roles",
       tone: "amber" as DashboardTone,
       icon: <ShieldIcon className="h-3.5 w-3.5" />,
     },
@@ -468,6 +473,7 @@ function QuotaStatusCard({
       label: "Groups",
       value: formatQuotaStatusValue(visibleGroupCount, visibleGroupQuota, formatSpacedCompactNumber),
       percent: groupPercent,
+      to: "/manager/groups",
       tone: "emerald" as DashboardTone,
       icon: <GroupIcon className="h-3.5 w-3.5" />,
     },
@@ -486,56 +492,31 @@ function QuotaStatusCard({
                 <span className="ui-dashboard-label">{row.label}</span>
               </div>
               <div>
-                <p className="ui-dashboard-label">{row.value}</p>
+                <p className="ui-dashboard-label">
+                  <span className="font-semibold text-[var(--ui-text)]">{row.value.current}</span>
+                  {row.value.quota && (
+                    <span className={uiMutedTextClass}> / {row.value.quota}</span>
+                  )}
+                </p>
                 {row.percent != null && <ProgressBar value={row.percent} className="mt-1 h-1.5" />}
               </div>
               <span className="text-right ui-dashboard-label">
                 {row.percent == null ? "" : formatPercentage(row.percent)}
               </span>
+              {row.to ? (
+                <Link
+                  to={row.to}
+                  aria-label={`View all ${row.label.toLowerCase()}`}
+                  className="ui-dashboard-text-link justify-end gap-1 text-primary"
+                >
+                  <span className="hidden sm:inline">View all</span>
+                  <OpenIcon className="h-3.5 w-3.5" />
+                </Link>
+              ) : (
+                <span aria-hidden="true" />
+              )}
             </div>
           </div>
-        ))}
-      </div>
-    </section>
-  );
-  return (
-    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
-      {content}
-    </DashboardUnavailable>
-  );
-}
-
-function AccessManagementCard({
-  counts,
-  unavailableReason,
-}: {
-  counts: Array<{ label: string; value: number | null; to: string; tone: DashboardTone; icon: ReactNode }>;
-  unavailableReason?: string | null;
-}) {
-  const content = (
-    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
-      <h2 className="ui-dashboard-title">Access management</h2>
-      <div className="mt-3 divide-y divide-[color:var(--ui-border-soft)]">
-        {counts.map((item) => (
-          <Link
-            key={item.label}
-            to={item.to}
-            className="ui-dashboard-text-link w-full flex-wrap justify-between gap-2 py-1"
-          >
-            <span className="flex min-w-0 items-center gap-3">
-              <IconBubble tone={item.tone} className="h-7 w-7 rounded-md">
-                {item.icon}
-              </IconBubble>
-              <span className="ui-dashboard-label">{item.label}</span>
-            </span>
-            <span className="flex shrink-0 items-center gap-5">
-              <span className={cx("ui-caption font-semibold", uiMutedTextClass)}>{item.value == null ? "" : item.value.toLocaleString()}</span>
-              <span className="inline-flex items-center gap-1 ui-dashboard-note text-primary">
-                View all
-                <OpenIcon className="h-3.5 w-3.5" />
-              </span>
-            </span>
-          </Link>
         ))}
       </div>
     </section>
@@ -990,7 +971,6 @@ export default function ManagerDashboard() {
   const iamUserCount = iamUnavailableReason ? null : iamOverview?.iam_users ?? null;
   const iamGroupCount = iamUnavailableReason ? null : iamOverview?.iam_groups ?? null;
   const iamRoleCount = iamUnavailableReason ? null : iamOverview?.iam_roles ?? null;
-  const iamPolicyCount = iamUnavailableReason ? null : iamOverview?.iam_policies ?? null;
   const userQuota = managerLimits?.max_users ?? null;
   const roleQuota = managerLimits?.max_roles ?? null;
   const groupQuota = managerLimits?.max_groups ?? null;
@@ -1003,36 +983,6 @@ export default function ManagerDashboard() {
     metricsUnavailableReason ||
     (!loading && visibleBucketCount != null && visibleBucketCount > 0 && bucketRows.length === 0 ? "Bucket storage ranking is not available." : null);
   const healthEndpoint = workspaceHealth?.endpoints[0] ?? null;
-  const accessCounts = [
-    {
-      label: "Users",
-      value: iamUserCount,
-      to: "/manager/users",
-      tone: "blue" as DashboardTone,
-      icon: <UserIcon className="h-4 w-4" />,
-    },
-    {
-      label: "Groups",
-      value: iamGroupCount,
-      to: "/manager/groups",
-      tone: "emerald" as DashboardTone,
-      icon: <GroupIcon className="h-4 w-4" />,
-    },
-    {
-      label: "Roles",
-      value: iamRoleCount,
-      to: "/manager/roles",
-      tone: "amber" as DashboardTone,
-      icon: <ShieldIcon className="h-4 w-4" />,
-    },
-    {
-      label: "Policies",
-      value: iamPolicyCount,
-      to: "/manager/iam/policies",
-      tone: "violet" as DashboardTone,
-      icon: <FileIcon className="h-4 w-4" />,
-    },
-  ];
   const metrics = buildWorkspaceDashboardKpis({
     storage: {
       usedBytes: storageUsedBytes,
@@ -1151,7 +1101,7 @@ export default function ManagerDashboard() {
       </div>
 
       <div
-        className="grid ui-dashboard-equal-row gap-3 lg:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)] 2xl:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)_minmax(280px,1fr)]"
+        className="grid ui-dashboard-equal-row gap-3 lg:grid-cols-[minmax(0,1.44fr)_minmax(280px,1fr)]"
         data-testid="manager-dashboard-resource-grid"
       >
         <QuotaStatusCard
@@ -1171,7 +1121,6 @@ export default function ManagerDashboard() {
           bucketUnavailableReason={bucketUnavailableReason}
           iamUnavailableReason={iamUnavailableReason}
         />
-        <AccessManagementCard counts={accessCounts} unavailableReason={iamUnavailableReason} />
         <BackendHealthCard endpoint={healthEndpoint} unavailableReason={endpointUnavailableReason} />
       </div>
 
