@@ -73,11 +73,13 @@ passkey policy. Secure the Admin identity separately before production:
    Ceph Admin. Ceph-specific choices remain available for a Ceph RGW endpoint
    even when its management credentials have not been configured yet.
 3. **Provide credentials.** Use the recommended Admin Ops command with
-   `users=read,write;accounts=read,write;buckets=write` for provisioning, quotas and
-   managed service identities. Managed mode creates Runtime and Supervision for
-   every Ceph endpoint. Advanced hardening can restrict Admin Ops permissions and
-   provide both Runtime and Supervision externally. The private S3 connection
-   keeps its own identity. Feature choices control which workflows run.
+   `users=read,write;accounts=read,write` for provisioning, account/user quotas and
+   managed service identities. Individual bucket quota changes additionally require
+   `buckets=write` and stay unavailable unless that optional capability is granted.
+   Managed mode creates Runtime and Supervision for every Ceph endpoint. Advanced
+   hardening can restrict Admin Ops permissions and provide both Runtime and
+   Supervision externally. The private S3 connection keeps its own identity.
+   Feature choices control which workflows run.
 4. **Review and apply.** Inspect the exact feature activations, resource
    creations and access assignments, then explicitly apply the reviewed
    configuration. **Apply configuration** is available only in this final step.
