@@ -54,9 +54,14 @@ across endpoints in the union of those two groups with healthcheck measurements;
 it is not a live health score. Endpoint Health, incidents and the infrastructure
 map continue to cover the global endpoint inventory.
 
-The card shows separate endpoint coverage for Storage, Traffic and Availability.
+The card keeps a short **Managed & supervised Ceph** scope label beside the
+metrics. The **i** next to its title opens details on hover, keyboard focus or
+click; press Escape or click outside to dismiss it. These details show separate
+endpoint coverage for Storage, Traffic and Availability, collection dates and
+the aggregation and cache rules.
 Storage coverage counts endpoints with all three measurements complete. Available
-partial totals stay visible and are explicitly marked; notes identify endpoints
+partial totals stay visible with compact **Storage partial**, **Traffic partial**
+or **Availability partial** badges; notes in the tooltip identify endpoints
 with missing measurements or failed collection. Missing values appear as a dash,
 while a measured zero stays zero. An empty eligible group explains the required
 Supervision credentials and feature configuration. Storage, traffic and health
@@ -65,7 +70,7 @@ load independently.
 Storage and Traffic results are cached for up to **30 minutes** in memory in each
 backend process. Opening the dashboard or pressing **Refresh** reuses these results
 without contacting RGW again. The first request after expiry collects new data;
-concurrent requests share that collection. The card displays the Storage collection
+concurrent requests share that collection. The information tooltip displays the Storage collection
 date and the end of the Traffic window, while the header's **Updated** date is the
 last dashboard retrieval. Cached reads preserve the original 24-hour window.
 

@@ -56,6 +56,12 @@
   min-height: 28px; height: auto; padding: 3px 8px; font-size: 12px; line-height: 18px; font-weight: 400; border-radius: 6px; white-space: normal;
 }
 .ui-dashboard-action-icon.ui-button-base { min-width: 28px; padding: 3px; }
+.ui-dashboard-info-tooltip { width: 28rem; max-height: calc(100dvh - 16px); overflow-y: auto; padding: 12px; }
+.ui-dashboard-info-table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 12px; line-height: 18px; }
+.ui-dashboard-info-table th { color: var(--ui-text-muted); font-weight: 400; text-align: left; padding: 0 8px 4px 0; }
+.ui-dashboard-info-table td { color: var(--ui-text); border-top: 1px solid var(--ui-border-soft); padding: 5px 8px 5px 0; vertical-align: top; overflow-wrap: anywhere; }
+.ui-dashboard-info-table th:first-child, .ui-dashboard-info-table td:first-child { white-space: nowrap; }
+.ui-dashboard-info-table th:last-child, .ui-dashboard-info-table td:last-child { text-align: right; padding-right: 0; font-variant-numeric: tabular-nums; }
 .ui-dashboard-map { height: 220px; border: 1px solid var(--ui-border-soft); border-radius: 8px; background: var(--ui-surface-muted); }
 @media (min-width: 640px) {
   .ui-dashboard-endpoint-row { grid-template-columns: minmax(140px, 1fr) 76px 52px minmax(130px, 1fr) 84px; align-items: center; gap: 12px; min-height: 36px; }

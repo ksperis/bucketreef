@@ -589,6 +589,7 @@ export function WorkspaceDashboardStorageOverview({
 
 export function WorkspaceDashboardCard({
   title,
+  titleAccessory,
   action,
   children,
   className,
@@ -598,6 +599,7 @@ export function WorkspaceDashboardCard({
   ...props
 }: {
   title?: ReactNode;
+  titleAccessory?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -606,11 +608,12 @@ export function WorkspaceDashboardCard({
   wrapHeading?: boolean;
 } & Omit<HTMLAttributes<HTMLElement>, "title">) {
   const titleId = useId();
+  const heading = title ? <h2 id={titleId} className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{title}</h2> : <span />;
   return (
     <section aria-labelledby={title ? titleId : undefined} className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-panel" : "h-full p-4", className)} {...props}>
       {title || action ? (
         <div className={wrapHeading ? "ui-dashboard-panel-heading" : "flex items-center justify-between gap-3"}>
-          {title ? <h2 id={titleId} className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{title}</h2> : <span />}
+          {titleAccessory ? <div className="inline-flex items-center gap-1.5">{heading}{titleAccessory}</div> : heading}
           {action}
         </div>
       ) : null}

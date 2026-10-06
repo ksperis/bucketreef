@@ -121,7 +121,10 @@ for (const state of ["disabled", "partial-errors", "onboarding"] as const) {
       await expect(page.getByRole("region", { name: "Endpoint Health", exact: true }).getByText("Endpoint Status feature is disabled.")).toBeVisible();
       await expect(page.getByRole("img", { name: "Infrastructure endpoint map" })).toHaveCount(0);
     } else if (state === "partial-errors") {
-      await expect(page.getByText("Storage: Storage temporarily unavailable")).toBeVisible();
+      await expect(page.getByText("Storage unavailable", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "About storage and traffic metrics" }).click();
+      await expect(page.getByRole("tooltip").getByText("Storage: Storage temporarily unavailable")).toBeVisible();
+      await page.keyboard.press("Escape");
       await expect(page.getByRole("region", { name: "Storage & traffic" }).getByText("27k")).toBeVisible();
       await expect(page.getByRole("region", { name: "Storage & traffic" }).getByText("97%")).toBeVisible();
       await expect(page.getByText("Audit temporarily unavailable")).toBeVisible();
@@ -152,12 +155,22 @@ for (const partial of [false, true]) {
     await page.setViewportSize({ width: 1440, height: 900 });
     const { registry, errors } = await openDashboard(page, "light", false, overrides);
     const card = page.getByRole("region", { name: "Storage & traffic" });
-    await expect(card.getByText("Aggregated across managed and supervised Ceph endpoints. Includes Accounts and S3 Users registered in BucketReef.")).toBeVisible();
-    await expect(card.getByText(`Storage: ${partial ? 1 : 2}/2 endpoints · Traffic: 2/2 endpoints · Availability: 2/2 endpoints`)).toBeVisible();
+    await expect(card.getByText("Managed & supervised Ceph")).toBeVisible();
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
     await expect(card.getByText("17", { exact: true })).toBeVisible();
     await expect(card.getByText("240", { exact: true })).toBeVisible();
     await expect(card.getByText("4.0 KB", { exact: true })).toBeVisible();
-    if (partial) await expect(card.getByText(/Storage: Partial data.*Ceph Archive: RGW temporarily unavailable/)).toBeVisible();
+    if (partial) await expect(card.getByText("Storage partial", { exact: true })).toBeVisible();
+    else await expect(card.getByRole("status")).toHaveCount(0);
+    await page.getByRole("button", { name: "About storage and traffic metrics" }).click();
+    const details = page.getByRole("tooltip");
+    await expect(details.getByText(/Aggregated across managed and supervised Ceph endpoints/)).toBeVisible();
+    await expect(details.getByRole("row", { name: new RegExp(`Storage ${partial ? 1 : 2}/2`) })).toBeVisible();
+    await expect(details.getByRole("row", { name: /Traffic 2\/2/ })).toBeVisible();
+    await expect(details.getByRole("row", { name: /Availability 2\/2/ })).toBeVisible();
+    if (partial) await expect(details.getByText(/Storage: Partial data.*Ceph Archive: RGW temporarily unavailable/)).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("aggregation-details.png") });
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Refresh admin dashboard" }).click();
     await expect(page.getByRole("button", { name: "Refresh admin dashboard" })).toBeEnabled();
     await expect(card.getByText("17", { exact: true })).toBeVisible();
@@ -166,4 +179,54 @@ for (const partial of [false, true]) {
     registry.assertNoUnmatched();
     expect(errors).toEqual([]);
   });
+}
+
+for (const theme of ["light", "dark"] as const) {
+  for (const touch of [false, true]) {
+    test(`Admin metric information ${theme} ${touch ? "touch-320" : "desktop"}`, async ({ browser }, testInfo) => {
+      const context = await browser.newContext({ viewport: touch ? { width: 320, height: 740 } : { width: 1440, height: 900 }, hasTouch: touch });
+      try {
+        const page = await context.newPage();
+        const { registry, errors } = await openDashboard(page, theme);
+        const trigger = page.getByRole("button", { name: "About storage and traffic metrics" });
+        const details = page.getByRole("tooltip");
+        await trigger.focus();
+        await expect(details).toBeVisible();
+        await expect(trigger).toHaveAttribute("aria-describedby", await details.getAttribute("id") as string);
+        await page.keyboard.press("Escape");
+        await expect(details).toHaveCount(0);
+        if (!touch) {
+          await trigger.blur();
+          await trigger.hover();
+          await expect(details).toBeVisible();
+          await details.hover();
+          await expect(details).toBeVisible();
+          await page.getByRole("heading", { name: "Administration", exact: true }).hover();
+          await expect(details).toHaveCount(0);
+        }
+        if (touch) await trigger.tap(); else await trigger.click();
+        await expect(details).toBeVisible();
+        const geometry = await details.evaluate(element => {
+          const rect = element.parentElement!.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: innerWidth, height: innerHeight,
+            scrollWidth: element.scrollWidth, clientWidth: element.clientWidth };
+        });
+        expect(geometry.left).toBeGreaterThanOrEqual(7);
+        expect(geometry.right).toBeLessThanOrEqual(geometry.width - 7);
+        expect(geometry.top).toBeGreaterThanOrEqual(7);
+        expect(geometry.bottom).toBeLessThanOrEqual(geometry.height - 7);
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth + 1);
+        await expect(details.getByRole("table", { name: "Metric coverage and dates" })).toBeVisible();
+        await page.screenshot({ path: testInfo.outputPath("metric-information.png") });
+        if (touch) await trigger.tap(); else await trigger.click();
+        await expect(details).toHaveCount(0);
+        if (touch) await trigger.tap(); else await trigger.click();
+        await expect(details).toBeVisible();
+        await page.getByRole("heading", { name: "Administration", exact: true }).click();
+        await expect(details).toHaveCount(0);
+        registry.assertNoUnmatched();
+        expect(errors).toEqual([]);
+      } finally { await context.close(); }
+    });
+  }
 }

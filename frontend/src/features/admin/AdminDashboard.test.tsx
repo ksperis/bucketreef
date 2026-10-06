@@ -570,7 +570,8 @@ describe("AdminDashboard feature summary", () => {
 
     expect(screen.getByText("Endpoint Health")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ongoing / Recent Incidents" })).toBeInTheDocument();
-    expect(screen.getAllByText("Endpoint Status feature is disabled.")).toHaveLength(3);
+    expect(screen.getAllByText("Endpoint Status feature is disabled.")).toHaveLength(2);
+    expect(screen.getByText("Availability unavailable")).toBeInTheDocument();
     expect(screen.queryByText("INRAE-eprod-geo-tls")).not.toBeInTheDocument();
     expect(screen.queryByText("LAB 81")).not.toBeInTheDocument();
     expect(screen.queryByText("98%")).not.toBeInTheDocument();
@@ -622,8 +623,11 @@ describe("AdminDashboard feature summary", () => {
     await renderDashboard();
 
     expect(screen.getByRole("heading", { name: "Storage & traffic" })).toBeInTheDocument();
-    expect(await screen.findByText("Storage: metrics disabled")).toBeInTheDocument();
-    expect(await screen.findByText("Traffic: usage disabled")).toBeInTheDocument();
+    expect(await screen.findByText("Storage unavailable")).toBeInTheDocument();
+    expect(await screen.findByText("Traffic unavailable")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "About storage and traffic metrics" }));
+    expect(screen.getByText("Storage: metrics disabled")).toBeInTheDocument();
+    expect(screen.getByText("Traffic: usage disabled")).toBeInTheDocument();
     expect(screen.queryByText("1,850")).not.toBeInTheDocument();
     expect(screen.queryByText("12.4M")).not.toBeInTheDocument();
   });
@@ -695,7 +699,7 @@ describe("AdminDashboard feature summary", () => {
     mocks.fetchAdminDashboardTraffic.mockRejectedValue(new Error("Traffic unavailable"));
     await renderDashboard();
     const summary = screen.getByRole("region", { name: "Storage & traffic" });
-    expect(await within(summary).findByText("Traffic: Traffic unavailable")).toBeInTheDocument();
+    expect(await within(summary).findByText("Traffic unavailable")).toBeInTheDocument();
     expect(within(summary).getAllByText("0")).toHaveLength(2);
     expect(within(summary).getByText("0 B")).toBeInTheDocument();
     expect(within(summary).queryByRole("img", { name: "Trend line" })).not.toBeInTheDocument();
@@ -754,12 +758,21 @@ describe("AdminDashboard feature summary", () => {
     ] });
     await renderDashboard();
     const card = screen.getByRole("region", { name: "Storage & traffic" });
-    expect(await within(card).findByText(/Aggregated across managed and supervised Ceph endpoints/)).toBeInTheDocument();
-    expect(await within(card).findByText("Storage: 1/2 endpoints · Traffic: 2/2 endpoints · Availability: 1/2 endpoints")).toBeInTheDocument();
+    expect(await within(card).findByText("Managed & supervised Ceph")).toBeInTheDocument();
+    expect(await within(card).findByText("Storage partial")).toBeInTheDocument();
+    expect(within(card).getByText("Availability partial")).toBeInTheDocument();
     expect(within(card).getByText("100%")).toBeInTheDocument();
-    expect(within(card).getByText(/Storage: Partial data.*Ceph Production: RGW unavailable/)).toBeInTheDocument();
-    expect(within(card).getByText(/Availability: 7-day measurements unavailable: Ceph Production/)).toBeInTheDocument();
     expect(within(card).getByText("1.9k")).toBeInTheDocument();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(within(card).queryByText(/Partial data/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "About storage and traffic metrics" }));
+    const details = within(screen.getByRole("tooltip"));
+    expect(details.getByText(/Aggregated across managed and supervised Ceph endpoints/)).toBeInTheDocument();
+    expect(details.getByRole("row", { name: /Storage 1\/2/ })).toBeInTheDocument();
+    expect(details.getByRole("row", { name: /Traffic 2\/2/ })).toBeInTheDocument();
+    expect(details.getByRole("row", { name: /Availability 1\/2/ })).toBeInTheDocument();
+    expect(details.getByText(/Storage: Partial data.*Ceph Production: RGW unavailable/)).toBeInTheDocument();
+    expect(details.getByText(/Availability: 7-day measurements unavailable: Ceph Production/)).toBeInTheDocument();
   });
 
   it("explains an empty supervised scope and keeps absent measurements unavailable", async () => {
@@ -769,16 +782,22 @@ describe("AdminDashboard feature summary", () => {
     mocks.fetchAdminDashboardTraffic.mockResolvedValue({ totals: { ops: null }, series: [], coverage: { eligible_count: 0, contributing_count: 0, complete_count: 0, issues: [] } });
     await renderDashboard();
     const card = screen.getByRole("region", { name: "Storage & traffic" });
-    expect(await within(card).findByText(/Storage: No managed Ceph endpoint.*Metrics enabled/)).toBeInTheDocument();
-    expect(within(card).getByText(/Traffic: No managed Ceph endpoint.*Usage enabled/)).toBeInTheDocument();
+    expect(await within(card).findByText("Storage unavailable")).toBeInTheDocument();
+    expect(within(card).getByText("Traffic unavailable")).toBeInTheDocument();
     expect(within(card).getAllByText("—")).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "About storage and traffic metrics" }));
+    expect(screen.getByText(/Storage: No managed Ceph endpoint.*Metrics enabled/)).toBeInTheDocument();
+    expect(screen.getByText(/Traffic: No managed Ceph endpoint.*Usage enabled/)).toBeInTheDocument();
   });
 
   it("shows measurement dates and keeps them on a cache-respecting refresh", async () => {
     await renderDashboard();
     const card = screen.getByRole("region", { name: "Storage & traffic" });
-    expect(within(card).getByText("Storage and traffic are cached for up to 30 minutes.")).toBeInTheDocument();
-    const measurementTimes = () => Array.from(card.querySelectorAll("time")).map(time => time.dateTime);
+    expect(within(card).queryByText(/cached for up to/)).not.toBeInTheDocument();
+    expect(within(card).queryByText(/Mean availability/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "About storage and traffic metrics" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Storage and traffic are cached for up to 30 minutes. Refresh respects this expiry.");
+    const measurementTimes = () => Array.from(screen.getByRole("tooltip").querySelectorAll("time")).map(time => time.dateTime);
     expect(measurementTimes()).toEqual(["2026-06-05T11:16:46Z", "2026-06-05T11:16:46Z"]);
     const refresh = screen.getByRole("button", { name: "Refresh admin dashboard" });
     expect(refresh).toHaveAttribute("title", "Refresh dashboard; storage and traffic respect the cache for up to 30 minutes.");
@@ -809,7 +828,9 @@ describe("AdminDashboard feature summary", () => {
     mocks.fetchAdminDashboardScope.mockRejectedValue(new Error("Scope unavailable"));
     await renderDashboard();
     const card = screen.getByRole("region", { name: "Storage & traffic" });
-    expect(await within(card).findByText("Scope unavailable")).toBeInTheDocument();
+    expect(await within(card).findByText("Availability unavailable")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "About storage and traffic metrics" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Scope unavailable");
     expect(within(card).queryByText("98%")).not.toBeInTheDocument();
     expect(within(card).getByText("12.4M")).toBeInTheDocument();
   });
