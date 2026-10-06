@@ -40,13 +40,13 @@ import {
   WorkspaceDashboardAction,
   WorkspaceDashboardActionLink,
   WorkspaceFeatureSummary,
-  WorkspaceAvailabilityMetric,
   type WorkspacePlatformMetric,
   WorkspacePlatformMetricCard,
   WorkspaceStatusDot,
   WorkspaceStatusCounter,
 } from "../../components/WorkspaceDashboardKit";
 import WorkspaceIncidentsCard from "../../components/WorkspaceIncidentsCard";
+import WorkspaceDashboardInfo from "../../components/WorkspaceDashboardInfo";
 import UiBadge from "../../components/ui/UiBadge";
 import {
   cx,
@@ -242,7 +242,7 @@ function EndpointRow({ endpoint }: { endpoint: WorkspaceEndpointHealthEntry }) {
 }
 
 function coverageLabel(coverage?: AdminDashboardCoverage): string {
-  return coverage ? `${coverage.complete_count}/${coverage.eligible_count} endpoints` : "—";
+  return coverage ? `${coverage.complete_count}/${coverage.eligible_count}` : "—";
 }
 
 function coverageNote(coverage?: AdminDashboardCoverage): string | null {
@@ -282,28 +282,32 @@ function StorageTrafficSummary({
   const requestsSeries = trafficOpsSeries(traffic);
   const storageReason = storageError || (!storageLoading && !storage ? "Storage metrics are not available." : storage?.coverage?.eligible_count === 0 ? "No managed Ceph endpoint has ready Supervision credentials and Metrics enabled." : undefined);
   const trafficReason = trafficError || (!trafficLoading && !traffic ? "Usage logs are not available." : traffic?.coverage?.eligible_count === 0 ? "No managed Ceph endpoint has ready Supervision credentials and Usage enabled." : undefined);
-  const partialMeasurement = (field: "bucket_count" | "object_count" | "used_bytes") => {
-    const completeCount = storage?.measurements?.[field]?.complete_count;
-    return storageTotals?.[field] != null && completeCount != null && storage?.coverage && completeCount < storage.coverage.eligible_count ? "Partial data" : undefined;
+  const status = (label: string, loading: boolean, reason?: string | null, coverage?: AdminDashboardCoverage) => {
+    if (loading) return null;
+    if (reason || (coverage && coverage.contributing_count === 0)) return `${label} unavailable`;
+    if (coverage && coverage.complete_count < coverage.eligible_count) return `${label} partial`;
+    return null;
   };
+  const statuses = [
+    status("Storage", storageLoading, storageReason, storage?.coverage),
+    status("Traffic", trafficLoading, trafficReason, traffic?.coverage),
+    healthScoreLoading ? null : healthScoreUnavailableReason ? "Availability unavailable" : availabilityNote ? "Availability partial" : null,
+  ].filter((value): value is string => value !== null);
   const metrics: WorkspacePlatformMetric[] = [
     {
       label: "Buckets",
       value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.bucket_count ?? null),
       tone: "blue",
-      delta: partialMeasurement("bucket_count"),
     },
     {
       label: "Objects",
       value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.object_count ?? null),
       tone: "violet",
-      delta: partialMeasurement("object_count"),
     },
     {
       label: "Stored data",
       value: storageLoading ? "..." : formatOptionalBytes(storageReason ? null : storageTotals?.used_bytes ?? null),
       tone: "emerald",
-      delta: partialMeasurement("used_bytes"),
     },
     {
       label: "Requests (24h)",
@@ -311,28 +315,43 @@ function StorageTrafficSummary({
       delta: trafficReason ? undefined : traffic?.totals.success_rate != null ? `${formatPercentage(traffic.totals.success_rate * 100)} success` : undefined,
       series: !trafficReason && requestsSeries.length > 0 ? requestsSeries : undefined,
       tone: "blue",
-
+    },
+    {
+      label: "Availability (7 days)",
+      value: healthScoreLoading ? "…" : healthScore == null || healthScoreUnavailableReason ? "—" : `${healthScore}%`,
+      tone: "emerald",
     },
   ];
 
   return (
-    <WorkspaceDashboardCard title="Storage & traffic" presentation="compact">
-      <p className="ui-dashboard-note">Aggregated across managed and supervised Ceph endpoints. Includes Accounts and S3 Users registered in BucketReef.</p>
-      <p className="ui-dashboard-note mt-1">Storage: {storageLoading ? "Loading…" : coverageLabel(storage?.coverage)} · Traffic: {trafficLoading ? "Loading…" : coverageLabel(traffic?.coverage)} · Availability: {availabilityCoverage}</p>
-      <p className="ui-dashboard-note mt-1">Storage and traffic are cached for up to 30 minutes.</p>
-      <p className="ui-dashboard-note mt-1">
-        Storage data: {storage?.generated_at ? <time dateTime={storage.generated_at}>{formatLocalDateTime(storage.generated_at)}</time> : "—"}
-        {" · "}Traffic through: {traffic?.end ? <time dateTime={traffic.end}>{formatLocalDateTime(traffic.end)}</time> : "—"}
-      </p>
-      <div className="ui-dashboard-metrics">
+    <WorkspaceDashboardCard aria-label="Storage & traffic" wrapHeading presentation="compact"
+      title="Storage & traffic"
+      titleAccessory={<WorkspaceDashboardInfo label="About storage and traffic metrics">
+          <p className="ui-dashboard-note">Aggregated across managed and supervised Ceph endpoints. Includes Accounts and S3 Users registered in BucketReef.</p>
+          <table className="ui-dashboard-info-table" aria-label="Metric coverage and dates">
+            <thead><tr><th scope="col">Measure</th><th scope="col">Endpoints</th><th scope="col">Data date</th></tr></thead>
+            <tbody>
+              <tr><td>Storage</td><td>{storageLoading ? "Loading…" : coverageLabel(storage?.coverage)}</td><td>{storage?.generated_at ? <time dateTime={storage.generated_at}>{formatLocalDateTime(storage.generated_at)}</time> : "—"}</td></tr>
+              <tr><td>Traffic</td><td>{trafficLoading ? "Loading…" : coverageLabel(traffic?.coverage)}</td><td>{traffic?.end ? <time dateTime={traffic.end}>{formatLocalDateTime(traffic.end)}</time> : "—"}</td></tr>
+              <tr><td>Availability</td><td>{availabilityCoverage}</td><td>7-day mean</td></tr>
+            </tbody>
+          </table>
+          {storageReason && <p className="ui-dashboard-note mt-2">Storage: {storageReason}</p>}
+          {trafficReason && <p className="ui-dashboard-note mt-2">Traffic: {trafficReason}</p>}
+          {!storageReason && coverageNote(storage?.coverage) && <p className="ui-dashboard-note mt-2">Storage: {coverageNote(storage?.coverage)}</p>}
+          {!trafficReason && coverageNote(traffic?.coverage) && <p className="ui-dashboard-note mt-2">Traffic: {coverageNote(traffic?.coverage)}</p>}
+          {healthScoreUnavailableReason && <p className="ui-dashboard-note mt-2">Availability: {healthScoreUnavailableReason}</p>}
+          {availabilityNote && <p className="ui-dashboard-note mt-2">Availability: {availabilityNote}</p>}
+          <p className="ui-dashboard-note mt-2">Coverage counts fully measured endpoints. Partial totals remain visible.</p>
+          <p className="ui-dashboard-note mt-2">Mean availability across endpoints with measurements.</p>
+          <p className="ui-dashboard-note mt-2">Storage and traffic are cached for up to 30 minutes. Refresh respects this expiry.</p>
+        </WorkspaceDashboardInfo>}
+      action={statuses.length > 0 ? <span role="status" className="ui-dashboard-badges">{statuses.map(label => <UiBadge key={label} tone="warning" className="ui-dashboard-badge">{label}</UiBadge>)}</span> : undefined}
+    >
+      <p className="ui-dashboard-note">Managed &amp; supervised Ceph</p>
+      <div className="ui-dashboard-metrics mt-2">
         {metrics.map((metric) => <WorkspacePlatformMetricCard key={metric.label} metric={metric} />)}
-        <WorkspaceAvailabilityMetric score={healthScore} loading={healthScoreLoading} unavailableReason={healthScoreUnavailableReason} />
       </div>
-      {storageReason && <p role="status" className="ui-dashboard-note mt-2">Storage: {storageReason}</p>}
-      {trafficReason && <p role="status" className="ui-dashboard-note mt-2">Traffic: {trafficReason}</p>}
-      {!storageReason && coverageNote(storage?.coverage) && <p role="status" className="ui-dashboard-note mt-2">Storage: {coverageNote(storage?.coverage)}</p>}
-      {!trafficReason && coverageNote(traffic?.coverage) && <p role="status" className="ui-dashboard-note mt-2">Traffic: {coverageNote(traffic?.coverage)}</p>}
-      {availabilityNote && <p role="status" className="ui-dashboard-note mt-2">Availability: {availabilityNote}</p>}
     </WorkspaceDashboardCard>
   );
 }
@@ -763,7 +782,7 @@ export default function AdminDashboard() {
   const missingHealth = dashboardScope?.endpoints.filter((endpoint) => !measuredIds.has(endpoint.endpoint_id)) ?? [];
   const availabilityLoading = scopeLoading || healthOverviewLoading;
   const availabilityCoverage = availabilityLoading ? "Loading…" : dashboardScope && generalSettings.endpoint_status_enabled && !healthOverviewError
-    ? `${dashboardScope.endpoints.length - missingHealth.length}/${dashboardScope.endpoints.length} endpoints` : "—";
+    ? `${dashboardScope.endpoints.length - missingHealth.length}/${dashboardScope.endpoints.length}` : "—";
   const availabilityNote = !availabilityLoading && generalSettings.endpoint_status_enabled && !healthOverviewError && missingHealth.length > 0
     ? `7-day measurements unavailable: ${missingHealth.map((endpoint) => endpoint.name).join(", ")}.` : null;
   const healthScoreUnavailableReason =

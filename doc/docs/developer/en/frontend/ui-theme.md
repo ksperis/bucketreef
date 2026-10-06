@@ -551,6 +551,14 @@ wrap when necessary and use 28px minimum height, 12px normal-weight text and
 6px corners; targets are at least 44px on mobile or any coarse pointer.
 Badges retain shared semantic/theme colors and 4px corners.
 
+Use `WorkspaceDashboardCard.titleAccessory` for a control next to the heading,
+without changing its accessible name. `WorkspaceDashboardInfo` keeps metric
+scope, coverage, dates and collection notes in a themed, viewport-clamped tooltip.
+It opens on hover or focus, stays open across the pointer gap, and can be pinned
+by click or touch. Escape, a second click or an outside click dismisses it. Keep
+partial or unavailable badges visible on the card; move explanations into the
+tooltip rather than repeating them under every metric.
+
 At 1280px and above, the operational grid is 2:1; the secondary activity/map
 grid is 1:1. Both stack below that breakpoint. Summary links use six columns,
 three from 768px, and two below. Endpoint rows are at least 36px on desktop
