@@ -463,7 +463,7 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByRole("button", { name: "Update endpoint" })).toBeEnabled();
   });
 
-  it("keeps a newly saved managed endpoint open for explicit identity provisioning", async () => {
+  it("saves and creates managed identities in one explicit action after Admin Ops validation", async () => {
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
     const created = makeEndpoint({
       id: 8,
@@ -476,8 +476,20 @@ describe("StorageEndpointsPage tags", () => {
         { kind: "supervision", mode: "managed", status: "not_provisioned", credentials_configured: false },
       ],
     });
-    listStorageEndpointsMock.mockResolvedValueOnce([]).mockResolvedValue([created]);
+    const ready = makeEndpoint({
+      id: 8,
+      name: "New Managed",
+      endpoint_url: "https://new-managed.example.test",
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: [
+        { kind: "runtime", mode: "managed", status: "ready", credentials_configured: true },
+        { kind: "supervision", mode: "managed", status: "ready", credentials_configured: true },
+      ],
+    });
+    listStorageEndpointsMock.mockResolvedValueOnce([]).mockResolvedValue([ready]);
     createStorageEndpointMock.mockResolvedValue(created);
+    reconcileEndpointIdentitiesMock.mockResolvedValue(ready);
 
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
@@ -486,13 +498,76 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "admin-key" } });
     fireEvent.change(screen.getByLabelText("Admin secret key"), { target: { value: "admin-secret" } });
-    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+    expect(screen.getByText("Runtime Read Ops · Managed · Not created")).toBeVisible();
+    expect(screen.getByText("Supervision Ops · Managed · Not created")).toBeVisible();
+    const saveAndCreate = await screen.findByRole("button", { name: "Save endpoint & create managed identities" });
+    fireEvent.click(saveAndCreate);
 
     expect(await screen.findByRole("heading", { name: "Edit storage endpoint · New Managed" })).toBeVisible();
     expect(screen.getByRole("tab", { name: "Credentials" })).toHaveAttribute("aria-selected", "true");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Create managed identities" })).toBeEnabled());
-    expect(screen.getByText("Runtime Read Ops · Managed · not provisioned")).toBeVisible();
-    expect(screen.getByText("Supervision Ops · Managed · not provisioned")).toBeVisible();
+    await waitFor(() => expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(8));
+    expect(screen.getByText("Runtime Read Ops · Managed · Ready")).toBeVisible();
+    expect(screen.getByText("Supervision Ops · Managed · Ready")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Create managed identities" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the saved endpoint recoverable when combined managed provisioning fails", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    const pending = makeEndpoint({
+      id: 8,
+      name: "New Managed",
+      endpoint_url: "https://new-managed.example.test",
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: [
+        { kind: "runtime", mode: "managed", status: "not_provisioned", credentials_configured: false },
+        { kind: "supervision", mode: "managed", status: "not_provisioned", credentials_configured: false },
+      ],
+    });
+    const failed = makeEndpoint({
+      ...pending,
+      service_identities: [
+        { kind: "runtime", mode: "managed", status: "error", credentials_configured: false, last_error: "RGW create failed" },
+        { kind: "supervision", mode: "managed", status: "not_provisioned", credentials_configured: false },
+      ],
+    });
+    listStorageEndpointsMock.mockResolvedValueOnce([]).mockResolvedValue([failed]);
+    createStorageEndpointMock.mockResolvedValue(pending);
+    reconcileEndpointIdentitiesMock.mockRejectedValue(new Error("RGW create failed"));
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+    fireEvent.change(screen.getByLabelText("Endpoint name"), { target: { value: "New Managed" } });
+    fireEvent.change(screen.getByLabelText("S3 endpoint URL"), { target: { value: "https://new-managed.example.test" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "admin-key" } });
+    fireEvent.change(screen.getByLabelText("Admin secret key"), { target: { value: "admin-secret" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Save endpoint & create managed identities" }));
+
+    expect(await screen.findByRole("heading", { name: "Edit storage endpoint · New Managed" })).toBeVisible();
+    expect(await screen.findByText(/Endpoint saved, but managed service identities could not be created/)).toBeVisible();
+    expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(8);
+    expect(await screen.findByText("Runtime Read Ops · Managed · Error")).toBeVisible();
+  });
+
+  it("offers save and create when converting external service identities to managed", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: externalServiceIdentities(true),
+    })]);
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    fireEvent.change(screen.getByLabelText("Identity management"), { target: { value: "managed" } });
+
+    expect(screen.getByText("Current saved configuration")).toBeVisible();
+    expect(screen.getByText("Runtime Read Ops · External · Ready")).toBeVisible();
+    expect(screen.getByText("Runtime Read Ops · Managed · Not created")).toBeVisible();
+    expect(screen.getByText("Supervision Ops · Managed · Not created")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Save & create managed identities" })).toBeEnabled();
   });
 
   it("creates managed identities explicitly and reruns functional validation", async () => {
@@ -607,8 +682,7 @@ describe("StorageEndpointsPage tags", () => {
     expect(await screen.findByText("RGW retry failed")).toBeVisible();
     expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(7);
     fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-admin" } });
-    expect(retry).toBeDisabled();
-    fireEvent.click(retry);
+    expect(screen.queryByRole("button", { name: "Retry service identity configuration" })).not.toBeInTheDocument();
     expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/Save or discard endpoint changes before retrying/)).toBeVisible();
   });
@@ -624,7 +698,7 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     expect(screen.getByText("Recommended Admin Ops").closest("details")).not.toHaveAttribute("open");
     fireEvent.change(screen.getByLabelText("Identity management"), { target: { value: "external" } });
-    expect(screen.getByText("Saved configuration")).toBeVisible();
+    expect(screen.getByText("Current saved configuration")).toBeVisible();
     expect(screen.getByText("Runtime Read Ops · Managed · Ready")).toBeVisible();
     expect(screen.getByText(/Saving replaces and revokes the current managed identities/)).toBeVisible();
     expect(screen.getAllByText("Enter the secret key for this identity.")).toHaveLength(2);

@@ -100,21 +100,26 @@ and admin/system flags rather than using Admin Ops as a fallback.
 
 Managed identities have distinct installation/endpoint-based UIDs, encrypted
 secrets, ownership provenance, and resumable states. In the interactive Admin UI,
-saving a Ceph endpoint records managed Runtime and Supervision as **not provisioned**.
-Use **Create managed identities** in the credentials tab to create both identities
-explicitly. BucketReef then validates Runtime access, bucket statistics and Usage with
-the identities themselves. Feature detection remains read-only: Admin Ops inspects
-administration and Account support, while Supervision is the sole identity used to
-probe Usage. Empty usage data does not block identity readiness, but Usage availability
-needs recorded traffic. After an attempted provisioning failure, fix RGW access and use
-**Retry service identity configuration**.
+Runtime and Supervision are shown as **Not created** while managed provisioning is
+pending. When Admin Ops credentials are present and validated with `users=write`, the
+primary action becomes **Save endpoint & create managed identities** (or **Save & create
+managed identities** while editing). BucketReef persists the endpoint first as
+`not_provisioned`, then creates both identities, validates Runtime access, bucket
+statistics and Usage, and keeps the editor open on the resulting state. If Admin Ops
+is not ready, the endpoint can still be saved without remote provisioning and later
+completed with **Create managed identities**. Feature detection remains read-only:
+Admin Ops inspects administration and Account support, while Supervision is the sole
+identity used to probe Usage. Empty usage data does not block identity readiness, but
+Usage availability needs recorded traffic. After an attempted provisioning failure,
+fix RGW access and use **Retry service identity configuration**.
 
 Existing Supervision credentials migrate as external without changing their RGW
 users. Existing endpoints need Runtime configured before live enrichment resumes.
 Selecting managed mode explicitly converts Runtime/Supervision and preserves the
-external users. The conversion is persisted first and waits for **Create managed
-identities** before any managed RGW user is created. Generated DB secrets survive ENV
-synchronization.
+external users. With validated Admin Ops `users=write`, **Save & create managed
+identities** persists the conversion first and then provisions the managed RGW users.
+Without that capability the conversion may be saved as `not_provisioned` and completed
+later. Generated DB secrets survive ENV synchronization.
 
 Every Ceph entry in `ENV_STORAGE_ENDPOINTS` must explicitly declare
 `service_identity_mode: managed` or `service_identity_mode: external`. Omission is
@@ -184,7 +189,8 @@ Ceph endpoints at startup, recovering interrupted Runtime/Supervision provisioni
 and revocations and retrying pending validation of supplied Ceph Admin pairs. Missing
 Ceph Admin keys are never generated. A managed Runtime/Supervision identity explicitly
 saved as **not provisioned** is not created by startup reconciliation; interactive
-provisioning still requires the button. Declarative `ENV_STORAGE_ENDPOINTS`, seed setup
+provisioning still requires the explicit combined save/create action or the later
+**Create managed identities** action. Declarative `ENV_STORAGE_ENDPOINTS`, seed setup
 and the setup assistant provision managed identities automatically because those flows
 already express provisioning intent. Manager/Portal/Browser instances preserve shared
 identity state without RGW mutations. Revocation of an unprovisioned or already revoked
@@ -192,8 +198,10 @@ identity needs no remote write; confirming an absent principal needs read access
 deleting an existing principal requires `users=write`. Endpoint deletion remains locked
 through the database commit.
 
-Use **Create managed identities** for first-time interactive provisioning and **Retry
-service identity configuration** after an attempted provisioning or validation failure.
+Use **Save endpoint & create managed identities** when creating an endpoint with
+validated Admin Ops, **Create managed identities** for a saved `not_provisioned`
+endpoint, and **Retry service identity configuration** only after an attempted
+provisioning or validation failure.
 For a pending rotation use **Key Rotation**, select the same endpoint, category and
 old-key handling, then run it again. See [Key Rotation](../../platform/key-rotation.md)
 for the durable phases and recovery rules.

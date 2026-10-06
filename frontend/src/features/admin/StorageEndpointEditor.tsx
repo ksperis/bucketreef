@@ -8,7 +8,8 @@ import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 
 /** One mounted endpoint draft owns submission, dismissal and navigation. */
 export default function StorageEndpointEditor({
-  title, name, editing, readOnly, canEdit, ready, dirty, busy, onSubmit, onClose, children,
+  title, name, editing, readOnly, canEdit, ready, dirty, busy, submitLabel, busyLabel,
+  onSubmit, onClose, children,
 }: {
   title: string;
   name: string;
@@ -18,13 +19,16 @@ export default function StorageEndpointEditor({
   ready: boolean;
   dirty: boolean;
   busy: boolean;
+  submitLabel?: string;
+  busyLabel?: string;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onClose: (reason?: "navigation") => void;
   children: ReactNode;
 }) {
   const disabled = !ready || !canEdit || !dirty;
   const controller = useSettingsFormController({ dirty, busy, disabled, onSubmit, onClose });
-  const submitLabel = editing ? (readOnly ? "Save tags" : "Update endpoint") : "Create endpoint";
+  const resolvedSubmitLabel = submitLabel ?? (editing ? (readOnly ? "Save tags" : "Update endpoint") : "Create endpoint");
+  const resolvedBusyLabel = busyLabel ?? "Saving...";
   return <>
     <WorkflowPage title={title}
       description="Manage connection settings, operational credentials, capabilities, and health checks for this endpoint."
@@ -32,14 +36,14 @@ export default function StorageEndpointEditor({
       backLabel="Back to endpoints" onBack={controller.requestClose} backDisabled={controller.locked}
       contentVariant="plain" width="wide" contentClassName="settings-compact settings-form">
       <SettingsForm label="Storage endpoint configuration" busy={controller.locked} submitDisabled={disabled}
-        onSubmit={controller.submit} onCancel={controller.requestClose} submitLabel={submitLabel} busyLabel="Saving..."
+        onSubmit={controller.submit} onCancel={controller.requestClose} submitLabel={resolvedSubmitLabel} busyLabel={resolvedBusyLabel}
         actions={<>
           <SettingsButton variant="secondary" onClick={controller.requestClose} disabled={controller.locked}>
             {canEdit ? "Cancel" : "Done"}
           </SettingsButton>
           {canEdit && <SettingsButton type="submit" disabled={disabled || controller.locked}
             title={!ready ? "Management mode is unavailable." : !dirty ? "No changes to save." : undefined}>
-            {controller.locked ? "Saving..." : submitLabel}
+            {controller.locked ? resolvedBusyLabel : resolvedSubmitLabel}
           </SettingsButton>}
         </>}>
         <div className="settings-stack">{children}</div>
