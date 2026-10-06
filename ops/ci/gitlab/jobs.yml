@@ -74,7 +74,7 @@ release-tag-metadata:
     release_minor="${release_version%.*}"
     python3 ops/release/check_version.py "$release_version"
     python3 ops/release/schema_baseline.py "$release_version" --check
-    git fetch --quiet origin "$CI_DEFAULT_BRANCH"
+    git fetch --quiet --tags origin "$CI_DEFAULT_BRANCH"
     if [ -n "$release_tag" ]; then
       if ! git merge-base --is-ancestor "$CI_COMMIT_SHA" FETCH_HEAD; then
         echo "Release tag must point to a commit included in $CI_DEFAULT_BRANCH"

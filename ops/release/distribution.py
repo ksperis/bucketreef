@@ -23,6 +23,7 @@ from qualification import validate, verify_jobs
 from registry import copy_image, credentials, inspect
 from publish_github_release import GitHub, ASSETS, ensure_tag as ensure_github_tag, publish as publish_github, resolve_tag
 from publish_gitlab_release import GitLab, publish as publish_gitlab, resolve_git_tag
+from history import changelog_releases
 import bundle_registry
 import candidate_registry
 from recover_gitlab_release import PublicGitHub, verify_public_release
@@ -258,6 +259,30 @@ def published_versions(github_api, gitlab_api):
         page += 1
 
 
+def verify_release_index(github_api, gitlab_api, *, include_current: bool, require_latest: bool = False):
+    """Require every changelog release through this version on both forges."""
+    current = tuple(map(int, version().split(".")))
+    expected = {
+        entry["version"]
+        for entry in changelog_releases()
+        if tuple(map(int, entry["version"].split("."))) < current
+        or (include_current and tuple(map(int, entry["version"].split("."))) == current)
+    }
+    published = set(published_versions(github_api, gitlab_api))
+    missing = sorted(expected - published, key=lambda value: tuple(map(int, value.split("."))))
+    if missing:
+        labels = ", ".join(f"v{value}" for value in missing)
+        raise RuntimeError(f"Published GitHub/GitLab release index is incomplete: {labels}")
+    if require_latest:
+        expected_latest = "v" + version()
+        github_latest = github_api.request("releases/latest", missing_ok=True)
+        gitlab_latest = gitlab_api.request("releases/permalink/latest", missing_ok=True)
+        if not github_latest or github_latest.get("tag_name") != expected_latest:
+            raise RuntimeError(f"GitHub latest release is not {expected_latest}")
+        if not gitlab_latest or gitlab_latest.get("tag_name") != expected_latest:
+            raise RuntimeError(f"GitLab latest release is not {expected_latest}")
+
+
 def verify_published_github_release(expected_files):
     """Allow the anonymous GitHub release view a short propagation window."""
     for attempt in range(PUBLIC_RELEASE_VERIFY_ATTEMPTS):
@@ -328,6 +353,7 @@ def finalize(*, source_pipeline_id=None, source_plan=None):
     gh = GitHub(os.environ["GITHUB_RELEASE_TOKEN"])
     gl = GitLab(os.environ["CI_API_V4_URL"], os.environ["CI_PROJECT_ID"], os.environ["CI_JOB_TOKEN"])
     verify_remote_main(api, gh, os.environ["CI_COMMIT_SHA"])
+    verify_release_index(gh, gl, include_current=False)
     # Fetch by candidate digest again inside the lock. Never package current sources.
     with tempfile.TemporaryDirectory() as temporary:
         candidate_registry.download(expected["candidate"], Path(temporary))
@@ -353,6 +379,7 @@ def finalize(*, source_pipeline_id=None, source_plan=None):
         current = gh.request("releases/latest", missing_ok=True)
         if current is None or tuple(map(int, current["tag_name"].removeprefix("v").split("."))) <= tuple(map(int, version().split("."))):
             gh.request(f"releases/{release['id']}", method="PATCH", data={"make_latest": "true"})
+    verify_release_index(gh, gl, include_current=True, require_latest="latest" in targets)
     result = {"schema": 2, "version": version(), "sha": release_sha(), "orchestration_sha": os.environ["CI_COMMIT_SHA"],
               "pipeline_id": int(os.environ["CI_PIPELINE_ID"]), "job_id": int(os.environ["CI_JOB_ID"]),
               "distribution_sha256": digest(expected), "candidate": expected["candidate"],

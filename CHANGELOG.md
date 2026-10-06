@@ -32,6 +32,8 @@
 - Namespace automatically generated RGW user identifiers and preserve uniqueness for externally provisioned Portal IAM users.
 - Protect Helm deployments from slow backend startup and refresh frontend base-image security packages.
 - Restore full regression validation and scheduled secret-scan baselines in CI.
+- Make ARM64 release installation smokes tolerate emulated probe startup latency without weakening normal deployment healthcheck defaults, and retain service logs on smoke failures.
+- Verify the complete GitHub/GitLab release index before and after stable publication, including latest pointers, and fetch remote tags explicitly before generating release compare links.
 
 ### Upgrade notes
 

@@ -87,6 +87,7 @@ def prepared(monkeypatch, tmp_path):
                    'checkpoints':{phase:images for phase in phases}})
     api = SimpleNamespace(jobs=lambda _: jobs, get=lambda _: {'sha':SHA,'ref':'main','source':'parent_pipeline','status':'running'})
     monkeypatch.setattr(dist, 'inspect', lambda *args, **kwargs: IMAGE)
+    monkeypatch.setattr(dist, 'verify_release_index', lambda *args, **kwargs: None)
     return api, jobs
 
 
@@ -141,6 +142,33 @@ def test_global_distribution_gate_requires_every_job_and_matrix_member(monkeypat
 def test_serialized_alias_decisions_are_numeric_and_never_regress(current, published, expected):
     assert dist.aliases(current, published) == expected
     with pytest.raises(ValueError): dist.aliases('9.9.9', published)
+
+
+def test_release_index_requires_all_previous_versions_and_current_latest(monkeypatch):
+    monkeypatch.setenv('RELEASE_VERSION', '1.2.3')
+    monkeypatch.setattr(dist, 'changelog_releases', lambda: [
+        {'version':'1.2.3'}, {'version':'1.2.2'}, {'version':'1.2.1'}
+    ])
+    state = {'published':['1.2.1']}
+    monkeypatch.setattr(dist, 'published_versions', lambda *args: state['published'])
+
+    class API:
+        def __init__(self, latest): self.latest = latest
+        def request(self, path, **kwargs): return {'tag_name': self.latest}
+
+    gh = API('v1.2.3'); gl = API('v1.2.3')
+    with pytest.raises(RuntimeError, match='v1.2.2'):
+        dist.verify_release_index(gh, gl, include_current=False)
+
+    state['published'] = ['1.2.1','1.2.2']
+    dist.verify_release_index(gh, gl, include_current=False)
+    with pytest.raises(RuntimeError, match='v1.2.3'):
+        dist.verify_release_index(gh, gl, include_current=True)
+
+    state['published'].append('1.2.3')
+    dist.verify_release_index(gh, gl, include_current=True, require_latest=True)
+    with pytest.raises(RuntimeError, match='GitHub latest'):
+        dist.verify_release_index(API('v1.2.2'), gl, include_current=True, require_latest=True)
 
 
 def test_finalization_rechecks_artifacts_before_any_public_mutation(monkeypatch, tmp_path):

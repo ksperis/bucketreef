@@ -46,10 +46,12 @@ See [CI/CD](ci-cd.md) for selection, tool locks and required external settings.
    candidate distribution, AMD64/ARM64 QuickStart and Compose/scheduler tests,
    packaged-chart Kind installation/upgrade, stable promotion and demo deployment.
    Do not create the stable tag manually.
-4. For explicit preparation after a CI fix, use a protected main web pipeline with
-   `CI_MODE=prepare-release`. It runs the **same complete workflow**, reusing only
-   already-built immutable images at that exact SHA. `CI_MODE=qualify` performs
-   full qualification and preflight, without publishing candidates or a release.
+4. For explicit preparation after a CI fix, use a protected main manual pipeline
+   from the GitLab UI or API with `CI_MODE=prepare-release`. This includes
+   `glab ci run -b main --variables CI_MODE:prepare-release`. It runs the **same
+   complete workflow**, reusing only already-built immutable images at that exact
+   SHA. `CI_MODE=qualify` performs full qualification and preflight, without
+   publishing candidates or a release.
 
 `ops/release/tag.py` is retained only as an exceptional manual helper. Do not use
 it for normal publication: a manually created stable tag is verification-only in
@@ -206,7 +208,7 @@ backup with matching encryption keys.
 
 ### Recovery / exceptional cases
 
-If the finalizer code needs a fix, use protected main web mode `resume-release`
+If the finalizer code needs a fix, use protected main manual mode `resume-release`
 with `RELEASE_RECOVERY_VERSION=X.Y.Z` and
 `RELEASE_RECOVERY_PIPELINE_ID=<original child pipeline>`. Recovery requires a
 successful `release-ready` job with schema-2 evidence and rechecks every original
@@ -234,10 +236,19 @@ artifact. If this is a genuinely new package, make it public once, then rerun th
 relevant public verification. Stable tag pipelines are verification-only and do
 not restart distribution.
 
+Before a finalizer mutates any stable distribution, it verifies that every
+older stable version present in `CHANGELOG.md` already has a matching published
+release on both GitHub and GitLab. After publication it verifies the current
+version again and, when the release advances `latest`, checks both forge latest
+pointers. A missing historical release therefore fails closed and must be
+repaired with the explicit `release-history` workflow rather than being silently
+skipped. Release metadata generation also fetches remote tags explicitly before
+selecting the previous stable tag used by compare links.
+
 ## Historical notes and the documentation index
 
 Historical publication is separate from artifact distribution. On protected
-`main`, start a web pipeline with `CI_MODE=release-history`. It previews every
+`main`, start a manual UI/API pipeline with `CI_MODE=release-history`. It previews every
 GitHub/GitLab release action without writes. Set `RELEASE_HISTORY_APPLY=true`
 explicitly to apply the reviewed catalog. Both modes verify remote tags and
 refuse conflicting descriptions before writing. Application is idempotent and
