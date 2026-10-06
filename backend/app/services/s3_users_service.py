@@ -1,7 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import logging
-import re
 from typing import Any, Optional
 
 from sqlalchemy import exists, func, or_
@@ -25,6 +24,7 @@ from app.db import (
     UserS3User as UserS3UserModel,
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
+from app.services.managed_resource_naming import managed_s3_user_uid
 from app.services.mappers.s3_user import s3_user_from_db, s3_user_summary_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.tags_service import TagsService
@@ -186,10 +186,6 @@ class S3UsersService:
         if response.get("not_implemented"):
             raise ValueError("RGW user quota update is not supported on this cluster.")
 
-    def _slugify_uid(self, name: str) -> str:
-        slug = re.sub(r"[^a-zA-Z0-9-]+", "-", name.strip().lower()).strip("-")
-        return slug or "s3-user"
-
     def _get_s3_user(self, user_id: int) -> S3UserModel:
         s3_user = self.db.query(S3UserModel).filter(S3UserModel.id == user_id).first()
         if not s3_user:
@@ -348,7 +344,7 @@ class S3UsersService:
         )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
-        uid = (payload.uid or "").strip() or self._slugify_uid(payload.name)
+        uid = (payload.uid or "").strip() or managed_s3_user_uid()
         existing = (
             self.db.query(S3UserModel)
             .filter(S3UserModel.rgw_user_uid == uid)

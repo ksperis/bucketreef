@@ -75,6 +75,10 @@ def portal_storage_space_bucket_name() -> str:
     return f"{MANAGED_STORAGE_PREFIX}-space-{uuid.uuid4()}"
 
 
+def managed_s3_user_uid() -> str:
+    return f"{MANAGED_STORAGE_PREFIX}-s3u-{uuid.uuid4().hex}"
+
+
 def portal_access_log_bucket_name(
     account_id: int,
     rgw_account_id: str,
