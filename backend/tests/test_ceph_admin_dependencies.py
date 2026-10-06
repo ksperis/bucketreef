@@ -22,6 +22,16 @@ def test_rgw_credential_failure_classification_uses_structured_error_metadata():
         == "denied"
     )
     assert classify_rgw_credential_failure(RGWAdminError("403 AccessDenied")) == "unavailable"
+    assert (
+        classify_rgw_credential_failure(
+            RGWAdminError(
+                "redirect rejected",
+                status_code=301,
+                error_code="RedirectNotAllowed",
+            )
+        )
+        == "misconfigured"
+    )
 
 
 def test_probe_ceph_admin_service_identity_classifies_unavailable(monkeypatch):
@@ -89,6 +99,42 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
 
     assert probe.status == "denied"
     assert probe.warning == "Ceph Admin credentials were denied for endpoint 'Ceph endpoint'."
+
+
+def test_probe_ceph_admin_service_identity_classifies_redirect_as_misconfigured(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
+    endpoint = SimpleNamespace(
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(
+            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+        ),
+        id=3,
+        name="Ceph endpoint",
+        provider=StorageProvider.CEPH,
+        region=None,
+        verify_tls=True,
+        features_config="features:\n  admin:\n    endpoint: http://rgw-admin.example.test\n",
+        endpoint_url="http://s3.example.test",
+    )
+    message = (
+        "RGW Admin Ops endpoint redirects from HTTP to HTTPS. Configure the HTTPS "
+        "endpoint directly; signed Admin Ops requests cannot use redirects."
+    )
+
+    class FakeRGWClient:
+        def get_user_by_access_key(self, access_key: str, allow_not_found: bool = True):
+            raise RGWAdminError(
+                message,
+                status_code=301,
+                error_code="RedirectNotAllowed",
+            )
+
+    monkeypatch.setattr(deps, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
+
+    probe = deps.probe_ceph_admin_service_identity(endpoint)
+
+    assert probe.status == "misconfigured"
+    assert probe.warning == message
 
 
 def test_validate_ceph_admin_service_identity_allows_admin_user_when_admin_feature_disabled(monkeypatch):

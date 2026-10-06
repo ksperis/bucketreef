@@ -375,6 +375,41 @@ describe("simplified onboarding", () => {
     expect(screen.getByText("Bucket quotas · optional cap not granted")).toBeInTheDocument();
   });
 
+  it("shows redirected Admin Ops as an invalid configuration", async () => {
+    const message = "RGW Admin Ops endpoint redirects from HTTP to HTTPS. Configure the HTTPS endpoint directly; signed Admin Ops requests cannot use redirects.";
+    mocks.detectStorageEndpointFeatures.mockImplementation(
+      async (payload: StorageEndpointFeatureDetectionPayload) => {
+        const result = detectionFor(payload);
+        if (payload.admin_access_key) {
+          result.admin = false;
+          result.account = false;
+          result.admin_error = message;
+          result.credential_checks.admin = { status: "misconfigured", message };
+        }
+        return result;
+      },
+    );
+
+    renderPage();
+    fireEvent.change(await screen.findByRole("textbox", { name: "S3 endpoint URL" }), {
+      target: { value: "http://redirecting-ceph.example.test" },
+    });
+    await continueWhenReady();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Enable monitoring \/ metrics/ }));
+    await continueWhenReady();
+
+    fireEvent.change(await screen.findByLabelText("Admin Ops access key"), {
+      target: { value: "admin-access" },
+    });
+    fireEvent.change(screen.getByLabelText("Admin Ops secret key"), {
+      target: { value: "admin-secret" },
+    });
+
+    expect(await screen.findByText("Configuration invalid")).toBeVisible();
+    expect(screen.getByText(message)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+  });
+
   it("validates external Runtime and Supervision while allowing missing usage data", async () => {
     mocks.listStorageEndpoints.mockResolvedValue([cephEndpointWithExternalIdentities, awsEndpoint]);
     let usageHasData = false;

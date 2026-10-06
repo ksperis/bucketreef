@@ -1077,6 +1077,13 @@ export default function OnboardingPage() {
                           message={adminCredentialCheck.message}
                         />
                         {endpointValidation.status === "done" &&
+                          adminCredentialCheck.status === "misconfigured" &&
+                          adminCredentialCheck.message && (
+                            <UiInlineMessage tone="error">
+                              {adminCredentialCheck.message}
+                            </UiInlineMessage>
+                          )}
+                        {endpointValidation.status === "done" &&
                           adminCredentialCheck.status === "valid" && (
                             <>
                               <AdminOpsPermissionsBadges

@@ -32,6 +32,10 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
   not add capabilities to the RGW service identity.
 - If the S3 endpoint URL is not the RGW Admin Ops URL, configure the dedicated
   Admin endpoint override instead of relying on the S3 endpoint as a fallback.
+- Configure the final Admin Ops URL directly. BucketReef does not follow HTTP
+  redirects for signed Admin Ops requests because the SigV4 signature is bound
+  to the requested URL. An HTTP-to-HTTPS redirect is reported as a configuration
+  error; point the endpoint or Admin endpoint override at the HTTPS URL instead.
 - Test lifecycle, notifications, versioning, object lock, bucket policy, CORS, website, logging, and replication on the target Ceph release before promising them to tenants.
 - Validate account quota behavior on the target release before enabling quota-management workflows.
 - Enable Manager Ceph S3 User key management only for managed S3 User contexts

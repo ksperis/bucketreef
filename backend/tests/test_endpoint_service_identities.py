@@ -164,6 +164,37 @@ def test_admin_failure_marks_unfinished_identity_error(identities):
     assert runtime.last_error == "Admin Ops validation failed; check its required read permissions and RGW connectivity."
 
 
+def test_admin_redirect_marks_unfinished_identities_with_actionable_error(
+    identities, db_session, monkeypatch
+):
+    service, endpoint, rgw = identities
+    runtime = EndpointServiceIdentity(kind="runtime", mode="managed", status="missing")
+    supervision = EndpointServiceIdentity(kind="supervision", mode="managed", status="missing")
+    endpoint.service_identities.extend((runtime, supervision))
+    db_session.commit()
+    message = (
+        "RGW Admin Ops endpoint redirects from HTTP to HTTPS. Configure the HTTPS "
+        "endpoint directly; signed Admin Ops requests cannot use redirects."
+    )
+
+    def redirect(*_args, **_kwargs):
+        raise RGWAdminError(
+            message,
+            status_code=301,
+            error_code="RedirectNotAllowed",
+        )
+
+    monkeypatch.setattr(rgw, "get_user_by_access_key", redirect)
+
+    result = service.reconcile(endpoint)
+
+    assert result == [{"kind": "admin", "status": "error"}]
+    assert runtime.status == "error"
+    assert runtime.last_error == f"Unable to configure runtime: {message}"
+    assert supervision.status == "error"
+    assert supervision.last_error == f"Unable to configure supervision: {message}"
+
+
 def test_uid_collision_never_adopts_or_mutates_foreign_user(identities):
     service, endpoint, rgw = identities
     rgw.fail_create = True

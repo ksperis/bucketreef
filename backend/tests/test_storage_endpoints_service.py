@@ -1082,6 +1082,50 @@ def test_detect_features_reports_unavailable_http_endpoint(db_session, monkeypat
     )
 
 
+def test_detect_features_reports_admin_ops_redirect_as_misconfigured(
+    db_session, monkeypatch
+):
+    message = (
+        "RGW Admin Ops endpoint redirects from HTTP to HTTPS. Configure the HTTPS "
+        "endpoint directly; signed Admin Ops requests cannot use redirects."
+    )
+
+    class RedirectingRGWClient:
+        account_api_supported = None
+
+        @staticmethod
+        def _redirect():
+            raise RGWAdminError(
+                message,
+                status_code=301,
+                error_code="RedirectNotAllowed",
+            )
+
+        def get_user_by_access_key(self, *_args, **_kwargs):
+            self._redirect()
+
+        def get_account(self, *_args, **_kwargs):
+            self._redirect()
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **_kwargs: RedirectingRGWClient(),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="http://ceph.example.test",
+            admin_access_key="AKIA-ADMIN",
+            admin_secret_key="SECRET-ADMIN",
+        )
+    )
+
+    assert result.admin is False
+    assert result.admin_error == message
+    assert result.credential_checks.admin.status == "misconfigured"
+    assert result.credential_checks.admin.message == message
+
+
 def test_detect_features_skips_http_endpoint_check_by_default(db_session, monkeypatch):
     monkeypatch.setattr(
         "app.services.storage_endpoint_feature_detection.requests.get",

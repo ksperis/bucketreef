@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from threading import Lock
 from time import perf_counter
 from typing import Any, Dict, Optional
+from urllib.parse import urljoin, urlsplit
 
 import requests
 from requests_aws4auth import AWS4Auth
@@ -126,6 +127,7 @@ class RGWAdminTransport:
                 auth=self.auth,
                 timeout=self.request_timeout_seconds if timeout is None else timeout,
                 verify=self.verify_tls,
+                allow_redirects=False,
             )
             logger.debug(
                 "RGW request method=%s path=%s status=%s duration_ms=%.2f",
@@ -134,6 +136,40 @@ class RGWAdminTransport:
                 resp.status_code,
                 (perf_counter() - start) * 1000,
             )
+            if 300 <= resp.status_code < 400:
+                location = str(resp.headers.get("Location") or "").strip()
+                source_scheme = urlsplit(url).scheme.lower()
+                target_scheme = (
+                    urlsplit(urljoin(url, location)).scheme.lower()
+                    if location
+                    else ""
+                )
+                if source_scheme == "http" and target_scheme == "https":
+                    message = (
+                        "RGW Admin Ops endpoint redirects from HTTP to HTTPS. "
+                        "Configure the HTTPS endpoint directly; signed Admin Ops "
+                        "requests cannot use redirects."
+                    )
+                else:
+                    message = (
+                        "RGW Admin Ops endpoint returned a redirect. Configure the "
+                        "final Admin Ops endpoint directly; signed Admin Ops requests "
+                        "cannot use redirects."
+                    )
+                logger.warning(
+                    "RGW admin redirect rejected method=%s path=%s status=%s "
+                    "source_scheme=%s target_scheme=%s",
+                    method.upper(),
+                    path,
+                    resp.status_code,
+                    source_scheme or "unknown",
+                    target_scheme or "unknown",
+                )
+                raise RGWAdminError(
+                    message,
+                    status_code=resp.status_code,
+                    error_code="RedirectNotAllowed",
+                )
         except requests.RequestException as exc:
             safe_detail = sanitized_error_log_detail(exc)
             logger.warning(
