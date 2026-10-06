@@ -207,6 +207,18 @@ def normalize_storage_endpoint_state(
         payload.features_config,
         region,
     )
+    supervision_access_input = normalize_optional_string(payload.supervision_access_key)
+    supervision_secret_input = normalize_optional_string(
+        _secret_value(payload.supervision_secret_key)
+    )
+    if (
+        provider == StorageProvider.CEPH
+        and payload.service_identity_mode == "external"
+        and supervision_access_input
+        and supervision_secret_input
+    ):
+        features["healthcheck"]["enabled"] = True
+        features["healthcheck"]["mode"] = "s3"
     features_config = dump_features_config(features)
     admin_enabled = bool(features.get("admin", {}).get("enabled")) or bool(
         features.get("account", {}).get("enabled")
@@ -220,8 +232,8 @@ def normalize_storage_endpoint_state(
         provider,
         normalize_optional_string(payload.admin_access_key),
         normalize_optional_string(_secret_value(payload.admin_secret_key)),
-        normalize_optional_string(payload.supervision_access_key),
-        normalize_optional_string(_secret_value(payload.supervision_secret_key)),
+        supervision_access_input,
+        supervision_secret_input,
         admin_enabled,
         payload.service_identity_mode == "external",
     )

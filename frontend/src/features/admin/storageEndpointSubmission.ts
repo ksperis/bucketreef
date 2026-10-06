@@ -28,11 +28,22 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
       errors[field] = error instanceof Error ? error.message : "Invalid coordinates.";
     }
   }
-  const features = applyFeatureConstraints(aws ? {
+  const constrainedFeatures = applyFeatureConstraints(aws ? {
     ...form.features,
     sts: { ...form.features.sts, endpoint: awsStsEndpointForRegion(region) },
     iam: { ...form.features.iam, endpoint: awsIamEndpointForRegion(region) },
   } : form.features, form.provider);
+  const externalSupervisionConfigured = form.provider === "ceph"
+    && form.service_identity_mode === "external"
+    && Boolean(
+      (form.supervision_access_key.trim() && form.supervision_secret_key.trim())
+      || (editing && form.has_supervision_secret
+        && !form.supervision_access_key.trim() && !form.supervision_secret_key.trim()),
+    );
+  const features = externalSupervisionConfigured ? {
+    ...constrainedFeatures,
+    healthcheck: { ...constrainedFeatures.healthcheck, enabled: true, mode: "s3" as const },
+  } : constrainedFeatures;
   const payload: StorageEndpointPayload = {
     name: form.name.trim(), endpoint_url: endpoint, region: region || null,
     force_path_style: Boolean(form.force_path_style), verify_tls: Boolean(form.verify_tls),

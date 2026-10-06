@@ -402,6 +402,76 @@ def test_features_config_accepts_canonical_account_and_healthcheck_keys():
     assert healthcheck_features["healthcheck"]["url"] == "https://health.example.test"
 
 
+def test_external_supervision_credentials_enable_signed_s3_healthcheck(db_session):
+    service = StorageEndpointsService(db_session)
+
+    created = service.create_endpoint(
+        StorageEndpointCreate(
+            name="Signed healthcheck",
+            endpoint_url="https://signed-health.example.test",
+            provider=StorageProvider.CEPH,
+            service_identity_mode="external",
+            runtime_access_key="RUNTIME",
+            runtime_secret_key="RUNTIME-SECRET",
+            supervision_access_key="SUPERVISION",
+            supervision_secret_key="SUPERVISION-SECRET",
+            features_config=(
+                "features:\n"
+                "  healthcheck:\n"
+                "    enabled: false\n"
+                "    mode: http\n"
+            ),
+        )
+    )
+
+    assert created.features.healthcheck.enabled is True
+    assert created.features.healthcheck.mode == "s3"
+
+    updated = service.update_endpoint(
+        created.id,
+        StorageEndpointUpdate(
+            features_config=(
+                "features:\n"
+                "  healthcheck:\n"
+                "    enabled: false\n"
+                "    mode: http\n"
+            )
+        ),
+    )
+
+    assert updated.features.healthcheck.enabled is True
+    assert updated.features.healthcheck.mode == "s3"
+
+
+def test_env_external_supervision_credentials_enable_signed_s3_healthcheck(
+    db_session,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        json.dumps(
+            [
+                {
+                    "name": "signed-env",
+                    "endpoint_url": "https://signed-env.example.test",
+                    "provider": "ceph",
+                    "service_identity_mode": "external",
+                    "runtime_access_key": "RUNTIME",
+                    "runtime_secret_key": "RUNTIME-SECRET",
+                    "supervision_access_key": "SUPERVISION",
+                    "supervision_secret_key": "SUPERVISION-SECRET",
+                }
+            ]
+        ),
+    )
+
+    synced = StorageEndpointsService(db_session).sync_env_endpoints()
+
+    assert len(synced) == 1
+    assert synced[0].features.healthcheck.enabled is True
+    assert synced[0].features.healthcheck.mode == "s3"
+
+
 @pytest.mark.parametrize(
     ("raw", "message"),
     [
