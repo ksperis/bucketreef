@@ -304,6 +304,16 @@ class StorageEndpointsService:
             parse_env_storage_endpoints(settings.env_storage_endpoints)
         )
         if not configs:
+            env_locked_endpoints = (
+                self.db.query(StorageEndpoint)
+                .filter(StorageEndpoint.is_editable.is_(False))
+                .all()
+            )
+            for endpoint in env_locked_endpoints:
+                endpoint.is_editable = True
+                self.db.add(endpoint)
+            if env_locked_endpoints:
+                self.db.commit()
             return []
         from app.services.operation_lease_service import OperationLeaseService
         lease = OperationLeaseService(self.db)
