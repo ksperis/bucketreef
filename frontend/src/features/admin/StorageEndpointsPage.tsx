@@ -265,6 +265,11 @@ export default function StorageEndpointsPage() {
   const featureDetectBusy = endpointValidation.status === "loading";
   const detection = endpointValidation.result;
   const credentialChecks = { ...createEmptyCredentialChecks(), ...detection?.credential_checks };
+  const adminUsersWrite = detection?.credential_checks.admin.status === "valid"
+    ? detection.admin_ops_permissions?.users_write
+    : configurationReadOnly && readOnlyEndpointDetail?.id === editingId
+      ? readOnlyEndpointDetail.admin_ops_permissions?.users_write
+      : undefined;
   const featureDetectWarnings = useMemo(() => {
     if (!detection) return [];
     const warnings = detection.warnings.filter((item) => typeof item === "string" && item.trim());
@@ -481,6 +486,30 @@ export default function StorageEndpointsPage() {
   const hasTagChanges = formBaseline !== null
     && stableSignature(normalizeUiTags(form.tags)) !== stableSignature(normalizeUiTags(formBaseline.tags));
   const hasFormChanges = hasConfigurationChanges || hasTagChanges;
+  const savedRuntimeIdentity = editingEndpoint?.service_identities?.find(identity => identity.kind === "runtime");
+  const savedManagedProvisioningPending = Boolean(
+    editingEndpoint?.service_identities?.some(identity =>
+      (identity.kind === "runtime" || identity.kind === "supervision") &&
+      identity.mode === "managed" &&
+      identity.status === "not_provisioned"
+    )
+  );
+  const switchingToManaged = Boolean(
+    editingId !== null &&
+    form.service_identity_mode === "managed" &&
+    savedRuntimeIdentity?.mode !== "managed"
+  );
+  const managedProvisioningIntent = Boolean(
+    cephMode &&
+    form.service_identity_mode === "managed" &&
+    !configurationReadOnly &&
+    hasConfigurationChanges &&
+    (editingId === null || switchingToManaged || savedManagedProvisioningPending)
+  );
+  const managedProvisioningOnSave = managedProvisioningIntent && hasAdminCredentials && adminUsersWrite === true;
+  const endpointSubmitLabel = managedProvisioningOnSave
+    ? editingId === null ? "Save endpoint & create managed identities" : "Save & create managed identities"
+    : undefined;
   const fieldErrors = validationShown && !configurationReadOnly
     ? buildStorageEndpointSubmission(form, editingId !== null).errors ?? {} : {};
 
@@ -577,6 +606,30 @@ export default function StorageEndpointsPage() {
           identity.status === "not_provisioned"
         )
       );
+      if (awaitingManagedProvisioning && managedProvisioningOnSave) {
+        setActiveTab("credentials");
+        if (!hasEndpointRoute) navigate(`/admin/storage-endpoints/${targetId}`);
+        try {
+          const reconciled = await runWithStepUp(() => reconcileEndpointIdentities(targetId));
+          const reconciledForm = createFormFromEndpoint(reconciled);
+          setEndpoints(previous => [...previous.filter(endpoint => endpoint.id !== reconciled.id), reconciled]);
+          setForm(reconciledForm);
+          setFormBaseline(reconciledForm);
+          setActionMessage(editingId === null
+            ? "Endpoint added and managed service identities created."
+            : "Endpoint updated and managed service identities created.");
+          await loadEndpoints();
+          setValidationRetryKey(previous => previous + 1);
+        } catch (cause) {
+          if (isRecentWebAuthnVerificationCancelled(cause)) {
+            setActionMessage("Endpoint saved. Managed service identities were not created.");
+          } else {
+            setFormError(`Endpoint saved, but managed service identities could not be created. ${extractError(cause)}`);
+          }
+          await loadEndpoints();
+        }
+        return;
+      }
       if (awaitingManagedProvisioning) {
         setActionMessage(editingId === null
           ? "Endpoint added. Create the managed service identities to complete setup."
@@ -751,7 +804,9 @@ export default function StorageEndpointsPage() {
       {showForm && (
         <StorageEndpointEditor key={editingId ?? "create"} title={editorTitle} name={editingEndpoint?.name ?? "Endpoint"}
           editing={editingId !== null} readOnly={configurationReadOnly} canEdit={canEditEndpoints}
-          ready={metadataReady} dirty={hasFormChanges} busy={saving} onSubmit={handleSubmit} onClose={onCloseForm}>
+          ready={metadataReady} dirty={hasFormChanges} busy={saving}
+          submitLabel={endpointSubmitLabel} busyLabel={managedProvisioningOnSave ? "Saving and creating identities..." : undefined}
+          onSubmit={handleSubmit} onClose={onCloseForm}>
           {formError && <PageBanner tone="error">{formError}</PageBanner>}
           {configurationReadOnly && <PageBanner tone="info">
             Endpoint configuration is read-only. {!metadataReady
@@ -773,11 +828,7 @@ export default function StorageEndpointsPage() {
               ) : undefined} />}
             {activeTab === "credentials" && <StorageEndpointCredentialsFields form={form} setForm={setForm}
               readOnly={configurationReadOnly} editing={editingId !== null} cephAdminEnabled={cephAdminConfigEnabled} cephAdminActive={editingEndpoint?.ceph_admin_active}
-              usersWrite={detection?.credential_checks.admin.status === "valid"
-                ? detection.admin_ops_permissions?.users_write
-                : configurationReadOnly && readOnlyEndpointDetail?.id === editingId
-                  ? readOnlyEndpointDetail.admin_ops_permissions?.users_write
-                  : undefined}
+              usersWrite={adminUsersWrite}
               identities={editingEndpoint?.service_identities} reconciling={saving} configurationDirty={hasConfigurationChanges}
               storedAdminAccessKey={editingEndpoint?.admin_access_key}
               onReconcile={editingId !== null && canEditEndpoints ? () => {
