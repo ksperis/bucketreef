@@ -837,6 +837,36 @@ def test_startup_reconciles_persisted_endpoints_only_on_controller_instances(ide
     monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_admin_enabled", True)
     service.reconcile_persisted_identities()
     assert endpoint.service_identity("runtime").status == "ready"
+    calls_after_initial_reconciliation = list(rgw.calls)
+    service.reconcile_persisted_identities()
+    assert rgw.calls == calls_after_initial_reconciliation
+
+
+def test_startup_reconciles_when_service_identity_rotation_is_pending(identities, db_session):
+    identity_service, endpoint, rgw = identities
+    identity_service.reconcile(endpoint)
+    runtime = endpoint.service_identity("runtime")
+    db_session.add(
+        KeyRotationIntent(
+            endpoint_id=endpoint.id,
+            key_type="endpoint_runtime",
+            target_id=runtime.id,
+            rgw_uid=runtime.rgw_uid,
+            rgw_endpoint=endpoint.endpoint_url,
+            old_access_key=runtime.access_key,
+            new_access_key="PENDING-ACCESS",
+            new_secret_key="PENDING-SECRET",
+            deactivate_only=False,
+            phase="prepared",
+            actor_email="system",
+        )
+    )
+    db_session.commit()
+    rgw.calls.clear()
+
+    StorageEndpointsService(db_session).reconcile_persisted_identities()
+
+    assert rgw.calls
 
 
 def test_managed_to_external_conversion_requires_supervision_before_revoking(identities, db_session):
