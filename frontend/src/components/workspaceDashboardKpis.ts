@@ -288,8 +288,8 @@ export function buildWorkspaceDashboardKpis(config: BuildWorkspaceDashboardKpisC
 
   return [
     storageMetric,
-    buildCountMetric(config.spaces),
     buildCountMetric(config.objects),
+    buildCountMetric(config.spaces),
     transferMetric,
   ];
 }

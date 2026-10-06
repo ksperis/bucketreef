@@ -85,13 +85,13 @@ describe("workspaceDashboardKpis", () => {
       },
     });
 
-    expect(metrics.map((metric) => metric.label)).toEqual(["Storage used", "Storage spaces", "Objects", "Transfer"]);
+    expect(metrics.map((metric) => metric.label)).toEqual(["Storage used", "Objects", "Storage spaces", "Transfer"]);
     expect(metrics[0].trend?.label).toBe("256 B vs last 30 days");
-    expect(metrics[1].detail).toBe("1 / 4 spaces (25%)");
-    expect(metrics[1].progress).toBe(25);
-    expect(metrics[1].progressLabel).toBe("Storage spaces quota usage");
-    expect(metrics[1].trend?.label).toBe("1 vs last 30 days");
-    expect(metrics[2].trend?.label).toBe("4 vs last 30 days");
+    expect(metrics[1].trend?.label).toBe("4 vs last 30 days");
+    expect(metrics[2].detail).toBe("1 / 4 spaces (25%)");
+    expect(metrics[2].progress).toBe(25);
+    expect(metrics[2].progressLabel).toBe("Storage spaces quota usage");
+    expect(metrics[2].trend?.label).toBe("1 vs last 30 days");
     expect(metrics[3].value).toBe("384 B");
     expect(metrics[3].detail).toBe("Last 24h");
     expect(metrics[3].trend?.label).toBe("2.0 KB vs last 30 days");

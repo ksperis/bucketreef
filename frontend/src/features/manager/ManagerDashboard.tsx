@@ -493,10 +493,10 @@ function QuotaStatusCard({
                 <span className="ui-dashboard-label">{row.label}</span>
               </div>
               <div>
-                <p className="ui-dashboard-label ui-dashboard-quota-value">
+                <p className="ui-dashboard-label">
                   <span className="font-semibold text-[var(--ui-text)]">{row.value.current}</span>
                   {row.value.quota && (
-                    <span className={uiMutedTextClass}> / {row.value.quota}</span>
+                    <span className={cx(uiMutedTextClass, "ui-dashboard-quota-value")}> / {row.value.quota}</span>
                   )}
                 </p>
                 {row.percent != null && <ProgressBar value={row.percent} className="mt-1 h-1.5" />}

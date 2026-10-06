@@ -1057,7 +1057,11 @@ describe("manager shell pages", () => {
       </MemoryRouter>
     );
 
-    expect(document.querySelector('[data-workspace-dashboard-kpi-row="true"]')).toBeInTheDocument();
+    const kpiRow = document.querySelector('[data-workspace-dashboard-kpi-row="true"]');
+    expect(kpiRow).toBeInTheDocument();
+    expect(
+      Array.from(kpiRow!.querySelectorAll("[data-kpi-card]"), (card) => card.getAttribute("data-kpi-card")),
+    ).toEqual(["Storage used", "Objects", "Buckets", "Transfer"]);
     expect(screen.getByText("Top buckets by storage")).toBeInTheDocument();
     expect(
       await screen.findByRole(
