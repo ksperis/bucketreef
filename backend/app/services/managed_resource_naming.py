@@ -7,6 +7,7 @@ import uuid
 
 
 MANAGED_STORAGE_PREFIX = "bkr"
+MANAGED_IAM_USERNAME_MAX_LENGTH = 63
 
 PORTAL_MANAGER_GROUP_NAME = f"{MANAGED_STORAGE_PREFIX}-portal-manager"
 PORTAL_USER_GROUP_NAME = f"{MANAGED_STORAGE_PREFIX}-portal-user"
@@ -46,7 +47,7 @@ MIGRATION_LOCK_PROBE_OBJECT_PREFIX = f"__{MANAGED_STORAGE_PREFIX}__/migration/lo
 
 
 def portal_iam_username(account_id: int, user_id: int) -> str:
-    return f"{MANAGED_STORAGE_PREFIX}-portal-{account_id}-{user_id}"[:63]
+    return f"{MANAGED_STORAGE_PREFIX}-portal-{account_id}-{user_id}"[:MANAGED_IAM_USERNAME_MAX_LENGTH]
 
 
 def portal_external_iam_username(
@@ -55,7 +56,19 @@ def portal_external_iam_username(
     slug: str,
     token: str,
 ) -> str:
-    return f"{MANAGED_STORAGE_PREFIX}-portal-ext-{account_id}-{storage_space_id}-{slug[:20]}-{token}"[:63]
+    stem = f"{MANAGED_STORAGE_PREFIX}-portal-ext-{account_id}-{storage_space_id}"
+    suffix = f"-{token}"
+    slug_budget = MANAGED_IAM_USERNAME_MAX_LENGTH - len(stem) - len(suffix) - 1
+
+    if slug_budget > 0:
+        truncated_slug = slug[:slug_budget].rstrip("-")
+        if truncated_slug:
+            return f"{stem}-{truncated_slug}{suffix}"
+
+    username = f"{stem}{suffix}"
+    if len(username) > MANAGED_IAM_USERNAME_MAX_LENGTH:
+        raise ValueError("Portal external IAM username identifiers exceed the supported length.")
+    return username
 
 
 def portal_storage_space_bucket_name() -> str:
