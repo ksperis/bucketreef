@@ -440,18 +440,19 @@ function QuotaStatusCard({
       icon: <BucketIcon className="h-3.5 w-3.5" />,
     },
     {
-      label: "Buckets",
-      value: formatQuotaStatusValue(visibleBucketCount, visibleBucketQuota, formatSpacedCompactNumber),
-      percent: bucketStatusPercent,
-      tone: "emerald" as DashboardTone,
-      icon: <BucketCollectionIcon className="h-3.5 w-3.5" />,
-    },
-    {
       label: "Objects",
       value: formatQuotaStatusValue(visibleObjectCount, visibleObjectQuota, formatSpacedCompactNumber),
       percent: objectPercent,
       tone: "violet" as DashboardTone,
       icon: <FileIcon className="h-3.5 w-3.5" />,
+    },
+    {
+      label: "Buckets",
+      value: formatQuotaStatusValue(visibleBucketCount, visibleBucketQuota, formatSpacedCompactNumber),
+      percent: bucketStatusPercent,
+      to: "/manager/buckets",
+      tone: "emerald" as DashboardTone,
+      icon: <BucketCollectionIcon className="h-3.5 w-3.5" />,
     },
     {
       label: "Users",
