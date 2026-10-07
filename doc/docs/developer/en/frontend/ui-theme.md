@@ -511,6 +511,10 @@ controls (44px on mobile or coarse pointers). Keep filters, selection and the
 table adjacent; add spacing explicitly around progress cards rather than
 applying a general vertical stack to the listing card.
 
+Active filters share the toolbar padding and listing typography. Removable filter
+badges include their inner button within the 28px desktop height; on touch layouts,
+the remove button itself retains a 44px target.
+
 The `--list-*` scale centralizes 12px/18px text, 400/500/600 weights, 36px
 minimum rows, 12px/4px cell padding, 28px controls with 8px inline padding,
 6px action corners and 4px badge corners. Below 768px or with a coarse pointer,
