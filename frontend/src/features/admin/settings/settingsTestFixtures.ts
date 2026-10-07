@@ -31,6 +31,7 @@ export function createAppSettings(
       bucket_quota_management_enabled: true,
       manager_ceph_s3_user_keys_enabled: true,
       manager_access_key_metadata_enabled: false,
+      manager_access_key_expiration_enabled: false,
       allow_login_access_keys: false,
       allow_login_endpoint_list: false,
       allow_login_custom_endpoint: false,

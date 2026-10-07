@@ -794,6 +794,8 @@ class S3AccountsService:
             account.allow_bucket_quota_management = bool(payload.allow_bucket_quota_management)
         if payload.allow_access_key_metadata is not None:
             account.allow_access_key_metadata = bool(payload.allow_access_key_metadata)
+        if payload.allow_access_key_expiration is not None:
+            account.allow_access_key_expiration = bool(payload.allow_access_key_expiration)
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None

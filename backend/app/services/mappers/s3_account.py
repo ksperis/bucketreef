@@ -56,6 +56,7 @@ def s3_account_from_db(
         storage_endpoint_capabilities=storage_endpoint_capabilities,
         allow_bucket_quota_management=bool(account.allow_bucket_quota_management),
         allow_access_key_metadata=bool(account.allow_access_key_metadata),
+        allow_access_key_expiration=bool(account.allow_access_key_expiration),
         tags=tags or [],
     )
 
@@ -82,5 +83,6 @@ def s3_account_summary_from_db(
         storage_endpoint_capabilities=storage_endpoint_capabilities,
         allow_bucket_quota_management=bool(account.allow_bucket_quota_management),
         allow_access_key_metadata=bool(account.allow_access_key_metadata),
+        allow_access_key_expiration=bool(account.allow_access_key_expiration),
         tags=tags or [],
     )

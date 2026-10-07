@@ -31,6 +31,7 @@ import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
 import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKeyMetadataDialog";
+import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
 
 function parseError(err: unknown): string {
   return extractApiError(err, "Unexpected error");
@@ -44,6 +45,7 @@ export default function ManagerCephKeysPage() {
     selectedS3AccountType,
     managerCephKeysEnabled,
     managerAccessKeyMetadataEnabled,
+    managerAccessKeyExpirationEnabled,
     managerPrivateAccessEnabled,
     accessMode,
   } = useS3AccountContext();
@@ -114,7 +116,7 @@ export default function ManagerCephKeysPage() {
   };
 
   const handleCreateKey = () => {
-    if (managerAccessKeyMetadataEnabled) {
+    if (managerAccessKeyMetadataEnabled || managerAccessKeyExpirationEnabled) {
       setMetadataError(null);
       setMetadataDialog({ mode: "create" });
       return;
@@ -211,6 +213,9 @@ export default function ManagerCephKeysPage() {
       || Boolean(key.notes?.toLowerCase().includes(needle));
   });
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: filteredKeys.length });
+  const showExpirationColumn = Boolean(
+    managerAccessKeyExpirationEnabled || keys.some((key) => key.expires_at)
+  );
   const keyTableColumns: Array<DataTableColumn<ManagerCephAccessKey>> = [
     {
       id: "access-key",
@@ -227,9 +232,9 @@ export default function ManagerCephKeysPage() {
             {locked && (
               <ListBadge
                 tone="neutral" className="shrink-0"
-                title={managedPrivate ? "Managed private access key" : "Portal key (locked)"}
+                title={managedPrivate ? "Managed private access key" : "BucketReef interface key (locked)"}
               >
-                {managedPrivate ? "Private access" : "KLO"}
+                {managedPrivate ? "Private access" : "Interface key"}
               </ListBadge>
             )}
           </div>
@@ -252,6 +257,17 @@ export default function ManagerCephKeysPage() {
       cellClassName: "text-slate-700 dark:text-slate-200",
       render: (key) => (key.is_active ? "Active" : "Inactive"),
     },
+    ...(showExpirationColumn ? [{
+      id: "expiration",
+      label: "Expiration",
+      render: (key: ManagerCephAccessKey) => (
+        <AccessKeyExpirationStatus
+          expiresAt={key.expires_at}
+          state={key.expiration_state}
+          error={key.expiration_last_error}
+        />
+      ),
+    } satisfies DataTableColumn<ManagerCephAccessKey>] : []),
     { id: "created", label: "Created on", render: (key) => formatLocalDateTime(key.created_at) },
     {
       id: "actions",
@@ -262,9 +278,11 @@ export default function ManagerCephKeysPage() {
         const active = key.is_active;
         const managedPrivate = Boolean(key.is_private_access_managed);
         const locked = Boolean(key.is_ui_managed || managedPrivate);
+        const expirationPast = accessKeyExpirationIsPast(key.expires_at);
+        const canEditDetails = Boolean(managerAccessKeyMetadataEnabled || (managerAccessKeyExpirationEnabled && !locked));
         return (
           <ListActions>
-            {managerAccessKeyMetadataEnabled && (
+            {canEditDetails && (
               <ListActionButton
                 type="button"
                 onClick={() => {
@@ -279,8 +297,12 @@ export default function ManagerCephKeysPage() {
             <ListActionButton
               type="button"
               onClick={() => handleToggleKey(key)}
-              disabled={Boolean(busy) || locked}
-              title={locked ? (managedPrivate ? "Update the linked private connection instead" : "Portal key is locked") : undefined}
+              disabled={Boolean(busy) || locked || (!active && expirationPast)}
+              title={locked
+                ? (managedPrivate ? "Update the linked private connection instead" : "Interface key is locked")
+                : (!active && expirationPast)
+                  ? "Remove or move the expired access-key expiration before enabling this key"
+                  : undefined}
             >
               {busy === `toggle:${key.access_key_id}` ? "Saving..." : active ? "Disable" : "Enable"}
             </ListActionButton>
@@ -289,7 +311,7 @@ export default function ManagerCephKeysPage() {
               onClick={() => handleDeleteKey(key)}
                variant="danger"
               disabled={Boolean(busy) || locked}
-              title={locked ? (managedPrivate ? "Delete the linked private connection instead" : "Portal key is locked") : undefined}
+              title={locked ? (managedPrivate ? "Delete the linked private connection instead" : "Interface key is locked") : undefined}
             >
               {busy === `delete:${key.access_key_id}` ? "Deleting..." : "Delete"}
             </ListActionButton>
@@ -401,7 +423,20 @@ export default function ManagerCephKeysPage() {
       {metadataDialog && (
         <AccessKeyMetadataDialog
           mode={metadataDialog.mode}
-          initial={metadataDialog.key ? { name: metadataDialog.key.name, notes: metadataDialog.key.notes } : undefined}
+          initial={metadataDialog.key ? {
+            name: metadataDialog.key.name,
+            notes: metadataDialog.key.notes,
+            expires_at: metadataDialog.key.expires_at,
+          } : undefined}
+          metadataEnabled={Boolean(managerAccessKeyMetadataEnabled)}
+          expirationEnabled={Boolean(
+            managerAccessKeyExpirationEnabled
+            && !metadataDialog.key?.is_ui_managed
+            && !metadataDialog.key?.is_private_access_managed
+          )}
+          expirationLockedReason={metadataDialog.key?.expires_at && (metadataDialog.key.is_ui_managed || metadataDialog.key.is_private_access_managed)
+            ? "This key is managed by BucketReef. Its expiration cannot be changed from the generic key inventory."
+            : undefined}
           busy={busy === "create" || busy?.startsWith("metadata:") === true}
           error={metadataError}
           onClose={() => {

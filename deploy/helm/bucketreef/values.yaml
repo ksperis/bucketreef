@@ -239,5 +239,13 @@ notificationRetentionCronJob:
   failedJobsHistoryLimit: 2
   extraEnv: []
 
+accessKeyExpirationCronJob:
+  enabled: false
+  schedule: "* * * * *"
+  backoffLimit: 1
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  extraEnv: []
+
 nameOverride: ""
 fullnameOverride: ""

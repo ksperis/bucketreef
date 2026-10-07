@@ -100,7 +100,7 @@ class RGWAdminUserOperations:
         account_id: Optional[str] = None,
         access_key: Optional[str] = None,
         secret_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> Any:
         if account_id:
             raise RGWAdminError(
                 "account-scoped access key creation is not supported on this RGW cluster"

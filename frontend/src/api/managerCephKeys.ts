@@ -15,6 +15,11 @@ export type ManagerCephAccessKey = {
   managed_connection_id?: number | null;
   name?: string | null;
   notes?: string | null;
+  expires_at?: string | null;
+  expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
+  expiration_enforced_at?: string | null;
+  expiration_last_attempt_at?: string | null;
+  expiration_last_error?: string | null;
 };
 
 export type ManagerCephGeneratedAccessKey = {
@@ -23,11 +28,14 @@ export type ManagerCephGeneratedAccessKey = {
   created_at?: string | null;
   name?: string | null;
   notes?: string | null;
+  expires_at?: string | null;
+  expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
 };
 
 export type ManagerAccessKeyMetadataInput = {
   name?: string | null;
   notes?: string | null;
+  expires_at?: string | null;
 };
 
 export async function listManagerCephAccessKeys(accountId?: S3AccountSelector): Promise<ManagerCephAccessKey[]> {

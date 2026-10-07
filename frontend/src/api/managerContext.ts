@@ -17,6 +17,7 @@ export type ManagerContext = {
   manager_bucket_quota_enabled?: boolean;
   manager_ceph_keys_enabled?: boolean;
   manager_access_key_metadata_enabled?: boolean;
+  manager_access_key_expiration_enabled?: boolean;
   manager_private_access_enabled?: boolean;
   quota_max_size_gb?: number | null;
   quota_max_objects?: number | null;

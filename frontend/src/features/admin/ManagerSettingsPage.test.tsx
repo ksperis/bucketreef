@@ -331,6 +331,8 @@ describe("ManagerSettingsPage", () => {
       "RGW traffic and usage metrics",
       "Bucket quota management",
       "Ceph S3 User access-key management",
+      "Access-key names and notes",
+      "Access-key expiration",
       "Provision managed private connections",
       "Bucket migration tool",
       "Bucket compare tool",

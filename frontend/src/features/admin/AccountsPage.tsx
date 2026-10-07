@@ -768,6 +768,7 @@ export default function S3AccountsPage() {
 
       {isSuperAdmin && editingS3Account && <AdminAccountEditor key={editingS3Account.id}
         account={editingS3Account} portalEnabled={portalEnabled} accessKeyMetadataEnabled={generalSettings.manager_access_key_metadata_enabled}
+        accessKeyExpirationEnabled={generalSettings.manager_access_key_expiration_enabled}
         canManagePrivilegedTargets={canManagePrivilegedTargets}
         onClose={closeAccountEditor} onSaved={accountSaved} onStateChange={setEditorState} />}
       {accountSwitchGuard.confirmationDialog}

@@ -27,6 +27,7 @@ import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKeyMetadataDialog";
+import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
 
 function extractError(err: unknown): string {
   return extractApiError(err, "Unexpected error");
@@ -34,7 +35,14 @@ function extractError(err: unknown): string {
 
 export default function ManagerUserKeysPage() {
   const { userName } = useParams<{ userName: string }>();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, managerAccessKeyMetadataEnabled } = useS3AccountContext();
+  const {
+    selectedS3AccountType,
+    accountIdForApi,
+    requiresS3AccountSelection,
+    accessMode,
+    managerAccessKeyMetadataEnabled,
+    managerAccessKeyExpirationEnabled,
+  } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [keys, setKeys] = useState<AccessKey[]>([]);
@@ -110,7 +118,7 @@ export default function ManagerUserKeysPage() {
   };
 
   const handleCreateKey = () => {
-    if (managerAccessKeyMetadataEnabled) {
+    if (managerAccessKeyMetadataEnabled || managerAccessKeyExpirationEnabled) {
       setMetadataError(null);
       setMetadataDialog({ mode: "create" });
       return;
@@ -213,6 +221,7 @@ export default function ManagerUserKeysPage() {
     error,
     rowCount: keys.length,
   });
+  const showExpirationColumn = Boolean(managerAccessKeyExpirationEnabled || keys.some((key) => key.expires_at));
   const keyTableColumns: Array<DataTableColumn<AccessKey>> = [
     {
       id: "access-key",
@@ -245,6 +254,17 @@ export default function ManagerUserKeysPage() {
       cellClassName: "text-slate-700 dark:text-slate-200",
       render: (key) => key.status ?? (isKeyActive(key) ? "Active" : "Inactive"),
     },
+    ...(showExpirationColumn ? [{
+      id: "expiration",
+      label: "Expiration",
+      render: (key: AccessKey) => (
+        <AccessKeyExpirationStatus
+          expiresAt={key.expires_at}
+          state={key.expiration_state}
+          error={key.expiration_last_error}
+        />
+      ),
+    } satisfies DataTableColumn<AccessKey>] : []),
     { id: "created", label: "Created on", render: (key) => formatDate(key.created_at) },
     {
       id: "actions",
@@ -254,9 +274,11 @@ export default function ManagerUserKeysPage() {
       render: (key) => {
         const active = isKeyActive(key);
         const managed = Boolean(key.is_private_access_managed);
+        const expirationPast = accessKeyExpirationIsPast(key.expires_at);
+        const canEditDetails = Boolean(managerAccessKeyMetadataEnabled || (managerAccessKeyExpirationEnabled && !managed));
         return (
           <ListActions>
-            {managerAccessKeyMetadataEnabled && (
+            {canEditDetails && (
               <ListActionButton
                 type="button"
                 onClick={() => {
@@ -271,8 +293,12 @@ export default function ManagerUserKeysPage() {
             <ListActionButton
               type="button"
               onClick={() => handleToggleKey(key.access_key_id, !active)}
-              disabled={Boolean(busy) || managed}
-              title={managed ? "Update the linked private connection instead" : undefined}
+              disabled={Boolean(busy) || managed || (!active && expirationPast)}
+              title={managed
+                ? "Update the linked private connection instead"
+                : (!active && expirationPast)
+                  ? "Remove or move the expired access-key expiration before enabling this key"
+                  : undefined}
             >
               {busy === `toggle:${key.access_key_id}` ? "Saving..." : active ? "Disable" : "Enable"}
             </ListActionButton>
@@ -374,7 +400,18 @@ export default function ManagerUserKeysPage() {
       {metadataDialog && (
         <AccessKeyMetadataDialog
           mode={metadataDialog.mode}
-          initial={metadataDialog.key ? { name: metadataDialog.key.name, notes: metadataDialog.key.notes } : undefined}
+          initial={metadataDialog.key ? {
+            name: metadataDialog.key.name,
+            notes: metadataDialog.key.notes,
+            expires_at: metadataDialog.key.expires_at,
+          } : undefined}
+          metadataEnabled={Boolean(managerAccessKeyMetadataEnabled)}
+          expirationEnabled={Boolean(
+            managerAccessKeyExpirationEnabled && !metadataDialog.key?.is_private_access_managed
+          )}
+          expirationLockedReason={metadataDialog.key?.is_private_access_managed && metadataDialog.key.expires_at
+            ? "This key belongs to managed private access. Its expiration cannot be changed from the generic key inventory."
+            : undefined}
           busy={busy === "create" || busy?.startsWith("metadata:") === true}
           error={metadataError}
           onClose={() => {

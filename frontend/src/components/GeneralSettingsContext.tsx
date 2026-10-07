@@ -36,6 +36,7 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   bucket_quota_management_enabled: false,
   manager_ceph_s3_user_keys_enabled: true,
   manager_access_key_metadata_enabled: false,
+  manager_access_key_expiration_enabled: false,
   managed_private_connection_provisioning_enabled: false,
   allow_login_access_keys: false,
   allow_login_endpoint_list: false,

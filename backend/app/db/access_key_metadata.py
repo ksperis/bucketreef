@@ -28,6 +28,7 @@ class ManagerAccessKeyMetadata(Base):
             name="uq_manager_access_key_metadata_s3_user",
         ),
         Index("ix_manager_access_key_metadata_access_key", "access_key_id"),
+        Index("ix_manager_access_key_metadata_expires_at", "expires_at"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -37,5 +38,10 @@ class ManagerAccessKeyMetadata(Base):
     access_key_id = Column(String(256), nullable=False)
     name = Column(String(128), nullable=True)
     notes = Column(Text, nullable=True)
+    expires_at = Column(UTCDateTime(), nullable=True)
+    expiration_state = Column(String(32), nullable=True)
+    expiration_enforced_at = Column(UTCDateTime(), nullable=True)
+    expiration_last_attempt_at = Column(UTCDateTime(), nullable=True)
+    expiration_last_error = Column(Text, nullable=True)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)

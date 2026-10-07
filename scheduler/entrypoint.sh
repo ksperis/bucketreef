@@ -15,6 +15,7 @@ umask 077
   echo "$QUOTA_MONITOR_CRON_SCHEDULE /bin/sh /opt/cron/run-quota-monitor.sh"
   echo "$USAGE_HISTORY_CRON_SCHEDULE /bin/sh /opt/cron/run-usage-history.sh"
   echo "${NOTIFICATION_RETENTION_CRON_SCHEDULE:-15 3 * * *} /bin/sh /opt/cron/run-notification-retention.sh"
+  echo "${ACCESS_KEY_EXPIRATION_CRON_SCHEDULE:-* * * * *} /bin/sh /opt/cron/run-access-key-expirations.sh"
 } > "$crontab_file"
 
 exec supercronic "$crontab_file"

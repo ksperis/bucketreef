@@ -23,6 +23,7 @@ HEALTHCHECK_RUN_OPERATION = "healthchecks:run"
 QUOTA_MONITOR_ALERTS_OPERATION = "quota-monitor:alerts"
 USAGE_HISTORY_COLLECT_OPERATION = "quota-monitor:usage-history"
 USER_NOTIFICATIONS_PURGE_OPERATION = "user-notifications:purge"
+ACCESS_KEY_EXPIRATION_RUN_OPERATION = "access-key-expirations:run"
 
 
 def billing_daily_operation_name(day_iso: str) -> str:

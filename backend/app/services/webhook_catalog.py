@@ -167,6 +167,7 @@ AUDIT_EVENT_TYPES = (
     'audit.manager.detach_group_policy',
     'audit.manager.detach_role_policy',
     'audit.manager.detach_user_policy',
+    'audit.manager.enforce_access_key_expiration',
     'audit.manager.fail_bucket_purge',
     'audit.manager.finish_bucket_purge',
     'audit.manager.managed_private_access.cleanup_pending',

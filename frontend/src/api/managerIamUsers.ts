@@ -26,11 +26,17 @@ export type AccessKey = {
   managed_connection_id?: number | null;
   name?: string | null;
   notes?: string | null;
+  expires_at?: string | null;
+  expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
+  expiration_enforced_at?: string | null;
+  expiration_last_attempt_at?: string | null;
+  expiration_last_error?: string | null;
 };
 
 export type AccessKeyMetadataInput = {
   name?: string | null;
   notes?: string | null;
+  expires_at?: string | null;
 };
 
 export type IAMUser = {

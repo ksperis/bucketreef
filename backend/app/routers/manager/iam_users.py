@@ -141,8 +141,12 @@ def list_access_keys(
     try:
         keys = service.list_access_keys(user_name)
         metadata_service = AccessKeyMetadataService(db)
-        if metadata_service.enabled_for_context(account) and account.id is not None:
-            metadata_service.apply_metadata(keys, metadata_service.iam_metadata(account.id, user_name))
+        if account.id is not None:
+            metadata_service.apply_metadata(
+                keys,
+                metadata_service.iam_metadata(account.id, user_name),
+                include_labels=metadata_service.metadata_enabled_for_context(account),
+            )
         source = iam_source_reference(account)
         if source is not None:
             managed = {
@@ -175,20 +179,23 @@ def create_access_key(
             status_code=status.HTTP_409_CONFLICT,
             detail="Managed private access IAM users cannot receive keys through the generic endpoint",
         )
+    metadata_service = AccessKeyMetadataService(db)
+    if payload is not None and payload.model_fields_set:
+        if account.id is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access-key details are not available for this context")
+        try:
+            metadata_service.validate_payload(account, payload)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     service = get_iam_service_for_account(account)
     try:
         key = service.create_access_key(user_name)
-        metadata_service = AccessKeyMetadataService(db)
-        if payload is not None and (payload.name is not None or payload.notes is not None):
-            if not metadata_service.enabled_for_context(account) or account.id is None:
-                service.delete_access_key(user_name, key.access_key_id)
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access-key metadata is not enabled for this Manager context",
-                )
-            metadata_service.set_iam_metadata(account.id, user_name, key.access_key_id, payload)
-            key.name = payload.name
-            key.notes = payload.notes
+        if payload is not None and payload.model_fields_set and account.id is not None:
+            row = metadata_service.set_iam_metadata(account.id, user_name, key.access_key_id, payload)
+            if row is not None:
+                metadata_service.apply_metadata([key], {key.access_key_id: row})
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -214,16 +221,19 @@ def update_access_key_metadata(
     db: Session = Depends(get_db),
 ) -> AccessKeyMetadata:
     metadata_service = AccessKeyMetadataService(db)
-    if not metadata_service.enabled_for_context(account) or account.id is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access-key metadata is not enabled for this Manager context",
-        )
+    if account.id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access-key details are not available for this context")
+    try:
+        metadata_service.validate_payload(account, payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     service = get_iam_service_for_account(account)
     try:
         if not any(key.access_key_id == access_key_id for key in service.list_access_keys(user_name)):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access key not found")
-        metadata_service.set_iam_metadata(account.id, user_name, access_key_id, payload)
+        row = metadata_service.set_iam_metadata(account.id, user_name, access_key_id, payload)
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -231,9 +241,14 @@ def update_access_key_metadata(
             entity_type="iam_user",
             entity_id=user_name,
             account=account,
-            metadata={"access_key_id": access_key_id, "has_name": bool(payload.name), "has_notes": bool(payload.notes)},
+            metadata={
+                "access_key_id": access_key_id,
+                "has_name": bool(row and row.name),
+                "has_notes": bool(row and row.notes),
+                "has_expiration": bool(row and row.expires_at),
+            },
         )
-        return AccessKeyMetadata(name=payload.name, notes=payload.notes)
+        return metadata_service.to_api(row)
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
@@ -253,6 +268,15 @@ def update_access_key_status(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; update or delete its private connection instead",
+        )
+    if payload.active and account.id is not None and AccessKeyMetadataService(db).expiration_due(
+        account_id=account.id,
+        principal_name=user_name,
+        access_key_id=access_key_id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Remove or move the expired access-key expiration before enabling this key",
         )
     service = get_iam_service_for_account(account)
     status_value = "Active" if payload.active else "Inactive"
