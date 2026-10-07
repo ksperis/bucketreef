@@ -242,7 +242,7 @@ describe("AccountsPage modal tabs", () => {
 
     const generalPanel = await screen.findByRole("tabpanel", { name: "General" });
     expect(
-      screen.getByText("Manage quotas, usage, UI associations, privileged access, and Portal overrides for this account.")
+      screen.getByText("Manage quotas, usage, UI associations, Manager features, and Portal overrides for this account.")
     ).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "Account details" })).toBeInTheDocument();
     expect(within(generalPanel).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuenow", "50");
@@ -645,16 +645,22 @@ describe("AccountsPage modal tabs", () => {
     ).toBeDisabled();
   });
 
-  it("submits privileged access grants from the account edit tab", async () => {
+  it("submits Manager feature grants from the account edit tab", async () => {
     renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
-    expect(screen.getByText("Privileged Ceph access")).toBeInTheDocument();
+    const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
+    const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
+    expect(within(extensionsSection).getByRole("switch", { name: "Access-key names and notes" })).toBeInTheDocument();
+    expect(within(extensionsSection).getByRole("switch", { name: "Access-key expiration" })).toBeInTheDocument();
+    expect(within(extensionsSection).queryByRole("switch", { name: "Bucket quota management" })).not.toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("switch", { name: "Bucket quota management" })).toBeInTheDocument();
+    expect(within(privilegedSection).queryByRole("switch", { name: "Access-key names and notes" })).not.toBeInTheDocument();
     expect(
-      screen.getByText("Ceph admin-API actions granted directly to this account outside the Ceph Admin workspace.")
+      screen.getByText("Manager operations that require delegated Ceph/RGW administrative capabilities.")
     ).toBeInTheDocument();
     expect(
       screen.getByText("Allow Ceph bucket quota updates for this S3 Account in Manager.")
@@ -676,14 +682,14 @@ describe("AccountsPage modal tabs", () => {
     );
   });
 
-  it("lets ui_admin submit privileged access grants from account edits", async () => {
+  it("lets ui_admin submit Manager feature grants from account edits", async () => {
     setSessionUserCache({ id: 2, role: "ui_admin" });
 
     renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
     const quotaCheckbox = screen.getByRole("switch", { name: /Bucket quota management/ });
     expect(quotaCheckbox).not.toBeChecked();
@@ -717,7 +723,7 @@ describe("AccountsPage modal tabs", () => {
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
     expect(
       await screen.findByText("Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.")
@@ -1124,13 +1130,13 @@ describe("AccountsPage modal tabs", () => {
     renderPage();
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
     fireEvent.click(screen.getByRole("switch", { name: "Bucket quota management" }));
     fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
     fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await screen.findByText("Project settings saved.");
-    fireEvent.click(screen.getByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Manager features" }));
     expect(screen.getByRole("switch", { name: "Bucket quota management" })).toBeChecked();
     expect(updateS3AccountMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
@@ -1145,13 +1151,13 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Manager features" }));
     fireEvent.click(screen.getByRole("switch", { name: "Bucket quota management" }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(screen.getByRole("tab", { name: "Portal settings" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
     fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
-    expect(screen.getByRole("tab", { name: "Privileged access" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Manager features" })).toHaveAttribute("aria-selected", "true");
     await act(async () => finishSave());
     fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
     expect(screen.getByLabelText("Browser workspace access")).toHaveValue("enabled");
@@ -1169,7 +1175,7 @@ describe("AccountsPage modal tabs", () => {
     updateS3AccountMock.mockReturnValueOnce(new Promise<void>(resolve => { finishSave = resolve; }));
     const first = renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
     fireEvent.click(screen.getByRole("switch", { name: "Bucket quota management" }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
@@ -1419,7 +1425,7 @@ describe("AccountsPage modal tabs", () => {
     const quota = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(quota).toBeEnabled());
     fireEvent.change(quota, { target: { value: "1.5" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Manager features" }));
     fireEvent.submit(screen.getByRole("form", { name: "Edit RGW account" }));
     await waitFor(() => expect(quota).toHaveFocus());
     expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute("aria-selected", "true");
