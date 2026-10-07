@@ -504,6 +504,13 @@ so longer translated labels and validation messages can wrap without clipping.
 
 ## Listing tokens and exceptions
 
+Selection actions use the listing button scale, including the bucket workbench
+and migration bucket selection. `ui-list-selection-bar` shares the toolbar's
+8px vertical and 12px horizontal padding, with 12px/18px text and 28px desktop
+controls (44px on mobile or coarse pointers). Keep filters, selection and the
+table adjacent; add spacing explicitly around progress cards rather than
+applying a general vertical stack to the listing card.
+
 The `--list-*` scale centralizes 12px/18px text, 400/500/600 weights, 36px
 minimum rows, 12px/4px cell padding, 28px controls with 8px inline padding,
 6px action corners and 4px badge corners. Below 768px or with a coarse pointer,

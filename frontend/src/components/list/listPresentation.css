@@ -89,6 +89,11 @@
 .ui-list-toolbar { font-size: var(--list-font-size); line-height: var(--list-line-height); }
 .ui-list-toolbar-body { padding: var(--list-toolbar-padding); }
 .ui-list-toolbar-secondary { padding: var(--list-toolbar-padding); }
+.ui-list-selection-bar {
+  padding: var(--list-toolbar-padding); border-bottom: 1px solid var(--ui-border-soft);
+  font-size: var(--list-font-size); line-height: var(--list-line-height); color: var(--ui-text);
+}
+.ui-list-selection-summary { font-weight: var(--list-primary-weight); }
 /* Consultation headers: these selectors never style Browser or ordinary forms. */
 .ui-list-toolbar[data-list-variant] { --list-search-width: 18rem; }
 .ui-list-toolbar[data-list-variant] .ui-list-toolbar-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: var(--list-toolbar-padding); }

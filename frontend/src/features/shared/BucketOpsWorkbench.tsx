@@ -1102,7 +1102,6 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
 
       {!selectedEndpointId && shell.emptyState ? <PageEmptyState {...shell.emptyState} /> : null}
       <ListPageSection variant="page"
-          className="space-y-4"
           title="Buckets"
           countLabel={`${total} result(s)`}
           search={
@@ -1208,9 +1207,12 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
             openBulkUpdateModal={openBulkUpdateModal}
           />
 
-        {selectAllProgress && <ActionProgressCard progress={selectAllProgress} busy className="mb-3" />}
-
-        {renderAdvancedSearchProgress(advancedProgress)}
+        {(selectAllProgress || advancedProgress.active) && (
+          <div className="px-3 pt-3">
+            {selectAllProgress && <ActionProgressCard progress={selectAllProgress} busy className="mb-3" />}
+            {renderAdvancedSearchProgress(advancedProgress)}
+          </div>
+        )}
 
         <BucketOpsTable
           columns={bucketTableColumns}

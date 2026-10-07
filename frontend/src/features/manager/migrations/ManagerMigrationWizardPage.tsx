@@ -10,11 +10,11 @@ import {
   type BucketMigrationCreateRequest,
 } from "../../../api/managerMigrations";
 import DataTableShell from "../../../components/list/DataTableShell";
+import { ListActionButton } from "../../../components/list/ListControls";
 import { resolveListTableStatus } from "../../../components/list/listTableStatus";
 import SettingsWorkflowForm from "../../../components/settings/SettingsWorkflowForm";
 import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import { WorkflowSection } from "../../../components/WorkflowPage";
-import UiButton from "../../../components/ui/UiButton";
 import UiCheckboxField from "../../../components/ui/UiCheckboxField";
 import UiDetails from "../../../components/ui/UiDetails";
 import UiInput from "../../../components/ui/UiInput";
@@ -295,26 +295,24 @@ export default function ManagerMigrationWizardPage() {
               onChange={(event) => setFilter(event.target.value)}
               size="compact"
             />
-            <UiButton
+            <ListActionButton
               variant="secondary"
-              size="sm"
               onClick={() => {
                 setSelected([...new Set([...selected, ...rows])]);
                 setDirty(true);
               }}
             >
               Select filtered
-            </UiButton>
-            <UiButton
+            </ListActionButton>
+            <ListActionButton
               variant="secondary"
-              size="sm"
               onClick={() => {
                 setSelected([]);
                 setDirty(true);
               }}
             >
               Clear selection
-            </UiButton>
+            </ListActionButton>
             <span className="ui-caption">
               {selected.length} selected / {sourceBuckets.length}
             </span>
