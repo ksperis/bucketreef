@@ -8,12 +8,12 @@ import { SettingsDialog, useSettingsCloseGuard } from "../../components/settings
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import ModalActions from "../../components/ModalActions";
 import ModalOptions from "../../components/ModalOptions";
+import { ListActionButton } from "../../components/list/ListControls";
 import UiActionMenu, { type UiActionMenuSection } from "../../components/ui/UiActionMenu";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
-import { uiButtonClassName } from "../../components/ui/UiButton";
 import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import {
   cx,
@@ -210,10 +210,10 @@ export default function BucketSelectionActionsBar({
   const tagOptions = tagMode === "add" ? availableUiTags : selectedUiTagSuggestions;
 
   return (
-    <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3">
+    <div className="ui-list-selection-bar">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <p className={cx("ui-body", uiTitleTextClass)}>
+          <p className="ui-list-selection-summary">
             {selectedCount} bucket{selectedCount > 1 ? "s" : ""} selected
             {hiddenSelectedCount > 0 && (
               <span className="ml-2 ui-caption font-semibold text-red-600 dark:text-red-400">
@@ -221,14 +221,14 @@ export default function BucketSelectionActionsBar({
               </span>
             )}
           </p>
-          <UiButton type="button" onClick={clearSelection} variant="secondary" size="sm">
+          <ListActionButton type="button" onClick={clearSelection} variant="secondary">
             Clear selection
-          </UiButton>
+          </ListActionButton>
         </div>
         <UiActionMenu
           ariaLabel={`Actions for ${selectedCount} selected bucket${selectedCount > 1 ? "s" : ""}`}
           trigger="Actions…"
-          triggerClassName={uiButtonClassName({ size: "sm" })}
+          triggerClassName="ui-list-action ui-list-action-primary"
           sections={sections}
           minWidth={320}
           menuClassName="w-80"
