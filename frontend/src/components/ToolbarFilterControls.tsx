@@ -33,6 +33,7 @@ export function ToolbarMatchModeButton({
   return (
     <ListActionButton
       {...props}
+      variant="ghost"
       iconOnly
       active={locked || (!pending && mode === "exact")}
       disabled={disabled || locked}

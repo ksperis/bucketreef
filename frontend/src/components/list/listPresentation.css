@@ -130,7 +130,11 @@
 }
 .ui-list-toolbar[data-list-variant] .ui-list-toolbar-search :is(input, textarea) { width: 100%; padding-left: 28px; }
 .ui-list-search { display: block; padding-right: calc(var(--list-control-height) + 8px) !important; }
-.ui-list-search-mode { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+.ui-list-action.ui-list-search-mode {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  right: 4px; width: 20px; min-width: 20px; height: 20px; min-height: 20px;
+  border: 0; border-radius: 4px; outline-offset: 0;
+}
 .ui-list-pagination { padding: var(--list-toolbar-padding); font-size: var(--list-font-size); line-height: var(--list-line-height); }
 .ui-list-menu-item.ui-list-menu-item { display: flex; align-items: center; gap: 6px; min-height: var(--list-control-height); width: 100%; padding: 3px 8px; border-radius: var(--list-control-radius); font-size: var(--list-font-size); line-height: var(--list-line-height); font-weight: var(--list-font-weight); text-align: left; }
 .ui-list-menu-item:hover:not(:disabled) { background: var(--ui-hover); }
@@ -145,6 +149,7 @@
 }
 @media (max-width: 767px), (pointer: coarse) {
   :root { --list-control-height: 44px; }
+  .ui-list-action.ui-list-search-mode { right: 0; width: 44px; min-width: 44px; height: 44px; min-height: 44px; outline-offset: -3px; }
   .ui-data-table th button, .ui-data-table td :is(button, a[href]), .ui-list-toolbar .ui-tag-badge > button { min-height: 44px; min-width: 44px; }
   .ui-data-table label:has(input:is([type="checkbox"], [type="radio"])), .ui-list-toolbar label:has(input:is([type="checkbox"], [type="radio"])) { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; }
 }
