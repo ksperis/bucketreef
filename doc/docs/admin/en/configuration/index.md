@@ -272,10 +272,18 @@ Managed from Admin UI:
 - Portal settings (`portal`): standalone Browser access (`browser_access_enabled`, enabled by default), IAM key availability, private Storage Space creation, portal user access-key creation, Portal User external sharing (`allow_portal_user_external_sharing`, disabled by default), server access log retention for newly created technical log buckets, max portal user keys, and bucket defaults. When external sharing is enabled, a `portal_user` may create public links and external S3 credentials only for an owned Storage Space; disabling it blocks new creation while existing links and credentials remain manageable. Portal Managers keep their existing behavior independently of this flag. Portal settings can be overridden per account by a super-admin. The per-account `portal_settings_delegated` flag is disabled by default; when enabled, project Portal Managers can edit the same shared override from `/portal/settings`. Disabling delegation keeps the stored override effective but read-only in Portal. `bucket_defaults.noncurrent_version_expiration_days` is the internal key for **Version history retention**; it is a positive integer (90 by default) and applies only when provisioning a new Storage Space with the default lifecycle enabled. Existing buckets are not reconciled automatically.
 - Manager tool flags and behavior: bucket migration, compare, integrity check,
   purge, usage stats, Ceph S3 User key management, optional access-key names
-  and notes (`manager_access_key_metadata_enabled`), and migration parallelism.
+  and notes (`manager_access_key_metadata_enabled`), optional access-key
+  expiration (`manager_access_key_expiration_enabled`), and migration
+  parallelism.
   Access-key names and notes are disabled by default and require a second
   resource opt-in: `allow_access_key_metadata=true` on each RGW Account or S3
   User where Manager should expose the BucketReef-only metadata.
+  Access-key expiration is also disabled by default and requires
+  `allow_access_key_expiration=true` on each eligible RGW Account or S3 User.
+  It additionally depends on scheduled jobs; the Compose scheduler runs
+  `ACCESS_KEY_EXPIRATION_CRON_SCHEDULE` every minute by default, while Helm uses
+  `accessKeyExpirationCronJob`. Disabling an opt-in does not cancel expirations
+  that were already scheduled.
 - Quota notification policy (`quota_notifications`: threshold, SMTP non-secret fields, contact-email option).
 
 On a fresh deployment with no persisted app settings, `Endpoint Status` and

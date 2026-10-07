@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,6 +45,7 @@ describe("ManagerUserKeysPage", () => {
       requiresS3AccountSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: false,
+      managerAccessKeyExpirationEnabled: false,
     });
     listKeysMock.mockResolvedValue([
       {
@@ -138,5 +139,69 @@ describe("ManagerUserKeysPage", () => {
         notes: "Primary nightly backup client",
       });
     });
+  });
+
+  it("shows and submits provider-side expiration without enabling metadata", async () => {
+    const user = userEvent.setup();
+    useS3AccountContextMock.mockReturnValue({
+      selectedS3AccountType: "tenant",
+      accountIdForApi: "acc-2",
+      requiresS3AccountSelection: true,
+      accessMode: "admin",
+      managerAccessKeyMetadataEnabled: false,
+      managerAccessKeyExpirationEnabled: true,
+    });
+    listKeysMock.mockResolvedValue([
+      {
+        access_key_id: "AK-APP",
+        status: "Active",
+        expires_at: "2030-01-15T11:30:00Z",
+        expiration_state: "scheduled",
+      },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText("Scheduled")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "New key" }));
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    const expiration = screen.getByLabelText("Expiration date and time");
+    fireEvent.change(expiration, { target: { value: "2030-01-15T12:30" } });
+    await user.click(screen.getByRole("button", { name: "Create key" }));
+
+    await waitFor(() => {
+      expect(createKeyMock).toHaveBeenCalledWith("acc-2", "alice", {
+        expires_at: new Date("2030-01-15T12:30").toISOString(),
+      });
+    });
+  });
+
+  it("keeps an expired inactive key disabled until its expiration changes", async () => {
+    useS3AccountContextMock.mockReturnValue({
+      selectedS3AccountType: "tenant",
+      accountIdForApi: "acc-2",
+      requiresS3AccountSelection: true,
+      accessMode: "admin",
+      managerAccessKeyMetadataEnabled: false,
+      managerAccessKeyExpirationEnabled: true,
+    });
+    listKeysMock.mockResolvedValue([
+      {
+        access_key_id: "AK-EXPIRED",
+        status: "Inactive",
+        expires_at: "2026-01-15T11:30:00Z",
+        expiration_state: "enforced",
+      },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText("Expired")).toBeInTheDocument();
+    const enable = screen.getByRole("button", { name: "Enable" }) as HTMLButtonElement;
+    expect(enable.disabled).toBe(true);
+    expect(enable).toHaveAttribute(
+      "title",
+      "Remove or move the expired access-key expiration before enabling this key",
+    );
   });
 });

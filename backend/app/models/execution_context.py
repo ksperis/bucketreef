@@ -45,6 +45,7 @@ class ManagerContext(ApiModel):
     manager_bucket_quota_enabled: bool = False
     manager_ceph_keys_enabled: bool = False
     manager_access_key_metadata_enabled: bool = False
+    manager_access_key_expiration_enabled: bool = False
     manager_private_access_enabled: bool = False
     quota_max_size_gb: Optional[float] = None
     quota_max_objects: Optional[int] = None

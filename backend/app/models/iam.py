@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from datetime import datetime
 from typing import Optional, Union
 
 from app.models.base import ApiModel
@@ -26,6 +27,11 @@ class AccessKey(ApiModel):
     managed_connection_id: Optional[int] = None
     name: Optional[str] = None
     notes: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    expiration_state: Optional[str] = None
+    expiration_enforced_at: Optional[datetime] = None
+    expiration_last_attempt_at: Optional[datetime] = None
+    expiration_last_error: Optional[str] = None
 
 
 class AccessKeyStatusChange(ApiModel):

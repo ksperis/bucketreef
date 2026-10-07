@@ -79,6 +79,7 @@ class GeneralSettings(ApiModel):
     bucket_quota_management_enabled: bool = False
     manager_ceph_s3_user_keys_enabled: bool = True
     manager_access_key_metadata_enabled: bool = False
+    manager_access_key_expiration_enabled: bool = False
     managed_private_connection_provisioning_enabled: bool = False
     allow_login_access_keys: bool = False
     allow_login_endpoint_list: bool = False

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,6 +31,9 @@ function buildContext(overrides?: Record<string, unknown>) {
     selectedS3AccountName: "RGW user test",
     selectedS3AccountType: "s3_user",
     managerCephKeysEnabled: true,
+    managerAccessKeyMetadataEnabled: false,
+    managerAccessKeyExpirationEnabled: false,
+    managerPrivateAccessEnabled: false,
     accessMode: "s3_user",
     ...overrides,
   };
@@ -91,11 +94,11 @@ describe("ManagerCephKeysPage", () => {
 
     expect(await screen.findByText("AK-PORTAL")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ceph access keys" })).toBeInTheDocument();
-    expect(screen.getByText("KLO")).toBeInTheDocument();
+    expect(screen.getByText("Interface key")).toHaveAttribute("title", "BucketReef interface key (locked)");
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     expect(screen.getByText("AK-PORTAL").closest("td")).toHaveAttribute("data-mobile-primary", "true");
 
-    const lockedButtons = screen.getAllByTitle("Portal key is locked");
+    const lockedButtons = screen.getAllByTitle("Interface key is locked");
     expect(lockedButtons).toHaveLength(2);
     expect(lockedButtons[0].closest("td")).toHaveAttribute("data-mobile-actions", "true");
     expect(lockedButtons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
@@ -222,6 +225,43 @@ describe("ManagerCephKeysPage", () => {
       expect(updateManagerCephAccessKeyMetadataMock).toHaveBeenCalledWith("s3u-11", "AK-SECONDARY", {
         name: "sync-primary",
         notes: "Primary replication client",
+      });
+    });
+  });
+
+  it("creates a key with expiration when expiration is the only optional key feature", async () => {
+    const user = userEvent.setup();
+    useS3AccountContextMock.mockReturnValue(
+      buildContext({
+        managerAccessKeyMetadataEnabled: false,
+        managerAccessKeyExpirationEnabled: true,
+      })
+    );
+    listManagerCephAccessKeysMock.mockResolvedValue([
+      {
+        access_key_id: "AK-EXPIRING",
+        status: "enabled",
+        created_at: "2026-01-02T00:00:00Z",
+        is_ui_managed: false,
+        is_active: true,
+        expires_at: "2030-01-15T11:30:00Z",
+        expiration_state: "scheduled",
+      },
+    ]);
+
+    render(<ManagerCephKeysPage />);
+
+    expect(await screen.findByText("AK-EXPIRING")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "New key" }));
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    const expiration = screen.getByLabelText("Expiration date and time");
+    fireEvent.change(expiration, { target: { value: "2030-01-15T12:30" } });
+    await user.click(screen.getByRole("button", { name: "Create key" }));
+
+    await waitFor(() => {
+      expect(createManagerCephAccessKeyMock).toHaveBeenCalledWith("s3u-11", {
+        expires_at: new Date("2030-01-15T12:30").toISOString(),
       });
     });
   });

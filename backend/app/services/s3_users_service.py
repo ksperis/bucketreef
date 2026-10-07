@@ -486,6 +486,8 @@ class S3UsersService:
             s3_user.allow_access_key_management = bool(payload.allow_access_key_management)
         if payload.allow_access_key_metadata is not None:
             s3_user.allow_access_key_metadata = bool(payload.allow_access_key_metadata)
+        if payload.allow_access_key_expiration is not None:
+            s3_user.allow_access_key_expiration = bool(payload.allow_access_key_expiration)
         if payload.allow_managed_private_connection_provisioning is not None:
             s3_user.allow_managed_private_connection_provisioning = bool(
                 payload.allow_managed_private_connection_provisioning
@@ -573,7 +575,7 @@ class S3UsersService:
             response = admin.create_access_key(s3_user.rgw_user_uid, tenant=None)
         except RGWAdminError as exc:
             raise ValueError(f"Unable to create access key: {exc}") from exc
-        if response.get("not_found"):
+        if isinstance(response, dict) and response.get("not_found"):
             raise S3UserNotFoundError("RGW user not found")
         return RgwUserKeyParser.to_generated_key(
             admin.extract_keys(response),

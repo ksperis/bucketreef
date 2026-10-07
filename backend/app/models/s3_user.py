@@ -50,6 +50,7 @@ class S3User(ApiModel):
     allow_bucket_quota_management: bool = False
     allow_access_key_management: bool = False
     allow_access_key_metadata: bool = False
+    allow_access_key_expiration: bool = False
     allow_managed_private_connection_provisioning: bool = False
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
@@ -83,6 +84,7 @@ class S3UserUpdate(ApiModel):
     allow_bucket_quota_management: Optional[bool] = None
     allow_access_key_management: Optional[bool] = None
     allow_access_key_metadata: Optional[bool] = None
+    allow_access_key_expiration: Optional[bool] = None
     allow_managed_private_connection_provisioning: Optional[bool] = None
 
 class S3UserAccessKey(ApiModel):
@@ -95,6 +97,11 @@ class S3UserAccessKey(ApiModel):
     managed_connection_id: Optional[int] = None
     name: Optional[str] = None
     notes: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    expiration_state: Optional[str] = None
+    expiration_enforced_at: Optional[datetime] = None
+    expiration_last_attempt_at: Optional[datetime] = None
+    expiration_last_error: Optional[str] = None
 
 
 class S3UserGeneratedKey(ApiModel):
@@ -103,6 +110,11 @@ class S3UserGeneratedKey(ApiModel):
     created_at: Optional[datetime] = None
     name: Optional[str] = None
     notes: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    expiration_state: Optional[str] = None
+    expiration_enforced_at: Optional[datetime] = None
+    expiration_last_attempt_at: Optional[datetime] = None
+    expiration_last_error: Optional[str] = None
 
 
 class S3UserAccessKeyStatusChange(ApiModel):
@@ -119,6 +131,7 @@ class S3UserSummary(ApiModel):
     allow_bucket_quota_management: bool = False
     allow_access_key_management: bool = False
     allow_access_key_metadata: bool = False
+    allow_access_key_expiration: bool = False
     allow_managed_private_connection_provisioning: bool = False
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 

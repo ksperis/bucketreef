@@ -262,6 +262,7 @@ def get_manager_context(
         else False
     )
     manager_access_key_metadata_enabled = AccessKeyMetadataService(db).enabled_for_context(account)
+    manager_access_key_expiration_enabled = AccessKeyMetadataService(db).expiration_enabled_for_context(account)
     manager_private_access_enabled = _manager_private_access_enabled(
         account,
         actor,
@@ -290,6 +291,7 @@ def get_manager_context(
         manager_bucket_quota_enabled=manager_bucket_quota_enabled,
         manager_ceph_keys_enabled=manager_ceph_keys_enabled,
         manager_access_key_metadata_enabled=manager_access_key_metadata_enabled,
+        manager_access_key_expiration_enabled=manager_access_key_expiration_enabled,
         manager_private_access_enabled=manager_private_access_enabled,
         quota_max_size_gb=limits.quota_max_size_gb,
         quota_max_objects=limits.quota_max_objects,

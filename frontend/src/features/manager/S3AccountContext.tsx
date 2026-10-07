@@ -28,6 +28,7 @@ type S3AccountContextType = {
   managerBucketQuotaEnabled: boolean | null;
   managerCephKeysEnabled: boolean | null;
   managerAccessKeyMetadataEnabled: boolean | null;
+  managerAccessKeyExpirationEnabled: boolean | null;
   managerPrivateAccessEnabled: boolean | null;
 };
 
@@ -50,6 +51,7 @@ const S3AccountContext = createContext<S3AccountContextType>({
   managerBucketQuotaEnabled: null,
   managerCephKeysEnabled: null,
   managerAccessKeyMetadataEnabled: null,
+  managerAccessKeyExpirationEnabled: null,
   managerPrivateAccessEnabled: null,
 });
 
@@ -101,6 +103,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const [managerBucketQuotaEnabled, setManagerBucketQuotaEnabled] = useState<boolean | null>(null);
   const [managerCephKeysEnabled, setManagerCephKeysEnabled] = useState<boolean | null>(null);
   const [managerAccessKeyMetadataEnabled, setManagerAccessKeyMetadataEnabled] = useState<boolean | null>(null);
+  const [managerAccessKeyExpirationEnabled, setManagerAccessKeyExpirationEnabled] = useState<boolean | null>(null);
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
   const hasS3AccountContext = requiresS3AccountSelection ? selectedS3Account !== null : true;
   const accountIdForApi: S3AccountSelector = requiresS3AccountSelection ? selectedS3AccountId : null;
@@ -118,6 +121,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
       setManagerBucketQuotaEnabled(null);
       setManagerCephKeysEnabled(null);
       setManagerAccessKeyMetadataEnabled(null);
+      setManagerAccessKeyExpirationEnabled(null);
       setManagerPrivateAccessEnabled(null);
       return;
     }
@@ -129,6 +133,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     setManagerBucketQuotaEnabled(null);
     setManagerCephKeysEnabled(null);
     setManagerAccessKeyMetadataEnabled(null);
+    setManagerAccessKeyExpirationEnabled(null);
     setManagerPrivateAccessEnabled(null);
     fetchManagerContext(accountIdForApi)
       .then((data) => {
@@ -142,6 +147,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         setManagerBucketQuotaEnabled(Boolean(data.manager_bucket_quota_enabled));
         setManagerCephKeysEnabled(Boolean(data.manager_ceph_keys_enabled));
         setManagerAccessKeyMetadataEnabled(Boolean(data.manager_access_key_metadata_enabled));
+        setManagerAccessKeyExpirationEnabled(Boolean(data.manager_access_key_expiration_enabled));
         setManagerPrivateAccessEnabled(Boolean(data.manager_private_access_enabled));
       })
       .catch(() => {
@@ -155,6 +161,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         setManagerBucketQuotaEnabled(null);
         setManagerCephKeysEnabled(null);
         setManagerAccessKeyMetadataEnabled(null);
+        setManagerAccessKeyExpirationEnabled(null);
         setManagerPrivateAccessEnabled(null);
       });
     return () => {
@@ -183,6 +190,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         managerBucketQuotaEnabled,
         managerCephKeysEnabled,
         managerAccessKeyMetadataEnabled,
+        managerAccessKeyExpirationEnabled,
         managerPrivateAccessEnabled,
       }}
     >

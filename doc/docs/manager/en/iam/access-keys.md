@@ -30,6 +30,9 @@ This is different from:
 - Optional names and notes additionally require
   `manager_access_key_metadata_enabled=true` and the selected S3 User record to
   have `allow_access_key_metadata=true`.
+- Optional expiration additionally requires
+  `manager_access_key_expiration_enabled=true`, scheduled jobs to be enabled,
+  and the selected S3 User record to have `allow_access_key_expiration=true`.
 
 ## Steps
 
@@ -39,8 +42,9 @@ This is different from:
    also shows the BucketReef name and notes and search includes those fields.
 4. Select **New key** only when the caller is ready to store the generated
    secret. When access-key metadata is enabled, optionally enter a short name
-   and notes before creation. The secret is shown once. Use **Edit details** to
-   add, change, or clear metadata on an existing key.
+   and notes before creation. When access-key expiration is enabled, optionally
+   choose an expiration date and time. The secret is shown once. Use **Edit
+   details** to add, change, or clear these optional values on an existing key.
 5. Select **Create my private access** to have BucketReef create a distinct RGW
    User key and private connection without transmitting the secret to the
    browser. This separate workflow requires the UI right
@@ -81,7 +85,7 @@ credentials.
     shared chat.
 
 !!! note
-    The UI-managed key marked `KLO` is locked. It cannot be disabled or deleted
+    The BucketReef **Interface key** is locked. It cannot be disabled or deleted
     from this page.
 
 !!! note
@@ -101,6 +105,27 @@ credentials.
     User opt-in are both disabled independently of key management. Turning
     either metadata gate off hides saved metadata but keeps it persisted so it
     becomes visible again if the feature is re-enabled.
+
+!!! note
+    Access-key expiration is a separate opt-in because it changes provider
+    state. BucketReef stores the schedule locally, then the scheduler disables
+    the individual RGW key in Ceph when the time is reached. Under normal
+    operation enforcement occurs within about one minute. The key list keeps
+    the provider **Active / Inactive** state separate from the expiration state;
+    an enforcement failure is shown as **Retrying** or **Action required**, not
+    as a successful expiration.
+
+!!! note
+    Turning the expiration feature or resource opt-in off prevents new changes
+    but does not cancel expirations that were already scheduled. After a key has
+    expired, remove or move its expiration first, then explicitly enable the
+    key if access should be restored. Changing the expiration never re-enables a
+    key automatically.
+
+!!! note
+    BucketReef interface keys and keys owned by managed private access cannot
+    receive an expiration from this inventory because their lifecycle is owned
+    by their dedicated BucketReef workflows.
 
 ## Related pages
 

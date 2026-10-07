@@ -67,6 +67,14 @@ Check endpoint IAM capability, Manager access, and the selected execution contex
     Disabling either gate hides the metadata without deleting it; re-enabling
     both gates exposes the saved values again.
 
+!!! note
+    Access-key expiration is independently opt-in and is available only when
+    BucketReef can disable the individual key in the storage provider. For Ceph
+    RGW IAM keys, BucketReef schedules a real provider-side `Inactive` change;
+    the UI does not treat a local expiration label as an access restriction.
+    Already scheduled expirations remain effective if the opt-in is later
+    disabled.
+
 ## Related pages
 
 - [Workspace: Manager](../index.md)

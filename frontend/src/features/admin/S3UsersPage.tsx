@@ -154,6 +154,7 @@ export default function S3UsersPage() {
     allow_bucket_quota_management: false,
     allow_access_key_management: false,
     allow_access_key_metadata: false,
+    allow_access_key_expiration: false,
     allow_managed_private_connection_provisioning: false,
   });
   const [editInitialSignature, setEditInitialSignature] = useState("");
@@ -511,6 +512,7 @@ export default function S3UsersPage() {
       allow_bucket_quota_management: Boolean(user.allow_bucket_quota_management),
       allow_access_key_management: Boolean(user.allow_access_key_management),
       allow_access_key_metadata: Boolean(user.allow_access_key_metadata),
+      allow_access_key_expiration: Boolean(user.allow_access_key_expiration),
       allow_managed_private_connection_provisioning: Boolean(
         user.allow_managed_private_connection_provisioning
       ),
@@ -548,6 +550,7 @@ export default function S3UsersPage() {
         payload.allow_bucket_quota_management = editForm.allow_bucket_quota_management;
         payload.allow_access_key_management = editForm.allow_access_key_management;
         payload.allow_access_key_metadata = editForm.allow_access_key_metadata;
+        payload.allow_access_key_expiration = editForm.allow_access_key_expiration;
         payload.allow_managed_private_connection_provisioning =
           editForm.allow_managed_private_connection_provisioning;
       }
@@ -1370,6 +1373,20 @@ export default function S3UsersPage() {
                       setEditForm((prev) => ({
                         ...prev,
                         allow_access_key_metadata: checked,
+                      })),
+                  },
+                  {
+                    title: "Access-key expiration",
+                    description: generalSettings.manager_access_key_expiration_enabled
+                      ? "Allow Manager to schedule provider-side disabling for this RGW User's access keys."
+                      : "Enable Access-key expiration in Manager settings before granting it to this RGW User.",
+                    ariaLabel: "Access-key expiration",
+                    checked: editForm.allow_access_key_expiration,
+                    disabled: !editForm.allow_access_key_expiration && !generalSettings.manager_access_key_expiration_enabled,
+                    onChange: (checked) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        allow_access_key_expiration: checked,
                       })),
                   },
                   {
