@@ -27,15 +27,20 @@ This is different from:
 - The S3 User record has `allow_access_key_management=true`.
 - The endpoint is a Ceph-compatible endpoint with Admin Ops credentials
   available.
+- Optional names and notes additionally require
+  `manager_access_key_metadata_enabled=true` and the selected S3 User record to
+  have `allow_access_key_metadata=true`.
 
 ## Steps
 
 1. Open `/manager` and select the intended S3 User context.
 2. Open **Ceph > Access keys**.
-3. Review the current key list and search by access key id or status when
-   needed.
+3. Review the current key list. When access-key metadata is enabled, the list
+   also shows the BucketReef name and notes and search includes those fields.
 4. Select **New key** only when the caller is ready to store the generated
-   secret. The secret is shown once.
+   secret. When access-key metadata is enabled, optionally enter a short name
+   and notes before creation. The secret is shown once. Use **Edit details** to
+   add, change, or clear metadata on an existing key.
 5. Select **Create my private access** to have BucketReef create a distinct RGW
    User key and private connection without transmitting the secret to the
    browser. This separate workflow requires the UI right
@@ -89,6 +94,13 @@ credentials.
 !!! note
     This feature does not grant storage permission by itself. The resulting key
     still follows RGW/S3 permissions for the underlying S3 User.
+
+!!! note
+    Access-key names and notes are local BucketReef metadata. They are not sent
+    to Ceph RGW and do not alter the credential. The global feature and the S3
+    User opt-in are both disabled independently of key management. Turning
+    either metadata gate off hides saved metadata but keeps it persisted so it
+    becomes visible again if the feature is re-enabled.
 
 ## Related pages
 

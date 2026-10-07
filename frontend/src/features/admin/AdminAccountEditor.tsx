@@ -35,6 +35,7 @@ type EditorState = { dirty: boolean; busy: boolean };
 type Props = {
   account: S3Account | S3AccountSummary;
   portalEnabled: boolean;
+  accessKeyMetadataEnabled: boolean;
   canManagePrivilegedTargets: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -61,7 +62,7 @@ export default function AdminAccountEditor(props: Props) {
   </WorkflowPage>;
 }
 
-function LoadedAccountEditor({ account, portalEnabled, canManagePrivilegedTargets, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
+function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled, canManagePrivilegedTargets, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
   const form = useSettingsDraft(() => adminAccountForm(account));
   const [tab, setTab] = useState<EditTab>("general");
   const [portalDirty, setPortalDirty] = useState(false);
@@ -204,7 +205,12 @@ function LoadedAccountEditor({ account, portalEnabled, canManagePrivilegedTarget
                   disabled: !form.draft.allow_bucket_quota_management && !allowBucketQuotas,
                   description: allowBucketQuotas ? "Allow Ceph bucket quota updates for this S3 Account in Manager."
                     : "Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.",
-                  onChange: value => update("allow_bucket_quota_management", value) }]} />
+                  onChange: value => update("allow_bucket_quota_management", value) },
+                  { title: "Access-key names and notes", ariaLabel: "Access-key names and notes", checked: form.draft.allow_access_key_metadata,
+                    disabled: !form.draft.allow_access_key_metadata && !accessKeyMetadataEnabled,
+                    description: accessKeyMetadataEnabled ? "Allow Manager to store and edit BucketReef metadata for this account's IAM access keys."
+                      : "Enable Access-key names and notes in Manager settings before granting it to this account.",
+                    onChange: value => update("allow_access_key_metadata", value) }]} />
             </div>}
           </SettingsForm>
         </div>

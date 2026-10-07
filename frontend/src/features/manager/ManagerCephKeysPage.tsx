@@ -12,6 +12,7 @@ import {
   listManagerCephAccessKeys,
   ManagerCephAccessKey,
   ManagerCephGeneratedAccessKey,
+  updateManagerCephAccessKeyMetadata,
   updateManagerCephAccessKeyStatus,
 } from "../../api/managerCephKeys";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -29,6 +30,7 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
+import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKeyMetadataDialog";
 
 function parseError(err: unknown): string {
   return extractApiError(err, "Unexpected error");
@@ -41,6 +43,7 @@ export default function ManagerCephKeysPage() {
     selectedS3AccountName,
     selectedS3AccountType,
     managerCephKeysEnabled,
+    managerAccessKeyMetadataEnabled,
     managerPrivateAccessEnabled,
     accessMode,
   } = useS3AccountContext();
@@ -53,6 +56,8 @@ export default function ManagerCephKeysPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [keyFilter, setKeyFilter] = useState("");
   const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
+  const [metadataDialog, setMetadataDialog] = useState<{ mode: "create" | "edit"; key?: ManagerCephAccessKey } | null>(null);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
   const keyConfirmation = useConfirmActionDialog();
 
   const isS3UserContext = selectedS3AccountType === "s3_user";
@@ -85,18 +90,50 @@ export default function ManagerCephKeysPage() {
     void loadKeys();
   }, [accessMode, loadKeys]);
 
-  const handleCreateKey = async () => {
+  const createKey = async (metadata?: AccessKeyMetadataDraft) => {
     if (!canManageCephKeys) return;
     setBusy("create");
     setError(null);
     setActionMessage(null);
     try {
-      const key = await createManagerCephAccessKey(accountIdForApi);
+      const key = metadata
+        ? await createManagerCephAccessKey(accountIdForApi, metadata)
+        : await createManagerCephAccessKey(accountIdForApi);
       setCreatedKey(key);
       setActionMessage("Access key created");
       await loadKeys();
+      setMetadataDialog(null);
+      setMetadataError(null);
     } catch (err) {
-      setError(parseError(err));
+      const message = parseError(err);
+      if (metadataDialog) setMetadataError(message);
+      else setError(message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCreateKey = () => {
+    if (managerAccessKeyMetadataEnabled) {
+      setMetadataError(null);
+      setMetadataDialog({ mode: "create" });
+      return;
+    }
+    void createKey();
+  };
+
+  const saveMetadata = async (metadata: AccessKeyMetadataDraft) => {
+    if (!canManageCephKeys || metadataDialog?.mode !== "edit" || !metadataDialog.key) return;
+    const key = metadataDialog.key;
+    setBusy(`metadata:${key.access_key_id}`);
+    setMetadataError(null);
+    try {
+      await updateManagerCephAccessKeyMetadata(accountIdForApi, key.access_key_id, metadata);
+      await loadKeys();
+      setMetadataDialog(null);
+      setActionMessage("Access-key details updated");
+    } catch (err) {
+      setMetadataError(parseError(err));
     } finally {
       setBusy(null);
     }
@@ -168,7 +205,10 @@ export default function ManagerCephKeysPage() {
     const needle = keyFilter.trim().toLowerCase();
     if (!needle) return true;
     const statusLabel = key.is_active ? "active" : "inactive";
-    return key.access_key_id.toLowerCase().includes(needle) || statusLabel.includes(needle);
+    return key.access_key_id.toLowerCase().includes(needle)
+      || statusLabel.includes(needle)
+      || Boolean(key.name?.toLowerCase().includes(needle))
+      || Boolean(key.notes?.toLowerCase().includes(needle));
   });
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: filteredKeys.length });
   const keyTableColumns: Array<DataTableColumn<ManagerCephAccessKey>> = [
@@ -196,6 +236,16 @@ export default function ManagerCephKeysPage() {
         );
       },
     },
+    ...(managerAccessKeyMetadataEnabled ? [{
+      id: "details",
+      label: "Name / notes",
+      render: (key: ManagerCephAccessKey) => (
+        <div className="min-w-0">
+          <div className="font-medium text-[var(--ui-text)]">{key.name || "—"}</div>
+          {key.notes && <div className="mt-0.5 line-clamp-2 text-sm text-[var(--ui-text-muted)]">{key.notes}</div>}
+        </div>
+      ),
+    } satisfies DataTableColumn<ManagerCephAccessKey>] : []),
     {
       id: "status",
       label: "Status",
@@ -214,6 +264,18 @@ export default function ManagerCephKeysPage() {
         const locked = Boolean(key.is_ui_managed || managedPrivate);
         return (
           <ListActions>
+            {managerAccessKeyMetadataEnabled && (
+              <ListActionButton
+                type="button"
+                onClick={() => {
+                  setMetadataError(null);
+                  setMetadataDialog({ mode: "edit", key });
+                }}
+                disabled={Boolean(busy)}
+              >
+                {busy === `metadata:${key.access_key_id}` ? "Saving..." : "Edit details"}
+              </ListActionButton>
+            )}
             <ListActionButton
               type="button"
               onClick={() => handleToggleKey(key)}
@@ -315,7 +377,7 @@ export default function ManagerCephKeysPage() {
               type="search"
               value={keyFilter}
               onChange={(event) => setKeyFilter(event.target.value)}
-              placeholder="Search by access key or status"
+              placeholder={managerAccessKeyMetadataEnabled ? "Search by key, name, notes or status" : "Search by access key or status"}
             />
           }
         >
@@ -336,6 +398,20 @@ export default function ManagerCephKeysPage() {
         </ListPageSection>
       )}
       {keyConfirmation.confirmationDialog}
+      {metadataDialog && (
+        <AccessKeyMetadataDialog
+          mode={metadataDialog.mode}
+          initial={metadataDialog.key ? { name: metadataDialog.key.name, notes: metadataDialog.key.notes } : undefined}
+          busy={busy === "create" || busy?.startsWith("metadata:") === true}
+          error={metadataError}
+          onClose={() => {
+            if (busy) return;
+            setMetadataDialog(null);
+            setMetadataError(null);
+          }}
+          onSubmit={metadataDialog.mode === "create" ? createKey : saveMetadata}
+        />
+      )}
       {canProvisionManagedPrivateAccess && showPrivateAccessModal && (
         <CreateManagedPrivateAccessModal
           variant="rgw_user"

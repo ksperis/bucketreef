@@ -49,6 +49,7 @@ class S3User(ApiModel):
     bucket_count: Optional[int] = None
     allow_bucket_quota_management: bool = False
     allow_access_key_management: bool = False
+    allow_access_key_metadata: bool = False
     allow_managed_private_connection_provisioning: bool = False
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
@@ -81,6 +82,7 @@ class S3UserUpdate(ApiModel):
     tags: OptionalTagDefinitionList = None
     allow_bucket_quota_management: Optional[bool] = None
     allow_access_key_management: Optional[bool] = None
+    allow_access_key_metadata: Optional[bool] = None
     allow_managed_private_connection_provisioning: Optional[bool] = None
 
 class S3UserAccessKey(ApiModel):
@@ -91,12 +93,16 @@ class S3UserAccessKey(ApiModel):
     is_active: bool = True
     is_private_access_managed: bool = False
     managed_connection_id: Optional[int] = None
+    name: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class S3UserGeneratedKey(ApiModel):
     access_key_id: str
     secret_access_key: str
     created_at: Optional[datetime] = None
+    name: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class S3UserAccessKeyStatusChange(ApiModel):
@@ -112,6 +118,7 @@ class S3UserSummary(ApiModel):
     storage_endpoint_url: str
     allow_bucket_quota_management: bool = False
     allow_access_key_management: bool = False
+    allow_access_key_metadata: bool = False
     allow_managed_private_connection_provisioning: bool = False
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 

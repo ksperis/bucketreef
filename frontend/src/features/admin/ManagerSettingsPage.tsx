@@ -41,6 +41,7 @@ const paths = [
   "manager.manager_rgw_usage_metrics_enabled",
   "general.bucket_quota_management_enabled",
   "general.manager_ceph_s3_user_keys_enabled",
+  "general.manager_access_key_metadata_enabled",
   "general.managed_private_connection_provisioning_enabled",
   "general.bucket_migration_enabled",
   "general.bucket_compare_enabled",
@@ -163,6 +164,12 @@ export default function ManagerSettingsPage() {
           field="general.manager_ceph_s3_user_keys_enabled"
           title="Ceph S3 User access-key management"
           description="RGW key management for eligible S3 User contexts."
+        />
+        <AppSettingsToggle
+          form={form}
+          field="general.manager_access_key_metadata_enabled"
+          title="Access-key names and notes"
+          description="Allow selected RGW Accounts and Users to add BucketReef-managed labels and notes to access keys."
         />
         <AppSettingsToggle
           form={form}

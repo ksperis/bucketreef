@@ -24,6 +24,8 @@ class AccessKey(ApiModel):
     secret_access_key: Optional[str] = None
     is_private_access_managed: bool = False
     managed_connection_id: Optional[int] = None
+    name: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class AccessKeyStatusChange(ApiModel):

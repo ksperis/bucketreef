@@ -42,6 +42,7 @@ def s3_user_from_db(
             s3_user.allow_bucket_quota_management
         ),
         allow_access_key_management=bool(s3_user.allow_access_key_management),
+        allow_access_key_metadata=bool(s3_user.allow_access_key_metadata),
         allow_managed_private_connection_provisioning=bool(
             s3_user.allow_managed_private_connection_provisioning
         ),
@@ -66,6 +67,7 @@ def s3_user_summary_from_db(
             s3_user.allow_bucket_quota_management
         ),
         allow_access_key_management=bool(s3_user.allow_access_key_management),
+        allow_access_key_metadata=bool(s3_user.allow_access_key_metadata),
         allow_managed_private_connection_provisioning=bool(
             s3_user.allow_managed_private_connection_provisioning
         ),

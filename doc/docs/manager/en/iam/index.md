@@ -22,7 +22,11 @@ instead.
 1. Open `/manager/users`, `/manager/groups`, `/manager/roles`, or `/manager/iam/policies`.
 2. Create or edit IAM resources.
 3. Attach/detach policies to users, groups, or roles.
-4. Manage IAM access keys from user key pages.
+4. Manage IAM access keys from user key pages. When **Access-key names and
+   notes** is enabled globally and for the selected RGW Account, **New key**
+   accepts an optional name and notes. Existing keys can be updated with
+   **Edit details**. This metadata is stored only by BucketReef and does not
+   change the IAM credential or its permissions.
 5. To create a personal private S3 connection without handling its secret,
    select **Create my private access** on the Users page. The default creates a
    dedicated IAM identity with `AmazonS3FullAccess` and a Browser-enabled
@@ -56,6 +60,12 @@ Check endpoint IAM capability, Manager access, and the selected execution contex
     connection. Ordinary **Create user** and **New key** actions still display
     a secret once for manual use, but no longer offer **Add as S3 Connection**
     in Manager.
+
+!!! note
+    Access-key names and notes are an optional BucketReef extension. The global
+    Manager setting and the selected RGW Account opt-in must both be enabled.
+    Disabling either gate hides the metadata without deleting it; re-enabling
+    both gates exposes the saved values again.
 
 ## Related pages
 

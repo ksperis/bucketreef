@@ -8,6 +8,7 @@ import ManagerCephKeysPage from "./ManagerCephKeysPage";
 const useS3AccountContextMock = vi.fn();
 const listManagerCephAccessKeysMock = vi.fn();
 const createManagerCephAccessKeyMock = vi.fn();
+const updateManagerCephAccessKeyMetadataMock = vi.fn();
 const updateManagerCephAccessKeyStatusMock = vi.fn();
 const deleteManagerCephAccessKeyMock = vi.fn();
 
@@ -18,6 +19,7 @@ vi.mock("./S3AccountContext", () => ({
 vi.mock("../../api/managerCephKeys", () => ({
   listManagerCephAccessKeys: (...args: unknown[]) => listManagerCephAccessKeysMock(...args),
   createManagerCephAccessKey: (...args: unknown[]) => createManagerCephAccessKeyMock(...args),
+  updateManagerCephAccessKeyMetadata: (...args: unknown[]) => updateManagerCephAccessKeyMetadataMock(...args),
   updateManagerCephAccessKeyStatus: (...args: unknown[]) => updateManagerCephAccessKeyStatusMock(...args),
   deleteManagerCephAccessKey: (...args: unknown[]) => deleteManagerCephAccessKeyMock(...args),
 }));
@@ -66,6 +68,10 @@ describe("ManagerCephKeysPage", () => {
     createManagerCephAccessKeyMock.mockResolvedValue({
       access_key_id: "AK-NEW",
       secret_access_key: "SK-NEW",
+    });
+    updateManagerCephAccessKeyMetadataMock.mockResolvedValue({
+      name: "updated-name",
+      notes: "Updated notes",
     });
     updateManagerCephAccessKeyStatusMock.mockResolvedValue({
       access_key_id: "AK-SECONDARY",
@@ -166,6 +172,57 @@ describe("ManagerCephKeysPage", () => {
     await user.click(screen.getByRole("button", { name: "Delete key" }));
     await waitFor(() => {
       expect(deleteManagerCephAccessKeyMock).toHaveBeenCalledWith("s3u-11", "AK-SECONDARY");
+    });
+  });
+
+  it("creates, displays and edits BucketReef metadata when enabled", async () => {
+    const user = userEvent.setup();
+    useS3AccountContextMock.mockReturnValue(
+      buildContext({ managerAccessKeyMetadataEnabled: true })
+    );
+    listManagerCephAccessKeysMock.mockResolvedValue([
+      {
+        access_key_id: "AK-SECONDARY",
+        status: "enabled",
+        created_at: "2026-01-02T00:00:00Z",
+        is_ui_managed: false,
+        is_active: true,
+        name: "sync-agent",
+        notes: "Replication client",
+      },
+    ]);
+
+    render(<ManagerCephKeysPage />);
+
+    expect(await screen.findByText("sync-agent")).toBeInTheDocument();
+    expect(screen.getByText("Replication client")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "New key" }));
+    await user.type(screen.getByLabelText("Name"), "video-uploader");
+    await user.type(screen.getByLabelText("Notes"), "Uploads rendered videos");
+    await user.click(screen.getByRole("button", { name: "Create key" }));
+
+    await waitFor(() => {
+      expect(createManagerCephAccessKeyMock).toHaveBeenCalledWith("s3u-11", {
+        name: "video-uploader",
+        notes: "Uploads rendered videos",
+      });
+    });
+
+    await user.click(screen.getByRole("button", { name: "Edit details" }));
+    expect(screen.getByLabelText("Name")).toHaveValue("sync-agent");
+    expect(screen.getByLabelText("Notes")).toHaveValue("Replication client");
+    await user.clear(screen.getByLabelText("Name"));
+    await user.type(screen.getByLabelText("Name"), "sync-primary");
+    await user.clear(screen.getByLabelText("Notes"));
+    await user.type(screen.getByLabelText("Notes"), "Primary replication client");
+    await user.click(screen.getByRole("button", { name: "Save details" }));
+
+    await waitFor(() => {
+      expect(updateManagerCephAccessKeyMetadataMock).toHaveBeenCalledWith("s3u-11", "AK-SECONDARY", {
+        name: "sync-primary",
+        notes: "Primary replication client",
+      });
     });
   });
 });

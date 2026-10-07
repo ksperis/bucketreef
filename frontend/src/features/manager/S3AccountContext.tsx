@@ -27,6 +27,7 @@ type S3AccountContextType = {
   managerBrowserMessage: string | null;
   managerBucketQuotaEnabled: boolean | null;
   managerCephKeysEnabled: boolean | null;
+  managerAccessKeyMetadataEnabled: boolean | null;
   managerPrivateAccessEnabled: boolean | null;
 };
 
@@ -48,6 +49,7 @@ const S3AccountContext = createContext<S3AccountContextType>({
   managerBrowserMessage: null,
   managerBucketQuotaEnabled: null,
   managerCephKeysEnabled: null,
+  managerAccessKeyMetadataEnabled: null,
   managerPrivateAccessEnabled: null,
 });
 
@@ -98,6 +100,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const [managerBrowserMessage, setManagerBrowserMessage] = useState<string | null>(null);
   const [managerBucketQuotaEnabled, setManagerBucketQuotaEnabled] = useState<boolean | null>(null);
   const [managerCephKeysEnabled, setManagerCephKeysEnabled] = useState<boolean | null>(null);
+  const [managerAccessKeyMetadataEnabled, setManagerAccessKeyMetadataEnabled] = useState<boolean | null>(null);
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
   const hasS3AccountContext = requiresS3AccountSelection ? selectedS3Account !== null : true;
   const accountIdForApi: S3AccountSelector = requiresS3AccountSelection ? selectedS3AccountId : null;
@@ -114,6 +117,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
       setManagerBrowserMessage(null);
       setManagerBucketQuotaEnabled(null);
       setManagerCephKeysEnabled(null);
+      setManagerAccessKeyMetadataEnabled(null);
       setManagerPrivateAccessEnabled(null);
       return;
     }
@@ -124,6 +128,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     setManagerBrowserMessage(null);
     setManagerBucketQuotaEnabled(null);
     setManagerCephKeysEnabled(null);
+    setManagerAccessKeyMetadataEnabled(null);
     setManagerPrivateAccessEnabled(null);
     fetchManagerContext(accountIdForApi)
       .then((data) => {
@@ -136,6 +141,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         setManagerBrowserMessage(data.manager_browser_message ?? null);
         setManagerBucketQuotaEnabled(Boolean(data.manager_bucket_quota_enabled));
         setManagerCephKeysEnabled(Boolean(data.manager_ceph_keys_enabled));
+        setManagerAccessKeyMetadataEnabled(Boolean(data.manager_access_key_metadata_enabled));
         setManagerPrivateAccessEnabled(Boolean(data.manager_private_access_enabled));
       })
       .catch(() => {
@@ -148,6 +154,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         setManagerBrowserMessage(null);
         setManagerBucketQuotaEnabled(null);
         setManagerCephKeysEnabled(null);
+        setManagerAccessKeyMetadataEnabled(null);
         setManagerPrivateAccessEnabled(null);
       });
     return () => {
@@ -175,6 +182,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         managerBrowserMessage,
         managerBucketQuotaEnabled,
         managerCephKeysEnabled,
+        managerAccessKeyMetadataEnabled,
         managerPrivateAccessEnabled,
       }}
     >
