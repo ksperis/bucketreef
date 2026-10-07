@@ -17,7 +17,7 @@
 - Simplify endpoint Credentials: keep Admin Ops hardening in documentation, fold creation commands for configured identities, and distinguish saved identity state from mode changes.
 - Show service identity retries only when needed, block retries of unsaved endpoint configuration, and report retry failures inside the editor.
 
-- Make Runtime and Supervision permanent service identities for every Ceph endpoint; feature toggles only control their use.
+- Manage Runtime and Supervision as durable Ceph endpoint identities, provisioning and using only the identities required by the selected features.
 - Detect Usage exclusively with Supervision, including after managed onboarding provisioning, without requiring Usage capabilities on Admin Ops.
 - Recommend complete provisioning/quota Admin Ops permissions for normal setup and place reduced permissions under advanced hardening guidance.
 
@@ -39,9 +39,9 @@
 
 - **Breaking change:** Ceph Admin credentials are now operator-managed external pairs. Upgrades from `0.2.13` preserve complete stored Ceph Admin credentials and RGW users, then revalidate the pair after migration; pending managed rotations and managed-only metadata are discarded. Per-endpoint Ceph Admin authorization is intentionally reset to disabled during migration and must be explicitly re-enabled after validating the preserved credentials. Re-enter keys only when the stored pair is incomplete or invalid.
 
-- **Breaking change:** upgrades from `0.2.13` create a Runtime Read Ops identity in `external` / `missing` state for every existing Ceph endpoint because `0.2.13` had no dedicated Runtime credentials. Configure a Runtime pair with exactly `accounts=read;user-info-without-keys=read;buckets=read` and no admin/system flag before Manager/Portal live account, user and bucket reads resume; Admin Ops is not used as a fallback. Existing Supervision credentials are preserved as external and must validate with exactly `usage=read;buckets=read` and no admin/system flag. External Ceph endpoints require complete Runtime and Supervision pairs even when monitoring is disabled. Existing managed endpoints provision missing Supervision at administration startup or reconciliation and need Admin Ops `users=write` for that provisioning.
+- **Breaking change:** upgrades from `0.2.13` create a Runtime Read Ops identity in `external` / `missing` state for every existing Ceph endpoint because `0.2.13` had no dedicated Runtime credentials. Configure Runtime with exactly `accounts=read;user-info-without-keys=read;buckets=read` and no admin/system flag when Admin/Accounts is enabled; Admin Ops is not used as a fallback for those reads. Existing Supervision credentials are preserved as external and must validate with exactly `usage=read;buckets=read` and no admin/system flag when Metrics, Usage, or signed S3 healthchecks are enabled. Ceph Admin-only endpoints require neither Runtime nor Supervision. Existing managed endpoints that require Supervision need Admin Ops `users=write` for provisioning.
 
-- **Breaking change:** administered Ceph endpoints configured through `ENV_STORAGE_ENDPOINTS` in external mode must supply both Runtime keys. Incomplete inventories now prevent startup.
+- **Breaking change:** administered Ceph endpoints configured through `ENV_STORAGE_ENDPOINTS` in external mode must supply complete Runtime and/or Supervision pairs for the enabled features. Unused pairs may remain empty, while partial pairs and incomplete inventories prevent startup.
 - **Breaking change:** managed Runtime and Supervision rotation requires deletion of the previous key. Disable-only rotation is refused for these identities. Remove previously disabled or manually added keys externally, then retry identity configuration; pending revocations are never announced as successful while unexpected keys remain.
 
 ## 0.2.13 - 2026-10-01

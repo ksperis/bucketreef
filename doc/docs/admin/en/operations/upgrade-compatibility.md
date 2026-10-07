@@ -79,9 +79,10 @@ whitespace removed by the upgrade.
 
 Migration `0126_canonical_s3_user_identities` makes the existing S3-user RGW
 identity contract explicit in the database: `s3_users.rgw_user_uid` must contain
-at least one non-whitespace character. Creation and import already normalize
-UID input before persistence; creation now treats whitespace-only optional UID
-input the same as an omitted UID and derives the canonical UID from the name.
+at least one non-whitespace character. Creation and import normalize explicit UID
+input before persistence. Current creation treats whitespace-only optional UID
+input the same as an omitted UID and generates a namespaced
+`bkr-s3u-<uuid>` identifier.
 
 The migration stops with an explicit error if an existing row contains a blank
 UID because BucketReef cannot safely invent the corresponding remote RGW
