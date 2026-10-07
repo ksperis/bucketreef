@@ -75,7 +75,7 @@ export const uiToolbarClass =
   "border-b border-[color:var(--ui-border-soft)]";
 
 export const uiToolbarSecondaryClass =
-  "border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-surface-muted)] px-4 py-4";
+  "border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-surface-muted)]";
 
 export const uiDataTableClass = "ui-data-table";
 

@@ -32,12 +32,12 @@ export default function ActiveFiltersBar({
   if (items.length === 0) return null;
 
   return (
-    <div className={cx("flex flex-wrap items-center gap-2", className)}>
-      <span className={cx("shrink-0 ui-caption font-semibold", uiMutedTextClass)}>{label}</span>
+    <div className={cx("ui-list-active-filters flex flex-wrap items-center gap-2", className)}>
+      <span className={cx("ui-list-active-filters-label shrink-0", uiMutedTextClass)}>{label}</span>
       {items.map((item) => (
         <ListBadge tone="primary"
           key={item.id}
-          className="inline-flex max-w-full items-center gap-1"
+          className="ui-list-active-filter inline-flex max-w-full items-center gap-1"
         >
           <span className="min-w-0 truncate">{item.label}</span>
           {item.onRemove ? (
@@ -45,6 +45,7 @@ export default function ActiveFiltersBar({
               type="button"
               onClick={item.onRemove}
               iconOnly variant="ghost"
+              className="ui-list-active-filter-remove"
               title={item.removeLabel}
               aria-label={item.removeLabel ?? "Remove filter"}
             >
