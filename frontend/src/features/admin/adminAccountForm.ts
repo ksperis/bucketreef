@@ -27,12 +27,12 @@ export function accountQuotaChanged(draft: AdminAccountForm, baseline: AdminAcco
 }
 
 /** Quota fields are one RGW operation: omit unchanged quotas, retain explicit clears. */
-export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAccountForm, allowQuotaUpdates: boolean, canManagePrivilegedTargets: boolean): Parameters<typeof updateS3Account>[1] {
+export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAccountForm, allowQuotaUpdates: boolean, canManageManagerFeatures: boolean): Parameters<typeof updateS3Account>[1] {
   return {
     tags: normalizeUiTags(draft.tags),
     user_links: draft.user_links,
     group_links: draft.group_links,
-    ...(canManagePrivilegedTargets ? {
+    ...(canManageManagerFeatures ? {
       allow_bucket_quota_management: draft.allow_bucket_quota_management,
       allow_access_key_metadata: draft.allow_access_key_metadata,
       allow_access_key_expiration: draft.allow_access_key_expiration,

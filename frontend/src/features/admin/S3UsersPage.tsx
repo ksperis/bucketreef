@@ -74,7 +74,7 @@ import { useAdminS3UserStats } from "./useAdminS3UserStats";
 import { buildAccessAuditHref } from "./accessAuditLink";
 
 type SortField = "name" | "uid";
-type EditTab = "general" | "users" | "groups" | "privileged";
+type EditTab = "general" | "users" | "groups" | "manager";
 
 function getS3UserSearchCandidates(user: S3User): Array<string | number | null | undefined> {
   return [
@@ -213,8 +213,8 @@ export default function S3UsersPage() {
   const showEditUsersTab = editTab === "users";
   const showEditGroupsTab = editTab === "groups";
   const currentUser = useMemo(() => readStoredUser(), []);
-  const canManagePrivilegedTargets = isAdminLikeRole(currentUser?.role);
-  const showEditPrivilegedTab = canManagePrivilegedTargets && editTab === "privileged";
+  const canManageManagerFeatures = isAdminLikeRole(currentUser?.role);
+  const showEditManagerTab = canManageManagerFeatures && editTab === "manager";
   const {
     catalog: adminTagCatalog,
     loading: adminTagCatalogLoading,
@@ -546,7 +546,7 @@ export default function S3UsersPage() {
         user_links: editForm.user_links,
         group_links: editForm.group_links,
       };
-      if (canManagePrivilegedTargets) {
+      if (canManageManagerFeatures) {
         payload.allow_bucket_quota_management = editForm.allow_bucket_quota_management;
         payload.allow_access_key_management = editForm.allow_access_key_management;
         payload.allow_access_key_metadata = editForm.allow_access_key_metadata;
@@ -957,7 +957,7 @@ export default function S3UsersPage() {
       {editingUser && (
         <WorkflowPage
           title={`Edit ${editingUser.name}`}
-          description="Manage quotas, usage, UI associations, and privileged access for this RGW user."
+          description="Manage quotas, usage, UI associations, and Manager features for this RGW user."
           breadcrumbs={adminPageBreadcrumbs("rgw-users", { label: "Edit" })}
           backLabel="Back to RGW users"
           onBack={editCloseGuard.requestClose}
@@ -999,7 +999,7 @@ export default function S3UsersPage() {
                 { id: "general", label: "General" },
                 { id: "users", label: "Linked UI users" },
                 { id: "groups", label: "Linked UI groups" },
-                { id: "privileged", label: "Privileged access", visible: canManagePrivilegedTargets },
+                { id: "manager", label: "Manager features", visible: canManageManagerFeatures },
               ].map((item) => ({ ...item, id: item.id as EditTab, disabled: editBusy }))}
             >
               <SettingsForm
@@ -1331,77 +1331,85 @@ export default function S3UsersPage() {
               </div>
             )}
 
-            {showEditPrivilegedTab && (
-              <AdminAccessToggleSection
-                title="Privileged Ceph access"
-                description="Ceph admin-API actions granted directly to this RGW user outside the Ceph Admin workspace."
-                items={[
-                  {
-                    title: "Bucket quota management",
-                    description: editingEndpointCanWriteBuckets
-                      ? "Allow Ceph bucket quota updates for this RGW User in Manager."
-                      : "Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.",
-                    ariaLabel: "Bucket quota management",
-                    checked: editForm.allow_bucket_quota_management,
-                    disabled: !editForm.allow_bucket_quota_management && !editingEndpointCanWriteBuckets,
-                    onChange: (checked) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        allow_bucket_quota_management: checked,
-                      })),
-                  },
-                  {
-                    title: "Ceph S3 User keys",
-                    description: "Allow access to Manager > Ceph > Access keys.",
-                    ariaLabel: "Ceph S3 User keys",
-                    checked: editForm.allow_access_key_management,
-                    onChange: (checked) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        allow_access_key_management: checked,
-                      })),
-                  },
-                  {
-                    title: "Access-key names and notes",
-                    description: generalSettings.manager_access_key_metadata_enabled
-                      ? "Allow Manager to store and edit BucketReef metadata for this RGW User's access keys."
-                      : "Enable Access-key names and notes in Manager settings before granting it to this RGW User.",
-                    ariaLabel: "Access-key names and notes",
-                    checked: editForm.allow_access_key_metadata,
-                    disabled: !editForm.allow_access_key_metadata && !generalSettings.manager_access_key_metadata_enabled,
-                    onChange: (checked) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        allow_access_key_metadata: checked,
-                      })),
-                  },
-                  {
-                    title: "Access-key expiration",
-                    description: generalSettings.manager_access_key_expiration_enabled
-                      ? "Allow Manager to schedule provider-side disabling for this RGW User's access keys."
-                      : "Enable Access-key expiration in Manager settings before granting it to this RGW User.",
-                    ariaLabel: "Access-key expiration",
-                    checked: editForm.allow_access_key_expiration,
-                    disabled: !editForm.allow_access_key_expiration && !generalSettings.manager_access_key_expiration_enabled,
-                    onChange: (checked) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        allow_access_key_expiration: checked,
-                      })),
-                  },
-                  {
-                    title: "Managed private connection provisioning",
-                    description: "Allow Manager to provision a dedicated private Browser connection for this RGW User.",
-                    ariaLabel: "Managed private connection provisioning",
-                    checked: editForm.allow_managed_private_connection_provisioning,
-                    onChange: (checked) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        allow_managed_private_connection_provisioning: checked,
-                      })),
-                  },
-                ]}
-              />
+            {showEditManagerTab && (
+              <div className="settings-stack">
+                <AdminAccessToggleSection
+                  title="Access-key extensions"
+                  description="Optional BucketReef capabilities that extend access-key management beyond the native storage API."
+                  items={[
+                    {
+                      title: "Access-key names and notes",
+                      description: generalSettings.manager_access_key_metadata_enabled
+                        ? "Allow Manager to store and edit BucketReef metadata for this RGW User's access keys."
+                        : "Enable Access-key names and notes in Manager settings before granting it to this RGW User.",
+                      ariaLabel: "Access-key names and notes",
+                      checked: editForm.allow_access_key_metadata,
+                      disabled: !editForm.allow_access_key_metadata && !generalSettings.manager_access_key_metadata_enabled,
+                      onChange: (checked) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          allow_access_key_metadata: checked,
+                        })),
+                    },
+                    {
+                      title: "Access-key expiration",
+                      description: generalSettings.manager_access_key_expiration_enabled
+                        ? "Allow Manager to schedule provider-side disabling for this RGW User's access keys."
+                        : "Enable Access-key expiration in Manager settings before granting it to this RGW User.",
+                      ariaLabel: "Access-key expiration",
+                      checked: editForm.allow_access_key_expiration,
+                      disabled: !editForm.allow_access_key_expiration && !generalSettings.manager_access_key_expiration_enabled,
+                      onChange: (checked) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          allow_access_key_expiration: checked,
+                        })),
+                    },
+                  ]}
+                />
+                <AdminAccessToggleSection
+                  title="Privileged Ceph operations"
+                  description="Manager operations that require delegated Ceph/RGW administrative capabilities."
+                  items={[
+                    {
+                      title: "Bucket quota management",
+                      description: editingEndpointCanWriteBuckets
+                        ? "Allow Ceph bucket quota updates for this RGW User in Manager."
+                        : "Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.",
+                      ariaLabel: "Bucket quota management",
+                      checked: editForm.allow_bucket_quota_management,
+                      disabled: !editForm.allow_bucket_quota_management && !editingEndpointCanWriteBuckets,
+                      onChange: (checked) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          allow_bucket_quota_management: checked,
+                        })),
+                    },
+                    {
+                      title: "Ceph S3 User keys",
+                      description: "Allow access to Manager > Ceph > Access keys.",
+                      ariaLabel: "Ceph S3 User keys",
+                      checked: editForm.allow_access_key_management,
+                      onChange: (checked) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          allow_access_key_management: checked,
+                        })),
+                    },
+                    {
+                      title: "Managed private connection provisioning",
+                      description: "Allow Manager to provision a dedicated private Browser connection for this RGW User.",
+                      ariaLabel: "Managed private connection provisioning",
+                      checked: editForm.allow_managed_private_connection_provisioning,
+                      onChange: (checked) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          allow_managed_private_connection_provisioning: checked,
+                        })),
+                    },
+                  ]}
+                />
+              </div>
             )}
               </SettingsForm>
           </WorkflowTabs>

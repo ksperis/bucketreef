@@ -30,14 +30,14 @@ import { adminQuotaErrors } from "./useAdminRgwFormValidation";
 import { adminAccountForm, adminAccountPayload, accountQuotaChanged, type AdminAccountForm } from "./adminAccountForm";
 import AdminAccountAssociations, { accountUserAssociations, accountGroupAssociations } from "./AdminAccountAssociations";
 
-type EditTab = "general" | "users" | "groups" | "privileged" | "portal";
+type EditTab = "general" | "users" | "groups" | "manager" | "portal";
 type EditorState = { dirty: boolean; busy: boolean };
 type Props = {
   account: S3Account | S3AccountSummary;
   portalEnabled: boolean;
   accessKeyMetadataEnabled: boolean;
   accessKeyExpirationEnabled: boolean;
-  canManagePrivilegedTargets: boolean;
+  canManageManagerFeatures: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
   onStateChange: (state: EditorState) => void;
@@ -47,7 +47,7 @@ const portalAdapter: ProjectSettingsAdapter = {
   load: async id => settingsSnapshot(await fetchAccountPortalSettings(Number(id))),
   save: async (id, payload) => settingsSnapshot(await updateAccountPortalSettings(Number(id), payload)),
 };
-const pageDescription = "Manage quotas, usage, UI associations, privileged access, and Portal overrides for this account.";
+const pageDescription = "Manage quotas, usage, UI associations, Manager features, and Portal overrides for this account.";
 
 /** Mount by account ID so a late read or save cannot replace another account's draft. */
 export default function AdminAccountEditor(props: Props) {
@@ -63,7 +63,7 @@ export default function AdminAccountEditor(props: Props) {
   </WorkflowPage>;
 }
 
-function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled, accessKeyExpirationEnabled, canManagePrivilegedTargets, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
+function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled, accessKeyExpirationEnabled, canManageManagerFeatures, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
   const form = useSettingsDraft(() => adminAccountForm(account));
   const [tab, setTab] = useState<EditTab>("general");
   const [portalDirty, setPortalDirty] = useState(false);
@@ -113,7 +113,7 @@ function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled,
     }
     const snapshot = form.draft;
     try {
-      await updateS3Account(account.id, adminAccountPayload(snapshot, form.baseline, allowQuotaUpdates, canManagePrivilegedTargets));
+      await updateS3Account(account.id, adminAccountPayload(snapshot, form.baseline, allowQuotaUpdates, canManageManagerFeatures));
       if (!active.current) return;
       form.accept(snapshot);
       setSaved(true);
@@ -139,7 +139,7 @@ function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled,
       <WorkflowTabs<EditTab> activeTab={tab} onTabChange={next => { if (!controller.locked) setTab(next); }}
         ariaLabel="RGW account configuration sections" idPrefix="admin-rgw-account-edit" panelClassName="mt-3 min-w-0"
         tabs={[{ id: "general", label: "General" }, { id: "users", label: "Linked UI users" }, { id: "groups", label: "Linked UI groups" },
-          { id: "privileged", label: "Privileged access", visible: canManagePrivilegedTargets }, { id: "portal", label: "Portal settings", visible: portalEnabled }]
+          { id: "manager", label: "Manager features", visible: canManageManagerFeatures }, { id: "portal", label: "Portal settings", visible: portalEnabled }]
           .map(item => ({ ...item, id: item.id as EditTab, disabled: controller.locked }))}>
         <div hidden={tab === "portal"}>
           <SettingsForm label="Edit RGW account" formRef={formRef} onSubmit={controller.submit} busy={controller.locked}
@@ -200,14 +200,9 @@ function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled,
               <AdminAccountAssociations adapter={accountGroupAssociations} links={form.draft.group_links} onChange={value => update("group_links", value)}
                 portalEnabled={portalEnabled} disabled={controller.locked} onPendingChange={setGroupPending} />
             </div>
-            {canManagePrivilegedTargets && <div hidden={tab !== "privileged"}>
-              <AdminAccessToggleSection title="Privileged Ceph access" description="Ceph admin-API actions granted directly to this account outside the Ceph Admin workspace."
-                items={[{ title: "Bucket quota management", ariaLabel: "Bucket quota management", checked: form.draft.allow_bucket_quota_management,
-                  disabled: !form.draft.allow_bucket_quota_management && !allowBucketQuotas,
-                  description: allowBucketQuotas ? "Allow Ceph bucket quota updates for this S3 Account in Manager."
-                    : "Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.",
-                  onChange: value => update("allow_bucket_quota_management", value) },
-                  { title: "Access-key names and notes", ariaLabel: "Access-key names and notes", checked: form.draft.allow_access_key_metadata,
+            {canManageManagerFeatures && <div hidden={tab !== "manager"}><div className="settings-stack">
+              <AdminAccessToggleSection title="Access-key extensions" description="Optional BucketReef capabilities that extend access-key management beyond the native storage API."
+                items={[{ title: "Access-key names and notes", ariaLabel: "Access-key names and notes", checked: form.draft.allow_access_key_metadata,
                     disabled: !form.draft.allow_access_key_metadata && !accessKeyMetadataEnabled,
                     description: accessKeyMetadataEnabled ? "Allow Manager to store and edit BucketReef metadata for this account's IAM access keys."
                       : "Enable Access-key names and notes in Manager settings before granting it to this account.",
@@ -217,7 +212,13 @@ function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled,
                     description: accessKeyExpirationEnabled ? "Allow Manager to schedule provider-side disabling for this account's IAM access keys."
                       : "Enable Access-key expiration in Manager settings before granting it to this account.",
                     onChange: value => update("allow_access_key_expiration", value) }]} />
-            </div>}
+              <AdminAccessToggleSection title="Privileged Ceph operations" description="Manager operations that require delegated Ceph/RGW administrative capabilities."
+                items={[{ title: "Bucket quota management", ariaLabel: "Bucket quota management", checked: form.draft.allow_bucket_quota_management,
+                  disabled: !form.draft.allow_bucket_quota_management && !allowBucketQuotas,
+                  description: allowBucketQuotas ? "Allow Ceph bucket quota updates for this S3 Account in Manager."
+                    : "Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.",
+                  onChange: value => update("allow_bucket_quota_management", value) }]} />
+            </div></div>}
           </SettingsForm>
         </div>
         {portalEnabled && <div hidden={tab !== "portal"}>

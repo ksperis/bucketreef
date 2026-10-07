@@ -105,7 +105,7 @@ export default function S3AccountsPage() {
   const [deleteFromRgw, setDeleteFromRgw] = useState(false);
   const currentUser = useMemo(() => readStoredUser(), []);
   const isSuperAdmin = isAdminLikeRole(currentUser?.role);
-  const canManagePrivilegedTargets = isAdminLikeRole(currentUser?.role);
+  const canManageManagerFeatures = isAdminLikeRole(currentUser?.role);
   const {
     catalog: adminTagCatalog,
     loading: adminTagCatalogLoading,
@@ -769,7 +769,7 @@ export default function S3AccountsPage() {
       {isSuperAdmin && editingS3Account && <AdminAccountEditor key={editingS3Account.id}
         account={editingS3Account} portalEnabled={portalEnabled} accessKeyMetadataEnabled={generalSettings.manager_access_key_metadata_enabled}
         accessKeyExpirationEnabled={generalSettings.manager_access_key_expiration_enabled}
-        canManagePrivilegedTargets={canManagePrivilegedTargets}
+        canManageManagerFeatures={canManageManagerFeatures}
         onClose={closeAccountEditor} onSaved={accountSaved} onStateChange={setEditorState} />}
       {accountSwitchGuard.confirmationDialog}
 

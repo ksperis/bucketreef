@@ -152,7 +152,13 @@ catalogue loading error provides **Retry** without hiding existing links.
 The **Advanced** association dialog applies its setting to the account draft;
 save the account to persist it.
 
-**Privileged access** contains the existing bucket quota management grant.
+**Manager features** separates optional BucketReef access-key extensions from
+privileged Ceph operations. **Access-key extensions** contains the opt-ins for
+access-key names and notes and access-key expiration. **Privileged Ceph
+operations** contains grants such as bucket quota management that require
+delegated Ceph/RGW administrative capabilities.
+RGW Users use the same grouping; their privileged operations also include Ceph
+S3 User key management and managed private connection provisioning.
 **Portal settings**, when available, has its own save action: saving either
 form preserves unsaved changes in the other. While either save is running,
 fields, tabs and return controls are locked. A failed save keeps the draft for
