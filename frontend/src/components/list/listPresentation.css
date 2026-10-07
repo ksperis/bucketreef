@@ -129,7 +129,7 @@
   font-size: var(--list-font-size); line-height: var(--list-line-height); font-weight: var(--list-font-weight); border-radius: var(--list-control-radius);
 }
 .ui-list-toolbar[data-list-variant] .ui-list-toolbar-search :is(input, textarea) { width: 100%; padding-left: 28px; }
-.ui-list-search { padding-right: calc(var(--list-control-height) + 8px) !important; }
+.ui-list-search { display: block; padding-right: calc(var(--list-control-height) + 8px) !important; }
 .ui-list-search-mode { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
 .ui-list-pagination { padding: var(--list-toolbar-padding); font-size: var(--list-font-size); line-height: var(--list-line-height); }
 .ui-list-menu-item.ui-list-menu-item { display: flex; align-items: center; gap: 6px; min-height: var(--list-control-height); width: 100%; padding: 3px 8px; border-radius: var(--list-control-radius); font-size: var(--list-font-size); line-height: var(--list-line-height); font-weight: var(--list-font-weight); text-align: left; }
