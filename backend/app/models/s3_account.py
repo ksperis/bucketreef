@@ -56,6 +56,7 @@ class S3Account(ApiModel):
     storage_endpoint_is_default: bool
     storage_endpoint_capabilities: dict[str, bool]
     allow_bucket_quota_management: bool = False
+    allow_access_key_metadata: bool = False
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
 
@@ -100,6 +101,7 @@ class S3AccountUpdate(ApiModel):
     storage_endpoint_id: Optional[int] = None
     tags: OptionalTagDefinitionList = None
     allow_bucket_quota_management: Optional[bool] = None
+    allow_access_key_metadata: Optional[bool] = None
 
     @field_validator("storage_endpoint_id", mode="before")
     @classmethod
@@ -128,6 +130,7 @@ class S3AccountSummary(ApiModel):
     storage_endpoint_is_default: bool
     storage_endpoint_capabilities: dict[str, bool]
     allow_bucket_quota_management: bool = False
+    allow_access_key_metadata: bool = False
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
 

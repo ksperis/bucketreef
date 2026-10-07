@@ -53,6 +53,7 @@ import UsageTile from "../../components/UsageTile";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
@@ -90,6 +91,7 @@ function getS3UserSearchCandidates(user: S3User): Array<string | number | null |
 }
 
 export default function S3UsersPage() {
+  const { generalSettings } = useGeneralSettings();
   const [users, setUsers] = useState<S3User[]>([]);
   const [portalUsers, setPortalUsers] = useState<UserSummary[]>([]);
   const [portalUsersLoaded, setPortalUsersLoaded] = useState(false);
@@ -151,6 +153,7 @@ export default function S3UsersPage() {
     quota_max_objects: "",
     allow_bucket_quota_management: false,
     allow_access_key_management: false,
+    allow_access_key_metadata: false,
     allow_managed_private_connection_provisioning: false,
   });
   const [editInitialSignature, setEditInitialSignature] = useState("");
@@ -507,6 +510,7 @@ export default function S3UsersPage() {
       quota_max_objects: user.quota_max_objects != null ? String(user.quota_max_objects) : "",
       allow_bucket_quota_management: Boolean(user.allow_bucket_quota_management),
       allow_access_key_management: Boolean(user.allow_access_key_management),
+      allow_access_key_metadata: Boolean(user.allow_access_key_metadata),
       allow_managed_private_connection_provisioning: Boolean(
         user.allow_managed_private_connection_provisioning
       ),
@@ -543,6 +547,7 @@ export default function S3UsersPage() {
       if (canManagePrivilegedTargets) {
         payload.allow_bucket_quota_management = editForm.allow_bucket_quota_management;
         payload.allow_access_key_management = editForm.allow_access_key_management;
+        payload.allow_access_key_metadata = editForm.allow_access_key_metadata;
         payload.allow_managed_private_connection_provisioning =
           editForm.allow_managed_private_connection_provisioning;
       }
@@ -1351,6 +1356,20 @@ export default function S3UsersPage() {
                       setEditForm((prev) => ({
                         ...prev,
                         allow_access_key_management: checked,
+                      })),
+                  },
+                  {
+                    title: "Access-key names and notes",
+                    description: generalSettings.manager_access_key_metadata_enabled
+                      ? "Allow Manager to store and edit BucketReef metadata for this RGW User's access keys."
+                      : "Enable Access-key names and notes in Manager settings before granting it to this RGW User.",
+                    ariaLabel: "Access-key names and notes",
+                    checked: editForm.allow_access_key_metadata,
+                    disabled: !editForm.allow_access_key_metadata && !generalSettings.manager_access_key_metadata_enabled,
+                    onChange: (checked) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        allow_access_key_metadata: checked,
                       })),
                   },
                   {

@@ -32,6 +32,7 @@ class S3User(Base):
     storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False)
     allow_bucket_quota_management = Column(Boolean, default=False, nullable=False, server_default="0")
     allow_access_key_management = Column(Boolean, default=False, nullable=False, server_default="0")
+    allow_access_key_metadata = Column(Boolean, default=False, nullable=False, server_default="0")
     allow_managed_private_connection_provisioning = Column(
         Boolean,
         default=False,

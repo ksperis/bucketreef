@@ -11,6 +11,7 @@ export function adminAccountForm(account: S3Account) {
     quota_max_size_unit: quota.unit as string,
     quota_max_objects: account.quota_max_objects == null ? "" : String(account.quota_max_objects),
     allow_bucket_quota_management: Boolean(account.allow_bucket_quota_management),
+    allow_access_key_metadata: Boolean(account.allow_access_key_metadata),
     user_links: account.user_links.map<AccountUserLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
     group_links: account.group_links.map<AccountGroupLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
   };
@@ -30,7 +31,10 @@ export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAcco
     tags: normalizeUiTags(draft.tags),
     user_links: draft.user_links,
     group_links: draft.group_links,
-    ...(canManagePrivilegedTargets ? { allow_bucket_quota_management: draft.allow_bucket_quota_management } : {}),
+    ...(canManagePrivilegedTargets ? {
+      allow_bucket_quota_management: draft.allow_bucket_quota_management,
+      allow_access_key_metadata: draft.allow_access_key_metadata,
+    } : {}),
     ...(allowQuotaUpdates && accountQuotaChanged(draft, baseline) ? {
       quota_max_size_gb: draft.quota_max_size_gb !== "" ? Number(draft.quota_max_size_gb) : null,
       quota_max_size_unit: draft.quota_max_size_gb !== "" ? draft.quota_max_size_unit : null,

@@ -11,6 +11,7 @@ import {
   createIamAccessKey,
   deleteIamAccessKey,
   listIamAccessKeys,
+  updateIamAccessKeyMetadata,
   updateIamAccessKeyStatus,
 } from "../../api/managerIamUsers";
 import { useS3AccountContext } from "./S3AccountContext";
@@ -25,6 +26,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
+import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKeyMetadataDialog";
 
 function extractError(err: unknown): string {
   return extractApiError(err, "Unexpected error");
@@ -32,7 +34,7 @@ function extractError(err: unknown): string {
 
 export default function ManagerUserKeysPage() {
   const { userName } = useParams<{ userName: string }>();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, managerAccessKeyMetadataEnabled } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [keys, setKeys] = useState<AccessKey[]>([]);
@@ -41,6 +43,8 @@ export default function ManagerUserKeysPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<AccessKey | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [metadataDialog, setMetadataDialog] = useState<{ mode: "create" | "edit"; key?: AccessKey } | null>(null);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
   const keyConfirmation = useConfirmActionDialog();
 
   const formatDate = (value?: string) => {
@@ -82,18 +86,50 @@ export default function ManagerUserKeysPage() {
     }
   }, [accountIdForApi, needsS3AccountSelection, isS3User, userName, accessMode, load]);
 
-  const handleCreateKey = async () => {
+  const createKey = async (metadata?: AccessKeyMetadataDraft) => {
     if (needsS3AccountSelection || !userName) return;
     setBusy("create");
     setError(null);
     setActionMessage(null);
     try {
-      const key = await createIamAccessKey(accountIdForApi, userName);
+      const key = metadata
+        ? await createIamAccessKey(accountIdForApi, userName, metadata)
+        : await createIamAccessKey(accountIdForApi, userName);
       setCreatedKey(key);
       await load(accountIdForApi, userName);
       setActionMessage("Access key created");
+      setMetadataDialog(null);
+      setMetadataError(null);
     } catch (err) {
-      setError(extractError(err));
+      const message = extractError(err);
+      if (metadataDialog) setMetadataError(message);
+      else setError(message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCreateKey = () => {
+    if (managerAccessKeyMetadataEnabled) {
+      setMetadataError(null);
+      setMetadataDialog({ mode: "create" });
+      return;
+    }
+    void createKey();
+  };
+
+  const saveMetadata = async (metadata: AccessKeyMetadataDraft) => {
+    if (!userName || metadataDialog?.mode !== "edit" || !metadataDialog.key) return;
+    const key = metadataDialog.key;
+    setBusy(`metadata:${key.access_key_id}`);
+    setMetadataError(null);
+    try {
+      await updateIamAccessKeyMetadata(accountIdForApi, userName, key.access_key_id, metadata);
+      await load(accountIdForApi, userName);
+      setMetadataDialog(null);
+      setActionMessage("Access-key details updated");
+    } catch (err) {
+      setMetadataError(extractError(err));
     } finally {
       setBusy(null);
     }
@@ -193,6 +229,16 @@ export default function ManagerUserKeysPage() {
         </div>
       ),
     },
+    ...(managerAccessKeyMetadataEnabled ? [{
+      id: "details",
+      label: "Name / notes",
+      render: (key: AccessKey) => (
+        <div className="min-w-0">
+          <div className="font-medium text-[var(--ui-text)]">{key.name || "—"}</div>
+          {key.notes && <div className="mt-0.5 line-clamp-2 text-sm text-[var(--ui-text-muted)]">{key.notes}</div>}
+        </div>
+      ),
+    } satisfies DataTableColumn<AccessKey>] : []),
     {
       id: "status",
       label: "Status",
@@ -210,6 +256,18 @@ export default function ManagerUserKeysPage() {
         const managed = Boolean(key.is_private_access_managed);
         return (
           <ListActions>
+            {managerAccessKeyMetadataEnabled && (
+              <ListActionButton
+                type="button"
+                onClick={() => {
+                  setMetadataError(null);
+                  setMetadataDialog({ mode: "edit", key });
+                }}
+                disabled={Boolean(busy)}
+              >
+                {busy === `metadata:${key.access_key_id}` ? "Saving..." : "Edit details"}
+              </ListActionButton>
+            )}
             <ListActionButton
               type="button"
               onClick={() => handleToggleKey(key.access_key_id, !active)}
@@ -313,6 +371,20 @@ export default function ManagerUserKeysPage() {
       </ListPageSection>
 
       {keyConfirmation.confirmationDialog}
+      {metadataDialog && (
+        <AccessKeyMetadataDialog
+          mode={metadataDialog.mode}
+          initial={metadataDialog.key ? { name: metadataDialog.key.name, notes: metadataDialog.key.notes } : undefined}
+          busy={busy === "create" || busy?.startsWith("metadata:") === true}
+          error={metadataError}
+          onClose={() => {
+            if (busy) return;
+            setMetadataDialog(null);
+            setMetadataError(null);
+          }}
+          onSubmit={metadataDialog.mode === "create" ? createKey : saveMetadata}
+        />
+      )}
 
     </PageShell>
   );

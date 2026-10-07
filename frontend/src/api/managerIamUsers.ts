@@ -24,6 +24,13 @@ export type AccessKey = {
   secret_access_key?: string;
   is_private_access_managed?: boolean;
   managed_connection_id?: number | null;
+  name?: string | null;
+  notes?: string | null;
+};
+
+export type AccessKeyMetadataInput = {
+  name?: string | null;
+  notes?: string | null;
 };
 
 export type IAMUser = {
@@ -71,11 +78,29 @@ export async function listIamAccessKeys(accountId: S3AccountSelector, userName: 
   return data;
 }
 
-export async function createIamAccessKey(accountId: S3AccountSelector, userName: string): Promise<AccessKey> {
+export async function createIamAccessKey(
+  accountId: S3AccountSelector,
+  userName: string,
+  metadata?: AccessKeyMetadataInput,
+): Promise<AccessKey> {
   const { data } = await client.post<AccessKey>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys`,
-    {},
+    metadata ?? {},
     { params: withS3AccountParam(undefined, accountId) }
+  );
+  return data;
+}
+
+export async function updateIamAccessKeyMetadata(
+  accountId: S3AccountSelector,
+  userName: string,
+  accessKeyId: string,
+  metadata: AccessKeyMetadataInput,
+): Promise<AccessKeyMetadataInput> {
+  const { data } = await client.put<AccessKeyMetadataInput>(
+    `/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}/metadata`,
+    metadata,
+    { params: withS3AccountParam(undefined, accountId) },
   );
   return data;
 }

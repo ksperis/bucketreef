@@ -54,6 +54,7 @@ export const settings: AppSettings = {
     billing_enabled: true, endpoint_status_enabled: true, quota_alerts_enabled: true,
     usage_history_enabled: true, bucket_compare_enabled: true, bucket_usage_stats_enabled: true,
     bucket_quota_management_enabled: true, manager_ceph_s3_user_keys_enabled: true,
+    manager_access_key_metadata_enabled: false,
     allow_login_access_keys: false, allow_login_endpoint_list: false, allow_login_custom_endpoint: false,
     require_passkey_for_admins: false, require_passkey_for_users: false,
     allow_user_profile_name_edit: true, allow_user_external_identity_unlink: false, ...disabledFlags,

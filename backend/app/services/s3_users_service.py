@@ -484,6 +484,8 @@ class S3UsersService:
             s3_user.allow_bucket_quota_management = bool(payload.allow_bucket_quota_management)
         if payload.allow_access_key_management is not None:
             s3_user.allow_access_key_management = bool(payload.allow_access_key_management)
+        if payload.allow_access_key_metadata is not None:
+            s3_user.allow_access_key_metadata = bool(payload.allow_access_key_metadata)
         if payload.allow_managed_private_connection_provisioning is not None:
             s3_user.allow_managed_private_connection_provisioning = bool(
                 payload.allow_managed_private_connection_provisioning
