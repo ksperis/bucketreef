@@ -60,9 +60,10 @@ telemetry does not create application audit events.
 Admin **Storage Backends** exposes:
 
 - **HTTP probe**: checks the endpoint or a configured healthcheck URL.
-- **S3 signed probe**: signs a lightweight S3 request with supervision or admin
-  credentials. This mode is available for Ceph endpoints when suitable
-  credentials are configured.
+- **S3 signed probe**: signs a lightweight S3 request with Supervision Ops
+  credentials. On a Ceph endpoint in external service-identity mode, supplying
+  a complete Supervision pair automatically enables this mode. Without
+  Supervision, use the HTTP probe instead.
 - Optional healthcheck URL override. Empty value uses the endpoint URL.
 
 ## Relevant backend settings

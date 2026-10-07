@@ -325,6 +325,7 @@ resources. Current generated names include:
 - generic Portal Storage Space buckets: `bkr-space-<uuid>`;
 - Portal access-log buckets: `bkr-portal-access-logs-*`;
 - managed private IAM users: `bkr-private-*`;
+- automatically generated RGW S3 users: `bkr-s3u-<uuid>`;
 - bucket-migration probe buckets: `bkr-mig-precheck-*`;
 - migration probe objects: `__bkr__/migration/...`;
 - guided-onboarding sample accounts: `bkr-sample-*`;
