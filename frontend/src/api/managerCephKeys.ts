@@ -32,7 +32,7 @@ export type ManagerCephGeneratedAccessKey = {
   expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
 };
 
-export type ManagerAccessKeyMetadataInput = {
+type ManagerAccessKeyMetadataInput = {
   name?: string | null;
   notes?: string | null;
   expires_at?: string | null;

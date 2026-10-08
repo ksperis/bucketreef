@@ -33,7 +33,7 @@ export type AccessKey = {
   expiration_last_error?: string | null;
 };
 
-export type AccessKeyMetadataInput = {
+type AccessKeyMetadataInput = {
   name?: string | null;
   notes?: string | null;
   expires_at?: string | null;

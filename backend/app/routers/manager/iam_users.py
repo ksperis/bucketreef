@@ -186,9 +186,9 @@ def create_access_key(
         try:
             metadata_service.validate_payload(account, payload)
         except PermissionError as exc:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+            raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+            raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
     service = get_iam_service_for_account(account)
     try:
         key = service.create_access_key(user_name)
@@ -226,9 +226,9 @@ def update_access_key_metadata(
     try:
         metadata_service.validate_payload(account, payload)
     except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
     service = get_iam_service_for_account(account)
     try:
         if not any(key.access_key_id == access_key_id for key in service.list_access_keys(user_name)):

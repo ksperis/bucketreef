@@ -19,7 +19,7 @@ from app.services.audit_service import AuditService
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.s3_users_service import S3UsersService, get_s3_users_service
 from app.services.managed_private_access_service import ManagedPrivateAccessService
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
 
 router = APIRouter(prefix="/manager/ceph/keys", tags=["manager-ceph-keys"])
 
@@ -86,9 +86,9 @@ def create_ceph_access_key(
         try:
             metadata_service.validate_payload(account, payload)
         except PermissionError as exc:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+            raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+            raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
     try:
         key = service.create_access_key_entry(s3_user_id)
         if payload is not None and payload.model_fields_set:
@@ -124,9 +124,9 @@ def update_ceph_access_key_metadata(
     try:
         metadata_service.validate_payload(account, payload)
     except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
     try:
         existing = next((key for key in service.list_keys(s3_user_id) if key.access_key_id == access_key), None)
         if existing is None:

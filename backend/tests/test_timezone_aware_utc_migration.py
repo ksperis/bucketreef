@@ -52,6 +52,13 @@ POST_MIGRATION_UTC_COLUMNS = {
     "onboarding_journeys": ("configured_at", "validated_at", "created_at", "updated_at"),
     "endpoint_service_identities": ("last_reconciled_at", "created_at", "updated_at"),
     "key_rotation_intents": ("created_at", "updated_at"),
+    "manager_access_key_metadata": (
+        "expires_at",
+        "expiration_enforced_at",
+        "expiration_last_attempt_at",
+        "created_at",
+        "updated_at",
+    ),
     "onboarding_preferences": ("initial_setup_completed_at", "updated_at"),
     "recovery_codes": ("created_at", "consumed_at"),
     "refresh_tokens": ("created_at", "expires_at", "used_at", "revoked_at"),
