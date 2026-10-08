@@ -101,14 +101,14 @@ credentials.
 
 !!! note
     Access-key names and notes are local BucketReef metadata. They are not sent
-    to Ceph RGW and do not alter the credential. The global feature and the S3
-    User opt-in are both disabled independently of key management. Turning
+    to Ceph RGW and do not alter the credential. The global feature is enabled by default on new deployments; the S3
+    User opt-in remains disabled by default, independently of key management. Turning
     either metadata gate off hides saved metadata but keeps it persisted so it
     becomes visible again if the feature is re-enabled.
 
 !!! note
-    Access-key expiration is a separate opt-in because it changes provider
-    state. BucketReef stores the schedule locally, then the scheduler disables
+    Access-key expiration is enabled globally by default on new deployments,
+    but requires a separate resource opt-in because it changes provider state. BucketReef stores the schedule locally, then the scheduler disables
     the individual RGW key in Ceph when the time is reached. Under normal
     operation enforcement occurs within about one minute. The key list keeps
     the provider **Active / Inactive** state separate from the expiration state;

@@ -275,12 +275,13 @@ Managed from Admin UI:
   and notes (`manager_access_key_metadata_enabled`), optional access-key
   expiration (`manager_access_key_expiration_enabled`), and migration
   parallelism.
-  Access-key names and notes are disabled by default and require a second
+  Access-key names and notes are enabled globally by default on new deployments and require a separate
   resource opt-in: `allow_access_key_metadata=true` on each RGW Account or S3
   User where Manager should expose the BucketReef-only metadata.
-  Access-key expiration is also disabled by default and requires
+  Access-key expiration is also enabled globally by default and requires
   `allow_access_key_expiration=true` on each eligible RGW Account or S3 User.
-  It additionally depends on scheduled jobs; the Compose scheduler runs
+  Both resource opt-ins remain disabled by default. Explicitly saved global
+  settings are preserved. Expiration additionally depends on scheduled jobs; the Compose scheduler runs
   `ACCESS_KEY_EXPIRATION_CRON_SCHEDULE` every minute by default, while Helm uses
   `accessKeyExpirationCronJob`. Disabling an opt-in does not cancel expirations
   that were already scheduled.
