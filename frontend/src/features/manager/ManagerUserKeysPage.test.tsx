@@ -112,7 +112,7 @@ describe("ManagerUserKeysPage", () => {
 
     await user.click(screen.getByRole("button", { name: "New key" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(/stored only in BucketReef/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Notes")).toHaveAccessibleDescription("Optional. Name and notes are stored in BucketReef.");
     await user.type(screen.getByLabelText("Name"), "video-uploader");
     await user.type(screen.getByLabelText("Notes"), "Uploads rendered videos");
     await user.click(screen.getByRole("button", { name: "Create key" }));

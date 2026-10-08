@@ -1335,7 +1335,7 @@ export default function S3UsersPage() {
               <div className="settings-stack">
                 <AdminAccessToggleSection
                   title="Access-key extensions"
-                  description="Optional BucketReef capabilities that extend access-key management beyond the native storage API."
+                  description="Optional features for managing access keys."
                   items={[
                     {
                       title: "Access-key names and notes",

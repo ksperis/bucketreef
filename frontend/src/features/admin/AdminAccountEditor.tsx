@@ -201,7 +201,7 @@ function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled,
                 portalEnabled={portalEnabled} disabled={controller.locked} onPendingChange={setGroupPending} />
             </div>
             {canManageManagerFeatures && <div hidden={tab !== "manager"}><div className="settings-stack">
-              <AdminAccessToggleSection title="Access-key extensions" description="Optional BucketReef capabilities that extend access-key management beyond the native storage API."
+              <AdminAccessToggleSection title="Access-key extensions" description="Optional features for managing access keys."
                 items={[{ title: "Access-key names and notes", ariaLabel: "Access-key names and notes", checked: form.draft.allow_access_key_metadata,
                     disabled: !form.draft.allow_access_key_metadata && !accessKeyMetadataEnabled,
                     description: accessKeyMetadataEnabled ? "Allow Manager to store and edit BucketReef metadata for this account's IAM access keys."

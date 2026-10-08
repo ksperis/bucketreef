@@ -101,9 +101,6 @@ export default function AccessKeyMetadataDialog({
         <div className="settings-fields">
           {metadataEnabled && (
             <>
-              <UiInlineMessage tone="info">
-                Name and notes are stored only in BucketReef. They do not change the S3/IAM credential or its permissions.
-              </UiInlineMessage>
               <UiInput
                 ref={nameRef}
                 label="Name"
@@ -119,19 +116,19 @@ export default function AccessKeyMetadataDialog({
                 maxLength={2000}
                 rows={5}
                 placeholder="Used by the nightly backup job for project data."
-                hint="Optional description of who uses the key and what it is used for."
+                hint="Optional. Name and notes are stored in BucketReef."
                 onChange={(event) => setNotes(event.target.value)}
               />
             </>
           )}
           {expirationVisible && (
             <>
-              <UiInlineMessage tone={expirationLockedReason ? "warning" : "info"}>
-                {expirationLockedReason
-                  ?? (expirationEnabled
-                    ? "At the selected time, BucketReef will disable this key in the storage provider. Enforcement normally occurs within one minute."
-                    : "This key already has an expiration. Re-enable Access-key expiration for this context to change it.")}
-              </UiInlineMessage>
+              {!expirationEditable && (
+                <UiInlineMessage tone={expirationLockedReason ? "warning" : "info"}>
+                  {expirationLockedReason
+                    ?? "This key already has an expiration. Re-enable Access-key expiration for this context to change it."}
+                </UiInlineMessage>
+              )}
               <UiInput
                 ref={expirationRef}
                 type="datetime-local"
@@ -139,7 +136,12 @@ export default function AccessKeyMetadataDialog({
                 value={expiresAt}
                 disabled={!expirationEditable}
                 min={toLocalDateTimeInput(new Date().toISOString())}
-                hint="Optional. The time is interpreted in your browser's local timezone. Clear the field to remove the expiration."
+                hint={
+                  <>
+                    {expirationEditable && <span className="block">Automatically disables the key, usually within one minute after expiration.</span>}
+                    Optional. The time is interpreted in your browser's local timezone. Clear the field to remove the expiration.
+                  </>
+                }
                 onChange={(event) => setExpiresAt(event.target.value)}
               />
             </>
