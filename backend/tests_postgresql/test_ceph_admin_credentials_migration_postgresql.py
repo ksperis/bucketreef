@@ -6,6 +6,7 @@ import os
 import uuid
 
 from alembic import command
+from alembic.script import ScriptDirectory
 import pytest
 import sqlalchemy as sa
 
@@ -44,6 +45,7 @@ def test_postgresql_upgrade_from_0_2_13_preserves_ceph_admin_credentials() -> No
         )
         config = database_initialization._alembic_config()
         config.attributes["configure_logger"] = False
+        expected_head = ScriptDirectory.from_config(config).get_current_head()
 
         with scoped_engine.begin() as connection:
             config.attributes["connection"] = connection
@@ -84,7 +86,7 @@ def test_postgresql_upgrade_from_0_2_13_preserves_ceph_admin_credentials() -> No
             assert identity["rgw_uid"] is None
             assert identity["provenance"] is None
             assert bool(identity["legacy_system_compat"]) is True
-            assert connection.scalar(sa.text("SELECT version_num FROM alembic_version")) == "0144_legacy_ceph_admin_system_compat"
+            assert connection.scalar(sa.text("SELECT version_num FROM alembic_version")) == expected_head
     finally:
         clear_credential_keys_override()
         if scoped_engine is not None:
