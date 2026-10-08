@@ -220,6 +220,25 @@ def test_manager_ceph_s3_user_keys_flag_default_enabled():
     assert settings.general.manager_ceph_s3_user_keys_enabled is True
 
 
+def test_fresh_settings_enable_access_key_extensions_and_preserve_disabled_choices(monkeypatch, tmp_path, db_session):
+    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: tmp_path / "missing.json")
+    monkeypatch.setattr(app_settings_service, "get_settings", _runtime_settings)
+    _use_settings_db(monkeypatch, db_session)
+
+    settings = app_settings_service.load_app_settings()
+    fields = ("manager_access_key_metadata_enabled", "manager_access_key_expiration_enabled")
+    for field in fields:
+        assert getattr(settings.general, field) is True
+        assert _raw_db_settings(db_session)["general"][field] is True
+        setattr(settings.general, field, False)
+
+    app_settings_service.save_app_settings(settings)
+    reloaded = app_settings_service.load_app_settings()
+    for field in fields:
+        assert getattr(reloaded.general, field) is False
+        assert _raw_db_settings(db_session)["general"][field] is False
+
+
 def test_managed_private_connection_provisioning_flag_default_disabled():
     settings = AppSettings()
     assert settings.general.managed_private_connection_provisioning_enabled is False
