@@ -62,7 +62,7 @@ Key areas:
   and public. Webhooks remain HTTPS by default; private HTTP webhooks require
   both `WEBHOOK_ALLOW_PRIVATE_TARGETS=true` and an explicit host allowlist
   entry. See [Operations: webhooks](../operations/webhooks.md) for delivery,
-  signing, retries, and compatibility aliases.
+  signing, retries, and runtime configuration.
 - Database: `DATABASE_URL` (SQLite defaults to `backend/app.db`; relative SQLite paths are normalized against `backend/`). Multi-backend deployments require PostgreSQL.
 - CORS: `CORS_ORIGINS`.
 - Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
