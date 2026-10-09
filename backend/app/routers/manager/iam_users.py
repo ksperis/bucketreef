@@ -23,6 +23,7 @@ from app.routers.manager.iam_common import (
     save_inline_policy,
 )
 from app.services.audit_service import AuditService
+from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_sources import iam_source_reference
@@ -63,6 +64,7 @@ def create_user(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMUserWithKey:
+    validate_inline_policy_requests(payload.inline_policies, "user", account)
     service = get_iam_service_for_account(account)
     try:
         created_user, created_key = service.create_user(payload.name, create_key=payload.create_key)
@@ -361,6 +363,8 @@ def put_user_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
+    validate_inline_policy_request(payload.name, "user", account)
+    validate_inline_policy_request(policy_name, "user", account, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
     service = get_iam_service_for_account(account)
     try:

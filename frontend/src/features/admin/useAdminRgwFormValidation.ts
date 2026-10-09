@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useState } from "react";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { rgwUserUidFormatError } from "../../utils/resourceNames";
 import { rgwAccountNameFormatError } from "../../utils/rgwAccountName";
 
 /** Bind native and RGW-specific validation to named fields, retaining failed drafts. */
@@ -29,12 +30,16 @@ export function useAdminRgwFormValidation(values: Record<string, unknown>, field
   };
 }
 
-export function rgwCreateErrors(value: {name: string; storage_endpoint_id: string; quota_max_size_gb: string; quota_max_objects: string}): Record<string, string> {
+export function rgwCreateErrors(value: {name: string; storage_endpoint_id: string; quota_max_size_gb: string; quota_max_objects: string; uid?: string}, kind: "account" | "user" = "account"): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!value.name.trim()) errors.name = "Enter a name.";
-  else {
+  else if (kind === "account") {
     const nameFormatError = rgwAccountNameFormatError(value.name);
     if (nameFormatError) errors.name = nameFormatError;
+  }
+  if (kind === "user") {
+    const uidError = rgwUserUidFormatError(value.uid?.trim() ?? "");
+    if (uidError) errors.uid = uidError;
   }
   if (!value.storage_endpoint_id) errors.storage_endpoint_id = "Select a Ceph endpoint.";
   return { ...errors, ...adminQuotaErrors(value) };

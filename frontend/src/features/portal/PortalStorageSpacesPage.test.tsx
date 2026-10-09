@@ -606,6 +606,48 @@ describe("PortalStorageSpacesPage", () => {
     ).toBeInTheDocument();
   });
 
+  it.each(["Mon_Bucket **", " reports ", "ab", "a..b", "a.-b", "127.0.0.1", "équipe", "a".repeat(64)])("preserves and blocks invalid named bucket %s, then clears the error after correction", async (value) => {
+    mocks.hookResult.state.allow_named_bucket_create = true;
+    render(<MemoryRouter><PortalStorageSpacesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Create space" }));
+    fireEvent.change(screen.getByLabelText("Space setup"), { target: { value: "named_bucket" } });
+    const name = screen.getByLabelText("Space name and tool ID");
+    const form = screen.getByRole("form", { name: "Create a space" });
+    fireEvent.change(name, { target: { value } });
+    expect(name).toHaveValue(value);
+    expect(name).not.toHaveAttribute("maxlength");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("Invalid name. 3-63 characters, lowercase letters, numbers, dots or hyphens.");
+    fireEvent.submit(form);
+    expect(mocks.createStorageSpaceMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(name).toBeEnabled());
+    fireEvent.change(name, { target: { value: "research-data.v1" } });
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+    fireEvent.submit(form);
+    await waitFor(() => expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith("101", expect.objectContaining({ name: "research-data.v1", naming_mode: "named_bucket" })));
+  });
+
+  it("shows a required name after submission and applies bucket rules only in named mode", async () => {
+    mocks.hookResult.state.allow_named_bucket_create = true;
+    render(<MemoryRouter><PortalStorageSpacesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Create space" }));
+    const form = screen.getByRole("form", { name: "Create a space" });
+    const name = screen.getByLabelText("Space name");
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+    fireEvent.submit(form);
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(mocks.createStorageSpaceMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(name).toBeEnabled());
+    fireEvent.change(name, { target: { value: "Résultats ***" } });
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+    fireEvent.change(screen.getByLabelText("Space setup"), { target: { value: "named_bucket" } });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    fireEvent.change(screen.getByLabelText("Space setup"), { target: { value: "generic_uuid" } });
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+    fireEvent.submit(form);
+    await waitFor(() => expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith("101", expect.objectContaining({ name: "Résultats ***", naming_mode: "generic_uuid" })));
+  });
+
   it("hides the storage naming selector when portal state disables named storage", () => {
     render(
       <MemoryRouter>

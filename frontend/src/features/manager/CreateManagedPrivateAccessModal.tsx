@@ -24,6 +24,7 @@ import S3ConnectionAccessFields from "../shared/S3ConnectionAccessFields";
 import { extractApiError } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { inlinePolicyNameFormatError, type NamingValidationProfile } from "../../utils/resourceNames";
 import { useManagerI18n } from "./managerI18n";
 
 const AMAZON_S3_FULL_ACCESS_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonS3FullAccess";
@@ -32,6 +33,7 @@ const INLINE_POLICY_TEMPLATE = '{\n  "Version": "2012-10-17",\n  "Statement": []
 
 type Props = {
   variant: "iam" | "rgw_user";
+  namingValidationProfile?: NamingValidationProfile | null;
   accountId: S3AccountSelector;
   contextName?: string | null;
   groups?: IAMGroup[];
@@ -42,6 +44,7 @@ type Props = {
 
 export default function CreateManagedPrivateAccessModal({
   variant,
+  namingValidationProfile = "standard",
   accountId,
   contextName,
   groups = [],
@@ -73,6 +76,8 @@ export default function CreateManagedPrivateAccessModal({
   const [inlineDocumentError, setInlineDocumentError] = useState<string>();
   const [accessError, setAccessError] = useState<string>();
 
+  const inlineFormatError = inlinePolicyNameFormatError(inlineName.trim(), "user", namingValidationProfile ?? "standard");
+  const namingRulesPending = variant === "iam" && namingValidationProfile === null;
   const title = text(variant === "iam" ? "Create my private access" : "Create my private RGW access");
   const selectedInlineNames = useMemo(() => new Set(inlinePolicies.map((policy) => policy.name)), [inlinePolicies]);
   const availablePolicies = useMemo(
@@ -108,10 +113,16 @@ export default function CreateManagedPrivateAccessModal({
   };
 
   const addInlinePolicy = () => {
-    if (busy) return;
+    if (busy || namingRulesPending) return;
     setInlineNameError(undefined);
     setInlineDocumentError(undefined);
     const name = inlineName.trim();
+    const formatError = inlinePolicyNameFormatError(name, "user", namingValidationProfile ?? "standard");
+    if (formatError) {
+      setInlineNameError(text(formatError));
+      focusInvalidField();
+      return;
+    }
     if (!name) {
       setInlineNameError(text("Inline policy name is required."));
       focusInvalidField();
@@ -138,7 +149,15 @@ export default function CreateManagedPrivateAccessModal({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || namingRulesPending) return;
+    const invalidPolicy = variant === "iam" ? inlinePolicies.map(policy => inlinePolicyNameFormatError(policy.name, "user", namingValidationProfile ?? "standard")).find(Boolean) : undefined;
+    if (invalidPolicy || (variant === "iam" && (inlineFormatError || inlineNameError))) {
+      if (invalidPolicy) setError(text(invalidPolicy));
+      const details = formRef.current?.querySelector("details");
+      if (details) details.open = true;
+      focusInvalidField();
+      return;
+    }
     const missingName = !connectionName.trim();
     const missingAccess = !accessBrowser && !accessManager;
     setNameError(missingName ? "Connection name is required." : undefined);
@@ -264,7 +283,7 @@ export default function CreateManagedPrivateAccessModal({
                       <UiInput
                         label={text("Inline policy name")}
                         value={inlineName}
-                        error={inlineNameError}
+                        error={inlineFormatError ? text(inlineFormatError) : inlineNameError}
                         onChange={(event) => { setInlineName(event.target.value); setInlineNameError(undefined); }}
                       />
                       <SettingsJsonEditor
@@ -295,7 +314,7 @@ export default function CreateManagedPrivateAccessModal({
           </UiDetails>
           <ModalActions>
             <SettingsButton variant="secondary" onClick={closeGuard.requestClose}>{text("Cancel")}</SettingsButton>
-            <SettingsButton type="submit">{text(busy ? "Creating…" : "Create my private access")}</SettingsButton>
+            <SettingsButton type="submit" disabled={namingRulesPending}>{text(busy ? "Creating…" : "Create my private access")}</SettingsButton>
           </ModalActions>
         </fieldset>
       </form>

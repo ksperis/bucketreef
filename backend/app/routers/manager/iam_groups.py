@@ -22,6 +22,7 @@ from app.routers.manager.iam_common import (
     save_inline_policy,
 )
 from app.services.audit_service import AuditService
+from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 router = APIRouter(prefix="/manager/iam/groups", tags=["manager-iam-groups"])
 
@@ -46,6 +47,7 @@ def create_group(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMGroup:
+    validate_inline_policy_requests(payload.inline_policies, "group", account)
     service = get_iam_service_for_account(account)
     try:
         result = service.create_group(payload.name)
@@ -176,6 +178,8 @@ def put_group_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
+    validate_inline_policy_request(payload.name, "group", account)
+    validate_inline_policy_request(policy_name, "group", account, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
     service = get_iam_service_for_account(account)
     try:

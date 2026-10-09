@@ -570,7 +570,7 @@ export default function S3UsersPage() {
     }
   };
 
-  const createValidation = useAdminRgwFormValidation(createForm, rgwCreateErrors(createForm));
+  const createValidation = useAdminRgwFormValidation(createForm, rgwCreateErrors(createForm, "user"));
   const importEntries = rgwImportEntries(importText, "user");
   const importValidation = useAdminRgwFormValidation({importText, storage_endpoint_id: importEndpointId}, {
     ...(importEntries.error ? {importText: importEntries.error} : {}),

@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { iamNameFormatError } from "../../utils/resourceNames";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -38,7 +39,7 @@ const extractError = (err: unknown): string => extractApiError(err, "Unexpected 
 export default function ManagerGroupsPage() {
   const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [groupFilter, setGroupFilter] = useState("");
@@ -53,6 +54,8 @@ export default function ManagerGroupsPage() {
     setLoading,
   } = useManagerIamCollection(listIamGroups);
   const {
+    inlineDraftNameError,
+    validateInlineDrafts,
     inlineDraftMode,
     inlineDraftName,
     inlineDrafts,
@@ -68,7 +71,7 @@ export default function ManagerGroupsPage() {
     handleRemoveInlineDraft,
     handleSelectInlineDraft,
     resetInlinePolicyDraftEditor,
-  } = useInlinePolicyDraftEditor(setError);
+  } = useInlinePolicyDraftEditor(setError, "group", namingValidationProfile);
   const [advancedName, setAdvancedName] = useState("");
   const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -124,11 +127,13 @@ export default function ManagerGroupsPage() {
     [advancedName, inlineDraftName, inlineDrafts, inlinePolicyText, selectedPolicies]
   );
 
+  const nameFormatError = iamNameFormatError(advancedName.trim(), "group");
+
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (needsS3AccountSelection || busy !== null) return;
     setAdvancedValidationAttempted(true);
-    if (!advancedName.trim()) {
+    if (!advancedName.trim() || nameFormatError || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
@@ -349,13 +354,13 @@ export default function ManagerGroupsPage() {
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
-          busy={busy !== null} disabled={needsS3AccountSelection}
+          busy={busy !== null} disabled={needsS3AccountSelection || namingValidationProfile === null}
           submitLabel={text("Create group")} busyLabel={text("Creating...")}
         >
           <SettingsSection title={text("Identity")} presentation="compact">
             <div className="settings-fields">
               <UiInput label={text("Group name")} required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
-                placeholder={text("Group name")} error={advancedValidationAttempted && !advancedName.trim() ? "Group name is required." : undefined} />
+                placeholder={text("Group name")} error={nameFormatError ? text(nameFormatError!) : advancedValidationAttempted && !advancedName.trim() ? text("Group name is required.") : undefined} />
             </div>
           </SettingsSection>
           <ManagedPolicySelectionPanel
@@ -375,6 +380,7 @@ export default function ManagerGroupsPage() {
             drafts={inlineDrafts}
             selectedDraftName={selectedInlineDraftName}
             draftName={inlineDraftName}
+            nameError={inlineDraftNameError}
             draftText={inlinePolicyText}
             entityLabel="group"
             mode={inlineDraftMode}

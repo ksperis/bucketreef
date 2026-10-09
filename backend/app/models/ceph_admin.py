@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Optional, Literal, Union
 
-from pydantic import Field, model_validator
+from pydantic import Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from app.models.base import ApiModel
 from app.models.bucket_compare import (
@@ -14,7 +14,7 @@ from app.models.bucket_compare import (
 from app.models.bucket_listing import BucketListingSummary
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import TagDefinitionSummary
-from app.utils.rgw_identifiers import validate_rgw_account_name
+from app.utils.rgw_identifiers import validate_rgw_account_name, validate_rgw_tenant, validate_rgw_user_uid
 
 class CephAdminEndpoint(ApiModel):
     id: int
@@ -294,8 +294,8 @@ class CephAdminRgwAccountCreateResponse(ApiModel):
 
 
 class CephAdminRgwUserCreate(ApiModel):
-    uid: str
     tenant: Optional[str] = None
+    uid: str
     account_id: Optional[str] = None
     display_name: Optional[str] = None
     email: Optional[str] = None
@@ -311,6 +311,42 @@ class CephAdminRgwUserCreate(ApiModel):
     quota_max_objects: Optional[int] = Field(default=None, ge=0)
     caps: Optional[CephAdminRgwUserCapsUpdate] = None
     extra_params: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("tenant")
+    @classmethod
+    def validate_tenant(cls, value: str | None) -> str | None:
+        if value:
+            validate_rgw_tenant(value.strip())
+        return value
+
+    @field_validator("uid")
+    @classmethod
+    def validate_uid(cls, value: str, info: ValidationInfo) -> str:
+        return validate_rgw_user_uid(value, info.data.get("tenant"))
+
+    @field_validator("extra_params")
+    @classmethod
+    def validate_extra_identifiers(cls, value: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
+        # Admin Ops merges these options over the named fields before sending them.
+        overrides = {str(key or "").strip(): item for key, item in value.items() if item is not None}
+        uid = overrides.get("uid", info.data.get("uid"))
+        tenant = overrides.get("tenant", info.data.get("tenant"))
+        key = "tenant"
+        try:
+            if tenant is not None:
+                if not isinstance(tenant, str):
+                    raise ValueError("Tenant must be a string.")
+                validate_rgw_tenant(tenant.strip())
+            key = "uid"
+            if uid is not None:
+                if not isinstance(uid, str):
+                    raise ValueError("UID must be a string.")
+                validate_rgw_user_uid(uid, tenant)
+        except ValueError as exc:
+            raise ValidationError.from_exception_data(cls.__name__, [{
+                "type": "value_error", "loc": (key,), "ctx": {"error": exc},
+            }]) from exc
+        return value
 
     @model_validator(mode="after")
     def validate_scope(self):

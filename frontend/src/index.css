@@ -40,6 +40,7 @@
   --ui-hover: rgb(5 105 248 / 0.08);
   --ui-selected-bg: rgb(5 105 248 / 0.12);
   --ui-focus-ring: rgb(5 105 248 / 0.28);
+  --ui-danger-ring: rgb(225 29 72 / 0.22);
   --ui-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.03);
   --ui-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
   --ui-primary-light-50-rgb: 218 231 249;
@@ -118,6 +119,7 @@
   --ui-hover: rgba(255, 255, 255, 0.06);
   --ui-selected-bg: rgb(var(--ui-primary-500-rgb) / 0.16);
   --ui-focus-ring: rgb(var(--ui-primary-400-rgb) / 0.3);
+  --ui-danger-ring: rgb(251 113 133 / 0.28);
   --ui-shadow-soft: none;
   --ui-shadow-card: none;
   --ui-primary-50-rgb: var(--ui-primary-dark-50-rgb);
@@ -486,8 +488,14 @@ body {
     outline: none;
   }
 
-  .ui-control[aria-invalid="true"] {
+  .ui-control[aria-invalid="true"],
+  .ui-control[aria-invalid="true"]:hover:not(:disabled),
+  .ui-control[aria-invalid="true"]:focus {
     border-color: var(--ui-danger);
+  }
+
+  .ui-control[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 2px var(--ui-danger-ring);
   }
 
   .ui-button-base {

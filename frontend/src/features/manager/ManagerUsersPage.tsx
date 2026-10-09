@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { iamNameFormatError } from "../../utils/resourceNames";
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
@@ -59,6 +60,7 @@ export default function ManagerUsersPage() {
     requiresS3AccountSelection,
     accessMode,
     managerPrivateAccessEnabled,
+    namingValidationProfile,
   } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
@@ -73,6 +75,8 @@ export default function ManagerUsersPage() {
     setLoading,
   } = useManagerIamCollection(listIamUsers);
   const {
+    inlineDraftNameError,
+    validateInlineDrafts,
     inlineDraftMode,
     inlineDraftName,
     inlineDrafts,
@@ -88,7 +92,7 @@ export default function ManagerUsersPage() {
     handleRemoveInlineDraft,
     handleSelectInlineDraft,
     resetInlinePolicyDraftEditor,
-  } = useInlinePolicyDraftEditor(setError);
+  } = useInlinePolicyDraftEditor(setError, "user", namingValidationProfile);
   const [advancedName, setAdvancedName] = useState("");
   const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [createKey, setCreateKey] = useState(true);
@@ -222,11 +226,13 @@ export default function ManagerUsersPage() {
     setSort((current) => nextSortState(current, field, "desc"));
   };
 
+  const nameFormatError = iamNameFormatError(advancedName.trim(), "user");
+
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (needsS3AccountSelection || busy !== null) return;
     setAdvancedValidationAttempted(true);
-    if (!advancedName.trim()) {
+    if (!advancedName.trim() || nameFormatError || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
@@ -556,13 +562,13 @@ export default function ManagerUsersPage() {
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
-          busy={busy !== null} disabled={needsS3AccountSelection}
+          busy={busy !== null} disabled={needsS3AccountSelection || namingValidationProfile === null}
           submitLabel={text("Create user")} busyLabel={text("Creating...")}
         >
           <SettingsSection title={text("Identity")} presentation="compact">
             <div className="settings-fields">
               <UiInput label={text("User name")} required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
-                placeholder={text("User name")} error={advancedValidationAttempted && !advancedName.trim() ? text("User name is required.") : undefined} />
+                placeholder={text("User name")} error={nameFormatError ? text(nameFormatError!) : advancedValidationAttempted && !advancedName.trim() ? text("User name is required.") : undefined} />
               <UiCheckboxField checked={createKey} onChange={(event) => setCreateKey(event.target.checked)} className="settings-choice settings-body">
                 {text("Auto-generate an access key (shown only once)")}
               </UiCheckboxField>
@@ -609,6 +615,7 @@ export default function ManagerUsersPage() {
             drafts={inlineDrafts}
             selectedDraftName={selectedInlineDraftName}
             draftName={inlineDraftName}
+            nameError={inlineDraftNameError}
             draftText={inlinePolicyText}
             entityLabel="user"
             mode={inlineDraftMode}
@@ -634,6 +641,7 @@ export default function ManagerUsersPage() {
 
       {showPrivateAccessModal && (
         <CreateManagedPrivateAccessModal
+          namingValidationProfile={namingValidationProfile}
           variant="iam"
           accountId={accountIdForApi}
           contextName={selectedS3AccountName}

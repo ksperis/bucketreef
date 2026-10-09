@@ -3,12 +3,18 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
+import { inlinePolicyNameFormatError, type IAMEntity, type NamingValidationProfile } from "../../utils/resourceNames";
+import { useManagerI18n } from "./managerI18n";
 import type { InlinePolicy } from "../../api/managerIamPolicies";
 import type { InlinePolicyDraftEditorMode } from "./InlinePolicyDraftEditor";
 
 export function useInlinePolicyDraftEditor(
-  setError: Dispatch<SetStateAction<string | null>>
+  setError: Dispatch<SetStateAction<string | null>>,
+  entity: IAMEntity = "user",
+  profile: NamingValidationProfile | null = "standard",
 ) {
+  const { text } = useManagerI18n();
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [inlineDraftName, setInlineDraftName] = useState("");
   const [inlinePolicyText, setInlinePolicyText] = useState("");
   const [inlineDrafts, setInlineDrafts] = useState<InlinePolicy[]>([]);
@@ -17,6 +23,7 @@ export function useInlinePolicyDraftEditor(
   const [showInlinePolicyOptions, setShowInlinePolicyOptions] = useState(false);
 
   const resetInlinePolicyDraftEditor = useCallback(() => {
+    setValidationAttempted(false);
     setInlineDrafts([]);
     setSelectedInlineDraftName(null);
     setInlineDraftName("");
@@ -25,10 +32,25 @@ export function useInlinePolicyDraftEditor(
     setShowInlinePolicyOptions(false);
   }, []);
 
+  const formatError = inlinePolicyNameFormatError(inlineDraftName.trim(), entity, profile ?? "standard");
+  const inlineDraftNameError = formatError ? text(formatError)
+    : validationAttempted && !inlineDraftName.trim() ? text("Inline policy name is required.") : undefined;
+
+  const validateInlineDrafts = () => {
+    const invalid = inlineDrafts.map(policy => inlinePolicyNameFormatError(policy.name, entity, profile ?? "standard")).find(Boolean);
+    if (inlineDraftNameError) return false;
+    if (profile === null || invalid) {
+      setError(text(invalid ?? "Naming rules are unavailable. Reload the context before saving."));
+      return false;
+    }
+    return true;
+  };
+
   const handleAddInlineDraft = () => {
+    setValidationAttempted(true);
+    if (!validateInlineDrafts()) return;
     const trimmedName = inlineDraftName.trim();
     if (!trimmedName) {
-      setError("Inline policy name is required.");
       return;
     }
     let parsed: Record<string, unknown>;
@@ -52,6 +74,7 @@ export function useInlinePolicyDraftEditor(
   };
 
   const handleSelectInlineDraft = (name: string | null) => {
+    setValidationAttempted(false);
     if (!name) {
       setSelectedInlineDraftName(null);
       setInlineDraftName("");
@@ -76,6 +99,7 @@ export function useInlinePolicyDraftEditor(
   const handleRemoveInlineDraft = (name: string) => {
     setInlineDrafts((previous) => previous.filter((policy) => policy.name !== name));
     if (selectedInlineDraftName === name || inlineDraftName === name) {
+      setValidationAttempted(false);
       setSelectedInlineDraftName(null);
       setInlineDraftName("");
       setInlinePolicyText("");
@@ -86,6 +110,7 @@ export function useInlinePolicyDraftEditor(
 
   const handleCreateInlineDraft = () => {
     setSelectedInlineDraftName(null);
+    setValidationAttempted(false);
     setInlineDraftName("");
     setInlinePolicyText("");
     setInlineDraftMode("create");
@@ -95,6 +120,7 @@ export function useInlinePolicyDraftEditor(
   const handleClearInlineDrafts = () => {
     setInlineDrafts([]);
     setSelectedInlineDraftName(null);
+    setValidationAttempted(false);
     setInlineDraftName("");
     setInlinePolicyText("");
     setInlineDraftMode("create");
@@ -102,6 +128,8 @@ export function useInlinePolicyDraftEditor(
   };
 
   return {
+    inlineDraftNameError,
+    validateInlineDrafts,
     inlineDraftMode,
     inlineDraftName,
     inlineDrafts,

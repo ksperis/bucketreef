@@ -41,9 +41,9 @@ it("shows all settings together and focuses adjacent name validation before crea
   expect(create).not.toHaveBeenCalled();
 });
 
-it("normalizes the name, preserves hidden location drafts and submits the selected S3 settings", async () => {
+it("preserves the name and hidden location drafts and submits the selected S3 settings", async () => {
   const { user, create, close } = setup();
-  await user.type(screen.getByRole("textbox", { name: "Bucket name" }), "REPORTS-DEMO");
+  await user.type(screen.getByRole("textbox", { name: "Bucket name" }), "reports-demo");
   await user.click(screen.getByRole("switch", { name: "Custom LocationConstraint" }));
   await user.type(screen.getByRole("textbox", { name: "LocationConstraint" }), " eu-west-1 ");
   await user.click(screen.getByRole("switch", { name: "Custom LocationConstraint" }));
@@ -116,4 +116,24 @@ it("cannot create without an execution context and can leave a clean form", asyn
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   expect(close).toHaveBeenCalledOnce();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+
+it.each(["REPORTS-DEMO", "reports_demo", "reports demo", "é-reports", "reports*demo", "reports..demo", "reports.-demo", "192.168.0.1", " reports-demo ", "a".repeat(64)])("retains the exact invalid bucket name %s and only shows an error", async (value) => {
+  const { create } = setup();
+  const name = screen.getByRole("textbox", { name: "Bucket name" });
+  expect(name).not.toHaveAttribute("aria-invalid", "true");
+  expect(name).not.toHaveAttribute("maxlength");
+  fireEvent.change(name, { target: { value } });
+  expect(name).toHaveValue(value);
+  expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(name).toHaveAccessibleDescription(/3-63 characters/);
+  fireEvent.submit(screen.getByRole("form", { name: "Create bucket" }));
+  expect(create).not.toHaveBeenCalled();
+  await waitFor(() => expect(name).toBeEnabled());
+  fireEvent.change(name, { target: { value: "reports-demo" } });
+  expect(name).toHaveValue("reports-demo");
+  expect(name).not.toHaveAttribute("aria-invalid", "true");
+  await act(async () => fireEvent.submit(screen.getByRole("form", { name: "Create bucket" })));
+  expect(create).toHaveBeenCalledWith("reports-demo", false, undefined);
 });

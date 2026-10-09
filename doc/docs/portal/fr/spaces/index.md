@@ -36,6 +36,16 @@ pour demander son ajout.
 
 ## Démarrer un nouvel espace
 
+Lorsque **Configuration de l'espace** propose **Utiliser un identifiant d'outil**,
+le nom de l'espace est également le nom du bucket. Saisissez un nom compatible DNS
+de 3 à 63 caractères : lettres minuscules, chiffres, points ou tirets. Portal
+signale les noms invalides en rouge et bloque la création jusqu'à leur correction.
+Le nom est utilisé exactement comme saisi ; un nom déjà utilisé provoque une
+erreur de conflit, sans ajout automatique d'un suffixe.
+
+Avec **Laisser Portal choisir l'identifiant**, le nom reste un libellé d'affichage
+et Portal génère l'identifiant technique.
+
 Après avoir créé ou ajouté un espace :
 
 1. ajoutez les fichiers ou dossiers nécessaires au projet ;

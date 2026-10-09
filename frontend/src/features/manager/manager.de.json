@@ -1270,5 +1270,10 @@
   "tag": "Tag",
   "tags": "Tags",
   "target bucket does not exist with the same name.": "Der Ziel-Bucket mit demselben Namen existiert nicht.",
-  "target buckets do not exist with the same name.": "Die Ziel-Buckets mit demselben Namen existieren nicht."
+  "target buckets do not exist with the same name.": "Die Ziel-Buckets mit demselben Namen existieren nicht.",
+  "Name must contain 1–64 ASCII letters, digits or _+=,.@-.": "Der Name muss 1 bis 64 ASCII-Buchstaben, Ziffern oder Zeichen _+=,.@- enthalten.",
+  "Name must contain 1–128 ASCII letters, digits or _+=,.@-.": "Der Name muss 1 bis 128 ASCII-Buchstaben, Ziffern oder Zeichen _+=,.@- enthalten.",
+  "Ceph inline policy name must contain 1–128 ASCII letters, digits or :=,.@-.": "Der Name einer Ceph-Inline-Richtlinie muss 1 bis 128 ASCII-Buchstaben, Ziffern oder Zeichen :=,.@- enthalten.",
+  "Topic name must contain 1–256 ASCII letters, digits, underscores or hyphens.": "Der Topic-Name muss 1 bis 256 ASCII-Buchstaben, Ziffern, Unterstriche oder Bindestriche enthalten.",
+  "Naming rules are unavailable. Reload the context before saving.": "Die Namensregeln sind nicht verfügbar. Laden Sie den Kontext vor dem Speichern neu."
 }

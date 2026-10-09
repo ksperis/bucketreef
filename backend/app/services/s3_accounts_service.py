@@ -229,10 +229,11 @@ class S3AccountsService:
     def _root_display_name(self, account_name: Optional[str], account_identifier: str) -> str:
         base = (account_name or account_identifier or "").strip()
         # Ceph RGW Tentacle rejects account-root creation with InvalidArgument
-        # when display-name is serialized with whitespace in the Admin Ops
-        # query string. Keep the human-readable name while making it safe for
-        # this account-root path.
-        safe = re.sub(r"\s+", "-", base)
+        # for characters that are valid in an RGW account name but are not
+        # accepted reliably by the account-root user creation path. Keep the
+        # account name itself untouched and normalize only this technical
+        # display name using a conservative ASCII subset.
+        safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", base).strip("-")
         return safe or "bucketreef-admin-user"
 
     @staticmethod

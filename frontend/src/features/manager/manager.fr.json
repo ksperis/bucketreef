@@ -907,5 +907,10 @@
   "← Back to buckets": "← Retour aux buckets",
   "← Back to groups": "← Retour aux groupes",
   "← Back to users": "← Retour aux utilisateurs",
-  "⬆️ Up": "⬆️ Haut"
+  "⬆️ Up": "⬆️ Haut",
+  "Name must contain 1–64 ASCII letters, digits or _+=,.@-.": "Le nom doit contenir de 1 à 64 lettres ASCII, chiffres ou caractères _+=,.@-.",
+  "Name must contain 1–128 ASCII letters, digits or _+=,.@-.": "Le nom doit contenir de 1 à 128 lettres ASCII, chiffres ou caractères _+=,.@-.",
+  "Ceph inline policy name must contain 1–128 ASCII letters, digits or :=,.@-.": "Le nom de policy inline Ceph doit contenir de 1 à 128 lettres ASCII, chiffres ou caractères :=,.@-.",
+  "Topic name must contain 1–256 ASCII letters, digits, underscores or hyphens.": "Le nom du topic doit contenir de 1 à 256 lettres ASCII, chiffres, tirets bas ou tirets.",
+  "Naming rules are unavailable. Reload the context before saving.": "Les règles de nommage sont indisponibles. Rechargez le contexte avant d’enregistrer."
 }

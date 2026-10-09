@@ -210,4 +210,22 @@ describe("CephAdminUserCreateModal", () => {
     expect(screen.getByLabelText("UID")).not.toHaveAttribute("aria-invalid", "true");
     expect(screen.getByRole("button", { name: "Create user" })).toBeEnabled();
   });
+
+
+it("marks invalid qualified UID immediately, then accepts Unicode and additional dollars in the user ID", async () => {
+  listCephAdminAccountsMock.mockResolvedValue({ items: [] });
+  createCephAdminUserMock.mockResolvedValue({ detail: { uid: "tenant$ns$é-user$tail", caps: [], keys: [] }, generated_key: null });
+  render(<CephAdminUserCreateModal endpointId={7} onClose={vi.fn()} onCreated={vi.fn()} />);
+  const uid = screen.getByLabelText("UID");
+  expect(uid).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.change(uid, { target: { value: "bad-tenant$user" } });
+  expect(uid).toHaveAttribute("aria-invalid", "true");
+  expect(uid).toHaveAccessibleDescription(/Tenant must contain only ASCII/);
+  fireEvent.click(screen.getByRole("button", { name: "Create user", exact: true }));
+  expect(createCephAdminUserMock).not.toHaveBeenCalled();
+  fireEvent.change(uid, { target: { value: "tenant$ns$é-user$tail" } });
+  expect(uid).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.click(screen.getByRole("button", { name: "Create user", exact: true }));
+  await waitFor(() => expect(createCephAdminUserMock).toHaveBeenCalledWith(7, expect.objectContaining({ uid: "tenant$ns$é-user$tail" })));
+});
 });

@@ -17,6 +17,7 @@ from app.routers.dependencies import (
     is_manager_bucket_quota_available,
     is_manager_rgw_access_key_management_available,
 )
+from app.services.resource_name_validation import naming_validation_profile
 from app.services.app_settings_service import load_app_settings
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.connection_identity_service import ConnectionIdentityService
@@ -281,6 +282,7 @@ def get_manager_context(
     )
 
     return ManagerContext(
+        naming_validation_profile=naming_validation_profile(account),
         access_mode=access_mode,
         context_kind=("connection" if access_mode == "connection" else "account"),
         iam_identity=iam_identity,

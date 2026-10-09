@@ -30,7 +30,7 @@ export function normalizeS3BucketNameInput(value: string): string {
 
 export function isValidS3BucketName(value: string): boolean {
   if (value.length < S3_BUCKET_NAME_MIN_LENGTH || value.length > S3_BUCKET_NAME_MAX_LENGTH) return false;
-  if (!BUCKET_NAME_PATTERN.test(value)) return false;
+  if (/[^a-z0-9.-]/.test(value) || !BUCKET_NAME_PATTERN.test(value)) return false;
   if (value.includes("..")) return false;
   if (value.split(".").some((label) => !BUCKET_LABEL_PATTERN.test(label))) return false;
   if (IPV4_ADDRESS_PATTERN.test(value)) return false;

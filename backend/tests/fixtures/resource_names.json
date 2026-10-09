@@ -1,0 +1,581 @@
+[
+  {
+    "kind": "iam",
+    "value": "Ab_+=,.@-012",
+    "valid": true,
+    "entity": "user"
+  },
+  {
+    "kind": "iam",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true,
+    "entity": "user"
+  },
+  {
+    "kind": "iam",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "user"
+  },
+  {
+    "kind": "iam",
+    "value": "bad name",
+    "valid": false,
+    "entity": "user"
+  },
+  {
+    "kind": "iam",
+    "value": "\u00e9",
+    "valid": false,
+    "entity": "user"
+  },
+  {
+    "kind": "iam",
+    "value": "name\n",
+    "valid": false,
+    "entity": "user"
+  },
+  {
+    "kind": "iam",
+    "value": "name*",
+    "valid": false,
+    "entity": "user"
+  },
+  {
+    "kind": "iam",
+    "value": "Ab_+=,.@-012",
+    "valid": true,
+    "entity": "group"
+  },
+  {
+    "kind": "iam",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true,
+    "entity": "group"
+  },
+  {
+    "kind": "iam",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "group"
+  },
+  {
+    "kind": "iam",
+    "value": "bad name",
+    "valid": false,
+    "entity": "group"
+  },
+  {
+    "kind": "iam",
+    "value": "\u00e9",
+    "valid": false,
+    "entity": "group"
+  },
+  {
+    "kind": "iam",
+    "value": "name\n",
+    "valid": false,
+    "entity": "group"
+  },
+  {
+    "kind": "iam",
+    "value": "name*",
+    "valid": false,
+    "entity": "group"
+  },
+  {
+    "kind": "iam",
+    "value": "Ab_+=,.@-012",
+    "valid": true,
+    "entity": "role"
+  },
+  {
+    "kind": "iam",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true,
+    "entity": "role"
+  },
+  {
+    "kind": "iam",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "role"
+  },
+  {
+    "kind": "iam",
+    "value": "bad name",
+    "valid": false,
+    "entity": "role"
+  },
+  {
+    "kind": "iam",
+    "value": "\u00e9",
+    "valid": false,
+    "entity": "role"
+  },
+  {
+    "kind": "iam",
+    "value": "name\n",
+    "valid": false,
+    "entity": "role"
+  },
+  {
+    "kind": "iam",
+    "value": "name*",
+    "valid": false,
+    "entity": "role"
+  },
+  {
+    "kind": "iam",
+    "value": "Ab_+=,.@-012",
+    "valid": true,
+    "entity": "policy"
+  },
+  {
+    "kind": "iam",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true,
+    "entity": "policy"
+  },
+  {
+    "kind": "iam",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "policy"
+  },
+  {
+    "kind": "iam",
+    "value": "bad name",
+    "valid": false,
+    "entity": "policy"
+  },
+  {
+    "kind": "iam",
+    "value": "\u00e9",
+    "valid": false,
+    "entity": "policy"
+  },
+  {
+    "kind": "iam",
+    "value": "name\n",
+    "valid": false,
+    "entity": "policy"
+  },
+  {
+    "kind": "iam",
+    "value": "name*",
+    "valid": false,
+    "entity": "policy"
+  },
+  {
+    "kind": "inline",
+    "value": "valid-name",
+    "valid": true,
+    "entity": "user",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "with_under+score",
+    "valid": true,
+    "entity": "user",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "with:colon",
+    "valid": false,
+    "entity": "user",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "bad name",
+    "valid": false,
+    "entity": "user",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "user",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "valid-name",
+    "valid": true,
+    "entity": "user",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "with_under+score",
+    "valid": false,
+    "entity": "user",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "with:colon",
+    "valid": true,
+    "entity": "user",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "bad name",
+    "valid": false,
+    "entity": "user",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "user",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "valid-name",
+    "valid": true,
+    "entity": "group",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "with_under+score",
+    "valid": true,
+    "entity": "group",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "with:colon",
+    "valid": false,
+    "entity": "group",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "bad name",
+    "valid": false,
+    "entity": "group",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "group",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "valid-name",
+    "valid": true,
+    "entity": "group",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "with_under+score",
+    "valid": false,
+    "entity": "group",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "with:colon",
+    "valid": true,
+    "entity": "group",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "bad name",
+    "valid": false,
+    "entity": "group",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "group",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "valid-name",
+    "valid": true,
+    "entity": "role",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "with_under+score",
+    "valid": true,
+    "entity": "role",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "with:colon",
+    "valid": false,
+    "entity": "role",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "bad name",
+    "valid": false,
+    "entity": "role",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "entity": "role",
+    "profile": "standard"
+  },
+  {
+    "kind": "inline",
+    "value": "valid-name",
+    "valid": true,
+    "entity": "role",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "with_under+score",
+    "valid": true,
+    "entity": "role",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "with:colon",
+    "valid": true,
+    "entity": "role",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "bad name",
+    "valid": true,
+    "entity": "role",
+    "profile": "ceph"
+  },
+  {
+    "kind": "inline",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true,
+    "entity": "role",
+    "profile": "ceph"
+  },
+  {
+    "kind": "uid",
+    "value": "plain-user",
+    "valid": true
+  },
+  {
+    "kind": "uid",
+    "value": "longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong",
+    "valid": true
+  },
+  {
+    "kind": "uid",
+    "value": "sdds ***`` \u00e9",
+    "valid": true
+  },
+  {
+    "kind": "uid",
+    "value": "tenant$user",
+    "valid": true
+  },
+  {
+    "kind": "uid",
+    "value": "tenant$namespace$user$extra",
+    "valid": true
+  },
+  {
+    "kind": "uid",
+    "value": "tenant$ns:\u00e9$user",
+    "valid": true
+  },
+  {
+    "kind": "uid",
+    "value": "bad-tenant$user",
+    "valid": false
+  },
+  {
+    "kind": "uid",
+    "value": "tenant$",
+    "valid": false
+  },
+  {
+    "kind": "uid",
+    "value": "tenant$namespace$",
+    "valid": false
+  },
+  {
+    "kind": "uid",
+    "value": "anonymous",
+    "valid": false
+  },
+  {
+    "kind": "uid",
+    "value": "tenant$anonymous",
+    "valid": true
+  },
+  {
+    "kind": "uid",
+    "value": "RGW11111111111111111",
+    "valid": false
+  },
+  {
+    "kind": "uid",
+    "value": "rgw11111111111111111",
+    "valid": true
+  },
+  {
+    "kind": "uid",
+    "value": "RGW11111111111111111$user",
+    "valid": false
+  },
+  {
+    "kind": "uid",
+    "value": "user\ud800",
+    "valid": false
+  },
+  {
+    "kind": "uid",
+    "value": "bad-tenant$user",
+    "valid": true,
+    "tenant": "valid_tenant"
+  },
+  {
+    "kind": "topic",
+    "value": "Events_2026-ok",
+    "valid": true
+  },
+  {
+    "kind": "topic",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true
+  },
+  {
+    "kind": "topic",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false
+  },
+  {
+    "kind": "topic",
+    "value": "events.fifo",
+    "valid": false
+  },
+  {
+    "kind": "topic",
+    "value": "events.topic",
+    "valid": false
+  },
+  {
+    "kind": "topic",
+    "value": "bad name",
+    "valid": false
+  },
+  {
+    "kind": "topic",
+    "value": "\u00e9v\u00e9nement",
+    "valid": false
+  },
+  {
+    "kind": "topic",
+    "value": "name\n",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "abc",
+    "valid": true
+  },
+  {
+    "kind": "bucket",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true
+  },
+  {
+    "kind": "bucket",
+    "value": "research-data.v1",
+    "valid": true
+  },
+  {
+    "kind": "bucket",
+    "value": "a-b.c0",
+    "valid": true
+  },
+  {
+    "kind": "bucket",
+    "value": "",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "ab",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "Mon_Bucket",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "bucket**",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": " reports ",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "a..b",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "a.-b",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "a-.b",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "127.0.0.1",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "\u00e9quipe",
+    "valid": false
+  },
+  {
+    "kind": "bucket",
+    "value": "bucket\n",
+    "valid": false
+  }
+]
