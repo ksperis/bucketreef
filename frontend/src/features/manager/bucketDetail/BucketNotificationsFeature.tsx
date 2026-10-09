@@ -359,7 +359,7 @@ export default function BucketNotificationsFeature({
         <BucketFeatureEditorList>
           {visibleDraftTopics.map(({ topic, index }) => (
             <NotificationTopicEditor
-              key={`${notificationTopicId(topic) ?? notificationTopicArn(topic) ?? "topic"}-${index}`}
+              key={`notification-topic-${index}`}
               index={index}
               topic={topic}
               disabled={saving}

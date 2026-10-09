@@ -485,7 +485,7 @@ export default function BucketPolicyFeature({
         <BucketFeatureEditorList>
           {visibleDraftStatements.map(({ statement, index }) => (
             <PolicyStatementEditor
-              key={`${policyStatementSid(statement, index)}-${index}`}
+              key={`policy-statement-${index}`}
               index={index}
               statement={statement}
               disabled={saving}
