@@ -88,6 +88,7 @@ class FakeRGWAdmin:
     def __init__(self, account_payload: Optional[dict[str, object]] = None):
         self.created_accounts: list[tuple[str, str]] = []
         self.created_users: list[str] = []
+        self.created_root_display_names: list[str] = []
         self.quota_calls: list[dict[str, object]] = []
         self.account_payload = account_payload
 
@@ -97,6 +98,7 @@ class FakeRGWAdmin:
 
     def create_user_with_account_id(self, uid: str, account_id: str, display_name: str, account_root: bool = True):
         self.created_users.append(uid)
+        self.created_root_display_names.append(display_name)
         return {"account_id": account_id, "keys": [{"access_key": "AKIA", "secret_key": "SECRET"}]}
 
     def extract_keys(self, data):
@@ -202,6 +204,21 @@ def test_create_account_with_root(db_session, monkeypatch):
     # No interface user is created; only RGW root keys stored on account
     root_user = db_session.query(User).filter(User.email.like("%-admin")).first()
     assert root_user is None
+
+
+def test_create_account_normalizes_root_display_name_without_restricting_account_name(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdmin()
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+
+    account_name = "account ****with``symbols"
+    created = svc.create_account_with_manager(
+        S3AccountCreate(name=account_name, storage_endpoint_id=endpoint.id)
+    )
+
+    assert created.name == account_name
+    assert fake_admin.created_accounts[0][1] == account_name
+    assert fake_admin.created_root_display_names == ["account-with-symbols"]
 
 
 def test_create_account_uses_configured_rgw_account_id_prefix(db_session, monkeypatch):

@@ -234,3 +234,23 @@ describe("inline policy draft safety", () => {
     await screen.findByText("Inline policy deleted.");
   });
 });
+
+
+it.each(["user", "group"] as const)("uses Ceph %s policy rules for saving while retaining existing external names", async (entity) => {
+  const load = vi.fn().mockResolvedValue([{ name: "legacy_under+score", document: {} }]);
+  const save = vi.fn().mockResolvedValue(undefined);
+  render(<InlinePolicyEditor entityLabel={entity} entityType={entity} namingValidationProfile="ceph" entityName="alice"
+    loadPolicies={load} savePolicy={save} deletePolicy={vi.fn()} />);
+  await screen.findByText("legacy_under+score");
+  fireEvent.click(screen.getByRole("button", { name: "Create new inline policy" }));
+  const name = screen.getByLabelText("Inline policy name");
+  fireEvent.change(name, { target: { value: "invalid_under+score" } });
+  expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(name).toHaveAccessibleDescription(/Ceph inline policy name/);
+  fireEvent.submit(screen.getByRole("form", { name: "Edit inline policy" }));
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.change(name, { target: { value: "valid:policy" } });
+  expect(name).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.submit(screen.getByRole("form", { name: "Edit inline policy" }));
+  await waitFor(() => expect(save).toHaveBeenCalledWith("valid:policy", {}));
+});

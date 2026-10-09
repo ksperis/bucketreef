@@ -133,6 +133,9 @@ def test_account_identity_helpers(db_session):
     assert service._root_uid("RGW99") == "rgw99-admin"
     assert service._root_display_name("My account", "RGW99") == "My-account"
     assert service._root_display_name("  My\t account  ", "RGW99") == "My-account"
+    assert service._root_display_name("account ****with``symbols", "RGW99") == "account-with-symbols"
+    assert service._root_display_name("Équipe données", "RGW99") == "quipe-donn-es"
+    assert service._root_display_name("😀", "RGW99") == "bucketreef-admin-user"
 
 
 def test_account_topics_resolver_parses_caches_and_falls_back(db_session):

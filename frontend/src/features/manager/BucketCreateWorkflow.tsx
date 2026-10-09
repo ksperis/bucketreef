@@ -4,7 +4,7 @@ import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm
 import { SettingsItem, SettingsSection, SettingsSwitch } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
-import { isValidS3BucketName, normalizeS3BucketName, normalizeS3BucketNameInput, S3_BUCKET_NAME_MAX_LENGTH } from "../../utils/s3BucketName";
+import { isValidS3BucketName } from "../../utils/s3BucketName";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
 
@@ -25,19 +25,18 @@ export default function BucketCreateWorkflow({ contextLabel, needsContext, busy,
   const [location, setLocation] = useState("");
   const [versioning, setVersioning] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
-  const normalizedName = normalizeS3BucketName(name);
-  const nameError = !normalizedName
+  const nameError = !name
     ? validationAttempted ? text("Bucket name is required.") : undefined
-    : !isValidS3BucketName(normalizedName)
+    : !isValidS3BucketName(name)
       ? text("Invalid name. 3-63 characters, lowercase letters, numbers, dots or hyphens.")
       : undefined;
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     setValidationAttempted(true);
-    if (!normalizedName || nameError) {
+    if (!name || nameError) {
       focusFirstInvalidField(event.currentTarget);
       return;
     }
-    const result = await onCreate(normalizedName, versioning, customLocation ? location.trim() || undefined : undefined);
+    const result = await onCreate(name, versioning, customLocation ? location.trim() || undefined : undefined);
     if (result.created) onClose();
   };
 
@@ -50,10 +49,10 @@ export default function BucketCreateWorkflow({ contextLabel, needsContext, busy,
     <p className="settings-description [overflow-wrap:anywhere]">{text("Context:")} {contextLabel}</p>
     <SettingsSection title={text("General")} presentation="compact">
       <div className="settings-fields">
-        <UiInput label={text("Bucket name")} required value={name} maxLength={S3_BUCKET_NAME_MAX_LENGTH}
+        <UiInput label={text("Bucket name")} required value={name}
           placeholder={text("ex: backups-prod")} error={nameError} spellCheck={false}
           hint={text("DNS compatible, lowercase, numbers, dots, and hyphens.")}
-          onChange={event => setName(normalizeS3BucketNameInput(event.target.value))} />
+          onChange={event => setName(event.target.value)} />
         <SettingsItem compact title={text("Custom LocationConstraint")}
           description={text("Use a specific region or placement instead of the endpoint default.")}
           action={<SettingsSwitch checked={customLocation} onChange={setCustomLocation} ariaLabel={text("Custom LocationConstraint")} />}>

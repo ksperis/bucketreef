@@ -101,7 +101,7 @@ export default function ManagerEntityPoliciesPage({
   } as const;
   const params = useParams();
   const rawEntityName = params[routeParam];
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
 
@@ -323,6 +323,8 @@ export default function ManagerEntityPoliciesPage({
 
       <div className="settings-compact settings-stack">
         <InlinePolicyEditor
+          entityType={entityType}
+          namingValidationProfile={namingValidationProfile}
           entityLabel={singularLabel}
           entityName={decodedEntity}
           loadPolicies={loadInlinePolicies}

@@ -35,6 +35,7 @@ class ExecutionContext(ApiModel):
 
 
 class ManagerContext(ApiModel):
+    naming_validation_profile: Literal["ceph", "standard"] = "standard"
     access_mode: str
     context_kind: str = "account"
     iam_identity: Optional[str] = None

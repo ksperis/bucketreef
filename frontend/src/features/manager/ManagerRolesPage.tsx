@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { iamNameFormatError } from "../../utils/resourceNames";
 import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -45,7 +46,7 @@ const extractError = (err: unknown): string => extractApiError(err, "Unexpected 
 export default function ManagerRolesPage() {
   const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [roleFilter, setRoleFilter] = useState("");
@@ -60,6 +61,8 @@ export default function ManagerRolesPage() {
     setLoading,
   } = useManagerIamCollection(listIamRoles);
   const {
+    inlineDraftNameError,
+    validateInlineDrafts,
     inlineDraftMode,
     inlineDraftName,
     inlineDrafts,
@@ -75,7 +78,7 @@ export default function ManagerRolesPage() {
     handleRemoveInlineDraft,
     handleSelectInlineDraft,
     resetInlinePolicyDraftEditor,
-  } = useInlinePolicyDraftEditor(setError);
+  } = useInlinePolicyDraftEditor(setError, "role", namingValidationProfile);
   const [advancedName, setAdvancedName] = useState("");
   const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [advancedPath, setAdvancedPath] = useState(DEFAULT_ROLE_PATH);
@@ -147,11 +150,13 @@ export default function ManagerRolesPage() {
       selectedPolicies,
     ]
   );
+  const nameFormatError = iamNameFormatError(advancedName.trim(), "role");
+
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (needsS3AccountSelection || creating) return;
     setAdvancedValidationAttempted(true);
-    if (!advancedName.trim() || advancedPolicy.error) {
+    if (!advancedName.trim() || nameFormatError || advancedPolicy.error || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
@@ -392,12 +397,12 @@ export default function ManagerRolesPage() {
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
-          busy={creating} disabled={needsS3AccountSelection}
+          busy={creating} disabled={needsS3AccountSelection || namingValidationProfile === null}
           submitLabel={text("Create role")} busyLabel={text("Creating...")}
         >
           <ManagerRoleFormFields name={advancedName} path={advancedPath} policy={assumeRolePolicyText}
             onNameChange={setAdvancedName} onPathChange={setAdvancedPath} onPolicyChange={setAssumeRolePolicyText}
-            nameError={advancedValidationAttempted && !advancedName.trim() ? "Role name is required." : undefined}
+            nameError={nameFormatError ? text(nameFormatError!) : advancedValidationAttempted && !advancedName.trim() ? text("Role name is required.") : undefined}
             policyError={advancedValidationAttempted ? advancedPolicy.error : undefined} />
           <ManagedPolicySelectionPanel
             title={text("Attach policies")}
@@ -416,6 +421,7 @@ export default function ManagerRolesPage() {
             drafts={inlineDrafts}
             selectedDraftName={selectedInlineDraftName}
             draftName={inlineDraftName}
+            nameError={inlineDraftNameError}
             draftText={inlinePolicyText}
             entityLabel="role"
             mode={inlineDraftMode}

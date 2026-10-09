@@ -3,7 +3,10 @@
 from datetime import datetime
 from typing import Optional, Union
 
+from pydantic import field_validator
+
 from app.models.base import ApiModel
+from app.utils.resource_names import validate_iam_name
 from app.models.policy import InlinePolicy
 
 class IAMUser(ApiModel):
@@ -40,10 +43,16 @@ class AccessKeyStatusChange(ApiModel):
 
 class IAMUserCreate(ApiModel):
     name: str
+
     create_key: bool = False
     groups: Optional[list[str]] = None
     policies: Optional[list[str]] = None
     inline_policies: Optional[list[InlinePolicy]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_iam_name(value, "user")
 
 
 class IAMUserWithKey(IAMUser):
@@ -58,7 +67,13 @@ class IAMGroup(ApiModel):
 
 class IAMGroupCreate(ApiModel):
     name: str
+
     inline_policies: Optional[list[InlinePolicy]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_iam_name(value, "group")
 
 
 class IAMRole(ApiModel):
@@ -71,9 +86,15 @@ class IAMRole(ApiModel):
 
 class IAMRoleCreate(ApiModel):
     name: str
+
     path: Optional[str] = None
     assume_role_policy_document: Optional[Union[dict, str]] = None
     inline_policies: Optional[list[InlinePolicy]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_iam_name(value, "role")
 
 
 class IAMRoleUpdate(ApiModel):

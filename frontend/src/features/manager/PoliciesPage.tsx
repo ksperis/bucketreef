@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { iamNameFormatError } from "../../utils/resourceNames";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
@@ -82,11 +83,13 @@ export default function PoliciesPage() {
     load(accountIdForApi);
   }, [accountIdForApi, needsS3AccountSelection, accessMode, load, setLoading, setPolicies]);
 
+  const nameFormatError = iamNameFormatError(advancedName.trim(), "policy");
+
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (needsS3AccountSelection || isS3User || creating) return;
     setValidationAttempted(true);
-    if (!advancedName.trim() || documentError) {
+    if (!advancedName.trim() || nameFormatError || documentError) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
@@ -214,7 +217,7 @@ export default function PoliciesPage() {
           <SettingsSection title={text("Identity")} presentation="compact">
             <div className="settings-fields">
               <UiInput label={text("Policy name")} required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
-                placeholder={text("Policy name")} error={validationAttempted && !advancedName.trim() ? "Policy name is required." : undefined} />
+                placeholder={text("Policy name")} error={nameFormatError ? text(nameFormatError!) : validationAttempted && !advancedName.trim() ? text("Policy name is required.") : undefined} />
             </div>
           </SettingsSection>
           <SettingsSection title={text("Policy document")} presentation="compact">

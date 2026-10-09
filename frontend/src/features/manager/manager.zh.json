@@ -1270,5 +1270,10 @@
   "tag": "标签",
   "tags": "标签",
   "target bucket does not exist with the same name.": "目标存储桶不存在同名项。",
-  "target buckets do not exist with the same name.": "目标存储桶不存在同名项。"
+  "target buckets do not exist with the same name.": "目标存储桶不存在同名项。",
+  "Name must contain 1–64 ASCII letters, digits or _+=,.@-.": "名称必须包含 1–64 个 ASCII 字母、数字或字符 _+=,.@-。",
+  "Name must contain 1–128 ASCII letters, digits or _+=,.@-.": "名称必须包含 1–128 个 ASCII 字母、数字或字符 _+=,.@-。",
+  "Ceph inline policy name must contain 1–128 ASCII letters, digits or :=,.@-.": "Ceph 内联策略名称必须包含 1–128 个 ASCII 字母、数字或字符 :=,.@-。",
+  "Topic name must contain 1–256 ASCII letters, digits, underscores or hyphens.": "主题名称必须包含 1–256 个 ASCII 字母、数字、下划线或连字符。",
+  "Naming rules are unavailable. Reload the context before saving.": "命名规则不可用。请在保存前重新加载上下文。"
 }

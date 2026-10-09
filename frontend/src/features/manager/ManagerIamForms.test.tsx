@@ -10,13 +10,14 @@ import ManagerGroupsPage from "./ManagerGroupsPage";
 import ManagerRolesPage from "./ManagerRolesPage";
 
 const api = vi.hoisted(() => ({
+  namingProfile: "standard" as "standard" | "ceph" | null,
   users: vi.fn(), groups: vi.fn(), roles: vi.fn(), policies: vi.fn(),
   createUser: vi.fn(), createGroup: vi.fn(), createRole: vi.fn(), createPolicy: vi.fn(),
   attachGroup: vi.fn(), attachRole: vi.fn(), getRole: vi.fn(), updateRole: vi.fn(),
 }));
 vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => ({ selectedS3AccountId: "acc-7", selectedS3AccountType: "account",
-    accountIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default" }),
+    namingValidationProfile: api.namingProfile, accountIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default" }),
 }));
 vi.mock("../../api/managerIamUsers", async (original) => ({
   ...await original<typeof import("../../api/managerIamUsers")>(),
@@ -44,19 +45,41 @@ const cases = [
   { kind: "role", Page: ManagerRolesPage, create: api.createRole },
 ] as const;
 
+it.each(cases)("blocks $kind creation while an attempted inline draft has a required-field error", async ({ kind, Page, create }) => {
+  render(<MemoryRouter><Page /></MemoryRouter>);
+  await screen.findByText(`Existing ${kind}`);
+  fireEvent.click(screen.getByRole("button", { name: `Create ${kind}`, exact: true }));
+  const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
+  fireEvent.change(within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`), { target: { value: "valid-name" } });
+  fireEvent.click(within(screen.getByRole("region", { name: "Inline policies (optional)" })).getByRole("button", { name: "Show inline policies" }));
+  const name = within(form).getByLabelText("Inline policy name");
+  fireEvent.click(within(form).getByRole("button", { name: "Save draft" }));
+  expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(name).toHaveAccessibleDescription("Inline policy name is required.");
+  fireEvent.submit(form);
+  expect(create).not.toHaveBeenCalled();
+  await waitFor(() => expect(name).toBeEnabled());
+  fireEvent.change(name, { target: { value: "valid-policy" } });
+  expect(name).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.click(within(form).getByRole("button", { name: "Save draft" }));
+  fireEvent.submit(form);
+  await waitFor(() => expect(create).toHaveBeenCalledOnce());
+});
+
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setSessionUserCache(null); });
 
 beforeEach(() => {
   vi.resetAllMocks();
+  api.namingProfile = "standard";
   vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
   api.users.mockResolvedValue([{ name: "Existing user", has_keys: true }]);
   api.groups.mockResolvedValue([{ name: "Existing group" }]);
   api.roles.mockResolvedValue([role]);
   api.policies.mockResolvedValue([policy]);
-  api.createUser.mockResolvedValue({ name: "New identity" });
-  api.createGroup.mockResolvedValue({ name: "New identity" });
-  api.createRole.mockResolvedValue({ name: "New identity" });
-  api.createPolicy.mockResolvedValue({ name: "New identity" });
+  api.createUser.mockResolvedValue({ name: "New-identity" });
+  api.createGroup.mockResolvedValue({ name: "New-identity" });
+  api.createRole.mockResolvedValue({ name: "New-identity" });
+  api.createPolicy.mockResolvedValue({ name: "New-identity" });
   api.attachGroup.mockResolvedValue(policy);
   api.attachRole.mockResolvedValue(policy);
   api.getRole.mockResolvedValue(role);
@@ -79,13 +102,13 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
     await waitFor(() => expect(name).toHaveFocus());
     expect(name).toHaveAccessibleDescription(`${nameLabel} is required.`);
     expect(create).not.toHaveBeenCalled();
-    fireEvent.change(name, { target: { value: " New identity " } });
+    fireEvent.change(name, { target: { value: " New-identity " } });
     expect(name).not.toHaveAttribute("aria-invalid", "true");
     fireEvent.submit(form);
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(create.mock.calls[0][0]).toBe("acc-7");
-    if (kind === "role") expect(create.mock.calls[0][1]).toMatchObject({ name: "New identity", path: "/", inline_policies: [] });
-    else expect(create.mock.calls[0][1]).toBe("New identity");
+    if (kind === "role") expect(create.mock.calls[0][1]).toMatchObject({ name: "New-identity", path: "/", inline_policies: [] });
+    else expect(create.mock.calls[0][1]).toBe("New-identity");
     if (kind === "user") expect(create.mock.calls[0].slice(2)).toEqual([true, [], [], []]);
     await waitFor(() => expect(form).not.toBeInTheDocument());
   });
@@ -94,7 +117,7 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
     let reject!: (error: Error) => void;
     create.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
     const form = await open();
-    fireEvent.change(within(form).getByLabelText(nameLabel), { target: { value: "New identity" } });
+    fireEvent.change(within(form).getByLabelText(nameLabel), { target: { value: "New-identity" } });
     fireEvent.submit(form);
     for (const field of form.querySelectorAll("fieldset input,fieldset textarea,fieldset button")) expect(field).toBeDisabled();
     expect(within(form).getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
@@ -104,7 +127,7 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
     expect(form).toBeInTheDocument();
     await act(async () => reject(new Error("Temporary creation failure")));
     expect(await within(form.closest(".workflow-page")!).findByText("Temporary creation failure")).toBeInTheDocument();
-    expect(within(form).getByLabelText(nameLabel)).toHaveValue("New identity");
+    expect(within(form).getByLabelText(nameLabel)).toHaveValue("New-identity");
     fireEvent.submit(form);
     await waitFor(() => expect(form).not.toBeInTheDocument());
     expect(create.mock.calls[1]).toEqual(create.mock.calls[0]);
@@ -122,12 +145,12 @@ it.each([
   fireEvent.click(screen.getByRole("button", { name: `Create ${kind}`, exact: true }));
   const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
   const name = within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`);
-  fireEvent.change(name, { target: { value: "New identity" } });
+  fireEvent.change(name, { target: { value: "New-identity" } });
   const policies = within(screen.getByRole("region", { name: "Attach policies" }));
   fireEvent.click(policies.getByRole("button", { name: "Show" }));
   fireEvent.click(policies.getByLabelText("ReadOnly"));
   fireEvent.submit(form);
-  await waitFor(() => expect(attach).toHaveBeenCalledWith("acc-7", "New identity", policy));
+  await waitFor(() => expect(attach).toHaveBeenCalledWith("acc-7", "New-identity", policy));
   expect(name).toBeDisabled();
   expect(within(form).getByRole("button", { name: "Creating..." })).toBeDisabled();
   await act(async () => resolve(policy));
@@ -147,7 +170,7 @@ describe("IAM role configuration", () => {
     await screen.findByText(role.name);
     fireEvent.click(screen.getByRole("button", { name: "Create role", exact: true }));
     const form = screen.getByRole("form", { name: "Create IAM role" });
-    fireEvent.change(within(form).getByLabelText("Role name"), { target: { value: "New role" } });
+    fireEvent.change(within(form).getByLabelText("Role name"), { target: { value: "New-role" } });
     const document = within(form).getByLabelText("Assume role policy (JSON)");
     fireEvent.change(document, { target: { value: "{" } });
     fireEvent.submit(form);
@@ -225,8 +248,8 @@ it("ignores a late role read after closing and reopening its editor", async () =
 
 const navigationCases = [
   ...cases.map(({ kind, Page, create }) => ({ kind, Page, mutate: create,
-    action: `Create ${kind}`, formName: `Create IAM ${kind}`, fieldName: `${kind[0].toUpperCase()}${kind.slice(1)} name`, draft: "Unsaved identity" })),
-  { kind: "policy", Page: PoliciesPage, mutate: api.createPolicy, action: "Create policy", formName: "Create IAM policy", fieldName: "Policy name", draft: "Unsaved policy" },
+    action: `Create ${kind}`, formName: `Create IAM ${kind}`, fieldName: `${kind[0].toUpperCase()}${kind.slice(1)} name`, draft: "Unsaved-identity" })),
+  { kind: "policy", Page: PoliciesPage, mutate: api.createPolicy, action: "Create policy", formName: "Create IAM policy", fieldName: "Policy name", draft: "Unsaved-policy" },
   { kind: "edit-role", Page: ManagerRolesPage, mutate: api.updateRole, action: "Edit", formName: "Edit IAM role", fieldName: "Assume role policy (JSON)", draft: '{"Version":"2012-10-17","Statement":[]}' },
 ];
 
@@ -270,4 +293,49 @@ it.each(navigationCases)("protects the $kind form through context navigation, pe
   window.dispatchEvent(saved);
   expect(saved.defaultPrevented).toBe(false);
   router.dispose();
+});
+
+
+it.each([...cases, { kind: "policy", Page: PoliciesPage, create: api.createPolicy }])("immediately marks invalid $kind names and blocks submission until corrected", async ({ kind, Page, create }) => {
+  render(<MemoryRouter><Page /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole("button", { name: `Create ${kind}`, exact: true }));
+  const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
+  const name = within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`);
+  expect(name).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.change(name, { target: { value: "bad*name" } });
+  expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(name).toHaveAccessibleDescription(/ASCII letters/);
+  fireEvent.submit(form);
+  expect(create).not.toHaveBeenCalled();
+  await waitFor(() => expect(name).toHaveFocus());
+  fireEvent.change(name, { target: { value: "valid-name_+=,.@" } });
+  expect(name).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.submit(form);
+  await waitFor(() => expect(create).toHaveBeenCalledOnce());
+});
+
+it.each(cases)("validates $kind inline drafts according to Ceph before creating the principal", async ({ kind, Page, create }) => {
+  api.namingProfile = "ceph";
+  render(<MemoryRouter><Page /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole("button", { name: `Create ${kind}`, exact: true }));
+  const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
+  fireEvent.change(within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`), { target: { value: "valid-name" } });
+  fireEvent.click(within(screen.getByRole("region", { name: "Inline policies (optional)" })).getByRole("button", { name: "Show inline policies" }));
+  const policyName = within(form).getByLabelText("Inline policy name");
+  fireEvent.change(policyName, { target: { value: "inline_under+score" } });
+  if (kind !== "role") {
+    expect(policyName).toHaveAttribute("aria-invalid", "true");
+    fireEvent.click(within(form).getByRole("button", { name: "Save draft" }));
+    fireEvent.submit(form);
+    expect(create).not.toHaveBeenCalled();
+    await waitFor(() => expect(policyName).toBeEnabled());
+    fireEvent.change(policyName, { target: { value: "inline:valid" } });
+  }
+  expect(policyName).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.click(within(form).getByRole("button", { name: "Save draft" }));
+  fireEvent.submit(form);
+  await waitFor(() => expect(create).toHaveBeenCalledOnce());
+  const expectedName = kind === "role" ? "inline_under+score" : "inline:valid";
+  if (kind === "role") expect(create.mock.calls[0][1]).toMatchObject({ inline_policies: [{ name: expectedName, document: {} }] });
+  else expect(create.mock.calls[0][kind === "user" ? 5 : 2]).toEqual([{ name: expectedName, document: {} }]);
 });

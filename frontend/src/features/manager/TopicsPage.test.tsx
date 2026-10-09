@@ -450,4 +450,26 @@ describe("TopicsPage", () => {
     expect(deleteTopicMock.mock.calls).toEqual([["conn-7", topicArn], ["conn-7", topicArn]]);
   });
 
+
+
+it("marks invalid standard topic names immediately and blocks their creation", async () => {
+  useS3AccountContextMock.mockReturnValue({ accounts: [], selectedS3AccountId: "7", accountIdForApi: "7", requiresS3AccountSelection: true });
+  listTopicsMock.mockResolvedValue([]);
+  createTopicMock.mockResolvedValue({ name: "valid_topic-1", arn: "arn:aws:sns:us-east-1:lab:valid_topic-1" });
+  render(<MemoryRouter><TopicsPage /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole("button", { name: "Create topic", exact: true }));
+  const dialog = screen.getByRole("dialog", { name: "Create SNS topic" });
+  const name = within(dialog).getByLabelText("Topic name");
+  expect(name).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.change(name, { target: { value: "bad.topic" } });
+  expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(name).toHaveAccessibleDescription(/1–256 ASCII/);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Create topic", exact: true }));
+  await waitFor(() => expect(within(dialog).getByRole("button", { name: "Create topic", exact: true })).toBeEnabled());
+  expect(createTopicMock).not.toHaveBeenCalled();
+  fireEvent.change(name, { target: { value: "valid_topic-1" } });
+  expect(name).not.toHaveAttribute("aria-invalid", "true");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Create topic", exact: true }));
+  await waitFor(() => expect(createTopicMock).toHaveBeenCalledWith("7", { name: "valid_topic-1" }));
+});
 });

@@ -13,6 +13,7 @@ from app.routers.dependencies import (
 )
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_bad_request_from_value_error
 from app.services.audit_service import AuditService
+from app.services.resource_name_validation import validate_topic_request
 from app.services.topics_service import TopicsService, get_topics_service
 
 router = APIRouter(prefix="/manager/topics", tags=["manager-topics"])
@@ -40,6 +41,7 @@ def create_topic(
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Topic:
+    validate_topic_request(payload.name, payload.configuration, account)
     try:
         topic = service.create_topic(
             account,

@@ -107,6 +107,8 @@ describe("CephAdminAccountCreateModal", () => {
     const form = screen.getByRole("form", { name: "Create RGW account" });
     const name = screen.getByLabelText("Account name");
     fireEvent.change(name, { target: { value } });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription(message);
     fireEvent.submit(form);
 
     await waitFor(() => expect(name).toHaveFocus());

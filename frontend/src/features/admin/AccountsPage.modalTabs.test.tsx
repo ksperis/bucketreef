@@ -1289,6 +1289,8 @@ describe("AccountsPage modal tabs", () => {
     const submit = within(form).getByRole("button", {name: "Create account", exact: true});
     await waitFor(() => expect(submit).toBeEnabled());
     fireEvent.change(name, {target: {value}});
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription(message);
     fireEvent.submit(form);
 
     await waitFor(() => expect(name).toHaveFocus());

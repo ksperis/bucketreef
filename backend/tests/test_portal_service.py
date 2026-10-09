@@ -3063,7 +3063,7 @@ def test_create_restricted_storage_space_rolls_back_bucket_and_grants_when_sync_
     assert db_session.query(PortalStorageSpaceGrant).all() == []
 
 
-def test_create_storage_space_named_bucket_uses_legacy_slug_and_locks_name(monkeypatch, db_session):
+def test_create_storage_space_named_bucket_preserves_exact_name_and_locks_name(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-storage-named", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     user = User(email="portal-storage-named@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -3108,20 +3108,40 @@ def test_create_storage_space_named_bucket_uses_legacy_slug_and_locks_name(monke
         ),
     )
 
-    storage_space = service.create_storage_space(user, access, name="Research Data", naming_mode="named_bucket")
+    storage_space = service.create_storage_space(user, access, name="research-data.v1", naming_mode="named_bucket")
 
-    assert created_buckets == ["research-data-2"]
+    assert created_buckets == ["research-data.v1"]
     metadata = (
         db_session.query(PortalStorageSpaceMetadata)
-        .filter_by(account_id=account.id, bucket_name="research-data-2")
+        .filter_by(account_id=account.id, bucket_name="research-data.v1")
         .one()
     )
-    assert metadata.display_name == "Research Data"
+    assert metadata.display_name == "research-data.v1"
     assert metadata.owner_user_id == user.id
     assert metadata.visibility == "private"
     assert metadata.origin == "portal_named"
     assert metadata.name_editable is False
-    assert storage_space.id == "research-data-2"
+    assert storage_space.id == "research-data.v1"
+
+
+@pytest.mark.parametrize("name", ["Research Data", "invalid*name", "research-data", "a" * 64, " research-data "])
+def test_create_named_space_rejects_invalid_or_duplicate_name_without_mutation(name, monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-named-validation")
+    user = User(email="portal-named-validation@example.com", hashed_password="x", role="ui_user")
+    db_session.add(user)
+    db_session.commit()
+    access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_effective_portal_settings", lambda _account: PortalSettings(
+        allow_private_storage_space_create=True, allow_portal_named_bucket_create=True,
+    ))
+    monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [
+        PortalStorageSpaceSummary(id="research-data", name="Research Data", role="Owner"),
+    ])
+    monkeypatch.setattr(service, "create_bucket", lambda *_args, **_kwargs: pytest.fail("Invalid named bucket must not be created"))
+    with pytest.raises(RuntimeError, match="Invalid bucket name|already exists"):
+        service.create_storage_space(user, access, name=name, naming_mode="named_bucket")
+    assert db_session.query(PortalStorageSpaceMetadata).all() == []
 
 
 def test_create_storage_space_named_bucket_requires_effective_setting(monkeypatch, db_session):

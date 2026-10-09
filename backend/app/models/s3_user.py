@@ -3,9 +3,10 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
+from app.utils.rgw_identifiers import validate_rgw_user_uid
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
     OptionalTagDefinitionList,
@@ -63,6 +64,13 @@ class S3UserCreate(ApiModel):
     quota_max_objects: Optional[int] = None
     storage_endpoint_id: int
     tags: RequiredTagDefinitionList = Field(default_factory=list)
+
+    @field_validator("uid")
+    @classmethod
+    def validate_uid(cls, value: str | None) -> str | None:
+        if value and value.strip():
+            validate_rgw_user_uid(value)
+        return value
 
 
 class S3UserImport(ApiModel):

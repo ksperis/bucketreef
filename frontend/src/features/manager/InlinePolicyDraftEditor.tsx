@@ -18,6 +18,7 @@ type InlinePolicyDraftEditorProps = {
   drafts: InlinePolicy[];
   selectedDraftName: string | null;
   draftName: string;
+  nameError?: string;
   draftText: string;
   entityLabel: string;
   mode: InlinePolicyDraftEditorMode;
@@ -37,6 +38,7 @@ export default function InlinePolicyDraftEditor({
   drafts,
   selectedDraftName,
   draftName,
+  nameError,
   draftText,
   entityLabel,
   mode,
@@ -151,6 +153,7 @@ export default function InlinePolicyDraftEditor({
               <UiInput
                 label={text("Inline policy name")}
                 aria-describedby={replacementTarget ? replacementMessageId : undefined}
+                error={nameError}
                 value={draftName}
                 onChange={(event) => onDraftNameChange(event.target.value)}
                 placeholder={text("inline-policy")}

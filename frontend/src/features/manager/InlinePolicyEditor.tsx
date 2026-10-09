@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { inlinePolicyNameFormatError, type IAMEntity, type NamingValidationProfile } from "../../utils/resourceNames";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { InlinePolicy } from "../../api/managerIamPolicies";
 import { extractApiError } from "../../utils/apiError";
@@ -18,6 +19,8 @@ import { useManagerI18n } from "./managerI18n";
 
 type InlinePolicyEditorProps = {
   entityLabel: string;
+  entityType?: IAMEntity;
+  namingValidationProfile?: NamingValidationProfile | null;
   entityName: string;
   loadPolicies: () => Promise<InlinePolicy[]>;
   savePolicy: (name: string, document: Record<string, unknown>) => Promise<void>;
@@ -30,6 +33,8 @@ type EditorMode = "idle" | "create" | "edit";
 
 export default function InlinePolicyEditor({
   entityLabel,
+  entityType = "user",
+  namingValidationProfile = "standard",
   entityName,
   loadPolicies,
   savePolicy,
@@ -52,7 +57,7 @@ export default function InlinePolicyEditor({
   const [validationAttempted, setValidationAttempted] = useState(false);
   const replacementMessageId = useId();
   const pendingTransition = useRef<() => void>(() => {});
-  const controlsDisabled = disabled || loading || saving || deleting;
+  const controlsDisabled = disabled || namingValidationProfile === null || loading || saving || deleting;
   let parsedDocument: Record<string, unknown> | undefined;
   let documentError: string | undefined;
   try {
@@ -62,6 +67,7 @@ export default function InlinePolicyEditor({
   }
 
   const trimmedName = selectedName.trim();
+  const nameFormatError = inlinePolicyNameFormatError(trimmedName, entityType, namingValidationProfile ?? "standard");
   const hasPolicies = policies.length > 0;
   const selectedPolicy = activePolicyName ? policies.find((policy) => policy.name === activePolicyName) ?? null : null;
   const replacementTarget = trimmedName
@@ -199,7 +205,7 @@ export default function InlinePolicyEditor({
     event.preventDefault();
     if (controlsDisabled) return;
     setValidationAttempted(true);
-    if (!trimmedName || documentError) {
+    if (!trimmedName || nameFormatError || documentError) {
       focusFirstInvalidField(event.currentTarget as HTMLFormElement);
       return;
     }
@@ -328,7 +334,7 @@ export default function InlinePolicyEditor({
               )}
               <UiInput label={text("Inline policy name")} required value={selectedName} onChange={(event) => setSelectedName(event.target.value)}
                 placeholder={text("inline-policy")} aria-describedby={replacementTarget || createsNewFromExisting ? replacementMessageId : undefined}
-                error={validationAttempted && !trimmedName ? text("Inline policy name is required.") : undefined} />
+                error={nameFormatError ? text(nameFormatError) : validationAttempted && !trimmedName ? text("Inline policy name is required.") : undefined} />
               <SettingsJsonEditor label={text("Inline policy document (JSON)")} value={policyText} onChange={setPolicyText}
                 rows={10} error={validationAttempted ? documentError : undefined}
                 hint={text("Blank JSON will save as an empty document.")} placeholder={text("{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": []\n}")} />

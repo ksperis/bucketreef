@@ -34,6 +34,15 @@ project, use the collaboration/help workflow to request their addition first.
 
 ## Start a new space
 
+When **Space setup** offers **Use a custom tool ID**, the space name is also
+the bucket name. Enter 3–63 lowercase letters, digits, dots, or hyphens in a
+DNS-compatible name. Portal shows invalid names in red and blocks creation until
+they are corrected. The name is used exactly as entered; an existing name causes
+a conflict instead of receiving an automatic suffix.
+
+With **Let Portal choose the ID**, the space name remains a display label and
+Portal generates the technical identifier.
+
 After creating or adding a space:
 
 1. add the files or folders the project needs;
