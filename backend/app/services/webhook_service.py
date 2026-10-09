@@ -72,40 +72,18 @@ def webhook_dispatcher_enabled(settings: Settings | None = None) -> bool:
     )
 
 
-def _field_was_set(settings: Settings, field: str) -> bool:
-    return field in getattr(settings, "model_fields_set", set())
-
-
 def webhook_runtime_config(settings: Settings | None = None) -> WebhookRuntimeConfig:
     settings = settings or get_settings()
-
-    def prefer(new_field: str, legacy_field: str):
-        if _field_was_set(settings, new_field):
-            return getattr(settings, new_field)
-        if _field_was_set(settings, legacy_field):
-            return getattr(settings, legacy_field)
-        return getattr(settings, new_field)
-
-    allowed_hosts = prefer("webhook_allowed_hosts", "bucket_migration_webhook_allowed_hosts")
-    allow_private_targets = prefer(
-        "webhook_allow_private_targets",
-        "bucket_migration_webhook_allow_private_targets",
-    )
-    timeout_seconds = prefer(
-        "webhook_timeout_seconds",
-        "bucket_migration_webhook_timeout_seconds",
-    )
-    effective_timeout_seconds = max(0.1, float(timeout_seconds or 5.0))
-    workers = prefer("webhook_workers", "bucket_migration_webhook_workers")
+    effective_timeout_seconds = max(0.1, float(settings.webhook_timeout_seconds or 5.0))
     return WebhookRuntimeConfig(
         timeout_seconds=effective_timeout_seconds,
-        allow_private_targets=bool(allow_private_targets),
+        allow_private_targets=bool(settings.webhook_allow_private_targets),
         allowed_hosts={
             str(host or "").strip().lower().rstrip(".")
-            for host in (allowed_hosts or [])
+            for host in (settings.webhook_allowed_hosts or [])
             if str(host or "").strip()
         },
-        workers=max(1, min(int(workers or 4), 16)),
+        workers=max(1, min(int(settings.webhook_workers or 4), 16)),
         max_attempts=max(1, min(int(settings.webhook_max_attempts or 8), 32)),
         retry_initial_seconds=max(1, int(settings.webhook_retry_initial_seconds or 30)),
         retry_max_seconds=max(1, int(settings.webhook_retry_max_seconds or 3600)),
