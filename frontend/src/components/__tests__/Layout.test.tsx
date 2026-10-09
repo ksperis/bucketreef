@@ -138,10 +138,13 @@ describe("Layout", () => {
   it("exposes documentation for the active workspace context", () => {
     renderWorkspaceLayout("/manager/browser");
 
-    expect(screen.getByRole("link", { name: "Open workspace documentation" })).toHaveAttribute(
+    const documentationLink = screen.getByRole("link", { name: "Open workspace documentation" });
+
+    expect(documentationLink).toHaveAttribute(
       "href",
       "https://docs.bucketreef.ksperis.com/manager/en/browser/object-operations/",
     );
+    expect(documentationLink).toHaveClass("hidden", "md:inline-flex");
   });
 
   it("uses the configured documentation base URL", () => {
