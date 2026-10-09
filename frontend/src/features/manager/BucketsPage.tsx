@@ -4,7 +4,6 @@
  */
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
-import { isApiError } from "../../api/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
@@ -45,7 +44,7 @@ import UiMeterBar from "../../components/ui/UiMeterBar";
 
 import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { compareByNullableField, nextSortState, type SortableField } from "../../utils/sortValues";
 import { getManagerToolAccess, readStoredUser } from "../../utils/workspaces";
@@ -675,9 +674,7 @@ export default function BucketsPage() {
       return;
     } catch (err) {
       const msg = extractApiError(err, text("Unable to delete bucket '{name}'.", { name }));
-      const notEmpty = msg.toLowerCase().includes("not empty");
-      const conflict = isApiError(err) && err.response?.status === 409;
-      if (notEmpty || conflict) {
+      if (extractApiErrorCode(err) === "bucket_not_empty") {
         setActionError(text("Bucket '{name}' is not empty. Empty it before deleting.", { name }));
         return;
       }
