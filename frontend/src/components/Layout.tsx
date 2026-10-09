@@ -11,6 +11,7 @@ import Header from "./Header";
 import Sidebar, { SidebarLink, SidebarSection, type SidebarBodyRenderArgs } from "./Sidebar";
 import WorkspaceDocumentationLink from "./WorkspaceDocumentationLink";
 import { resolveDocumentationUrl } from "../navigation/documentation";
+import { useGeneralSettings } from "./GeneralSettingsContext";
 import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
 import { useI18n } from "../i18n";
 import { useWorkspaceSwitcherModel } from "./EnvironmentSwitcher";
@@ -79,6 +80,7 @@ export default function Layout({
 }: LayoutProps) {
   const location = useLocation();
   const { locale } = useI18n();
+  const { generalSettings } = useGeneralSettings();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCompact, setDesktopSidebarCompact] = useState(
     () => readClientStorage(CLIENT_STORAGE_KEYS.sidebarCompact) === "1",
@@ -103,7 +105,10 @@ export default function Layout({
   }`;
   const rootHeightClass = fullHeight ? "h-[100dvh]" : "h-screen";
   const drawerTopClass = hideTopbar ? "top-0" : "top-14";
-  const documentationUrl = resolveDocumentationUrl(location.pathname, { language: locale });
+  const documentationUrl = resolveDocumentationUrl(location.pathname, {
+    language: locale,
+    baseUrl: generalSettings.documentation_base_url,
+  });
   const resolvedTopbarAction = topbarAction || documentationUrl ? (
     <div className="flex items-center gap-1.5">
       {topbarAction}

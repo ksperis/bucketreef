@@ -54,6 +54,30 @@ def test_rgw_account_id_prefix_defaults_to_80_and_requires_one_to_three_digits()
             AppSettings(general={"rgw_account_id_prefix": value})
 
 
+def test_documentation_base_url_defaults_normalizes_and_validates():
+    assert AppSettings().general.documentation_base_url == "https://docs.bucketreef.ksperis.com"
+    assert (
+        AppSettings(general={"documentation_base_url": " https://docs.example.com/bucketreef/ "})
+        .general.documentation_base_url
+        == "https://docs.example.com/bucketreef"
+    )
+    assert AppSettings(general={"documentation_base_url": "/docs/"}).general.documentation_base_url == "/docs"
+    assert (
+        AppSettings(general={"documentation_base_url": "   "}).general.documentation_base_url
+        == "https://docs.bucketreef.ksperis.com"
+    )
+
+    for value in (
+        "docs.example.com",
+        "//docs.example.com",
+        "ftp://docs.example.com",
+        "https://docs.example.com/?tenant=1",
+        "/docs#section",
+    ):
+        with pytest.raises(ValidationError):
+            AppSettings(general={"documentation_base_url": value})
+
+
 def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, db_session):
     settings_path = tmp_path / "app_settings.json"
     persisted = AppSettings()
