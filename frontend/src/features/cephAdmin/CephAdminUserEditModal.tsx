@@ -310,8 +310,6 @@ export default function CephAdminUserEditModal({
           suspended,
           max_buckets: parsedMaxBuckets,
           op_mask: opMask.trim() || null,
-          admin: adminFlag,
-          system: systemFlag,
           account_root: accountRootEnabled ? true : undefined,
           caps: {
             mode: capsMode,
@@ -528,7 +526,7 @@ export default function CephAdminUserEditModal({
             <UiInput label="Default storage class" value={defaultStorageClass} onChange={(event) => setDefaultStorageClass(event.target.value)} placeholder="e.g. STANDARD" />
           </CephAdminUserProfileFields>
         </SettingsSection>
-        <CephAdminUserFlags values={{ suspended, admin: adminFlag, system: systemFlag }}
+        <CephAdminUserFlags values={{ suspended, admin: adminFlag, system: systemFlag }} readOnlyFields={["admin", "system"]}
           onChange={(field, value) => ({ suspended: setSuspended, admin: setAdminFlag, system: setSystemFlag })[field](value)} />
         <CephAdminQuotaFields title="User quota" enabledLabel="Enable user quota" enabled={quotaEnabled} onEnabledChange={setQuotaEnabled}
           sizeValue={quotaSize} onSizeChange={setQuotaSize} unitValue={quotaUnit} onUnitChange={setQuotaUnit}
