@@ -254,7 +254,6 @@ def delete_bucket(
         service=service,
         account=account,
         bucket_name=bucket_name,
-        not_empty_detail=f"Bucket '{bucket_name}' is not empty. Empty it before deleting.",
     )
     _invalidate_bucket_listing_for_account(account)
     audit_service.record_action(

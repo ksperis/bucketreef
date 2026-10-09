@@ -15,6 +15,7 @@ const useManagerStatsMock = vi.fn();
 const useIamOverviewMock = vi.fn();
 const listBucketsMock = vi.fn();
 const createBucketMock = vi.fn();
+const deleteBucketMock = vi.fn();
 const getBucketPropertiesMock = vi.fn();
 const listManagerActivityMock = vi.fn();
 const fetchManagerTrafficMock = vi.fn();
@@ -107,7 +108,7 @@ vi.mock("../../api/managerBuckets", async () => {
     ...actual,
     listBuckets: (...args: unknown[]) => listBucketsMock(...args),
     createBucket: (...args: unknown[]) => createBucketMock(...args),
-    deleteBucket: vi.fn(),
+    deleteBucket: (...args: unknown[]) => deleteBucketMock(...args),
   };
 });
 
@@ -295,6 +296,7 @@ describe("manager shell pages", () => {
     });
     listBucketsMock.mockResolvedValue([]);
     createBucketMock.mockReset();
+    deleteBucketMock.mockReset();
     getBucketPropertiesMock.mockResolvedValue({
       lifecycle_rules: [],
       cors_rules: [],
@@ -1530,6 +1532,85 @@ describe("manager shell pages", () => {
       screen.getByText("This permanently removes the bucket after server-side checks confirm it is empty.")
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Type DELETE BUCKET bucket-empty")).not.toBeInTheDocument();
+  });
+
+  it("uses the structured bucket-not-empty error code after a delete race", async () => {
+    listBucketsMock.mockResolvedValue([
+      {
+        name: "bucket-race",
+        used_bytes: 0,
+        object_count: 0,
+      },
+    ]);
+    deleteBucketMock.mockRejectedValue(
+      new ApiError("Request failed", {
+        response: {
+          status: 409,
+          data: {
+            detail: {
+              code: "bucket_not_empty",
+              message: "Storage returned a conflict.",
+            },
+          },
+          headers: {},
+        },
+      }),
+    );
+    setSelectedManagerAccountContext();
+
+    render(
+      <MemoryRouter>
+        <BucketsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("bucket-race")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete bucket" }));
+
+    expect(
+      await screen.findByText("Bucket 'bucket-race' is not empty. Empty it before deleting."),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves unrelated conflict details when bucket deletion returns HTTP 409", async () => {
+    listBucketsMock.mockResolvedValue([
+      {
+        name: "bucket-conflict",
+        used_bytes: 0,
+        object_count: 0,
+      },
+    ]);
+    deleteBucketMock.mockRejectedValue(
+      new ApiError("Request failed", {
+        response: {
+          status: 409,
+          data: {
+            detail: {
+              code: "bucket_state_conflict",
+              message: "Bucket state changed concurrently.",
+            },
+          },
+          headers: {},
+        },
+      }),
+    );
+    setSelectedManagerAccountContext();
+
+    render(
+      <MemoryRouter>
+        <BucketsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("bucket-conflict")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete bucket" }));
+
+    expect(await screen.findByText("Bucket state changed concurrently.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Bucket 'bucket-conflict' is not empty. Empty it before deleting."),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps non-empty delete guidance compact when purge access is unavailable", async () => {

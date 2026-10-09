@@ -9,6 +9,7 @@ from app.main import app
 from app.models.s3_account import S3Account as S3AccountSchema
 from app.routers.admin import s3_accounts as admin_accounts_router
 from app.routers.manager import buckets as manager_buckets_router
+from app.services.s3_deletion import BucketNotEmptyError
 
 
 class _FakeAuditService:
@@ -193,6 +194,32 @@ def test_manager_create_bucket_passes_versioning_and_location(client: TestClient
         "account_id": 11,
         "versioning": True,
         "location_constraint": "eu-west-1",
+    }
+
+
+def test_manager_delete_bucket_returns_structured_not_empty_error(client: TestClient):
+    class FakeBucketService:
+        def delete_bucket(self, name, account, force=False):  # noqa: ANN001
+            raise BucketNotEmptyError(f"Bucket '{name}' is not empty.")
+
+    account = S3Account(
+        name="acc",
+        rgw_account_id="RGW00000000000000011",
+        rgw_access_key="AK",
+        rgw_secret_key="SK",
+    )
+    account.id = 11
+
+    app.dependency_overrides[manager_buckets_router.get_account_context] = lambda: account
+    app.dependency_overrides[manager_buckets_router.get_buckets_service] = lambda: FakeBucketService()
+    app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
+
+    response = client.delete("/api/manager/buckets/demo-bucket")
+
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"] == {
+        "code": "bucket_not_empty",
+        "message": "Bucket 'demo-bucket' is not empty. Empty it before deleting.",
     }
 
 
