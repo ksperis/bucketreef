@@ -73,7 +73,7 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
         busy={loading}
         testId="bucket-feature-acl"
       >
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
         <div className="bucket-feature-summary-row">
           <div className="bucket-feature-summary-value">
             <strong>{acl?.owner ?? text("Unknown owner")}</strong>
@@ -113,7 +113,7 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
             >
               {aclOptions.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {text(option.label)}
                 </option>
               ))}
             </SettingsSelect>

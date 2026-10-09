@@ -74,7 +74,7 @@ export default function BucketQuotaFeature({
         ) : null
       }
     >
-      {!featureEnabled && <EndpointFeatureDisabledNotice featureLabel="Quota" />}
+      {!featureEnabled && <EndpointFeatureDisabledNotice featureLabel={text("Quota")} />}
       <form
         id={formId}
         className={`mt-2 space-y-2 ${restricted ? "pointer-events-none" : ""}`}
@@ -116,12 +116,12 @@ export default function BucketQuotaFeature({
             disabled={!editable}
           />
         </div>
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
       </form>
       <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
         {featureEnabled
-          ? `Leave empty to remove the quota. ${editable ? "" : "(Privileged Ceph access required.)"}`
-          : "Quota management is unavailable on this endpoint."}
+          ? `${text("Leave empty to remove the quota.")} ${editable ? "" : text("(Privileged Ceph access required.)")}`
+          : text("Quota management is unavailable on this endpoint.")}
       </p>
     </BucketFeatureSection>
   );

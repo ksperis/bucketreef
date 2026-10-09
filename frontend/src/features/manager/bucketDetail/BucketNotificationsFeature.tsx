@@ -72,7 +72,7 @@ function NotificationTopicEditor({
   const { text } = useManagerI18n();
   const editable = isNotificationTopicVisuallyEditable(topic);
   const draft = readNotificationVisualTopic(topic);
-  const topicLabel = notificationTopicId(topic) ?? `Topic notification ${index + 1}`;
+  const topicLabel = notificationTopicId(topic) ?? text("Topic notification {number}", { number: index + 1 });
   const { notificationEvents, prefixes, suffixes, topicArns } = useBucketFeatureSuggestions();
 
   if (!editable) {
@@ -85,7 +85,7 @@ function NotificationTopicEditor({
               {notificationTopicArn(topic) ?? text("No TopicArn")}
             </p>
             <p className="settings-description">
-              {notificationTopicEventsLabel(topic)} · {notificationTopicFilterLabel(topic)}
+              {text(notificationTopicEventsLabel(topic))} · {text(notificationTopicFilterLabel(topic))}
             </p>
           </div>
           <UiBadge tone="warning">{text("Advanced notification — edit in JSON")}</UiBadge>
@@ -142,9 +142,9 @@ function NotificationTopicEditor({
           {commonNotificationEvents.map((event) => (
             <SettingsChoiceRow
               key={event.value}
-              title={event.label}
+              title={text(event.label)}
               description={event.value}
-              ariaLabel={event.label}
+              ariaLabel={text(event.label)}
               checked={draft.events.includes(event.value)}
               disabled={disabled}
               onChange={(checked) => toggleCommonEvent(event.value, checked)}
@@ -259,7 +259,7 @@ export default function BucketNotificationsFeature({
       cellClassName: "min-w-44",
       render: ({ topic }) => (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="break-all">{notificationTopicId(topic) ?? "(no ID)"}</span>
+          <span className="break-all">{notificationTopicId(topic) ?? text("(no ID)")}</span>
           {!isNotificationTopicVisuallyEditable(topic) ? (
             <UiBadge tone="warning">{text("Advanced")}</UiBadge>
           ) : null}
@@ -272,7 +272,7 @@ export default function BucketNotificationsFeature({
       headerClassName: "min-w-64",
       cellClassName: "min-w-64",
       render: ({ topic }) => (
-        <code className="break-all ui-caption">{notificationTopicArn(topic) ?? "(missing TopicArn)"}</code>
+        <code className="break-all ui-caption">{notificationTopicArn(topic) ?? text("(missing TopicArn)")}</code>
       ),
     },
     {
@@ -280,14 +280,14 @@ export default function BucketNotificationsFeature({
       label: text("Events"),
       headerClassName: "min-w-56",
       cellClassName: "min-w-56",
-      render: ({ topic }) => notificationTopicEventsLabel(topic),
+      render: ({ topic }) => text(notificationTopicEventsLabel(topic)),
     },
     {
       id: "filter",
       label: text("Filter"),
       headerClassName: "min-w-44",
       cellClassName: "min-w-44",
-      render: ({ topic }) => notificationTopicFilterLabel(topic),
+      render: ({ topic }) => text(notificationTopicFilterLabel(topic)),
     },
     {
       id: "manage",
@@ -392,7 +392,7 @@ export default function BucketNotificationsFeature({
         title={text("Notifications / SNS topics")}
         description={text("Configure S3 events delivered to SNS topics.")}
         visualState={visualState}
-        metadata={topicCount === 1 ? "1 topic notification" : `${topicCount} topic notifications`}
+        metadata={text(topicCount === 1 ? "{count} topic notification" : "{count} topic notifications", { count: topicCount })}
         loading={loading}
         error={error}
         successMessage={status}

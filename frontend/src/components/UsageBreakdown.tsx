@@ -21,6 +21,8 @@ type UsageBreakdownProps = {
   maxItems?: number;
   metric?: "bytes" | "objects";
   objectUnitLabel?: string;
+  othersLabel?: string;
+  totalLabel?: string;
 };
 
 const palette = ["#6366F1", "#22C55E", "#F97316", "#14B8A6", "#EF4444", "#A855F7", "#0EA5E9", "#F59E0B"];
@@ -34,6 +36,8 @@ export default function UsageBreakdown({
   maxItems = 7,
   metric = "bytes",
   objectUnitLabel = "objects",
+  othersLabel = "Others",
+  totalLabel = "Total",
 }: UsageBreakdownProps) {
   const normalized = (items ?? []).map((item) => ({
     ...item,
@@ -67,7 +71,7 @@ export default function UsageBreakdown({
         ...primary,
         {
           id: "others",
-          label: "Others",
+          label: othersLabel,
           usedBytes: remainder.usedBytes,
           objectCount: remainder.objectCount,
         },
@@ -140,7 +144,7 @@ export default function UsageBreakdown({
                 ).nodes}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <p className="ui-caption uppercase tracking-wide text-[var(--ui-text-muted)]">Total</p>
+                <p className="ui-caption uppercase tracking-wide text-[var(--ui-text-muted)]">{totalLabel}</p>
                 <p className="ui-subtitle font-semibold text-slate-900 dark:text-white">
                   {formatValue(total)}{" "}
                   {totalSuffix && (

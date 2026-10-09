@@ -34,6 +34,18 @@ describe("Manager i18n", () => {
     expect(managerText("View all {label}", "de", { label: "Benutzer" })).toBe("Alle Benutzer anzeigen");
     expect(managerText("View all {label}", "zh", { label: "用户" })).toBe("查看所有用户");
     expect(managerText("Quota status for {label}", "zh", { label: "存储" })).toBe("存储的配额状态");
+    expect(managerText("Migration actions", "de")).toBe("Migrationsaktionen");
+    expect(managerText("Migration actions", "zh")).toBe("迁移操作");
+    expect(managerText("Source only ({count})", "de", { count: 3 })).toBe("Nur Quelle (3)");
+    expect(managerText("Source only ({count})", "zh", { count: 3 })).toBe("仅源端 (3)");
+    expect(managerText("Bucket name is required.", "de")).toBe("Bucket-Name ist erforderlich.");
+    expect(managerText("Bucket name is required.", "zh")).toBe("必须填写存储桶名称。");
+    expect(managerText("Delete bucket policy?", "de")).toBe("Bucket-Policy löschen?");
+    expect(managerText("Delete bucket policy?", "zh")).toBe("删除存储桶策略？");
+    expect(managerText("S3 rejects new PUT ACLs that grant public access to buckets or objects.", "de"))
+      .toContain("S3");
+    expect(managerText("S3 rejects new PUT ACLs that grant public access to buckets or objects.", "zh"))
+      .toContain("S3");
   });
 
   it("falls back to English when Manager copy is missing", () => {

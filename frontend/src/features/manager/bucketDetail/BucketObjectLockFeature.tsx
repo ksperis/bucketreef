@@ -77,7 +77,7 @@ export default function BucketObjectLockFeature({
         testId="bucket-feature-object-lock"
       >
         {loading && <UiInlineMessage>{text("Loading Object Lock configuration...")}</UiInlineMessage>}
-        {loadError && <UiInlineMessage tone="error">{loadError}</UiInlineMessage>}
+        {loadError && <UiInlineMessage tone="error">{text(loadError)}</UiInlineMessage>}
         <div className="bucket-feature-summary-row">
           <div className={persistentlyEnabled ? "bucket-feature-summary-value" : "bucket-feature-summary-muted"}>
             {persistentlyEnabled ? retentionSummary : text("No default retention policy.")}
@@ -112,7 +112,7 @@ export default function BucketObjectLockFeature({
               <SettingsSwitch
                 checked={enabled ?? false}
                 disabled={persistentlyEnabled || loading || Boolean(loadError) || notImplemented}
-                ariaLabel="Enable object lock"
+                ariaLabel={text("Enable object lock")}
                 onChange={(checked) => {
                   if (persistentlyEnabled) return;
                   updateEnabled(checked);

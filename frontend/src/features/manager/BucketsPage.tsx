@@ -861,7 +861,7 @@ export default function BucketsPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>
               {buckets.length > 0 && dataStale ? `${text("Showing the last available bucket list.")} ` : ""}
-              {error}
+              {text(error)}
               {lastUpdatedAt ? ` ${text("Last updated {time}.", { time: lastUpdatedAt.toLocaleTimeString(intlLocale) })}` : ""}
             </span>
             <ListActionButton
@@ -873,7 +873,7 @@ export default function BucketsPage() {
           </div>
         </PageBanner>
       )}
-      {actionError && <PageBanner tone="error">{actionError}</PageBanner>}
+      {actionError && <PageBanner tone="error">{text(actionError)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {needsS3AccountSelection ? (

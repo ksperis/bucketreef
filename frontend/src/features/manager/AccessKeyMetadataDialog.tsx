@@ -148,7 +148,7 @@ export default function AccessKeyMetadataDialog({
               />
             </>
           )}
-          {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
+          {error && <UiInlineMessage tone="error" role="alert">{text(error)}</UiInlineMessage>}
         </div>
       </SettingsForm>
     </SettingsDialog>

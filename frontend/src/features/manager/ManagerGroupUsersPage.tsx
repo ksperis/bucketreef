@@ -221,7 +221,7 @@ export default function ManagerGroupUsersPage() {
     >
 
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {noAvailableUsers && (
         <PageBanner tone="warning">{text("No IAM users available to add. Create one before managing this group.")}</PageBanner>
       )}

@@ -53,7 +53,7 @@ export default function BucketFeatureSummarySection({
       mode={mode}
       visualState={visualState}
       presentation="collection"
-      successMessage={successMessage}
+      successMessage={typeof successMessage === "string" ? text(successMessage) : successMessage}
       busy={loading}
       showConfiguredBadge={false}
       testId={testId}
@@ -70,16 +70,16 @@ export default function BucketFeatureSummarySection({
             onClick={onEdit}
             disabled={loading || Boolean(error) || editDisabled || visualState === "disabled"}
           >
-            {editLabel ?? text(visualState === "neutral" ? "Configure" : "Edit")}
+            {editLabel ? text(editLabel) : text(visualState === "neutral" ? "Configure" : "Edit")}
           </SettingsButton>
           {primaryAction}
         </>
       }
     >
       {loading ? (
-        <UiInlineMessage>{loadingMessage ?? text("Loading configuration...")}</UiInlineMessage>
+        <UiInlineMessage>{loadingMessage ? text(loadingMessage) : text("Loading configuration...")}</UiInlineMessage>
       ) : error ? (
-        <UiInlineMessage tone="error">{error}</UiInlineMessage>
+        <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>
       ) : (
         children
       )}

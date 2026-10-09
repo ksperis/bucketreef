@@ -296,7 +296,7 @@ export default function ManagerGroupsPage() {
         }
       />
 
-      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {needsS3AccountSelection ? (

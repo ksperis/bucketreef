@@ -43,7 +43,7 @@ export default function ManagerBucketIntegrityPage() {
         breadcrumbs={managerPageBreadcrumbs(text, "integrity")}
       />
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
       {!requiresS3AccountSelection ? (
         <PageEmptyState

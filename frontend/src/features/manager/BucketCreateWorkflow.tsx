@@ -27,9 +27,9 @@ export default function BucketCreateWorkflow({ contextLabel, needsContext, busy,
   const [validationAttempted, setValidationAttempted] = useState(false);
   const normalizedName = normalizeS3BucketName(name);
   const nameError = !normalizedName
-    ? validationAttempted ? "Bucket name is required." : undefined
+    ? validationAttempted ? text("Bucket name is required.") : undefined
     : !isValidS3BucketName(normalizedName)
-      ? "Invalid name. 3-63 characters, lowercase letters, numbers, dots or hyphens."
+      ? text("Invalid name. 3-63 characters, lowercase letters, numbers, dots or hyphens.")
       : undefined;
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     setValidationAttempted(true);
@@ -56,7 +56,7 @@ export default function BucketCreateWorkflow({ contextLabel, needsContext, busy,
           onChange={event => setName(normalizeS3BucketNameInput(event.target.value))} />
         <SettingsItem compact title={text("Custom LocationConstraint")}
           description={text("Use a specific region or placement instead of the endpoint default.")}
-          action={<SettingsSwitch checked={customLocation} onChange={setCustomLocation} ariaLabel="Custom LocationConstraint" />}>
+          action={<SettingsSwitch checked={customLocation} onChange={setCustomLocation} ariaLabel={text("Custom LocationConstraint")} />}>
           {customLocation && <UiInput label={text("LocationConstraint")} value={location} placeholder={text("ex: eu-west-1")}
             hint={text("Optional. Empty value uses the endpoint default region/placement.")}
             onChange={event => setLocation(event.target.value)} />}
@@ -65,7 +65,7 @@ export default function BucketCreateWorkflow({ contextLabel, needsContext, busy,
     </SettingsSection>
     <SettingsSection title={text("Protection")} presentation="compact">
       <SettingsItem compact title={text("Versioning")} description={text("Enables version retention.")}
-        action={<SettingsSwitch checked={versioning} onChange={setVersioning} ariaLabel="Versioning" />} />
+        action={<SettingsSwitch checked={versioning} onChange={setVersioning} ariaLabel={text("Versioning")} />} />
     </SettingsSection>
   </SettingsWorkflowForm>;
 }

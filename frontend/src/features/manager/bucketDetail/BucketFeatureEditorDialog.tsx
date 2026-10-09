@@ -46,7 +46,7 @@ export default function BucketFeatureEditorDialog({
       draftKey={draftKey}
       busy={busy}
       submitDisabled={!dirty || saveDisabled}
-      error={error}
+      error={error ? text(error) : error}
       submitLabel={text("Save")}
       onSubmit={onSave}
       onClose={onClose}
@@ -62,7 +62,7 @@ export default function BucketFeatureEditorDialog({
         activeTab={mode}
         onChange={(nextMode) => onModeChange(nextMode as BucketFeatureEditorMode)}
         variant="line"
-        ariaLabel={`${title} editor mode`}
+        ariaLabel={text("{title} editor mode", { title })}
         idPrefix={tabsId}
       />
     </SettingsFormDialog>

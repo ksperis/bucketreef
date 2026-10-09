@@ -89,7 +89,7 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
         busy={loading}
         testId="bucket-feature-block-public-access"
       >
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
         <div className="bucket-feature-summary-row">
           <div className="bucket-feature-summary-value">
             <strong>{enabledCount} {text("of 4")}</strong> {text("protections enabled")}
@@ -131,7 +131,7 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
                 key={option.key}
                 compact
                 title={option.label}
-                description={option.description}
+                description={text(option.description)}
                 action={
                   <SettingsSwitch
                     checked={Boolean(config[option.key])}

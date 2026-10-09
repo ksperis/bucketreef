@@ -67,8 +67,8 @@ export default function BucketVersioningFeature({
       }
     >
       {loading && <UiInlineMessage>{text("Loading versioning...")}</UiInlineMessage>}
-      {loadError && <UiInlineMessage tone="error">{loadError}</UiInlineMessage>}
-      {saveError && <UiInlineMessage tone="error">{saveError}</UiInlineMessage>}
+      {loadError && <UiInlineMessage tone="error">{text(loadError)}</UiInlineMessage>}
+      {saveError && <UiInlineMessage tone="error">{text(saveError)}</UiInlineMessage>}
       <div className="bucket-feature-summary-row">
         <div className="bucket-feature-summary-value">
           {draftEnabled
@@ -80,7 +80,7 @@ export default function BucketVersioningFeature({
         <SettingsSwitch
           checked={draftEnabled}
           disabled={saving || loading || Boolean(loadError) || disableBlocked}
-          ariaLabel="Enable versioning"
+          ariaLabel={text("Enable versioning")}
           onChange={updateDraft}
         />
       </div>

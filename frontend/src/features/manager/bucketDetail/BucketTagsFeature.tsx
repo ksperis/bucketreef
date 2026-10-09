@@ -67,7 +67,7 @@ export default function BucketTagsFeature({
         busy={loading}
         testId="bucket-feature-tags"
       >
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
         {loading ? (
           <UiInlineMessage>{text("Loading bucket tags...")}</UiInlineMessage>
         ) : (

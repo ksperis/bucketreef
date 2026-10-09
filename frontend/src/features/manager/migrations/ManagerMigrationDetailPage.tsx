@@ -301,7 +301,7 @@ export default function ManagerMigrationDetailPage() {
           break;
         case "start":
           if (!migration.configuration_revision)
-            throw new Error("Reload the checked configuration.");
+            throw new Error(text("Reload the checked configuration."));
           await api.startManagerMigration(
             id,
             migration.configuration_revision,
@@ -363,7 +363,7 @@ export default function ManagerMigrationDetailPage() {
 
   return (
     <WorkflowPage
-      title={`Migration #${id}`}
+      title={text("Migration #{id}", { id })}
       description={text("Review checks, control the transfer and resolve remaining actions.")}
       breadcrumbs={managerPageBreadcrumbs(text, "migration", { label: text("Details") })}
       backLabel={text("Back to migrations")}
@@ -382,7 +382,7 @@ export default function ManagerMigrationDetailPage() {
               : "info"
           }
         >
-          {migrationLabel(migration)}
+          {text(migrationLabel(migration))}
         </UiBadge>
         <div className="flex flex-wrap gap-2">
           {primary && (
@@ -391,24 +391,24 @@ export default function ManagerMigrationDetailPage() {
               disabled={busy || maintenanceBusy}
               onClick={() => choose(primary)}
             >
-              {busy ? "Working…" : actionLabels[primary]}
+              {text(busy ? "Working…" : actionLabels[primary])}
             </UiButton>
           )}
           <UiActionMenu
-            ariaLabel="Migration actions"
-            trigger="More actions"
+            ariaLabel={text("Migration actions")}
+            trigger={text("More actions")}
             triggerClassName="ui-list-action-button"
             sections={[
               {
                 id: "actions",
                 items: secondary.map((action) => ({
                   id: action,
-                  label: actionLabels[action],
+                  label: text(actionLabels[action]),
                   disabled: busy || !allowed(action),
                   disabledReason:
                     migration.available_actions?.[
                       action === "active_checks" ? "precheck" : action
-                    ]?.reason ?? "Unavailable in this state.",
+                    ]?.reason ?? text("Unavailable in this state."),
                   danger: action.startsWith("cleanup") || action === "delete",
                   onSelect: () => choose(action),
                 })),
@@ -437,7 +437,7 @@ export default function ManagerMigrationDetailPage() {
       <div ref={errorRef} tabIndex={-1} className="outline-none">
         {(error || detailError) && (
           <UiInlineMessage tone="error" role="alert">
-            {error || detailError} {text("Your saved migration is retained.")}
+            {text(error || detailError || "")} {text("Your saved migration is retained.")}
           </UiInlineMessage>
         )}
       </div>
@@ -615,15 +615,15 @@ export default function ManagerMigrationDetailPage() {
                     <dl className="mt-2 grid gap-1 sm:grid-cols-3 ui-caption">
                       <div>
                         <dt>{text("Content differences")}</dt>
-                        <dd>{item.different_count ?? "Not reported"}</dd>
+                        <dd>{item.different_count ?? text("Not reported")}</dd>
                       </div>
                       <div>
                         <dt>{text("Source only")}</dt>
-                        <dd>{item.only_source_count ?? "Not reported"}</dd>
+                        <dd>{item.only_source_count ?? text("Not reported")}</dd>
                       </div>
                       <div>
                         <dt>{text("Destination only")}</dt>
-                        <dd>{item.only_target_count ?? "Not reported"}</dd>
+                        <dd>{item.only_target_count ?? text("Not reported")}</dd>
                       </div>
                     </dl>
                     {migrationDifferenceSample(item) && (
@@ -658,16 +658,19 @@ export default function ManagerMigrationDetailPage() {
       {report?.items?.length ? (
         <WorkflowSection
           title={text("Reviewed plan")}
-          description={`Configuration revision ${migration.configuration_revision ?? "unknown"}. Checked ${formatDateTime(migration.precheck_checked_at)}.`}
+          description={text("Configuration revision {revision}. Checked {date}.", {
+            revision: migration.configuration_revision ?? text("unknown"),
+            date: formatDateTime(migration.precheck_checked_at),
+          })}
         >
           <p className="ui-caption">
-            {migration.mode === "pre_sync"
+            {text(migration.mode === "pre_sync"
               ? "Pre-copy, then manual cutover"
-              : "Immediate migration with source write interruption"}{" "}
+              : "Immediate migration with source write interruption")}{" "}
             ·{" "}
-            {migration.use_same_endpoint_copy
+            {text(migration.use_same_endpoint_copy
               ? "Copy within storage"
-              : "Copy via BucketReef"}{" "}
+              : "Copy via BucketReef")}{" "}
             {text("· Source retained")}
           </p>
           <ul className="list-disc pl-5 ui-caption space-y-2">
@@ -675,38 +678,38 @@ export default function ManagerMigrationDetailPage() {
               <li key={item.item_id}>
                 <p>
                   {item.source_bucket}:{" "}
-                  {item.strategy === "version_aware"
+                  {text(item.strategy === "version_aware"
                     ? "Objects, version history and delete markers"
-                    : "Current objects and their tags"}
+                    : "Current objects and their tags")}
                   {item.source_object_count == null
-                    ? "; object total unknown"
-                    : `; ${item.source_object_count} current objects`}
+                    ? text("; object total unknown")
+                    : text("; {count} current objects", { count: item.source_object_count })}
                   .
                 </p>
                 <p>
                   {text("Settings copied:")}{" "}
                   {item.settings_copied
                     ?.map((name) => name.replaceAll("_", " "))
-                    .join(", ") || "None recorded in this plan"}
+                    .join(", ") || text("None recorded in this plan")}
                   .
                 </p>
                 <p>
                   {text("Settings omitted:")}{" "}
                   {item.settings_omitted
                     ?.map((name) => name.replaceAll("_", " "))
-                    .join(", ") || "See the original report"}
+                    .join(", ") || text("See the original report")}
                   .
                 </p>
               </li>
             ))}
           </ul>
           <p className="ui-caption">
-            {migration.auto_grant_source_read_for_copy
+            {text(migration.auto_grant_source_read_for_copy
               ? "Temporary source read grants were explicitly enabled."
-              : "No temporary source read grants."}{" "}
-            {migration.lock_target_writes
+              : "No temporary source read grants.")}{" "}
+            {text(migration.lock_target_writes
               ? "Destination writes protected during transfer."
-              : "Destination writes are not protected during transfer."}
+              : "Destination writes are not protected during transfer.")}
           </p>
         </WorkflowSection>
       ) : null}
@@ -724,19 +727,19 @@ export default function ManagerMigrationDetailPage() {
       </UiDetails>
       {pending && confirmation[pending] && (
         <ConfirmActionDialog
-          title={actionLabels[pending]}
-          description={confirmation[pending]!.description}
+          title={text(actionLabels[pending])}
+          description={text(confirmation[pending]!.description)}
           impacts={
             pending === "start"
               ? [
-                  migration.mode === "pre_sync"
+                  text(migration.mode === "pre_sync"
                     ? "Source writes remain available during pre-copy. A separate cutover confirmation is required."
-                    : "Source writes will be blocked before object transfer begins.",
-                  "Source buckets are retained. Deletion is a separate operation.",
+                    : "Source writes will be blocked before object transfer begins."),
+                  text("Source buckets are retained. Deletion is a separate operation."),
                 ]
-              : confirmation[pending]!.impacts
+              : confirmation[pending]!.impacts.map((impact) => text(impact))
           }
-          confirmLabel={actionLabels[pending]}
+          confirmLabel={text(actionLabels[pending])}
           tone={
             pending === "start" || pending === "active_checks"
               ? "primary"

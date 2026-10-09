@@ -56,8 +56,8 @@ export default function ManagerBucketComparePage() {
         breadcrumbs={managerPageBreadcrumbs(text, "compare")}
       />
 
-      {contextsError && <PageBanner tone="error">{contextsError}</PageBanner>}
-      {bucketsError && <PageBanner tone="error">{bucketsError}</PageBanner>}
+      {contextsError && <PageBanner tone="error">{text(contextsError)}</PageBanner>}
+      {bucketsError && <PageBanner tone="error">{text(bucketsError)}</PageBanner>}
 
       {!requiresS3AccountSelection ? (
         <PageEmptyState

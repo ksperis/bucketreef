@@ -156,7 +156,7 @@ export default function PoliciesPage() {
       />
 
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
-      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
       {needsS3AccountSelection ? (
         <PageEmptyState

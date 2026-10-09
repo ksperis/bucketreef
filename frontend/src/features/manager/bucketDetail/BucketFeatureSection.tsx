@@ -125,7 +125,9 @@ export default function BucketFeatureSection({
         <div className="bucket-feature-card-body">
           {successMessage ? (
             <div aria-live="polite" className="bucket-feature-card-feedback">
-              <UiBadge tone="success">{successMessage}</UiBadge>
+              <UiBadge tone="success">
+                {typeof successMessage === "string" ? text(successMessage) : successMessage}
+              </UiBadge>
             </div>
           ) : null}
           {children}

@@ -340,7 +340,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
     {
       id: "actions",
       label: text("Actions"),
-      mobileLabel: "Actions",
+      mobileLabel: text("Actions"),
       headerClassName: "min-w-48",
       cellClassName: "min-w-48 whitespace-normal break-words",
       render: ({ rule }) => describeLifecycleActions(rule),
@@ -479,7 +479,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
         error={error}
         successMessage={status}
         editDisabled={notImplemented || saving}
-        editLabel="Advanced editor"
+        editLabel={text("Advanced editor")}
         onEdit={openEditor}
         primaryAction={
           <SettingsButton

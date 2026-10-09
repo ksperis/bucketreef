@@ -1062,7 +1062,7 @@ function BucketDetailPageContent({
         <PageBanner tone="warning">{text("Select a Ceph endpoint before managing this bucket.")}</PageBanner>
       )}
 
-      {bucketError && <PageBanner tone="error">{bucketError}</PageBanner>}
+      {bucketError && <PageBanner tone="error">{text(bucketError)}</PageBanner>}
 
       <PageTabs
         variant="line"
@@ -1206,7 +1206,7 @@ function BucketDetailPageContent({
                       </div>
                     </div>
                     {objectsError && (
-                      <UiInlineMessage tone="error">{objectsError}</UiInlineMessage>
+                      <UiInlineMessage tone="error">{text(objectsError)}</UiInlineMessage>
                     )}
 
                     <div className={uiTableContainerClass}>
@@ -1472,11 +1472,11 @@ function BucketDetailPageContent({
 
       {pendingConfigurationDelete && (
         <ConfirmActionDialog
-          title={bucketConfigurationDeleteCopy[pendingConfigurationDelete].title}
-          description={bucketConfigurationDeleteCopy[pendingConfigurationDelete].description}
-          confirmLabel={bucketConfigurationDeleteCopy[pendingConfigurationDelete].confirmLabel}
+          title={text(bucketConfigurationDeleteCopy[pendingConfigurationDelete].title)}
+          description={text(bucketConfigurationDeleteCopy[pendingConfigurationDelete].description)}
+          confirmLabel={text(bucketConfigurationDeleteCopy[pendingConfigurationDelete].confirmLabel)}
           details={[{ label: text("Bucket"), value: bucketName ?? text("Unknown"), mono: true }]}
-          impacts={bucketConfigurationDeleteCopy[pendingConfigurationDelete].impacts}
+          impacts={bucketConfigurationDeleteCopy[pendingConfigurationDelete].impacts.map((impact) => text(impact))}
           loading={configurationDeleteLoading}
           onCancel={() => setPendingConfigurationDelete(null)}
           onConfirm={() => void confirmPendingConfigurationDelete()}

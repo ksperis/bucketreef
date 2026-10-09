@@ -284,7 +284,7 @@ export default function InlinePolicyEditor({
           </SettingsButton>
         </div>
         {disabled && <UiInlineMessage tone="warning">{disabledReason ?? text("Select an account before editing inline policies.")}</UiInlineMessage>}
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
         {message && <UiInlineMessage tone="success" className="[overflow-wrap:anywhere]">{message}</UiInlineMessage>}
         <div className="settings-stack">
           <div className="flex flex-wrap items-center justify-between gap-2">
