@@ -417,7 +417,6 @@ export default function ManagerCephKeysPage() {
             loadingMessage={text("Loading keys...")}
             errorMessage={text("Unable to load keys.")}
             emptyMessage={text("No keys.")}
-            tableLayout="fixed"
           />
         </ListPageSection>
       )}
