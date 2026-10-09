@@ -1419,5 +1419,3 @@ export function useManagerI18n() {
     text,
   };
 }
-
-export const managerFrenchCatalog = MANAGER_FR;
