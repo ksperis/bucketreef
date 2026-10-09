@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- **Breaking change:** remove the retired `BUCKET_MIGRATION_WEBHOOK_*` runtime aliases. Configure webhook delivery exclusively with the canonical `WEBHOOK_*` variables; Compose and Helm defaults now use the canonical names.
+
 ## 0.2.14 - 2026-10-06
 
 ### Added
