@@ -68,8 +68,11 @@ describe("ManagerUserKeysPage", () => {
 
     expect(await screen.findByText("AK-MANAGED")).toBeInTheDocument();
     expect(screen.getByText("Private access")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveClass("!table-auto", "!w-max");
     const updateButton = screen.getByTitle("Update the linked private connection instead") as HTMLButtonElement;
     const deleteButton = screen.getByTitle("Delete the linked private connection instead") as HTMLButtonElement;
+    expect(updateButton.closest("td")).toHaveClass("w-px");
+    expect(updateButton.closest("td")).not.toHaveClass("w-64");
     expect(updateButton.disabled).toBe(true);
     expect(deleteButton.disabled).toBe(true);
   });

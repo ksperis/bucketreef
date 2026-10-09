@@ -393,7 +393,6 @@ export default function ManagerUserKeysPage() {
           loadingMessage={text("Loading keys...")}
           errorMessage={text("Unable to load keys.")}
           emptyMessage={text("No keys for this user.")}
-          tableLayout="fixed"
         />
       </ListPageSection>
 
