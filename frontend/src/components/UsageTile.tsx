@@ -31,7 +31,7 @@ export default function UsageTile({
   const { t } = useI18n();
   const hasUsage = typeof used === "number" && !Number.isNaN(used);
   const ratio = quota && quota > 0 && hasUsage ? Math.min(100, (used / quota) * 100) : null;
-  const usedDisplay = hasUsage ? formatter(used) : loading ? t({ en: "Loading...", fr: "Chargement..." }) : "—";
+  const usedDisplay = hasUsage ? formatter(used) : loading ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen...", zh: "正在加载..." }) : "—";
   const quotaDisplay = quota && quota > 0 ? (quotaFormatter ? quotaFormatter(quota) : formatter(quota)) : null;
   const ratioLabel = ratio !== null ? formatPercentage(ratio) : "—";
 
@@ -41,7 +41,7 @@ export default function UsageTile({
         <div className="shrink-0">
           {ratio === null ? (
             <div className={cx("flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-[color:var(--ui-border)] ui-caption font-semibold", uiMutedTextClass)}>
-              {t({ en: "N/A", fr: "N/D" })}
+              {t({ en: "N/A", fr: "N/D", de: "k. A.", zh: "不适用" })}
             </div>
           ) : (
             <UsageGauge ratio={ratio} />
@@ -58,13 +58,13 @@ export default function UsageTile({
               {usedDisplay} / {quotaDisplay} · {ratioLabel}
             </p>
           ) : (
-            <p className={cx("ui-caption", uiMutedTextClass)}>{emptyHint ?? t({ en: "No quota defined.", fr: "Aucun quota défini." })}</p>
+            <p className={cx("ui-caption", uiMutedTextClass)}>{emptyHint ?? t({ en: "No quota defined.", fr: "Aucun quota défini.", de: "Kein Kontingent definiert.", zh: "未定义配额。" })}</p>
           )}
         </div>
       </div>
       <UiMeterBar
         value={ratio ?? 0}
-        label={t({ en: `${label} quota usage`, fr: `Utilisation du quota — ${label}` })}
+        label={t({ en: `${label} quota usage`, fr: `Utilisation du quota — ${label}`, de: `Kontingentnutzung: ${label}`, zh: `${label} 配额使用情况` })}
         className="h-1 bg-[var(--ui-hover)]"
         barClassName={getBarColor(ratio ?? 0)}
       />
@@ -83,7 +83,7 @@ function UsageGauge({ ratio }: { ratio: number }) {
     <div
       className="relative h-16 w-16 rounded-full"
       role="img"
-      aria-label={t({ en: `Usage at ${formatPercentage(clamped)}`, fr: `Utilisation à ${formatPercentage(clamped)}` })}
+      aria-label={t({ en: `Usage at ${formatPercentage(clamped)}`, fr: `Utilisation à ${formatPercentage(clamped)}`, de: `Auslastung bei ${formatPercentage(clamped)}`, zh: `使用率为 ${formatPercentage(clamped)}` })}
       style={{
         background: `conic-gradient(${color} ${angle}deg, ${track} ${angle}deg 360deg)`,
       }}

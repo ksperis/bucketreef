@@ -128,7 +128,7 @@ export default function TopbarWorkspaceSelector({
     }
   };
 
-  const workspaceLabel = t({ en: "Workspace", fr: "Espace de travail" });
+  const workspaceLabel = t({ en: "Workspace", fr: "Espace de travail", de: "Arbeitsbereich", zh: "工作区" });
   const triggerLabel = workspaceSwitcher
     ? compactWorkspaceLabel(workspaceSwitcher.currentWorkspaceLabel, workspaceLabel)
     : compactWorkspaceLabel(section, workspaceLabel);
@@ -154,7 +154,7 @@ export default function TopbarWorkspaceSelector({
         ref={triggerRef}
         type="button"
         onClick={() => setMenuOpen((open) => !open)}
-        aria-label={t({ en: "Switch workspace", fr: "Changer d’espace de travail" })}
+        aria-label={t({ en: "Switch workspace", fr: "Changer d’espace de travail", de: "Arbeitsbereich wechseln", zh: "切换工作区" })}
         aria-haspopup="listbox"
         aria-expanded={menuOpen}
         aria-controls={menuOpen ? listboxId : undefined}

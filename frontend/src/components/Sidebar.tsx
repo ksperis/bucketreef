@@ -206,8 +206,8 @@ export default function Sidebar({
           <button
             type="button"
             onClick={onCollapseToggle}
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
+            aria-label={t({ en: "Expand sidebar", fr: "Développer la barre latérale", de: "Seitenleiste erweitern", zh: "展开侧边栏" })}
+            title={t({ en: "Expand sidebar", fr: "Développer la barre latérale", de: "Seitenleiste erweitern", zh: "展开侧边栏" })}
             className="flex h-10 w-10 items-center justify-center rounded-lg bg-transparent transition-colors hover:bg-[var(--shell-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-sidebar-bg)]"
           >
             <BrandMark className="h-9 w-9" />
@@ -220,8 +220,8 @@ export default function Sidebar({
               <button
                 type="button"
                 onClick={onCollapseToggle}
-                aria-label="Collapse sidebar"
-                title="Collapse sidebar"
+                aria-label={t({ en: "Collapse sidebar", fr: "Réduire la barre latérale", de: "Seitenleiste einklappen", zh: "收起侧边栏" })}
+                title={t({ en: "Collapse sidebar", fr: "Réduire la barre latérale", de: "Seitenleiste einklappen", zh: "收起侧边栏" })}
                 className="shell-sidebar-item ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--shell-muted)] transition-colors hover:text-[var(--shell-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
               >
                 <CollapseIcon className="h-4 w-4" />
@@ -238,7 +238,12 @@ export default function Sidebar({
             ref={navRef}
             className={`shell-sidebar-scroll ${compact ? "shell-sidebar-scroll-compact" : ""} flex min-h-0 flex-1 flex-col overflow-y-auto ${navScrolling ? "shell-sidebar-scroll-active" : ""} ${navSpacingClasses}`}
             onScroll={handleNavScroll}
-            aria-label={`${title} navigation`}
+            aria-label={t({
+              en: `${title} navigation`,
+              fr: `Navigation ${title}`,
+              de: `${title}-Navigation`,
+              zh: `${title} 导航`,
+            })}
           >
             {!compact && headerAction ? <div className="pb-1">{headerAction}</div> : null}
             {effectiveSections.map((section, index) => {

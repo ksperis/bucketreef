@@ -74,10 +74,12 @@ export default function ColumnVisibilityPicker<Id extends string>({
   footerNote,
 }: ColumnVisibilityPickerProps<Id>) {
   const { t } = useI18n();
-  const resolvedTitle = title ?? t({ en: "Visible columns", fr: "Colonnes visibles" });
+  const resolvedTitle = title ?? t({ en: "Visible columns", fr: "Colonnes visibles", de: "Sichtbare Spalten", zh: "可见列" });
   const selectedLabel = t({
     en: `${selectedCount} selected`,
     fr: `${selectedCount} ${selectedCount > 1 ? "sélectionnées" : "sélectionnée"}`,
+    de: `${selectedCount} ausgewählt`,
+    zh: `已选择 ${selectedCount} 项`,
   });
   const detailGroups = (detailGroupsProp ?? EMPTY_DETAIL_GROUPS) as Array<ColumnPickerDetailGroup<Id>>;
   const featureGroups = (featureGroupsProp ?? EMPTY_FEATURE_GROUPS) as Array<ColumnPickerExpandableGroup<Id>>;
@@ -114,9 +116,9 @@ export default function ColumnVisibilityPicker<Id extends string>({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <ListActionButton onClick={onReset} disabled={resetDisabled}>
-            {t({ en: "Reset", fr: "Réinitialiser" })}
+            {t({ en: "Reset", fr: "Réinitialiser", de: "Zurücksetzen", zh: "重置" })}
           </ListActionButton>
-          {onClose ? <ListActionButton onClick={onClose}>{t({ en: "Close", fr: "Fermer" })}</ListActionButton> : null}
+          {onClose ? <ListActionButton onClick={onClose}>{t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" })}</ListActionButton> : null}
         </div>
       </div>
 
@@ -143,7 +145,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
 
         {detailGroups.length > 0 ? (
           <section className={cx(uiCardMutedClass, "p-2.5")}>
-            <p className={cx("mb-2", uiLabelClass)}>{t({ en: "Details", fr: "Détails" })}</p>
+            <p className={cx("mb-2", uiLabelClass)}>{t({ en: "Details", fr: "Détails", de: "Details", zh: "详细信息" })}</p>
             <div className="space-y-1.5">
               {detailGroups.map((group) => {
                 const expanded = expandedGroups[group.id] === true;
@@ -156,7 +158,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
                         onClick={() => toggleGroup(group.id)}
                         aria-expanded={expanded}
                       >
-                        {expanded ? t({ en: "Details ▾", fr: "Détails ▾" }) : t({ en: "Details ▸", fr: "Détails ▸" })}
+                        {expanded ? t({ en: "Details ▾", fr: "Détails ▾", de: "Details ▾", zh: "详细信息 ▾" }) : t({ en: "Details ▸", fr: "Détails ▸", de: "Details ▸", zh: "详细信息 ▸" })}
                       </ListActionButton>
                     </div>
                     {expanded ? (
@@ -183,7 +185,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
 
         {featureGroups.length > 0 ? (
           <section className={cx(uiCardMutedClass, "p-2.5")}>
-            <p className={cx("mb-2", uiLabelClass)}>{t({ en: "Features", fr: "Fonctionnalités" })}</p>
+            <p className={cx("mb-2", uiLabelClass)}>{t({ en: "Features", fr: "Fonctionnalités", de: "Funktionen", zh: "功能" })}</p>
             <div className="space-y-1.5">
               {featureGroups.map((group) => {
                 const expanded = expandedGroups[group.id] === true;
@@ -205,7 +207,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
                           onClick={() => toggleGroup(group.id)}
                           aria-expanded={expanded}
                           >
-                          {expanded ? t({ en: "Details ▾", fr: "Détails ▾" }) : t({ en: "Details ▸", fr: "Détails ▸" })}
+                          {expanded ? t({ en: "Details ▾", fr: "Détails ▾", de: "Details ▾", zh: "详细信息 ▾" }) : t({ en: "Details ▸", fr: "Détails ▸", de: "Details ▸", zh: "详细信息 ▸" })}
                         </ListActionButton>
                       ) : null}
                     </div>

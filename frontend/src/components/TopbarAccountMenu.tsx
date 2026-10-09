@@ -114,7 +114,7 @@ export default function TopbarAccountMenu({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        aria-label={t({ en: `Account actions for ${display}`, fr: `Actions du compte pour ${display}` })}
+        aria-label={t({ en: `Account actions for ${display}`, fr: `Actions du compte pour ${display}`, de: `Kontoaktionen für ${display}`, zh: `${display} 的账户操作` })}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -146,7 +146,7 @@ export default function TopbarAccountMenu({
             id={menuId}
             ref={surfaceRef}
             role="menu"
-            aria-label={t({ en: "Account actions", fr: "Actions du compte" })}
+            aria-label={t({ en: "Account actions", fr: "Actions du compte", de: "Kontoaktionen", zh: "账户操作" })}
             className="shell-menu w-72 rounded-lg border p-1.5"
           >
             <div className="shell-menu-muted mb-1 flex items-center gap-2.5 rounded-md border px-2.5 py-2">
@@ -158,7 +158,7 @@ export default function TopbarAccountMenu({
                 className="border-[var(--shell-surface)] shadow-none"
               />
               <div className="min-w-0 flex-1">
-                <p className="shell-muted-text ui-caption">{t({ en: "Signed in as", fr: "Connecté en tant que" })}</p>
+                <p className="shell-muted-text ui-caption">{t({ en: "Signed in as", fr: "Connecté en tant que", de: "Angemeldet als", zh: "登录身份" })}</p>
                 <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">{name}</p>
                 {name !== display ? (
                   <p className="shell-muted-text truncate ui-caption">{display}</p>
@@ -180,8 +180,8 @@ export default function TopbarAccountMenu({
             >
               <UserIcon className="shell-icon-muted mt-0.5 h-4 w-4" />
               <span>
-                <span className="block ui-caption font-semibold text-[var(--shell-text)]">{t({ en: "User profile", fr: "Profil utilisateur" })}</span>
-                <span className="shell-muted-text block ui-caption">{t({ en: "Personal details and preferences", fr: "Informations personnelles et préférences" })}</span>
+                <span className="block ui-caption font-semibold text-[var(--shell-text)]">{t({ en: "User profile", fr: "Profil utilisateur", de: "Benutzerprofil", zh: "用户资料" })}</span>
+                <span className="shell-muted-text block ui-caption">{t({ en: "Personal details and preferences", fr: "Informations personnelles et préférences", de: "Persönliche Angaben und Einstellungen", zh: "个人信息和偏好设置" })}</span>
               </span>
             </a>
 
@@ -196,9 +196,9 @@ export default function TopbarAccountMenu({
                 <LinkIcon className="shell-icon-muted mt-0.5 h-4 w-4" />
                 <span>
                   <span className="block ui-caption font-semibold text-[var(--shell-text)]">
-                    {t({ en: "Private S3 connections", fr: "Connexions S3 privées" })}
+                    {t({ en: "Private S3 connections", fr: "Connexions S3 privées", de: "Private S3-Verbindungen", zh: "私有 S3 连接" })}
                   </span>
-                  <span className="shell-muted-text block ui-caption">{t({ en: "Manage your endpoints and credentials", fr: "Gérer vos endpoints et identifiants" })}</span>
+                  <span className="shell-muted-text block ui-caption">{t({ en: "Manage your endpoints and credentials", fr: "Gérer vos endpoints et identifiants", de: "Endpunkte und Zugangsdaten verwalten", zh: "管理端点和凭据" })}</span>
                 </span>
               </a>
             )}
@@ -212,7 +212,7 @@ export default function TopbarAccountMenu({
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left ui-caption font-semibold text-primary-700 transition hover:bg-primary-50 dark:text-primary-200 dark:hover:bg-white/[0.06]"
             >
               <LogoutIcon className="h-4 w-4" />
-              <span>{t({ en: "Sign out", fr: "Se déconnecter" })}</span>
+              <span>{t({ en: "Sign out", fr: "Se déconnecter", de: "Abmelden", zh: "退出登录" })}</span>
             </button>
             <div className="shell-muted-text mt-1 border-t border-[color:var(--shell-border-soft)] px-2.5 pt-1.5 text-center">
               <AppVersion />
