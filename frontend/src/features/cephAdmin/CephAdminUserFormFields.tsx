@@ -31,9 +31,10 @@ export function CephAdminUserProfileFields({ values, onChange, maxBucketsError, 
 
 type FlagValues = { suspended: boolean; admin: boolean; system: boolean };
 
-export function CephAdminUserFlags({ values, onChange, children }: {
+export function CephAdminUserFlags({ values, onChange, readOnlyFields = [], children }: {
   values: FlagValues;
   onChange: (field: keyof FlagValues, value: boolean) => void;
+  readOnlyFields?: readonly (keyof FlagValues)[];
   children?: ReactNode;
 }) {
   return (
@@ -41,6 +42,7 @@ export function CephAdminUserFlags({ values, onChange, children }: {
       <div className="settings-fields sm:grid-cols-2">
         {([ ["suspended", "Suspended"], ["admin", "Admin"], ["system", "System"] ] as const).map(([field, label]) => (
           <UiCheckboxField key={field} className="settings-choice" checked={values[field]}
+            disabled={readOnlyFields.includes(field)}
             onChange={(event) => onChange(field, event.target.checked)}>{label}</UiCheckboxField>
         ))}
         {children}
