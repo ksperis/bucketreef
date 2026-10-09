@@ -237,8 +237,8 @@ databases do not reopen bootstrap. Existing-administrator recovery remains a
 separate command and never creates a new first user.
 
 Deploy migration, backend and frontend together. The Admin onboarding response
-now exposes `endpoint_configured`, `storage_access_configured` and `complete`;
-clients using the removed seed-account readiness field must update atomically.
+uses `complete` and the journey list as its setup-state contract; obsolete
+endpoint/storage readiness summary fields are no longer returned.
 
 ## 2026-08 authentication cutover
 

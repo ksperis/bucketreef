@@ -202,8 +202,6 @@ beforeEach(() => {
   status = {
     dismissed: false,
     complete: false,
-    endpoint_configured: true,
-    storage_access_configured: false,
     source: "standard",
     journeys: [],
     can_configure: true,
