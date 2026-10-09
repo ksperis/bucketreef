@@ -415,7 +415,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
         <BucketFeatureEditorList>
           {visibleDraftRules.map(({ rule, index }) => (
             <CorsRuleEditor
-              key={`${typeof rule.ID === "string" ? rule.ID : "rule"}-${index}`}
+              key={`cors-rule-${index}`}
               index={index}
               rule={rule}
               disabled={saving}
