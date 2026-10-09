@@ -11,8 +11,10 @@ import {
   putUserInlinePolicy,
 } from "../../api/managerIamUsers";
 import ManagerEntityPoliciesPage from "./ManagerEntityPoliciesPage";
+import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerUserPoliciesPage() {
+  const { text } = useManagerI18n();
   return (
     <ManagerEntityPoliciesPage
       entityType="user"
@@ -25,7 +27,7 @@ export default function ManagerUserPoliciesPage() {
       deleteInlinePolicyForEntity={deleteUserInlinePolicy}
       extraActions={(entityName) => [
         {
-          label: "Access keys",
+          label: text("Access keys"),
           to: `/manager/users/${encodeURIComponent(entityName)}/keys`,
           variant: "ghost",
         },

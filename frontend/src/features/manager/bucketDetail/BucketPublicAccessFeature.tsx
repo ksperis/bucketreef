@@ -13,6 +13,7 @@ import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketPublicAccessController } from "./useBucketPublicAccessController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketPublicAccessController = ReturnType<typeof useBucketPublicAccessController>;
 
@@ -48,6 +49,7 @@ const publicAccessOptions: {
 ];
 
 export default function BucketPublicAccessFeature({ controller }: BucketPublicAccessFeatureProps) {
+  const { text } = useManagerI18n();
   const [editorOpen, setEditorOpen] = useState(false);
   const {
     config,
@@ -77,11 +79,11 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
   return (
     <>
       <BucketFeatureSection
-        title="Block public access"
-        description="S3 public-access protection flags."
+        title={text("Block public access")}
+        description={text("S3 public-access protection flags.")}
         mode="graphical"
         visualState={visualState}
-        stateLabel={dirty ? undefined : fullyEnabled ? "Enabled" : partiallyEnabled ? "Partial" : "Inactive"}
+        stateLabel={dirty ? undefined : text(fullyEnabled ? "Enabled" : partiallyEnabled ? "Partial" : "Inactive")}
         stateTone={partiallyEnabled ? "warning" : fullyEnabled ? "primary" : "neutral"}
         successMessage={status}
         busy={loading}
@@ -90,7 +92,7 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
         {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
         <div className="bucket-feature-summary-row">
           <div className="bucket-feature-summary-value">
-            <strong>{enabledCount} of 4</strong> protections enabled
+            <strong>{enabledCount} {text("of 4")}</strong> {text("protections enabled")}
           </div>
           <SettingsButton
             type="button"
@@ -98,7 +100,7 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
             onClick={() => setEditorOpen(true)}
             disabled={notImplemented || loading || saving}
           >
-            Edit
+            {text("Edit")}
           </SettingsButton>
         </div>
         <div className="bucket-feature-flags">
@@ -106,7 +108,7 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
             <div key={option.key} className="bucket-feature-flag">
               <span>{option.label}</span>
               <UiBadge tone={config[option.key] ? "primary" : "neutral"}>
-                {config[option.key] ? "On" : "Off"}
+                {text(config[option.key] ? "On" : "Off")}
               </UiBadge>
             </div>
           ))}
@@ -115,7 +117,7 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
 
       {editorOpen ? (
         <BucketFeatureSettingsDialog
-          title="Edit block public access"
+          title={text("Edit block public access")}
           dirty={dirty}
           busy={saving}
           error={error}

@@ -9,6 +9,7 @@ import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { useManagerI18n } from "./managerI18n";
 
 type ManagedPolicySelectionPanelProps = {
   title: string;
@@ -37,6 +38,7 @@ export default function ManagedPolicySelectionPanel({
   onExpandedChange,
   onSelectionChange,
 }: ManagedPolicySelectionPanelProps) {
+  const { text } = useManagerI18n();
   const contentId = useId();
   const filteredPolicies = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -61,7 +63,7 @@ export default function ManagedPolicySelectionPanel({
       <div className="settings-stack">
         <div className="flex flex-wrap items-center justify-end gap-2">
           {selectedPolicyArns.length > 0 && (
-            <span className="settings-description">{selectedPolicyArns.length} selected</span>
+            <span className="settings-description">{selectedPolicyArns.length} {text("selected")}</span>
           )}
           <SettingsButton
             variant="secondary"
@@ -69,7 +71,7 @@ export default function ManagedPolicySelectionPanel({
             aria-controls={contentId}
             onClick={() => onExpandedChange(!expanded)}
           >
-            {expanded ? "Hide" : "Show"}
+            {text(expanded ? "Hide" : "Show")}
           </SettingsButton>
         </div>
         <div id={contentId} hidden={!expanded} className={expanded ? "settings-fields" : undefined}>
@@ -78,14 +80,14 @@ export default function ManagedPolicySelectionPanel({
           ) : (
             <>
               <UiInput
-                label="Search policies"
+                label={text("Search policies")}
                 value={search}
                 onChange={(event) => onSearchChange(event.target.value)}
-                placeholder="Search policies by name or ARN"
+                placeholder={text("Search policies by name or ARN")}
               />
               <div className="grid gap-x-4 sm:grid-cols-2">
                 {filteredPolicies.length === 0 && (
-                  <p className="settings-description">No matching policies.</p>
+                  <p className="settings-description">{text("No matching policies.")}</p>
                 )}
                 {filteredPolicies.map((policy) => (
                   <UiCheckboxField

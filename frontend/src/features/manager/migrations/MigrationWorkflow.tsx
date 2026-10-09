@@ -1,10 +1,12 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { BucketMigrationView } from "../../../api/managerMigrations";
+import { useManagerI18n } from "../managerI18n";
 
 export function MigrationStages({ current }: { current: number }) {
+  const { text } = useManagerI18n();
   return (
     <ol
-      aria-label="Migration stages"
+      aria-label={text("Migration stages")}
       className="flex flex-wrap gap-x-5 gap-y-2 ui-caption"
     >
       {[
@@ -24,7 +26,7 @@ export function MigrationStages({ current }: { current: number }) {
               : "text-[var(--ui-text-muted)]"
           }
         >
-          {index + 1}. {label}
+          {index + 1}. {text(label)}
         </li>
       ))}
     </ol>

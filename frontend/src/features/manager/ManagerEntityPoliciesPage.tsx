@@ -19,6 +19,7 @@ import UiSelect from "../../components/ui/UiSelect";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
+import { useManagerI18n } from "./managerI18n";
 
 type ManagerPolicyEntityType = "user" | "group" | "role";
 
@@ -74,8 +75,8 @@ const ENTITY_CONFIG: Record<ManagerPolicyEntityType, EntityPageConfig> = {
   },
 };
 
-function extractError(err: unknown): string {
-  return extractApiError(err, "Unexpected error");
+function extractError(err: unknown, fallback: string): string {
+  return extractApiError(err, fallback);
 }
 
 export default function ManagerEntityPoliciesPage({
@@ -89,7 +90,10 @@ export default function ManagerEntityPoliciesPage({
   deleteInlinePolicyForEntity,
   extraActions,
 }: ManagerEntityPoliciesPageProps) {
+  const { text } = useManagerI18n();
   const config = ENTITY_CONFIG[entityType];
+  const singularLabel = text(config.singularLabel);
+  const pluralLabel = text(config.pluralLabel);
   const parentPageId = {
     user: "users",
     group: "groups",
@@ -134,11 +138,11 @@ export default function ManagerEntityPoliciesPage({
       const firstFree = allPolicies.find((policy) => !attachedPolicies.some((candidate) => candidate.arn === policy.arn));
       setSelectedArn(firstFree?.arn ?? "");
     } catch (err) {
-      setError(extractError(err));
+      setError(extractError(err, text("Unexpected error")));
     } finally {
       setLoading(false);
     }
-  }, [listPoliciesForEntity]);
+  }, [listPoliciesForEntity, text]);
 
   useEffect(() => {
     if (isS3User) {
@@ -174,9 +178,9 @@ export default function ManagerEntityPoliciesPage({
     try {
       await attachPolicyToEntity(accountIdForApi, rawEntityName, policy);
       await load(accountIdForApi, rawEntityName);
-      setActionMessage("Policy attached");
+      setActionMessage(text("Policy attached"));
     } catch (err) {
-      setError(extractError(err));
+      setError(extractError(err, text("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -190,9 +194,9 @@ export default function ManagerEntityPoliciesPage({
     try {
       await detachPolicyFromEntity(accountIdForApi, rawEntityName, policyArn);
       await load(accountIdForApi, rawEntityName);
-      setActionMessage("Policy detached");
+      setActionMessage(text("Policy detached"));
     } catch (err) {
-      setError(extractError(err));
+      setError(extractError(err, text("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -200,14 +204,14 @@ export default function ManagerEntityPoliciesPage({
 
   const handleDetach = (policyArn: string) => {
     policyConfirmation.requestConfirmation({
-      title: "Detach managed policy?",
-      description: `Remove this managed policy from the selected ${config.singularLabel}.`,
-      confirmLabel: "Detach policy",
+      title: text("Detach managed policy?"),
+      description: text("Remove this managed policy from the selected {entity}.", { entity: singularLabel }),
+      confirmLabel: text("Detach policy"),
       details: [
-        { label: config.singularLabel, value: decodedEntity },
-        { label: "Policy ARN", value: policyArn, mono: true },
+        { label: singularLabel, value: decodedEntity },
+        { label: text("Policy ARN"), value: policyArn, mono: true },
       ],
-      impacts: [`Permissions granted only by this policy will no longer apply to the ${config.singularLabel}.`],
+      impacts: [text("Permissions granted only by this policy will no longer apply to the {entity}.", { entity: singularLabel })],
       onConfirm: () => detachPolicy(policyArn),
     });
   };
@@ -230,23 +234,23 @@ export default function ManagerEntityPoliciesPage({
   if (isS3User) {
     return (
       <PageShell actionPresentation="listing"
-          title={config.title}
-          description={`Attach/detach IAM policies for a specific ${config.singularLabel}.`}
-          breadcrumbs={managerPageBreadcrumbs(parentPageId[entityType], { label: "Policies" })}
+          title={text(config.title)}
+          description={text("Attach/detach IAM policies for a specific {entity}.", { entity: singularLabel })}
+          breadcrumbs={managerPageBreadcrumbs(text, parentPageId[entityType], { label: text("Policies") })}
       >
         <PageBanner tone="info">
-          IAM {config.pluralLabel} are not available for standalone S3 users. Select an S3 Account to continue.
+          {text("IAM {entities} are not available for standalone S3 users. Select an S3 Account to continue.", { entities: pluralLabel })}
         </PageBanner>
       </PageShell>
     );
   }
 
   if (!rawEntityName) {
-    return <div className="ui-body text-slate-600">{`${config.singularLabel[0].toUpperCase()}${config.singularLabel.slice(1)} not specified.`}</div>;
+    return <div className="ui-body text-slate-600">{text("{entity} not specified.", { entity: singularLabel })}</div>;
   }
 
   if (needsS3AccountSelection) {
-    return <div className="ui-body text-slate-600">{`Select an account before managing ${config.pluralLabel}.`}</div>;
+    return <div className="ui-body text-slate-600">{text("Select an account before managing {entities}.", { entities: pluralLabel })}</div>;
   }
 
   const options = available.map((policy) => ({ value: policy.arn, label: policy.name }));
@@ -254,19 +258,19 @@ export default function ManagerEntityPoliciesPage({
   const attachedPolicyColumns: Array<DataTableColumn<IamPolicy>> = [
     {
       id: "policy",
-      label: "Policy",
+      label: text("Policy"),
       primary: true,
       render: (policy) => policy.name,
     },
     {
       id: "arn",
-      label: "ARN",
+      label: text("ARN"),
       cellClassName: "break-all font-mono text-[11px]",
       render: (policy) => policy.arn,
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (policy) => (
@@ -275,7 +279,7 @@ export default function ManagerEntityPoliciesPage({
           onClick={() => handleDetach(policy.arn)}
           disabled={busy === policy.arn}
         >
-          {busy === policy.arn ? "Detaching..." : "Detach"}
+          {text(busy === policy.arn ? "Detaching..." : "Detach")}
         </ListActionButton>
       ),
     },
@@ -285,74 +289,75 @@ export default function ManagerEntityPoliciesPage({
     entityType === "role"
       ? (
         <>
-          Attach/detach policies for role <span className="font-semibold text-slate-700 dark:text-slate-100 [overflow-wrap:anywhere]">{decodedEntity}</span>.
+          {text("Attach/detach policies for role")} <span className="font-semibold text-slate-700 dark:text-slate-100 [overflow-wrap:anywhere]">{decodedEntity}</span>.
         </>
       )
       : (
         <>
-          Attach/detach policies for <span className="font-semibold text-slate-700 dark:text-slate-100 [overflow-wrap:anywhere]">{decodedEntity}</span>.
+          {text("Attach/detach policies for")} <span className="font-semibold text-slate-700 dark:text-slate-100 [overflow-wrap:anywhere]">{decodedEntity}</span>.
         </>
       );
 
   return (
     <PageShell actionPresentation="listing"
-      title={config.title}
+      title={text(config.title)}
       description={detailLine}
       breadcrumbs={managerPageBreadcrumbs(
+        text,
         parentPageId[entityType],
         { label: decodedEntity },
-        { label: "Policies" },
+        { label: text("Policies") },
       )}
       actions={[
-        { label: `← Back to ${config.pluralLabel}`, to: config.managerRoute, variant: "ghost" },
+        { label: text("← Back to {entities}", { entities: pluralLabel }), to: config.managerRoute, variant: "ghost" },
         ...(extraActions?.(decodedEntity) ?? []),
-        { label: "Refresh", onClick: handleRefresh, variant: "ghost" },
+        { label: text("Refresh"), onClick: handleRefresh, variant: "ghost" },
       ]}
     >
 
       {error && <PageBanner tone="error">{error}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {noPoliciesAvailable && (
-        <PageBanner tone="warning">No IAM policies available. Create one before attaching to this {config.singularLabel}.</PageBanner>
+        <PageBanner tone="warning">{text("No IAM policies available. Create one before attaching to this {entity}.", { entity: singularLabel })}</PageBanner>
       )}
 
       <div className="settings-compact settings-stack">
         <InlinePolicyEditor
-          entityLabel={config.singularLabel}
+          entityLabel={singularLabel}
           entityName={decodedEntity}
           loadPolicies={loadInlinePolicies}
           savePolicy={saveInlinePolicy}
           deletePolicy={removeInlinePolicy}
           disabled={needsS3AccountSelection}
-          disabledReason={`Select an account before editing ${config.singularLabel} inline policies.`}
+          disabledReason={text("Select an account before editing {entity} inline policies.", { entity: singularLabel })}
           key={`${config.singularLabel}-inline-${accountIdForApi ?? "none"}-${rawEntityName ?? ""}`}
         />
 
-        <SettingsSection presentation="compact" title="Attached policies" description={`Attach/detach managed policies for this ${config.singularLabel}.`}>
+        <SettingsSection presentation="compact" title={text("Attached policies")} description={text("Attach/detach managed policies for this {entity}.", { entity: singularLabel })}>
           <div className="settings-stack">
-            <form aria-label="Attach managed policy" onSubmit={handleAttach} className="settings-fields">
+            <form aria-label={text("Attach managed policy")} onSubmit={handleAttach} className="settings-fields">
               <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="min-w-0 flex-1">
-                  <UiSelect label="Managed policy" value={selectedArn} onChange={(event) => setSelectedArn(event.target.value)}
+                  <UiSelect label={text("Managed policy")} value={selectedArn} onChange={(event) => setSelectedArn(event.target.value)}
                     disabled={busy !== null || loading}>
-                    <option value="">Select a policy to attach</option>
+                    <option value="">{text("Select a policy to attach")}</option>
                     {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </UiSelect>
                 </div>
                 <SettingsButton type="submit" disabled={busy !== null || loading || !selectedArn}>
-                  {busy === "attach" ? "Attaching..." : "Attach"}
+                  {text(busy === "attach" ? "Attaching..." : "Attach")}
                 </SettingsButton>
               </div>
-              <p className="settings-description">Policies must be created first in the Policies tab.</p>
+              <p className="settings-description">{text("Policies must be created first in the Policies tab.")}</p>
             </form>
             <DataTableShell
               columns={attachedPolicyColumns}
               rows={attached}
               rowKey={(policy) => policy.arn}
               status={tableStatus}
-              loadingMessage="Loading policies..."
-              errorMessage="Unable to load policies."
-              emptyMessage="No attached policies."
+              loadingMessage={text("Loading policies...")}
+              errorMessage={text("Unable to load policies.")}
+              emptyMessage={text("No attached policies.")}
               tableClassName="ui-data-table"
               responsiveCards
             />

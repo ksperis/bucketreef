@@ -5,6 +5,7 @@
 import { type ReactNode, useMemo } from "react";
 import type { ExecutionContext } from "../api/executionContexts";
 import { formatAccountLabel } from "../features/shared/storageEndpointLabel";
+import { useI18n } from "../i18n";
 import { useSelectorTagsPreference } from "../utils/selectorTagsPreference";
 import {
   buildUiTagItems,
@@ -94,6 +95,7 @@ export default function TopbarContextAccountSelector({
   triggerMode = "icon_label",
   showTriggerTags = true,
 }: TopbarContextAccountSelectorProps) {
+  const { t } = useI18n();
   const showSelectorTags = useSelectorTagsPreference();
   const options = useMemo<TopbarDropdownOption[]>(
     () =>
@@ -103,11 +105,11 @@ export default function TopbarContextAccountSelector({
           const description =
             context.kind === "connection"
               ? context.connection_scope === "shared"
-                ? "Shared connection"
-                : "Private connection"
+                ? t({ en: "Shared connection", fr: "Connexion partagée" })
+                : t({ en: "Private connection", fr: "Connexion privée" })
               : context.kind === "s3_user"
-                ? "S3 user identity"
-                : "RGW account";
+                ? t({ en: "S3 user identity", fr: "Identité utilisateur S3" })
+                : t({ en: "RGW account", fr: "Compte RGW" });
           const selectorEntityTags = filterSelectorVisibleUiTags(context.tags);
           const selectorEndpointTags = filterSelectorVisibleUiTags(
             context.endpoint_tags,
@@ -180,6 +182,7 @@ export default function TopbarContextAccountSelector({
       contexts,
       showSelectorTags,
       showTriggerTags,
+      t,
       triggerMode,
     ],
   );
@@ -189,8 +192,8 @@ export default function TopbarContextAccountSelector({
       value={selectedContextId ?? ""}
       options={options}
       onChange={onContextChange}
-      ariaLabel="Select context account"
-      triggerLabel="Account"
+      ariaLabel={t({ en: "Select context account", fr: "Sélectionner le compte du contexte" })}
+      triggerLabel={t({ en: "Account", fr: "Compte" })}
       placeholder={selectedLabel}
       triggerValue={selectedLabel}
       title={identityLabel ?? undefined}
@@ -198,18 +201,18 @@ export default function TopbarContextAccountSelector({
       menuHeader={
         <div className="shell-menu-muted rounded-md border px-2.5 py-2">
           <p className="shell-muted-text ui-caption uppercase">
-            Current IAM identity
+            {t({ en: "Current IAM identity", fr: "Identité IAM actuelle" })}
           </p>
           <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">
-            {identityLabel ?? "Not available for this context"}
+            {identityLabel ?? t({ en: "Not available for this context", fr: "Non disponible pour ce contexte" })}
           </p>
         </div>
       }
       search={{
         threshold: searchThreshold,
-        ariaLabel: "Search accounts",
-        placeholder: "Search account...",
-        emptyMessage: "No account matches your search.",
+        ariaLabel: t({ en: "Search accounts", fr: "Rechercher des comptes" }),
+        placeholder: t({ en: "Search account...", fr: "Rechercher un compte..." }),
+        emptyMessage: t({ en: "No account matches your search.", fr: "Aucun compte ne correspond à votre recherche." }),
       }}
       icon={icon}
       openInPortal={openInPortal}

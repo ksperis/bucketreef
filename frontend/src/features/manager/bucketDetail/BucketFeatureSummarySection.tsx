@@ -8,6 +8,7 @@ import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import BucketFeatureSection from "./BucketFeatureSection";
 import type { BucketFeatureMode, BucketFeatureVisualState } from "./bucketFeatureState";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketFeatureSummarySectionProps = {
   title: string;
@@ -34,7 +35,7 @@ export default function BucketFeatureSummarySection({
   mode = "hybrid",
   metadata,
   loading = false,
-  loadingMessage = "Loading configuration...",
+  loadingMessage,
   error,
   successMessage,
   editDisabled = false,
@@ -44,6 +45,7 @@ export default function BucketFeatureSummarySection({
   children,
   testId,
 }: BucketFeatureSummarySectionProps) {
+  const { text } = useManagerI18n();
   return (
     <BucketFeatureSection
       title={title}
@@ -68,14 +70,14 @@ export default function BucketFeatureSummarySection({
             onClick={onEdit}
             disabled={loading || Boolean(error) || editDisabled || visualState === "disabled"}
           >
-            {editLabel ?? (visualState === "neutral" ? "Configure" : "Edit")}
+            {editLabel ?? text(visualState === "neutral" ? "Configure" : "Edit")}
           </SettingsButton>
           {primaryAction}
         </>
       }
     >
       {loading ? (
-        <UiInlineMessage>{loadingMessage}</UiInlineMessage>
+        <UiInlineMessage>{loadingMessage ?? text("Loading configuration...")}</UiInlineMessage>
       ) : error ? (
         <UiInlineMessage tone="error">{error}</UiInlineMessage>
       ) : (

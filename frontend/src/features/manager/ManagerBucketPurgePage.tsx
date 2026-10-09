@@ -13,8 +13,10 @@ import BucketPurgeRunModal from "../shared/BucketPurgeRunModal";
 import ManagerBucketSelectionPanel from "./ManagerBucketSelectionPanel";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerBucketSelection } from "./useManagerBucketSelection";
+import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerBucketPurgePage() {
+  const { text } = useManagerI18n();
   const {
     clearSelection,
     error,
@@ -36,32 +38,34 @@ export default function ManagerBucketPurgePage() {
   return (
     <div className={workflowPageHostClass(showPurgeModal)}>
       <PageHeader
-        title="Bucket purge"
-        description="Empty selected buckets without deleting bucket configuration."
-        breadcrumbs={managerPageBreadcrumbs("purge")}
+        title={text("Bucket purge")}
+        description={text("Empty selected buckets without deleting bucket configuration.")}
+        breadcrumbs={managerPageBreadcrumbs(text, "purge")}
       />
 
       {error && <PageBanner tone="error">{error}</PageBanner>}
 
       {!requiresS3AccountSelection ? (
         <PageEmptyState
-          title="Bucket purge is unavailable in session mode"
-          description="This tool needs a persistent execution context so the selected buckets can be purged with the same manager identity."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          title={text("Bucket purge is unavailable in session mode")}
+          description={text("This tool needs a persistent execution context so the selected buckets can be purged with the same manager identity.")}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : !sourceContextId ? (
         <PageEmptyState
-          title="Select a context before purging buckets"
-          description="Choose a manager execution context to load its buckets and launch a purge."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select a context before purging buckets")}
+          description={text("Choose a manager execution context to load its buckets and launch a purge.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : (
         <ManagerBucketSelectionPanel
-          description={`${sourceContext ? sourceContext.display_name : "Source context"} - Select buckets to purge.`}
+          description={text("{context} · Select buckets to purge.", {
+            context: sourceContext ? sourceContext.display_name : text("Source context"),
+          })}
           filter={filter}
-          filterPlaceholder="Filter buckets"
+          filterPlaceholder={text("Filter buckets")}
           onFilterChange={setFilter}
           buckets={filteredBuckets}
           selectedBuckets={selectedBuckets}
@@ -69,9 +73,9 @@ export default function ManagerBucketPurgePage() {
           onSelectFiltered={selectAllFiltered}
           onClearSelection={clearSelection}
           tableStatus={tableStatus}
-          loadingMessage="Loading buckets..."
-          errorMessage="Unable to load buckets."
-          emptyMessage="No buckets."
+          loadingMessage={text("Loading buckets...")}
+          errorMessage={text("Unable to load buckets.")}
+          emptyMessage={text("No buckets.")}
           action={
             <UiButton
               type="button"
@@ -80,7 +84,7 @@ export default function ManagerBucketPurgePage() {
               variant="danger"
               size="sm"
             >
-              Purge selected ({selectedBuckets.size})
+              {text("Purge selected (")}{selectedBuckets.size})
             </UiButton>
           }
         />

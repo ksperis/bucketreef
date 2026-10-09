@@ -16,6 +16,7 @@ import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketWebsiteController } from "./useBucketWebsiteController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketWebsiteController = ReturnType<typeof useBucketWebsiteController>;
 
@@ -44,6 +45,7 @@ export default function BucketWebsiteFeature({
   controller,
   onRequestDelete,
 }: BucketWebsiteFeatureProps) {
+  const { text } = useManagerI18n();
   const [showRoutingRulesExample, setShowRoutingRulesExample] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const {
@@ -85,11 +87,11 @@ export default function BucketWebsiteFeature({
   return (
     <>
       <BucketFeatureSection
-        title="Static website"
-        description="Host website content directly from this bucket."
+        title={text("Static website")}
+        description={text("Host website content directly from this bucket.")}
         mode="hybrid"
         visualState={visualState}
-        stateLabel={dirty || blocked || notImplemented ? undefined : configured ? "Enabled" : "Inactive"}
+        stateLabel={dirty || blocked || notImplemented ? undefined : text(configured ? "Enabled" : "Inactive")}
         successMessage={status}
         busy={loading}
         testId="bucket-feature-website"
@@ -104,13 +106,13 @@ export default function BucketWebsiteFeature({
                   <>
                     <strong>{indexDocument || "Index document"}</strong>
                     {errorDocument ? ` · ${errorDocument}` : ""}
-                    <div className="bucket-feature-summary-muted">Website hosting</div>
+                    <div className="bucket-feature-summary-muted">{text("Website hosting")}</div>
                   </>
                 ) : (
                   <>
                     <strong>{redirectHost}</strong>
                     <div className="bucket-feature-summary-muted">
-                      Redirect all requests{redirectProtocol ? ` · ${redirectProtocol}` : ""}
+                      {text("Redirect all requests")}{redirectProtocol ? ` · ${redirectProtocol}` : ""}
                     </div>
                   </>
                 )
@@ -124,7 +126,7 @@ export default function BucketWebsiteFeature({
               onClick={() => setEditorOpen(true)}
               disabled={editorDisabled}
             >
-              {configured ? "Edit" : "Configure"}
+              {text(configured ? "Edit" : "Configure")}
             </SettingsButton>
           </div>
         ) : null}
@@ -132,7 +134,7 @@ export default function BucketWebsiteFeature({
 
       {editorOpen ? (
         <BucketFeatureSettingsDialog
-          title="Edit static website"
+          title={text("Edit static website")}
           dirty={dirty}
           busy={saving || clearing}
           error={error}
@@ -146,17 +148,17 @@ export default function BucketWebsiteFeature({
               disabled={notImplemented || clearing || blocked || !configured}
               variant="danger"
             >
-              {clearing ? "Deleting..." : "Delete"}
+              {text(clearing ? "Deleting..." : "Delete")}
             </SettingsButton>
           }
         >
           <fieldset className="space-y-2">
-            <legend className="settings-label">Website mode</legend>
+            <legend className="settings-label">{text("Website mode")}</legend>
             <SettingsChoiceRow
               type="radio"
               name={`website-mode-${bucketName}`}
-              title="Host a website"
-              description="Serve index and error documents from this bucket."
+              title={text("Host a website")}
+              description={text("Serve index and error documents from this bucket.")}
               checked={mode === "hosting"}
               onChange={() => updateMode("hosting")}
               disabled={editorDisabled}
@@ -164,8 +166,8 @@ export default function BucketWebsiteFeature({
             <SettingsChoiceRow
               type="radio"
               name={`website-mode-${bucketName}`}
-              title="Redirect all requests"
-              description="Point every request to another host or domain."
+              title={text("Redirect all requests")}
+              description={text("Point every request to another host or domain.")}
               checked={mode === "redirect"}
               onChange={() => updateMode("redirect")}
               disabled={editorDisabled}
@@ -176,25 +178,25 @@ export default function BucketWebsiteFeature({
             <div className="space-y-3">
               <div className={twoColumnGridClass}>
                 <SettingsAutocomplete
-                  label="Index document"
+                  label={text("Index document")}
                   value={indexDocument}
                   onChange={updateIndexDocument}
-                  placeholder="index.html"
+                  placeholder={text("index.html")}
                   disabled={editorDisabled}
                   {...objectKeys}
                 />
                 <SettingsAutocomplete
-                  label="Error document (optional)"
+                  label={text("Error document (optional)")}
                   value={errorDocument}
                   onChange={updateErrorDocument}
-                  placeholder="error.html"
+                  placeholder={text("error.html")}
                   disabled={editorDisabled}
                   {...objectKeys}
                 />
               </div>
               <div className="space-y-2">
                 <SettingsJsonEditor
-                  label="Routing rules (JSON array)"
+                  label={text("Routing rules (JSON array)")}
                   value={routingRules}
                   onChange={updateRoutingRules}
                   rows={6}
@@ -215,25 +217,25 @@ export default function BucketWebsiteFeature({
           ) : (
             <div className={twoColumnGridClass}>
               <SettingsInput
-                label="Redirect hostname"
+                label={text("Redirect hostname")}
                 type="text"
                 value={redirectHost}
                 onChange={(event) => updateRedirectHost(event.target.value)}
-                placeholder="www.example.com"
+                placeholder={text("www.example.com")}
                 disabled={editorDisabled}
               />
               <SettingsSelect
-                label="Protocol (optional)"
+                label={text("Protocol (optional)")}
                 value={redirectProtocol}
                 onChange={(event) => updateRedirectProtocol(event.target.value)}
                 disabled={editorDisabled}
               >
-                <option value="">Provider default</option>
-                <option value="http">http</option>
-                <option value="https">https</option>
+                <option value="">{text("Provider default")}</option>
+                <option value="http">{text("http")}</option>
+                <option value="https">{text("https")}</option>
               </SettingsSelect>
               <p className="md:col-span-2 ui-caption text-slate-500 dark:text-slate-400">
-                All requests will redirect to the host above. Index and routing rules are ignored.
+                {text("All requests will redirect to the host above. Index and routing rules are ignored.")}
               </p>
             </div>
           )}

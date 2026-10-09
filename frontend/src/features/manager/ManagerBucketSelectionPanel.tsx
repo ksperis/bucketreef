@@ -11,6 +11,7 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { ListTableStatus } from "../../components/list/listTableStatus";
 
 import UiInput from "../../components/ui/UiInput";
+import { useManagerI18n } from "./managerI18n";
 
 type ManagerBucketSelectionPanelProps = {
   className?: string;
@@ -49,32 +50,33 @@ export default function ManagerBucketSelectionPanel({
   errorMessage,
   emptyMessage,
 }: ManagerBucketSelectionPanelProps) {
+  const { text } = useManagerI18n();
   const columns: Array<DataTableColumn<Bucket>> = [
     {
       id: "select",
-      label: "Select",
-      header: <span className="sr-only">Select</span>,
+      label: text("Select"),
+      header: <span className="sr-only">{text("Select")}</span>,
       headerClassName: "w-12",
       cellClassName: "w-12",
-      mobileLabel: "Select",
+      mobileLabel: text("Select"),
       render: (bucket) => (
         <ListSelectionCheckbox
-          aria-label={`Select ${bucket.name}`}
+          aria-label={text("Select {bucket}", { bucket: bucket.name })}
           checked={selectedBuckets.has(bucket.name)}
           onChange={() => onToggleBucket(bucket.name)}
         />
       ),
     },
-    { id: "bucket", label: "Bucket", primary: true, mobileRole: "primary", render: (bucket) => bucket.name },
+    { id: "bucket", label: text("Bucket"), primary: true, mobileRole: "primary", render: (bucket) => bucket.name },
   ];
 
   return (
     <div className={className}>
       <ListToolbar
-        title="Buckets"
+        title={text("Buckets")}
         description={description}
         variant="section"
-        countLabel={countLabel ?? `${buckets.length} result(s)`}
+        countLabel={countLabel ?? text(buckets.length === 1 ? "{count} result" : "{count} results", { count: buckets.length })}
         search={
           <UiInput
             type="search"
@@ -95,7 +97,7 @@ export default function ManagerBucketSelectionPanel({
               variant="secondary"
 
             >
-              Select filtered
+              {text("Select filtered")}
             </ListActionButton>
             <ListActionButton
               type="button"
@@ -104,7 +106,7 @@ export default function ManagerBucketSelectionPanel({
               variant="secondary"
 
             >
-              Clear
+              {text("Clear")}
             </ListActionButton>
           </>
         }

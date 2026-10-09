@@ -22,6 +22,7 @@ import type {
   SettingsAutocompleteSuggestion,
   SettingsSuggestionSource,
 } from "../../../components/settings/SettingsAutocomplete";
+import { useManagerI18n } from "../managerI18n";
 
 const knownStorageClasses = [
   "STANDARD",
@@ -216,6 +217,7 @@ export function BucketFeatureSuggestionsProvider({
   topicsEnabled: boolean;
   children: ReactNode;
 }) {
+  const { text } = useManagerI18n();
   const generationRef = useRef(0);
   const objectCacheRef = useRef(new Map<string, Promise<ObjectListingShape>>());
   const managerBucketsRef = useRef<Promise<string[]> | null>(null);
@@ -292,11 +294,11 @@ export function BucketFeatureSuggestionsProvider({
       return listing.prefixes.map((prefix) => ({
         value: prefix,
         label: prefix,
-        description: "Prefix found in this bucket",
+        description: text("Prefix found in this bucket"),
         source: "Bucket",
       }));
     },
-    [loadObjectListing],
+    [loadObjectListing, text],
   );
 
   const loadObjectKeySuggestions = useCallback(
@@ -305,11 +307,11 @@ export function BucketFeatureSuggestionsProvider({
       return listing.objects.map((object) => ({
         value: object.key,
         label: object.key,
-        description: "Object found in this bucket",
+        description: text("Object found in this bucket"),
         source: "Bucket",
       }));
     },
-    [loadObjectListing],
+    [loadObjectListing, text],
   );
 
   const loadBucketNames = useCallback(
@@ -394,10 +396,10 @@ export function BucketFeatureSuggestionsProvider({
   const policyResourceSuggestions = useMemo<SettingsAutocompleteSuggestion[]>(() => {
     if (!bucketName) return [];
     return [
-      { value: `arn:aws:s3:::${bucketName}`, description: "Bucket", source: "Bucket" },
-      { value: `arn:aws:s3:::${bucketName}/*`, description: "All objects", source: "Bucket" },
+      { value: `arn:aws:s3:::${bucketName}`, description: text("Bucket"), source: "Bucket" },
+      { value: `arn:aws:s3:::${bucketName}/*`, description: text("All objects"), source: "Bucket" },
     ];
-  }, [bucketName]);
+  }, [bucketName, text]);
 
   const loadPolicyResourceSuggestions = useCallback(
     async (query: string) => {
@@ -416,11 +418,11 @@ export function BucketFeatureSuggestionsProvider({
       return listing.prefixes.map((prefix) => ({
         value: `${resourceRoot}${prefix}*`,
         label: prefix,
-        description: "Objects under this prefix",
+        description: text("Objects under this prefix"),
         source: "Bucket",
       }));
     },
-    [bucketName, loadObjectListing],
+    [bucketName, loadObjectListing, text],
   );
 
   const storageClassSuggestions = useMemo(

@@ -13,6 +13,7 @@ import { extractApiError } from "../../utils/apiError";
 import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
 import { equalSettings } from "../../components/settings/useSettingsDraft";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
+import { useManagerI18n } from "./managerI18n";
 
 type AttributeDraft = {
   uiId: string;
@@ -100,6 +101,7 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
   onSaved: (configuration: Record<string, unknown>) => void;
   onClose: () => void;
 }) {
+  const { text } = useManagerI18n();
   const sslHintId = useId();
   const load = useCallback(async () => configurationDraft((await getTopicConfiguration(accountId, topic.arn)).configuration ?? {}), [accountId, topic.arn]);
   const { draft, baseline, setDraft, accept, loading, loadError, retry } = useSettingsRemoteDraft(() => configurationDraft(topic.configuration), load, "Unable to load topic settings.");
@@ -144,13 +146,13 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
       const hasValue = rawValue.trim().length > 0;
       if (!key) {
         if (hasValue) {
-          setError("Attribute name is required when a value is provided.");
+          setError(text("Attribute name is required when a value is provided."));
           return;
         }
         continue;
       }
       if (PRIMARY_ATTRIBUTE_KEYS.has(key)) {
-        setError("Use the dedicated fields for push-endpoint and verify-ssl.");
+        setError(text("Use the dedicated fields for push-endpoint and verify-ssl."));
         return;
       }
       if (seenKeys.has(key)) {
@@ -173,29 +175,29 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
       accept(configurationDraft(next));
       onSaved(next);
       setStatus("Attributes updated.");
-    } catch (error) { setError(extractApiError(error, "Unable to update topic attributes.")); }
+    } catch (error) { setError(extractApiError(error, text("Unable to update topic attributes."))); }
     finally { setSaving(false); }
   };
   return <SettingsWorkflowForm title={`Topic attributes · ${topic.name}`}
-    description="Configure notification delivery and provider-specific SNS attributes."
-    breadcrumbs={managerPageBreadcrumbs("topics", { label: "Attributes" })} backLabel="Back to topics"
+    description={text("Configure notification delivery and provider-specific SNS attributes.")}
+    breadcrumbs={managerPageBreadcrumbs(text, "topics", { label: text("Attributes") })} backLabel={text("Back to topics")}
     dirty={dirty && !loading && !loadError} busy={saving} loading={loading} disabled={Boolean(loadError)}
-    error={loadError || error} submitLabel="Save attributes" onSubmit={save} onClose={onClose}>
-    {loading && <p role="status" className="settings-description">Loading topic attributes...</p>}
-    {loadError && <div><SettingsButton variant="secondary" onClick={retry}>Retry loading</SettingsButton></div>}
+    error={loadError || error} submitLabel={text("Save attributes")} onSubmit={save} onClose={onClose}>
+    {loading && <p role="status" className="settings-description">{text("Loading topic attributes...")}</p>}
+    {loadError && <div><SettingsButton variant="secondary" onClick={retry}>{text("Retry loading")}</SettingsButton></div>}
     {status && <UiInlineMessage tone="success" role="status">{status}</UiInlineMessage>}
-    <SettingsSection title="Notification delivery" presentation="compact">
+    <SettingsSection title={text("Notification delivery")} presentation="compact">
       <div className="settings-fields">
         <UiInput
-          label="Push endpoint URL"
+          label={text("Push endpoint URL")}
           value={draft.pushEndpointValue}
           onChange={(event) => {
             setStatus(null);
             setError(null);
             setDraft(value => ({ ...value, pushEndpointValue: event.target.value }));
           }}
-          placeholder="https://example.com/webhook"
-          hint="Provide the HTTPS endpoint that should receive SNS push notifications."
+          placeholder={text("https://example.com/webhook")}
+          hint={text("Provide the HTTPS endpoint that should receive SNS push notifications.")}
           disabled={fieldsDisabled}
         />
         <div>
@@ -210,45 +212,45 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
             }}
             disabled={fieldsDisabled}
           >
-            Verify SSL certificates
+            {text("Verify SSL certificates")}
           </UiCheckboxField>
           <p id={sslHintId} className="settings-description">
-            Disable verification only when testing against endpoints that use self-signed certificates.
+            {text("Disable verification only when testing against endpoints that use self-signed certificates.")}
           </p>
         </div>
       </div>
     </SettingsSection>
     <SettingsSection
-      title="Additional attributes"
-      description="Paste JSON for object/array values; remove a row to clear an attribute."
+      title={text("Additional attributes")}
+      description={text("Paste JSON for object/array values; remove a row to clear an attribute.")}
       presentation="compact"
     >
       <div className="settings-stack">
         <div>
           <SettingsButton variant="secondary" onClick={handleAddAttribute} disabled={fieldsDisabled}>
-            Add attribute
+            {text("Add attribute")}
           </SettingsButton>
         </div>
         {draft.attributeItems.length === 0 ? (
-          <p className="settings-description">No additional attributes defined.</p>
+          <p className="settings-description">{text("No additional attributes defined.")}</p>
         ) : (
           draft.attributeItems.map((item, index) => (
             <div key={item.uiId} className="settings-fields items-end md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
               <UiInput
-                label="Attribute name"
+                label={text("Attribute name")}
                 aria-label={`Attribute name ${index + 1}`}
                 value={item.key}
                 onChange={(event) => handleAttributeKeyChange(item.uiId, event.target.value)}
-                placeholder="attribute-key"
+                placeholder={text("attribute-key")}
                 disabled={fieldsDisabled}
               />
               <UiInput
-                label="Value"
+                label={text("Value")}
                 aria-label={`Attribute value ${index + 1}`}
                 value={item.value}
                 onChange={(event) => handleAttributeValueChange(item.uiId, event.target.value)}
                 className="font-mono"
-                placeholder='value or JSON ({"key":"value"})'
+                placeholder={text("value or JSON ({\"key\":\"value\"})")}
                 disabled={fieldsDisabled}
               />
               <SettingsButton
@@ -257,7 +259,7 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
                 onClick={() => handleRemoveAttribute(item.uiId)}
                 disabled={fieldsDisabled}
               >
-                Remove
+                {text("Remove")}
               </SettingsButton>
             </div>
           ))

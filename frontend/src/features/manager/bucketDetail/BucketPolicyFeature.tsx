@@ -46,6 +46,7 @@ import {
   type PolicyVisualStatementPatch,
 } from "./policyEditorModel";
 import type { useBucketPolicyController } from "./useBucketPolicyController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketPolicyController = ReturnType<typeof useBucketPolicyController>;
 
@@ -69,6 +70,7 @@ function NewConditionEditor({
   existing: PolicyConditionEntry[];
   onAdd: (operator: string, key: string, values: string[]) => void;
 }) {
+  const { text } = useManagerI18n();
   const [operator, setOperator] = useState("");
   const [key, setKey] = useState("");
   const [values, setValues] = useState("");
@@ -83,27 +85,27 @@ function NewConditionEditor({
 
   return (
     <BucketFeatureEditorGroup>
-      <p className="settings-label">Add condition</p>
+      <p className="settings-label">{text("Add condition")}</p>
       <div className="grid gap-3 md:grid-cols-2">
         <SettingsAutocomplete
-          label="Operator"
+          label={text("Operator")}
           value={operator}
-          placeholder="StringEquals"
+          placeholder={text("StringEquals")}
           onChange={setOperator}
           disabled={disabled}
           {...conditionOperators}
         />
         <SettingsAutocomplete
-          label="Condition key"
+          label={text("Condition key")}
           value={key}
-          placeholder="aws:SourceIp"
+          placeholder={text("aws:SourceIp")}
           onChange={setKey}
           disabled={disabled}
           {...conditionKeys}
         />
       </div>
       <UiTextarea
-        label="Values (one per line)"
+        label={text("Values (one per line)")}
         rows={3}
         value={values}
         onChange={(event) => setValues(event.target.value)}
@@ -112,7 +114,7 @@ function NewConditionEditor({
       />
       {duplicate ? (
         <p className="settings-description text-amber-700 dark:text-amber-300">
-          This condition already exists. Edit its values above.
+          {text("This condition already exists. Edit its values above.")}
         </p>
       ) : null}
       <SettingsButton
@@ -126,7 +128,7 @@ function NewConditionEditor({
           setValues("");
         }}
       >
-        Add condition
+        {text("Add condition")}
       </SettingsButton>
     </BucketFeatureEditorGroup>
   );
@@ -149,6 +151,7 @@ function PolicyStatementEditor({
   onConditionChange: (operator: string, key: string, values: string[]) => void;
   onConditionRemove: (operator: string, key: string) => void;
 }) {
+  const { text } = useManagerI18n();
   const editable = isPolicyStatementVisuallyEditable(statement);
   const label = policyStatementSid(statement, index);
   const { policyActions, policyResources } = useBucketFeatureSuggestions();
@@ -163,7 +166,7 @@ function PolicyStatementEditor({
               {policyStatementEffect(statement)} · {policyPrincipalSummary(statement.Principal)} · {policyValueSummary(statement.Action)}
             </p>
           </div>
-          <UiBadge tone="warning">Advanced statement — edit in JSON</UiBadge>
+          <UiBadge tone="warning">{text("Advanced statement — edit in JSON")}</UiBadge>
         </div>
       </BucketFeatureEditorItem>
     );
@@ -177,33 +180,33 @@ function PolicyStatementEditor({
     <BucketFeatureEditorItem testId="policy-visual-statement">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="settings-label">Statement {index + 1}</p>
+          <p className="settings-label">{text("Statement")} {index + 1}</p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
-          Remove statement
+          {text("Remove statement")}
         </SettingsButton>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
         <SettingsInput
-          label="Sid"
+          label={text("Sid")}
           value={draft.sid}
-          placeholder="ReadObjects"
+          placeholder={text("ReadObjects")}
           onChange={(event) => onChange({ sid: event.target.value })}
           disabled={disabled}
         />
         <SettingsSelect
-          label="Effect"
+          label={text("Effect")}
           value={draft.effect}
           onChange={(event) => onChange({ effect: event.target.value as PolicyVisualStatementPatch["effect"] })}
           disabled={disabled}
         >
-          <option value="">Select effect</option>
-          <option value="Allow">Allow</option>
-          <option value="Deny">Deny</option>
+          <option value="">{text("Select effect")}</option>
+          <option value="Allow">{text("Allow")}</option>
+          <option value="Deny">{text("Deny")}</option>
         </SettingsSelect>
         <SettingsSelect
-          label="Principal type"
+          label={text("Principal type")}
           value={draft.principalMode}
           onChange={(event) => {
             const principalMode = event.target.value as PolicyPrincipalMode;
@@ -216,19 +219,19 @@ function PolicyStatementEditor({
           }}
           disabled={disabled}
         >
-          <option value="any">Any principal (*)</option>
-          <option value="AWS">AWS</option>
-          <option value="Service">Service</option>
-          <option value="Federated">Federated</option>
-          <option value="CanonicalUser">Canonical user</option>
-          <option value="direct">Direct string</option>
-          <option value="none">No principal</option>
+          <option value="any">{text("Any principal (*)")}</option>
+          <option value="AWS">{text("AWS")}</option>
+          <option value="Service">{text("Service")}</option>
+          <option value="Federated">{text("Federated")}</option>
+          <option value="CanonicalUser">{text("Canonical user")}</option>
+          <option value="direct">{text("Direct string")}</option>
+          <option value="none">{text("No principal")}</option>
         </SettingsSelect>
       </div>
 
       {principalNeedsValues ? (
         <UiTextarea
-          label={draft.principalMode === "direct" ? "Principal" : "Principal values (one per line)"}
+          label={draft.principalMode === "direct" ? text("Principal") : text("Principal values (one per line)")}
           rows={draft.principalMode === "direct" ? 2 : 3}
           value={principalValues}
           onChange={(event) => onChange({
@@ -244,27 +247,27 @@ function PolicyStatementEditor({
       <div className="grid gap-3 md:grid-cols-2">
         <BucketFeatureEditorGroup>
           <SettingsMultiValueAutocomplete
-            label="Actions"
+            label={text("Actions")}
             itemLabel="action"
             inputLabel="Add action"
             values={draft.actions}
             onChange={(actions) => onChange({ actions })}
-            placeholder="s3:GetObject"
+            placeholder={text("s3:GetObject")}
             disabled={disabled}
-            description="Choose common S3 actions or enter any action supported by the endpoint."
+            description={text("Choose common S3 actions or enter any action supported by the endpoint.")}
             {...policyActions}
           />
         </BucketFeatureEditorGroup>
         <BucketFeatureEditorGroup>
           <SettingsMultiValueAutocomplete
-            label="Resources"
+            label={text("Resources")}
             itemLabel="resource"
             inputLabel="Add resource"
             values={draft.resources}
             onChange={(resources) => onChange({ resources })}
-            placeholder="arn:aws:s3:::bucket/*"
+            placeholder={text("arn:aws:s3:::bucket/*")}
             disabled={disabled}
-            description="Use this bucket, one of its prefixes, or enter another valid resource ARN."
+            description={text("Use this bucket, one of its prefixes, or enter another valid resource ARN.")}
             {...policyResources}
           />
         </BucketFeatureEditorGroup>
@@ -272,13 +275,13 @@ function PolicyStatementEditor({
 
       <div className="space-y-3">
         <div>
-          <p className="settings-label">Conditions</p>
+          <p className="settings-label">{text("Conditions")}</p>
           <p className="settings-description">
-            String or string-list condition values are editable here. Other condition structures remain JSON-only.
+            {text("String or string-list condition values are editable here. Other condition structures remain JSON-only.")}
           </p>
         </div>
         {draft.conditions.length === 0 ? (
-          <p className="settings-description">No conditions on this statement.</p>
+          <p className="settings-description">{text("No conditions on this statement.")}</p>
         ) : (
           draft.conditions.map((condition) => (
             <div
@@ -310,7 +313,7 @@ function PolicyStatementEditor({
                 onClick={() => onConditionRemove(condition.operator, condition.key)}
                 disabled={disabled}
               >
-                Remove
+                {text("Remove")}
               </SettingsButton>
             </div>
           ))
@@ -328,6 +331,7 @@ function PolicyStatementEditor({
 export default function BucketPolicyFeature({
   controller,
 }: BucketPolicyFeatureProps) {
+  const { text } = useManagerI18n();
   const {
     addDraftStatement,
     closeEditor,
@@ -373,26 +377,27 @@ export default function BucketPolicyFeature({
     [statements],
   );
   const draftStatements = useMemo(() => policyStatements(draftPolicy), [draftPolicy]);
-  const metadata = configured
-    ? `${statementCount} ${statementCount === 1 ? "statement" : "statements"}`
-    : "0 statements";
+  const metadata = text("{count} {statementLabel}", {
+    count: configured ? statementCount : 0,
+    statementLabel: text(configured && statementCount === 1 ? "statement" : "statements"),
+  });
   const summaryColumns: Array<DataTableColumn<PolicySummaryRow>> = [
     {
       id: "sid",
-      label: "Statement",
+      label: text("Statement"),
       primary: true,
       headerClassName: "min-w-40",
       cellClassName: "min-w-40",
       render: ({ statement, index }) => (
         <div className="flex flex-wrap items-center gap-2">
           <span className="break-all">{policyStatementSid(statement, index)}</span>
-          {!isPolicyStatementVisuallyEditable(statement) ? <UiBadge tone="warning">Advanced</UiBadge> : null}
+          {!isPolicyStatementVisuallyEditable(statement) ? <UiBadge tone="warning">{text("Advanced")}</UiBadge> : null}
         </div>
       ),
     },
     {
       id: "effect",
-      label: "Effect",
+      label: text("Effect"),
       headerClassName: "w-px whitespace-nowrap",
       cellClassName: "w-px whitespace-nowrap",
       render: ({ statement }) => {
@@ -406,28 +411,28 @@ export default function BucketPolicyFeature({
     },
     {
       id: "principal",
-      label: "Principal",
+      label: text("Principal"),
       headerClassName: "min-w-48",
       cellClassName: "min-w-48 break-all",
       render: ({ statement }) => policyPrincipalSummary(statement.Principal),
     },
     {
       id: "action",
-      label: "Actions",
+      label: text("Actions"),
       headerClassName: "min-w-52",
       cellClassName: "min-w-52 break-all",
       render: ({ statement }) => policyValueSummary(statement.Action),
     },
     {
       id: "resource",
-      label: "Resources",
+      label: text("Resources"),
       headerClassName: "min-w-64",
       cellClassName: "min-w-64 break-all",
       render: ({ statement }) => policyValueSummary(statement.Resource),
     },
     {
       id: "manage",
-      label: "Manage",
+      label: text("Manage"),
       mobileRole: "actions",
       headerClassName: "w-px whitespace-nowrap text-right",
       cellClassName: "w-px whitespace-nowrap",
@@ -439,7 +444,7 @@ export default function BucketPolicyFeature({
             onClick={() => openEditorFor(index)}
             disabled={saving || notImplemented}
           >
-            Edit
+            {text("Edit")}
           </SettingsButton>
           <SettingsButton
             type="button"
@@ -447,7 +452,7 @@ export default function BucketPolicyFeature({
             onClick={() => void removeStatementDirect(index)}
             disabled={saving || notImplemented}
           >
-            Remove
+            {text("Remove")}
           </SettingsButton>
         </div>
       ),
@@ -462,19 +467,19 @@ export default function BucketPolicyFeature({
       <BucketFeatureEditorToolbar
         action={
           <SettingsButton type="button" variant="secondary" onClick={addDraftStatement} disabled={saving}>
-            Add statement
+            {text("Add statement")}
           </SettingsButton>
         }
       >
         <div className="max-w-3xl">
           <p>
-            Edit standard bucket-policy statements visually. Document metadata and advanced IAM constructs are preserved and can be edited in JSON.
+            {text("Edit standard bucket-policy statements visually. Document metadata and advanced IAM constructs are preserved and can be edited in JSON.")}
           </p>
         </div>
       </BucketFeatureEditorToolbar>
       {draftStatements.length === 0 ? (
         <BucketFeatureEditorEmpty>
-          No statements. Add a statement or use JSON. Saving an empty policy removes it from the bucket.
+          {text("No statements. Add a statement or use JSON. Saving an empty policy removes it from the bucket.")}
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
@@ -497,8 +502,8 @@ export default function BucketPolicyFeature({
 
   const jsonEditor = (
     <BucketFeatureJsonPane
-      description="Edit the complete S3 bucket policy document. Switching back to Visual validates the document shape first."
-      label="Bucket policy (JSON)"
+      description={text("Edit the complete S3 bucket policy document. Switching back to Visual validates the document shape first.")}
+      label={text("Bucket policy (JSON)")}
       value={jsonText}
       onChange={updateJsonText}
       rows={18}
@@ -509,8 +514,8 @@ export default function BucketPolicyFeature({
   return (
     <>
       <BucketFeatureSummarySection
-        title="Bucket policy"
-        description="IAM-like resource policy applied directly on the bucket."
+        title={text("Bucket policy")}
+        description={text("IAM-like resource policy applied directly on the bucket.")}
         visualState={visualState}
         metadata={metadata}
         loading={loading}
@@ -526,7 +531,7 @@ export default function BucketPolicyFeature({
             onClick={openEditorWithNew}
             disabled={notImplemented || loading || saving}
           >
-            Add statement
+            {text("Add statement")}
           </SettingsButton>
         }
         testId="bucket-feature-policy"
@@ -536,29 +541,29 @@ export default function BucketPolicyFeature({
           rows={summaryRows}
           rowKey={({ index, statement }) => `${policyStatementSid(statement, index)}-${index}`}
           status={summaryRows.length === 0 ? "empty" : "ready"}
-          loadingMessage="Loading bucket policy..."
-          errorMessage="Unable to load the bucket policy."
-          emptyMessage="No bucket policy configured."
+          loadingMessage={text("Loading bucket policy...")}
+          errorMessage={text("Unable to load the bucket policy.")}
+          emptyMessage={text("No bucket policy configured.")}
           primaryColumnId="sid"
           responsiveCards
           containerClassName="bucket-feature-collection-table"
         />
         <div className="bucket-feature-add-row">
-          <span>Add or remove statements here; detailed principals, conditions and JSON stay in the editor.</span>
+          <span>{text("Add or remove statements here; detailed principals, conditions and JSON stay in the editor.")}</span>
           <SettingsButton
             type="button"
             variant="secondary"
             onClick={openEditorWithNew}
             disabled={notImplemented || loading || saving}
           >
-            + Add statement
+            {text("+ Add statement")}
           </SettingsButton>
         </div>
       </BucketFeatureSummarySection>
 
       {editorOpen ? (
         <BucketFeatureEditorDialog
-          title="Edit bucket policy"
+          title={text("Edit bucket policy")}
           mode={editorMode}
           onModeChange={updateEditorMode}
           draftKey={draftSignature}

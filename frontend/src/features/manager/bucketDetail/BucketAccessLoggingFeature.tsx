@@ -13,6 +13,7 @@ import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketAccessLoggingController } from "./useBucketAccessLoggingController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketAccessLoggingController = ReturnType<typeof useBucketAccessLoggingController>;
 
@@ -25,6 +26,7 @@ export default function BucketAccessLoggingFeature({
   controller,
   onRequestDisable,
 }: BucketAccessLoggingFeatureProps) {
+  const { text } = useManagerI18n();
   const [editorOpen, setEditorOpen] = useState(false);
   const {
     clearing,
@@ -58,11 +60,11 @@ export default function BucketAccessLoggingFeature({
   return (
     <>
       <BucketFeatureSection
-        title="Server access logging"
-        description="Deliver S3 access logs to another bucket."
+        title={text("Server access logging")}
+        description={text("Deliver S3 access logs to another bucket.")}
         mode="graphical"
         visualState={visualState}
-        stateLabel={dirty || notImplemented ? undefined : configured ? "Enabled" : "Inactive"}
+        stateLabel={dirty || notImplemented ? undefined : text(configured ? "Enabled" : "Inactive")}
         successMessage={status}
         busy={loading}
         testId="bucket-feature-access-logging"
@@ -74,7 +76,7 @@ export default function BucketAccessLoggingFeature({
               <>
                 <strong>{targetBucket}</strong>
                 <div className="bucket-feature-summary-muted font-mono">
-                  {targetPrefix || "No target prefix"}
+                  {targetPrefix || text("No target prefix")}
                 </div>
               </>
             ) : (
@@ -87,14 +89,14 @@ export default function BucketAccessLoggingFeature({
             onClick={() => setEditorOpen(true)}
             disabled={notImplemented || loading || saving || clearing}
           >
-            {configured ? "Edit" : "Configure"}
+            {text(configured ? "Edit" : "Configure")}
           </SettingsButton>
         </div>
       </BucketFeatureSection>
 
       {editorOpen ? (
         <BucketFeatureSettingsDialog
-          title="Edit server access logging"
+          title={text("Edit server access logging")}
           dirty={dirty}
           busy={saving || clearing}
           error={error}
@@ -108,13 +110,13 @@ export default function BucketAccessLoggingFeature({
               disabled={notImplemented || clearing || !configured}
               variant="danger"
             >
-              {clearing ? "Disabling..." : "Disable"}
+              {text(clearing ? "Disabling..." : "Disable")}
             </SettingsButton>
           }
         >
           <SettingsItem
             compact
-            title="Enable server access logging"
+            title={text("Enable server access logging")}
             action={
               <SettingsSwitch
                 ariaLabel="Enable server access logging"
@@ -126,25 +128,25 @@ export default function BucketAccessLoggingFeature({
           />
           <div className="grid gap-3 md:grid-cols-2">
             <SettingsAutocomplete
-              label="Target bucket"
+              label={text("Target bucket")}
               value={targetBucket}
               onChange={updateTargetBucket}
-              placeholder="logs-bucket"
+              placeholder={text("logs-bucket")}
               disabled={notImplemented || loading || saving || clearing}
               {...buckets}
             />
             <SettingsInput
-              label="Target prefix (optional)"
+              label={text("Target prefix (optional)")}
               type="text"
               value={targetPrefix}
               onChange={(event) => updateTargetPrefix(event.target.value)}
-              placeholder="access-logs/"
+              placeholder={text("access-logs/")}
               disabled={notImplemented || loading || saving || clearing}
             />
           </div>
           <p className="settings-description">
-            The target bucket must allow log delivery (for example ACL{" "}
-            <code className="font-mono ui-caption">log-delivery-write</code> or an equivalent policy).
+            {text("The target bucket must allow log delivery (for example ACL")}{" "}
+            <code className="font-mono ui-caption">{text("log-delivery-write")}</code> {text("or an equivalent policy).")}
           </p>
         </BucketFeatureSettingsDialog>
       ) : null}

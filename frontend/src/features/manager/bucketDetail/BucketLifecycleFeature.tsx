@@ -42,6 +42,7 @@ import {
   type LifecycleVisualRuleDraft,
 } from "./lifecycleEditorModel";
 import type { useBucketLifecycleController } from "./useBucketLifecycleController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketLifecycleController = ReturnType<typeof useBucketLifecycleController>;
 
@@ -64,6 +65,7 @@ function LifecycleActionGroup({
   configured: boolean;
   children: ReactNode;
 }) {
+  const { text } = useManagerI18n();
   const [open, setOpen] = useState(configured);
   return (
     <details
@@ -74,7 +76,7 @@ function LifecycleActionGroup({
       <summary className="flex cursor-pointer items-center justify-between gap-3 py-2 settings-label">
         <span>{title}</span>
         <span className="settings-description font-normal">
-          {configured ? "Configured" : "Optional"}
+          {text(configured ? "Configured" : "Optional")}
         </span>
       </summary>
       <div className="pb-1 pt-2">{children}</div>
@@ -95,6 +97,7 @@ function LifecycleRuleEditor({
   onChange: (patch: Partial<LifecycleVisualRuleDraft>) => void;
   onRemove: () => void;
 }) {
+  const { text } = useManagerI18n();
   const editable = isLifecycleRuleVisuallyEditable(rule);
   const draft = readLifecycleVisualRule(rule);
   const ruleLabel = lifecycleRuleId(rule) ?? `Rule ${index + 1}`;
@@ -111,9 +114,9 @@ function LifecycleRuleEditor({
               {lifecycleFilterLabel(rule.Filter)} · {describeLifecycleActions(rule)}
             </p>
           </div>
-          <UiBadge tone="warning">Advanced rule — edit in JSON</UiBadge>
+          <UiBadge tone="warning">{text("Advanced rule — edit in JSON")}</UiBadge>
           <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
-            Remove rule
+            {text("Remove rule")}
           </SettingsButton>
         </div>
       </BucketFeatureEditorItem>
@@ -127,7 +130,7 @@ function LifecycleRuleEditor({
           <p className="settings-label break-all">{ruleLabel}</p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
-          Remove rule
+          {text("Remove rule")}
         </SettingsButton>
       </div>
 
@@ -135,24 +138,24 @@ function LifecycleRuleEditor({
 
       <div className="grid gap-3 md:grid-cols-3">
         <SettingsInput
-          label="ID"
+          label={text("ID")}
           value={draft.id}
           onChange={(event) => onChange({ id: event.target.value })}
           disabled={disabled}
         />
         <SettingsSelect
-          label="Status"
+          label={text("Status")}
           value={draft.status}
           onChange={(event) => onChange({ status: event.target.value as LifecycleVisualRuleDraft["status"] })}
           disabled={disabled}
         >
-          <option value="Enabled">Enabled</option>
-          <option value="Disabled">Disabled</option>
+          <option value="Enabled">{text("Enabled")}</option>
+          <option value="Disabled">{text("Disabled")}</option>
         </SettingsSelect>
         <SettingsAutocomplete
-          label="Prefix"
+          label={text("Prefix")}
           value={draft.prefix}
-          placeholder="logs/"
+          placeholder={text("logs/")}
           onChange={(value) => onChange({ prefix: value })}
           disabled={disabled}
           {...prefixes}
@@ -161,7 +164,7 @@ function LifecycleRuleEditor({
 
       <div className="space-y-2">
         <LifecycleActionGroup
-          title="Expiration and cleanup"
+          title={text("Expiration and cleanup")}
           configured={Boolean(
             draft.expirationDays ||
               draft.noncurrentExpirationDays ||
@@ -171,7 +174,7 @@ function LifecycleRuleEditor({
         >
           <div className="grid gap-3 md:grid-cols-3">
             <SettingsInput
-              label="Expire current objects after (days)"
+              label={text("Expire current objects after (days)")}
               type="number"
               min={0}
               value={draft.expirationDays}
@@ -179,7 +182,7 @@ function LifecycleRuleEditor({
               disabled={disabled}
             />
             <SettingsInput
-              label="Expire noncurrent versions after (days)"
+              label={text("Expire noncurrent versions after (days)")}
               type="number"
               min={0}
               value={draft.noncurrentExpirationDays}
@@ -187,7 +190,7 @@ function LifecycleRuleEditor({
               disabled={disabled}
             />
             <SettingsInput
-              label="Abort incomplete multipart after (days)"
+              label={text("Abort incomplete multipart after (days)")}
               type="number"
               min={0}
               value={draft.abortMultipartDays}
@@ -197,8 +200,8 @@ function LifecycleRuleEditor({
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--ui-border-soft)] pt-3">
             <div>
-              <p className="settings-label">Expired object delete marker</p>
-              <p className="settings-description">Remove expired delete markers when S3 considers them eligible.</p>
+              <p className="settings-label">{text("Expired object delete marker")}</p>
+              <p className="settings-description">{text("Remove expired delete markers when S3 considers them eligible.")}</p>
             </div>
             <SettingsSwitch
               checked={draft.expiredObjectDeleteMarker}
@@ -210,12 +213,12 @@ function LifecycleRuleEditor({
         </LifecycleActionGroup>
 
         <LifecycleActionGroup
-          title="Current version transition"
+          title={text("Current version transition")}
           configured={Boolean(draft.transitionDays || draft.transitionStorageClass)}
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <SettingsInput
-              label="Days"
+              label={text("Days")}
               type="number"
               min={0}
               value={draft.transitionDays}
@@ -223,7 +226,7 @@ function LifecycleRuleEditor({
               disabled={disabled}
             />
             <SettingsAutocomplete
-              label="Storage class"
+              label={text("Storage class")}
               value={draft.transitionStorageClass}
               required={Boolean(draft.transitionDays)}
               onChange={(value) => onChange({ transitionStorageClass: value })}
@@ -234,14 +237,14 @@ function LifecycleRuleEditor({
         </LifecycleActionGroup>
 
         <LifecycleActionGroup
-          title="Noncurrent version transition"
+          title={text("Noncurrent version transition")}
           configured={Boolean(
             draft.noncurrentTransitionDays || draft.noncurrentTransitionStorageClass,
           )}
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <SettingsInput
-              label="Noncurrent days"
+              label={text("Noncurrent days")}
               type="number"
               min={0}
               value={draft.noncurrentTransitionDays}
@@ -249,7 +252,7 @@ function LifecycleRuleEditor({
               disabled={disabled}
             />
             <SettingsAutocomplete
-              label="Storage class"
+              label={text("Storage class")}
               value={draft.noncurrentTransitionStorageClass}
               required={Boolean(draft.noncurrentTransitionDays)}
               onChange={(value) => onChange({ noncurrentTransitionStorageClass: value })}
@@ -264,6 +267,7 @@ function LifecycleRuleEditor({
 }
 
 export default function BucketLifecycleFeature({ controller }: BucketLifecycleFeatureProps) {
+  const { text } = useManagerI18n();
   const {
     addDraftRule,
     closeEditor,
@@ -320,7 +324,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
   const columns: Array<DataTableColumn<LifecycleTableRow>> = [
     {
       id: "id",
-      label: "Rule",
+      label: text("Rule"),
       primary: true,
       headerClassName: "min-w-32",
       cellClassName: "min-w-32 max-w-48 break-all",
@@ -328,14 +332,14 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
     },
     {
       id: "filter",
-      label: "Scope",
+      label: text("Scope"),
       headerClassName: "min-w-32 whitespace-nowrap",
       cellClassName: "min-w-32",
       render: ({ rule }) => lifecycleFilterLabel(rule.Filter),
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       mobileLabel: "Actions",
       headerClassName: "min-w-48",
       cellClassName: "min-w-48 whitespace-normal break-words",
@@ -343,7 +347,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
     },
     {
       id: "status",
-      label: "Status",
+      label: text("Status"),
       headerClassName: "w-px whitespace-nowrap",
       cellClassName: "w-px whitespace-nowrap",
       render: ({ rule, index }) => {
@@ -363,7 +367,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
     },
     {
       id: "manage",
-      label: "Manage",
+      label: text("Manage"),
       mobileRole: "actions",
       headerClassName: "w-px whitespace-nowrap text-right",
       cellClassName: "w-px whitespace-nowrap",
@@ -375,7 +379,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
             onClick={() => openEditorFor(index)}
             disabled={saving || notImplemented}
           >
-            Edit
+            {text("Edit")}
           </SettingsButton>
           <SettingsButton
             type="button"
@@ -383,7 +387,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
             onClick={() => removeRuleDirect(index)}
             disabled={saving || notImplemented}
           >
-            Remove
+            {text("Remove")}
           </SettingsButton>
         </div>
       ),
@@ -399,25 +403,25 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
       <BucketFeatureEditorToolbar
         action={
           <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
-            Add rule
+            {text("Add rule")}
           </SettingsButton>
         }
       >
         <p>
-          Supported rules can be edited here. Advanced S3 constructs remain read-only in Visual mode.
+          {text("Supported rules can be edited here. Advanced S3 constructs remain read-only in Visual mode.")}
         </p>
       </BucketFeatureEditorToolbar>
       {lastRemovedRule ? (
         <UiInlineMessage>
           <span className="flex flex-wrap items-center gap-2">
-            <span>Rule removed from this draft.</span>
+            <span>{text("Rule removed from this draft.")}</span>
             <SettingsButton
               type="button"
               variant="secondary"
               onClick={restoreLastRemovedRule}
               disabled={saving}
             >
-              Undo
+              {text("Undo")}
             </SettingsButton>
           </span>
         </UiInlineMessage>
@@ -426,11 +430,11 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
         <div className="space-y-2">
           {hasRules ? (
             <UiInlineMessage tone="warning">
-              Saving will remove the Lifecycle configuration from this bucket.
+              {text("Saving will remove the Lifecycle configuration from this bucket.")}
             </UiInlineMessage>
           ) : null}
           <BucketFeatureEditorEmpty>
-            No lifecycle rules. Add a rule or switch to JSON.
+            {text("No lifecycle rules. Add a rule or switch to JSON.")}
           </BucketFeatureEditorEmpty>
         </div>
       ) : (
@@ -454,10 +458,10 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
     <BucketFeatureJsonPane
       description={
         <>
-        Edit the complete S3 Lifecycle <code>Rules</code> array. Switching back to Visual validates this JSON first.
+        {text("Edit the complete S3 Lifecycle")} <code>{text("Rules")}</code> {text("array. Switching back to Visual validates this JSON first.")}
         </>
       }
-      label="Lifecycle rules (JSON)"
+      label={text("Lifecycle rules (JSON)")}
       value={jsonText}
       onChange={updateJsonText}
       disabled={saving}
@@ -467,8 +471,8 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
   return (
     <>
       <BucketFeatureSummarySection
-        title="Lifecycle rules"
-        description="S3-side expiration/clean-up."
+        title={text("Lifecycle rules")}
+        description={text("S3-side expiration/clean-up.")}
         visualState={visualState}
         metadata={ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
         loading={loading}
@@ -484,7 +488,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
             onClick={openEditorWithNew}
             disabled={notImplemented || loading || saving}
           >
-            Add rule
+            {text("Add rule")}
           </SettingsButton>
         }
         testId="bucket-feature-lifecycle"
@@ -494,29 +498,29 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
           rows={rows}
           rowKey={(row) => row.key}
           status={rows.length === 0 ? "empty" : "ready"}
-          loadingMessage="Loading lifecycle rules..."
-          errorMessage="Unable to load lifecycle rules."
-          emptyMessage="No rules configured on this bucket."
+          loadingMessage={text("Loading lifecycle rules...")}
+          errorMessage={text("Unable to load lifecycle rules.")}
+          emptyMessage={text("No rules configured on this bucket.")}
           primaryColumnId="id"
           responsiveCards
           containerClassName="bucket-feature-collection-table"
         />
         <div className="bucket-feature-add-row">
-          <span>Add a rule here, then use the editor for its complete S3 configuration.</span>
+          <span>{text("Add a rule here, then use the editor for its complete S3 configuration.")}</span>
           <SettingsButton
             type="button"
             variant="secondary"
             onClick={openEditorWithNew}
             disabled={notImplemented || loading || saving}
           >
-            + Add rule
+            {text("+ Add rule")}
           </SettingsButton>
         </div>
       </BucketFeatureSummarySection>
 
       {editorOpen ? (
         <BucketFeatureEditorDialog
-          title="Edit lifecycle rules"
+          title={text("Edit lifecycle rules")}
           mode={editorMode}
           onModeChange={updateEditorMode}
           draftKey={draftSignature}

@@ -10,6 +10,7 @@ import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
 import { DEFAULT_ASSUME_ROLE_DOCUMENT, DEFAULT_ROLE_PATH, parseIamRolePolicy } from "./iamRoleForm";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
+import { useManagerI18n } from "./managerI18n";
 
 function formatPolicy(document: unknown): string {
   if (!document) return DEFAULT_ASSUME_ROLE_DOCUMENT;
@@ -28,6 +29,7 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { text } = useManagerI18n();
   const load = useCallback(async () => {
     const role = await getIamRole(accountId, roleName);
     return { path: role.path ?? DEFAULT_ROLE_PATH, policy: formatPolicy(role.assume_role_policy_document) };
@@ -52,17 +54,17 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
       await updateIamRole(accountId, roleName, { assume_role_policy_document: parsed.document });
       onSaved();
     } catch (error) {
-      setError(extractApiError(error, "Unable to update role."));
+      setError(extractApiError(error, text("Unable to update role.")));
     } finally { setSaving(false); }
   };
-  return <SettingsWorkflowForm title={`Edit IAM role: ${roleName}`} formLabel="Edit IAM role"
-    description="Review the role identity and update its trust policy."
-    breadcrumbs={managerPageBreadcrumbs("roles", { label: "Edit" })} backLabel="Back to roles"
+  return <SettingsWorkflowForm title={text("Edit IAM role: {role}", { role: roleName })} formLabel={text("Edit IAM role")}
+    description={text("Review the role identity and update its trust policy.")}
+    breadcrumbs={managerPageBreadcrumbs(text, "roles", { label: text("Edit") })} backLabel={text("Back to roles")}
     contentVariant="plain" dirty={dirty && !loading && !loadError} busy={saving} loading={loading}
     disabled={Boolean(loadError)} error={loadError || error} onSubmit={save} onClose={onClose}
-    submitLabel="Save changes" busyLabel="Saving...">
-    {loading && <p role="status" className="settings-description">Loading role details...</p>}
-    {loadError && <div><SettingsButton variant="secondary" onClick={retry}>Retry loading</SettingsButton></div>}
+    submitLabel={text("Save changes")} busyLabel={text("Saving...")}>
+    {loading && <p role="status" className="settings-description">{text("Loading role details...")}</p>}
+    {loadError && <div><SettingsButton variant="secondary" onClick={retry}>{text("Retry loading")}</SettingsButton></div>}
     <fieldset disabled={Boolean(loadError)} className="min-w-0">
       <ManagerRoleFormFields editing name={roleName} path={draft.path} policy={draft.policy}
         onPolicyChange={policy => { setDraft(value => ({ ...value, policy })); setError(null); }}

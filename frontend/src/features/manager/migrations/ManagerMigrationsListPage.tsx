@@ -20,6 +20,7 @@ import {
 
 import UiBadge from "../../../components/ui/UiBadge";
 import { migrationLabel } from "./MigrationWorkflow";
+import { useManagerI18n } from "../managerI18n";
 
 const SORT_PRIORITY: Record<BucketMigrationStatus, number> = {
   running: 0,
@@ -37,6 +38,7 @@ const SORT_PRIORITY: Record<BucketMigrationStatus, number> = {
 };
 
 export default function ManagerMigrationsListPage() {
+  const { text } = useManagerI18n();
   const navigate = useNavigate();
   const { selectedS3AccountId, requiresS3AccountSelection } = useS3AccountContext();
   const sourceContextId = selectedS3AccountId ?? "";
@@ -57,43 +59,43 @@ export default function ManagerMigrationsListPage() {
 
   return (
     <PageShell
-      title="Bucket Migration"
-      description="Track migrations and open an operational view for each run."
-      breadcrumbs={managerPageBreadcrumbs("migration")}
+      title={text("Bucket Migration")}
+      description={text("Track migrations and open an operational view for each run.")}
+      breadcrumbs={managerPageBreadcrumbs(text, "migration")}
       actions={[
         {
-          label: "New migration",
+          label: text("New migration"),
           onClick: () => navigate("/manager/migrations/new"),
         },
       ]}
     >
-      {contextsLoading && <PageBanner tone="info">Loading contexts…</PageBanner>}
+      {contextsLoading && <PageBanner tone="info">{text("Loading contexts…")}</PageBanner>}
       {contextsError && <PageBanner tone="error">{contextsError}</PageBanner>}
       {migrationsError && <PageBanner tone="error">{migrationsError}</PageBanner>}
 
       {!requiresS3AccountSelection ? (
         <PageEmptyState
-          title="Bucket migration is unavailable in session mode"
-          description="This tool needs a persistent execution context so it can resolve source and target inventories before launching a migration."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          title={text("Bucket migration is unavailable in session mode")}
+          description={text("This tool needs a persistent execution context so it can resolve source and target inventories before launching a migration.")}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : !sourceContextId ? (
         <PageEmptyState
-          title="Select a source context before opening bucket migrations"
-          description="Choose an execution context to list migration runs that originate from it and to start a new migration."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select a source context before opening bucket migrations")}
+          description={text("Choose an execution context to list migration runs that originate from it and to start a new migration.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : (
         <ListPageSection variant="page"
-            title="Migrations"
-            countLabel={`${sortedMigrations.length} result(s)`}
+            title={text("Migrations")}
+            countLabel={text(sortedMigrations.length === 1 ? "{count} result" : "{count} results", { count: sortedMigrations.length })}
         >
           <div className="max-h-[720px] space-y-2 overflow-auto p-4">
-            {migrationsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">Loading migrations...</p>}
+            {migrationsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">{text("Loading migrations...")}</p>}
             {!migrationsLoading && sortedMigrations.length === 0 && (
-              <p className="ui-caption text-slate-500 dark:text-slate-400">No migrations yet.</p>
+              <p className="ui-caption text-slate-500 dark:text-slate-400">{text("No migrations yet.")}</p>
             )}
 
             {sortedMigrations.map((migration) => {
@@ -105,8 +107,8 @@ export default function ManagerMigrationsListPage() {
                   className="w-full rounded-lg border border-slate-200 p-3 text-left transition hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="ui-caption font-semibold text-slate-800 dark:text-slate-100">Migration #{migration.id}</p>
-                    <UiBadge tone={migration.failed_items || migration.preparation_status === "blocked" ? "warning" : "info"}>{migrationLabel(migration)}</UiBadge>
+                    <p className="ui-caption font-semibold text-slate-800 dark:text-slate-100">{text("Migration #")}{migration.id}</p>
+                    <UiBadge tone={migration.failed_items || migration.preparation_status === "blocked" ? "warning" : "info"}>{text(migrationLabel(migration))}</UiBadge>
                   </div>
 
                   <p className="mt-1 ui-caption text-slate-600 dark:text-slate-300">
@@ -116,9 +118,16 @@ export default function ManagerMigrationsListPage() {
 
                   <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                     <p className="ui-caption text-slate-500 dark:text-slate-400">
-                      {migration.status === "draft" ? `${migration.preparation_completed_items ?? 0}/${migration.total_items} checked` : `${migration.completed_items} verified · ${migration.failed_items} failed · ${migration.awaiting_items} awaiting cutover · ${migration.skipped_items} not copied`}
+                      {migration.status === "draft"
+                        ? text("{checked}/{total} checked", { checked: migration.preparation_completed_items ?? 0, total: migration.total_items })
+                        : text("{verified} verified · {failed} failed · {awaiting} awaiting cutover · {skipped} not copied", {
+                            verified: migration.completed_items,
+                            failed: migration.failed_items,
+                            awaiting: migration.awaiting_items,
+                            skipped: migration.skipped_items,
+                          })}
                     </p>
-                    <p className="ui-caption text-slate-500 dark:text-slate-400">updated: {formatDateTime(migration.updated_at)}</p>
+                    <p className="ui-caption text-slate-500 dark:text-slate-400">{text("updated:")} {formatDateTime(migration.updated_at)}</p>
                   </div>
                 </button>
               );
