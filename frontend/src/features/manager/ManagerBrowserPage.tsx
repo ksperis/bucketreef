@@ -37,16 +37,6 @@ export default function ManagerBrowserPage() {
         title={text("Browser")}
         description={text("Object navigation using the active Manager context.")}
         breadcrumbs={breadcrumbs}
-        rightContent={
-          hasS3AccountContext ? (
-            <div className="text-right text-sm">
-              <div className="font-medium">{text("Effective S3 identity")}</div>
-              <div className="text-muted-foreground">
-                {iamIdentity ?? selectedContext?.display_name ?? text("Identity could not be resolved")}
-              </div>
-            </div>
-          ) : undefined
-        }
       />
       <div className="min-h-0 flex-1">
         {!hasS3AccountContext ? (

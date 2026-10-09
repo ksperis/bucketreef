@@ -1199,8 +1199,8 @@ describe("manager shell pages", () => {
     const embed = await screen.findByTestId("browser-embed");
     expect(embed).toHaveAttribute("data-account-id", "account-1");
     expect(embed).toHaveAttribute("data-workspace-surface", "manager");
-    expect(screen.getByText("Effective S3 identity")).toBeInTheDocument();
-    expect(screen.getAllByText("RGW-ROOT").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Effective S3 identity")).not.toBeInTheDocument();
+    expect(screen.queryByText("RGW-ROOT")).not.toBeInTheDocument();
     expect(screen.getByText(/RGW logs will attribute operations to RGW-ROOT, not to the UI user/)).toBeInTheDocument();
     fireEvent.click(embed);
 
