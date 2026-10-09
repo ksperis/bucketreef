@@ -8,7 +8,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import ListToolbar from "../../components/ListToolbar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
-import { isApiError } from "../../api/client";
 import { useSearchParams } from "react-router-dom";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageBanner from "../../components/PageBanner";
@@ -32,6 +31,7 @@ import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsVali
 import { retryManagedPrivateAccessCleanup } from "../../api/managedPrivateAccess";
 import { useLiveS3CredentialsValidation } from "./useLiveS3CredentialsValidation";
 import { formatLocalDateTime } from "../../utils/dateTime";
+import { extractApiError } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
 import {
   canAccessPrivateConnectionsSection,
@@ -73,19 +73,6 @@ type PendingPrivateConnectionDelete = {
   scope: "single" | "bulk";
   connections: S3Connection[];
 };
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (isApiError(error)) {
-    const detail = error.response?.data?.detail;
-    if (typeof detail === "string" && detail.trim()) {
-      return detail;
-    }
-    if (detail && typeof detail === "object" && "message" in detail && typeof detail.message === "string") {
-      return detail.message;
-    }
-  }
-  return fallback;
-}
 
 type ProfilePageProps = {
   profilePath?: string;
@@ -339,7 +326,7 @@ export default function ProfilePage({
         setConnections([]);
         setConnectionDrafts({});
         setConnectionCredentialDrafts({});
-        setConnectionsError(getErrorMessage(error, "Unable to load private S3 connections."));
+        setConnectionsError(extractApiError(error, "Unable to load private S3 connections."));
       })
       .finally(() => {
         if (!cancelled) {
@@ -369,7 +356,7 @@ export default function ProfilePage({
       .catch((error) => {
         if (cancelled) return;
         setAvailableStorageEndpoints([]);
-        setStorageEndpointsError(getErrorMessage(error, "Unable to load configured endpoints."));
+        setStorageEndpointsError(extractApiError(error, "Unable to load configured endpoints."));
       })
       .finally(() => {
         if (!cancelled) {
@@ -421,7 +408,7 @@ export default function ProfilePage({
       setConnectionCredentialDrafts(editorState.credentialDrafts);
     } catch (error) {
       console.error(error);
-      setConnectionsError(getErrorMessage(error, "Unable to refresh private S3 connections."));
+      setConnectionsError(extractApiError(error, "Unable to refresh private S3 connections."));
     } finally {
       setConnectionsLoading(false);
     }
@@ -506,7 +493,7 @@ export default function ProfilePage({
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(getErrorMessage(error, "Unable to create private S3 connection."));
+      setConnectionsError(extractApiError(error, "Unable to create private S3 connection."));
     } finally {
       setCreatingConnection(false);
     }
@@ -558,7 +545,7 @@ export default function ProfilePage({
       return true;
     } catch (error) {
       console.error(error);
-      setConnectionsError(getErrorMessage(error, "Unable to update private S3 connection."));
+      setConnectionsError(extractApiError(error, "Unable to update private S3 connection."));
       return false;
     } finally {
       setSavingConnectionBusyId(null);
@@ -610,7 +597,7 @@ export default function ProfilePage({
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(getErrorMessage(error, "Unable to delete private S3 connection."));
+      setConnectionsError(extractApiError(error, "Unable to delete private S3 connection."));
     } finally {
       setDeletingConnectionBusyId(null);
     }
@@ -627,7 +614,7 @@ export default function ProfilePage({
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(getErrorMessage(error, "Unable to complete managed private access cleanup."));
+      setConnectionsError(extractApiError(error, "Unable to complete managed private access cleanup."));
     } finally {
       setDeletingConnectionBusyId(null);
     }
@@ -684,7 +671,7 @@ export default function ProfilePage({
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(getErrorMessage(error, "Unable to update private S3 connection."));
+      setConnectionsError(extractApiError(error, "Unable to update private S3 connection."));
     } finally {
       setTogglingConnectionBusyId(null);
     }
