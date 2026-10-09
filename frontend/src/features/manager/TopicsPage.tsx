@@ -158,7 +158,7 @@ export default function TopicsPage() {
         </PageBanner>
       )}
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
       {needsS3AccountSelection ? (
         <PageEmptyState

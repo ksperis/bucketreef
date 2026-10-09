@@ -147,7 +147,7 @@ export default function TrafficAnalytics({
       }
     >
 
-      {error && <PageBanner tone="warning">{error}</PageBanner>}
+      {error && <PageBanner tone="warning">{text(error)}</PageBanner>}
 
       {!hideMetrics && (
         <div className="grid gap-4 md:grid-cols-3">

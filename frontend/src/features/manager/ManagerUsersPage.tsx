@@ -477,7 +477,7 @@ export default function ManagerUsersPage() {
           : []}
       />
 
-      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && createdForUser && (
@@ -485,11 +485,11 @@ export default function ManagerUsersPage() {
           title={`Key created for ${createdForUser}`}
           description={text("Copy these values now; the secret will only be shown once.")}
           values={[
-            { label: text("Access key"), value: createdKey.access_key_id, copyLabel: "Copy" },
+            { label: text("Access key"), value: createdKey.access_key_id, copyLabel: text("Copy") },
             {
               label: text("Secret key"),
               value: createdKey.secret_access_key ?? "Not provided",
-              copyLabel: createdKey.secret_access_key ? "Copy" : undefined,
+              copyLabel: createdKey.secret_access_key ? text("Copy") : undefined,
             },
           ]}
           actions={

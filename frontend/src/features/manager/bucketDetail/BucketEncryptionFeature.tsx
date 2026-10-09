@@ -261,7 +261,7 @@ export default function BucketEncryptionFeature({
         {!enabled ? (
           <EndpointFeatureDisabledNotice featureLabel="Server-side encryption" />
         ) : error ? (
-          <UiInlineMessage tone="error">{error}</UiInlineMessage>
+          <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>
         ) : loading ? (
           <UiInlineMessage>{text("Loading encryption configuration...")}</UiInlineMessage>
         ) : (

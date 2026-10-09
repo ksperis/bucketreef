@@ -70,8 +70,8 @@ export default function ManagerMigrationsListPage() {
       ]}
     >
       {contextsLoading && <PageBanner tone="info">{text("Loading contexts…")}</PageBanner>}
-      {contextsError && <PageBanner tone="error">{contextsError}</PageBanner>}
-      {migrationsError && <PageBanner tone="error">{migrationsError}</PageBanner>}
+      {contextsError && <PageBanner tone="error">{text(contextsError)}</PageBanner>}
+      {migrationsError && <PageBanner tone="error">{text(migrationsError)}</PageBanner>}
 
       {!requiresS3AccountSelection ? (
         <PageEmptyState

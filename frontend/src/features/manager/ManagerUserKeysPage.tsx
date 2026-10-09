@@ -362,7 +362,7 @@ export default function ManagerUserKeysPage() {
       ]}
     >
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && createdKey.secret_access_key && (

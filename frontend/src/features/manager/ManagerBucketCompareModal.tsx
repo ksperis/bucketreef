@@ -588,7 +588,7 @@ export default function ManagerBucketCompareModal({
                   actionRunning: null,
                   actionFeedback: {
                     tone: "danger",
-                    message: `Action failed: ${error}`,
+                    message: text("Action failed: {error}", { error }),
                   },
                 }
               : item
@@ -652,7 +652,7 @@ export default function ManagerBucketCompareModal({
               ? {
                   ...item,
                   status: "failed",
-                  error: `Action applied, but re-compare failed: ${error}`,
+                  error: text("Action applied, but re-compare failed: {error}", { error }),
                   actionRunning: null,
                 }
               : item
@@ -866,7 +866,7 @@ export default function ManagerBucketCompareModal({
                     return [
                       {
                         key: "source_only" as const,
-                        label: `Source only (${content.only_source_count})`,
+                        label: text("Source only ({count})", { count: content.only_source_count }),
                         changed: content.only_source_count > 0,
                         objectCount: content.only_source_count,
                         visibleCount: onlySourceDetails.length,
@@ -878,8 +878,8 @@ export default function ManagerBucketCompareModal({
                                 type: "sync_source_only" as const,
                                 label:
                                   onlySourceHiddenCount > 0
-                                    ? remediationVisibleActionLabel.sync_source_only
-                                    : remediationActionLabel.sync_source_only,
+                                    ? text(remediationVisibleActionLabel.sync_source_only)
+                                    : text(remediationActionLabel.sync_source_only),
                               }
                             : null,
                         sourceDetails: onlySourceDetails,
@@ -887,7 +887,7 @@ export default function ManagerBucketCompareModal({
                       },
                       {
                         key: "target_only" as const,
-                        label: `Target only (${content.only_target_count})`,
+                        label: text("Target only ({count})", { count: content.only_target_count }),
                         changed: content.only_target_count > 0,
                         objectCount: content.only_target_count,
                         visibleCount: onlyTargetDetails.length,
@@ -899,8 +899,8 @@ export default function ManagerBucketCompareModal({
                                 type: "delete_target_only" as const,
                                 label:
                                   onlyTargetHiddenCount > 0
-                                    ? remediationVisibleActionLabel.delete_target_only
-                                    : remediationActionLabel.delete_target_only,
+                                    ? text(remediationVisibleActionLabel.delete_target_only)
+                                    : text(remediationActionLabel.delete_target_only),
                               }
                             : null,
                         sourceDetails: [],
@@ -908,7 +908,7 @@ export default function ManagerBucketCompareModal({
                       },
                       {
                         key: "different" as const,
-                        label: `Different objects (${content.different_count})`,
+                        label: text("Different objects ({count})", { count: content.different_count }),
                         changed: content.different_count > 0,
                         objectCount: content.different_count,
                         visibleCount: differentSourceDetails.length,
@@ -920,8 +920,8 @@ export default function ManagerBucketCompareModal({
                                 type: "sync_different" as const,
                                 label:
                                   differentHiddenCount > 0
-                                    ? remediationVisibleActionLabel.sync_different
-                                    : remediationActionLabel.sync_different,
+                                    ? text(remediationVisibleActionLabel.sync_different)
+                                    : text(remediationActionLabel.sync_different),
                               }
                             : null,
                         sourceDetails: differentSourceDetails,
@@ -1218,12 +1218,12 @@ export default function ManagerBucketCompareModal({
       </div>
       {pendingAction && pendingActionItem && (
         <ConfirmActionDialog
-          title={remediationActionTitle[pendingAction.action]}
+          title={text(remediationActionTitle[pendingAction.action])}
           description={<>{text("This will run")} <strong>{pendingAction.objectKeys.length === 1
-            ? remediationSingleActionLabel[pendingAction.action]
+            ? text(remediationSingleActionLabel[pendingAction.action])
             : pendingAction.visibleOnly
-              ? remediationVisibleActionLabel[pendingAction.action]
-              : remediationActionLabel[pendingAction.action]}</strong> {text("for the exact object keys from the current diff.")}</>}
+              ? text(remediationVisibleActionLabel[pendingAction.action])
+              : text(remediationActionLabel[pendingAction.action])}</strong> {text("for the exact object keys from the current diff.")}</>}
           details={[
             { label: text("Source context"), value: pendingActionSourceContextName },
             { label: text("Target context"), value: pendingActionTargetContextName },
@@ -1238,8 +1238,8 @@ export default function ManagerBucketCompareModal({
             </ul> },
           ]}
           impacts={[
-            ...(pendingAction.visibleOnly ? ["This diff section is truncated; only displayed keys will be remediated."] : []),
-            ...(pendingAction.action === "delete_target_only" ? ["This action is destructive and removes extra objects from the target bucket."] : []),
+            ...(pendingAction.visibleOnly ? [text("This diff section is truncated; only displayed keys will be remediated.")] : []),
+            ...(pendingAction.action === "delete_target_only" ? [text("This action is destructive and removes extra objects from the target bucket.")] : []),
           ]}
           confirmLabel={text("Confirm")}
           tone={pendingAction.action === "delete_target_only" ? "danger" : "primary"}

@@ -131,12 +131,14 @@ export default function InlinePolicyDraftEditor({
             <div className="settings-fields">
               <div>
                 <h3 className="settings-label break-words [overflow-wrap:anywhere]">
-                  {mode === "edit" ? `Editing "${selectedDraftName}"` : "Create a new inline policy"}
+                  {mode === "edit"
+                    ? text("Editing \"{name}\"", { name: selectedDraftName ?? "" })
+                    : text("Create a new inline policy")}
                 </h3>
                 <p className="settings-description mt-1">
                   {mode === "edit"
-                    ? `Update the selected draft before creating the ${entityLabel}.`
-                    : "Provide a name and valid JSON to keep this inline policy draft visible in the form."}
+                    ? text("Update the selected draft before creating the {entity}.", { entity: entityLabel })
+                    : text("Provide a name and valid JSON to keep this inline policy draft visible in the form.")}
                 </p>
               </div>
               {replacementTarget && (

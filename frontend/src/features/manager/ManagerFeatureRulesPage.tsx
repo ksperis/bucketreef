@@ -152,7 +152,7 @@ export default function ManagerFeatureRulesPage() {
       description={text("Read-only inventory of bucket feature rules and tags in the active manager context.")}
       breadcrumbs={managerPageBreadcrumbs(text, "feature-rules")}
     >
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
       {needsS3AccountSelection ? (
         <PageEmptyState
@@ -199,7 +199,7 @@ export default function ManagerFeatureRulesPage() {
                   ))}
                 </UiSelect>
                 <UiSegmentedControl
-                  ariaLabel="Status"
+                  ariaLabel={text("Status")}
                   options={STATUS_OPTIONS.map((option) => ({ ...option, label: text(option.label) }))}
                   value={statusFilterValue}
                   onChange={setStatusFilterValue}

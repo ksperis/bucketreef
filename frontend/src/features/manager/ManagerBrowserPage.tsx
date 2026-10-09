@@ -42,7 +42,7 @@ export default function ManagerBrowserPage() {
             <div className="text-right text-sm">
               <div className="font-medium">{text("Effective S3 identity")}</div>
               <div className="text-muted-foreground">
-                {iamIdentity ?? selectedContext?.display_name ?? "Identity could not be resolved"}
+                {iamIdentity ?? selectedContext?.display_name ?? text("Identity could not be resolved")}
               </div>
             </div>
           ) : undefined

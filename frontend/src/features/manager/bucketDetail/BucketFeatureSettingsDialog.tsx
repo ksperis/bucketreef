@@ -58,7 +58,7 @@ export default function BucketFeatureSettingsDialog({
           <fieldset className="settings-fields" disabled={busy}>
             {children}
           </fieldset>
-          {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
+          {error ? <UiInlineMessage tone="error">{text(error)}</UiInlineMessage> : null}
           <ModalActions>
             {dangerAction ? <div className="mr-auto">{dangerAction}</div> : null}
             <SettingsButton
@@ -75,7 +75,7 @@ export default function BucketFeatureSettingsDialog({
               onClick={() => void onSave()}
               disabled={busy || saveDisabled || !dirty}
             >
-              {busy ? "Saving..." : saveLabel}
+              {text(busy ? "Saving..." : saveLabel)}
             </SettingsButton>
           </ModalActions>
         </div>

@@ -349,7 +349,7 @@ export default function ManagerCephKeysPage() {
           : []),
       ]}
     >
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && (
@@ -358,8 +358,8 @@ export default function ManagerCephKeysPage() {
           description={text("The secret is shown only once.")}
           badge="Copy these values now"
           values={[
-            { label: text("Access key"), value: createdKey.access_key_id, copyLabel: "Copy" },
-            { label: text("Secret key"), value: createdKey.secret_access_key, copyLabel: "Copy" },
+            { label: text("Access key"), value: createdKey.access_key_id, copyLabel: text("Copy") },
+            { label: text("Secret key"), value: createdKey.secret_access_key, copyLabel: text("Copy") },
           ]}
         />
       )}

@@ -97,7 +97,7 @@ export default function BucketWebsiteFeature({
         testId="bucket-feature-website"
       >
         {blocked ? <EndpointFeatureDisabledNotice featureLabel="Static website" /> : null}
-        {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
+        {error ? <UiInlineMessage tone="error">{text(error)}</UiInlineMessage> : null}
         {!blocked ? (
           <div className="bucket-feature-summary-row">
             <div className={configured ? "bucket-feature-summary-value" : "bucket-feature-summary-muted"}>

@@ -315,7 +315,7 @@ export default function ManagerEntityPoliciesPage({
       ]}
     >
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {noPoliciesAvailable && (
         <PageBanner tone="warning">{text("No IAM policies available. Create one before attaching to this {entity}.", { entity: singularLabel })}</PageBanner>

@@ -69,7 +69,7 @@ export default function BucketAccessLoggingFeature({
         busy={loading}
         testId="bucket-feature-access-logging"
       >
-        {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
+        {error ? <UiInlineMessage tone="error">{text(error)}</UiInlineMessage> : null}
         <div className="bucket-feature-summary-row">
           <div className={configured ? "bucket-feature-summary-value" : "bucket-feature-summary-muted"}>
             {configured ? (
@@ -119,7 +119,7 @@ export default function BucketAccessLoggingFeature({
             title={text("Enable server access logging")}
             action={
               <SettingsSwitch
-                ariaLabel="Enable server access logging"
+                ariaLabel={text("Enable server access logging")}
                 checked={loggingEnabled}
                 onChange={updateEnabled}
                 disabled={notImplemented || loading || saving || clearing}

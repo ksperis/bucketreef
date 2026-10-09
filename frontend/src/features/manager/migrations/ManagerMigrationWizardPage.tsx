@@ -65,6 +65,10 @@ export default function ManagerMigrationWizardPage() {
   const target = contexts.find((entry) => entry.id === targetId) ?? null;
   const crossEndpoint = useCrossEndpointSelection(source, target);
   const contextChanged = Boolean(sourceId && selectedS3AccountId !== sourceId);
+  const translatedTargetNameError = (name: string) => {
+    const validationError = targetNameError(name);
+    return validationError ? text(validationError) : null;
+  };
   const mappings = selected.map((name) => ({
     source_bucket: name,
     target_bucket: overrides[name] ?? `${prefix}${name}${suffix}`,
@@ -72,16 +76,16 @@ export default function ManagerMigrationWizardPage() {
   const errors = new Map(
     mappings.map(({ source_bucket, target_bucket }) => [
       source_bucket,
-      targetNameError(target_bucket) ||
+      translatedTargetNameError(target_bucket) ||
         (mappings.filter((entry) => entry.target_bucket === target_bucket)
           .length > 1
-          ? "Each destination name must be unique."
+          ? text("Each destination name must be unique.")
           : null) ||
         (targetBuckets.some((bucket) => bucket.name === target_bucket)
-          ? "Destination already exists. Choose a new name."
+          ? text("Destination already exists. Choose a new name.")
           : null) ||
         (!crossEndpoint && target && target_bucket === source_bucket
-          ? "Source and destination names must differ on the same storage."
+          ? text("Source and destination names must differ on the same storage.")
           : null),
     ]),
   );
@@ -111,7 +115,7 @@ export default function ManagerMigrationWizardPage() {
         if (!detail.available_actions?.edit?.enabled)
           throw new Error(
             detail.available_actions?.edit?.reason ??
-              "This migration cannot be edited.",
+              text("This migration cannot be edited."),
           );
         setSourceId(detail.source_context_id);
         setTargetId(detail.target_context_id);
@@ -145,11 +149,11 @@ export default function ManagerMigrationWizardPage() {
   async function submit() {
     setError(null);
     const problem = !sourceId
-      ? "Select a source context."
+      ? text("Select a source context.")
       : !targetId
-        ? "Select a destination context."
+        ? text("Select a destination context.")
         : !selected.length
-          ? "Select at least one bucket."
+          ? text("Select at least one bucket.")
           : [...errors.values()].find(Boolean);
     if (problem) {
       setError(problem);
@@ -200,7 +204,7 @@ export default function ManagerMigrationWizardPage() {
 
   return (
     <SettingsWorkflowForm
-      title={editId ? `Edit draft #${editId}` : text("New migration")}
+      title={editId ? text("Edit draft #{id}", { id: editId }) : text("New migration")}
       description={text("Prepare new destination buckets, check the plan, then choose when to copy and cut over.")}
       breadcrumbs={managerPageBreadcrumbs(text, "migration", { label: text("Prepare") })}
       backLabel={text("Back to migrations")}
@@ -221,7 +225,7 @@ export default function ManagerMigrationWizardPage() {
       <div ref={errorRef} tabIndex={-1} className="outline-none">
         {error && (
           <UiInlineMessage tone="error" role="alert">
-            {error}
+            {text(error)}
             {savedId && (
               <>
                 {" "}
@@ -239,7 +243,7 @@ export default function ManagerMigrationWizardPage() {
         )}
       </div>
       {contextsError && (
-        <UiInlineMessage tone="error">{contextsError}</UiInlineMessage>
+        <UiInlineMessage tone="error">{text(contextsError)}</UiInlineMessage>
       )}
       {contextChanged && (
         <UiInlineMessage tone="warning">
@@ -348,7 +352,7 @@ export default function ManagerMigrationWizardPage() {
               rowCount: rows.length,
             })}
             loadingMessage={text("Loading buckets…")}
-            errorMessage={bucketsError ?? "Unable to load buckets."}
+            errorMessage={bucketsError ?? text("Unable to load buckets.")}
             emptyMessage={text("No matching buckets.")}
             columns={[
               {

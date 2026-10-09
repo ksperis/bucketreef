@@ -43,7 +43,7 @@ export default function ManagerBucketPurgePage() {
         breadcrumbs={managerPageBreadcrumbs(text, "purge")}
       />
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
       {!requiresS3AccountSelection ? (
         <PageEmptyState
