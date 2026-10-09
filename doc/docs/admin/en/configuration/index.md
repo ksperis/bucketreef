@@ -12,6 +12,7 @@ Configuration is split between backend environment variables and UI settings.
 | Recommended | Feature flags for Manager, Portal, Browser, Ceph Admin, Storage Ops, billing, endpoint status, usage history, and quota alerts | Users should see only the surfaces that are intentionally launched. |
 | Recommended | Healthcheck, billing, quota, usage-history, and notification-retention schedules | Operational data should be fresh enough to support troubleshooting and notification history should remain bounded. |
 | Recommended | SMTP settings when quota alerts are enabled | Quota alerts need a deliverable notification path. |
+| Optional | Documentation base URL | Lets an organization host the BucketReef guides on its own domain or under its own application path. |
 | Optional | Branding color and login logo | Useful for tenant or lab identity, but not required for safe operation. |
 
 ## Find the right configuration area
@@ -382,6 +383,20 @@ Admin can set:
 
 - primary accent color (`#RRGGBB`)
 - optional login logo URL
+
+## Documentation hosting
+
+Admin **General settings** exposes a **Documentation base URL**. It defaults to
+`https://docs.bucketreef.ksperis.com`, but a deployment can point contextual
+application links to an internally hosted copy, for example
+`https://docs.example.com/bucketreef` or `/docs` behind the same reverse proxy.
+
+The hosted copy must preserve the BucketReef guide tree below that base URL,
+including paths such as `/admin/en/`, `/manager/en/`, `/browser/en/`, and
+`/portal/en/`. Portal translations keep their language segment, for example
+`/portal/fr/`. URLs with query strings or fragments are not accepted as the
+base URL because individual application links append their own paths and
+anchors.
 
 ## Related pages
 

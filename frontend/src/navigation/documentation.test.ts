@@ -54,6 +54,21 @@ describe("documentation navigation", () => {
     );
   });
 
+  it("supports a custom documentation host or root-relative base path", () => {
+    expect(
+      resolveDocumentationUrl("/manager/buckets", {
+        baseUrl: "https://docs.example.com/bucketreef/",
+      }),
+    ).toBe("https://docs.example.com/bucketreef/manager/en/buckets/");
+    expect(
+      resolveDocumentationUrl("/portal/storage-spaces/demo", {
+        language: "fr",
+        baseUrl: "/docs/",
+      }),
+    ).toBe("/docs/portal/fr/files/");
+    expect(resolveDocumentationUrl("/admin", { baseUrl: "/" })).toBe("/admin/en/");
+  });
+
   it("does not invent documentation for non-workspace routes", () => {
     expect(resolveDocumentationUrl("/login")).toBeNull();
     expect(resolveDocumentationUrl("/unknown/path")).toBeNull();

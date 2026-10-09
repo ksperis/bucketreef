@@ -56,6 +56,7 @@ const smtpFields = [
 const paths = [
   ...featureFields.map((field) => `general.${field}` as const),
   "general.rgw_account_id_prefix",
+  "general.documentation_base_url",
   "general.quota_alerts_enabled",
   "general.usage_history_enabled",
   "quota_notifications.threshold_percent",
@@ -80,6 +81,26 @@ function validLogo(value: string) {
     return true;
   try {
     return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+function validDocumentationBaseUrl(value: string) {
+  const normalized = value.trim();
+  if (!normalized) return true;
+  if (normalized.startsWith("//")) return false;
+  if (normalized.startsWith("/")) {
+    const parsed = new URL(normalized, "https://bucketreef.local");
+    return !parsed.search && !parsed.hash;
+  }
+  try {
+    const parsed = new URL(normalized);
+    return (
+      ["http:", "https:"].includes(parsed.protocol) &&
+      Boolean(parsed.host) &&
+      !parsed.search &&
+      !parsed.hash
+    );
   } catch {
     return false;
   }
@@ -109,6 +130,11 @@ function validate(values: AppSettingsValues): FieldErrors {
     "general.rgw_account_id_prefix": /^\d{1,3}$/.test(rgwAccountIdPrefix)
       ? undefined
       : "RGW account ID prefix must contain 1 to 3 digits.",
+    "general.documentation_base_url": validDocumentationBaseUrl(
+      String(values["general.documentation_base_url"] ?? ""),
+    )
+      ? undefined
+      : "Use an HTTP(S) or root-relative URL without a query string or fragment.",
     "quota_notifications.threshold_percent": validateInteger(
       values["quota_notifications.threshold_percent"],
       "Threshold percent",
@@ -250,7 +276,7 @@ export default function GeneralSettingsPage() {
   return (
     <AdminSettingsFrame
       title="General settings"
-      description="Workspace availability, platform services and branding."
+      description="Workspace availability, platform services, documentation and branding."
       page="general-settings"
       resetTitle="Reset general settings draft?"
       form={form}
@@ -470,6 +496,30 @@ export default function GeneralSettingsPage() {
           title="Usage history"
           ariaLabel="Usage history feature"
           description="Collect usage snapshots for historical metrics."
+        />
+      </SettingsSection>
+      <SettingsSection
+        presentation="compact"
+        title="Documentation"
+        description="Choose where contextual help links open."
+      >
+        <SettingsItem
+          compact
+          title="Documentation base URL"
+          description="The hosted copy must preserve BucketReef guide paths such as /admin/en/, /manager/en/, /browser/en/ and /portal/en/. Leave empty to use the official documentation."
+          action={
+            <SettingsField
+              name="general.documentation_base_url"
+              label="Documentation base URL"
+              value={String(form.draft["general.documentation_base_url"] ?? "")}
+              error={form.errors["general.documentation_base_url"]}
+              disabled={form.busy}
+              onChange={(event) =>
+                form.setValue("general.documentation_base_url", event.target.value)
+              }
+              className="w-80"
+            />
+          }
         />
       </SettingsSection>
       <SettingsSection

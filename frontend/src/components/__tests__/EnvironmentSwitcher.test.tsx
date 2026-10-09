@@ -37,6 +37,7 @@ vi.mock("../../api/users", () => ({
 
 const baseSettings: GeneralSettings = {
   rgw_account_id_prefix: "80",
+  documentation_base_url: "https://docs.bucketreef.ksperis.com",
   manager_enabled: true,
   ceph_admin_enabled: false,
   storage_ops_enabled: false,
