@@ -6,6 +6,7 @@ import SettingsForm from "../../components/settings/SettingsForm";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
+import { useManagerI18n } from "./managerI18n";
 
 export type AccessKeyMetadataDraft = {
   name?: string | null;
@@ -44,6 +45,7 @@ export default function AccessKeyMetadataDialog({
   onClose,
   onSubmit,
 }: Props) {
+  const { text } = useManagerI18n();
   const [name, setName] = useState(initial?.name ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [expiresAt, setExpiresAt] = useState(toLocalDateTimeInput(initial?.expires_at));
@@ -81,7 +83,7 @@ export default function AccessKeyMetadataDialog({
   return (
     <>
     <SettingsDialog
-      title={creating ? "Create access key" : "Edit access-key details"}
+      title={creating ? text("Create access key") : text("Edit access-key details")}
       onClose={closeGuard.requestClose}
       closeDisabled={busy}
       closeOnBackdropClick={!busy}
@@ -90,33 +92,33 @@ export default function AccessKeyMetadataDialog({
       maxWidthClass="max-w-xl"
     >
       <SettingsForm
-        label={creating ? "Create access key" : "Edit access-key details"}
+        label={creating ? text("Create access key") : text("Edit access-key details")}
         presentation="dialog"
         busy={busy}
         onSubmit={submit}
         onCancel={closeGuard.requestClose}
-        submitLabel={creating ? "Create key" : "Save details"}
-        busyLabel={creating ? "Creating..." : "Saving..."}
+        submitLabel={creating ? text("Create key") : text("Save details")}
+        busyLabel={creating ? text("Creating...") : text("Saving...")}
       >
         <div className="settings-fields">
           {metadataEnabled && (
             <>
               <UiInput
                 ref={nameRef}
-                label="Name"
+                label={text("Name")}
                 value={name}
                 maxLength={128}
-                placeholder="backup-service"
-                hint="Optional short label for the application or workload using this key."
+                placeholder={text("backup-service")}
+                hint={text("Optional short label for the application or workload using this key.")}
                 onChange={(event) => setName(event.target.value)}
               />
               <UiTextarea
-                label="Notes"
+                label={text("Notes")}
                 value={notes}
                 maxLength={2000}
                 rows={5}
-                placeholder="Used by the nightly backup job for project data."
-                hint="Optional. Name and notes are stored in BucketReef."
+                placeholder={text("Used by the nightly backup job for project data.")}
+                hint={text("Optional. Name and notes are stored in BucketReef.")}
                 onChange={(event) => setNotes(event.target.value)}
               />
             </>
@@ -132,14 +134,14 @@ export default function AccessKeyMetadataDialog({
               <UiInput
                 ref={expirationRef}
                 type="datetime-local"
-                label="Expiration date and time"
+                label={text("Expiration date and time")}
                 value={expiresAt}
                 disabled={!expirationEditable}
                 min={toLocalDateTimeInput(new Date().toISOString())}
                 hint={
                   <>
-                    {expirationEditable && <span className="block">Automatically disables the key, usually within one minute after expiration.</span>}
-                    Optional. The time is interpreted in your browser's local timezone. Clear the field to remove the expiration.
+                    {expirationEditable && <span className="block">{text("Automatically disables the key, usually within one minute after expiration.")}</span>}
+                    {text("Optional. The time is interpreted in your browser's local timezone. Clear the field to remove the expiration.")}
                   </>
                 }
                 onChange={(event) => setExpiresAt(event.target.value)}

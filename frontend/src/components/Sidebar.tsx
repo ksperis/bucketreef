@@ -5,6 +5,7 @@
 import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { PRODUCT_NAME } from "../constants/product";
+import { useI18n } from "../i18n";
 import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
 import BrandMark from "./BrandMark";
 import { SIDEBAR_COMPACT_WIDTH, SIDEBAR_DEFAULT_WIDTH } from "./sidebarSizing";
@@ -105,7 +106,9 @@ export default function Sidebar({
     [links, sections]
   );
   const location = useLocation();
+  const { t } = useI18n();
   const profilePath = resolveWorkspaceProfilePath(location.pathname);
+  const profileLabel = t({ en: "Profile", fr: "Profil", de: "Profil", zh: "个人资料" });
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -327,15 +330,15 @@ export default function Sidebar({
         <NavLink
           to={profilePath}
           onClick={onNavigate}
-          aria-label={compact ? "Profile" : undefined}
-          title={compact ? "Profile" : undefined}
+          aria-label={compact ? profileLabel : undefined}
+          title={compact ? profileLabel : undefined}
           className={({ isActive }) =>
             `${baseLinkClasses} w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${isActive ? activeLinkClasses : inactiveLinkClasses}`
           }
         >
           <div className={`flex min-w-0 items-center ${compact ? "" : "gap-1.5"}`}>
             <UserProfileIcon className="h-4 w-4 shrink-0" />
-            {!compact && <span className="truncate">Profile</span>}
+            {!compact && <span className="truncate">{profileLabel}</span>}
           </div>
         </NavLink>
       </div>

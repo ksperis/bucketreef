@@ -14,6 +14,7 @@ import type {
 import type { ListTableStatus } from "../../components/list/listTableStatus";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
 import TableEmptyState from "../../components/TableEmptyState";
+import { useManagerI18n } from "./managerI18n";
 
 type FeatureRulesTableProps = {
   emptyMessage: string;
@@ -62,12 +63,13 @@ export default function FeatureRulesTable({
   readErrorFallback,
   status,
 }: FeatureRulesTableProps) {
+  const { text } = useManagerI18n();
   const columns = [
-    { id: "bucket", label: "Bucket", align: "left" },
-    { id: "status", label: "Status", align: "left" },
-    { id: "rule", label: feature === "tags" ? "Tag" : "Rule", align: "left" },
-    { id: "summary", label: feature === "tags" ? "Value" : "Summary", align: "left" },
-    { id: "json", label: "JSON", align: "right" },
+    { id: "bucket", label: text("Bucket"), align: "left" },
+    { id: "status", label: text("Status"), align: "left" },
+    { id: "rule", label: text(feature === "tags" ? "Tag" : "Rule"), align: "left" },
+    { id: "summary", label: text(feature === "tags" ? "Value" : "Summary"), align: "left" },
+    { id: "json", label: text("JSON"), align: "right" },
   ] as const;
 
   return (
@@ -101,7 +103,7 @@ export default function FeatureRulesTable({
                   </Link>
                 </td>
                 <td className={cellClass}>
-                  <PropertySummaryChip compact state={statusLabel[item.status]} tone={statusTone[item.status]} />
+                  <PropertySummaryChip compact state={text(statusLabel[item.status])} tone={statusTone[item.status]} />
                 </td>
                 <td className={mutedCellClass}>{item.rules.length > 0 ? `${item.rules.length} ${itemLabel}` : "-"}</td>
                 <td className={mutedCellClass}>
@@ -169,7 +171,7 @@ export default function FeatureRulesTable({
                       type="button"
                       onClick={() => onOpenRule(item.bucket_name, rule)}
                     >
-                      JSON
+                      {text("JSON")}
                     </ListActionButton>
                   </td>
                 </tr>

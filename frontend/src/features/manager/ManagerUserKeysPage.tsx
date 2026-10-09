@@ -28,12 +28,14 @@ import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKeyMetadataDialog";
 import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
+import { useManagerI18n } from "./managerI18n";
 
 function extractError(err: unknown): string {
   return extractApiError(err, "Unexpected error");
 }
 
 export default function ManagerUserKeysPage() {
+  const { text, intlLocale } = useManagerI18n();
   const { userName } = useParams<{ userName: string }>();
   const {
     selectedS3AccountType,
@@ -58,7 +60,7 @@ export default function ManagerUserKeysPage() {
   const formatDate = (value?: string) => {
     if (!value) return "-";
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(intlLocale);
   };
 
   const isKeyActive = (key: AccessKey): boolean => {
@@ -105,7 +107,7 @@ export default function ManagerUserKeysPage() {
         : await createIamAccessKey(accountIdForApi, userName);
       setCreatedKey(key);
       await load(accountIdForApi, userName);
-      setActionMessage("Access key created");
+      setActionMessage(text("Access key created"));
       setMetadataDialog(null);
       setMetadataError(null);
     } catch (err) {
@@ -135,7 +137,7 @@ export default function ManagerUserKeysPage() {
       await updateIamAccessKeyMetadata(accountIdForApi, userName, key.access_key_id, metadata);
       await load(accountIdForApi, userName);
       setMetadataDialog(null);
-      setActionMessage("Access-key details updated");
+      setActionMessage(text("Access-key details updated"));
     } catch (err) {
       setMetadataError(extractError(err));
     } finally {
@@ -151,7 +153,7 @@ export default function ManagerUserKeysPage() {
     try {
       await deleteIamAccessKey(accountIdForApi, userName, keyId);
       await load(accountIdForApi, userName);
-      setActionMessage("Access key deleted");
+      setActionMessage(text("Access key deleted"));
     } catch (err) {
       setError(extractError(err));
     } finally {
@@ -167,7 +169,7 @@ export default function ManagerUserKeysPage() {
     try {
       await updateIamAccessKeyStatus(accountIdForApi, userName, keyId, nextActive);
       await load(accountIdForApi, userName);
-      setActionMessage(nextActive ? "Access key enabled" : "Access key disabled");
+      setActionMessage(text(nextActive ? "Access key enabled" : "Access key disabled"));
     } catch (err) {
       setError(extractError(err));
     } finally {
@@ -177,12 +179,12 @@ export default function ManagerUserKeysPage() {
 
   const handleDeleteKey = (keyId: string) => {
     keyConfirmation.requestConfirmation({
-      title: "Delete IAM access key?",
-      description: "Permanently remove this access key from the IAM user.",
-      confirmLabel: "Delete key",
+      title: text("Delete IAM access key?"),
+      description: text("Permanently remove this access key from the IAM user."),
+      confirmLabel: text("Delete key"),
       details: [
-        { label: "User", value: pageTitle },
-        { label: "Access key", value: keyId, mono: true },
+        { label: text("User"), value: pageTitle },
+        { label: text("Access key"), value: keyId, mono: true },
       ],
       impacts: ["Applications using this key will immediately lose access."],
       onConfirm: () => deleteKey(keyId),
@@ -195,12 +197,12 @@ export default function ManagerUserKeysPage() {
       return;
     }
     keyConfirmation.requestConfirmation({
-      title: "Disable IAM access key?",
-      description: "Temporarily prevent this access key from authenticating.",
-      confirmLabel: "Disable key",
+      title: text("Disable IAM access key?"),
+      description: text("Temporarily prevent this access key from authenticating."),
+      confirmLabel: text("Disable key"),
       details: [
-        { label: "User", value: pageTitle },
-        { label: "Access key", value: keyId, mono: true },
+        { label: text("User"), value: pageTitle },
+        { label: text("Access key"), value: keyId, mono: true },
       ],
       impacts: ["Applications using this key will lose access until the key is enabled again."],
       onConfirm: () => toggleKey(keyId, false),
@@ -225,7 +227,7 @@ export default function ManagerUserKeysPage() {
   const keyTableColumns: Array<DataTableColumn<AccessKey>> = [
     {
       id: "access-key",
-      label: "Access key",
+      label: text("Access key"),
       primary: true,
       mobileRole: "primary",
       cellClassName: "font-mono",
@@ -233,14 +235,14 @@ export default function ManagerUserKeysPage() {
         <div className="flex flex-wrap items-center gap-2">
           <span>{key.access_key_id}</span>
           {key.is_private_access_managed && (
-            <ListBadge tone="neutral">Private access</ListBadge>
+            <ListBadge tone="neutral">{text("Private access")}</ListBadge>
           )}
         </div>
       ),
     },
     ...(managerAccessKeyMetadataEnabled ? [{
       id: "details",
-      label: "Name / notes",
+      label: text("Name / notes"),
       render: (key: AccessKey) => (
         <div className="min-w-0">
           <div className="font-medium text-[var(--ui-text)]">{key.name || "—"}</div>
@@ -250,13 +252,13 @@ export default function ManagerUserKeysPage() {
     } satisfies DataTableColumn<AccessKey>] : []),
     {
       id: "status",
-      label: "Status",
+      label: text("Status"),
       cellClassName: "text-slate-700 dark:text-slate-200",
-      render: (key) => key.status ?? (isKeyActive(key) ? "Active" : "Inactive"),
+      render: (key) => text(key.status ?? (isKeyActive(key) ? "Active" : "Inactive")),
     },
     ...(showExpirationColumn ? [{
       id: "expiration",
-      label: "Expiration",
+      label: text("Expiration"),
       render: (key: AccessKey) => (
         <AccessKeyExpirationStatus
           expiresAt={key.expires_at}
@@ -265,10 +267,10 @@ export default function ManagerUserKeysPage() {
         />
       ),
     } satisfies DataTableColumn<AccessKey>] : []),
-    { id: "created", label: "Created on", render: (key) => formatDate(key.created_at) },
+    { id: "created", label: text("Created on"), render: (key) => formatDate(key.created_at) },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (key) => {
@@ -287,7 +289,7 @@ export default function ManagerUserKeysPage() {
                 }}
                 disabled={Boolean(busy)}
               >
-                {busy === `metadata:${key.access_key_id}` ? "Saving..." : "Edit details"}
+                {text(busy === `metadata:${key.access_key_id}` ? "Saving..." : "Edit details")}
               </ListActionButton>
             )}
             <ListActionButton
@@ -295,21 +297,21 @@ export default function ManagerUserKeysPage() {
               onClick={() => handleToggleKey(key.access_key_id, !active)}
               disabled={Boolean(busy) || managed || (!active && expirationPast)}
               title={managed
-                ? "Update the linked private connection instead"
+                ? text("Update the linked private connection instead")
                 : (!active && expirationPast)
-                  ? "Remove or move the expired access-key expiration before enabling this key"
+                  ? text("Remove or move the expired access-key expiration before enabling this key")
                   : undefined}
             >
-              {busy === `toggle:${key.access_key_id}` ? "Saving..." : active ? "Disable" : "Enable"}
+              {text(busy === `toggle:${key.access_key_id}` ? "Saving..." : active ? "Disable" : "Enable")}
             </ListActionButton>
             <ListActionButton
               type="button"
               onClick={() => handleDeleteKey(key.access_key_id)}
                variant="danger"
               disabled={Boolean(busy) || managed}
-              title={managed ? "Delete the linked private connection instead" : undefined}
+              title={managed ? text("Delete the linked private connection instead") : undefined}
             >
-              {busy === `delete:${key.access_key_id}` ? "Deleting..." : "Delete"}
+              {text(busy === `delete:${key.access_key_id}` ? "Deleting..." : "Delete")}
             </ListActionButton>
           </ListActions>
         );
@@ -320,41 +322,40 @@ export default function ManagerUserKeysPage() {
   if (isS3User) {
     return (
       <PageShell actionPresentation="listing"
-          title="User access keys"
-          description="Rotate IAM access keys for a specific user."
-          breadcrumbs={managerPageBreadcrumbs("users", { label: "Access keys" })}
+          title={text("User access keys")}
+          description={text("Rotate IAM access keys for a specific user.")}
+          breadcrumbs={managerPageBreadcrumbs(text, "users", { label: text("Access keys") })}
       >
-        <PageBanner tone="info">IAM users are not available for standalone S3 users. Select an S3 Account to continue.</PageBanner>
+        <PageBanner tone="info">{text("IAM users are not available for standalone S3 users. Select an S3 Account to continue.")}</PageBanner>
       </PageShell>
     );
   }
 
   if (!userName) {
-    return <div className="ui-body text-slate-600">User not specified.</div>;
+    return <div className="ui-body text-slate-600">{text("User not specified.")}</div>;
   }
 
   if (needsS3AccountSelection) {
-    return <div className="ui-body text-slate-600">Select an account before managing keys.</div>;
+    return <div className="ui-body text-slate-600">{text("Select an account before managing keys.")}</div>;
   }
 
   return (
     <PageShell actionPresentation="listing"
-      title="IAM access keys"
+      title={text("IAM access keys")}
       description={
         <>
-          Manage access keys for <span className="font-semibold text-slate-700 dark:text-slate-100">{pageTitle}</span>.
+          {text("Manage access keys for")} <span className="font-semibold text-slate-700 dark:text-slate-100">{pageTitle}</span>.
         </>
       }
-      breadcrumbs={managerPageBreadcrumbs(
-        "users",
+      breadcrumbs={managerPageBreadcrumbs(text, "users",
         { label: pageTitle },
-        { label: "Access keys" },
+        { label: text("Access keys") },
       )}
       actions={[
-        { label: "← Back to users", to: "/manager/users", variant: "ghost" },
-        { label: "Attached policies", to: `/manager/users/${encodeURIComponent(pageTitle)}/policies`, variant: "ghost" },
+        { label: text("← Back to users"), to: "/manager/users", variant: "ghost" },
+        { label: text("Attached policies"), to: `/manager/users/${encodeURIComponent(pageTitle)}/policies`, variant: "ghost" },
         {
-          label: busy === "create" ? "Creating..." : "New key",
+          label: text(busy === "create" ? "Creating..." : "New key"),
           onClick: handleCreateKey,
           variant: "primary",
         },
@@ -366,18 +367,18 @@ export default function ManagerUserKeysPage() {
 
       {createdKey && createdKey.secret_access_key && (
         <OneTimeSecretPanel
-          title={`Key created for ${pageTitle}`}
-          description="The secret is shown only once."
-          badge="Copy these values now"
+          title={text("Key created for {user}", { user: pageTitle })}
+          description={text("The secret is shown only once.")}
+          badge={text("Copy these values now")}
           values={[
-            { label: "Access key", value: createdKey.access_key_id, copyLabel: "Copy" },
-            { label: "Secret key", value: createdKey.secret_access_key, copyLabel: "Copy" },
+            { label: text("Access key"), value: createdKey.access_key_id, copyLabel: text("Copy") },
+            { label: text("Secret key"), value: createdKey.secret_access_key, copyLabel: text("Copy") },
           ]}
         />
       )}
 
       <ListPageSection variant="page"
-          title="Keys"
+          title={text("Keys")}
           countLabel={`${keys.length} key${keys.length === 1 ? "" : "s"}`}
       >
         <DataTableShell
@@ -389,9 +390,9 @@ export default function ManagerUserKeysPage() {
             cx("hover:bg-slate-50 dark:hover:bg-slate-800/50", !isKeyActive(key) && "bg-slate-50/70 dark:bg-slate-900/40")
           }
           status={tableStatus}
-          loadingMessage="Loading keys..."
-          errorMessage="Unable to load keys."
-          emptyMessage="No keys for this user."
+          loadingMessage={text("Loading keys...")}
+          errorMessage={text("Unable to load keys.")}
+          emptyMessage={text("No keys for this user.")}
           tableLayout="fixed"
         />
       </ListPageSection>

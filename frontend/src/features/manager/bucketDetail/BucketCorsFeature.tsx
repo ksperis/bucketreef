@@ -35,6 +35,7 @@ import {
   type CorsVisualRuleDraft,
 } from "./corsEditorModel";
 import type { useBucketCorsController } from "./useBucketCorsController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketCorsController = ReturnType<typeof useBucketCorsController>;
 
@@ -82,6 +83,7 @@ function StringListEditor({
   disabled: boolean;
   onChange: (values: string[]) => void;
 }) {
+  const { text } = useManagerI18n();
   return (
     <BucketFeatureEditorGroup>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -99,7 +101,7 @@ function StringListEditor({
         </SettingsButton>
       </div>
       {values.length === 0 ? (
-        <p className="settings-description">None configured.</p>
+        <p className="settings-description">{text("None configured.")}</p>
       ) : (
         <div className="space-y-2">
           {values.map((value, index) => (
@@ -124,7 +126,7 @@ function StringListEditor({
                 onClick={() => onChange(values.filter((_, entryIndex) => entryIndex !== index))}
                 disabled={disabled}
               >
-                Remove
+                {text("Remove")}
               </SettingsButton>
             </div>
           ))}
@@ -147,6 +149,7 @@ function CorsRuleEditor({
   onChange: (patch: Partial<CorsVisualRuleDraft>) => void;
   onRemove: () => void;
 }) {
+  const { text } = useManagerI18n();
   const editable = isCorsRuleVisuallyEditable(rule);
   const label = ruleLabel(rule, index);
   const { corsHeaders } = useBucketFeatureSuggestions();
@@ -158,13 +161,13 @@ function CorsRuleEditor({
           <div className="min-w-0">
             <p className="settings-label break-all">{label}</p>
             <p className="settings-description mt-1">
-              {summarizeList(stringArray(rule.AllowedOrigins), "No readable origins")} · {summarizeList(stringArray(rule.AllowedMethods), "No readable methods")}
+              {summarizeList(stringArray(rule.AllowedOrigins), text("No readable origins"))} · {summarizeList(stringArray(rule.AllowedMethods), text("No readable methods"))}
             </p>
           </div>
-          <UiBadge tone="warning">Advanced rule — edit in JSON</UiBadge>
+          <UiBadge tone="warning">{text("Advanced rule — edit in JSON")}</UiBadge>
         </div>
         <p className="settings-description">
-          This rule contains fields or values that the visual editor cannot represent without loss.
+          {text("This rule contains fields or values that the visual editor cannot represent without loss.")}
         </p>
       </BucketFeatureEditorItem>
     );
@@ -182,23 +185,23 @@ function CorsRuleEditor({
     <BucketFeatureEditorItem testId="cors-visual-rule">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="settings-label">Rule {index + 1}</p>
+          <p className="settings-label">{text("Rule")} {index + 1}</p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
-          Remove rule
+          {text("Remove rule")}
         </SettingsButton>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         <SettingsInput
-          label="Rule ID (optional)"
+          label={text("Rule ID (optional)")}
           value={draft.id}
-          placeholder="browser-uploads"
+          placeholder={text("browser-uploads")}
           onChange={(event) => onChange({ id: event.target.value })}
           disabled={disabled}
         />
         <SettingsInput
-          label="Max age (seconds)"
+          label={text("Max age (seconds)")}
           type="number"
           min={0}
           step={1}
@@ -210,11 +213,11 @@ function CorsRuleEditor({
       </div>
 
       <StringListEditor
-        title="Allowed origins"
+        title={text("Allowed origins")}
         itemLabel="Origin"
-        description="Origins that may issue cross-origin requests. Use * only when intentionally allowing any origin."
+        description={text("Origins that may issue cross-origin requests. Use * only when intentionally allowing any origin.")}
         values={draft.allowedOrigins}
-        placeholder="https://app.example.com"
+        placeholder={text("https://app.example.com")}
         addLabel="Add origin"
         disabled={disabled}
         onChange={(allowedOrigins) => onChange({ allowedOrigins })}
@@ -222,8 +225,8 @@ function CorsRuleEditor({
 
       <BucketFeatureEditorGroup>
         <div>
-          <p className="settings-label">Allowed methods</p>
-          <p className="settings-description">Select the S3 operations browsers may call from the configured origins.</p>
+          <p className="settings-label">{text("Allowed methods")}</p>
+          <p className="settings-description">{text("Select the S3 operations browsers may call from the configured origins.")}</p>
         </div>
         <div role="group" aria-label={`Allowed methods for ${label}`} className="flex flex-wrap gap-x-4 gap-y-2">
           {corsMethods.map((method) => (
@@ -243,12 +246,12 @@ function CorsRuleEditor({
       <div className="grid gap-3 lg:grid-cols-2">
         <BucketFeatureEditorGroup>
           <SettingsMultiValueAutocomplete
-            label="Allowed request headers"
+            label={text("Allowed request headers")}
             itemLabel="allowed header"
             inputLabel="Add allowed header"
-            description="Headers accepted in browser preflight requests."
+            description={text("Headers accepted in browser preflight requests.")}
             values={draft.allowedHeaders}
-            placeholder="Content-Type"
+            placeholder={text("Content-Type")}
             disabled={disabled}
             onChange={(allowedHeaders) => onChange({ allowedHeaders })}
             {...corsHeaders}
@@ -256,12 +259,12 @@ function CorsRuleEditor({
         </BucketFeatureEditorGroup>
         <BucketFeatureEditorGroup>
           <SettingsMultiValueAutocomplete
-            label="Exposed response headers"
+            label={text("Exposed response headers")}
             itemLabel="exposed header"
             inputLabel="Add exposed header"
-            description="Response headers browser JavaScript is allowed to read."
+            description={text("Response headers browser JavaScript is allowed to read.")}
             values={draft.exposeHeaders}
-            placeholder="ETag"
+            placeholder={text("ETag")}
             disabled={disabled}
             onChange={(exposeHeaders) => onChange({ exposeHeaders })}
             {...corsHeaders}
@@ -273,6 +276,7 @@ function CorsRuleEditor({
 }
 
 export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps) {
+  const { text } = useManagerI18n();
   const {
     addDraftRule,
     closeEditor,
@@ -318,41 +322,41 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
   const columns: Array<DataTableColumn<CorsTableRow>> = [
     {
       id: "rule",
-      label: "Rule",
+      label: text("Rule"),
       primary: true,
       headerClassName: "min-w-40",
       cellClassName: "min-w-40",
       render: ({ rule, index }) => (
         <div className="flex flex-wrap items-center gap-2">
           <span className="break-all">{ruleLabel(rule, index)}</span>
-          {!isCorsRuleVisuallyEditable(rule) ? <UiBadge tone="warning">Advanced</UiBadge> : null}
+          {!isCorsRuleVisuallyEditable(rule) ? <UiBadge tone="warning">{text("Advanced")}</UiBadge> : null}
         </div>
       ),
     },
     {
       id: "origins",
-      label: "Allowed origins",
+      label: text("Allowed origins"),
       headerClassName: "min-w-56",
       cellClassName: "min-w-56",
       render: ({ rule }) => summarizeList(stringArray(rule.AllowedOrigins)),
     },
     {
       id: "methods",
-      label: "Methods",
+      label: text("Methods"),
       headerClassName: "min-w-32",
       cellClassName: "min-w-32",
       render: ({ rule }) => summarizeList(stringArray(rule.AllowedMethods)),
     },
     {
       id: "headers",
-      label: "Headers",
+      label: text("Headers"),
       headerClassName: "min-w-44",
       cellClassName: "min-w-44",
       render: ({ rule }) => summarizeList(stringArray(rule.AllowedHeaders)),
     },
     {
       id: "max-age",
-      label: "Max age",
+      label: text("Max age"),
       headerClassName: "w-px whitespace-nowrap",
       cellClassName: "w-px whitespace-nowrap",
       render: ({ rule }) =>
@@ -360,7 +364,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
     },
     {
       id: "manage",
-      label: "Manage",
+      label: text("Manage"),
       mobileRole: "actions",
       headerClassName: "w-px whitespace-nowrap text-right",
       cellClassName: "w-px whitespace-nowrap",
@@ -372,7 +376,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
             onClick={() => openEditorFor(index)}
             disabled={saving || notImplemented}
           >
-            Edit
+            {text("Edit")}
           </SettingsButton>
           <SettingsButton
             type="button"
@@ -380,7 +384,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
             onClick={() => void removeRuleDirect(index)}
             disabled={saving || notImplemented}
           >
-            Remove
+            {text("Remove")}
           </SettingsButton>
         </div>
       ),
@@ -395,17 +399,17 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
       <BucketFeatureEditorToolbar
         action={
           <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
-            Add rule
+            {text("Add rule")}
           </SettingsButton>
         }
       >
         <p>
-          Edit standard S3 CORS rules visually. Advanced rules stay read-only here and are preserved for JSON editing.
+          {text("Edit standard S3 CORS rules visually. Advanced rules stay read-only here and are preserved for JSON editing.")}
         </p>
       </BucketFeatureEditorToolbar>
       {draftRules.length === 0 ? (
         <BucketFeatureEditorEmpty>
-          No CORS rules. Add a rule or switch to JSON.
+          {text("No CORS rules. Add a rule or switch to JSON.")}
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
@@ -428,10 +432,10 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
     <BucketFeatureJsonPane
       description={
         <>
-        Edit the complete S3 CORS <code>CORSRules</code> array. Switching back to Visual validates the JSON structure first.
+        {text("Edit the complete S3 CORS")} <code>{text("CORSRules")}</code> {text("array. Switching back to Visual validates the JSON structure first.")}
         </>
       }
-      label="CORS rules (JSON)"
+      label={text("CORS rules (JSON)")}
       value={jsonText}
       onChange={updateJsonText}
       disabled={saving}
@@ -441,8 +445,8 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
   return (
     <>
       <BucketFeatureSummarySection
-        title="CORS"
-        description="Cross-origin rules applied by the S3 endpoint."
+        title={text("CORS")}
+        description={text("Cross-origin rules applied by the S3 endpoint.")}
         visualState={visualState}
         metadata={ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
         loading={loading}
@@ -458,7 +462,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
             onClick={openEditorWithNew}
             disabled={notImplemented || loading || saving}
           >
-            Add rule
+            {text("Add rule")}
           </SettingsButton>
         }
         testId="bucket-feature-cors"
@@ -468,29 +472,29 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
           rows={rows}
           rowKey={(row) => `${ruleLabel(row.rule, row.index)}-${row.index}`}
           status={rows.length === 0 ? "empty" : "ready"}
-          loadingMessage="Loading CORS rules..."
-          errorMessage="Unable to load CORS rules."
-          emptyMessage="No CORS rules configured on this bucket."
+          loadingMessage={text("Loading CORS rules...")}
+          errorMessage={text("Unable to load CORS rules.")}
+          emptyMessage={text("No CORS rules configured on this bucket.")}
           primaryColumnId="rule"
           responsiveCards
           containerClassName="bucket-feature-collection-table"
         />
         <div className="bucket-feature-add-row">
-          <span>Common rules can be managed here; advanced S3 structures remain available in JSON.</span>
+          <span>{text("Common rules can be managed here; advanced S3 structures remain available in JSON.")}</span>
           <SettingsButton
             type="button"
             variant="secondary"
             onClick={openEditorWithNew}
             disabled={notImplemented || loading || saving}
           >
-            + Add rule
+            {text("+ Add rule")}
           </SettingsButton>
         </div>
       </BucketFeatureSummarySection>
 
       {editorOpen ? (
         <BucketFeatureEditorDialog
-          title="Edit CORS rules"
+          title={text("Edit CORS rules")}
           mode={editorMode}
           onModeChange={updateEditorMode}
           draftKey={draftSignature}

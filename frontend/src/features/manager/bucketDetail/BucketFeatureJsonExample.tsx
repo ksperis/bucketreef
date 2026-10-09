@@ -5,6 +5,7 @@
 import { type ReactNode, useId } from "react";
 
 import { SettingsButton } from "../../../components/settings/SettingsControls";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketFeatureJsonExampleProps = {
   show: boolean;
@@ -23,6 +24,7 @@ export default function BucketFeatureJsonExample({
   helperText,
   disabled = false,
 }: BucketFeatureJsonExampleProps) {
+  const { text } = useManagerI18n();
   const exampleId = useId();
   return (
     <div className="space-y-2 settings-description">
@@ -35,7 +37,7 @@ export default function BucketFeatureJsonExample({
           aria-controls={show ? exampleId : undefined}
           variant="ghost"
         >
-          {show ? "Hide example" : "Show example"}
+          {text(show ? "Hide example" : "Show example")}
         </SettingsButton>
         {onUseExample && (
           <SettingsButton
@@ -44,7 +46,7 @@ export default function BucketFeatureJsonExample({
             disabled={disabled}
             variant="secondary"
           >
-            Use example
+            {text("Use example")}
           </SettingsButton>
         )}
         {helperText}

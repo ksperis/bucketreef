@@ -11,6 +11,7 @@ import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketObjectLockController } from "./useBucketObjectLockController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketObjectLockController = ReturnType<typeof useBucketObjectLockController>;
 
@@ -26,6 +27,7 @@ export default function BucketObjectLockFeature({
   controller,
   onEnableVersioningDraft,
 }: BucketObjectLockFeatureProps) {
+  const { text } = useManagerI18n();
   const [editorOpen, setEditorOpen] = useState(false);
   const {
     active,
@@ -60,25 +62,25 @@ export default function BucketObjectLockFeature({
   };
   const retentionSummary = configuration?.mode && (configuration.days != null || configuration.years != null)
     ? `${configuration.mode}${configuration.days != null ? ` · ${configuration.days} day(s)` : ""}${configuration.years != null ? ` · ${configuration.years} year(s)` : ""}`
-    : "No default retention policy.";
+    : text("No default retention policy.");
 
   return (
     <>
       <BucketFeatureSection
-        title="Object Lock"
-        description="WORM retention and legal-hold prerequisites."
+        title={text("Object Lock")}
+        description={text("WORM retention and legal-hold prerequisites.")}
         mode="graphical"
         visualState={visualState}
-        stateLabel={dirty ? undefined : persistentlyEnabled ? "Enabled" : "Inactive"}
+        stateLabel={dirty ? undefined : text(persistentlyEnabled ? "Enabled" : "Inactive")}
         successMessage={status}
         busy={loading}
         testId="bucket-feature-object-lock"
       >
-        {loading && <UiInlineMessage>Loading Object Lock configuration...</UiInlineMessage>}
+        {loading && <UiInlineMessage>{text("Loading Object Lock configuration...")}</UiInlineMessage>}
         {loadError && <UiInlineMessage tone="error">{loadError}</UiInlineMessage>}
         <div className="bucket-feature-summary-row">
           <div className={persistentlyEnabled ? "bucket-feature-summary-value" : "bucket-feature-summary-muted"}>
-            {persistentlyEnabled ? retentionSummary : "No default retention policy."}
+            {persistentlyEnabled ? retentionSummary : text("No default retention policy.")}
           </div>
           <SettingsButton
             type="button"
@@ -86,14 +88,14 @@ export default function BucketObjectLockFeature({
             onClick={() => setEditorOpen(true)}
             disabled={loading || Boolean(loadError) || notImplemented}
           >
-            {persistentlyEnabled ? "Edit" : "Configure"}
+            {text(persistentlyEnabled ? "Edit" : "Configure")}
           </SettingsButton>
         </div>
       </BucketFeatureSection>
 
       {editorOpen ? (
         <BucketFeatureSettingsDialog
-          title="Configure Object Lock"
+          title={text("Configure Object Lock")}
           dirty={dirty}
           busy={saving}
           error={error}
@@ -104,8 +106,8 @@ export default function BucketObjectLockFeature({
           <div id={formId} className="space-y-2">
           <SettingsItem
             compact
-            title="Enable Object Lock"
-            description="Write-once retention controls for bucket objects."
+            title={text("Enable Object Lock")}
+            description={text("Write-once retention controls for bucket objects.")}
             action={
               <SettingsSwitch
                 checked={enabled ?? false}
@@ -119,58 +121,58 @@ export default function BucketObjectLockFeature({
               />
             }
           />
-          <p className={hintClass}>Enabling Object Lock automatically enables bucket versioning.</p>
+          <p className={hintClass}>{text("Enabling Object Lock automatically enables bucket versioning.")}</p>
           {persistentlyEnabled && (
             <p className={hintClass}>
-              Object Lock cannot be disabled once it has been enabled on the bucket. Update only the default retention below.
+              {text("Object Lock cannot be disabled once it has been enabled on the bucket. Update only the default retention below.")}
             </p>
           )}
           {active ? (
             <>
               <UiInlineMessage tone="warning">
-                Warning: while Object Lock is enabled, objects cannot be deleted until the specified retention period ends. Review mode and retention before saving changes.
+                {text("Warning: while Object Lock is enabled, objects cannot be deleted until the specified retention period ends. Review mode and retention before saving changes.")}
               </UiInlineMessage>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <SettingsSelect
-                  label="Mode"
+                  label={text("Mode")}
                   value={mode}
                   onChange={(event) => updateMode(event.target.value)}
                   disabled={notImplemented}
                 >
-                  <option value="">(none)</option>
-                  <option value="GOVERNANCE">Governance</option>
-                  <option value="COMPLIANCE">Compliance</option>
+                  <option value="">{text("(none)")}</option>
+                  <option value="GOVERNANCE">{text("Governance")}</option>
+                  <option value="COMPLIANCE">{text("Compliance")}</option>
                 </SettingsSelect>
                 <SettingsInput
-                  label="Retention (days)"
+                  label={text("Retention (days)")}
                   type="number"
                   min={0}
                   step="1"
                   value={days}
                   onChange={(event) => updateDays(event.target.value)}
-                  placeholder="e.g. 30"
+                  placeholder={text("e.g. 30")}
                   disabled={notImplemented}
                 />
                 <SettingsInput
-                  label="Retention (years)"
+                  label={text("Retention (years)")}
                   type="number"
                   min={0}
                   step="1"
                   value={years}
                   onChange={(event) => updateYears(event.target.value)}
-                  placeholder="e.g. 1"
+                  placeholder={text("e.g. 1")}
                   disabled={notImplemented}
                 />
               </div>
               {configuration?.mode && (configuration.days != null || configuration.years != null) && (
                 <p className={hintClass}>
-                  Current retention: {configuration.mode}
+                  {text("Current retention:")} {configuration.mode}
                   {configuration.days != null ? ` · ${configuration.days} day(s)` : ""}
                   {configuration.years != null ? ` · ${configuration.years} year(s)` : ""}
                 </p>
               )}
               <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                Choose a mode plus days or years. Leave it empty to remove the default retention (Object Lock must already be enabled on the bucket).
+                {text("Choose a mode plus days or years. Leave it empty to remove the default retention (Object Lock must already be enabled on the bucket).")}
               </p>
             </>
           ) : null}

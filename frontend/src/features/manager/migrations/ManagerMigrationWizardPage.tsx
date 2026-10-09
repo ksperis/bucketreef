@@ -26,8 +26,10 @@ import { useManagerContexts } from "../useManagerContexts";
 import { useCrossEndpointSelection, useManagerSourceBuckets } from "./hooks";
 import { extractError } from "./shared";
 import { MigrationStages, targetNameError } from "./MigrationWorkflow";
+import { useManagerI18n } from "../managerI18n";
 
 export default function ManagerMigrationWizardPage() {
+  const { text } = useManagerI18n();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editId = /^\d+$/.test(params.get("from") ?? "")
@@ -160,7 +162,7 @@ export default function ManagerMigrationWizardPage() {
         target.manager_role !== "account_administrator")
     ) {
       setError(
-        "Cross-account migrations require admin access on both source and target account contexts.",
+        text("Cross-account migrations require admin access on both source and target account contexts."),
       );
       return;
     }
@@ -198,18 +200,18 @@ export default function ManagerMigrationWizardPage() {
 
   return (
     <SettingsWorkflowForm
-      title={editId ? `Edit draft #${editId}` : "New migration"}
-      description="Prepare new destination buckets, check the plan, then choose when to copy and cut over."
-      breadcrumbs={managerPageBreadcrumbs("migration", { label: "Prepare" })}
-      backLabel="Back to migrations"
+      title={editId ? `Edit draft #${editId}` : text("New migration")}
+      description={text("Prepare new destination buckets, check the plan, then choose when to copy and cut over.")}
+      breadcrumbs={managerPageBreadcrumbs(text, "migration", { label: text("Prepare") })}
+      backLabel={text("Back to migrations")}
       width="wide"
       dirty={dirty}
       busy={busy}
       loading={loading || contextsLoading}
       completed={completed}
       disabled={contextChanged || Boolean(editId && !revision)}
-      submitLabel="Check migration"
-      busyLabel="Saving and queuing checks…"
+      submitLabel={text("Check migration")}
+      busyLabel={text("Saving and queuing checks…")}
       onSubmit={submit}
       onClose={(reason) => {
         if (reason !== "navigation") navigate("/manager/migrations");
@@ -223,12 +225,12 @@ export default function ManagerMigrationWizardPage() {
             {savedId && (
               <>
                 {" "}
-                Draft #{savedId} is saved.{" "}
+                {text("Draft #")}{savedId} {text("is saved.")}{" "}
                 <Link
                   className="underline"
                   to={`/manager/migrations/${savedId}`}
                 >
-                  Open checks
+                  {text("Open checks")}
                 </Link>
                 .
               </>
@@ -241,8 +243,7 @@ export default function ManagerMigrationWizardPage() {
       )}
       {contextChanged && (
         <UiInlineMessage tone="warning">
-          Your draft still uses {source?.display_name ?? sourceId}. Switch back
-          to that source context to continue; your entries are preserved.
+          {text("Your draft still uses")} {source?.display_name ?? sourceId}{text(". Switch back\n          to that source context to continue; your entries are preserved.")}
         </UiInlineMessage>
       )}
       <fieldset
@@ -250,19 +251,19 @@ export default function ManagerMigrationWizardPage() {
         className="min-w-0 space-y-6"
         onChange={() => setDirty(true)}
       >
-        <WorkflowSection title="Source and destination">
+        <WorkflowSection title={text("Source and destination")}>
           <div className="grid gap-4 md:grid-cols-2">
             <UiInput
-              label="Source context"
+              label={text("Source context")}
               value={source?.display_name ?? sourceId}
               readOnly
             />
             <UiSelect
-              label="Destination context"
+              label={text("Destination context")}
               value={targetId}
               onChange={(event) => setTargetId(event.target.value)}
             >
-              <option value="">Select a destination</option>
+              <option value="">{text("Select a destination")}</option>
               {contexts
                 .filter(
                   (entry) =>
@@ -279,18 +280,17 @@ export default function ManagerMigrationWizardPage() {
           </div>
           {targetInventoryError && (
             <UiInlineMessage tone="warning">
-              Destination inventory is unavailable. Existing names will be
-              checked by the server.
+              {text("Destination inventory is unavailable. Existing names will be\n              checked by the server.")}
             </UiInlineMessage>
           )}
         </WorkflowSection>
         <WorkflowSection
-          title="Buckets and destination names"
-          description="Only new destinations are supported. Edit each name here; removing a selection keeps the other mappings."
+          title={text("Buckets and destination names")}
+          description={text("Only new destinations are supported. Edit each name here; removing a selection keeps the other mappings.")}
         >
           <div className="flex flex-wrap items-end gap-3">
             <UiInput
-              label="Filter source buckets"
+              label={text("Filter source buckets")}
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
               size="compact"
@@ -302,7 +302,7 @@ export default function ManagerMigrationWizardPage() {
                 setDirty(true);
               }}
             >
-              Select filtered
+              {text("Select filtered")}
             </ListActionButton>
             <ListActionButton
               variant="secondary"
@@ -311,30 +311,30 @@ export default function ManagerMigrationWizardPage() {
                 setDirty(true);
               }}
             >
-              Clear selection
+              {text("Clear selection")}
             </ListActionButton>
             <span className="ui-caption">
-              {selected.length} selected / {sourceBuckets.length}
+              {selected.length} {text("selected /")} {sourceBuckets.length}
             </span>
           </div>
           <UiDetails>
             <summary className="cursor-pointer ui-caption">
-              Optional name prefix and suffix
+              {text("Optional name prefix and suffix")}
             </summary>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <UiInput
-                label="Prefix"
+                label={text("Prefix")}
                 value={prefix}
                 onChange={(event) => setPrefix(event.target.value)}
               />
               <UiInput
-                label="Suffix"
+                label={text("Suffix")}
                 value={suffix}
                 onChange={(event) => setSuffix(event.target.value)}
               />
             </div>
             <p className="ui-caption mt-2">
-              Applies to names that have not been individually edited.
+              {text("Applies to names that have not been individually edited.")}
             </p>
           </UiDetails>
           <DataTableShell
@@ -347,13 +347,13 @@ export default function ManagerMigrationWizardPage() {
               error: bucketsError,
               rowCount: rows.length,
             })}
-            loadingMessage="Loading buckets…"
+            loadingMessage={text("Loading buckets…")}
             errorMessage={bucketsError ?? "Unable to load buckets."}
-            emptyMessage="No matching buckets."
+            emptyMessage={text("No matching buckets.")}
             columns={[
               {
                 id: "source",
-                label: "Source bucket",
+                label: text("Source bucket"),
                 primary: true,
                 render: (name) => (
                   <UiCheckboxField
@@ -373,7 +373,7 @@ export default function ManagerMigrationWizardPage() {
               },
               {
                 id: "target",
-                label: "New destination",
+                label: text("New destination"),
                 render: (name) => (
                   <UiInput
                     aria-label={`Destination name for ${name}`}
@@ -394,28 +394,26 @@ export default function ManagerMigrationWizardPage() {
           />
         </WorkflowSection>
         <WorkflowSection
-          title="Transfer plan"
-          description="Pre-copy runs while the source stays writable. You trigger cutover later, after reviewing the interruption. The source is kept read-only after verification."
+          title={text("Transfer plan")}
+          description={text("Pre-copy runs while the source stays writable. You trigger cutover later, after reviewing the interruption. The source is kept read-only after verification.")}
         >
           <UiInlineMessage tone="info">
-            Read-only checks run first. Tests that temporarily change source
-            protections require a separate confirmation. No copy starts from
-            this screen.
+            {text("Read-only checks run first. Tests that temporarily change source\n            protections require a separate confirmation. No copy starts from\n            this screen.")}
           </UiInlineMessage>
           <UiDetails>
             <summary className="cursor-pointer ui-caption">
-              Advanced options
+              {text("Advanced options")}
             </summary>
             <div className="mt-3 space-y-4">
               <fieldset>
                 <legend className="ui-caption font-semibold">
-                  When to block source writes
+                  {text("When to block source writes")}
                 </legend>
                 <SettingsChoiceRow
                   type="radio"
                   name="mode"
                   value="pre_sync"
-                  title="Pre-copy, then manual cutover"
+                  title={text("Pre-copy, then manual cutover")}
                   checked={mode === "pre_sync"}
                   onChange={() => setMode("pre_sync")}
                 />
@@ -423,21 +421,21 @@ export default function ManagerMigrationWizardPage() {
                   type="radio"
                   name="mode"
                   value="one_shot"
-                  title="Immediate migration"
-                  description="Blocks source writes from the start. You must confirm the interruption before copying."
+                  title={text("Immediate migration")}
+                  description={text("Blocks source writes from the start. You must confirm the interruption before copying.")}
                   checked={mode === "one_shot"}
                   onChange={() => setMode("one_shot")}
                 />
               </fieldset>
               <fieldset>
                 <legend className="ui-caption font-semibold">
-                  Copy method
+                  {text("Copy method")}
                 </legend>
                 <SettingsChoiceRow
                   type="radio"
                   name="copy"
                   value="stream"
-                  title="Copy via BucketReef"
+                  title={text("Copy via BucketReef")}
                   checked={!storageCopy || crossEndpoint}
                   onChange={() => setStorageCopy(false)}
                 />
@@ -445,8 +443,8 @@ export default function ManagerMigrationWizardPage() {
                   type="radio"
                   name="copy"
                   value="storage"
-                  title="Copy within storage"
-                  description="Requires the same endpoint and destination identity access to the source."
+                  title={text("Copy within storage")}
+                  description={text("Requires the same endpoint and destination identity access to the source.")}
                   disabled={!target || crossEndpoint}
                   checked={storageCopy && !crossEndpoint}
                   onChange={() => setStorageCopy(true)}
@@ -456,27 +454,23 @@ export default function ManagerMigrationWizardPage() {
                 checked={copySettings}
                 onChange={(event) => setCopySettings(event.target.checked)}
               >
-                Copy bucket settings
+                {text("Copy bucket settings")}
               </UiCheckboxField>
               <p className="ui-caption text-[var(--ui-text-muted)]">
-                Optional settings: encryption, lifecycle, CORS, policy, bucket
-                tags, public access block and access logging. ACL, website,
-                notifications and replication are not copied. Checks list
-                unsupported configurations. Object history is preserved even
-                when settings copy is off.
+                {text("Optional settings: encryption, lifecycle, CORS, policy, bucket\n                tags, public access block and access logging. ACL, website,\n                notifications and replication are not copied. Checks list\n                unsupported configurations. Object history is preserved even\n                when settings copy is off.")}
               </p>
               <UiCheckboxField
                 checked={lockTarget}
                 onChange={(event) => setLockTarget(event.target.checked)}
               >
-                Protect destination writes during copy
+                {text("Protect destination writes during copy")}
               </UiCheckboxField>
               <UiCheckboxField
                 checked={temporaryGrant}
                 disabled={!storageCopy || crossEndpoint}
                 onChange={(event) => setTemporaryGrant(event.target.checked)}
               >
-                Allow temporary source read grants for the destination identity
+                {text("Allow temporary source read grants for the destination identity")}
               </UiCheckboxField>
             </div>
           </UiDetails>

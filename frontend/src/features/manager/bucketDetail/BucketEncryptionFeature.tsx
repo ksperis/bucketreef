@@ -28,6 +28,7 @@ import {
   type EncryptionVisualRulePatch,
 } from "./encryptionEditorModel";
 import type { useBucketEncryptionController } from "./useBucketEncryptionController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketEncryptionController = ReturnType<typeof useBucketEncryptionController>;
 
@@ -75,6 +76,7 @@ function EncryptionRuleEditor({
   onChange: (patch: EncryptionVisualRulePatch) => void;
   onRemove: () => void;
 }) {
+  const { text } = useManagerI18n();
   const editable = isEncryptionRuleVisuallyEditable(rule);
 
   if (!editable) {
@@ -82,15 +84,15 @@ function EncryptionRuleEditor({
       <BucketFeatureEditorItem testId="encryption-advanced-rule">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="settings-label">Rule {index + 1}</p>
+            <p className="settings-label">{text("Rule")} {index + 1}</p>
             <p className="settings-description mt-1">
-              {ruleAlgorithm(rule)} · KMS key: {ruleKmsKey(rule)} · Bucket key: {ruleBucketKey(rule)}
+              {ruleAlgorithm(rule)} {text("· KMS key:")} {ruleKmsKey(rule)} {text("· Bucket key:")} {ruleBucketKey(rule)}
             </p>
           </div>
-          <UiBadge tone="warning">Advanced rule — edit in JSON</UiBadge>
+          <UiBadge tone="warning">{text("Advanced rule — edit in JSON")}</UiBadge>
         </div>
         <p className="settings-description">
-          This rule contains fields or values that the visual editor cannot represent without loss.
+          {text("This rule contains fields or values that the visual editor cannot represent without loss.")}
         </p>
       </BucketFeatureEditorItem>
     );
@@ -102,29 +104,29 @@ function EncryptionRuleEditor({
     <BucketFeatureEditorItem testId="encryption-visual-rule">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="settings-label">Rule {index + 1}</p>
+          <p className="settings-label">{text("Rule")} {index + 1}</p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
-          Remove rule
+          {text("Remove rule")}
         </SettingsButton>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         <SettingsSelect
-          label="Encryption algorithm"
+          label={text("Encryption algorithm")}
           value={draft.algorithm}
           onChange={(event) =>
             onChange({ algorithm: event.target.value as "AES256" | "aws:kms" })
           }
           disabled={disabled}
         >
-          <option value="AES256">AES256 (SSE-S3)</option>
-          <option value="aws:kms">aws:kms (SSE-KMS)</option>
+          <option value="AES256">{text("AES256 (SSE-S3)")}</option>
+          <option value="aws:kms">{text("aws:kms (SSE-KMS)")}</option>
         </SettingsSelect>
 
         {draft.algorithm === "aws:kms" ? (
           <SettingsSelect
-            label="S3 bucket key"
+            label={text("S3 bucket key")}
             value={draft.bucketKeyState}
             onChange={(event) =>
               onChange({
@@ -133,25 +135,25 @@ function EncryptionRuleEditor({
             }
             disabled={disabled}
           >
-            <option value="default">Provider default</option>
-            <option value="enabled">Enabled</option>
-            <option value="disabled">Disabled</option>
+            <option value="default">{text("Provider default")}</option>
+            <option value="enabled">{text("Enabled")}</option>
+            <option value="disabled">{text("Disabled")}</option>
           </SettingsSelect>
         ) : null}
       </div>
 
       {draft.algorithm === "aws:kms" ? (
         <SettingsInput
-          label="KMS key ID (optional)"
+          label={text("KMS key ID (optional)")}
           value={draft.kmsKeyId}
-          placeholder="Key ID, alias, or ARN supported by the endpoint"
+          placeholder={text("Key ID, alias, or ARN supported by the endpoint")}
           onChange={(event) => onChange({ kmsKeyId: event.target.value })}
           disabled={disabled}
-          hint="Leave empty to use the provider default KMS key when supported."
+          hint={text("Leave empty to use the provider default KMS key when supported.")}
         />
       ) : (
         <p className="settings-description">
-          AES256 uses provider-managed S3 encryption and does not require a KMS key.
+          {text("AES256 uses provider-managed S3 encryption and does not require a KMS key.")}
         </p>
       )}
     </BucketFeatureEditorItem>
@@ -162,6 +164,7 @@ export default function BucketEncryptionFeature({
   controller,
   enabled,
 }: BucketEncryptionFeatureProps) {
+  const { text } = useManagerI18n();
   const {
     addDraftRule,
     closeEditor,
@@ -200,17 +203,17 @@ export default function BucketEncryptionFeature({
       <BucketFeatureEditorToolbar
         action={
           <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
-            Add rule
+            {text("Add rule")}
           </SettingsButton>
         }
       >
         <p>
-          Configure the default encryption rules applied by S3 to new objects. Advanced rules remain read-only here and are preserved for JSON editing.
+          {text("Configure the default encryption rules applied by S3 to new objects. Advanced rules remain read-only here and are preserved for JSON editing.")}
         </p>
       </BucketFeatureEditorToolbar>
       {draftRules.length === 0 ? (
         <BucketFeatureEditorEmpty>
-          Default bucket encryption is disabled. Add a rule to enable it.
+          {text("Default bucket encryption is disabled. Add a rule to enable it.")}
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
@@ -233,10 +236,10 @@ export default function BucketEncryptionFeature({
     <BucketFeatureJsonPane
       description={
         <>
-        Edit the complete S3 server-side encryption <code>Rules</code> array. Switching back to Visual validates the JSON structure first.
+        {text("Edit the complete S3 server-side encryption")} <code>{text("Rules")}</code> {text("array. Switching back to Visual validates the JSON structure first.")}
         </>
       }
-      label="Encryption rules (JSON)"
+      label={text("Encryption rules (JSON)")}
       value={jsonText}
       onChange={updateJsonText}
       disabled={saving}
@@ -246,11 +249,11 @@ export default function BucketEncryptionFeature({
   return (
     <>
       <BucketFeatureSection
-        title="Server-side encryption"
-        description="Default S3 encryption applied to new objects in this bucket."
+        title={text("Server-side encryption")}
+        description={text("Default S3 encryption applied to new objects in this bucket.")}
         mode="hybrid"
         visualState={visualState}
-        stateLabel={disabled ? undefined : configured ? "Configured" : "Inactive"}
+        stateLabel={disabled ? undefined : text(configured ? "Configured" : "Inactive")}
         successMessage={status}
         busy={loading}
         testId="bucket-feature-encryption"
@@ -260,7 +263,7 @@ export default function BucketEncryptionFeature({
         ) : error ? (
           <UiInlineMessage tone="error">{error}</UiInlineMessage>
         ) : loading ? (
-          <UiInlineMessage>Loading encryption configuration...</UiInlineMessage>
+          <UiInlineMessage>{text("Loading encryption configuration...")}</UiInlineMessage>
         ) : (
           <div className="bucket-feature-summary-row">
             <div className={configured ? "bucket-feature-summary-value" : "bucket-feature-summary-muted"}>
@@ -273,7 +276,7 @@ export default function BucketEncryptionFeature({
                   {ruleCount > 1 ? ` · ${ruleCount} rules` : ""}
                 </>
               ) : (
-                "No default encryption configuration."
+                text("No default encryption configuration.")
               )}
             </div>
             <SettingsButton
@@ -282,7 +285,7 @@ export default function BucketEncryptionFeature({
               onClick={openEditor}
               disabled={disabled || saving}
             >
-              {configured ? "Edit" : "Configure"}
+              {text(configured ? "Edit" : "Configure")}
             </SettingsButton>
           </div>
         )}
@@ -290,7 +293,7 @@ export default function BucketEncryptionFeature({
 
       {editorOpen ? (
         <BucketFeatureEditorDialog
-          title="Edit server-side encryption"
+          title={text("Edit server-side encryption")}
           mode={editorMode}
           onModeChange={updateEditorMode}
           draftKey={draftSignature}

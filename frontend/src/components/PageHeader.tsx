@@ -6,6 +6,7 @@ import { ListActionButton, ListActionLink } from "./list/ListControls";
 import { ReactNode, type MouseEventHandler } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
 import UiButton, { UiButtonLink, type UiButtonVariant } from "./ui/UiButton";
+import { useI18n } from "../i18n";
 import { cx, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
 
 export type PageBreadcrumb = { label: string; to?: string; onClick?: MouseEventHandler<HTMLAnchorElement> };
@@ -33,14 +34,16 @@ export default function PageHeader({
   title,
   description,
   breadcrumbs = [],
-  breadcrumbLabel = "Breadcrumb",
+  breadcrumbLabel,
   actions = [],
   actionPresentation = "default",
   inlineContent,
   metaContent,
   rightContent,
 }: PageHeaderProps) {
+  const { t } = useI18n();
   const inRouterContext = useInRouterContext();
+  const resolvedBreadcrumbLabel = breadcrumbLabel ?? t({ en: "Breadcrumb", fr: "Fil d’Ariane" });
   const renderActions = () =>
     actions.map((action) => {
       if (actionPresentation === "listing") {
@@ -92,7 +95,7 @@ export default function PageHeader({
       <div className="min-w-0">
         {breadcrumbs.length > 0 && (
           <nav
-            aria-label={breadcrumbLabel}
+            aria-label={resolvedBreadcrumbLabel}
             className={cx("mb-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold leading-4", uiMutedTextClass)}
           >
             {breadcrumbs.map((bc, idx) => (

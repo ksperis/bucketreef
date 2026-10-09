@@ -10,6 +10,7 @@ import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketAclController } from "./useBucketAclController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketAclController = ReturnType<typeof useBucketAclController>;
 
@@ -31,6 +32,7 @@ const aclOptions = [
 const hintClass = "settings-description";
 
 export default function BucketAclFeature({ controller }: BucketAclFeatureProps) {
+  const { text } = useManagerI18n();
   const [editorOpen, setEditorOpen] = useState(false);
   const {
     acl,
@@ -62,11 +64,11 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
   return (
     <>
       <BucketFeatureSection
-        title="Access control list"
-        description="Canned ACL and resulting grants."
+        title={text("Access control list")}
+        description={text("Canned ACL and resulting grants.")}
         mode="graphical"
         visualState={visualState}
-        stateLabel={dirty ? undefined : acl ? presetLabel : "Unavailable"}
+        stateLabel={dirty ? undefined : acl ? text(presetLabel) : text("Unavailable")}
         successMessage={status}
         busy={loading}
         testId="bucket-feature-acl"
@@ -74,11 +76,11 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
         {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
         <div className="bucket-feature-summary-row">
           <div className="bucket-feature-summary-value">
-            <strong>{acl?.owner ?? "Unknown owner"}</strong>
+            <strong>{acl?.owner ?? text("Unknown owner")}</strong>
             <div className="bucket-feature-summary-muted">
               {primaryGrant
                 ? `${primaryGrant.grantee.display_name || primaryGrant.grantee.id || primaryGrant.grantee.type} · ${primaryGrant.permission}`
-                : "No explicit ACL grants"}
+                : text("No explicit ACL grants")}
             </div>
           </div>
           <SettingsButton
@@ -87,14 +89,14 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
             onClick={() => setEditorOpen(true)}
             disabled={notImplemented || saving || loading}
           >
-            Edit ACL
+            {text("Edit ACL")}
           </SettingsButton>
         </div>
       </BucketFeatureSection>
 
       {editorOpen ? (
         <BucketFeatureSettingsDialog
-          title="Edit access control list"
+          title={text("Edit access control list")}
           dirty={dirty}
           busy={saving}
           error={error}
@@ -104,7 +106,7 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
         >
           <div className="grid gap-3 md:grid-cols-2">
             <SettingsSelect
-              label="Canned ACL"
+              label={text("Canned ACL")}
               value={preset}
               onChange={(event) => updatePreset(event.target.value)}
               disabled={notImplemented || loading || saving}
@@ -117,21 +119,21 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
             </SettingsSelect>
             {preset === "custom" && (
               <SettingsInput
-                label="Custom ACL"
+                label={text("Custom ACL")}
                 type="text"
                 value={custom}
                 onChange={(event) => updateCustom(event.target.value)}
-                placeholder="e.g. private"
+                placeholder={text("e.g. private")}
                 disabled={notImplemented || loading || saving}
               />
             )}
           </div>
-          <p className={hintClass}>Saving a canned ACL replaces the current ACL grants.</p>
+          <p className={hintClass}>{text("Saving a canned ACL replaces the current ACL grants.")}</p>
           <div className="space-y-3">
             <p className={hintClass}>
-              Owner:{" "}
+              {text("Owner:")}{" "}
               <span className="font-semibold text-slate-700 dark:text-slate-200">
-                {acl?.owner ?? "Unknown"}
+                {acl?.owner ?? text("Unknown")}
               </span>
             </p>
             {(acl?.grants?.length ?? 0) > 0 ? (
@@ -139,9 +141,9 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
                 <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800">
                   <thead>
                     <tr>
-                      <th className="text-left">Grantee</th>
-                      <th className="text-left">Type</th>
-                      <th className="text-left">Permission</th>
+                      <th className="text-left">{text("Grantee")}</th>
+                      <th className="text-left">{text("Type")}</th>
+                      <th className="text-left">{text("Permission")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -164,7 +166,7 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
                 </table>
               </div>
             ) : (
-              <p className="ui-body text-slate-600 dark:text-slate-300">No explicit ACL grants on this bucket.</p>
+              <p className="ui-body text-slate-600 dark:text-slate-300">{text("No explicit ACL grants on this bucket.")}</p>
             )}
           </div>
         </BucketFeatureSettingsDialog>

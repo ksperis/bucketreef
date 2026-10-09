@@ -61,6 +61,7 @@ import {
   triggerBlobDownload,
   triggerJsonDownload,
 } from "../../utils/download";
+import { useManagerI18n } from "./managerI18n";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -150,6 +151,7 @@ export default function ManagerBucketCompareModal({
   managerBrowserEnabled = true,
   onClose,
 }: ManagerBucketCompareModalProps) {
+  const { text } = useManagerI18n();
   const sortedSourceBuckets = useMemo(() => [...sourceBuckets].sort((a, b) => a.localeCompare(b)), [sourceBuckets]);
   const targetContextOptions = useMemo(() => contexts, [contexts]);
   const [targetContextId, setTargetContextId] = useState<string | null>(null);
@@ -233,7 +235,7 @@ export default function ManagerBucketCompareModal({
   useEffect(() => {
     if (!targetContextId) {
       setTargetBucketNames([]);
-      setTargetBucketsError("Select a target context.");
+      setTargetBucketsError(text("Select a target context."));
       return;
     }
     let cancelled = false;
@@ -262,7 +264,7 @@ export default function ManagerBucketCompareModal({
     return () => {
       cancelled = true;
     };
-  }, [sourceContextId, targetContextId]);
+  }, [sourceContextId, targetContextId, text]);
 
   const {
     availableTargetBucketNames,
@@ -326,19 +328,19 @@ export default function ManagerBucketCompareModal({
 
   const runCompare = async () => {
     if (!targetContextId) {
-      setRunError("Select a target context.");
+      setRunError(text("Select a target context."));
       return;
     }
     if (!hasScopeSelected) {
-      setRunError("Select at least one comparison scope: content and/or configuration.");
+      setRunError(text("Select at least one comparison scope: content and/or configuration."));
       return;
     }
     if (includeConfig && !hasConfigFeatureSelected) {
-      setRunError("Select at least one configuration feature or disable configuration scope.");
+      setRunError(text("Select at least one configuration feature or disable configuration scope."));
       return;
     }
     if (ignoreModifiedAfterInvalid) {
-      setRunError("Enter a valid modified-after cutoff or clear the field.");
+      setRunError(text("Enter a valid modified-after cutoff or clear the field."));
       return;
     }
     if (comparePlan.error) {
@@ -544,7 +546,7 @@ export default function ManagerBucketCompareModal({
                   ...item,
                   actionFeedback: {
                     tone: "danger",
-                    message: "Unable to run action: target context is missing.",
+                    message: text("Unable to run action: target context is missing."),
                   },
                 }
               : item
@@ -658,7 +660,7 @@ export default function ManagerBucketCompareModal({
         );
       }
     },
-    [ignoreModifiedAfterIso, items, lastRunOptions, parallelism, setItems, sourceContextId, targetContextId]
+    [ignoreModifiedAfterIso, items, lastRunOptions, parallelism, setItems, sourceContextId, targetContextId, text]
   );
 
   const openRemediationConfirm = useCallback(
@@ -723,10 +725,10 @@ export default function ManagerBucketCompareModal({
 
   return (
     <WorkflowPage
-      title="Compare buckets"
-      description="Configure the target mapping, run the comparison, and review or remediate differences without leaving the workflow."
-      breadcrumbs={managerPageBreadcrumbs("compare", { label: "Run" })}
-      backLabel="Back to bucket selection"
+      title={text("Compare buckets")}
+      description={text("Configure the target mapping, run the comparison, and review or remediate differences without leaving the workflow.")}
+      breadcrumbs={managerPageBreadcrumbs(text, "compare", { label: text("Run") })}
+      backLabel={text("Back to bucket selection")}
       onBack={handleClose}
       contentClassName="space-y-4"
     >
@@ -738,13 +740,13 @@ export default function ManagerBucketCompareModal({
           sameTarget={sameContextSelected}
           targetSelector={
             <UiSelect
-              label="Target context"
+              label={text("Target context")}
               value={targetContextId ?? ""}
               onChange={(event) => setTargetContextId(event.target.value ? event.target.value : null)}
               disabled={running || targetContextOptions.length === 0}
             >
-              {targetContextOptions.length > 0 && <option value="">Select a target context</option>}
-              {targetContextOptions.length === 0 && <option value="">No other context available</option>}
+              {targetContextOptions.length > 0 && <option value="">{text("Select a target context")}</option>}
+              {targetContextOptions.length === 0 && <option value="">{text("No other context available")}</option>}
               {targetContextOptions.map((context) => (
                 <option key={context.id} value={context.id}>
                   {context.display_name}
@@ -759,13 +761,13 @@ export default function ManagerBucketCompareModal({
                 disabled={!canRunComparison}
                 className="ui-body"
               >
-                {running ? "Comparing..." : "Run comparison"}
+                {text(running ? "Comparing..." : "Run comparison")}
               </UiButton>
               <UiButton onClick={stopComparison} disabled={!running} variant="warning" className="ui-body">
-                {stopping ? "Stopping..." : "Stop"}
+                {text(stopping ? "Stopping..." : "Stop")}
               </UiButton>
               <UiButton onClick={exportGlobalDiff} disabled={running || items.length === 0} variant="secondary" className="ui-body">
-                Export global diff
+                {text("Export global diff")}
               </UiButton>
             </>
           }
@@ -785,11 +787,15 @@ export default function ManagerBucketCompareModal({
           onConfigFeatureChange={toggleConfigFeature}
           running={running}
         >
-          {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">Loading target buckets...</p>}
+          {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">{text("Loading target buckets...")}</p>}
           {targetBucketsError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{targetBucketsError}</p>}
           {mappingMode === "by_name" && missingByName.length > 0 && (
             <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-              {missingByName.length} target bucket(s) do not exist with the same name.
+              {missingByName.length} {text(
+                missingByName.length === 1
+                  ? "target bucket does not exist with the same name."
+                  : "target buckets do not exist with the same name.",
+              )}
             </p>
           )}
           {mappingMode === "manual" && (
@@ -812,8 +818,7 @@ export default function ManagerBucketCompareModal({
         {(running || progress.total > 0) && <BucketCompareProgress running={running} progress={progress} percent={progressPercent} />}
         {items.length > 0 && !running && (
           <p className="ui-caption text-slate-600 dark:text-slate-300">
-            Done: {resultSummary.success} / Failed: {resultSummary.failed} / Cancelled: {resultSummary.cancelled} / With
-            differences: {resultSummary.withDiff}
+            {text("Done:")} {resultSummary.success} {text("/ Failed:")} {resultSummary.failed} {text("/ Cancelled:")} {resultSummary.cancelled} {text("/ With\n            differences:")} {resultSummary.withDiff}
           </p>
         )}
         {items.length > 0 && (
@@ -957,10 +962,10 @@ export default function ManagerBucketCompareModal({
                         summary={
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                              Content diff (md5 or size)
+                              {text("Content diff (md5 or size)")}
                             </span>
                             <ListBadge tone={getChangedTone(contentHasDifferences)}>
-                              {contentHasDifferences ? "Different" : "Identical"}
+                              {text(contentHasDifferences ? "Different" : "Identical")}
                             </ListBadge>
                           </div>
                         }
@@ -1006,7 +1011,7 @@ export default function ManagerBucketCompareModal({
                                       });
                                     }}
                                   >
-                                    {downloadInFlight === downloadId ? "Downloading..." : "Download"}
+                                    {text(downloadInFlight === downloadId ? "Downloading..." : "Download")}
                                   </ListActionButton>
                                   {!isDemo && section.action && includeRemediation && (
                                     <ListActionButton
@@ -1035,11 +1040,11 @@ export default function ManagerBucketCompareModal({
                                     <div className="flex flex-wrap items-center gap-2">
                                       <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
                                       <ListBadge tone={getChangedTone(section.changed)}>
-                                        {section.changed ? "Different" : "Identical"}
+                                        {text(section.changed ? "Different" : "Identical")}
                                       </ListBadge>
                                       {displayLimitMessage && (
                                         <ListBadge tone="warning">
-                                          Showing {section.visibleCount} of {section.objectCount}
+                                          {text("Showing")} {section.visibleCount} {text("of")} {section.objectCount}
                                         </ListBadge>
                                       )}
                                     </div>
@@ -1053,7 +1058,7 @@ export default function ManagerBucketCompareModal({
                                             void copyVisibleKeys(sectionFeedbackId, section.copyKeys);
                                           }}
                                         >
-                                          Copy keys
+                                          {text("Copy keys")}
                                         </ListActionButton>
                                       )}
                                       {!isDemo && section.action && (
@@ -1104,7 +1109,7 @@ export default function ManagerBucketCompareModal({
                                   <div className="grid gap-2 lg:grid-cols-2">
                                     <div className="space-y-1">
                                       <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                        Source
+                                        {text("Source")}
                                       </p>
                                       <BucketCompareObjectDetails rows={section.sourceDetails} options={{
                                         browserDisabledReason: managerBrowserDisabledReason,
@@ -1127,7 +1132,7 @@ export default function ManagerBucketCompareModal({
                                     </div>
                                     <div className="space-y-1">
                                       <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                        Target
+                                        {text("Target")}
                                       </p>
                                       <BucketCompareObjectDetails rows={section.targetDetails} options={{
                                         browserDisabledReason: managerBrowserDisabledReason,
@@ -1160,9 +1165,9 @@ export default function ManagerBucketCompareModal({
                       <BucketCompareSection
                         summary={
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Config diff</span>
+                            <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{text("Config diff")}</span>
                             <ListBadge tone={getChangedTone(configHasDifferences)}>
-                              {configHasDifferences ? "Different" : "Identical"}
+                              {text(configHasDifferences ? "Different" : "Identical")}
                             </ListBadge>
                           </div>
                         }
@@ -1175,7 +1180,7 @@ export default function ManagerBucketCompareModal({
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
                                   <ListBadge tone={getChangedTone(section.changed)}>
-                                    {section.changed ? "Different" : "Identical"}
+                                    {text(section.changed ? "Different" : "Identical")}
                                   </ListBadge>
                                 </div>
                               }
@@ -1183,13 +1188,13 @@ export default function ManagerBucketCompareModal({
                               <div className="mt-1 grid gap-2 pb-2 lg:grid-cols-2">
                                 <div className="space-y-1">
                                   <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Source
+                                    {text("Source")}
                                   </p>
                                   {renderDiffLines(section.before)}
                                 </div>
                                 <div className="space-y-1">
                                   <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Target
+                                    {text("Target")}
                                   </p>
                                   {renderDiffLines(section.after)}
                                 </div>
@@ -1205,7 +1210,7 @@ export default function ManagerBucketCompareModal({
             })}
             {filteredItems.length === 0 && (
               <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 ui-body text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                No result matches the current filters.
+                {text("No result matches the current filters.")}
               </div>
             )}
           </div>
@@ -1214,21 +1219,21 @@ export default function ManagerBucketCompareModal({
       {pendingAction && pendingActionItem && (
         <ConfirmActionDialog
           title={remediationActionTitle[pendingAction.action]}
-          description={<>This will run <strong>{pendingAction.objectKeys.length === 1
+          description={<>{text("This will run")} <strong>{pendingAction.objectKeys.length === 1
             ? remediationSingleActionLabel[pendingAction.action]
             : pendingAction.visibleOnly
               ? remediationVisibleActionLabel[pendingAction.action]
-              : remediationActionLabel[pendingAction.action]}</strong> for the exact object keys from the current diff.</>}
+              : remediationActionLabel[pendingAction.action]}</strong> {text("for the exact object keys from the current diff.")}</>}
           details={[
-            { label: "Source context", value: pendingActionSourceContextName },
-            { label: "Target context", value: pendingActionTargetContextName },
-            { label: "Source bucket", value: pendingActionItem.sourceBucket },
-            { label: "Target bucket", value: pendingActionItem.targetBucket },
-            { label: "Objects impacted", value: pendingAction.objectKeys.length },
+            { label: text("Source context"), value: pendingActionSourceContextName },
+            { label: text("Target context"), value: pendingActionTargetContextName },
+            { label: text("Source bucket"), value: pendingActionItem.sourceBucket },
+            { label: text("Target bucket"), value: pendingActionItem.targetBucket },
+            { label: text("Objects impacted"), value: pendingAction.objectKeys.length },
             ...((lastRunOptions?.ignoreModifiedAfterIso ?? ignoreModifiedAfterIso)
-              ? [{ label: "Cutoff", value: lastRunOptions?.ignoreModifiedAfterIso ?? ignoreModifiedAfterIso }]
+              ? [{ label: text("Cutoff"), value: lastRunOptions?.ignoreModifiedAfterIso ?? ignoreModifiedAfterIso }]
               : []),
-            { label: "Object keys", mono: true, value: <ul className="max-h-48 space-y-1 overflow-auto" aria-label="Exact object keys">
+            { label: text("Object keys"), mono: true, value: <ul className="max-h-48 space-y-1 overflow-auto" aria-label={text("Exact object keys")}>
               {pendingAction.objectKeys.map((key) => <li key={key}>{key}</li>)}
             </ul> },
           ]}
@@ -1236,7 +1241,7 @@ export default function ManagerBucketCompareModal({
             ...(pendingAction.visibleOnly ? ["This diff section is truncated; only displayed keys will be remediated."] : []),
             ...(pendingAction.action === "delete_target_only" ? ["This action is destructive and removes extra objects from the target bucket."] : []),
           ]}
-          confirmLabel="Confirm"
+          confirmLabel={text("Confirm")}
           tone={pendingAction.action === "delete_target_only" ? "danger" : "primary"}
           maxWidthClass="max-w-2xl"
           zIndexClass="z-[60]"

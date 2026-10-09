@@ -10,6 +10,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
 import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
+import { useManagerI18n } from "./managerI18n";
 
 const defaultPolicy = JSON.stringify({ Version: "2012-10-17", Statement: [] }, null, 2);
 
@@ -19,6 +20,7 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
   topic: Topic;
   onClose: () => void;
 }) {
+  const { text } = useManagerI18n();
   const exampleId = useId();
   const load = useCallback(async () => {
     const { policy } = await getTopicPolicy(accountId, topic.arn);
@@ -50,37 +52,37 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
     setError(null); setStatus(null);
     let parsed: unknown;
     try { parsed = draft.trim() ? JSON.parse(draft) : {}; }
-    catch { setValidationError("Policy must be valid JSON."); return; }
+    catch { setValidationError(text("Policy must be valid JSON.")); return; }
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      setValidationError("Policy must be a JSON object."); return;
+      setValidationError(text("Policy must be a JSON object.")); return;
     }
     setValidationError(null);
     setSaving(true);
     try {
       await updateTopicPolicy(accountId, topic.arn, parsed as Record<string, unknown>);
       setBaseline(draft);
-      setStatus("Policy updated.");
-    } catch (error) { setError(extractApiError(error, "Unable to update topic policy.")); }
+      setStatus(text("Policy updated."));
+    } catch (error) { setError(extractApiError(error, text("Unable to update topic policy."))); }
     finally { setSaving(false); }
   };
-  return <SettingsWorkflowForm title={`Topic policy · ${topic.name}`}
-    description="Edit the SNS policy that controls access to this topic."
-    breadcrumbs={managerPageBreadcrumbs("topics", { label: "Policy" })} backLabel="Back to topics"
+  return <SettingsWorkflowForm title={text("Topic policy · {topic}", { topic: topic.name })}
+    description={text("Edit the SNS policy that controls access to this topic.")}
+    breadcrumbs={managerPageBreadcrumbs(text, "topics", { label: text("Policy") })} backLabel={text("Back to topics")}
     dirty={dirty && !loading && !loadError} busy={saving} loading={loading} disabled={Boolean(loadError)}
-    error={loadError || error} submitLabel="Save policy" onSubmit={save} onClose={onClose}>
-    {loading && <p role="status" className="settings-description">Loading topic policy...</p>}
-    {loadError && <div><SettingsButton variant="secondary" onClick={retry}>Retry loading</SettingsButton></div>}
+    error={loadError || error} submitLabel={text("Save policy")} onSubmit={save} onClose={onClose}>
+    {loading && <p role="status" className="settings-description">{text("Loading topic policy...")}</p>}
+    {loadError && <div><SettingsButton variant="secondary" onClick={retry}>{text("Retry loading")}</SettingsButton></div>}
     {status && <UiInlineMessage tone="success" role="status">{status}</UiInlineMessage>}
-    <SettingsJsonEditor label="Policy JSON" value={draft} onChange={update}
+    <SettingsJsonEditor label={text("Policy JSON")} value={draft} onChange={update}
       error={validationError} rows={16} placeholder={defaultPolicy}
       disabled={fieldsDisabled} />
-    <SettingsSection title="Policy example" presentation="compact">
+    <SettingsSection title={text("Policy example")} presentation="compact">
       <div className="settings-stack">
         <div className="flex flex-wrap items-center gap-2">
           <SettingsButton variant="secondary" aria-expanded={showExample} aria-controls={exampleId}
-            onClick={() => setShowExample(value => !value)}>{showExample ? "Hide example" : "Show example"}</SettingsButton>
+            onClick={() => setShowExample(value => !value)}>{text(showExample ? "Hide example" : "Show example")}</SettingsButton>
           <SettingsButton variant="secondary" disabled={fieldsDisabled}
-            onClick={() => { update(example); setShowExample(true); }}>Use example</SettingsButton>
+            onClick={() => { update(example); setShowExample(true); }}>{text("Use example")}</SettingsButton>
         </div>
         <pre id={exampleId} hidden={!showExample}
           className="min-w-0 whitespace-pre-wrap break-all rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-muted)] p-3 font-mono ui-caption text-[var(--ui-text)]">{example}</pre>

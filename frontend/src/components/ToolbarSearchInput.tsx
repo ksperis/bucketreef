@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { KeyboardEventHandler, ReactNode, TextareaHTMLAttributes } from "react";
+import { useI18n } from "../i18n";
 import { ToolbarMatchModeButton } from "./ToolbarFilterControls";
 import UiField from "./ui/UiField";
 import { cx, uiInputClass } from "./ui/styles";
@@ -30,7 +31,7 @@ export default function ToolbarSearchInput({
   value,
   onChange,
   placeholder,
-  label = "Search",
+  label,
   labelClassName,
   className = "w-full sm:w-72",
   active = false,
@@ -42,12 +43,17 @@ export default function ToolbarSearchInput({
   trailingControl,
   spellCheck,
 }: ToolbarSearchInputProps) {
+  const { t } = useI18n();
+  const resolvedLabel = label ?? t({ en: "Search", fr: "Rechercher" });
   const matchModeControl =
     matchMode && onToggleMatchMode ? (
       <ToolbarMatchModeButton
         mode={matchMode}
         onClick={onToggleMatchMode}
-        title={`Filter mode: ${matchMode === "contains" ? "contains" : "exact"}`}
+        title={t({
+          en: `Filter mode: ${matchMode === "contains" ? "contains" : "exact"}`,
+          fr: `Mode de filtrage : ${matchMode === "contains" ? "contient" : "exact"}`,
+        })}
       />
     ) : null;
   const resolvedTrailingControl = trailingControl ?? matchModeControl;
@@ -73,7 +79,7 @@ export default function ToolbarSearchInput({
   );
 
   return (
-    <UiField label={label} className={className} labelClassName={labelClassName}>
+    <UiField label={resolvedLabel} className={className} labelClassName={labelClassName}>
       {(fieldProps) =>
         leadingControl || resolvedTrailingControl ? (
           <div className={cx("relative", inputWrapperClassName)}>
@@ -115,7 +121,7 @@ export function ToolbarSearchTextarea({
   value,
   onChange,
   placeholder,
-  label = "Search",
+  label,
   className = "w-full sm:w-72",
   inputClassName,
   inputWrapperClassName,
@@ -124,8 +130,10 @@ export function ToolbarSearchTextarea({
   onKeyDown,
   ...props
 }: ToolbarSearchTextareaProps) {
+  const { t } = useI18n();
+  const resolvedLabel = label ?? t({ en: "Search", fr: "Rechercher" });
   return (
-    <UiField label={label} className={className}>
+    <UiField label={resolvedLabel} className={className}>
       {({ id, describedBy, invalid }) => (
         <div className={cx("relative", inputWrapperClassName)}>
           <textarea

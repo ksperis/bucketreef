@@ -31,10 +31,12 @@ import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
+import { useManagerI18n } from "./managerI18n";
 
 const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
 
 export default function ManagerGroupsPage() {
+  const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
   const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
@@ -150,7 +152,7 @@ export default function ManagerGroupsPage() {
       setShowPolicyOptions(false);
       resetInlinePolicyDraftEditor();
       setShowCreateForm(false);
-      setActionMessage("Group created");
+      setActionMessage(text("Group created"));
       await load(accountIdForApi);
     } catch (err) {
       setError(extractError(err));
@@ -166,7 +168,7 @@ export default function ManagerGroupsPage() {
     setActionMessage(null);
     try {
       await deleteIamGroup(accountIdForApi, name);
-      setActionMessage("Group deleted");
+      setActionMessage(text("Group deleted"));
       await load(accountIdForApi);
     } catch (err) {
       setError(extractError(err));
@@ -178,10 +180,10 @@ export default function ManagerGroupsPage() {
   const handleDelete = (name: string) => {
     if (needsS3AccountSelection) return;
     deleteConfirmation.requestConfirmation({
-      title: "Delete IAM group?",
-      description: "Permanently remove this IAM group from the selected account.",
-      confirmLabel: "Delete group",
-      details: [{ label: "IAM group", value: name }],
+      title: text("Delete IAM group?"),
+      description: text("Permanently remove this IAM group from the selected account."),
+      confirmLabel: text("Delete group"),
+      details: [{ label: text("IAM group"), value: name }],
       impacts: ["Members will lose permissions inherited only through this group."],
       onConfirm: () => deleteGroup(name),
     });
@@ -228,11 +230,11 @@ export default function ManagerGroupsPage() {
     rowCount: filteredGroups.length,
   });
   const groupTableColumns: Array<DataTableColumn<IAMGroup>> = [
-    { id: "name", label: "Name", primary: true, mobileRole: "primary", render: (group) => group.name },
-    { id: "arn", label: "ARN", render: (group) => group.arn ?? "-" },
+    { id: "name", label: text("Name"), primary: true, mobileRole: "primary", render: (group) => group.name },
+    { id: "arn", label: text("ARN"), render: (group) => group.arn ?? "-" },
     {
       id: "policies",
-      label: "Policies",
+      label: text("Policies"),
       cellClassName: "ui-table-wide",
       render: (group) =>
         group.policies && group.policies.length > 0 ? (
@@ -253,23 +255,23 @@ export default function ManagerGroupsPage() {
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (group) => (
         <ListActions>
           <ListActionLink to={`/manager/groups/${encodeURIComponent(group.name)}/users`}>
-            Members
+            {text("Members")}
           </ListActionLink>
           <ListActionLink to={`/manager/groups/${encodeURIComponent(group.name)}/policies`}>
-            Policies
+            {text("Policies")}
           </ListActionLink>
           <ListActionButton
             onClick={() => handleDelete(group.name)}
              variant="danger"
             disabled={busy === group.name}
           >
-            {busy === group.name ? "Deleting..." : "Delete"}
+              {text(busy === group.name ? "Deleting..." : "Delete")}
           </ListActionButton>
         </ListActions>
       ),
@@ -279,14 +281,14 @@ export default function ManagerGroupsPage() {
   return (
     <div className={workflowPageHostClass(showCreateForm)}>
       <PageHeader actionPresentation="listing"
-        title="IAM Groups"
-        description="Manage groups using the account root keys."
-        breadcrumbs={managerPageBreadcrumbs("groups")}
+        title={text("IAM Groups")}
+        description={text("Manage groups using the account root keys.")}
+        breadcrumbs={managerPageBreadcrumbs(text, "groups")}
         actions={
           !needsS3AccountSelection && !isS3User
             ? [
                 {
-                  label: "Create group",
+                  label: text("Create group"),
                   onClick: openCreateForm,
                 },
               ]
@@ -299,27 +301,27 @@ export default function ManagerGroupsPage() {
 
       {needsS3AccountSelection ? (
         <PageEmptyState
-          title="Select an account before managing IAM groups"
-          description="Groups are scoped to an execution context. Choose an account to list membership containers and attach shared policies."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select an account before managing IAM groups")}
+          description={text("Groups are scoped to an execution context. Choose an account to list membership containers and attach shared policies.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : isS3User ? (
         <PageEmptyState
-          title="IAM groups are unavailable for managed S3 user contexts"
-          description="Switch to an RGW account or S3 connection context to manage account-level IAM groups."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          title={text("IAM groups are unavailable for managed S3 user contexts")}
+          description={text("Switch to an RGW account or S3 connection context to manage account-level IAM groups.")}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (
         <ListPageSection variant="page"
-            title="Groups"
-            countLabel={`${filteredGroups.length} result(s)`}
+            title={text("Groups")}
+            countLabel={text(filteredGroups.length === 1 ? "{count} result" : "{count} results", { count: filteredGroups.length })}
             search={
               <ManagerToolbarSearch
                 value={groupFilter}
                 onChange={setGroupFilter}
-                placeholder="Search by name or ARN"
+                placeholder={text("Search by name or ARN")}
               />
             }
         >
@@ -328,9 +330,9 @@ export default function ManagerGroupsPage() {
             rows={filteredGroups}
             rowKey={(group) => group.name}
             status={filteredTableStatus}
-            loadingMessage="Loading groups..."
-            errorMessage="Unable to load groups."
-            emptyMessage="No groups."
+            loadingMessage={text("Loading groups...")}
+            errorMessage={text("Unable to load groups.")}
+            emptyMessage={text("No groups.")}
             responsiveCards
             tableLayout="fixed"
           />
@@ -339,27 +341,27 @@ export default function ManagerGroupsPage() {
 
       {showCreateForm && (
         <SettingsWorkflowForm
-          title="Create IAM group"
-          description="Create a group and assign its managed and inline policies."
-          breadcrumbs={managerPageBreadcrumbs("groups", { label: "Create" })}
-          backLabel="Back to groups"
+          title={text("Create IAM group")}
+          description={text("Create a group and assign its managed and inline policies.")}
+          breadcrumbs={managerPageBreadcrumbs(text, "groups", { label: text("Create") })}
+          backLabel={text("Back to groups")}
           onClose={closeCreateForm}
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
           busy={busy !== null} disabled={needsS3AccountSelection}
-          submitLabel="Create group" busyLabel="Creating..."
+          submitLabel={text("Create group")} busyLabel={text("Creating...")}
         >
-          <SettingsSection title="Identity" presentation="compact">
+          <SettingsSection title={text("Identity")} presentation="compact">
             <div className="settings-fields">
-              <UiInput label="Group name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
-                placeholder="Group name" error={advancedValidationAttempted && !advancedName.trim() ? "Group name is required." : undefined} />
+              <UiInput label={text("Group name")} required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+                placeholder={text("Group name")} error={advancedValidationAttempted && !advancedName.trim() ? "Group name is required." : undefined} />
             </div>
           </SettingsSection>
           <ManagedPolicySelectionPanel
-            title="Attach policies"
-            description="Select managed policies to link immediately."
-            emptyMessage="No policies available. Create them first."
+            title={text("Attach policies")}
+            description={text("Select managed policies to link immediately.")}
+            emptyMessage={text("No policies available. Create them first.")}
             footer="Policies can also be attached later from the group page."
             policies={policies}
             selectedPolicyArns={selectedPolicies}

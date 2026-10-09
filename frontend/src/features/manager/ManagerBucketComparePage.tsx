@@ -16,8 +16,10 @@ import { useS3AccountContext } from "./S3AccountContext";
 import { useManagerContexts } from "./useManagerContexts";
 import { useManagerBucketSelection } from "./useManagerBucketSelection";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
+import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerBucketComparePage() {
+  const { text } = useManagerI18n();
   const { managerBrowserEnabled } = useS3AccountContext();
   const { generalSettings } = useGeneralSettings();
   const { contexts, contextsLoading, contextsError } = useManagerContexts();
@@ -49,9 +51,9 @@ export default function ManagerBucketComparePage() {
   return (
     <div className={workflowPageHostClass(showCompareModal)}>
       <PageHeader
-        title="Bucket compare"
-        description="Compare selected buckets across manager contexts."
-        breadcrumbs={managerPageBreadcrumbs("compare")}
+        title={text("Bucket compare")}
+        description={text("Compare selected buckets across manager contexts.")}
+        breadcrumbs={managerPageBreadcrumbs(text, "compare")}
       />
 
       {contextsError && <PageBanner tone="error">{contextsError}</PageBanner>}
@@ -59,23 +61,25 @@ export default function ManagerBucketComparePage() {
 
       {!requiresS3AccountSelection ? (
         <PageEmptyState
-          title="Bucket compare is unavailable in session mode"
-          description="This tool needs a persistent execution context so it can load a source inventory and compare it against other manager contexts."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          title={text("Bucket compare is unavailable in session mode")}
+          description={text("This tool needs a persistent execution context so it can load a source inventory and compare it against other manager contexts.")}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : !sourceContextId ? (
         <PageEmptyState
-          title="Select a source context before comparing buckets"
-          description="Choose a manager execution context to load its buckets, filter the source inventory, and compare selected buckets against other targets."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select a source context before comparing buckets")}
+          description={text("Choose a manager execution context to load its buckets, filter the source inventory, and compare selected buckets against other targets.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : (
         <ManagerBucketSelectionPanel
-          description={`${sourceContext ? sourceContext.display_name : "Source context"} · Select source buckets to compare across manager contexts.`}
+          description={text("{context} · Select source buckets to compare across manager contexts.", {
+            context: sourceContext ? sourceContext.display_name : text("Source context"),
+          })}
           filter={filter}
-          filterPlaceholder="Filter source buckets"
+          filterPlaceholder={text("Filter source buckets")}
           onFilterChange={setFilter}
           buckets={filteredBuckets}
           selectedBuckets={selectedBuckets}
@@ -83,9 +87,9 @@ export default function ManagerBucketComparePage() {
           onSelectFiltered={selectAllFiltered}
           onClearSelection={clearSelection}
           tableStatus={tableStatus}
-          loadingMessage="Loading source buckets..."
-          errorMessage="Unable to load buckets."
-          emptyMessage="No buckets."
+          loadingMessage={text("Loading source buckets...")}
+          errorMessage={text("Unable to load buckets.")}
+          emptyMessage={text("No buckets.")}
           action={
             <UiButton
               type="button"
@@ -93,7 +97,7 @@ export default function ManagerBucketComparePage() {
               disabled={selectedBuckets.size === 0 || bucketsLoading || contextsLoading}
               size="sm"
             >
-              Compare selected ({selectedBuckets.size})
+              {text("Compare selected (")}{selectedBuckets.size})
             </UiButton>
           }
         />

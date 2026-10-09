@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { ListBadge } from "../../components/list/ListControls";
 import { formatLocalDateTime } from "../../utils/dateTime";
+import { useManagerI18n } from "./managerI18n";
 
 type ExpirationState = "scheduled" | "retrying" | "enforced" | "blocked" | null | undefined;
 
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export default function AccessKeyExpirationStatus({ expiresAt, state, error }: Props) {
+  const { text } = useManagerI18n();
   if (!expiresAt) return <span>—</span>;
   const past = accessKeyExpirationIsPast(expiresAt);
   const label = state === "enforced"
@@ -36,7 +38,7 @@ export default function AccessKeyExpirationStatus({ expiresAt, state, error }: P
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2">
-        <ListBadge tone={tone} title={error || undefined}>{label}</ListBadge>
+        <ListBadge tone={tone} title={error || undefined}>{text(label)}</ListBadge>
         <span>{formatLocalDateTime(expiresAt)}</span>
       </div>
       {error && (state === "retrying" || state === "blocked") && (

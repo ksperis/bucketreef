@@ -26,6 +26,7 @@ import {
   stepLabel,
 } from "./shared";
 import { MigrationStages, migrationLabel } from "./MigrationWorkflow";
+import { useManagerI18n } from "../managerI18n";
 
 type Action =
   | "precheck"
@@ -129,6 +130,7 @@ function Diagnostics({
 }: {
   entries: api.BucketMigrationPrecheckEntry[];
 }) {
+  const { text } = useManagerI18n();
   return (
     <div className="space-y-2">
       {entries.map((entry, index) => (
@@ -144,10 +146,10 @@ function Diagnostics({
         >
           <p>{entry.message}</p>
           {entry.permission && (
-            <p className="mt-1">Required permission: {entry.permission}</p>
+            <p className="mt-1">{text("Required permission:")} {entry.permission}</p>
           )}
           {entry.remediation && (
-            <p className="mt-1">Next: {entry.remediation}</p>
+            <p className="mt-1">{text("Next:")} {entry.remediation}</p>
           )}
         </UiInlineMessage>
       ))}
@@ -156,6 +158,7 @@ function Diagnostics({
 }
 
 export default function ManagerMigrationDetailPage() {
+  const { text } = useManagerI18n();
   const { migrationId } = useParams<{ migrationId: string }>();
   const id = Number(migrationId);
   const validId = Number.isSafeInteger(id) && id > 0 ? id : null;
@@ -180,7 +183,7 @@ export default function ManagerMigrationDetailPage() {
       <ErrorState
         kind="invalid_link"
         primaryAction={{
-          label: "Back to migrations",
+          label: text("Back to migrations"),
           to: "/manager/migrations",
         }}
       />
@@ -192,12 +195,12 @@ export default function ManagerMigrationDetailPage() {
         error={loadFailure}
         onRetry={refresh}
         primaryAction={{
-          label: "Back to migrations",
+          label: text("Back to migrations"),
           to: "/manager/migrations",
         }}
       />
     );
-  if (!migration) return <p role="status">Loading migration…</p>;
+  if (!migration) return <p role="status">{text("Loading migration…")}</p>;
 
   const draft = migration.status === "draft";
   const checking = migration.preparation_status === "checking";
@@ -361,9 +364,9 @@ export default function ManagerMigrationDetailPage() {
   return (
     <WorkflowPage
       title={`Migration #${id}`}
-      description="Review checks, control the transfer and resolve remaining actions."
-      breadcrumbs={managerPageBreadcrumbs("migration", { label: "Details" })}
-      backLabel="Back to migrations"
+      description={text("Review checks, control the transfer and resolve remaining actions.")}
+      breadcrumbs={managerPageBreadcrumbs(text, "migration", { label: text("Details") })}
+      backLabel={text("Back to migrations")}
       backTo="/manager/migrations"
       width="wide"
       contentClassName="space-y-6"
@@ -417,24 +420,24 @@ export default function ManagerMigrationDetailPage() {
       <WorkflowMetadata
         items={[
           {
-            label: "Source identity",
+            label: text("Source identity"),
             value:
               contextLabelById.get(migration.source_context_id) ??
               migration.source_context_id,
           },
           {
-            label: "Destination identity",
+            label: text("Destination identity"),
             value:
               contextLabelById.get(migration.target_context_id) ??
               migration.target_context_id,
           },
-          { label: "Updated", value: formatDateTime(migration.updated_at) },
+          { label: text("Updated"), value: formatDateTime(migration.updated_at) },
         ]}
       />
       <div ref={errorRef} tabIndex={-1} className="outline-none">
         {(error || detailError) && (
           <UiInlineMessage tone="error" role="alert">
-            {error || detailError} Your saved migration is retained.
+            {error || detailError} {text("Your saved migration is retained.")}
           </UiInlineMessage>
         )}
       </div>
@@ -445,29 +448,27 @@ export default function ManagerMigrationDetailPage() {
       )}
       {migration.maintenance_error && (
         <UiInlineMessage tone="error" role="alert">
-          Recovery needs attention: {migration.maintenance_error} The transfer
-          result is retained.
+          {text("Recovery needs attention:")} {migration.maintenance_error} {text("The transfer\n          result is retained.")}
         </UiInlineMessage>
       )}
       {maintenanceBusy && (
         <UiInlineMessage tone="info" role="status">
-          Recovery is running in the background. You can leave and return to
-          this page.
+          {text("Recovery is running in the background. You can leave and return to\n          this page.")}
         </UiInlineMessage>
       )}
       {draft ? (
         <WorkflowSection
-          title="Preparation checks"
-          description="Read-only analysis comes first. Active permission tests need your confirmation. Passing checks never starts a copy."
+          title={text("Preparation checks")}
+          description={text("Read-only analysis comes first. Active permission tests need your confirmation. Passing checks never starts a copy.")}
         >
           <p role="status" aria-live="polite" className="ui-caption">
-            {migration.preparation_completed_items ?? 0} of{" "}
-            {migration.total_items} buckets checked. {report?.errors ?? 0}{" "}
-            blocking checks, {report?.warnings ?? 0} warnings.
+            {migration.preparation_completed_items ?? 0} {text("of")}{" "}
+            {migration.total_items} {text("buckets checked.")} {report?.errors ?? 0}{" "}
+            {text("blocking checks,")} {report?.warnings ?? 0} {text("warnings.")}
           </p>
           {checking && (
             <UiProgressBar
-              label="Buckets checked"
+              label={text("Buckets checked")}
               value={
                 migration.total_items
                   ? (100 * (migration.preparation_completed_items ?? 0)) /
@@ -478,33 +479,27 @@ export default function ManagerMigrationDetailPage() {
           )}
           {migration.preparation_status === "stale" && (
             <UiInlineMessage tone="warning">
-              Checks have expired or the configuration changed. Run checks again
-              before starting.
+              {text("Checks have expired or the configuration changed. Run checks again\n              before starting.")}
             </UiInlineMessage>
           )}
           <Diagnostics entries={problems(report?.checks)} />
         </WorkflowSection>
       ) : (
-        <WorkflowSection title="Transfer result">
+        <WorkflowSection title={text("Transfer result")}>
           <p role="status" aria-live="polite" className="ui-caption">
-            {migration.completed_items} buckets verified,{" "}
-            {migration.failed_items} failed, {migration.awaiting_items} awaiting
-            cutover, {migration.skipped_items} not copied.
+            {migration.completed_items} {text("buckets verified,")}{" "}
+            {migration.failed_items} {text("failed,")} {migration.awaiting_items} {text("awaiting\n            cutover,")} {migration.skipped_items} {text("not copied.")}
           </p>
           {migration.status === "awaiting_cutover" && (
             <UiInlineMessage tone="info">
-              Pre-copy is finished. Source writes are still allowed. Start
-              cutover when ready to interrupt them, synchronize the final
-              changes and verify the copy.
+              {text("Pre-copy is finished. Source writes are still allowed. Start\n              cutover when ready to interrupt them, synchronize the final\n              changes and verify the copy.")}
             </UiInlineMessage>
           )}
           {migration.items.some(
             (item) => item.read_only_applied && !item.source_deleted,
           ) && (
             <UiInlineMessage tone="warning">
-              Source buckets with a read-only protection are retained. Update
-              client applications yourself after a verified cutover. Restore
-              access and source deletion are separate actions.
+              {text("Source buckets with a read-only protection are retained. Update\n              client applications yourself after a verified cutover. Restore\n              access and source deletion are separate actions.")}
             </UiInlineMessage>
           )}
         </WorkflowSection>
@@ -523,13 +518,13 @@ export default function ManagerMigrationDetailPage() {
         responsiveCards
         tableLayout="fixed"
         status={migration.items.length ? "ready" : "empty"}
-        loadingMessage="Loading buckets…"
-        errorMessage="Unable to load buckets."
-        emptyMessage="No buckets."
+        loadingMessage={text("Loading buckets…")}
+        errorMessage={text("Unable to load buckets.")}
+        emptyMessage={text("No buckets.")}
         columns={[
           {
             id: "bucket",
-            label: "Bucket mapping",
+            label: text("Bucket mapping"),
             primary: true,
             render: (item) => (
               <div className="break-all">
@@ -542,7 +537,7 @@ export default function ManagerMigrationDetailPage() {
           },
           {
             id: "state",
-            label: draft ? "Check result" : "Phase and outcome",
+            label: text(draft ? "Check result" : "Phase and outcome"),
             render: (item) => {
               const checked = reports.get(item.id);
               return (
@@ -551,34 +546,34 @@ export default function ManagerMigrationDetailPage() {
                     {draft
                       ? checked
                         ? checked.state === "unverified"
-                          ? "Active checks required"
+                          ? text("Active checks required")
                           : checked.blocking
-                            ? "Blocked"
+                            ? text("Blocked")
                             : checked.warnings
-                              ? "Ready with warnings"
-                              : "Ready"
-                        : "Not checked"
+                              ? text("Ready with warnings")
+                              : text("Ready")
+                        : text("Not checked")
                       : item.status === "completed"
-                        ? "Copy verified"
+                        ? text("Copy verified")
                         : item.status === "failed"
-                          ? "Copy needs attention"
-                          : stepLabel(item.step)}
+                          ? text("Copy needs attention")
+                          : text(stepLabel(item.step))}
                   </p>
-                  {!draft && <p>{item.objects_copied} objects transferred</p>}
+                  {!draft && <p>{item.objects_copied} {text("objects transferred")}</p>}
                   {!draft && (
                     <p>
                       {item.source_deleted
-                        ? "Source deleted"
+                        ? text("Source deleted")
                         : item.read_only_applied
-                          ? "Source retained, read-only"
-                          : "Source retained"}
+                          ? text("Source retained, read-only")
+                          : text("Source retained")}
                     </p>
                   )}
                   {item.target_lock_applied && (
-                    <p>Destination write protection active</p>
+                    <p>{text("Destination write protection active")}</p>
                   )}
                   {item.recovery_required && (
-                    <UiBadge tone="danger">Restoration required</UiBadge>
+                    <UiBadge tone="danger">{text("Restoration required")}</UiBadge>
                   )}
                 </div>
               );
@@ -586,7 +581,7 @@ export default function ManagerMigrationDetailPage() {
           },
           {
             id: "diagnosis",
-            label: "Next action and diagnostics",
+            label: text("Next action and diagnostics"),
             render: (item) => (
               <div className="space-y-2">
                 <Diagnostics
@@ -603,32 +598,31 @@ export default function ManagerMigrationDetailPage() {
                   <UiInlineMessage tone="error">
                     {item.error_message}
                     <p className="mt-1">
-                      Correct the cause, then retry failed buckets. Successful
-                      copies are retained.
+                      {text("Correct the cause, then retry failed buckets. Successful\n                      copies are retained.")}
                     </p>
                   </UiInlineMessage>
                 )}
                 {item.cleanup_error && (
                   <UiInlineMessage tone="error">
-                    Cleanup: {item.cleanup_error}
+                    {text("Cleanup:")} {item.cleanup_error}
                   </UiInlineMessage>
                 )}
                 {hasMigrationDifferences(item) && (
                   <UiDetails>
                     <summary className="cursor-pointer">
-                      Differences found
+                      {text("Differences found")}
                     </summary>
                     <dl className="mt-2 grid gap-1 sm:grid-cols-3 ui-caption">
                       <div>
-                        <dt>Content differences</dt>
+                        <dt>{text("Content differences")}</dt>
                         <dd>{item.different_count ?? "Not reported"}</dd>
                       </div>
                       <div>
-                        <dt>Source only</dt>
+                        <dt>{text("Source only")}</dt>
                         <dd>{item.only_source_count ?? "Not reported"}</dd>
                       </div>
                       <div>
-                        <dt>Destination only</dt>
+                        <dt>{text("Destination only")}</dt>
                         <dd>{item.only_target_count ?? "Not reported"}</dd>
                       </div>
                     </dl>
@@ -641,7 +635,7 @@ export default function ManagerMigrationDetailPage() {
                 )}
                 <UiDetails>
                   <summary className="cursor-pointer">
-                    Technical details for {item.source_bucket}
+                    {text("Technical details for")} {item.source_bucket}
                   </summary>
                   <pre className="mt-2 whitespace-pre-wrap break-all ui-caption">
                     {JSON.stringify(
@@ -663,7 +657,7 @@ export default function ManagerMigrationDetailPage() {
       />
       {report?.items?.length ? (
         <WorkflowSection
-          title="Reviewed plan"
+          title={text("Reviewed plan")}
           description={`Configuration revision ${migration.configuration_revision ?? "unknown"}. Checked ${formatDateTime(migration.precheck_checked_at)}.`}
         >
           <p className="ui-caption">
@@ -674,7 +668,7 @@ export default function ManagerMigrationDetailPage() {
             {migration.use_same_endpoint_copy
               ? "Copy within storage"
               : "Copy via BucketReef"}{" "}
-            · Source retained
+            {text("· Source retained")}
           </p>
           <ul className="list-disc pl-5 ui-caption space-y-2">
             {report.items.map((item) => (
@@ -690,14 +684,14 @@ export default function ManagerMigrationDetailPage() {
                   .
                 </p>
                 <p>
-                  Settings copied:{" "}
+                  {text("Settings copied:")}{" "}
                   {item.settings_copied
                     ?.map((name) => name.replaceAll("_", " "))
                     .join(", ") || "None recorded in this plan"}
                   .
                 </p>
                 <p>
-                  Settings omitted:{" "}
+                  {text("Settings omitted:")}{" "}
                   {item.settings_omitted
                     ?.map((name) => name.replaceAll("_", " "))
                     .join(", ") || "See the original report"}
@@ -718,7 +712,7 @@ export default function ManagerMigrationDetailPage() {
       ) : null}
       <UiDetails>
         <summary className="cursor-pointer ui-caption">
-          Activity history
+          {text("Activity history")}
         </summary>
         <ol className="mt-3 space-y-2 ui-caption">
           {migration.recent_events.map((event) => (
@@ -751,10 +745,10 @@ export default function ManagerMigrationDetailPage() {
           loading={busy}
           error={error}
           details={[
-            { label: "Buckets", value: bucketNames },
-            { label: "Source identity", value: migration.source_context_id },
+            { label: text("Buckets"), value: bucketNames },
+            { label: text("Source identity"), value: migration.source_context_id },
             {
-              label: "Destination identity",
+              label: text("Destination identity"),
               value: migration.target_context_id,
             },
           ]}

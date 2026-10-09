@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useI18n } from "../i18n";
 import ColumnVisibilityPicker, { type ColumnVisibilityPickerProps } from "./ColumnVisibilityPicker";
 import { ListActionButton } from "./list/ListControls";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
@@ -11,6 +12,7 @@ import { useDismissibleLayer } from "./ui/useDismissibleLayer";
 import "./columnVisibilityMenu.css";
 
 export default function ColumnVisibilityMenu<Id extends string>(props: Omit<ColumnVisibilityPickerProps<Id>, "onClose">) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -47,14 +49,14 @@ export default function ColumnVisibilityMenu<Id extends string>(props: Omit<Colu
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
       >
-        Columns
+        {t({ en: "Columns", fr: "Colonnes" })}
       </ListActionButton>
       <AnchoredPortalMenu open={open} anchorRef={anchorRef} placement="bottom-end" minWidth={0}>
         <div
           ref={panelRef}
           id={panelId}
           role="dialog"
-          aria-label={props.title ?? "Visible columns"}
+          aria-label={props.title ?? t({ en: "Visible columns", fr: "Colonnes visibles" })}
           tabIndex={-1}
           className={cx(uiMenuClass, "ui-column-menu")}
         >

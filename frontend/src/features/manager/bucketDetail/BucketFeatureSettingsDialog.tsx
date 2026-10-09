@@ -10,6 +10,7 @@ import {
   useSettingsCloseGuard,
 } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
+import { useManagerI18n } from "../managerI18n";
 
 export default function BucketFeatureSettingsDialog({
   title,
@@ -36,6 +37,7 @@ export default function BucketFeatureSettingsDialog({
   children: ReactNode;
   maxWidthClass?: string;
 }) {
+  const { text } = useManagerI18n();
   const closeGuard = useSettingsCloseGuard({
     hasUnsavedChanges: dirty,
     disabled: busy,
@@ -65,7 +67,7 @@ export default function BucketFeatureSettingsDialog({
               onClick={closeGuard.requestClose}
               disabled={busy}
             >
-              Cancel
+              {text("Cancel")}
             </SettingsButton>
             <SettingsButton
               type="button"
