@@ -25,7 +25,7 @@ def _admin(db_session) -> User:
     return user
 
 
-def test_status_and_dismiss_api_keep_legacy_fields_without_global_completion(db_session, client):
+def test_status_and_dismiss_api_do_not_set_global_completion(db_session, client):
     user = _admin(db_session)
     db_session.add(AppSetting(key="default", payload_json=AppSettings().model_dump_json()))
     db_session.commit()

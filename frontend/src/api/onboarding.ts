@@ -7,8 +7,6 @@ import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
 export type OnboardingStatus = {
   dismissed: boolean;
   complete: boolean;
-  endpoint_configured: boolean;
-  storage_access_configured: boolean;
   source?: "quickstart" | "standard";
   journeys: OnboardingJourney[];
   can_configure: boolean;

@@ -147,8 +147,6 @@ describe("GeneralSettingsPage branding", () => {
     fetchOnboardingStatusMock.mockResolvedValue({
       dismissed: false,
       complete: false,
-      endpoint_configured: false,
-      storage_access_configured: false,
       journeys: [],
       can_configure: true,
       actor_id: 1,
@@ -157,8 +155,6 @@ describe("GeneralSettingsPage branding", () => {
     resumeOnboardingMock.mockResolvedValue({
       dismissed: false,
       complete: false,
-      endpoint_configured: false,
-      storage_access_configured: false,
       journeys: [],
       can_configure: true,
       actor_id: 1,

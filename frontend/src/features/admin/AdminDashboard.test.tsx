@@ -175,8 +175,6 @@ describe("AdminDashboard feature summary", () => {
     mocks.fetchOnboardingStatus.mockResolvedValue({
       dismissed: true,
       complete: true,
-      endpoint_configured: true,
-      storage_access_configured: true,
     });
     mocks.fetchHealthSummary.mockResolvedValue({
       generated_at: "2026-05-25T00:00:00Z",
@@ -322,8 +320,6 @@ describe("AdminDashboard feature summary", () => {
     mocks.fetchOnboardingStatus.mockResolvedValue({
       dismissed: false,
       complete: false,
-      endpoint_configured: true,
-      storage_access_configured: true,
       journeys: [],
       can_configure: true,
       actor_id: 1,
@@ -706,7 +702,7 @@ describe("AdminDashboard feature summary", () => {
   });
 
   it("retains a failed onboarding dismissal and allows retry", async () => {
-    mocks.fetchOnboardingStatus.mockResolvedValue({ dismissed: false, complete: false, endpoint_configured: true, storage_access_configured: true, journeys: [], can_configure: true, actor_id: 1, source: "standard" });
+    mocks.fetchOnboardingStatus.mockResolvedValue({ dismissed: false, complete: false, journeys: [], can_configure: true, actor_id: 1, source: "standard" });
     mocks.dismissOnboarding.mockRejectedValueOnce(new Error("Unable to dismiss setup"));
     await renderDashboard();
     fireEvent.click(screen.getByRole("button", { name: "Hide setup", exact: true }));
