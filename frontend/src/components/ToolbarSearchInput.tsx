@@ -44,7 +44,7 @@ export default function ToolbarSearchInput({
   spellCheck,
 }: ToolbarSearchInputProps) {
   const { t } = useI18n();
-  const resolvedLabel = label ?? t({ en: "Search", fr: "Rechercher" });
+  const resolvedLabel = label ?? t({ en: "Search", fr: "Rechercher", de: "Suchen", zh: "搜索" });
   const matchModeControl =
     matchMode && onToggleMatchMode ? (
       <ToolbarMatchModeButton
@@ -53,6 +53,8 @@ export default function ToolbarSearchInput({
         title={t({
           en: `Filter mode: ${matchMode === "contains" ? "contains" : "exact"}`,
           fr: `Mode de filtrage : ${matchMode === "contains" ? "contient" : "exact"}`,
+          de: `Filtermodus: ${matchMode === "contains" ? "enthält" : "exakt"}`,
+          zh: `筛选模式：${matchMode === "contains" ? "包含" : "精确"}`,
         })}
       />
     ) : null;
@@ -131,7 +133,7 @@ export function ToolbarSearchTextarea({
   ...props
 }: ToolbarSearchTextareaProps) {
   const { t } = useI18n();
-  const resolvedLabel = label ?? t({ en: "Search", fr: "Rechercher" });
+  const resolvedLabel = label ?? t({ en: "Search", fr: "Rechercher", de: "Suchen", zh: "搜索" });
   return (
     <UiField label={resolvedLabel} className={className}>
       {({ id, describedBy, invalid }) => (

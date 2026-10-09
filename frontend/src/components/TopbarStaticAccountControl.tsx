@@ -28,7 +28,7 @@ export default function TopbarStaticAccountControl({
   muted = false,
 }: TopbarStaticAccountControlProps) {
   const { t } = useI18n();
-  const accountLabel = t({ en: "Account", fr: "Compte" });
+  const accountLabel = t({ en: "Account", fr: "Compte", de: "Konto", zh: "账户" });
   if (mode === "icon") {
     return (
       <div
@@ -36,7 +36,7 @@ export default function TopbarStaticAccountControl({
         className={`shell-control-static inline-flex h-9 ${TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS} items-center justify-center rounded-lg border`}
       >
         <span aria-hidden="true">{icon}</span>
-        <span className="sr-only">{t({ en: `Account context ${selectedLabel}`, fr: `Contexte de compte ${selectedLabel}` })}</span>
+        <span className="sr-only">{t({ en: `Account context ${selectedLabel}`, fr: `Contexte de compte ${selectedLabel}`, de: `Kontokontext ${selectedLabel}`, zh: `账户上下文 ${selectedLabel}` })}</span>
       </div>
     );
   }

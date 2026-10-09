@@ -5,7 +5,9 @@
 import { useCallback } from "react";
 import { useI18n } from "../../i18n";
 import type { UiLanguage } from "../../components/language";
+import managerDe from "./manager.de.json";
 import managerFr from "./manager.fr.json";
+import managerZh from "./manager.zh.json";
 
 export type ManagerTextValues = Record<string, string | number>;
 
@@ -557,6 +559,9 @@ const MANAGER_FR: Record<string, string> = {
   ...MANAGER_FR_OVERRIDES,
 };
 
+const MANAGER_DE: Record<string, string> = managerDe;
+const MANAGER_ZH: Record<string, string> = managerZh;
+
 function interpolate(message: string, values?: ManagerTextValues): string {
   if (!values) return message;
   return message.replace(/\{(\w+)\}/g, (match, key: string) =>
@@ -569,12 +574,16 @@ export function managerText(
   locale: UiLanguage = "en",
   values?: ManagerTextValues,
 ): string {
-  const translated = locale === "fr" ? MANAGER_FR[message] ?? message : message;
+  const catalog = locale === "fr" ? MANAGER_FR : locale === "de" ? MANAGER_DE : locale === "zh" ? MANAGER_ZH : null;
+  const translated = catalog?.[message] ?? message;
   return interpolate(translated, values);
 }
 
 export function managerIntlLocale(locale: UiLanguage): string {
-  return locale === "fr" ? "fr-FR" : "en-US";
+  if (locale === "fr") return "fr-FR";
+  if (locale === "de") return "de-DE";
+  if (locale === "zh") return "zh-CN";
+  return "en-US";
 }
 
 export function useManagerI18n() {

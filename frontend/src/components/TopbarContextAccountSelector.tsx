@@ -105,11 +105,11 @@ export default function TopbarContextAccountSelector({
           const description =
             context.kind === "connection"
               ? context.connection_scope === "shared"
-                ? t({ en: "Shared connection", fr: "Connexion partagée" })
-                : t({ en: "Private connection", fr: "Connexion privée" })
+                ? t({ en: "Shared connection", fr: "Connexion partagée", de: "Freigegebene Verbindung", zh: "共享连接" })
+                : t({ en: "Private connection", fr: "Connexion privée", de: "Private Verbindung", zh: "私有连接" })
               : context.kind === "s3_user"
-                ? t({ en: "S3 user identity", fr: "Identité utilisateur S3" })
-                : t({ en: "RGW account", fr: "Compte RGW" });
+                ? t({ en: "S3 user identity", fr: "Identité utilisateur S3", de: "S3-Benutzeridentität", zh: "S3 用户身份" })
+                : t({ en: "RGW account", fr: "Compte RGW", de: "RGW-Konto", zh: "RGW 账户" });
           const selectorEntityTags = filterSelectorVisibleUiTags(context.tags);
           const selectorEndpointTags = filterSelectorVisibleUiTags(
             context.endpoint_tags,
@@ -192,8 +192,8 @@ export default function TopbarContextAccountSelector({
       value={selectedContextId ?? ""}
       options={options}
       onChange={onContextChange}
-      ariaLabel={t({ en: "Select context account", fr: "Sélectionner le compte du contexte" })}
-      triggerLabel={t({ en: "Account", fr: "Compte" })}
+      ariaLabel={t({ en: "Select context account", fr: "Sélectionner le compte du contexte", de: "Kontextkonto auswählen", zh: "选择上下文账户" })}
+      triggerLabel={t({ en: "Account", fr: "Compte", de: "Konto", zh: "账户" })}
       placeholder={selectedLabel}
       triggerValue={selectedLabel}
       title={identityLabel ?? undefined}
@@ -201,18 +201,18 @@ export default function TopbarContextAccountSelector({
       menuHeader={
         <div className="shell-menu-muted rounded-md border px-2.5 py-2">
           <p className="shell-muted-text ui-caption uppercase">
-            {t({ en: "Current IAM identity", fr: "Identité IAM actuelle" })}
+            {t({ en: "Current IAM identity", fr: "Identité IAM actuelle", de: "Aktuelle IAM-Identität", zh: "当前 IAM 身份" })}
           </p>
           <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">
-            {identityLabel ?? t({ en: "Not available for this context", fr: "Non disponible pour ce contexte" })}
+            {identityLabel ?? t({ en: "Not available for this context", fr: "Non disponible pour ce contexte", de: "Für diesen Kontext nicht verfügbar", zh: "此上下文不可用" })}
           </p>
         </div>
       }
       search={{
         threshold: searchThreshold,
-        ariaLabel: t({ en: "Search accounts", fr: "Rechercher des comptes" }),
-        placeholder: t({ en: "Search account...", fr: "Rechercher un compte..." }),
-        emptyMessage: t({ en: "No account matches your search.", fr: "Aucun compte ne correspond à votre recherche." }),
+        ariaLabel: t({ en: "Search accounts", fr: "Rechercher des comptes", de: "Konten durchsuchen", zh: "搜索账户" }),
+        placeholder: t({ en: "Search account...", fr: "Rechercher un compte...", de: "Konto suchen...", zh: "搜索账户..." }),
+        emptyMessage: t({ en: "No account matches your search.", fr: "Aucun compte ne correspond à votre recherche.", de: "Kein Konto entspricht Ihrer Suche.", zh: "没有与搜索匹配的账户。" }),
       }}
       icon={icon}
       openInPortal={openInPortal}

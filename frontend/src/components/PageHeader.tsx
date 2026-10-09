@@ -43,7 +43,7 @@ export default function PageHeader({
 }: PageHeaderProps) {
   const { t } = useI18n();
   const inRouterContext = useInRouterContext();
-  const resolvedBreadcrumbLabel = breadcrumbLabel ?? t({ en: "Breadcrumb", fr: "Fil d’Ariane" });
+  const resolvedBreadcrumbLabel = breadcrumbLabel ?? t({ en: "Breadcrumb", fr: "Fil d’Ariane", de: "Navigationspfad", zh: "面包屑导航" });
   const renderActions = () =>
     actions.map((action) => {
       if (actionPresentation === "listing") {

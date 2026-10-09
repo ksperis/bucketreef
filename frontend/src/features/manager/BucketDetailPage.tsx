@@ -168,11 +168,12 @@ export default function BucketDetailPage({ onDirtyChange, onBusyChange, ...props
   return <>
     <BucketDetailContent {...props} onDirtyChange={handleDirtyChange} onBusyChange={handleBusyChange} />
     <SettingsNavigationGuard dirty={dirty || busy} discardDisabled={busy}
-      title={busy ? t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft" }) : labels.discardTitle}
+      title={busy ? t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft", zh: "操作正在进行" }) : labels.discardTitle}
       description={busy ? t({
         en: "Wait for the operation to finish before leaving this page.",
         fr: "Attendez la fin de l’opération avant de quitter cette page.",
         de: "Warten Sie, bis der Vorgang abgeschlossen ist, bevor Sie diese Seite verlassen.",
+        zh: "请等待操作完成后再离开此页面。",
       }) : labels.discardDescription}
       confirmLabel={labels.discard} cancelLabel={labels.keepEditing} closeLabel={labels.close} />
   </>;

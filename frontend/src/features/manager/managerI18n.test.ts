@@ -18,18 +18,34 @@ describe("Manager i18n", () => {
     expect(managerText("s3:GetObject", "fr")).toBe("s3:GetObject");
     expect(managerText("logs-bucket", "fr")).toBe("logs-bucket");
     expect(managerText("inline-policy", "fr")).toBe("inline-policy");
+    expect(managerText("s3:GetObject", "de")).toBe("s3:GetObject");
+    expect(managerText("s3:GetObject", "zh")).toBe("s3:GetObject");
   });
 
-  it("keeps English as the fallback for untranslated Manager languages", () => {
-    expect(managerText("Manager", "de")).toBe("Manager");
-    expect(managerText("Manager", "zh")).toBe("Manager");
+  it("uses German and Simplified Chinese Manager translations", () => {
+    expect(managerText("Actions", "de")).toBe("Aktionen");
+    expect(managerText("Actions", "zh")).toBe("操作");
+    expect(managerText("Bucket", "de")).toBe("Bucket");
+    expect(managerText("Bucket", "zh")).toBe("存储桶");
+    expect(managerText("Versioning", "de")).toBe("Versionierung");
+    expect(managerText("Versioning", "zh")).toBe("版本控制");
+    expect(managerText("Lifecycle", "de")).toBe("Lebenszyklus");
+    expect(managerText("Lifecycle", "zh")).toBe("生命周期");
+    expect(managerText("View all {label}", "de", { label: "Benutzer" })).toBe("Alle Benutzer anzeigen");
+    expect(managerText("View all {label}", "zh", { label: "用户" })).toBe("查看所有用户");
+    expect(managerText("Quota status for {label}", "zh", { label: "存储" })).toBe("存储的配额状态");
+  });
+
+  it("falls back to English when Manager copy is missing", () => {
     expect(managerText("Unknown Manager copy", "fr")).toBe("Unknown Manager copy");
+    expect(managerText("Unknown Manager copy", "de")).toBe("Unknown Manager copy");
+    expect(managerText("Unknown Manager copy", "zh")).toBe("Unknown Manager copy");
   });
 
   it("maps Manager formatting to the supported locale", () => {
     expect(managerIntlLocale("fr")).toBe("fr-FR");
     expect(managerIntlLocale("en")).toBe("en-US");
-    expect(managerIntlLocale("de")).toBe("en-US");
-    expect(managerIntlLocale("zh")).toBe("en-US");
+    expect(managerIntlLocale("de")).toBe("de-DE");
+    expect(managerIntlLocale("zh")).toBe("zh-CN");
   });
 });

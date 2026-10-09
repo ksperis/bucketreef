@@ -49,14 +49,14 @@ export default function ColumnVisibilityMenu<Id extends string>(props: Omit<Colu
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
       >
-        {t({ en: "Columns", fr: "Colonnes" })}
+        {t({ en: "Columns", fr: "Colonnes", de: "Spalten", zh: "列" })}
       </ListActionButton>
       <AnchoredPortalMenu open={open} anchorRef={anchorRef} placement="bottom-end" minWidth={0}>
         <div
           ref={panelRef}
           id={panelId}
           role="dialog"
-          aria-label={props.title ?? t({ en: "Visible columns", fr: "Colonnes visibles" })}
+          aria-label={props.title ?? t({ en: "Visible columns", fr: "Colonnes visibles", de: "Sichtbare Spalten", zh: "可见列" })}
           tabIndex={-1}
           className={cx(uiMenuClass, "ui-column-menu")}
         >

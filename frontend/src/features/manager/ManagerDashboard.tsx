@@ -543,7 +543,7 @@ function QuotaStatusCard({
               {row.to ? (
                 <Link
                   to={row.to}
-                  aria-label={text("View all {label}", { label: row.label.toLowerCase() })}
+                  aria-label={text("View all {label}", { label: row.label })}
                   className="ui-dashboard-text-link justify-end gap-1 text-primary"
                 >
                   <span className="hidden sm:inline">{text("View all")}</span>
