@@ -62,8 +62,6 @@ type Props = {
 
 type TabId = "overview" | "ceph" | "s3" | "metrics";
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 const keyActive = (key: CephAdminRgwAccessKey): boolean => {
   if (key.is_active !== undefined && key.is_active !== null) return Boolean(key.is_active);
   const status = (key.status || "").toLowerCase();
@@ -174,7 +172,7 @@ export default function CephAdminUserEditModal({
       const payload = await listCephAdminUserKeys(endpointId, uid, tenant);
       setKeys(payload);
     } catch (err) {
-      setKeysError(extractError(err));
+      setKeysError(extractApiError(err, "Unexpected error"));
     } finally {
       setKeysLoading(false);
     }
@@ -229,7 +227,7 @@ export default function CephAdminUserEditModal({
         );
       } catch (err) {
         if (!cancelled) {
-          setDetailError(extractError(err));
+          setDetailError(extractApiError(err, "Unexpected error"));
           setDetail(null);
           setKeys([]);
         }
@@ -259,7 +257,7 @@ export default function CephAdminUserEditModal({
         }
       } catch (err) {
         if (!cancelled) {
-          setMetricsError(extractError(err));
+          setMetricsError(extractApiError(err, "Unexpected error"));
           setMetrics(null);
         }
       } finally {
@@ -354,7 +352,7 @@ export default function CephAdminUserEditModal({
           }
         }
       } catch (err) {
-        setSaveError(extractError(err));
+        setSaveError(extractApiError(err, "Unexpected error"));
       } finally {
         setSaving(false);
       }
@@ -379,7 +377,7 @@ export default function CephAdminUserEditModal({
       await refreshKeys();
       setKeysStatus("Access key created.");
     } catch (err) {
-      setKeysError(extractError(err));
+      setKeysError(extractApiError(err, "Unexpected error"));
     } finally {
       setKeysBusy(null);
     }
@@ -396,7 +394,7 @@ export default function CephAdminUserEditModal({
       await refreshKeys();
       setKeysStatus(nextActive ? "Access key enabled." : "Access key disabled.");
     } catch (err) {
-      setKeysError(extractError(err));
+      setKeysError(extractApiError(err, "Unexpected error"));
     } finally {
       setKeysBusy(null);
     }
@@ -413,7 +411,7 @@ export default function CephAdminUserEditModal({
       await refreshKeys();
       setKeysStatus("Access key deleted.");
     } catch (err) {
-      setKeysError(extractError(err));
+      setKeysError(extractApiError(err, "Unexpected error"));
     } finally {
       setKeysBusy(null);
     }
