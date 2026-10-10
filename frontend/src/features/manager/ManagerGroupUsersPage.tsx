@@ -21,10 +21,6 @@ import UiButton from "../../components/ui/UiButton";
 import UiSelect from "../../components/ui/UiSelect";
 import { useManagerI18n } from "./managerI18n";
 
-function extractError(err: unknown): string {
-  return extractApiError(err, "Unexpected error");
-}
-
 export default function ManagerGroupUsersPage() {
   const { text } = useManagerI18n();
   const { groupName } = useParams<{ groupName: string }>();
@@ -61,7 +57,7 @@ export default function ManagerGroupUsersPage() {
       setUsers(members);
       setAllUsers(existingUsers);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
@@ -103,7 +99,7 @@ export default function ManagerGroupUsersPage() {
       await load(accountIdForApi, groupName);
       setActionMessage(text("User added to group"));
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -119,7 +115,7 @@ export default function ManagerGroupUsersPage() {
       await load(accountIdForApi, groupName);
       setActionMessage(text("User removed from group"));
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }

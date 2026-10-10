@@ -40,8 +40,6 @@ const policyTableColumns: Array<DataTableColumn<IamPolicy>> = [
   { id: "version", label: "Version", render: (policy) => policy.default_version_id ?? "-" },
 ];
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 export default function PoliciesPage() {
   const { text } = useManagerI18n();
   const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
@@ -104,7 +102,7 @@ export default function PoliciesPage() {
       setActionMessage(text("Policy created"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setCreating(false);
     }

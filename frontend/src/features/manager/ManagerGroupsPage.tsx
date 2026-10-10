@@ -34,8 +34,6 @@ import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import { useManagerI18n } from "./managerI18n";
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 export default function ManagerGroupsPage() {
   const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
@@ -160,7 +158,7 @@ export default function ManagerGroupsPage() {
       setActionMessage(text("Group created"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -176,7 +174,7 @@ export default function ManagerGroupsPage() {
       setActionMessage(text("Group deleted"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }

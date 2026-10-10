@@ -46,8 +46,6 @@ import UiInput from "../../components/ui/UiInput";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { useManagerI18n } from "./managerI18n";
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 export default function ManagerUsersPage() {
   const { text } = useManagerI18n();
   type SortField = SortableField<IAMUser>;
@@ -265,7 +263,7 @@ export default function ManagerUsersPage() {
       setActionMessage(text("User created"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -281,7 +279,7 @@ export default function ManagerUsersPage() {
       setActionMessage(text("User deleted"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }

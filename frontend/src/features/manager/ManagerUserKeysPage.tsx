@@ -30,10 +30,6 @@ import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKe
 import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
 import { useManagerI18n } from "./managerI18n";
 
-function extractError(err: unknown): string {
-  return extractApiError(err, "Unexpected error");
-}
-
 export default function ManagerUserKeysPage() {
   const { text, intlLocale } = useManagerI18n();
   const { userName } = useParams<{ userName: string }>();
@@ -79,7 +75,7 @@ export default function ManagerUserKeysPage() {
       const data = await listIamAccessKeys(accountId, targetUser);
       setKeys(data);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
@@ -111,7 +107,7 @@ export default function ManagerUserKeysPage() {
       setMetadataDialog(null);
       setMetadataError(null);
     } catch (err) {
-      const message = extractError(err);
+      const message = extractApiError(err, "Unexpected error");
       if (metadataDialog) setMetadataError(message);
       else setError(message);
     } finally {
@@ -139,7 +135,7 @@ export default function ManagerUserKeysPage() {
       setMetadataDialog(null);
       setActionMessage(text("Access-key details updated"));
     } catch (err) {
-      setMetadataError(extractError(err));
+      setMetadataError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -155,7 +151,7 @@ export default function ManagerUserKeysPage() {
       await load(accountIdForApi, userName);
       setActionMessage(text("Access key deleted"));
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -171,7 +167,7 @@ export default function ManagerUserKeysPage() {
       await load(accountIdForApi, userName);
       setActionMessage(text(nextActive ? "Access key enabled" : "Access key disabled"));
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
