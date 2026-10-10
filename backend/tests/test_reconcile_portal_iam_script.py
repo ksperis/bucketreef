@@ -60,7 +60,7 @@ def test_reconcile_portal_iam_dry_run_then_apply_keeps_db_roles(monkeypatch, db_
     portal = _FakePortalService()
     monkeypatch.setattr(script, "SessionLocal", lambda: db_session)
     monkeypatch.setattr(script, "PortalService", lambda _db: portal)
-    monkeypatch.setattr(script, "_portal_compatible", lambda _account: True)
+    monkeypatch.setattr(script.EffectiveAccessService, "portal_account_is_compatible", lambda _account: True)
 
     dry_run = script.reconcile_portal_iam(dry_run=True, account_id=account.id)
     assert dry_run[0]["planned"] == 1
@@ -88,7 +88,7 @@ def test_reconcile_portal_iam_reports_partial_errors_and_continues(monkeypatch, 
     portal = _FakePortalService(failing_user_id=viewer.id)
     monkeypatch.setattr(script, "SessionLocal", lambda: db_session)
     monkeypatch.setattr(script, "PortalService", lambda _db: portal)
-    monkeypatch.setattr(script, "_portal_compatible", lambda _account: True)
+    monkeypatch.setattr(script.EffectiveAccessService, "portal_account_is_compatible", lambda _account: True)
 
     summaries = script.reconcile_portal_iam(dry_run=False, account_id=account_id)
 

@@ -17,10 +17,6 @@ from app.services.portal_service import PortalService
 logger = logging.getLogger(__name__)
 
 
-def _portal_compatible(account: S3Account) -> bool:
-    return EffectiveAccessService.portal_account_is_compatible(account)
-
-
 def reconcile_portal_iam(*, dry_run: bool = True, account_id: int | None = None) -> list[dict[str, object]]:
     db = SessionLocal()
     summaries: list[dict[str, object]] = []
@@ -40,7 +36,7 @@ def reconcile_portal_iam(*, dry_run: bool = True, account_id: int | None = None)
             summary: dict[str, object] = {
                 "account_id": int(account.id),
                 "account": account.name,
-                "compatible": _portal_compatible(account),
+                "compatible": EffectiveAccessService.portal_account_is_compatible(account),
                 "planned": 0,
                 "reconciled": 0,
                 "removed": 0,
