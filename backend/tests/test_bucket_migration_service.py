@@ -2201,7 +2201,16 @@ def test_sync_bucket_uses_stream_copy_when_same_endpoint_copy_option_is_disabled
         updated_at=None,
         last_heartbeat_at=None,
     )
-    item = SimpleNamespace(objects_copied=0, objects_deleted=0, updated_at=None)
+    item = BucketMigrationItem(
+        migration_id=1,
+        source_bucket="bucket-a",
+        target_bucket="bucket-a-dst",
+        objects_copied=0,
+        objects_deleted=0,
+        execution_plan_json=None,
+        replication_state_json=None,
+        updated_at=None,
+    )
 
     captured_same_endpoint_flags: list[bool] = []
     captured_event_metadata: list[dict[str, object] | None] = []
@@ -2260,7 +2269,16 @@ def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session
         updated_at=None,
         last_heartbeat_at=None,
     )
-    item = SimpleNamespace(objects_copied=0, objects_deleted=0, updated_at=None)
+    item = BucketMigrationItem(
+        migration_id=1,
+        source_bucket="bucket-a",
+        target_bucket="bucket-b",
+        objects_copied=0,
+        objects_deleted=0,
+        execution_plan_json=None,
+        replication_state_json=None,
+        updated_at=None,
+    )
     entries = [
         SimpleNamespace(
             kind="only_source",
