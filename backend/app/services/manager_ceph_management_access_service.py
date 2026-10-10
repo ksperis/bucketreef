@@ -116,7 +116,7 @@ class ManagerCephManagementAccessService:
         else:
             return self._deny(f"{label} is not available for this context")
 
-        endpoint_id = getattr(resource, "storage_endpoint_id", None)
+        endpoint_id = resource.storage_endpoint_id
         endpoint = (
             self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
             if isinstance(endpoint_id, int)
