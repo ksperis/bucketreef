@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -20,6 +19,8 @@ from app.routers import dependencies
 from app.routers.manager import iam_groups, iam_roles, iam_users, topics
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.resource_name_validation import naming_validation_profile
+from app.services.s3_execution_context import S3ExecutionContext
+from app.db import S3Connection, StorageEndpoint
 from app.utils.resource_names import validate_iam_name, validate_inline_policy_name, validate_s3_bucket_name, validate_topic_name
 from app.utils.rgw_identifiers import validate_rgw_user_uid
 from app.utils.s3_connection_endpoint import build_custom_endpoint_config
@@ -76,12 +77,26 @@ def test_ceph_extra_params_cannot_bypass_identifier_validation(key, value):
 
 
 def test_profile_uses_execution_context_provider_including_manual_connections():
-    assert naming_validation_profile(SimpleNamespace(storage_endpoint=SimpleNamespace(provider="ceph"))) == "ceph"
-    connection = SimpleNamespace(storage_endpoint=None, custom_endpoint_config=build_custom_endpoint_config("https://ceph.test", None, True, True, "ceph"))
-    assert naming_validation_profile(SimpleNamespace(storage_endpoint=None, source_connection=connection)) == "ceph"
+    def context(*, endpoint=None, source_connection=None):
+        return S3ExecutionContext(
+            context_id="test",
+            context_kind="connection" if source_connection is not None else "account",
+            name="Test",
+            access_key=None,
+            secret_key=None,
+            storage_endpoint=endpoint,
+            source_connection=source_connection,
+        )
+
+    assert naming_validation_profile(context(endpoint=StorageEndpoint(provider="ceph"))) == "ceph"
+    connection = S3Connection(
+        storage_endpoint=None,
+        custom_endpoint_config=build_custom_endpoint_config("https://ceph.test", None, True, True, "ceph"),
+    )
+    assert naming_validation_profile(context(source_connection=connection)) == "ceph"
     for provider in [None, "aws", "other"]:
-        assert naming_validation_profile(SimpleNamespace(storage_endpoint=SimpleNamespace(provider=provider))) == "standard"
-    assert naming_validation_profile(SimpleNamespace()) == "standard"
+        assert naming_validation_profile(context(endpoint=StorageEndpoint(provider=provider))) == "standard"
+    assert naming_validation_profile(context()) == "standard"
 
 
 def test_fifo_contract_preserves_aws_configuration():
@@ -97,7 +112,14 @@ def test_fifo_contract_preserves_aws_configuration():
 @pytest.fixture
 def naming_client(monkeypatch):
     application = FastAPI()
-    account = SimpleNamespace(storage_endpoint=SimpleNamespace(provider="ceph"))
+    account = S3ExecutionContext(
+        context_id="test",
+        context_kind="account",
+        name="Test",
+        access_key=None,
+        secret_key=None,
+        storage_endpoint=StorageEndpoint(provider="ceph"),
+    )
     for router in [iam_users.router, iam_groups.router, iam_roles.router, topics.router]:
         application.include_router(router)
     for dep in [dependencies.get_account_context, dependencies.get_current_account_admin, dependencies.require_iam_capable_manager, dependencies.require_sns_capable_manager, dependencies.get_audit_service]:
@@ -178,7 +200,18 @@ def test_private_access_prevalidates_before_claim_or_remote_work():
     service._iam_service_for_account = Mock()
     payload = ManagedIAMPrivateAccessRequest(connection_name="private", access_browser=True, access_manager=False, inline_policies=[{"name": "invalid_under", "document": {}}])
     with pytest.raises(RequestValidationError):
-        service.provision_iam(user=Mock(), account=SimpleNamespace(storage_endpoint=SimpleNamespace(provider="ceph")), payload=payload)
+        service.provision_iam(
+            user=Mock(),
+            account=S3ExecutionContext(
+                context_id="test",
+                context_kind="account",
+                name="Test",
+                access_key=None,
+                secret_key=None,
+                storage_endpoint=StorageEndpoint(provider="ceph"),
+            ),
+            payload=payload,
+        )
     assert service.sources.mock_calls == []
     service._claim.assert_not_called()
     service._iam_service_for_account.assert_not_called()
