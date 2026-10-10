@@ -327,7 +327,7 @@ class OnboardingService:
         return OnboardingStatus(
             dismissed=preference.dismissed if preference else False,
             complete=complete,
-            source=getattr(get_settings(), "onboarding_source", "standard"),
+            source=get_settings().onboarding_source,
             journeys=journeys,
             can_configure=is_superadmin_ui_role(actor.role),
             actor_id=actor.id,
