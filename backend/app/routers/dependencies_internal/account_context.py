@@ -323,7 +323,7 @@ def _resolve_requested_session_endpoint(
     actor: ManagerSessionPrincipal,
     requested_endpoint: Optional[str],
 ) -> Optional[str]:
-    pinned_endpoint = normalize_s3_endpoint(getattr(actor.capabilities, "endpoint_url", None))
+    pinned_endpoint = normalize_s3_endpoint(actor.capabilities.endpoint_url)
     if pinned_endpoint:
         if requested_endpoint and requested_endpoint != pinned_endpoint:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Endpoint override is not allowed for this session")
