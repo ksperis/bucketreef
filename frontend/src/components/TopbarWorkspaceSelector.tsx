@@ -15,16 +15,17 @@ import type { WorkspaceSwitcherModel } from "./EnvironmentSwitcher";
 import { CheckIcon, ChevronDownIcon } from "./topbarIcons";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
+import { useShellI18n, type ShellText } from "./shellMessages";
 
 type TopbarWorkspaceSelectorProps = {
   section?: string;
   workspaceSwitcher?: WorkspaceSwitcherModel | null;
 };
 
-function compactWorkspaceLabel(label?: string | null): string {
+function compactWorkspaceLabel(label: string | null | undefined, text: ShellText): string {
   const normalized = (label ?? "").replace(/\s*\([^)]*\)\s*$/, "").trim();
-  if (!normalized) return "Workspace";
-  if (normalized.toLowerCase() === "administration") return "Admin";
+  if (!normalized) return text("workspace");
+  if (normalized.toLowerCase() === "administration") return text("admin");
   return normalized;
 }
 
@@ -32,6 +33,7 @@ export default function TopbarWorkspaceSelector({
   section,
   workspaceSwitcher,
 }: TopbarWorkspaceSelectorProps) {
+  const { text } = useShellI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -127,14 +129,14 @@ export default function TopbarWorkspaceSelector({
   };
 
   const triggerLabel = workspaceSwitcher
-    ? compactWorkspaceLabel(workspaceSwitcher.currentWorkspaceLabel)
-    : compactWorkspaceLabel(section);
+    ? compactWorkspaceLabel(workspaceSwitcher.currentWorkspaceLabel, text)
+    : compactWorkspaceLabel(section, text);
 
   if (!workspaceSwitcher) {
     return (
       <div className="shell-control-static flex h-10 w-[140px] min-w-0 items-center gap-2 rounded-lg border px-3">
         <span className="min-w-0 leading-[1.05]">
-          <span className="shell-muted-text block truncate text-[10px] font-medium">Workspace</span>
+          <span className="shell-muted-text block truncate text-[10px] font-medium">{text("workspace")}</span>
           {triggerLabel && (
             <span className="mt-0.5 block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]">
               {triggerLabel}
@@ -151,7 +153,7 @@ export default function TopbarWorkspaceSelector({
         ref={triggerRef}
         type="button"
         onClick={() => setMenuOpen((open) => !open)}
-        aria-label="Switch workspace"
+        aria-label={text("switchWorkspace")}
         aria-haspopup="listbox"
         aria-expanded={menuOpen}
         aria-controls={menuOpen ? listboxId : undefined}
@@ -165,7 +167,7 @@ export default function TopbarWorkspaceSelector({
         }`}
       >
         <span className="min-w-0 flex-1 leading-tight">
-          <span className="shell-muted-text block truncate text-[10px] font-medium">Workspace</span>
+          <span className="shell-muted-text block truncate text-[10px] font-medium">{text("workspace")}</span>
           <span className="mt-0.5 block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]">
             {triggerLabel}
           </span>
@@ -190,7 +192,7 @@ export default function TopbarWorkspaceSelector({
               className="max-h-72 overflow-y-auto focus:outline-none"
               role="listbox"
               tabIndex={0}
-              aria-label="Switch workspace"
+              aria-label={text("switchWorkspace")}
               aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
               onKeyDown={handleListboxKeyDown}
             >

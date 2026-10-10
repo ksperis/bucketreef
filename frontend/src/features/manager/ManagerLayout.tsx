@@ -9,6 +9,7 @@ import TopbarContextAccountSelector, {
   getContextAccessModeVisual,
 } from "../../components/TopbarContextAccountSelector";
 import TopbarStaticAccountControl from "../../components/TopbarStaticAccountControl";
+import { useShellI18n } from "../../components/shellMessages";
 import { S3AccountProvider, useS3AccountContext } from "./S3AccountContext";
 import { SidebarSection } from "../../components/Sidebar";
 import { formatAccountLabel } from "../shared/storageEndpointLabel";
@@ -51,6 +52,7 @@ function ManagerShell() {
     managerPrivateAccessEnabled,
   } = useS3AccountContext();
   const { generalSettings } = useGeneralSettings();
+  const { text } = useShellI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selected = accounts.find((a) => a.id === selectedS3AccountId);
@@ -105,7 +107,7 @@ function ManagerShell() {
           ? "Metrics are unavailable for this endpoint capabilities."
           : undefined;
   const managerBrowserAvailable = managerBrowserEnabled === true;
-  const modeVisual = getContextAccessModeVisual(accessMode);
+  const modeVisual = getContextAccessModeVisual(accessMode, text);
   const identityLabel = iamIdentity
     ? accessMode === "connection"
       ? `S3 Identity: ${iamIdentity}`
