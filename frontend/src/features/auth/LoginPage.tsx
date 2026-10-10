@@ -28,7 +28,7 @@ import AppVersion from "../../components/AppVersion";
 import { useLanguage } from "../../components/language";
 import { useTheme } from "../../components/theme";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
-import { PRODUCT_NAME, PRODUCT_SUBTITLE } from "../../constants/product";
+import { PRODUCT_NAME } from "../../constants/product";
 import { CLIENT_STORAGE_KEYS, removeClientStorage, writeClientStorage } from "../../utils/clientStorage";
 import { classifyApiError } from "../../utils/apiError";
 import { useSession } from "../../auth/SessionProvider";
@@ -41,25 +41,26 @@ import {
 } from "../../utils/workspaces";
 import { AuthButton, AuthInput, AuthPasswordInput, AuthSelect } from "./AuthFormControls";
 import { AuthBrandBackdrop, AuthCard, AuthCenteredPage } from "./AuthSurface";
+import { useAuthI18n, type AuthText } from "./authMessages";
 
 type LoginMode = "password" | "keys" | "ldap";
 
-function passwordLoginErrorMessage(error: unknown): string {
-  const failure = classifyApiError(error, "Unable to sign in. Try again.");
+function passwordLoginErrorMessage(error: unknown, text: AuthText): string {
+  const failure = classifyApiError(error, text("unableToSignIn"));
   if (failure.status === 401) {
-    return "Invalid email or password.";
+    return text("invalidEmailPassword");
   }
   if (failure.status === 429) {
-    return "Too many sign-in attempts. Try again later.";
+    return text("tooManySignInAttempts");
   }
   if (
     failure.kind === "timeout" ||
     failure.kind === "unavailable" ||
     failure.kind === "invalid_response"
   ) {
-    return "Unable to reach BucketReef. Check your connection and try again.";
+    return text("unableReachBucketReef");
   }
-  return "Unable to sign in. Try again.";
+  return text("unableToSignIn");
 }
 
 export default function LoginPage() {
@@ -68,6 +69,7 @@ export default function LoginPage() {
   const { setLanguagePreference } = useLanguage();
   const { setTheme } = useTheme();
   const { acceptAuthentication } = useSession();
+  const { text } = useAuthI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ldapUsername, setLdapUsername] = useState("");
@@ -132,7 +134,7 @@ export default function LoginPage() {
       return;
     }
     if (res.status !== "authenticated") {
-      throw new Error("Authentication requires administrator approval");
+      throw new Error(text("authenticationRequiresApproval"));
     }
     acceptAuthentication(res, authType);
     const sessionUser: SessionUser = res.user
@@ -170,13 +172,13 @@ export default function LoginPage() {
       })
       .catch(() => {
         if (isMounted) {
-          setOidcError("Unable to load identity providers");
+          setOidcError(text("unableLoadIdentityProviders"));
         }
       });
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [text]);
 
   useEffect(() => {
     let isMounted = true;
@@ -188,13 +190,13 @@ export default function LoginPage() {
       })
       .catch(() => {
         if (isMounted) {
-          setLdapError("Unable to load directory providers");
+          setLdapError(text("unableLoadDirectoryProviders"));
         }
       });
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [text]);
 
   useEffect(() => {
     let isMounted = true;
@@ -207,7 +209,7 @@ export default function LoginPage() {
       })
       .catch(() => {
         if (isMounted) {
-          setEndpointError("Unable to load endpoint options");
+          setEndpointError(text("unableLoadEndpointOptions"));
         }
       })
       .finally(() => {
@@ -218,7 +220,7 @@ export default function LoginPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [text]);
 
   useEffect(() => {
     if (!loginSettings) return;
@@ -247,7 +249,7 @@ export default function LoginPage() {
       await finishLogin(res, "password");
     } catch (err) {
       console.error(err);
-      setError(passwordLoginErrorMessage(err));
+      setError(passwordLoginErrorMessage(err, text));
     } finally {
       setLoading(false);
     }
@@ -259,7 +261,7 @@ export default function LoginPage() {
     setLdapError(null);
     const providerId = selectedLdapProvider || ldapProviders[0]?.id || "";
     if (!providerId) {
-      setError("No directory provider is available");
+      setError(text("noDirectoryProvider"));
       return;
     }
     setLoading(true);
@@ -268,7 +270,7 @@ export default function LoginPage() {
       await finishLogin(res, "ldap");
     } catch (err) {
       console.error(err);
-      setError("Unable to authenticate with this directory account");
+      setError(text("unableAuthenticateDirectory"));
     } finally {
       setLoading(false);
     }
@@ -296,7 +298,7 @@ export default function LoginPage() {
       await finishLogin(res, "s3_session");
     } catch (err) {
       console.error(err);
-      setError("Unable to authenticate with these access keys");
+      setError(text("unableAuthenticateAccessKeys"));
     } finally {
       setLoading(false);
     }
@@ -315,7 +317,7 @@ export default function LoginPage() {
       window.location.href = authorization_url;
     } catch (err) {
       console.error(err);
-      setOidcError("Unable to start external authentication");
+      setOidcError(text("unableStartExternalAuthentication"));
       setOidcLoading(null);
     }
   };
@@ -343,7 +345,7 @@ export default function LoginPage() {
       await finishLogin(res, "password");
     } catch (err) {
       console.error(err);
-      setError("Passkey verification failed. Please try again.");
+      setError(text("passkeyVerificationFailed"));
     } finally {
       setLoading(false);
     }
@@ -356,7 +358,7 @@ export default function LoginPage() {
       await finishLogin(await verifyRecoveryCode(recoveryCode), "password");
     } catch (err) {
       console.error(err);
-      setError("The recovery code is invalid or has already been used.");
+      setError(text("recoveryCodeInvalid"));
     } finally {
       setLoading(false);
     }
@@ -375,9 +377,9 @@ export default function LoginPage() {
   const endpointOptions = loginSettings?.endpoints ?? [];
   const hasLdapProviders = ldapProviders.length > 0;
   const loginModes: Array<{ value: LoginMode; label: string }> = [
-    { value: "password", label: "Email & password" },
-    ...(hasLdapProviders ? [{ value: "ldap" as const, label: "Directory" }] : []),
-    ...(allowAccessKeys ? [{ value: "keys" as const, label: "S3 access keys" }] : []),
+    { value: "password", label: text("emailAndPassword") },
+    ...(hasLdapProviders ? [{ value: "ldap" as const, label: text("directory") }] : []),
+    ...(allowAccessKeys ? [{ value: "keys" as const, label: text("s3AccessKeys") }] : []),
   ];
   const loginBrandingLogoUrl = loginSettings?.login_logo_url ?? null;
   const shouldShowLeftLogo = Boolean(loginBrandingLogoUrl && !loginBrandingLogoFailed);
@@ -396,34 +398,38 @@ export default function LoginPage() {
         <AuthCard className="max-w-md p-8">
           <BrandMark alt={PRODUCT_NAME} className="mb-5 h-16 w-16" />
           <h1 className="text-2xl font-semibold">
-            {mfaStage === "mfa_enrollment_required" ? "Create your administrator passkey" : "Verify your passkey"}
+            {mfaStage === "mfa_enrollment_required"
+              ? text("createAdministratorPasskey")
+              : text("verifyPasskey")}
           </h1>
           <p className="mt-3 ui-body text-slate-600">
-            Administrator access requires user verification with a passkey bound to this site.
+            {text("administratorPasskeyDescription")}
           </p>
           {error && <div className="mt-4"><UiInlineMessage tone="error">{error}</UiInlineMessage></div>}
           {!pendingEnrollment && (
             <AuthButton type="button" className="mt-6" disabled={loading} onClick={() => void completePasskey()}>
-              {mfaStage === "mfa_enrollment_required" ? "Create passkey" : "Use passkey"}
+              {mfaStage === "mfa_enrollment_required"
+                ? text("createPasskey")
+                : text("usePasskey")}
             </AuthButton>
           )}
           {mfaStage === "mfa_required" && !pendingEnrollment && (
             <div className="mt-6 border-t border-slate-200 pt-5">
               <AuthInput
                 id="recovery-code"
-                label="Recovery code"
+                label={text("recoveryCode")}
                 value={recoveryCode}
                 onChange={(event) => setRecoveryCode(event.target.value)}
                 autoComplete="one-time-code"
               />
               <button type="button" className="mt-3 ui-body font-semibold text-primary-700" disabled={loading || !recoveryCode.trim()} onClick={() => void completeRecovery()}>
-                Use recovery code
+                {text("useRecoveryCode")}
               </button>
             </div>
           )}
           {recoveryCodes.length > 0 && (
             <div className="mt-6 rounded-xl bg-amber-50 p-4 text-amber-950">
-              <p className="font-semibold">Save these one-time recovery codes now.</p>
+              <p className="font-semibold">{text("saveRecoveryCodesNow")}</p>
               <ul className="mt-2 grid grid-cols-2 gap-1 font-mono text-sm">
                 {recoveryCodes.map((code) => <li key={code}>{code}</li>)}
               </ul>
@@ -433,7 +439,7 @@ export default function LoginPage() {
                 disabled={loading || !pendingEnrollment}
                 onClick={() => pendingEnrollment && void finishLogin(pendingEnrollment, "password")}
               >
-                I saved these recovery codes
+                {text("savedRecoveryCodes")}
               </AuthButton>
             </div>
           )}
@@ -454,9 +460,9 @@ export default function LoginPage() {
                 <BrandMark className="h-7 w-7" />
                 {PRODUCT_NAME}
               </div>
-              <h1 className="mt-6 max-w-md text-3xl font-semibold leading-tight text-white">{PRODUCT_SUBTITLE}</h1>
+              <h1 className="mt-6 max-w-md text-3xl font-semibold leading-tight text-white">{text("productSubtitle")}</h1>
               <p className="mt-3 max-w-md ui-body text-slate-300">
-                Sign in to reach the workspace that matches your role and execution context.
+                {text("signInWorkspaceDescription")}
               </p>
             </div>
             {shouldShowLeftLogo ? (
@@ -464,7 +470,7 @@ export default function LoginPage() {
                 <div className="w-full rounded-xl border border-slate-700/70 bg-slate-900/70 px-4 py-5">
                   <img
                     src={loginBrandingLogoUrl ?? ""}
-                    alt="Company logo"
+                    alt={text("companyLogo")}
                     className="mx-auto max-h-28 w-auto object-contain"
                     onError={() => setLoginBrandingLogoFailed(true)}
                   />
@@ -473,21 +479,21 @@ export default function LoginPage() {
             ) : (
               <div className="grid gap-3">
                 <div className="rounded-xl border border-slate-700/70 bg-slate-900/70 px-4 py-3">
-                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">After sign-in</p>
+                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">{text("afterSignIn")}</p>
                   <p className="mt-1 ui-body text-slate-200">
-                    Password sign-in opens your assigned UI workspaces. Access keys create an S3 session when that mode is enabled.
+                    {text("afterSignInDescription")}
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-700/70 bg-slate-900/70 px-4 py-3">
-                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">Need help?</p>
+                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">{text("needHelp")}</p>
                   <p className="mt-1 ui-body text-slate-200">
-                    Contact your platform admin if you don&apos;t know which sign-in method or endpoint to use.
+                    {text("needHelpDescription")}
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-700/70 bg-slate-900/70 px-4 py-3">
-                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">Security note</p>
+                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">{text("securityNote")}</p>
                   <p className="mt-1 ui-body text-slate-200">
-                    Never share your password, secret key, or session token.
+                    {text("securityNoteDescription")}
                   </p>
                 </div>
               </div>
@@ -501,8 +507,8 @@ export default function LoginPage() {
                 <BrandMark className="h-7 w-7" />
                 {PRODUCT_NAME}
               </div>
-              <h2 className="mt-3 text-2xl font-semibold text-slate-900">Sign in</h2>
-              <p className="mt-1 ui-body text-slate-500">Use your account credentials.</p>
+              <h2 className="mt-3 text-2xl font-semibold text-slate-900">{text("signIn")}</h2>
+              <p className="mt-1 ui-body text-slate-500">{text("accountCredentials")}</p>
             </div>
 
             {loginModes.length > 1 && (
@@ -528,7 +534,7 @@ export default function LoginPage() {
                 {ldapProviders.length > 1 && (
                   <AuthSelect
                     id="ldap-provider"
-                    label="Directory"
+                    label={text("directory")}
                     value={selectedLdapProvider || ldapProviders[0]?.id || ""}
                     onChange={(e) => setSelectedLdapProvider(e.target.value)}
                     required
@@ -540,58 +546,60 @@ export default function LoginPage() {
                     ))}
                   </AuthSelect>
                 )}
-                <AuthInput id="ldap-username" label="Username" type="text" autoComplete="username" value={ldapUsername} onChange={(e) => setLdapUsername(e.target.value)} placeholder="jane.doe or jane@example.com" required />
-                <AuthPasswordInput id="ldap-password" label="Password" autoComplete="current-password" value={ldapPassword} onChange={(e) => setLdapPassword(e.target.value)} required />
+                <AuthInput id="ldap-username" label={text("username")} type="text" autoComplete="username" value={ldapUsername} onChange={(e) => setLdapUsername(e.target.value)} placeholder={text("usernamePlaceholder")} required />
+                <AuthPasswordInput id="ldap-password" label={text("password")} autoComplete="current-password" value={ldapPassword} onChange={(e) => setLdapPassword(e.target.value)} required />
                 {(error || ldapError) && (
                   <UiInlineMessage tone="error">{error || ldapError}</UiInlineMessage>
                 )}
                 <AuthButton type="submit" disabled={loading}>
-                  {loading ? "Signing in..." : "Sign in with directory"}
+                  {loading ? text("signingIn") : text("signInWithDirectory")}
                 </AuthButton>
               </form>
             ) : mode === "password" || !allowAccessKeys ? (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
-                <AuthInput id="login-email" label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <AuthPasswordInput id="login-password" label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <AuthInput id="login-email" label={text("email")} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <AuthPasswordInput id="login-password" label={text("password")} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 {error && (
                   <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>
                 )}
                 <AuthButton type="submit" disabled={loading}>
-                  {loading ? "Signing in..." : "Sign in"}
+                  {loading ? text("signingIn") : text("signIn")}
                 </AuthButton>
               </form>
             ) : (
               <form onSubmit={handleKeyLogin} className="space-y-4">
-                <AuthInput id="login-access-key" label="Access key" type="text" autoComplete="username" value={accessKey} onChange={(e) => setAccessKey(e.target.value)} placeholder="ACCESS_KEY" required />
-                <AuthPasswordInput id="login-secret-key" label="Secret key" secretLabel="secret key" autoComplete="current-password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} required />
+                <AuthInput id="login-access-key" label={text("accessKey")} type="text" autoComplete="username" value={accessKey} onChange={(e) => setAccessKey(e.target.value)} placeholder={text("accessKeyPlaceholder")} required />
+                <AuthPasswordInput id="login-secret-key" label={text("secretKey")} secretLabel={text("secretKeyActionLabel")} autoComplete="current-password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} required />
                 {(allowEndpointList || allowCustomEndpoint) && (
                   <div className="space-y-3">
                     {allowEndpointList && (
                       <div>
-                        <AuthSelect id="login-endpoint" label="Endpoint" value={selectedEndpoint} onChange={(e) => setSelectedEndpoint(e.target.value)} disabled={endpointLoading}>
-                          {endpointLoading && <option value="">Loading endpoints...</option>}
-                          {!endpointLoading && <option value="">Select endpoint</option>}
+                        <AuthSelect id="login-endpoint" label={text("endpoint")} value={selectedEndpoint} onChange={(e) => setSelectedEndpoint(e.target.value)} disabled={endpointLoading}>
+                          {endpointLoading && <option value="">{text("loadingEndpoints")}</option>}
+                          {!endpointLoading && <option value="">{text("selectEndpoint")}</option>}
                           {!endpointLoading &&
                             endpointOptions.map((endpoint) => (
                               <option key={endpoint.id} value={endpoint.endpoint_url} title={endpoint.endpoint_url}>
-                                {endpoint.is_default ? `${endpoint.name} (default)` : endpoint.name}
+                                {endpoint.is_default
+                                  ? text("defaultEndpoint", { name: endpoint.name })
+                                  : endpoint.name}
                               </option>
                             ))}
                         </AuthSelect>
                         {!endpointLoading && endpointOptions.length === 0 && (
                           <p className="mt-1 ui-caption text-slate-500">
                             {allowCustomEndpoint
-                              ? "No endpoint configured. Use a custom endpoint URL."
-                              : "No endpoint configured. Ask an admin to add one."}
+                              ? text("noEndpointUseCustom")
+                              : text("noEndpointAskAdmin")}
                           </p>
                         )}
                       </div>
                     )}
                     {allowCustomEndpoint && (
                       <div>
-                        <AuthInput id="login-custom-endpoint" label="Custom endpoint URL (optional)" type="url" autoComplete="url" value={customEndpoint} onChange={(e) => setCustomEndpoint(e.target.value)} placeholder="https://s3.example.com" />
+                        <AuthInput id="login-custom-endpoint" label={text("customEndpointOptional")} type="url" autoComplete="url" value={customEndpoint} onChange={(e) => setCustomEndpoint(e.target.value)} placeholder={text("customEndpointPlaceholder")} />
                         {allowEndpointList && (
-                          <p className="mt-1 ui-caption text-slate-500">Custom endpoint overrides the selection above.</p>
+                          <p className="mt-1 ui-caption text-slate-500">{text("customEndpointOverrides")}</p>
                         )}
                       </div>
                     )}
@@ -604,7 +612,7 @@ export default function LoginPage() {
                   <UiInlineMessage tone="error">{error}</UiInlineMessage>
                 )}
                 <AuthButton type="submit" disabled={loading}>
-                  {loading ? "Connecting..." : "Connect with keys"}
+                  {loading ? text("connecting") : text("connectWithKeys")}
                 </AuthButton>
               </form>
             )}
@@ -613,7 +621,7 @@ export default function LoginPage() {
               <div className="mt-6 space-y-2">
                 <div className="flex items-center gap-2 ui-caption font-semibold uppercase tracking-wide text-slate-400">
                   <div className="h-px flex-1 bg-slate-200" />
-                  <span>Or</span>
+                  <span>{text("or")}</span>
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
                 {oidcProviders.map((provider) => (
@@ -624,7 +632,9 @@ export default function LoginPage() {
                     disabled={Boolean(oidcLoading)}
                     presentation="provider"
                   >
-                    {oidcLoading === provider.id ? "Redirecting..." : `Continue with ${provider.display_name}`}
+                    {oidcLoading === provider.id
+                      ? text("redirecting")
+                      : text("continueWithProvider", { provider: provider.display_name })}
                   </AuthButton>
                 ))}
                 {oidcError && (

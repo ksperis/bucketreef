@@ -22,6 +22,7 @@ import {
   type SessionUser,
 } from "../../utils/workspaces";
 import { AuthCard, AuthCenteredPage } from "./AuthSurface";
+import { useAuthI18n } from "./authMessages";
 
 export default function OidcCallbackPage() {
   const { provider } = useParams<{ provider: string }>();
@@ -30,6 +31,7 @@ export default function OidcCallbackPage() {
   const { runtimeSurfaces, setGeneralSettings } = useGeneralSettings();
   const { setLanguagePreference } = useLanguage();
   const { setTheme } = useTheme();
+  const { text } = useAuthI18n();
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(true);
   const { acceptAuthentication } = useSession();
@@ -41,13 +43,13 @@ export default function OidcCallbackPage() {
 
     if (!provider) {
       setProcessing(false);
-      setError("Missing identity provider.");
+      setError(text("missingIdentityProvider"));
       return;
     }
     const providerId = provider;
     if (!code || !state) {
       setProcessing(false);
-      setError("Incomplete authentication response.");
+      setError(text("incompleteAuthenticationResponse"));
       return;
     }
     const codeValue = code;
@@ -67,11 +69,11 @@ export default function OidcCallbackPage() {
           return;
         }
         if (res.status === "link_approval_required") {
-          setError("This identity must be approved by a superadministrator before it can be linked.");
+          setError(text("identityApprovalRequired"));
           setProcessing(false);
           return;
         }
-        if (!res.user) throw new Error("OIDC session did not return a user");
+        if (!res.user) throw new Error(text("oidcSessionMissingUser"));
         acceptAuthentication(res, "oidc");
         const sessionUser: SessionUser = { ...res.user, authType: "oidc" };
         setLanguagePreference(res.user.ui_language ?? "auto");
@@ -103,7 +105,7 @@ export default function OidcCallbackPage() {
       } catch (err) {
         console.error(err);
         if (!cancelled) {
-          setError("Unable to complete the sign-in. Please try again.");
+          setError(text("unableCompleteSignIn"));
           setProcessing(false);
         }
       }
@@ -113,7 +115,7 @@ export default function OidcCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [acceptAuthentication, navigate, provider, runtimeSurfaces, searchParams, setGeneralSettings, setLanguagePreference, setTheme]);
+  }, [acceptAuthentication, navigate, provider, runtimeSurfaces, searchParams, setGeneralSettings, setLanguagePreference, setTheme, text]);
 
   if (error) return <ErrorState kind="auth_failed" description={error} presentation="full" />;
 
@@ -121,8 +123,8 @@ export default function OidcCallbackPage() {
     <AuthCenteredPage>
       <AuthCard className="max-w-md p-8 text-center">
           <BrandMark alt={PRODUCT_NAME} className="mx-auto mb-5 h-16 w-16" />
-          <h1 className="mb-2 text-2xl font-semibold text-slate-900">Signing you in</h1>
-          {processing && <p className="ui-body text-slate-500">Please wait...</p>}
+          <h1 className="mb-2 text-2xl font-semibold text-slate-900">{text("signingYouIn")}</h1>
+          {processing && <p className="ui-body text-slate-500">{text("pleaseWait")}</p>}
       </AuthCard>
     </AuthCenteredPage>
   );
