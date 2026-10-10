@@ -78,7 +78,7 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         mode=migration.mode,
         copy_bucket_settings=bool(migration.copy_bucket_settings),
         delete_source=bool(migration.delete_source),
-        strong_integrity_check=bool(getattr(migration, "strong_integrity_check", False)),
+        strong_integrity_check=bool(migration.strong_integrity_check),
         lock_target_writes=bool(migration.lock_target_writes),
         use_same_endpoint_copy=bool(migration.use_same_endpoint_copy),
         auto_grant_source_read_for_copy=bool(migration.auto_grant_source_read_for_copy),
