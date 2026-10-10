@@ -1,6 +1,5 @@
-import { isValidElement, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import { Navigate, matchRoutes, type RouteObject } from "react-router-dom";
+import { matchRoutes, type RouteObject } from "react-router-dom";
 
 import { createAppRoutes } from "./router";
 
@@ -57,7 +56,6 @@ describe("route snapshot", () => {
       "/admin/webhook-settings/new",
       "/admin/webhook-settings/:endpointId",
       "/admin/key-rotation",
-      "/admin/api-tokens",
       "/admin/*",
       "/ceph-admin",
       "/ceph-admin#index",
@@ -149,15 +147,7 @@ describe("route snapshot", () => {
     expect(matchRoutes(routes, "/ceph-admin/accounts")?.at(-1)?.route.path).toBe("accounts");
   });
 
-  it("redirects the legacy API token settings route to the personal profile tab", () => {
-    const element = matchRoutes(createAppRoutes(), "/admin/api-tokens")?.at(-1)?.route.element;
-
-    expect(isValidElement(element)).toBe(true);
-    if (!isValidElement(element)) return;
-    expect(element.type).toBe(Navigate);
-    expect((element as ReactElement<{ to: string; replace: boolean }>).props).toMatchObject({
-      to: "/admin/profile?tab=api-tokens",
-      replace: true,
-    });
+  it("uses the unknown-route fallback for the retired Admin API token route", () => {
+    expect(matchRoutes(createAppRoutes(), "/admin/api-tokens")?.at(-1)?.route.path).toBe("*");
   });
 });

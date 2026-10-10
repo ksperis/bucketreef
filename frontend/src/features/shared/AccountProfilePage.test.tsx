@@ -25,8 +25,8 @@ vi.mock("./SecurityPage", () => ({
 }));
 
 vi.mock("../admin/ApiTokensPage", () => ({
-  default: ({ showPageHeader, onUnsavedChangesChange }: { showPageHeader?: boolean; onUnsavedChangesChange?: (dirty: boolean) => void }) => (
-    <div data-testid="api-tokens-content" data-show-page-header={String(showPageHeader ?? true)}>
+  default: ({ onUnsavedChangesChange }: { onUnsavedChangesChange?: (dirty: boolean) => void }) => (
+    <div data-testid="api-tokens-content">
       API tokens content
       <button type="button" onClick={() => onUnsavedChangesChange?.(true)}>Edit token draft</button>
     </div>
@@ -87,6 +87,7 @@ describe("AccountProfilePage", () => {
   it.each([
     ["ui_user", "password"],
     ["ui_none", "password"],
+    ["ui_admin", "password"],
     ["ui_superadmin", "s3_session"],
   ] as const)("hides API tokens for role %s with a %s session and replaces a forbidden direct URL", async (role, authType) => {
     setSessionUserCache({ role, authType });
@@ -102,12 +103,12 @@ describe("AccountProfilePage", () => {
     expect(await screen.findByText("/profile?tab=profile")).toBeInTheDocument();
   });
 
-  it.each(["ui_admin", "ui_superadmin"] as const)("shows the embedded API token tab for %s", async (role) => {
-    setSessionUserCache({ role, authType: "password" });
+  it("shows the embedded API token tab for superadmins", async () => {
+    setSessionUserCache({ role: "ui_superadmin", authType: "password" });
     renderPage("/manager/profile?tab=api-tokens");
 
     expect(screen.getByRole("tab", { name: "API tokens" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("api-tokens-content")).toHaveAttribute("data-show-page-header", "false");
+    expect(screen.getByTestId("api-tokens-content")).toBeInTheDocument();
     expect(screen.getByText("/manager/profile?tab=api-tokens")).toBeInTheDocument();
   });
 

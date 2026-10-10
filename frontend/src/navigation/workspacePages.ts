@@ -70,7 +70,6 @@ export const ADMIN_PAGE_CONTRACTS = {
   "portal-settings": { label: "Portal", path: "/admin/portal-settings" },
   "webhook-settings": { label: "Webhooks", path: "/admin/webhook-settings" },
   "key-rotation": { label: "Key Rotation", path: "/admin/key-rotation" },
-  "api-tokens": { label: "API tokens", path: "/admin/api-tokens" },
   profile: { label: "Profile", path: "/admin/profile" },
 } as const satisfies Record<string, WorkspacePageContract>;
 
