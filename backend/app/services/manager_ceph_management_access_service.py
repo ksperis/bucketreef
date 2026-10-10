@@ -15,7 +15,7 @@ from app.services import app_settings_service
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES
 from app.services.rgw_admin import get_rgw_admin_client
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.services.storage_endpoint_admin_permissions import (
     resolve_storage_endpoint_admin_ops_permissions,
 )
@@ -87,11 +87,11 @@ class ManagerCephManagementAccessService:
             return self._deny(f"{label} is not available for this context")
 
         effective = EffectiveAccessService(self.db).resolve_user(actor)
-        context_kind = getattr(account, "context_kind", "account")
+        context_kind = account.context_kind if isinstance(account, S3ExecutionContext) else "account"
         resource: S3Account | S3User | None = None
 
         if context_kind == "account" and operation == "bucket_quota":
-            account_id = getattr(account, "id", None)
+            account_id = account.id
             if not isinstance(account_id, int) or account_id <= 0:
                 return self._deny(f"{label} is not available for this context")
             link = effective.account_link_for(account_id)
@@ -101,7 +101,9 @@ class ManagerCephManagementAccessService:
             if resource is None or not resource.allow_bucket_quota_management:
                 return self._deny("Bucket quota management is not enabled for this resource")
         elif context_kind == "s3_user":
-            s3_user_id = getattr(account, "s3_user_id", None)
+            if not isinstance(account, S3ExecutionContext):
+                return self._deny(f"{label} is not available for this context")
+            s3_user_id = account.s3_user_id
             if not isinstance(s3_user_id, int) or s3_user_id <= 0:
                 return self._deny(f"{label} is not available for this context")
             if not effective.has_s3_user(s3_user_id):
