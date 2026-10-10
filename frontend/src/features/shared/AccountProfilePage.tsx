@@ -102,10 +102,10 @@ export default function AccountProfilePage() {
       />
       <PageTabPanel idPrefix="account-profile" tabId={activeTab}>
         {activeTab === "profile" ? (
-          <ProfilePage profilePath={profilePath} showPageHeader={false} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
+          <ProfilePage profilePath={profilePath} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "connections" ? (
-          <ProfilePage profilePath={profilePath} showPageHeader={false} showSettingsCards={false} showConnectionsSection
+          <ProfilePage profilePath={profilePath} showSettingsCards={false} showConnectionsSection
             listPresentation={workspace !== "browser"} headerActionsTarget={connectionActionsTarget}
             onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
