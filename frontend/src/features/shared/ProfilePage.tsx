@@ -11,7 +11,6 @@ import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { useSearchParams } from "react-router-dom";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageBanner from "../../components/PageBanner";
-import PageHeader from "../../components/PageHeader";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
@@ -76,7 +75,6 @@ type PendingPrivateConnectionDelete = {
 
 type ProfilePageProps = {
   profilePath?: string;
-  showPageHeader?: boolean;
   /** Opt in outside Browser; the shared Browser profile keeps its existing header. */
   listPresentation?: boolean;
   headerActionsTarget?: HTMLElement | null;
@@ -87,7 +85,6 @@ type ProfilePageProps = {
 
 export default function ProfilePage({
   profilePath = "/",
-  showPageHeader = true,
   listPresentation = false,
   headerActionsTarget,
   showSettingsCards: showSettingsCardsProp = true,
@@ -918,14 +915,6 @@ export default function ProfilePage({
 
   return (
     <div className={workflowPageHostClass(showConnectionsSection && (showCreateConnectionModal || Boolean(editingConnection)))}>
-      {showPageHeader && (
-        <PageHeader
-          title={showConnectionsSection && !showSettingsCards ? "Private S3 connections" : "User profile"}
-          description={showConnectionsSection && !showSettingsCards ? "Manage your personal storage connections and credentials." : "Configure your account and preferences."}
-          breadcrumbs={[{ label: "Profile" }]}
-        />
-      )}
-
       {showSettingsCards && <ProfilePreferencesPage onUnsavedChangesChange={setSettingsHaveUnsavedChanges} />}
 
       {showConnectionsSection && <section className="settings-compact">
