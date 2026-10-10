@@ -54,10 +54,7 @@ class PortalIamMixin:
         """
         reasons: list[str] = []
         account = access.account
-        endpoint = getattr(account, "storage_endpoint", None)
-        if endpoint is None:
-            reasons.append("Storage endpoint missing")
-            return False, reasons
+        endpoint = account.storage_endpoint
 
         flags = resolve_feature_flags(endpoint)
         if not flags.iam_enabled:
