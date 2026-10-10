@@ -2,9 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db.s3_connection import UserS3Connection
 from app.db.ui_group import UiGroup, UiGroupS3Connection
@@ -25,8 +25,8 @@ class S3ConnectionAssociationsService:
         user_ids: Optional[list[int]],
     ) -> tuple[Optional[list[int]], Optional[list[int]]]:
         return (
-            self._validated_group_ids(group_ids),
-            self._validated_user_ids(user_ids),
+            self._validated_ids(group_ids, id_column=UiGroup.id, entity_label="UI groups"),
+            self._validated_ids(user_ids, id_column=User.id, entity_label="UI users"),
         )
 
     def replace_links(
@@ -53,23 +53,11 @@ class S3ConnectionAssociationsService:
             .delete(synchronize_session=False)
         )
 
-    def _validated_group_ids(
-        self,
-        group_ids: Optional[list[int]],
-    ) -> Optional[list[int]]:
-        return self._validated_ids(group_ids, id_column=UiGroup.id, entity_label="UI groups")
-
-    def _validated_user_ids(
-        self,
-        user_ids: Optional[list[int]],
-    ) -> Optional[list[int]]:
-        return self._validated_ids(user_ids, id_column=User.id, entity_label="UI users")
-
     def _validated_ids(
         self,
         ids: Optional[list[int]],
         *,
-        id_column: Any,
+        id_column: InstrumentedAttribute[int],
         entity_label: str,
     ) -> Optional[list[int]]:
         if ids is None:
