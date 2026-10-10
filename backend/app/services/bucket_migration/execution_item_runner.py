@@ -25,7 +25,7 @@ from .diagnostics import MigrationPermissionCheckError
 
 class BucketMigrationItemRunnerMixin:
     def _load_item_execution_plan(self, item: BucketMigrationItem) -> dict[str, Any]:
-        parsed = _json_loads(getattr(item, "execution_plan_json", None))
+        parsed = _json_loads(item.execution_plan_json)
         return parsed if isinstance(parsed, dict) else {}
 
     def _item_execution_strategy(self, item: BucketMigrationItem) -> str:
@@ -34,7 +34,7 @@ class BucketMigrationItemRunnerMixin:
         return strategy
 
     def _load_item_replication_state(self, item: BucketMigrationItem) -> dict[str, Any]:
-        parsed = _json_loads(getattr(item, "replication_state_json", None))
+        parsed = _json_loads(item.replication_state_json)
         return parsed if isinstance(parsed, dict) else {}
 
     def _store_item_replication_state(self, item: BucketMigrationItem, state: dict[str, Any]) -> None:

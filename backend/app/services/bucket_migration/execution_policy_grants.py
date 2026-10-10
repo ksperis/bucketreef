@@ -34,8 +34,8 @@ class BucketMigrationPolicyGrantsMixin:
             return []
 
         account = target_ctx.account
-        account_id = (getattr(account, "rgw_account_id", None) or "").strip()
-        explicit_uid = (getattr(account, "rgw_user_uid", None) or "").strip()
+        account_id = (account.rgw_account_id or "").strip()
+        explicit_uid = (account.rgw_user_uid or "").strip()
         resolved_uid = (resolve_admin_uid(account_id or None, explicit_uid or None) or "").strip()
 
         candidates: list[str] = []
