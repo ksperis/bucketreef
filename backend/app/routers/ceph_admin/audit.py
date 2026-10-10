@@ -17,13 +17,13 @@ def record_ceph_admin_action(
     status: str = "success",
     message: str | None = None,
 ) -> None:
-    actor = getattr(ctx, "actor", None)
-    audit_service = getattr(ctx, "audit_service", None)
+    actor = ctx.actor
+    audit_service = ctx.audit_service
     if actor is None or audit_service is None:
         return
     endpoint_metadata = {
-        "endpoint_id": getattr(ctx.endpoint, "id", None),
-        "endpoint_name": getattr(ctx.endpoint, "name", None),
+        "endpoint_id": ctx.endpoint.id,
+        "endpoint_name": ctx.endpoint.name,
     }
     if metadata:
         endpoint_metadata.update(metadata)
