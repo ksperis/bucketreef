@@ -107,6 +107,7 @@ class _BucketUiTagPatchBase(ApiModel):
     add_tag_ids: list[int] = Field(default_factory=list)
     remove_tag_ids: list[int] = Field(default_factory=list)
     remove_all: bool = False
+    create_tags: list[StorageOpsBucketUiTagCreate] = Field(default_factory=list)
 
     @field_validator("add_tag_ids", "remove_tag_ids", mode="after")
     @classmethod
@@ -124,7 +125,7 @@ class _BucketUiTagPatchBase(ApiModel):
 
     @model_validator(mode="after")
     def validate_operation(self):
-        if self.remove_all and (self.add_tag_ids or getattr(self, "create_tags", [])):
+        if self.remove_all and (self.add_tag_ids or self.create_tags):
             raise ValueError("remove_all cannot be combined with additions.")
         return self
 
@@ -136,4 +137,3 @@ class CephAdminBucketUiTagPatchRequest(_BucketUiTagPatchBase):
 
 class StorageOpsBucketUiTagPatchRequest(_BucketUiTagPatchBase):
     targets: list[StorageOpsBucketUiTagTarget] = Field(min_length=1, max_length=200)
-    create_tags: list[StorageOpsBucketUiTagCreate] = Field(default_factory=list)
