@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import secrets
-from types import SimpleNamespace
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -71,7 +70,13 @@ class DurableKeyRotationService:
                 raise ReplacementValidationError(str(exc)) from exc
             self.identities._validate_managed_keys(target, payload)
             try:
-                self.identities._functional_check(endpoint, SimpleNamespace(kind=target.kind, rgw_uid=target.rgw_uid, access_key=access, secret_key=secret))
+                self.identities._functional_check(
+                    endpoint,
+                    kind=target.kind,
+                    rgw_uid=target.rgw_uid,
+                    access_key=access,
+                    secret_key=secret,
+                )
             except ValueError as exc:
                 raise ReplacementValidationError(str(exc)) from exc
             except RGWAdminError as exc:
@@ -87,13 +92,11 @@ class DurableKeyRotationService:
                 )
                 self.identities._functional_check(
                     endpoint,
-                    SimpleNamespace(
-                        kind="ceph_admin",
-                        rgw_uid=target.rgw_uid,
-                        access_key=access,
-                        secret_key=secret,
-                        legacy_system_compat=target.legacy_system_compat,
-                    ),
+                    kind="ceph_admin",
+                    rgw_uid=target.rgw_uid,
+                    access_key=access,
+                    secret_key=secret,
+                    allow_legacy_system=bool(target.legacy_system_compat),
                 )
             except ValueError as exc:
                 raise ReplacementValidationError(str(exc)) from exc

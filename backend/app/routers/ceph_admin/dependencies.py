@@ -86,7 +86,7 @@ def probe_ceph_admin_service_identity(endpoint: StorageEndpoint) -> CephAdminIde
             warning=f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': access key does not map to an RGW user.",
         )
     is_admin, is_system = extract_ceph_admin_flags(user_payload)
-    legacy_system_compat = bool(getattr(identity, "legacy_system_compat", False))
+    legacy_system_compat = bool(identity.legacy_system_compat)
     invalid_flags = (
         not (is_admin or is_system)
         if legacy_system_compat
