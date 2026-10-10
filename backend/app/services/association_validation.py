@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db import User
 from app.db.s3_connection import S3Connection
@@ -31,7 +30,7 @@ def load_association_users(
 
 def ensure_association_ids_exist(
     db: Session,
-    id_column: Any,
+    id_column: InstrumentedAttribute[int],
     ids: Iterable[int],
     *,
     entity_label: str,
