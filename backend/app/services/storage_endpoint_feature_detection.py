@@ -125,7 +125,7 @@ class StorageEndpointFeatureDetector:
             endpoint_url == stored_endpoint_url
             and admin_endpoint == stored_admin_endpoint
             and region == stored_region
-            and verify_tls == bool(getattr(stored_endpoint, "verify_tls", True))
+            and verify_tls == bool(stored_endpoint.verify_tls)
         )
 
     def _context(
@@ -153,7 +153,7 @@ class StorageEndpointFeatureDetector:
         if payload.verify_tls is not None:
             verify_tls = bool(payload.verify_tls)
         elif stored_endpoint is not None:
-            verify_tls = bool(getattr(stored_endpoint, "verify_tls", True))
+            verify_tls = bool(stored_endpoint.verify_tls)
         else:
             verify_tls = True
 
