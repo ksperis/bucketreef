@@ -104,8 +104,6 @@ type ManagerBucketCompareModalProps = {
   onClose: () => void;
 };
 
-const extractError = extractCompareError;
-
 const downloadFilenameFromKey = (key: string) => {
   const filename = key.split("/").filter(Boolean).pop();
   return filename || "download";
@@ -253,7 +251,7 @@ export default function ManagerBucketCompareModal({
       } catch (err) {
         if (cancelled) return;
         setTargetBucketNames([]);
-        setTargetBucketsError(extractError(err));
+        setTargetBucketsError(extractCompareError(err));
       } finally {
         if (!cancelled) {
           setTargetBucketsLoading(false);
@@ -413,7 +411,7 @@ export default function ManagerBucketCompareModal({
         settleRunItem
       );
     } catch (err) {
-      const error = extractError(err);
+      const error = extractCompareError(err);
       setRunError(error);
       setItems((prev) =>
         prev.map((item) =>
@@ -579,7 +577,7 @@ export default function ManagerBucketCompareModal({
           parallelism: safeActionParallelism,
         });
       } catch (err) {
-        const error = extractError(err);
+        const error = extractCompareError(err);
         setItems((prev) =>
           prev.map((item, index) =>
             index === pending.itemIndex
@@ -645,7 +643,7 @@ export default function ManagerBucketCompareModal({
           )
         );
       } catch (err) {
-        const error = extractError(err);
+        const error = extractCompareError(err);
         setItems((prev) =>
           prev.map((item, index) =>
             index === pending.itemIndex
