@@ -53,7 +53,7 @@ class PortalSharingMixin:
         if self._user_storage_space_role(user, access, bucket_name) != "Owner":
             return False
         return bool(
-            self._effective_portal_settings(access.account).allow_portal_user_external_sharing
+            self.get_effective_portal_settings(access.account).allow_portal_user_external_sharing
         )
 
     def _storage_space_share_card(

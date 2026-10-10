@@ -49,7 +49,7 @@ class PortalStorageSpaceVersionCleanupMixin:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
             raise PortalNotFoundError("Storage space not found or not allowed.")
-        portal_settings = self._effective_portal_settings(access.account)
+        portal_settings = self.get_effective_portal_settings(access.account)
         if not portal_settings.storage_space_version_cleanup_enabled:
             raise PortalForbiddenError("Storage Space history cleanup is not allowed for this account.")
         self._require_storage_space_full_content_access(user, access, bucket_name)

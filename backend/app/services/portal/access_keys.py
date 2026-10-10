@@ -78,7 +78,7 @@ class PortalAccessKeysMixin:
         return keys
 
     def get_access_keys_state(self, user: User, access: "AccountAccess") -> PortalAccessKeysState:
-        portal_settings = self._effective_portal_settings(access.account)
+        portal_settings = self.get_effective_portal_settings(access.account)
         s3_endpoint, _, force_path_style, _ = resolve_s3_client_options(access.account)
         link = self._existing_portal_link(user, access.account)
         iam_user = None
@@ -156,7 +156,7 @@ class PortalAccessKeysMixin:
         )
 
     def _ensure_access_key_management_allowed(self, access: "AccountAccess") -> PortalSettings:
-        portal_settings = self._effective_portal_settings(access.account)
+        portal_settings = self.get_effective_portal_settings(access.account)
         if not portal_settings.allow_portal_user_access_key_create:
             raise PortalAccessKeyManagementDisabled("Portal access-key management is disabled for this account.")
         return portal_settings
@@ -184,7 +184,7 @@ class PortalAccessKeysMixin:
         return self.create_personal_access_key(user, access)
 
     def create_personal_access_key(self, user: User, access: "AccountAccess") -> PortalAccessKey:
-        portal_settings = self._effective_portal_settings(access.account)
+        portal_settings = self.get_effective_portal_settings(access.account)
         if not portal_settings.allow_portal_user_access_key_create:
             raise PortalAccessKeyManagementDisabled("Portal access-key management is disabled for this account.")
         iam_service = self._get_iam_service(access.account)
