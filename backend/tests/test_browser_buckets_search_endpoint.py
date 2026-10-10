@@ -3,6 +3,7 @@
 from app.db import S3Account, S3User, StorageEndpoint, StorageProvider
 from app.main import app
 from app.models.browser import BrowserBucket, PaginatedBrowserBucketsResponse
+from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.routers import browser as browser_router
 from app.routers import dependencies
 from app.services import browser_usage_summary_service
@@ -360,7 +361,13 @@ def test_browser_usage_summary_does_not_fallback_to_portal_storage_space_rows(cl
     account = S3ExecutionContext.from_account(persisted_account, context_kind="portal_account")
     account.portal_browser_role = "portal_manager"
     account.portal_storage_spaces = [
-        BrowserBucket(name="space-a", display_name="Space A", used_bytes=900, object_count=90),
+        PortalStorageSpaceSummary(
+            id="space-a",
+            name="Space A",
+            role="Editor",
+            used_bytes=900,
+            object_count=90,
+        ),
     ]
 
     class FakeS3AccountsService:

@@ -7,6 +7,7 @@ from typing import Any, Literal, Optional, Protocol
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint
 from app.models.account_capabilities import AccountCapabilities
+from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.utils.s3_connection_endpoint import resolve_connection_endpoint
 
 
@@ -54,7 +55,7 @@ class S3ExecutionContext:
     portal_browser_role: Optional[str] = None
     portal_browser_access: Any = None
     portal_allowed_buckets: Optional[set[str]] = None
-    portal_storage_spaces: Optional[list[Any]] = None
+    portal_storage_spaces: Optional[list[PortalStorageSpaceSummary]] = None
 
     @classmethod
     def from_account(
