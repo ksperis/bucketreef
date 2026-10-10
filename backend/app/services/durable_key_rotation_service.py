@@ -88,7 +88,6 @@ class DurableKeyRotationService:
                 self.identities.validate_payload(
                     "ceph_admin",
                     payload,
-                    allow_legacy_system=bool(target.legacy_system_compat),
                 )
                 self.identities._functional_check(
                     endpoint,
@@ -96,7 +95,6 @@ class DurableKeyRotationService:
                     rgw_uid=target.rgw_uid,
                     access_key=access,
                     secret_key=secret,
-                    allow_legacy_system=bool(target.legacy_system_compat),
                 )
             except ValueError as exc:
                 raise ReplacementValidationError(str(exc)) from exc
