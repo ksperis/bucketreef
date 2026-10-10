@@ -31,8 +31,8 @@ def portal_traffic(
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     account = access.account
-    endpoint = getattr(account, "storage_endpoint", None)
-    if endpoint and not resolve_feature_flags(endpoint).usage_enabled:
+    endpoint = account.storage_endpoint
+    if not resolve_feature_flags(endpoint).usage_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage logs are disabled for this endpoint")
     requested_bucket = (bucket or "").strip()
     allowed_buckets = set(portal_service.list_existing_user_bucket_access(actor, account, access.portal_role))
