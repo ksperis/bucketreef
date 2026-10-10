@@ -6,6 +6,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
+from app.models.bucket_listing import BucketListingSummary
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_config_backup import (
     BucketConfigBackupBucket,
@@ -118,8 +119,8 @@ class BucketConfigBackupService:
 
         stats = self._bucket_stats.get_bucket_stats(bucket_name, account, with_stats=True)
         return {
-            "max_size_bytes": _normalize_quota_limit(getattr(stats, "quota_max_size_bytes", None)),
-            "max_objects": _normalize_quota_limit(getattr(stats, "quota_max_objects", None)),
+            "max_size_bytes": _normalize_quota_limit(stats.quota_max_size_bytes),
+            "max_objects": _normalize_quota_limit(stats.quota_max_objects),
         }
 
 
@@ -131,8 +132,10 @@ def _normalize_quota_limit(value: Any) -> int | None:
     return parsed if parsed > 0 else None
 
 
-def quota_from_bucket_summary(bucket: Any | None) -> dict[str, int | None]:
+def quota_from_bucket_summary(bucket: BucketListingSummary | None) -> dict[str, int | None]:
+    if bucket is None:
+        return {"max_size_bytes": None, "max_objects": None}
     return {
-        "max_size_bytes": _normalize_quota_limit(getattr(bucket, "quota_max_size_bytes", None)),
-        "max_objects": _normalize_quota_limit(getattr(bucket, "quota_max_objects", None)),
+        "max_size_bytes": _normalize_quota_limit(bucket.quota_max_size_bytes),
+        "max_objects": _normalize_quota_limit(bucket.quota_max_objects),
     }
