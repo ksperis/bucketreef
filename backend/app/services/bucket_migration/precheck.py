@@ -849,7 +849,7 @@ class BucketMigrationPrecheckPlanner:
             planned.report["state"] = (
                 "unverified"
                 if only_active_pending
-                and not getattr(self._service, "_preparation_active_checks", False)
+                and not self._service._preparation_active_checks
                 else (
                     "blocked"
                     if planned.blocking_errors

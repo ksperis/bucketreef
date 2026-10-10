@@ -145,7 +145,7 @@ class BucketMigrationPolicyGrantsMixin:
 
     @contextmanager
     def _temporary_source_copy_grant(self, source_ctx, target_ctx, *, source_bucket, sample_key=None, sample_version_id=None):
-        item = getattr(self, "_preparation_item", None) or getattr(self, "_execution_item", None)
+        item = self._preparation_item or self._execution_item
         if item is None:
             raise RuntimeError("Temporary grants require a persisted recovery record")
         backup = self._configuration.get_policy(source_bucket, source_ctx.account)
@@ -442,7 +442,7 @@ class BucketMigrationPolicyGrantsMixin:
             existing_policy if isinstance(existing_policy, dict) else None,
         )
 
-        item = getattr(self, "_preparation_item", None)
+        item = self._preparation_item
         if item is None:
             raise RuntimeError("Active policy checks require a persisted preparation item")
         migration = item.migration
