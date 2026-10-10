@@ -4,24 +4,49 @@
 from __future__ import annotations
 
 import secrets
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
-from app.db import EndpointServiceIdentity, KeyRotationIntent, S3Account, S3User, StorageEndpoint
+from app.db import (
+    EndpointServiceIdentity,
+    KeyRotationIntent,
+    S3Account,
+    S3User,
+    StorageEndpoint,
+    User,
+)
 from app.services.audit_service import AuditService
-from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client
+from app.services.rgw_admin import RGWAdminClient, RGWAdminError, get_rgw_admin_client
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint, resolve_feature_flags
 from app.utils.time import utcnow
+
+if TYPE_CHECKING:
+    from app.services.endpoint_service_identities import EndpointServiceIdentityService
 
 SERVICE_TYPES = {"endpoint_runtime": "runtime", "endpoint_supervision": "supervision"}
 IDENTITY_TYPES = {**SERVICE_TYPES, "ceph_admin": "ceph_admin"}
 RotationTarget = EndpointServiceIdentity | S3Account | S3User | StorageEndpoint
 
 
-def pending_rotation(db, endpoint_id, key_type, target_id):
-    return db.query(KeyRotationIntent).filter_by(endpoint_id=endpoint_id, key_type=key_type, target_id=target_id).first()
+def pending_rotation(
+    db: Session,
+    endpoint_id: int,
+    key_type: str,
+    target_id: int,
+) -> KeyRotationIntent | None:
+    return (
+        db.query(KeyRotationIntent)
+        .filter_by(
+            endpoint_id=endpoint_id,
+            key_type=key_type,
+            target_id=target_id,
+        )
+        .first()
+    )
 
 
 class ReplacementValidationError(ValueError):
@@ -29,12 +54,24 @@ class ReplacementValidationError(ValueError):
 
 
 class DurableKeyRotationService:
-    def __init__(self, db, *, actor=None, identity_service=None):
+    def __init__(
+        self,
+        db: Session,
+        *,
+        actor: User | None = None,
+        identity_service: EndpointServiceIdentityService | None = None,
+    ) -> None:
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
+
         self.db, self.actor = db, actor
         self.identities = identity_service or EndpointServiceIdentityService(db, actor=actor)
 
-    def _audit(self, endpoint, intent, action):
+    def _audit(
+        self,
+        endpoint: StorageEndpoint,
+        intent: KeyRotationIntent,
+        action: str,
+    ) -> None:
         AuditService(self.db).record_action(
             user=self.actor, user_email=intent.actor_email if self.actor is None else None,
             scope="admin", action=f"key_rotation.{action}", entity_type="storage_endpoint", entity_id=str(endpoint.id),
@@ -43,7 +80,12 @@ class DurableKeyRotationService:
                       "executor": "admin_ops", "workflow": "key-rotation", "phase": intent.phase},
         )
 
-    def _target(self, endpoint, key_type, target_id) -> RotationTarget:
+    def _target(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target_id: int,
+    ) -> RotationTarget:
         model = EndpointServiceIdentity if key_type in IDENTITY_TYPES else S3Account if key_type == "account" else S3User if key_type == "s3_user" else StorageEndpoint
         target = self.db.query(model).populate_existing().filter(model.id == target_id).first()
         if target is None or ((target.id if model == StorageEndpoint else target.endpoint_id if model == EndpointServiceIdentity else target.storage_endpoint_id) != endpoint.id):
@@ -84,7 +126,16 @@ class DurableKeyRotationService:
             return target.rgw_user_uid, None
         return None, None
 
-    def _validate(self, endpoint, key_type, target, admin, payload, access, secret):
+    def _validate(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target: RotationTarget,
+        admin: RGWAdminClient,
+        payload: object,
+        access: str,
+        secret: str,
+    ) -> None:
         entries = RgwUserKeyParser.to_access_keys(admin.extract_keys(payload), ui_managed_access_key=None)
         key = next((key for key in entries if key.access_key_id == access), None)
         pair = next((item for item in admin.extract_keys(payload) if item.get("access_key") == access), None)
@@ -137,7 +188,14 @@ class DurableKeyRotationService:
             if not permissions.users_read or not permissions.accounts_read or not permissions.users_write:
                 raise ValueError("Replacement Admin Ops key lacks required rotation permissions.")
 
-    def rotate(self, endpoint, key_type, target_id, *, deactivate_only=False):
+    def rotate(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target_id: int,
+        *,
+        deactivate_only: bool = False,
+    ) -> tuple[str, str, str]:
         if deactivate_only and key_type in SERVICE_TYPES:
             raise ValueError("Managed service identities require deleting previous keys; select delete mode.")
         if key_type not in (*SERVICE_TYPES, "ceph_admin", "endpoint_admin", "account", "s3_user"):
