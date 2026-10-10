@@ -178,7 +178,7 @@ class BrowserContextMixin:
             bucket_name,
             key,
             "head",
-            getattr(sse_customer, "key_md5", "") or "",
+            sse_customer.key_md5 if sse_customer is not None else "",
         )
 
     def _object_lazy_tags_cache_key(
