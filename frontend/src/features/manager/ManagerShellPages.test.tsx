@@ -422,7 +422,7 @@ describe("manager shell pages", () => {
     expect(quotaStatus).not.toBeNull();
     expect(useIamOverviewMock).toHaveBeenCalledWith("conn-1", true, true, "connection:0");
     expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("Users1");
-    expect(within(quotaStatus!).getByRole("link", { name: "View all users" })).toHaveAttribute("href", "/manager/users");
+    expect(within(quotaStatus!).getByRole("link", { name: /view all users/i })).toHaveAttribute("href", "/manager/users");
     expect(screen.queryByRole("heading", { name: "Access management" })).not.toBeInTheDocument();
   });
 
@@ -519,6 +519,7 @@ describe("manager shell pages", () => {
     expect(within(overviewGrid).queryByText("Recent activity")).not.toBeInTheDocument();
     expect(within(activityIncidentsRow).getByText("Recent activity")).toBeInTheDocument();
     expect(within(activityIncidentsRow).getByText("Ongoing / Recent incidents")).toBeInTheDocument();
+    expect(within(recentActivityCard).queryByText("View all")).not.toBeInTheDocument();
     expect(topBucketsCard).toHaveClass("xl:col-span-5");
     expect(recentActivityCard.parentElement).toBe(activityIncidentsRow);
     expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledWith("account-1");
@@ -1083,16 +1084,16 @@ describe("manager shell pages", () => {
     ).toEqual(["Storage", "Objects", "Buckets", "Users", "Roles", "Groups"]);
     expect(quotaStatusScope.getByText("Buckets")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Buckets"]')).toHaveTextContent("2 / 4");
-    expect(quotaStatusScope.getByRole("link", { name: "View all buckets" })).toHaveAttribute("href", "/manager/buckets");
+    expect(quotaStatusScope.getByRole("link", { name: /view all buckets/i })).toHaveAttribute("href", "/manager/buckets");
     expect(quotaStatusScope.getByText("Users")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("2 / 5");
-    expect(quotaStatusScope.getByRole("link", { name: "View all users" })).toHaveAttribute("href", "/manager/users");
+    expect(quotaStatusScope.getByRole("link", { name: /view all users/i })).toHaveAttribute("href", "/manager/users");
     expect(quotaStatusScope.getByText("Roles")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Roles"]')).toHaveTextContent("3 / 6");
-    expect(quotaStatusScope.getByRole("link", { name: "View all roles" })).toHaveAttribute("href", "/manager/roles");
+    expect(quotaStatusScope.getByRole("link", { name: /view all roles/i })).toHaveAttribute("href", "/manager/roles");
     expect(quotaStatusScope.getByText("Groups")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Groups"]')).toHaveTextContent("1 / 4");
-    expect(quotaStatusScope.getByRole("link", { name: "View all groups" })).toHaveAttribute("href", "/manager/groups");
+    expect(quotaStatusScope.getByRole("link", { name: /view all groups/i })).toHaveAttribute("href", "/manager/groups");
     expect(screen.queryByRole("heading", { name: "Access management" })).not.toBeInTheDocument();
     expect(quotaStatusScope.queryByText("Bandwidth (month)")).not.toBeInTheDocument();
     expect(await screen.findByText(trendText("1.0 GB vs last 30 days"))).toBeInTheDocument();
@@ -1100,7 +1101,7 @@ describe("manager shell pages", () => {
     expect(screen.getByText(trendText("1 vs last 30 days"))).toBeInTheDocument();
     expect(screen.getByText(trendText("4 vs last 30 days"))).toBeInTheDocument();
     expect(
-      within(screen.getByTestId("manager-dashboard-top-buckets-card")).getByRole("link", { name: "View all buckets" }),
+      within(screen.getByTestId("manager-dashboard-top-buckets-card")).getByRole("link", { name: /view all buckets/i }),
     ).toHaveAttribute("href", "/manager/buckets");
   });
 
@@ -1271,7 +1272,7 @@ describe("manager shell pages", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Create bucket" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Create bucket" }));
     const form = within(screen.getByRole("form", { name: "Create bucket" }));
-    await user.type(form.getByRole("textbox", { name: "Bucket name" }), "NEW-BUCKET");
+    await user.type(form.getByRole("textbox", { name: "Bucket name" }), "new-bucket");
     await user.click(form.getByRole("switch", { name: "Custom LocationConstraint" }));
     await user.type(form.getByRole("textbox", { name: "LocationConstraint" }), " eu-west-1 ");
     await user.click(form.getByRole("switch", { name: "Versioning" }));

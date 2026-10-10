@@ -367,10 +367,6 @@ function RecentActivityCard({
     <section className={cx(uiCardClass, "ui-dashboard-panel")}>
       <div className="ui-dashboard-panel-heading">
         <h2 className="ui-dashboard-title">{text("Recent activity")}</h2>
-        <span className="inline-flex items-center gap-2 ui-caption font-semibold text-primary">
-          {text("View all")}
-          <OpenIcon className="h-3.5 w-3.5" />
-        </span>
       </div>
       <div className="mt-3 space-y-2">
         {loading ? (
