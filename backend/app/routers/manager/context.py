@@ -262,7 +262,7 @@ def get_manager_context(
         if isinstance(actor, User)
         else False
     )
-    manager_access_key_metadata_enabled = AccessKeyMetadataService(db).enabled_for_context(account)
+    manager_access_key_metadata_enabled = AccessKeyMetadataService(db).metadata_enabled_for_context(account)
     manager_access_key_expiration_enabled = AccessKeyMetadataService(db).expiration_enabled_for_context(account)
     manager_private_access_enabled = _manager_private_access_enabled(
         account,
