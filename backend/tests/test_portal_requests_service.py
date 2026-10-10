@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 
 import pytest
 
@@ -27,6 +26,7 @@ from app.models.portal_requests import (
     PortalUserAccessRequestCreate,
     PortalUserRemovalRequestCreate,
 )
+from app.models.portal_usage import PortalUsage
 from app.models.access_context import AccountAccess
 from app.models.account_capabilities import AccountCapabilities
 from app.services.portal_service import PortalService
@@ -808,7 +808,7 @@ def test_create_quota_change_rejects_target_below_current_usage(db_session, monk
             self.db = db
 
         def get_usage(self, actor, access):  # noqa: ANN001
-            return SimpleNamespace(used_bytes=12 * 1024**3)
+            return PortalUsage(used_bytes=12 * 1024**3)
 
     monkeypatch.setattr("app.services.portal_requests_service.PortalService", FakePortalService)
     service = PortalRequestsService(db_session, accounts_service=FakeAccountsService(quota=(20.0, 123)))
