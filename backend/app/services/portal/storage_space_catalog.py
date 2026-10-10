@@ -142,8 +142,8 @@ class PortalStorageSpaceCatalogMixin:
         collaborator_count: int = 0,
     ) -> PortalStorageSpaceSummary:
         role = role or self._storage_space_role(access)
-        endpoint = getattr(access.account, "storage_endpoint", None)
-        region = getattr(endpoint, "region", None)
+        endpoint = access.account.storage_endpoint
+        region = endpoint.region
         name = self._display_storage_space_name(bucket.name, metadata)
         return PortalStorageSpaceSummary(
             id=bucket.name,
@@ -154,7 +154,7 @@ class PortalStorageSpaceCatalogMixin:
                 metadata
                 and self._metadata_visibility(metadata) == "private"
                 and role == "Manager"
-                and metadata.owner_user_id != getattr(access.actor, "id", None)
+                and metadata.owner_user_id != access.actor.id
             ),
             can_delete=can_delete,
             status=self._storage_space_status(bucket, role, metadata),
