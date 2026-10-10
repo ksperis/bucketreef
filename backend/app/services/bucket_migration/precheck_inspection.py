@@ -21,6 +21,8 @@ from app.models.bucket import (
 from app.utils.aws_errors import aws_error_code
 from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features_config
 
+from ._shared import _ResolvedContext
+
 
 _ALWAYS_PROBED_FEATURES = frozenset(
     {
@@ -299,9 +301,8 @@ class BucketMigrationInspector:
             return _ALWAYS_PROBED_FEATURES | _COPY_SETTINGS_ONLY_FEATURES
         return _ALWAYS_PROBED_FEATURES
 
-    def _endpoint_capabilities(self, ctx: Any) -> dict[str, bool]:
-        account = getattr(ctx, "account", None)
-        endpoint = getattr(account, "storage_endpoint", None)
+    def _endpoint_capabilities(self, ctx: _ResolvedContext) -> dict[str, bool]:
+        endpoint = ctx.account.storage_endpoint
         if endpoint is None:
             return {}
         try:
@@ -311,7 +312,7 @@ class BucketMigrationInspector:
         raw = features_to_capabilities(features)
         return {str(key): bool(value) for key, value in raw.items()}
 
-    def scan_bucket_versions(self, ctx: Any, bucket_name: str) -> dict[str, Any]:
+    def scan_bucket_versions(self, ctx: _ResolvedContext, bucket_name: str) -> dict[str, Any]:
         client = self._service._context_client(ctx)
         key_marker: str | None = None
         version_marker: str | None = None
@@ -393,7 +394,7 @@ class BucketMigrationInspector:
 
     def inspect_bucket_state(
         self,
-        ctx: Any,
+        ctx: _ResolvedContext,
         bucket_name: str,
         *,
         probe_policy: set[str] | frozenset[str] | None = None,
@@ -433,7 +434,7 @@ class BucketMigrationInspector:
 
     def _collect_bucket_state(
         self,
-        ctx: Any,
+        ctx: _ResolvedContext,
         bucket_name: str,
         probe: _BucketFeatureProbe,
         *,
