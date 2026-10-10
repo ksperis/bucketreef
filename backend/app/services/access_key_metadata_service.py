@@ -10,9 +10,14 @@ from app.core.config import get_settings
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.db.enums import StorageProvider
 from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
+from app.models.iam import AccessKey
+from app.models.s3_user import S3UserAccessKey, S3UserGeneratedKey
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
+
+
+AccessKeyWithMetadata = AccessKey | S3UserAccessKey | S3UserGeneratedKey
 
 
 class AccessKeyMetadataService:
@@ -200,19 +205,19 @@ class AccessKeyMetadataService:
 
     @staticmethod
     def apply_metadata(
-        keys: Iterable[object],
+        keys: Iterable[AccessKeyWithMetadata],
         metadata: dict[str, ManagerAccessKeyMetadata],
         *,
         include_labels: bool = True,
     ) -> None:
         for key in keys:
-            row = metadata.get(getattr(key, "access_key_id", ""))
+            row = metadata.get(key.access_key_id)
             if row is not None:
                 if include_labels:
-                    setattr(key, "name", row.name)
-                    setattr(key, "notes", row.notes)
-                setattr(key, "expires_at", row.expires_at)
-                setattr(key, "expiration_state", row.expiration_state)
-                setattr(key, "expiration_enforced_at", row.expiration_enforced_at)
-                setattr(key, "expiration_last_attempt_at", row.expiration_last_attempt_at)
-                setattr(key, "expiration_last_error", row.expiration_last_error)
+                    key.name = row.name
+                    key.notes = row.notes
+                key.expires_at = row.expires_at
+                key.expiration_state = row.expiration_state
+                key.expiration_enforced_at = row.expiration_enforced_at
+                key.expiration_last_attempt_at = row.expiration_last_attempt_at
+                key.expiration_last_error = row.expiration_last_error
