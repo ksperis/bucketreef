@@ -197,20 +197,27 @@ class EndpointServiceIdentityService:
 
         raise ValueError(f"Unsupported service identity kind: {kind}.")
 
-    def _functional_check(self, endpoint, identity):
+    def _functional_check(
+        self,
+        endpoint,
+        *,
+        kind,
+        rgw_uid,
+        access_key,
+        secret_key,
+        allow_legacy_system: bool = False,
+    ):
         from app.services.rgw_admin import get_rgw_admin_client
         from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
-        client = get_rgw_admin_client(access_key=identity.access_key, secret_key=identity.secret_key,
+        client = get_rgw_admin_client(access_key=access_key, secret_key=secret_key,
                                       endpoint=resolve_rgw_admin_api_endpoint(endpoint), region=endpoint.region,
                                       verify_tls=endpoint.verify_tls)
         self.validate_functional_access(
-            identity.kind,
+            kind,
             client,
-            access_key=identity.access_key,
-            bucket_uid=identity.rgw_uid,
-            allow_legacy_system=bool(
-                getattr(identity, "legacy_system_compat", False)
-            ),
+            access_key=access_key,
+            bucket_uid=rgw_uid,
+            allow_legacy_system=allow_legacy_system,
         )
 
     def _ensure(self, endpoint, kind, admin, permissions, *, managed):
@@ -270,7 +277,14 @@ class EndpointServiceIdentityService:
         if managed:
             self._validate_managed_keys(identity, payload)
         identity.rgw_uid = str(payload.get("user_id") or payload.get("uid") or identity.rgw_uid or "")
-        self._functional_check(endpoint, identity)
+        self._functional_check(
+            endpoint,
+            kind=identity.kind,
+            rgw_uid=identity.rgw_uid,
+            access_key=identity.access_key,
+            secret_key=identity.secret_key,
+            allow_legacy_system=bool(identity.legacy_system_compat),
+        )
         identity.status, identity.last_error = "ready", None
         identity.last_reconciled_at = utcnow()
         self.db.commit()
