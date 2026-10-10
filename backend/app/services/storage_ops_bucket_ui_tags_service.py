@@ -74,12 +74,12 @@ class StorageOpsBucketUiTagsWorkflow:
                 "Storage Ops context is not available."
             )
         account = self.resolve_account(ref)
-        endpoint_id = (
-            int(getattr(account, "storage_endpoint_id", 0) or 0)
-            if account is not None
-            else 0
-        )
-        if account is None or endpoint_id <= 0:
+        if account is None:
+            raise StorageOpsBucketUiTagAuthorizationError(
+                "Storage Ops context is not available."
+            )
+        endpoint_id = int(account.storage_endpoint_id or 0)
+        if endpoint_id <= 0:
             raise StorageOpsBucketUiTagAuthorizationError(
                 "Storage Ops context is not available."
             )
