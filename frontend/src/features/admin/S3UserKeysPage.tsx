@@ -40,8 +40,6 @@ export default function S3UserKeysPage() {
   const [createdKey, setCreatedKey] = useState<CreatedS3UserAccessKey | null>(null);
   const keyConfirmation = useConfirmActionDialog();
 
-  const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
   const formatDate = (value?: string | null) => {
     if (!value) return "-";
     const parsed = new Date(value);
@@ -54,7 +52,7 @@ export default function S3UserKeysPage() {
       const data = await getS3User(numericUserId);
       setUser(data);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     }
   }, [numericUserId]);
 
@@ -66,7 +64,7 @@ export default function S3UserKeysPage() {
       const data = await listS3UserKeys(numericUserId);
       setKeys(data);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
@@ -92,7 +90,7 @@ export default function S3UserKeysPage() {
       await loadKeys();
       setActionMessage("Access key created.");
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -108,7 +106,7 @@ export default function S3UserKeysPage() {
       await loadKeys();
       setActionMessage("Access key deleted.");
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -124,7 +122,7 @@ export default function S3UserKeysPage() {
       await loadKeys();
       setActionMessage(nextActive ? "Access key enabled." : "Access key disabled.");
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -172,7 +170,7 @@ export default function S3UserKeysPage() {
       await Promise.all([loadUser(), loadKeys()]);
       setActionMessage("Interface key rotated.");
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }

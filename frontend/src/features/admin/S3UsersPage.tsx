@@ -224,8 +224,6 @@ export default function S3UsersPage() {
     Boolean(showCreateModal || editingUser)
   );
 
-  const extractError = (err: unknown) => extractApiError(err, "Unexpected error");
-
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -278,7 +276,7 @@ export default function S3UsersPage() {
         setTotalUsers(response.total);
       }
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
@@ -350,7 +348,7 @@ export default function S3UsersPage() {
       } catch (err) {
         setEndpointUsersWrite((prev) => ({ ...prev, [endpointId]: false }));
         setEndpointBucketsWrite((prev) => ({ ...prev, [endpointId]: false }));
-        setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: extractError(err) }));
+        setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: extractApiError(err, "Unexpected error") }));
       } finally {
         setEndpointPermissionLoading((prev) => ({ ...prev, [endpointId]: false }));
       }
@@ -564,7 +562,7 @@ export default function S3UsersPage() {
       closeEditModal();
       setActionMessage("User updated.");
     } catch (err) {
-      setEditError(extractError(err));
+      setEditError(extractApiError(err, "Unexpected error"));
     } finally {
       setEditBusy(false);
     }
@@ -617,7 +615,7 @@ export default function S3UsersPage() {
       setActionMessage("User created.");
       await fetchUsers();
     } catch (err) {
-      setCreateError(extractError(err));
+      setCreateError(extractApiError(err, "Unexpected error"));
     } finally {
       createPending.current = false;
       setCreating(false);
@@ -643,7 +641,7 @@ export default function S3UsersPage() {
       setImportInitialSignature(stableSignature({ importText: "", importEndpointId }));
       await fetchUsers();
     } catch (err) {
-      setImportError(extractError(err));
+      setImportError(extractApiError(err, "Unexpected error"));
     } finally {
       importPending.current = false;
       setImportBusy(false);
@@ -660,7 +658,7 @@ export default function S3UsersPage() {
     } catch (err) {
       setUserToDelete(user);
       setDeleteFromRgw(false);
-      setDeleteModalError(extractError(err));
+      setDeleteModalError(extractApiError(err, "Unexpected error"));
     }
   };
 
@@ -821,7 +819,7 @@ export default function S3UsersPage() {
       setUserToDelete(null);
       setDeleteFromRgw(false);
     } catch (err) {
-      setDeleteModalError(extractError(err));
+      setDeleteModalError(extractApiError(err, "Unexpected error"));
     } finally {
       setDeleteBusyId(null);
     }

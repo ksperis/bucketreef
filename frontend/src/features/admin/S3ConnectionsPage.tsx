@@ -171,7 +171,6 @@ export default function S3ConnectionsPage() {
     Boolean(showCreateModal || editing)
   );
 
-  const extractError = (err: unknown) => extractApiError(err, "Unexpected error");
   const resetEditUsersState = useCallback(() => {
     setEditTab("general");
     setEditLinkedUserIds([]);
@@ -279,7 +278,7 @@ export default function S3ConnectionsPage() {
       setAllFilteredSelectableIds(null);
       setAllFilteredSelectableIdsKey(null);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
@@ -645,7 +644,7 @@ export default function S3ConnectionsPage() {
       await fetchItems();
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setCreateError(extractError(err));
+        setCreateError(extractApiError(err, "Unexpected error"));
       }
     } finally {
       setCreating(false);
@@ -670,7 +669,7 @@ export default function S3ConnectionsPage() {
       closeEditModal();
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setEditError(extractError(err));
+        setEditError(extractApiError(err, "Unexpected error"));
       }
     } finally {
       setEditBusy(false);
@@ -688,7 +687,7 @@ export default function S3ConnectionsPage() {
       setActionMessage("Connection deleted.");
       await fetchItems();
     } catch (err) {
-      setDeleteError(extractError(err));
+      setDeleteError(extractApiError(err, "Unexpected error"));
     } finally {
       setDeleteBusy(false);
     }
@@ -706,7 +705,7 @@ export default function S3ConnectionsPage() {
         await fetchItems();
       } catch (err) {
         if (!isRecentWebAuthnVerificationCancelled(err)) {
-          setError(extractError(err));
+          setError(extractApiError(err, "Unexpected error"));
         }
       } finally {
         setStatusBusyId(null);
@@ -725,7 +724,7 @@ export default function S3ConnectionsPage() {
       await fetchItems();
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setError(extractError(err));
+        setError(extractApiError(err, "Unexpected error"));
       }
     } finally {
       setStatusBusyId(null);
