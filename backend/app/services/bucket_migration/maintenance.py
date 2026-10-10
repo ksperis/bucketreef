@@ -17,6 +17,7 @@ from app.services.storage_ops_bucket_listing_service import (
     resolve_storage_ops_context_tenant,
 )
 from ._shared import (
+    _BucketVersionEntry,
     _json_dumps,
     _json_loads,
     _WorkerLeaseLostError,
@@ -220,10 +221,10 @@ class BucketMigrationMaintenanceMixin:
             entries = self._iter_bucket_objects(context, bucket, client=client)
         for entry in entries:
             check()
-            marker = bool(getattr(entry, "is_delete_marker", False))
+            marker = isinstance(entry, _BucketVersionEntry) and entry.is_delete_marker
             value = {"key": entry.key, "delete_marker": marker}
             if not marker:
-                version_id = getattr(entry, "version_id", None)
+                version_id = entry.version_id if isinstance(entry, _BucketVersionEntry) else None
                 identity = {"Bucket": bucket, "Key": entry.key}
                 if version_id:
                     identity["VersionId"] = version_id
