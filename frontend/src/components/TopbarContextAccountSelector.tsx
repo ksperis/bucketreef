@@ -16,6 +16,8 @@ import TopbarDropdownSelect, {
 } from "./TopbarDropdownSelect";
 import UiTagBadgeList from "./UiTagBadgeList";
 import { TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS } from "./topbarControlWidths";
+import { translate } from "../i18n";
+import { shellMessages, useShellI18n, type ShellText } from "./shellMessages";
 
 export type ContextAccessMode =
   | "admin"
@@ -24,38 +26,41 @@ export type ContextAccessMode =
   | "connection"
   | null;
 
-export function getContextAccessModeVisual(mode: ContextAccessMode): {
+const defaultShellText: ShellText = (key, values) =>
+  translate(shellMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match));
+
+export function getContextAccessModeVisual(mode: ContextAccessMode, text: ShellText = defaultShellText): {
   label: string;
   shortLabel: string;
   classes: string;
 } {
   if (mode === "admin") {
     return {
-      label: "Admin mode",
-      shortLabel: "Admin",
+      label: text("adminMode"),
+      shortLabel: text("adminShort"),
       classes:
         "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100",
     };
   }
   if (mode === "connection") {
     return {
-      label: "Connection mode",
-      shortLabel: "Connection",
+      label: text("connectionMode"),
+      shortLabel: text("connectionShort"),
       classes:
         "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-100",
     };
   }
   if (mode === "s3_user") {
     return {
-      label: "S3 user mode",
-      shortLabel: "S3 user",
+      label: text("s3UserMode"),
+      shortLabel: text("s3UserShort"),
       classes:
         "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-100",
     };
   }
   return {
-    label: "Session",
-    shortLabel: "Session",
+    label: text("session"),
+    shortLabel: text("session"),
     classes:
       "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
   };
@@ -94,6 +99,7 @@ export default function TopbarContextAccountSelector({
   triggerMode = "icon_label",
   showTriggerTags = true,
 }: TopbarContextAccountSelectorProps) {
+  const { text } = useShellI18n();
   const showSelectorTags = useSelectorTagsPreference();
   const options = useMemo<TopbarDropdownOption[]>(
     () =>
@@ -103,11 +109,11 @@ export default function TopbarContextAccountSelector({
           const description =
             context.kind === "connection"
               ? context.connection_scope === "shared"
-                ? "Shared connection"
-                : "Private connection"
+                ? text("sharedConnection")
+                : text("privateConnection")
               : context.kind === "s3_user"
-                ? "S3 user identity"
-                : "RGW account";
+                ? text("s3UserIdentity")
+                : text("rgwAccount");
           const selectorEntityTags = filterSelectorVisibleUiTags(context.tags);
           const selectorEndpointTags = filterSelectorVisibleUiTags(
             context.endpoint_tags,
@@ -180,6 +186,7 @@ export default function TopbarContextAccountSelector({
       contexts,
       showSelectorTags,
       showTriggerTags,
+      text,
       triggerMode,
     ],
   );
@@ -189,8 +196,8 @@ export default function TopbarContextAccountSelector({
       value={selectedContextId ?? ""}
       options={options}
       onChange={onContextChange}
-      ariaLabel="Select context account"
-      triggerLabel="Account"
+      ariaLabel={text("selectContextAccount")}
+      triggerLabel={text("account")}
       placeholder={selectedLabel}
       triggerValue={selectedLabel}
       title={identityLabel ?? undefined}
@@ -198,18 +205,18 @@ export default function TopbarContextAccountSelector({
       menuHeader={
         <div className="shell-menu-muted rounded-md border px-2.5 py-2">
           <p className="shell-muted-text ui-caption uppercase">
-            Current IAM identity
+            {text("currentIamIdentity")}
           </p>
           <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">
-            {identityLabel ?? "Not available for this context"}
+            {identityLabel ?? text("unavailableForContext")}
           </p>
         </div>
       }
       search={{
         threshold: searchThreshold,
-        ariaLabel: "Search accounts",
-        placeholder: "Search account...",
-        emptyMessage: "No account matches your search.",
+        ariaLabel: text("searchAccounts"),
+        placeholder: text("searchAccountPlaceholder"),
+        emptyMessage: text("noAccountMatches"),
       }}
       icon={icon}
       openInPortal={openInPortal}
