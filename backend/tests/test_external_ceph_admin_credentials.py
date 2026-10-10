@@ -51,7 +51,7 @@ def test_manual_validation_is_independent_of_admin_ops_and_global_flag(identitie
     assert all("CEPH-SK" not in str(row.metadata_json) for row in audits)
 
 
-@pytest.mark.parametrize("admin,system", [(False, False), (True, True)])
+@pytest.mark.parametrize("admin,system", [(False, False), (True, True), (False, True)])
 def test_invalid_flags_block_access_without_remote_mutation(identities, db_session, admin, system):
     service, endpoint, rgw = identities
     configure(db_session, endpoint, rgw, admin=admin, system=system)
@@ -60,24 +60,6 @@ def test_invalid_flags_block_access_without_remote_mutation(identities, db_sessi
     assert identity.status == "error"
     assert identity.last_error == "Ceph Admin requires admin=true and system=false."
     assert not ceph_admin_identity_active(endpoint, ceph_admin_enabled=True) and not rgw.calls
-
-
-def test_migrated_system_ceph_admin_remains_usable_until_credentials_are_replaced(
-    identities, db_session
-):
-    service, endpoint, rgw = identities
-    configure(db_session, endpoint, rgw, admin=False, system=True)
-    identity = endpoint.service_identity("ceph_admin")
-    identity.legacy_system_compat = True
-    db_session.commit()
-
-    service.validate_ceph_admin(endpoint)
-
-    assert identity.status == "ready"
-    assert ceph_admin_identity_active(endpoint, ceph_admin_enabled=True)
-
-    StorageEndpointsService._apply_external_credentials(identity, "NEW-AK", "NEW-SK")
-    assert identity.legacy_system_compat is False
 
 
 @pytest.mark.parametrize("status,message", [(403, "denied"), (503, "connectivity")])
@@ -276,14 +258,11 @@ def test_feature_detection_requires_complete_replacement_pair(identities, db_ses
     assert not rgw.calls or all(call[0] in ("list", "usage") for call in rgw.calls)
 
 
-def test_feature_detection_reuses_migrated_system_ceph_admin_credentials(
+def test_feature_detection_rejects_system_only_ceph_admin_credentials(
     identities, db_session, monkeypatch
 ):
     _, endpoint, rgw = identities
     configure(db_session, endpoint, rgw, admin=False, system=True)
-    identity = endpoint.service_identity("ceph_admin")
-    identity.legacy_system_compat = True
-    db_session.commit()
     monkeypatch.setattr(
         "app.services.storage_endpoints_service.get_rgw_admin_client",
         lambda **kwargs: rgw.signed(kwargs["access_key"]),
@@ -296,8 +275,8 @@ def test_feature_detection_reuses_migrated_system_ceph_admin_credentials(
         )
     )
 
-    assert result.credential_checks.ceph_admin.status == "valid"
-    assert "legacy" in result.credential_checks.ceph_admin.message.lower()
+    assert result.credential_checks.ceph_admin.status == "denied"
+    assert result.credential_checks.ceph_admin.message == "Ceph Admin requires admin=true and system=false."
 
 
 @pytest.mark.parametrize("blocked", [None, "global", "allowed", "validation", "incomplete", "system"])
