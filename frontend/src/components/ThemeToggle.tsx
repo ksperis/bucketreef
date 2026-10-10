@@ -3,16 +3,16 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useTheme } from "./theme";
-import { useI18n } from "../i18n";
 import TopbarUtilityHint from "./TopbarUtilityHint";
+import { useShellI18n } from "./shellMessages";
 
 export default function ThemeToggle() {
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
-  const { t } = useI18n();
+  const { text } = useShellI18n();
   const label = isDark
-    ? t({ en: "Switch to light theme", fr: "Passer au thème clair", de: "Zum hellen Design wechseln", zh: "切换到浅色主题" })
-    : t({ en: "Switch to dark theme", fr: "Passer au thème sombre", de: "Zum dunklen Design wechseln", zh: "切换到深色主题" });
+    ? text("switchToLightTheme")
+    : text("switchToDarkTheme");
 
   return (
     <TopbarUtilityHint label={label}>
