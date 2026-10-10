@@ -4,7 +4,8 @@ import ipaddress
 
 import pytest
 
-from app.db import StorageEndpoint, StorageProvider
+from app.db import S3Account, StorageEndpoint, StorageProvider
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils import s3_endpoint
 from app.utils.s3_endpoint import (
     resolve_iam_client_options,
@@ -88,7 +89,7 @@ def test_resolve_iam_client_options_uses_aws_iam_endpoint_for_aws_storage_endpoi
         region="eu-west-1",
         verify_tls=True,
     )
-    account = type("Account", (), {"storage_endpoint": endpoint})()
+    account = S3Account(storage_endpoint=endpoint)
 
     assert resolve_iam_client_options(account) == (AWS_IAM_ENDPOINT, "us-east-1", True)
 
@@ -102,7 +103,7 @@ def test_resolve_s3_client_options_uses_storage_endpoint_force_path_style():
         force_path_style=True,
         verify_tls=True,
     )
-    account = type("Account", (), {"storage_endpoint": endpoint})()
+    account = S3Account(storage_endpoint=endpoint)
 
     assert resolve_s3_client_options(account) == (
         "https://s3.path-style.example.test",
@@ -127,14 +128,15 @@ def test_resolve_s3_client_options_uses_explicitsession_endpoint_override():
         force_path_style=True,
         verify_tls=True,
     )
-    account = type(
-        "Account",
-        (),
-        {
-            "storage_endpoint": endpoint,
-            "session_endpoint": "https://session.example.test",
-        },
-    )()
+    account = S3ExecutionContext(
+        context_id="conn-1",
+        context_kind="connection",
+        name="Session override",
+        access_key="AK",
+        secret_key="SK",
+        storage_endpoint=endpoint,
+        session_endpoint="https://session.example.test",
+    )
 
     assert resolve_s3_client_options(account) == (
         "https://session.example.test",
@@ -153,14 +155,15 @@ def test_resolve_s3_client_optionssession_force_path_style_overrides_endpoint():
         force_path_style=True,
         verify_tls=True,
     )
-    account = type(
-        "Account",
-        (),
-        {
-            "storage_endpoint": endpoint,
-            "session_force_path_style": False,
-        },
-    )()
+    account = S3ExecutionContext(
+        context_id="conn-1",
+        context_kind="connection",
+        name="Session path style",
+        access_key="AK",
+        secret_key="SK",
+        storage_endpoint=endpoint,
+        session_force_path_style=False,
+    )
 
     assert resolve_s3_client_options(account) == (
         "https://s3.path-style.example.test",
@@ -178,13 +181,14 @@ def test_resolve_iam_client_options_uses_aws_iam_signing_region_for_connection_c
         region="eu-west-1",
         verify_tls=True,
     )
-    account = type(
-        "Account",
-        (),
-        {
-            "storage_endpoint": endpoint,
-            "session_region": "eu-west-1",
-        },
-    )()
+    account = S3ExecutionContext(
+        context_id="conn-1",
+        context_kind="connection",
+        name="AWS connection",
+        access_key="AK",
+        secret_key="SK",
+        storage_endpoint=endpoint,
+        session_region="eu-west-1",
+    )
 
     assert resolve_iam_client_options(account) == (AWS_IAM_ENDPOINT, "us-east-1", True)
