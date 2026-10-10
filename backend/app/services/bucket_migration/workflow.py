@@ -25,7 +25,7 @@ def preparation_state(migration) -> str:
         migration
     ):
         return "stale"
-    return migration.preparation_status or "unverified"
+    return migration.preparation_status
 
 
 def available_actions(migration) -> dict[str, dict]:
