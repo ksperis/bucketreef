@@ -48,10 +48,6 @@ const API_SCOPES = [
   "storage-ops:read", "storage-ops:write",
 ];
 
-function extractError(error: unknown): string {
-  return extractApiError(error, "Unable to complete request.");
-}
-
 function formatDate(value?: string | null): string {
   if (!value) return "-";
   const parsed = new Date(value);
@@ -140,7 +136,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
       const data = await listApiTokens(includeRevoked);
       if (generation === loadGeneration.current) setTokens(data);
     } catch (loadError) {
-      if (generation === loadGeneration.current) setLoadError(extractError(loadError));
+      if (generation === loadGeneration.current) setLoadError(extractApiError(loadError, "Unable to complete request."));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);
     }
@@ -222,7 +218,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
       await loadTokens();
     } catch (createError) {
       if (!isRecentWebAuthnVerificationCancelled(createError)) {
-        setFormError(extractError(createError));
+        setFormError(extractApiError(createError, "Unable to complete request."));
       }
     } finally {
       creatingRef.current = false;
@@ -242,7 +238,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
       await loadTokens();
     } catch (revokeError) {
       if (!isRecentWebAuthnVerificationCancelled(revokeError)) {
-        setActionError(extractError(revokeError));
+        setActionError(extractApiError(revokeError, "Unable to complete request."));
       }
     } finally {
       setBusyTokenId(null);
@@ -270,7 +266,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
       setCopyMessage(message);
       window.setTimeout(() => setCopyMessage(null), 2500);
     } catch (copyError) {
-      setActionError(extractError(copyError));
+      setActionError(extractApiError(copyError, "Unable to complete request."));
     }
   };
 

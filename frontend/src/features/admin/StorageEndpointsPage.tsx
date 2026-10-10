@@ -75,10 +75,6 @@ const createEmptyCredentialChecks = (): StorageEndpointCredentialChecks => ({
   supervision: { status: "not_configured" },
 });
 const configurationSignature = (form: FormState) => stableSignature({ ...form, tags: [] });
-function extractError(err: unknown): string {
-  return extractApiError(err, "An error occurred.");
-}
-
 function isMethodNotAllowedError(message?: string | null): boolean {
   if (!message) return false;
   const normalized = message.toLowerCase();
@@ -146,8 +142,8 @@ export default function StorageEndpointsPage() {
       setEnvManaged(Boolean(meta.value.managed_by_env));
       setMetadataReady(true);
     }
-    if (data.status === "rejected") setError(extractError(data.reason));
-    else if (meta.status === "rejected") setError(`Unable to load endpoint management mode. Changes are disabled. ${extractError(meta.reason)}`);
+    if (data.status === "rejected") setError(extractApiError(data.reason, "An error occurred."));
+    else if (meta.status === "rejected") setError(`Unable to load endpoint management mode. Changes are disabled. ${extractApiError(meta.reason, "An error occurred.")}`);
     setLoading(false);
   }, []);
 
@@ -529,7 +525,7 @@ export default function StorageEndpointsPage() {
       setActionMessage("Endpoint deleted.");
       await loadEndpoints();
     } catch (err) {
-      setDeleteError(extractError(err));
+      setDeleteError(extractApiError(err, "An error occurred."));
     } finally {
       mutationPending.current = false;
       setDeleteBusy(false);
@@ -547,7 +543,7 @@ export default function StorageEndpointsPage() {
       setActionMessage("Default endpoint updated.");
       await loadEndpoints();
     } catch (err) {
-      setDefaultError(extractError(err));
+      setDefaultError(extractApiError(err, "An error occurred."));
     } finally {
       mutationPending.current = false;
       setDefaultBusyId(null);
@@ -630,7 +626,7 @@ export default function StorageEndpointsPage() {
           if (isRecentWebAuthnVerificationCancelled(cause)) {
             setActionMessage("Endpoint saved. Managed service identities were not created.");
           } else {
-            setFormError(`Endpoint saved, but managed service identities could not be created. ${extractError(cause)}`);
+            setFormError(`Endpoint saved, but managed service identities could not be created. ${extractApiError(cause, "An error occurred.")}`);
           }
           await loadEndpoints();
         }
@@ -655,8 +651,8 @@ export default function StorageEndpointsPage() {
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
         setFormError(savedEndpoint
-          ? `Endpoint ${editingId === null ? "created" : "updated"}, but tags could not be saved. Your tag changes are kept; retry to save them. ${extractError(err)}`
-          : extractError(err));
+          ? `Endpoint ${editingId === null ? "created" : "updated"}, but tags could not be saved. Your tag changes are kept; retry to save them. ${extractApiError(err, "An error occurred.")}`
+          : extractApiError(err, "An error occurred."));
       }
     } finally {
       mutationPending.current = false;
@@ -878,7 +874,7 @@ export default function StorageEndpointsPage() {
                   await loadEndpoints();
                   setValidationRetryKey(previous => previous + 1);
                 })
-                  .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setFormError(extractError(cause)); })
+                  .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setFormError(extractApiError(cause, "An error occurred.")); })
                   .finally(() => { mutationPending.current = false; setSaving(false); });
               } : undefined}
               errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} detection={detection} checks={{

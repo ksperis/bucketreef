@@ -52,8 +52,6 @@ const normalizeProviderHint = (value?: string | null): string => {
 
 const normalizeEndpointUrl = (value?: string | null): string => (value || "").trim().replace(/\/+$/, "");
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 const INITIAL_CONNECTION_FORM = {
   name: "",
   endpoint_url: "",
@@ -149,7 +147,7 @@ function ConnectionFromKeyForm({
       } catch (err) {
         if (cancelled) return;
         setEndpoints([]);
-        setEndpointLoadError(extractError(err));
+        setEndpointLoadError(extractApiError(err, "Unexpected error"));
       } finally {
         if (!cancelled) {
           setLoadingEndpoints(false);
@@ -259,7 +257,7 @@ function ConnectionFromKeyForm({
       onCreated?.();
       onClose();
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setSaving(false);
     }
