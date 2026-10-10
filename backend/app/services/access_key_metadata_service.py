@@ -24,9 +24,6 @@ class AccessKeyMetadataService:
     def __init__(self, db: Session):
         self.db = db
 
-    def enabled_for_context(self, context: S3ExecutionContext) -> bool:
-        return self.metadata_enabled_for_context(context)
-
     def metadata_enabled_for_context(self, context: S3ExecutionContext) -> bool:
         if not load_app_settings_for_db_readonly(self.db).general.manager_access_key_metadata_enabled:
             return False

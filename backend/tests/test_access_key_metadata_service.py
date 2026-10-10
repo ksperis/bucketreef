@@ -82,21 +82,21 @@ def test_access_key_metadata_requires_global_and_resource_opt_in(db_session, mon
     account.allow_access_key_metadata = True
     s3_user.allow_access_key_metadata = True
     db_session.commit()
-    assert service.enabled_for_context(account_context) is False
-    assert service.enabled_for_context(user_context) is False
+    assert service.metadata_enabled_for_context(account_context) is False
+    assert service.metadata_enabled_for_context(user_context) is False
 
     _set_global_feature(monkeypatch, True)
     account.allow_access_key_metadata = False
     s3_user.allow_access_key_metadata = False
     db_session.commit()
-    assert service.enabled_for_context(account_context) is False
-    assert service.enabled_for_context(user_context) is False
+    assert service.metadata_enabled_for_context(account_context) is False
+    assert service.metadata_enabled_for_context(user_context) is False
 
     account.allow_access_key_metadata = True
     s3_user.allow_access_key_metadata = True
     db_session.commit()
-    assert service.enabled_for_context(account_context) is True
-    assert service.enabled_for_context(user_context) is True
+    assert service.metadata_enabled_for_context(account_context) is True
+    assert service.metadata_enabled_for_context(user_context) is True
 
 
 def test_iam_metadata_round_trip_clear_and_principal_cleanup(db_session):
