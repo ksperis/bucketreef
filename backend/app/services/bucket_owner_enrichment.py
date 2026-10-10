@@ -256,7 +256,7 @@ class BucketOwnerMetadataService:
         account: S3ExecutionTarget | None = None,
     ) -> None:
         self.endpoint_id = int(endpoint_id)
-        self.endpoint = endpoint or getattr(account, "storage_endpoint", None)
+        self.endpoint = endpoint or (account.storage_endpoint if account is not None else None)
         self.rgw_admin = rgw_admin
         self.account = account
 
