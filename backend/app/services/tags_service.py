@@ -11,7 +11,6 @@ from app.db import BucketUiTagAssignment, S3Account, S3AccountTag, S3Connection,
 from app.models.tagging import TagDefinitionSummary
 from app.utils.tagging import (
     DEFAULT_TAG_COLOR_KEY,
-    DEFAULT_TAG_SCOPE,
     TAG_DOMAIN_ADMIN_MANAGED,
     TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
     TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
@@ -21,6 +20,16 @@ from app.utils.tagging import (
     build_tag_label_key,
     normalize_tag_items_input,
     tag_definition_sort_key,
+)
+
+
+TaggableParent = StorageEndpoint | S3Account | S3User | S3Connection
+TagLink = StorageEndpointTag | S3AccountTag | S3UserTag | S3ConnectionTag
+TagLinkClass = (
+    type[StorageEndpointTag]
+    | type[S3AccountTag]
+    | type[S3UserTag]
+    | type[S3ConnectionTag]
 )
 
 
@@ -48,37 +57,16 @@ class TagsService:
         return (TAG_DOMAIN_PRIVATE_CONNECTION_USER, int(connection.created_by_user_id))
 
     def get_storage_endpoint_tags(self, endpoint: StorageEndpoint) -> list[TagDefinitionSummary]:
-        return self._serialize_for_parent(
-            endpoint,
-            link_cls=StorageEndpointTag,
-            domain_kind=TAG_DOMAIN_ENDPOINT,
-            owner_user_id=None,
-        )
+        return self._serialize_for_parent(endpoint)
 
     def get_account_tags(self, account: S3Account) -> list[TagDefinitionSummary]:
-        return self._serialize_for_parent(
-            account,
-            link_cls=S3AccountTag,
-            domain_kind=TAG_DOMAIN_ADMIN_MANAGED,
-            owner_user_id=None,
-        )
+        return self._serialize_for_parent(account)
 
     def get_s3_user_tags(self, s3_user: S3User) -> list[TagDefinitionSummary]:
-        return self._serialize_for_parent(
-            s3_user,
-            link_cls=S3UserTag,
-            domain_kind=TAG_DOMAIN_ADMIN_MANAGED,
-            owner_user_id=None,
-        )
+        return self._serialize_for_parent(s3_user)
 
     def get_connection_tags(self, connection: S3Connection) -> list[TagDefinitionSummary]:
-        domain_kind, owner_user_id = self.resolve_connection_domain(connection)
-        return self._serialize_for_parent(
-            connection,
-            link_cls=S3ConnectionTag,
-            domain_kind=domain_kind,
-            owner_user_id=owner_user_id,
-        )
+        return self._serialize_for_parent(connection)
 
     def replace_storage_endpoint_tags(self, endpoint: StorageEndpoint, tags: object) -> list[TagDefinitionSummary]:
         return self._replace_for_parent(
@@ -173,23 +161,23 @@ class TagsService:
 
     def _serialize_for_parent(
         self,
-        parent: object,
-        *,
-        link_cls: type[object],
-        domain_kind: str,
-        owner_user_id: Optional[int],
+        parent: TaggableParent,
     ) -> list[TagDefinitionSummary]:
         links = sorted(
-            list(getattr(parent, "tag_links", []) or []),
-            key=lambda item: (int(getattr(item, "position", 0) or 0), int(getattr(item, "id", 0) or 0)),
+            list(parent.tag_links),
+            key=lambda item: (int(item.position), int(item.id or 0)),
         )
-        return [self._to_summary(link.tag_definition) for link in links if getattr(link, "tag_definition", None) is not None]
+        return [
+            self._to_summary(link.tag_definition)
+            for link in links
+            if link.tag_definition is not None
+        ]
 
     def _replace_for_parent(
         self,
-        parent: object,
+        parent: TaggableParent,
         *,
-        link_cls: type[object],
+        link_cls: TagLinkClass,
         domain_kind: str,
         owner_user_id: Optional[int],
         tags: object,
@@ -205,13 +193,12 @@ class TagsService:
             )
             for item in normalized
         ]
-        existing_links = list(getattr(parent, "tag_links", []) or [])
+        existing_links = list(parent.tag_links)
         existing_by_tag_id = {
-            int(link.tag_definition_id or getattr(getattr(link, "tag_definition", None), "id", 0)): link
+            int(link.tag_definition_id): link
             for link in existing_links
-            if (link.tag_definition_id or getattr(getattr(link, "tag_definition", None), "id", None)) is not None
         }
-        next_links: list[object] = []
+        next_links: list[TagLink] = []
         for position, definition in enumerate(definitions):
             link = existing_by_tag_id.get(definition.id)
             if link is None:
@@ -219,7 +206,7 @@ class TagsService:
             link.tag_definition = definition
             link.position = position
             next_links.append(link)
-        setattr(parent, "tag_links", next_links)
+        parent.tag_links = next_links
         self.db.add(parent)
         self.db.flush()
         self.cleanup_orphan_definitions(domain_kinds=[domain_kind])
@@ -274,7 +261,7 @@ class TagsService:
             id=definition.id,
             label=definition.label,
             color_key=definition.color_key,
-            scope=getattr(definition, "scope", DEFAULT_TAG_SCOPE) or DEFAULT_TAG_SCOPE,
+            scope=definition.scope,
         )
 
 
