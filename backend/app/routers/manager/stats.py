@@ -139,7 +139,7 @@ def endpoint_health_overview(
     app_settings = load_app_settings()
     if not app_settings.general.endpoint_status_enabled:
         raise HTTPException(status_code=403, detail="Endpoint Status feature is disabled.")
-    endpoint_id = getattr(account, "storage_endpoint_id", None)
+    endpoint_id = account.storage_endpoint_id
     if endpoint_id is None:
         return WorkspaceEndpointHealthOverviewResponse(
             generated_at=utcnow().isoformat(),

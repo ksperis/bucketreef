@@ -31,7 +31,7 @@ def get_manager_ceph_s3_users_service(
 
 
 def _resolve_s3_user_id(account: S3ExecutionContext) -> int:
-    s3_user_id = getattr(account, "s3_user_id", None)
+    s3_user_id = account.s3_user_id
     if not isinstance(s3_user_id, int) or s3_user_id <= 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
