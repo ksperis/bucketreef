@@ -1,4 +1,3 @@
-import { retireBrowserTransferStorage } from "./browserRetiredTransferStorage";
 import type { BrowserFavorite } from "../../api/browserFavorites";
 import BrowserFavoritesControl from "./BrowserFavoritesControl";
 /*
@@ -296,7 +295,6 @@ export default function BrowserPage({
   const isCephAdminContext = executionContextKind === "ceph_admin";
   const isS3UserContext = executionContextKind === "s3_user";
   const isConnectionContext = executionContextKind === "connection";
-  useEffect(retireBrowserTransferStorage, []);
   const [showBucketMenu, setShowBucketMenu] = useState(false);
   const {
     settings: browserSettings,
