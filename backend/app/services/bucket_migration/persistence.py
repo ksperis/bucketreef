@@ -17,7 +17,7 @@ class BucketMigrationPersistenceMixin:
         self._assert_workflow_lease()
 
     def _assert_workflow_lease(self) -> None:
-        worker_id = getattr(self, "_workflow_worker_id", None)
+        worker_id = self._workflow_worker_id
         if not worker_id:
             return
         # Read scalar columns: the ORM identity map may still contain a former lease.

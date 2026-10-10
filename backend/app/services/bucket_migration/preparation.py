@@ -207,7 +207,7 @@ class BucketMigrationPreparationMixin:
 
     def _journal_preparation_effect(self, item, name: str, payload: dict) -> None:
         self._assert_workflow_lease()
-        checkpoint = getattr(self, "_preparation_checkpoint", None)
+        checkpoint = self._preparation_checkpoint
         if checkpoint:
             checkpoint()
         effects = _json_loads(item.preparation_effects_json) or {}
