@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.db import S3Connection
 from app.services.rgw_iam import get_iam_client
 from app.utils.s3_connection_capabilities import dump_s3_connection_capabilities
 from app.utils.s3_connection_endpoint import resolve_connection_details
@@ -15,9 +16,9 @@ from app.utils.storage_endpoint_features import (
 )
 
 
-def probe_connection_can_manage_iam(connection) -> bool:
+def probe_connection_can_manage_iam(connection: S3Connection) -> bool:
     details = resolve_connection_details(connection)
-    endpoint_obj = getattr(connection, "storage_endpoint", None)
+    endpoint_obj = connection.storage_endpoint
     if endpoint_obj is not None:
         iam_endpoint = resolve_iam_endpoint(endpoint_obj)
         if iam_endpoint is None:
@@ -44,7 +45,7 @@ def probe_connection_can_manage_iam(connection) -> bool:
         return False
 
 
-def refresh_connection_detected_capabilities(connection) -> None:
+def refresh_connection_detected_capabilities(connection: S3Connection) -> None:
     connection.capabilities_json = dump_s3_connection_capabilities(
         connection.capabilities_json,
         can_manage_iam=probe_connection_can_manage_iam(connection),
