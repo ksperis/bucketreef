@@ -27,7 +27,7 @@ from app.services.s3_execution_context import S3ExecutionTarget
 
 
 def require_multipart_write_access(account: S3ExecutionTarget, bucket_name: str) -> None:
-    spaces = account.portal_storage_spaces
+    spaces = getattr(account, "portal_storage_spaces", None)
     if spaces is not None:
         space = next((space for space in spaces if (space.internal_bucket_name or space.id) == bucket_name), None)
         if space is None or space.role == "Viewer":
