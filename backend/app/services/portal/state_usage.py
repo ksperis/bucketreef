@@ -74,7 +74,7 @@ class PortalStateUsageMixin:
 
     def get_state(self, access: "AccountAccess") -> PortalState:
         account = access.account
-        portal_settings = self._effective_portal_settings(account)
+        portal_settings = self.get_effective_portal_settings(account)
         can_create_private_storage_spaces = bool(
             portal_settings.allow_private_storage_space_create
             and access.portal_role in {PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value}

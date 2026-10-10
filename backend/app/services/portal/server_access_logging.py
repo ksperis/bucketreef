@@ -119,7 +119,7 @@ class PortalServerAccessLoggingMixin:
             self._put_portal_server_access_log_lifecycle(
                 account,
                 log_bucket,
-                portal_settings or self._effective_portal_settings(account),
+                portal_settings or self.get_effective_portal_settings(account),
             )
         return log_bucket
 
@@ -258,7 +258,7 @@ class PortalServerAccessLoggingMixin:
         *,
         portal_settings: Optional[PortalSettings] = None,
     ) -> None:
-        effective = portal_settings or self._effective_portal_settings(account)
+        effective = portal_settings or self.get_effective_portal_settings(account)
         if not effective.server_access_logging_enabled:
             return
         log_bucket = self._ensure_portal_server_access_log_bucket(account, portal_settings=effective)
@@ -271,7 +271,7 @@ class PortalServerAccessLoggingMixin:
         *,
         portal_settings: Optional[PortalSettings] = None,
     ) -> dict[str, int]:
-        effective = portal_settings or self._effective_portal_settings(account)
+        effective = portal_settings or self.get_effective_portal_settings(account)
         metadata_rows = (
             self.db.query(PortalStorageSpaceMetadata)
             .filter(PortalStorageSpaceMetadata.account_id == account.id)
@@ -310,7 +310,7 @@ class PortalServerAccessLoggingMixin:
         accounts = self.db.query(S3Account).filter(S3Account.id.in_(account_ids)).all()
         failures: list[tuple[str, Exception]] = []
         for account in accounts:
-            effective = self._effective_portal_settings(account, base_settings=base_settings)
+            effective = self.get_effective_portal_settings(account, base_settings=base_settings)
             try:
                 result = self.reconcile_portal_server_access_logging(account, portal_settings=effective)
             except Exception as exc:
