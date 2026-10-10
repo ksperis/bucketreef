@@ -4,11 +4,13 @@ import json
 import time
 import asyncio
 import threading
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
 
+from app.db import StorageEndpoint
 from app.models.bucket import (
     BucketEncryptionConfiguration,
     BucketFeatureStatus,
@@ -30,6 +32,7 @@ from app.services import ceph_admin_bucket_listing_service as bucket_listing_ser
 from app.services import ceph_admin_bucket_listing_snapshot as bucket_listing_snapshot
 from app.routers.ceph_admin import buckets as buckets_router
 from app.routers.ceph_admin import dependencies as ceph_admin_dependencies
+from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.services.listing_progress import ListingCancelled, ListingProgressSnapshot
 from app.services import bucket_listing_enrichment
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
@@ -90,6 +93,37 @@ class FakeRGWAdmin:
         return {"uid": uid, "display_name": f"User-{uid}"}
 
 
+def _ceph_admin_context(
+    endpoint_id: int,
+    rgw_admin,
+    *,
+    features_config: str | None = None,
+) -> CephAdminContext:
+    resolved_features_config = features_config or (
+        "features:\n"
+        "  account:\n"
+        "    enabled: true\n"
+        "  sns:\n"
+        "    enabled: true\n"
+    )
+    endpoint = StorageEndpoint(
+        id=endpoint_id,
+        name=f"endpoint-{endpoint_id}",
+        endpoint_url=f"https://s3-{endpoint_id}.example.test",
+        provider="ceph",
+        region=None,
+        features_config=resolved_features_config,
+    )
+    return CephAdminContext(
+        endpoint=endpoint,
+        rgw_admin=rgw_admin,
+        s3_endpoint=endpoint.endpoint_url,
+        region=endpoint.region,
+        access_key="AKIA_TEST",
+        secret_key="SECRET_TEST",
+    )
+
+
 def test_rgw_bucket_metadata_is_not_reexported_from_listing_enrichment():
     assert not hasattr(bucket_listing_enrichment, "_build_bucket_summary")
     assert not hasattr(bucket_listing_enrichment, "_extract_bucket_name")
@@ -119,12 +153,7 @@ def _build_ctx(
         account_details=account_details,
         user_details=user_details,
     )
-    ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(id=endpoint_id),
-        rgw_admin=rgw_admin,
-        access_key="AKIA_TEST",
-        secret_key="SECRET_TEST",
-    )
+    ctx = _ceph_admin_context(endpoint_id, rgw_admin)
     return ctx, rgw_admin
 
 
@@ -214,12 +243,7 @@ def test_ceph_admin_rgw_bucket_payload_cache_coalesces_parallel_misses():
             return self._payload
 
     rgw_admin = BlockingRGWAdmin(payload)
-    ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(id=177),
-        rgw_admin=rgw_admin,
-        access_key="AKIA_TEST",
-        secret_key="SECRET_TEST",
-    )
+    ctx = _ceph_admin_context(177, rgw_admin)
     results = []
     errors: list[Exception] = []
 
@@ -337,12 +361,7 @@ def test_ceph_admin_rgw_bucket_payload_serializes_stats_variants_for_endpoint(mo
             return self._payload
 
     rgw_admin = BlockingStatsRGWAdmin(payload)
-    ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(id=179),
-        rgw_admin=rgw_admin,
-        access_key="AKIA_TEST",
-        secret_key="SECRET_TEST",
-    )
+    ctx = _ceph_admin_context(179, rgw_admin)
     results = []
     errors: list[Exception] = []
 
@@ -1254,16 +1273,10 @@ def test_ceph_admin_bucket_listing_owner_name_skips_account_lookup_when_feature_
         {"name": "bucket-b", "owner": "user-beta"},
     ]
     rgw_admin = FeatureDisabledAdmin(payload)
-    ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(
-            id=174,
-            provider="ceph",
-            region=None,
-            features_config="features:\n  account:\n    enabled: false\n",
-        ),
-        rgw_admin=rgw_admin,
-        access_key="AKIA_TEST",
-        secret_key="SECRET_TEST",
+    ctx = _ceph_admin_context(
+        174,
+        rgw_admin,
+        features_config="features:\n  account:\n    enabled: false\n",
     )
 
     response = buckets_router.list_buckets(
@@ -1371,7 +1384,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_is_strict_for_user_display_
         def get_user(self, uid: str, tenant: str | None = None, allow_not_found: bool = True):
             return {"user": {"uid": uid}}
 
-    ctx.rgw_admin = NoDisplayNameAdmin(payload)
+    ctx = replace(ctx, rgw_admin=NoDisplayNameAdmin(payload))
 
     advanced_filter = json.dumps(
         {
@@ -1414,7 +1427,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_is_strict_for_account_name(
         def get_user(self, uid: str, tenant: str | None = None, allow_not_found: bool = True):
             return None
 
-    ctx.rgw_admin = IdOnlyAccountAdmin(payload)
+    ctx = replace(ctx, rgw_admin=IdOnlyAccountAdmin(payload))
 
     advanced_filter = json.dumps(
         {
@@ -1457,7 +1470,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_is_strict_for_account_name_
         def get_user(self, uid: str, tenant: str | None = None, allow_not_found: bool = True):
             return None
 
-    ctx.rgw_admin = AccountNameOnlyAdmin(payload)
+    ctx = replace(ctx, rgw_admin=AccountNameOnlyAdmin(payload))
 
     advanced_filter = json.dumps(
         {
@@ -1511,12 +1524,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_loads_owner_metadata_when_b
             return {"uid": uid, "display_name": f"Display-{uid}"}
 
     rgw_admin = NamesOnlyWithoutStatsAdmin()
-    ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(id=186),
-        rgw_admin=rgw_admin,
-        access_key="AKIA_TEST",
-        secret_key="SECRET_TEST",
-    )
+    ctx = _ceph_admin_context(186, rgw_admin)
 
     advanced_filter = json.dumps(
         {
@@ -1563,12 +1571,7 @@ def test_ceph_admin_bucket_listing_falls_back_without_stats_and_backfills_owner(
             return {"name": bucket_name, "owner": owners.get(bucket_name)}
 
     rgw_admin = StatsFallbackAdmin()
-    ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(id=188),
-        rgw_admin=rgw_admin,
-        access_key="AKIA_TEST",
-        secret_key="SECRET_TEST",
-    )
+    ctx = _ceph_admin_context(188, rgw_admin)
 
     response = buckets_router.list_buckets(
         page=1,
@@ -1602,12 +1605,7 @@ def test_ceph_admin_bucket_listing_returns_gateway_timeout_without_fallback(monk
             raise RGWAdminError("RGW admin request failed: Read timed out. (read timeout=120.0)")
 
     rgw_admin = TimingOutStatsAdmin()
-    ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(id=190),
-        rgw_admin=rgw_admin,
-        access_key="AKIA_TEST",
-        secret_key="SECRET_TEST",
-    )
+    ctx = _ceph_admin_context(190, rgw_admin)
 
     with pytest.raises(HTTPException) as exc:
         buckets_router.list_buckets(
@@ -1635,12 +1633,7 @@ def test_ceph_admin_bucket_listing_rejects_stats_sort_when_stats_fetch_fails(mon
             return ["bucket-a"]
 
     rgw_admin = FailingStatsAdmin()
-    ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(id=189),
-        rgw_admin=rgw_admin,
-        access_key="AKIA_TEST",
-        secret_key="SECRET_TEST",
-    )
+    ctx = _ceph_admin_context(189, rgw_admin)
 
     with pytest.raises(HTTPException) as exc:
         buckets_router.list_buckets(
@@ -2758,7 +2751,7 @@ def test_ceph_admin_bucket_stream_requires_advanced_filter_payload():
                 sort_dir="asc",
                 include=[],
                 with_stats=False,
-                ctx=SimpleNamespace(endpoint=SimpleNamespace(id=999), rgw_admin=SimpleNamespace(), access_key="x", secret_key="y"),
+                ctx=_ceph_admin_context(999, SimpleNamespace()),
             )
         assert exc.value.status_code == 400
 
