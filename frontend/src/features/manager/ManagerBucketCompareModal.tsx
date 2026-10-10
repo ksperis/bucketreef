@@ -789,7 +789,7 @@ export default function ManagerBucketCompareModal({
         >
           {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">{text("Loading target buckets...")}</p>}
           {targetBucketsError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{targetBucketsError}</p>}
-          {mappingMode === "by_name" && missingByName.length > 0 && (
+          {targetContextId && mappingMode === "by_name" && missingByName.length > 0 && (
             <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
               {missingByName.length} {text(
                 missingByName.length === 1
