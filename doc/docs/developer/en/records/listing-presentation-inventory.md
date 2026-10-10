@@ -26,7 +26,7 @@ menus, association popovers, expansion and Browser column resizing.
 | `features/admin/AccountsPage.tsx` | /admin/s3-accounts; linked users/groups in account editor | DataTableShell × 1; ui-data-table × 2 | `AccountsPage.modalTabs.test.tsx`; Authenticated Admin (including empty listing) |
 | `features/admin/AdminAssociationPicker.tsx` | /admin/users, /admin/groups, /admin/s3-accounts, /admin/s3-users, /admin/s3-connections; association tables | ui-data-table × 1 | `AdminAssociationPicker.test.tsx` |
 | `features/admin/AdminPortalRequestsPage.tsx` | /admin/portal-requests | DataTableShell × 1 | `AdminPortalRequestsPage.test.tsx` |
-| `features/admin/ApiTokensPage.tsx` | /admin/api-tokens | DataTableShell × 1 | `ApiTokensPage.listState.test.tsx` |
+| `features/admin/ApiTokensPage.tsx` | /admin/profile?tab=api-tokens | DataTableShell × 1 | `ApiTokensPage.listState.test.tsx` |
 | `features/admin/AuditLogsPage.tsx` | /admin/audit | DataTableShell × 1 | `AuditLogsPage.test.tsx` |
 | `features/admin/BillingPage.tsx` | /admin/billing | DataTableShell × 1 | `BillingPage.test.tsx` |
 | `features/admin/EndpointStatusDetailPage.tsx` | /admin/endpoint-status/:endpointId; timeline and recent checks | DataTableShell × 2 | `EndpointStatusDetailPage.test.tsx` |
@@ -86,7 +86,7 @@ secondary and dialog uses.
 
 | Uses | Header convention |
 | --- | --- |
-| Admin accounts, users, groups, RGW users, shared connections, endpoints, RGW user keys, API tokens route, audit, usage history and Portal request queue | `page`; main creation in the page header |
+| Admin accounts, users, groups, RGW users, shared connections, endpoints, RGW user keys, audit, usage history and Portal request queue | `page`; main creation in the page header |
 | Admin identity-link requests and sessions | `page`; tab counts and security guidance remain visible |
 | Billing subjects, Endpoint Status incidents, key-rotation execution results | `section`; page context continues to affect its original sections |
 | Admin association lists and add-association pickers | `section`; Add in `headingActions`, search in the common row; editable row fields and dialog confirmation remain unchanged |
@@ -96,7 +96,7 @@ secondary and dialog uses.
 | Portal Storage Spaces, activity, access logs, collaborators, help requests and tool-access tab | `page`; existing Portal translations and key/logging explanations retained |
 | Portal collaborator detail: effective Storage Space access | `section`; inherited access guidance retained |
 | Ceph Admin accounts/users and Ceph Admin/Storage Ops bucket workbench | `page`; multiline exact search, advanced filters, column controls and selection remain supported |
-| Embedded API tokens (when used beside other profile sections) | `section`; creation in the section heading |
+| API tokens in the shared profile | `section`; creation in the section heading |
 | Shared private S3 connections profile | `page` outside Browser; creation is rendered into the owning page header; Browser keeps its original markup |
 | Endpoint detail timeline/recent checks, Ceph usage/quota/key detail tables, Manager bucket ACL/lifecycle tables, public links, operation samples/breakdowns and comparison mappings | Informational tables retain their existing enclosing section/form; no artificial controls added |
 | Browser object tables, multipart dialog, embedded explorers and their object/detail panels | Excluded from the header convergence, including shared public-link components used inside them |

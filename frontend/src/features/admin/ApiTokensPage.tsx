@@ -22,8 +22,6 @@ import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
-import PageHeader from "../../components/PageHeader";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
@@ -77,11 +75,10 @@ function StatusBadge({ status }: { status: TokenStatus }) {
 }
 
 type ApiTokensPageProps = {
-  showPageHeader?: boolean;
   onUnsavedChangesChange?: (dirty: boolean) => void;
 };
 
-export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesChange }: ApiTokensPageProps) {
+export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageProps) {
   const [tokens, setTokens] = useState<ApiTokenInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -291,12 +288,6 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
         '  Content-Type: "application/json"',
       ].join("\n")
     : "";
-  const headerActions = [
-    {
-      label: "Create token", disabled: isDemo,
-      onClick: openCreateModal,
-    },
-  ];
   const tokenTableColumns: Array<DataTableColumn<ApiTokenInfo>> = [
     {
       id: "name",
@@ -350,15 +341,6 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
 
   return (
     <div className="space-y-4">
-      {showPageHeader ? (
-        <PageHeader actionPresentation="listing"
-          title="API tokens"
-          description="Manage personal API tokens linked to your account for automation and integrations."
-          breadcrumbs={adminPageBreadcrumbs("api-tokens")}
-          actions={headerActions}
-        />
-      ) : null}
-
       {loadError && sortedTokens.length > 0 ? <PageBanner tone="error">{loadError}</PageBanner> : null}
       {actionError ? <PageBanner tone="error">{actionError}</PageBanner> : null}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
@@ -401,7 +383,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       <ListPageSection
           title="API tokens"
           description="Manage personal API tokens linked to your account for automation and integrations."
-          variant={showPageHeader ? "page" : "section"}
+          variant="section"
           countLabel={`${sortedTokens.length} token${sortedTokens.length === 1 ? "" : "s"}${includeRevoked ? " (including revoked/expired)" : ""}`}
           filters={
             <UiCheckboxField
@@ -413,7 +395,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
             </UiCheckboxField>
           }
           actions={<ListActionButton onClick={() => void loadTokens()} loading={loading}>Refresh</ListActionButton>}
-          headingActions={!showPageHeader ? <ListActionButton variant="primary" disabled={isDemo} onClick={openCreateModal}>Create token</ListActionButton> : undefined}
+          headingActions={<ListActionButton variant="primary" disabled={isDemo} onClick={openCreateModal}>Create token</ListActionButton>}
       >
         <DataTableShell
           columns={tokenTableColumns}
