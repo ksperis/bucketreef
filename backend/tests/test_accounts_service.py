@@ -91,6 +91,7 @@ class FakeRGWAdmin:
         self.created_root_display_names: list[str] = []
         self.quota_calls: list[dict[str, object]] = []
         self.account_payload = account_payload
+        self.account_api_supported: bool | None = None
 
     def create_account(self, account_id: str, account_name: str):
         self.created_accounts.append((account_id, account_name))
