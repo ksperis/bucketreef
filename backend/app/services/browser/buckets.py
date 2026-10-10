@@ -10,7 +10,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.models.browser import BrowserBucket, PaginatedBrowserBucketsResponse
 from app.services.s3_client import create_bucket as s3_create_bucket
 from app.services.s3_client import set_bucket_versioning as s3_set_bucket_versioning
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from ._shared import _BUCKET_LIST_CACHE
 
 logger = logging.getLogger(__name__)
@@ -31,28 +31,30 @@ def _bucket_search_values(bucket: BrowserBucket) -> list[str]:
 
 class BrowserBucketsMixin:
     def _list_portal_storage_space_buckets(self, account: S3ExecutionTarget) -> Optional[list[BrowserBucket]]:
+        if not isinstance(account, S3ExecutionContext):
+            return None
         spaces = account.portal_storage_spaces
         if spaces is None:
             return None
         buckets: list[BrowserBucket] = []
         for space in spaces:
-            name = getattr(space, "internal_bucket_name", None) or getattr(space, "id", None)
+            name = space.internal_bucket_name or space.id
             if not name:
                 continue
             buckets.append(
                 BrowserBucket(
                     name=name,
-                    display_name=getattr(space, "name", None) or name,
+                    display_name=space.name or name,
                     workspace_label="Storage Space",
-                    description=getattr(space, "description", None),
-                    used_bytes=getattr(space, "used_bytes", None),
-                    object_count=getattr(space, "object_count", None),
-                    quota_max_size_bytes=getattr(space, "quota_max_size_bytes", None),
-                    quota_max_objects=getattr(space, "quota_max_objects", None),
-                    status=getattr(space, "status", None),
-                    role=getattr(space, "role", None),
+                    description=space.description,
+                    used_bytes=space.used_bytes,
+                    object_count=space.object_count,
+                    quota_max_size_bytes=space.quota_max_size_bytes,
+                    quota_max_objects=space.quota_max_objects,
+                    status=space.status,
+                    role=space.role,
                     internal_bucket_name=name,
-                    icon=getattr(space, "icon", None),
+                    icon=space.icon,
                 )
             )
         buckets.sort(key=lambda bucket: (bucket.display_name or bucket.name).lower())
