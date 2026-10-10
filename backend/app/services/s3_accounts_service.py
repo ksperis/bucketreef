@@ -270,7 +270,7 @@ class S3AccountsService:
         except RGWAdminError as exc:
             logger.debug("Unable to fetch account info for %s: %s", account_identifier, exc)
             return None, None
-        if getattr(admin, "account_api_supported", None) is False:
+        if admin.account_api_supported is False:
             return None, None
         if not account_info:
             return 0, []
