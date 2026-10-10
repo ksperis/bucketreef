@@ -58,7 +58,7 @@ def compute_ceph_admin_bucket_listing(
         cancel_check=cancel_check,
     )
     invoke_cancel_check(cancel_check)
-    endpoint_id = int(getattr(ctx.endpoint, "id", 0) or 0)
+    endpoint_id = ctx.endpoint.id
     listing = get_cached_bucket_listing(
         listing_request.cache_key(endpoint_id),
         snapshot_builder.build,

@@ -255,7 +255,7 @@ class _AccountListingPipeline:
             self.parsed_filter and self.parsed_filter.rules
         )
         self.cache_key = EndpointListCacheKey(
-            endpoint_id=int(getattr(self.ctx.endpoint, "id", 0) or 0),
+            endpoint_id=self.ctx.endpoint.id,
             advanced_filter=serialize_filter(self.parsed_filter),
             sort_by=self.sort_by,
             sort_dir=self.sort_dir,

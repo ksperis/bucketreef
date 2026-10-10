@@ -382,7 +382,7 @@ def create_rgw_user(
             ctx=ctx,
         )
 
-    invalidate_users_listing_cache(int(getattr(ctx.endpoint, "id", 0) or 0))
+    invalidate_users_listing_cache(ctx.endpoint.id)
     detail = _load_user_detail(uid, lookup_tenant, ctx)
     generated_key = _extract_generated_key_from_payload(create_result, ctx.rgw_admin)
     record_ceph_admin_action(
@@ -452,7 +452,7 @@ def update_rgw_user_config(
             ctx=ctx,
         )
 
-    invalidate_users_listing_cache(int(getattr(ctx.endpoint, "id", 0) or 0))
+    invalidate_users_listing_cache(ctx.endpoint.id)
     record_ceph_admin_action(
         ctx,
         action="rgw_user.update",

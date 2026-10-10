@@ -119,7 +119,7 @@ def create_rgw_account(
             raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
         raise_if_unsupported(quota_result, "RGW bucket quota update is not supported on this cluster")
 
-    invalidate_accounts_listing_cache(int(getattr(ctx.endpoint, "id", 0) or 0))
+    invalidate_accounts_listing_cache(ctx.endpoint.id)
     account_detail = build_account_detail(load_account_payload(account_id, ctx), account_id_fallback=account_id)
     record_ceph_admin_action(
         ctx,
@@ -220,7 +220,7 @@ def update_rgw_account_config(
             raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
         raise_if_unsupported(quota_result, "RGW bucket quota update is not supported on this cluster")
 
-    invalidate_accounts_listing_cache(int(getattr(ctx.endpoint, "id", 0) or 0))
+    invalidate_accounts_listing_cache(ctx.endpoint.id)
     payload = load_account_payload(normalized_account_id, ctx)
     record_ceph_admin_action(
         ctx,

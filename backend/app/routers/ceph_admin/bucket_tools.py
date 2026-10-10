@@ -40,7 +40,7 @@ def refresh_bucket_listing_cache(
     endpoint_id: int,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> dict[str, object]:
-    resolved_endpoint_id = int(getattr(ctx.endpoint, "id", endpoint_id) or endpoint_id)
+    resolved_endpoint_id = ctx.endpoint.id
     invalidate_bucket_listing_cache(resolved_endpoint_id)
     invalidate_bucket_owner_metadata_cache(resolved_endpoint_id)
     return {"refreshed": True, "endpoint_id": resolved_endpoint_id}
