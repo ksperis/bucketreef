@@ -17,8 +17,8 @@ def record_ceph_admin_action(
     status: str = "success",
     message: str | None = None,
 ) -> None:
-    actor = ctx.actor
-    audit_service = ctx.audit_service
+    actor = getattr(ctx, "actor", None)
+    audit_service = getattr(ctx, "audit_service", None)
     if actor is None or audit_service is None:
         return
     endpoint_metadata = {
