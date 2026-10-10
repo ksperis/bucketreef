@@ -75,10 +75,6 @@ const ENTITY_CONFIG: Record<ManagerPolicyEntityType, EntityPageConfig> = {
   },
 };
 
-function extractError(err: unknown, fallback: string): string {
-  return extractApiError(err, fallback);
-}
-
 export default function ManagerEntityPoliciesPage({
   entityType,
   routeParam,
@@ -138,7 +134,7 @@ export default function ManagerEntityPoliciesPage({
       const firstFree = allPolicies.find((policy) => !attachedPolicies.some((candidate) => candidate.arn === policy.arn));
       setSelectedArn(firstFree?.arn ?? "");
     } catch (err) {
-      setError(extractError(err, text("Unexpected error")));
+      setError(extractApiError(err, text("Unexpected error")));
     } finally {
       setLoading(false);
     }
@@ -180,7 +176,7 @@ export default function ManagerEntityPoliciesPage({
       await load(accountIdForApi, rawEntityName);
       setActionMessage(text("Policy attached"));
     } catch (err) {
-      setError(extractError(err, text("Unexpected error")));
+      setError(extractApiError(err, text("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -196,7 +192,7 @@ export default function ManagerEntityPoliciesPage({
       await load(accountIdForApi, rawEntityName);
       setActionMessage(text("Policy detached"));
     } catch (err) {
-      setError(extractError(err, text("Unexpected error")));
+      setError(extractApiError(err, text("Unexpected error")));
     } finally {
       setBusy(null);
     }
