@@ -17,6 +17,7 @@ from app.utils.time import utcnow
 
 SERVICE_TYPES = {"endpoint_runtime": "runtime", "endpoint_supervision": "supervision"}
 IDENTITY_TYPES = {**SERVICE_TYPES, "ceph_admin": "ceph_admin"}
+RotationTarget = EndpointServiceIdentity | S3Account | S3User | StorageEndpoint
 
 
 def pending_rotation(db, endpoint_id, key_type, target_id):
@@ -42,7 +43,7 @@ class DurableKeyRotationService:
                       "executor": "admin_ops", "workflow": "key-rotation", "phase": intent.phase},
         )
 
-    def _target(self, endpoint, key_type, target_id):
+    def _target(self, endpoint, key_type, target_id) -> RotationTarget:
         model = EndpointServiceIdentity if key_type in IDENTITY_TYPES else S3Account if key_type == "account" else S3User if key_type == "s3_user" else StorageEndpoint
         target = self.db.query(model).populate_existing().filter(model.id == target_id).first()
         if target is None or ((target.id if model == StorageEndpoint else target.endpoint_id if model == EndpointServiceIdentity else target.storage_endpoint_id) != endpoint.id):
@@ -54,8 +55,34 @@ class DurableKeyRotationService:
         return target
 
     @staticmethod
-    def _fields(key_type):
-        return ("access_key", "secret_key") if key_type in IDENTITY_TYPES else ("admin_access_key", "admin_secret_key") if key_type == "endpoint_admin" else ("rgw_access_key", "rgw_secret_key")
+    def _credentials(target: RotationTarget) -> tuple[str | None, str | None]:
+        if isinstance(target, EndpointServiceIdentity):
+            return target.access_key, target.secret_key
+        if isinstance(target, StorageEndpoint):
+            return target.admin_access_key, target.admin_secret_key
+        return target.rgw_access_key, target.rgw_secret_key
+
+    @staticmethod
+    def _replace_credentials(target: RotationTarget, access_key: str, secret_key: str) -> None:
+        if isinstance(target, EndpointServiceIdentity):
+            target.access_key = access_key
+            target.secret_key = secret_key
+        elif isinstance(target, StorageEndpoint):
+            target.admin_access_key = access_key
+            target.admin_secret_key = secret_key
+        else:
+            target.rgw_access_key = access_key
+            target.rgw_secret_key = secret_key
+
+    @staticmethod
+    def _principal_hint(target: RotationTarget) -> tuple[str | None, str | None]:
+        if isinstance(target, EndpointServiceIdentity):
+            return target.rgw_uid, None
+        if isinstance(target, S3Account):
+            return target.rgw_user_uid, target.rgw_account_id
+        if isinstance(target, S3User):
+            return target.rgw_user_uid, None
+        return None, None
 
     def _validate(self, endpoint, key_type, target, admin, payload, access, secret):
         entries = RgwUserKeyParser.to_access_keys(admin.extract_keys(payload), ui_managed_access_key=None)
@@ -123,7 +150,6 @@ class DurableKeyRotationService:
             if endpoint is None or endpoint.provider != "ceph":
                 raise ValueError("Key rotation is only supported for an available Ceph endpoint.")
             target = self._target(endpoint, key_type, target_id)
-            access_field, secret_field = self._fields(key_type)
             intent = pending_rotation(self.db, endpoint.id, key_type, target.id)
             if key_type not in IDENTITY_TYPES and intent is None and not resolve_feature_flags(endpoint).admin_enabled:
                 raise ValueError("Admin feature is disabled for this category.")
@@ -133,17 +159,17 @@ class DurableKeyRotationService:
             if not permissions.users_write:
                 raise ValueError("Key rotation requires Admin Ops users=write.")
             if intent is None:
-                old_access = getattr(target, access_field)
-                if not old_access or not getattr(target, secret_field):
+                old_access, old_secret = self._credentials(target)
+                if not old_access or not old_secret:
                     raise ValueError("Rotation credentials are not configured.")
-                uid = target.rgw_uid if key_type in IDENTITY_TYPES else getattr(target, "rgw_user_uid", None)
+                uid, preferred_tenant = self._principal_hint(target)
                 tenant = None
                 if uid is None:
                     from app.services.key_rotation_rgw import RgwAccessKeyRotator
                     uid, tenant = RgwAccessKeyRotator().resolve_identity_from_access_key(admin, old_access)
                 elif key_type not in SERVICE_TYPES:
                     from app.services.key_rotation_rgw import RgwAccessKeyRotator
-                    tenant = RgwAccessKeyRotator().detect_user_tenant(admin, uid=uid, preferred_tenant=getattr(target, "rgw_account_id", None))
+                    tenant = RgwAccessKeyRotator().detect_user_tenant(admin, uid=uid, preferred_tenant=preferred_tenant)
                 payload = admin.get_user(uid, tenant=tenant, allow_not_found=True) if tenant else admin.get_user(uid, allow_not_found=True)
                 if key_type in SERVICE_TYPES:
                     provenance = f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
@@ -162,9 +188,10 @@ class DurableKeyRotationService:
             if intent.rgw_endpoint != resolve_rgw_admin_api_endpoint(endpoint) or intent.deactivate_only != deactivate_only:
                 raise ValueError("Resume rotation using its original RGW target and retirement mode.")
             expected = intent.new_access_key if intent.phase == "activated" else intent.old_access_key
-            if key_type in ("account", "s3_user") and target.rgw_user_uid != intent.rgw_uid:
+            if isinstance(target, (S3Account, S3User)) and target.rgw_user_uid != intent.rgw_uid:
                 raise ValueError("Rotation principal changed; restore the original target before retrying.")
-            if getattr(target, access_field) != expected:
+            current_access, _ = self._credentials(target)
+            if current_access != expected:
                 raise ValueError("Rotation target credentials changed; resolve the pending rotation before retrying.")
             if key_type in SERVICE_TYPES:
                 provenance = f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
@@ -181,8 +208,7 @@ class DurableKeyRotationService:
                     admin.create_access_key(intent.rgw_uid, **kwargs, access_key=intent.new_access_key, secret_key=intent.new_secret_key)
                     payload = admin.get_user(intent.rgw_uid, **kwargs)
                 self._validate(endpoint, key_type, target, admin, payload, intent.new_access_key, intent.new_secret_key)
-                setattr(target, access_field, intent.new_access_key)
-                setattr(target, secret_field, intent.new_secret_key)
+                self._replace_credentials(target, intent.new_access_key, intent.new_secret_key)
                 intent.phase, intent.last_error = "activated", None
                 self.db.commit()
                 self._audit(endpoint, intent, "activated")

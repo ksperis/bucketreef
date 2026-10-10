@@ -125,7 +125,7 @@ class KeyRotationService:
         results, deleted, disabled = [], 0, 0
         rotator = DurableKeyRotationService(self.db, actor=self.actor)
         for target in targets:
-            label = getattr(target, "name", None) or endpoint.name
+            label = target.name if isinstance(target, (S3Account, S3User, StorageEndpoint)) else endpoint.name
             try:
                 old, new, action = rotator.rotate(endpoint, key_type.value, target.id, deactivate_only=deactivate_only)
                 deleted += int(action == "deleted")
