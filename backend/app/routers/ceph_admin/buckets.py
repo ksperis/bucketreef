@@ -101,7 +101,7 @@ def _compute_bucket_listing(
     cancel_check: Callable[[], None] | None = None,
 ) -> PaginatedCephAdminBucketsResponse:
     try:
-        actor = getattr(ctx, "actor", None)
+        actor = ctx.actor
         tag_service = BucketUiTagsService(db) if isinstance(db, Session) and actor is not None else None
         return compute_ceph_admin_bucket_listing(
             page=page,
