@@ -41,8 +41,6 @@ import ManagerRoleEditor from "./ManagerRoleEditor";
 import { DEFAULT_ASSUME_ROLE_DOCUMENT, DEFAULT_ROLE_PATH, parseIamRolePolicy } from "./iamRoleForm";
 import { useManagerI18n } from "./managerI18n";
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 export default function ManagerRolesPage() {
   const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
@@ -191,7 +189,7 @@ export default function ManagerRolesPage() {
       setActionMessage(text("Role created"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setCreating(false);
     }
@@ -207,7 +205,7 @@ export default function ManagerRolesPage() {
       setActionMessage(text("Role deleted"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setDeletingRole(null);
     }
