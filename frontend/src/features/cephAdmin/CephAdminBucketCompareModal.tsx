@@ -75,8 +75,6 @@ type CephAdminBucketCompareModalProps = {
   onClose: () => void;
 };
 
-const extractError = extractCompareError;
-
 const ALL_CONFIG_FEATURE_KEYS = BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS.map((option) => option.key);
 
 export default function CephAdminBucketCompareModal({
@@ -193,7 +191,7 @@ export default function CephAdminBucketCompareModal({
       } catch (err) {
         if (cancelled) return;
         setTargetBucketNames([]);
-        setTargetBucketsError(extractError(err));
+        setTargetBucketsError(extractCompareError(err));
       } finally {
         if (!cancelled) {
           setTargetBucketsLoading(false);
