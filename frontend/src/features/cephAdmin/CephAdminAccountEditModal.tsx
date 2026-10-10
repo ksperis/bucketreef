@@ -42,8 +42,6 @@ type Props = {
 
 type TabId = "overview" | "config" | "metrics";
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 export default function CephAdminAccountEditModal({
   endpointId,
   accountId,
@@ -169,7 +167,7 @@ export default function CephAdminAccountEditModal({
         );
       } catch (err) {
         if (!cancelled) {
-          setDetailError(extractError(err));
+          setDetailError(extractApiError(err, "Unexpected error"));
           setDetail(null);
         }
       } finally {
@@ -197,7 +195,7 @@ export default function CephAdminAccountEditModal({
         }
       } catch (err) {
         if (!cancelled) {
-          setMetricsError(extractError(err));
+          setMetricsError(extractApiError(err, "Unexpected error"));
           setMetrics(null);
         }
       } finally {
@@ -287,7 +285,7 @@ export default function CephAdminAccountEditModal({
           }
         }
       } catch (err) {
-        setSaveError(extractError(err));
+        setSaveError(extractApiError(err, "Unexpected error"));
       } finally {
         setSaving(false);
       }

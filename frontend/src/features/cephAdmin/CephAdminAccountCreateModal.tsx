@@ -29,8 +29,6 @@ type Props = {
   onCreated?: (detail: CephAdminRgwAccountDetail) => void;
 };
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 export default function CephAdminAccountCreateModal({ endpointId, onClose, onCreated }: Props) {
   const [accountName, setAccountName] = useState("");
   const [email, setEmail] = useState("");
@@ -136,7 +134,7 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
         setInitialSignature(currentSignature);
         setStatus(`Account ${response.account.account_id} created.`);
       } catch (err) {
-        setError(extractError(err));
+        setError(extractApiError(err, "Unexpected error"));
       } finally {
         setSaving(false);
       }

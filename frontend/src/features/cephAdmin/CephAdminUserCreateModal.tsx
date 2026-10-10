@@ -48,8 +48,6 @@ type AccountOption = {
   account_name?: string | null;
 };
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onClose, onCreated }: Props) {
   const canAddAsS3Connection = useMemo(
     () => canCreateManualPrivateConnections(readStoredUser()),
@@ -150,7 +148,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         setAccounts(options);
       } catch (err) {
         if (cancelled) return;
-        setAccountsError(extractError(err));
+        setAccountsError(extractApiError(err, "Unexpected error"));
       } finally {
         if (!cancelled) {
           setAccountsLoading(false);
@@ -227,7 +225,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         setInitialSignature(currentSignature);
         setStatus(`User ${response.detail.uid} created.`);
       } catch (err) {
-        setError(extractError(err));
+        setError(extractApiError(err, "Unexpected error"));
       } finally {
         setSaving(false);
       }
