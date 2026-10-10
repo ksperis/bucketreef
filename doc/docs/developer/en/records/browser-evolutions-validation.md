@@ -60,10 +60,11 @@ payloads, personal ownership, surface separation, the existing 500-item limit an
 optimistic revisions. The former presets route has no alias. The demo uses the
 same path-only model and an incremented data version.
 
-Session responses no longer contain recovery identifiers. A non-blocking,
-idempotent `deleteDatabase` request retires `bucketreef-browser-transfers-v1`;
-it never opens that database or sends an S3 abort. Authorized users can still
-inspect and abort remote multipart uploads through the existing tools.
+Session responses no longer contain recovery identifiers. The later technical-debt
+cleanup also removed the runtime `deleteDatabase` compatibility step for
+`bucketreef-browser-transfers-v1`, so the retired database is no longer read,
+opened, or deleted by current code. Authorized users can still inspect and abort
+remote multipart uploads through the existing tools.
 
 ## Validation evidence
 
@@ -79,7 +80,7 @@ not connect to production storage. Commands run from `frontend/` or `backend/`.
 | Static demo | All 17 Chromium journeys passed; three additional path-favorite unit tests cover isolation, strict payloads and optimistic updates. |
 | Frontend tooling | Typecheck, lint, listing presentation, production/demo builds, chunk-cycle and bundle-budget checks passed. Normal-build demo isolation passed. |
 | Documentation | Strict MkDocs build passed. |
-| Retired functionality | OpenAPI and model tests assert the removed routes, filters, session fields and generic preset columns are absent; source inspection finds no recovery worker, lock or database-open path. |
+| Retired functionality | OpenAPI and model tests assert the removed routes, filters, session fields and generic preset columns are absent; source inspection finds no recovery worker, lock or retired-database access path. |
 
 The combined Browser journeys cover favorites shared between two browser contexts,
 direct add/remove, original search options, normal overwrite, mixed ZIP bytes, CSV/JSON
