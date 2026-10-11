@@ -512,7 +512,7 @@
   "Optional short label for the application or workload using this key.": "Libellé court facultatif pour l’application ou la charge de travail utilisant cette clé.",
   "Optional. Empty value uses the endpoint default region/placement.": "Facultatif. La valeur vide utilise la région/l'emplacement par défaut de l’endpoint.",
   "Optional. Name and notes are stored in BucketReef.": "Facultatif. Le nom et les notes sont stockés dans BucketReef.",
-  "Optional. The time is interpreted in your browser's local timezone. Clear the field to remove the expiration.": "Facultatif. L'heure est interprétée dans le fubucket horaire local de votre navigateur. Effacez le champ pour supprimer l’expiration.",
+  "Optional. The time is interpreted in your browser's local timezone. Clear the field to remove the expiration.": "Facultatif. L'heure est interprétée dans le fuseau horaire local de votre navigateur. Effacez le champ pour supprimer l’expiration.",
   "Origins that may issue cross-origin requests. Use * only when intentionally allowing any origin.": "Origines pouvant émettre des requêtes cross-origin. Utilisez * uniquement lorsque vous autorisez intentionnellement toute origine.",
   "Other S3 events": "Autres événements S3",
   "Out": "Sortie",
