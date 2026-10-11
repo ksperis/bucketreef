@@ -10,10 +10,12 @@ from fastapi import HTTPException, status
 from app.models.ceph_admin import CephAdminRgwAccountDetail, CephAdminRgwQuotaConfig
 from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.routers.ceph_admin.listing_common import parse_bool, parse_int
+from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
+from app.utils.rgw_payloads import extract_bucket_list
 
 
 def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
@@ -48,6 +50,44 @@ def extract_user_count(payload: dict[str, Any]) -> Optional[int]:
             return from_stats
     users = payload.get("user_list")
     return len(users) if isinstance(users, list) else None
+
+
+def extract_account_bucket_list(payload: Any, account_id: str) -> list[dict]:
+    """Defensively scope an RGW bucket listing to one account.
+
+    Some RGW versions accept ``account-id`` on ``/admin/bucket`` but still
+    return a cluster-wide listing. When ownership metadata is available, only
+    retain buckets that explicitly resolve to the requested RGW account. If
+    the payload exposes no ownership metadata at all, preserve the upstream
+    response for compatibility with older RGW payloads.
+    """
+
+    normalized_account_id = account_id.strip()
+    entries = extract_bucket_list(payload)
+    if not normalized_account_id or not entries:
+        return entries
+
+    matched: list[dict] = []
+    ownership_metadata_seen = False
+    for entry in entries:
+        explicit_account_id = normalize_optional_scalar(
+            entry.get("account_id") or entry.get("account-id")
+        )
+        owner = normalize_optional_scalar(entry.get("owner"))
+        if explicit_account_id or owner:
+            ownership_metadata_seen = True
+        if explicit_account_id:
+            if explicit_account_id == normalized_account_id:
+                matched.append(entry)
+            continue
+        if owner == normalized_account_id:
+            matched.append(entry)
+            continue
+        owner_account_id, _owner_uid = resolve_bucket_owner_identity(entry)
+        if owner_account_id == normalized_account_id:
+            matched.append(entry)
+
+    return matched if ownership_metadata_seen else entries
 
 
 def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> CephAdminRgwAccountDetail:
