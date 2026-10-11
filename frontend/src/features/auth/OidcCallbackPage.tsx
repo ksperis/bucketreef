@@ -13,6 +13,7 @@ import { useLanguage } from "../../components/language";
 import { useTheme } from "../../components/theme";
 import ErrorState from "../../components/errors/ErrorState";
 import { PRODUCT_NAME } from "../../constants/product";
+import { translate } from "../../i18n";
 import { useSession } from "../../auth/SessionProvider";
 import { coordinateOidcCallback } from "./oidcCallbackCoordinator";
 import { prefetchWorkspaceBranch } from "../../utils/routePrefetch";
@@ -22,7 +23,7 @@ import {
   type SessionUser,
 } from "../../utils/workspaces";
 import { AuthCard, AuthCenteredPage } from "./AuthSurface";
-import { useAuthI18n } from "./authMessages";
+import { authMessages, useAuthI18n, type AuthMessageKey } from "./authMessages";
 
 export default function OidcCallbackPage() {
   const { provider } = useParams<{ provider: string }>();
@@ -32,7 +33,7 @@ export default function OidcCallbackPage() {
   const { setLanguagePreference } = useLanguage();
   const { setTheme } = useTheme();
   const { text } = useAuthI18n();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AuthMessageKey | null>(null);
   const [processing, setProcessing] = useState(true);
   const { acceptAuthentication } = useSession();
 
@@ -43,13 +44,13 @@ export default function OidcCallbackPage() {
 
     if (!provider) {
       setProcessing(false);
-      setError(text("missingIdentityProvider"));
+      setError("missingIdentityProvider");
       return;
     }
     const providerId = provider;
     if (!code || !state) {
       setProcessing(false);
-      setError(text("incompleteAuthenticationResponse"));
+      setError("incompleteAuthenticationResponse");
       return;
     }
     const codeValue = code;
@@ -69,11 +70,11 @@ export default function OidcCallbackPage() {
           return;
         }
         if (res.status === "link_approval_required") {
-          setError(text("identityApprovalRequired"));
+          setError("identityApprovalRequired");
           setProcessing(false);
           return;
         }
-        if (!res.user) throw new Error(text("oidcSessionMissingUser"));
+        if (!res.user) throw new Error(translate(authMessages.oidcSessionMissingUser));
         acceptAuthentication(res, "oidc");
         const sessionUser: SessionUser = { ...res.user, authType: "oidc" };
         setLanguagePreference(res.user.ui_language ?? "auto");
@@ -105,7 +106,7 @@ export default function OidcCallbackPage() {
       } catch (err) {
         console.error(err);
         if (!cancelled) {
-          setError(text("unableCompleteSignIn"));
+          setError("unableCompleteSignIn");
           setProcessing(false);
         }
       }
@@ -115,9 +116,9 @@ export default function OidcCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [acceptAuthentication, navigate, provider, runtimeSurfaces, searchParams, setGeneralSettings, setLanguagePreference, setTheme, text]);
+  }, [acceptAuthentication, navigate, provider, runtimeSurfaces, searchParams, setGeneralSettings, setLanguagePreference, setTheme]);
 
-  if (error) return <ErrorState kind="auth_failed" description={error} presentation="full" />;
+  if (error) return <ErrorState kind="auth_failed" description={text(error)} presentation="full" />;
 
   return (
     <AuthCenteredPage>
