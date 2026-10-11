@@ -7,7 +7,7 @@ RUN CGO_ENABLED=0 GOBIN=/out \
 FROM alpine:3.24.1
 
 RUN apk upgrade --no-cache \
-    && apk add --no-cache ca-certificates tzdata \
+    && apk add --no-cache ca-certificates curl tzdata \
     && addgroup -g 10001 -S scheduler \
     && adduser -u 10001 -S -D -H -G scheduler scheduler
 
