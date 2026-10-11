@@ -71,7 +71,9 @@ def test_pipeline_plan_bootstrap_round_trips_large_plan_without_argv_payload(tmp
 
     assert "python3 - <<'BUCKETREEF_CI_PLAN_PY'" in script
     assert 'python3 -c' not in script
-    subprocess.run(['bash', '-eu', '-c', script], cwd=tmp_path, check=True)
+    script_path = tmp_path / 'pipeline-plan.sh'
+    script_path.write_text(script)
+    subprocess.run(['bash', '-eu', script_path.name], cwd=tmp_path, check=True)
     assert json.loads((tmp_path / 'ci-plan.json').read_text()) == plan
 
 
