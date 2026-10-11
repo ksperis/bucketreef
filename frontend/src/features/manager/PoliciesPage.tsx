@@ -34,12 +34,6 @@ const DEFAULT_POLICY_DOCUMENT = JSON.stringify(
   2
 );
 
-const policyTableColumns: Array<DataTableColumn<IamPolicy>> = [
-  { id: "name", label: "Name", primary: true, mobileRole: "primary", render: (policy) => policy.name },
-  { id: "arn", label: "ARN", render: (policy) => policy.arn },
-  { id: "version", label: "Version", render: (policy) => policy.default_version_id ?? "-" },
-];
-
 export default function PoliciesPage() {
   const { text } = useManagerI18n();
   const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
@@ -60,6 +54,11 @@ export default function PoliciesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
+  const policyTableColumns: Array<DataTableColumn<IamPolicy>> = [
+    { id: "name", label: text("Name"), primary: true, mobileRole: "primary", render: (policy) => policy.name },
+    { id: "arn", label: "ARN", render: (policy) => policy.arn },
+    { id: "version", label: text("Version"), render: (policy) => policy.default_version_id ?? "-" },
+  ];
   let parsedDocument: Record<string, unknown> | undefined;
   let documentError: string | undefined;
   try {
@@ -222,6 +221,7 @@ export default function PoliciesPage() {
             <div className="settings-fields">
               <SettingsJsonEditor label={text("Policy document (JSON)")} value={documentText} onChange={setDocumentText}
                 rows={10} error={validationAttempted ? documentError : undefined}
+                text={text}
                 hint={text("Provide a valid IAM policy JSON document. You can start from the default template and customize statements.")} />
             </div>
           </SettingsSection>

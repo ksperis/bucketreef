@@ -190,6 +190,7 @@ export default function ManagerMetricsPage() {
       error={usageStatsError}
       recalculating={usageStatsRecalculating}
       recalculateLabel={text("Recalculate account")}
+      text={text}
       onCancel={handleCancelUsageStats}
       onRecalculate={handleRecalculateUsageStats}
     />
@@ -332,6 +333,7 @@ export default function ManagerMetricsPage() {
               loading={usageHistoryLoading}
               error={usageHistoryError}
               description={text("Stored usage snapshots for the active execution context.")}
+              text={text}
             />
           )}
 

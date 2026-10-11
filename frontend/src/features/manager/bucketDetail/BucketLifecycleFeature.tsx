@@ -456,6 +456,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
 
   const jsonEditor = (
     <BucketFeatureJsonPane
+      text={text}
       description={
         <>
         {text("Edit the complete S3 Lifecycle")} <code>{text("Rules")}</code> {text("array. Switching back to Visual validates this JSON first.")}
@@ -474,7 +475,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
         title={text("Lifecycle rules")}
         description={text("S3-side expiration/clean-up.")}
         visualState={visualState}
-        metadata={ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
+        metadata={`${ruleCount} ${text(ruleCount === 1 ? "rule" : "rules")}`}
         loading={loading}
         error={error}
         successMessage={status}

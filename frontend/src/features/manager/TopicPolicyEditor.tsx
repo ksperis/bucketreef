@@ -75,6 +75,7 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
     {status && <UiInlineMessage tone="success" role="status">{status}</UiInlineMessage>}
     <SettingsJsonEditor label={text("Policy JSON")} value={draft} onChange={update}
       error={validationError} rows={16} placeholder={defaultPolicy}
+      text={text}
       disabled={fieldsDisabled} />
     <SettingsSection title={text("Policy example")} presentation="compact">
       <div className="settings-stack">

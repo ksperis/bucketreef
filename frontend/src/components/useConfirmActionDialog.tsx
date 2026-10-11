@@ -17,6 +17,9 @@ type ConfirmActionRequest = {
   description: ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
+  processingLabel?: string;
+  impactLabel?: string;
+  closeLabel?: string;
   tone?: "danger" | "primary";
   details?: ConfirmActionDialogDetail[];
   impacts?: ReactNode[];
@@ -58,6 +61,9 @@ export function useConfirmActionDialog() {
           description={request.description}
           confirmLabel={request.confirmLabel}
           cancelLabel={request.cancelLabel}
+          processingLabel={request.processingLabel}
+          impactLabel={request.impactLabel}
+          closeLabel={request.closeLabel}
           tone={request.tone}
           loading={confirming}
           details={request.details}

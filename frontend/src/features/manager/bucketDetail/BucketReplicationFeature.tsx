@@ -377,6 +377,7 @@ export default function BucketReplicationFeature({
 
   const jsonEditor = (
     <BucketFeatureJsonPane
+      text={text}
       description={text("Edit the complete S3 replication configuration. Switching back to Visual validates the JSON structure first.")}
       label={text("Replication configuration (JSON)")}
       value={jsonText}
@@ -397,7 +398,7 @@ export default function BucketReplicationFeature({
         title={text("Replication / multisite")}
         description={text("Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup.")}
         visualState={visualState}
-        metadata={ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
+        metadata={`${ruleCount} ${text(ruleCount === 1 ? "rule" : "rules")}`}
         loading={loading}
         error={error}
         successMessage={status}

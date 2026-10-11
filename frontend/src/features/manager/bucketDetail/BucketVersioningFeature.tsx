@@ -72,10 +72,10 @@ export default function BucketVersioningFeature({
       <div className="bucket-feature-summary-row">
         <div className="bucket-feature-summary-value">
           {draftEnabled
-            ? "Object versions are retained."
+            ? text("Object versions are retained.")
             : isSuspended
-              ? "New object versions are suspended."
-              : "Object version history is disabled."}
+              ? text("New object versions are suspended.")
+              : text("Object version history is disabled.")}
         </div>
         <SettingsSwitch
           checked={draftEnabled}

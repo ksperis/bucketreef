@@ -4,6 +4,7 @@
  */
 import { useEffect, useMemo, useState, useCallback, useId, useRef } from "react";
 import { useParams } from "react-router-dom";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { uiDataTableClass, uiTableContainerClass } from "../../components/ui/styles";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageHeader from "../../components/PageHeader";
@@ -197,6 +198,7 @@ function BucketDetailPageContent({
   s3AccountContext,
 }: BucketDetailPageContentProps) {
   const { text, intlLocale } = useManagerI18n();
+  const { generalSettings } = useGeneralSettings();
   const tabsId = useId();
   const bucketName = bucketNameOverride ?? routeBucketName;
   const isCephAdmin = mode === "ceph-admin";
@@ -208,6 +210,7 @@ function BucketDetailPageContent({
     managerBucketQuotaEnabled,
     managerStatsEnabled,
     managerStatsMessage,
+    managerBrowserEnabled,
   } = s3AccountContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
@@ -231,6 +234,10 @@ function BucketDetailPageContent({
   const endpointId = selectedEndpointId ?? null;
   const hasCephContext = Boolean(endpointId);
   const hasContext = isCephAdmin ? hasCephContext : hasAccountContext;
+  const managerBrowserAvailable =
+    generalSettings.browser_enabled &&
+    generalSettings.browser_manager_enabled &&
+    managerBrowserEnabled === true;
   const versioningController = useBucketVersioningController({
     accountId,
     bucketName,
@@ -1193,7 +1200,9 @@ function BucketDetailPageContent({
                         <div className={bucketDetailHintClass}>
                           {isCephAdmin
                             ? text("Read-only preview using the selected endpoint's Ceph Admin credentials.")
-                            : text("Read-only preview. Use the main Browser page for object operations.")}
+                            : managerBrowserAvailable
+                              ? text("Read-only preview. Use the main Browser page for object operations.")
+                              : text("Read-only preview. Object operations are unavailable because Manager Browser is disabled.")}
                         </div>
                       </div>
                       <div className={bucketDetailWrapActionsClass}>
@@ -1392,6 +1401,7 @@ function BucketDetailPageContent({
                 onCancel={cancelUsageStatsRecalculation}
                 onRefresh={loadUsageStats}
                 onRecalculate={recalculateUsageStats}
+                text={text}
               />
             ),
           },

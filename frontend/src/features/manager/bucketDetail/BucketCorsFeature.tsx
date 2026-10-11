@@ -430,6 +430,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
 
   const jsonEditor = (
     <BucketFeatureJsonPane
+      text={text}
       description={
         <>
         {text("Edit the complete S3 CORS")} <code>{text("CORSRules")}</code> {text("array. Switching back to Visual validates the JSON structure first.")}
@@ -448,7 +449,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
         title={text("CORS")}
         description={text("Cross-origin rules applied by the S3 endpoint.")}
         visualState={visualState}
-        metadata={ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
+        metadata={`${ruleCount} ${text(ruleCount === 1 ? "rule" : "rules")}`}
         loading={loading}
         error={error}
         successMessage={status}
