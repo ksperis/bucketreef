@@ -17,6 +17,7 @@ import TopbarNotifications from "./TopbarNotifications";
 import TopbarWorkspaceSelector from "./TopbarWorkspaceSelector";
 import { HamburgerIcon } from "./topbarIcons";
 import type { TopbarControlDescriptor } from "./topbarControlsLayout";
+import { useShellI18n, type ShellText } from "./shellMessages";
 
 type TopbarProps = {
   projectName?: string;
@@ -55,14 +56,14 @@ type StoredTopbarUser = {
   account_links?: StoredAccountLink[] | null;
 };
 
-function resolveUiRoleLabel(user: StoredTopbarUser | null): string {
-  if (!user) return "Unknown";
-  if (user.authType === "s3_session") return "S3 Session";
-  if (user.role === "ui_superadmin") return "Superadmin";
-  if (user.role === "ui_admin") return "Admin";
-  if (user.role === "ui_user") return "User";
-  if (user.role === "ui_none") return "No access";
-  return "Unknown";
+function resolveUiRoleLabel(user: StoredTopbarUser | null, text: ShellText): string {
+  if (!user) return text("unknown");
+  if (user.authType === "s3_session") return text("s3Session");
+  if (user.role === "ui_superadmin") return text("superadmin");
+  if (user.role === "ui_admin") return text("admin");
+  if (user.role === "ui_user") return text("user");
+  if (user.role === "ui_none") return text("noAccess");
+  return text("unknown");
 }
 
 export default function Topbar({
@@ -80,20 +81,21 @@ export default function Topbar({
   workspaceSwitcher,
   profilePath = "/",
 }: TopbarProps) {
+  const { text } = useShellI18n();
   const [storedUser, setStoredUser] = useState<StoredTopbarUser | null>(
     () => readStoredUser() as StoredTopbarUser | null,
   );
   const isS3Session = storedUser?.authType === "s3_session";
   const canAccessPrivateConnections =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);
-  const uiRoleLabel = useMemo(() => resolveUiRoleLabel(storedUser), [storedUser]);
+  const uiRoleLabel = useMemo(() => resolveUiRoleLabel(storedUser, text), [storedUser, text]);
 
   const isMobileViewport = useMediaQuery("(max-width: 767px)");
   const [controlsAvailableWidth, setControlsAvailableWidth] = useState<number>(Number.POSITIVE_INFINITY);
 
   const controlsStripRef = useRef<HTMLDivElement | null>(null);
 
-  const accountDisplay = userEmail ?? "Session";
+  const accountDisplay = userEmail ?? text("session");
   const accountName = storedUser?.full_name?.trim() || accountDisplay;
   useEffect(() => {
     const syncStoredUser = () => {
@@ -181,7 +183,7 @@ export default function Topbar({
               <button
                 type="button"
                 onClick={onMobileMenuToggle}
-                aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
+                aria-label={text(mobileMenuOpen ? "closeNavigation" : "openNavigation")}
                 aria-controls="mobile-navigation-panel"
                 aria-expanded={mobileMenuOpen}
                 className="shell-control inline-flex h-9 w-9 items-center justify-center rounded-lg border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 md:hidden"
