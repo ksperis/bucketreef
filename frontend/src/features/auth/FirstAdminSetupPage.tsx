@@ -17,6 +17,7 @@ import { PRODUCT_NAME } from "../../constants/product";
 import { extractApiError } from "../../utils/apiError";
 import { AuthButton, AuthInput } from "./AuthFormControls";
 import { AuthCard, AuthCenteredPage } from "./AuthSurface";
+import { useAuthI18n } from "./authMessages";
 
 
 function readBootstrapTokenFragment(): string {
@@ -39,6 +40,7 @@ function clearBootstrapTokenFragment(): void {
 export default function FirstAdminSetupPage() {
   const navigate = useNavigate();
   const { refresh: refreshSession } = useSession();
+  const { text } = useAuthI18n();
   const [token] = useState(readBootstrapTokenFragment);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -63,9 +65,7 @@ export default function FirstAdminSetupPage() {
           return;
         }
         if (!token) {
-          setError(
-            "The bootstrap token is missing. Open the complete one-time URL issued by the backend.",
-          );
+          setError(text("bootstrapTokenMissingComplete"));
         }
       })
       .catch((statusError) => {
@@ -79,19 +79,17 @@ export default function FirstAdminSetupPage() {
     return () => {
       mounted = false;
     };
-  }, [navigate, token]);
+  }, [navigate, text, token]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     if (!token) {
-      setError(
-        "The bootstrap token is missing. Issue a new one-time URL from the backend.",
-      );
+      setError(text("bootstrapTokenMissingIssue"));
       return;
     }
     if (password !== passwordConfirmation) {
-      setError("Passwords do not match.");
+      setError(text("passwordsMismatch"));
       return;
     }
     setSubmitting(true);
@@ -105,7 +103,7 @@ export default function FirstAdminSetupPage() {
       if (response.status === "authenticated") {
         const session = await refreshSession();
         if (!session) {
-          throw new Error("The administrator session could not be loaded.");
+          throw new Error(text("administratorSessionLoadFailed"));
         }
         navigate("/", { replace: true });
         return;
@@ -114,12 +112,12 @@ export default function FirstAdminSetupPage() {
         navigate("/login?mfa=mfa_enrollment_required", { replace: true });
         return;
       }
-      throw new Error("Administrator authentication did not complete.");
+      throw new Error(text("administratorAuthIncomplete"));
     } catch (submitError) {
       setError(
         extractApiError(
           submitError,
-          "The bootstrap link is invalid, expired, or already used.",
+          text("bootstrapLinkInvalid"),
         ),
       );
     } finally {
@@ -141,15 +139,13 @@ export default function FirstAdminSetupPage() {
       <AuthCard className="max-w-lg p-7 sm:p-8">
         <BrandMark alt={PRODUCT_NAME} className="mb-5 h-16 w-16" />
         <p className="ui-caption font-semibold uppercase tracking-wide text-primary-700">
-          Initial setup
+          {text("initialSetup")}
         </p>
         <h1 className="mt-2 text-2xl font-semibold">
-          Create the first administrator
+          {text("createFirstAdministrator")}
         </h1>
         <p className="mt-3 ui-body text-slate-600">
-          This one-time setup creates the platform super-administrator. A
-          passkey is optional during onboarding and should be enabled before
-          production.
+          {text("firstAdministratorDescription")}
         </p>
 
         {error ? (
@@ -160,20 +156,20 @@ export default function FirstAdminSetupPage() {
 
         {checking ? (
           <p className="mt-6 ui-body text-slate-600">
-            Checking the bootstrap link…
+            {text("checkingBootstrapLink")}
           </p>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <AuthInput
               id="bootstrap-full-name"
-              label="Full name"
+              label={text("fullName")}
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
               autoComplete="name"
             />
             <AuthInput
               id="bootstrap-email"
-              label="Email"
+              label={text("email")}
               type="email"
               required
               value={email}
@@ -183,7 +179,7 @@ export default function FirstAdminSetupPage() {
             <div>
               <AuthInput
                 id="bootstrap-password"
-                label="Password"
+                label={text("password")}
                 type="password"
                 required
                 minLength={12}
@@ -196,12 +192,12 @@ export default function FirstAdminSetupPage() {
                 id="bootstrap-password-help"
                 className="mt-1 block ui-caption text-slate-500"
               >
-                Use at least 12 characters.
+                {text("passwordHelp")}
               </span>
             </div>
             <AuthInput
               id="bootstrap-password-confirmation"
-              label="Confirm password"
+              label={text("confirmPassword")}
               type="password"
               required
               minLength={12}
@@ -220,15 +216,15 @@ export default function FirstAdminSetupPage() {
               }
             >
               {submitting
-                ? "Creating administrator…"
-                : "Create administrator"}
+                ? text("creatingAdministrator")
+                : text("createAdministrator")}
             </AuthButton>
           </form>
         )}
         <p className="mt-5 ui-caption text-slate-500">
-          Already initialized?{" "}
+          {text("alreadyInitialized")}{" "}
           <Link className="font-semibold text-primary-700" to="/login">
-            Return to sign in
+            {text("returnToSignIn")}
           </Link>
         </p>
       </AuthCard>
