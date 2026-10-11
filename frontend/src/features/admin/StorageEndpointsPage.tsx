@@ -60,6 +60,7 @@ import StorageEndpointCapabilitiesFields from "./StorageEndpointCapabilitiesFiel
 import { buildStorageEndpointSubmission } from "./storageEndpointSubmission";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import StorageEndpointList, { type EndpointListFilters } from "./StorageEndpointList";
+import { useStorageEndpointI18n } from "./storageEndpointMessages";
 import {
   EndpointHttpStatusBadge,
   resolveCredentialCheckView,
@@ -87,6 +88,7 @@ function isMethodNotAllowedError(message?: string | null): boolean {
 
 export default function StorageEndpointsPage() {
   const navigate = useNavigate();
+  const { text } = useStorageEndpointI18n();
   const { endpointId: endpointIdParam } = useParams();
   const { generalSettings } = useGeneralSettings();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
@@ -526,7 +528,7 @@ export default function StorageEndpointsPage() {
     try {
       await deleteStorageEndpoint(deleteTarget.id);
       setDeleteTarget(null);
-      setActionMessage("Endpoint deleted.");
+      setActionMessage(text("endpointDeleted"));
       await loadEndpoints();
     } catch (err) {
       setDeleteError(extractError(err));
@@ -544,7 +546,7 @@ export default function StorageEndpointsPage() {
     setDefaultBusyId(endpoint.id);
     try {
       await setDefaultStorageEndpoint(endpoint.id);
-      setActionMessage("Default endpoint updated.");
+      setActionMessage(text("defaultEndpointUpdated"));
       await loadEndpoints();
     } catch (err) {
       setDefaultError(extractError(err));
@@ -787,41 +789,41 @@ export default function StorageEndpointsPage() {
     <div className="space-y-4 ui-caption leading-relaxed">
       {routeEndpointLoading ? (
         <WorkflowPage
-          title="Loading storage endpoint"
-          description="Retrieving endpoint configuration and access mode."
-          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: "Loading" })}
+          title={text("loadingStorageEndpoint")}
+          description={text("loadingDescription")}
+          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: text("loadingStorageEndpoint") })}
           width="narrow"
         >
-          <PageBanner tone="info">Loading endpoint configuration...</PageBanner>
+          <PageBanner tone="info">{text("loadingConfiguration")}</PageBanner>
         </WorkflowPage>
       ) : routeEndpointMissing ? (
         <WorkflowPage
-          title="Storage endpoint not found"
-          description="The requested endpoint does not exist or is no longer available."
-          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: "Not found" })}
-          backLabel="Back to endpoints"
+          title={text("notFound")}
+          description={text("notFoundDescription")}
+          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: text("notFound") })}
+          backLabel={text("backToEndpoints")}
           onBack={() => navigate("/admin/storage-endpoints")}
           width="narrow"
         >
-          <PageBanner tone="warning">Select an endpoint from the current storage endpoint list.</PageBanner>
+          <PageBanner tone="warning">{text("selectCurrentEndpoint")}</PageBanner>
         </WorkflowPage>
       ) : !showForm ? (
         <>
       <PageHeader
-        title="S3 Endpoints"
-        description="Manage the S3/Ceph endpoints used by the console."
+        title={text("s3Endpoints")}
+        description={text("pageDescription")}
         breadcrumbs={adminPageBreadcrumbs("storage-endpoints")}
-        rightContent={metadataReady && !loading && !envManaged && canEditEndpoints ? <ListActionButton variant="primary" onClick={startCreate}>New endpoint</ListActionButton> : undefined}
+        rightContent={metadataReady && !loading && !envManaged && canEditEndpoints ? <ListActionButton variant="primary" onClick={startCreate}>{text("newEndpoint")}</ListActionButton> : undefined}
       />
 
       {envManaged && (
         <PageBanner tone="info">
-          Storage endpoints are managed by environment variables (ENV_STORAGE_ENDPOINTS). Configuration changes are disabled.
+          {text("envManagedBanner")}
         </PageBanner>
       )}
       {!envManaged && !canEditEndpoints && (
         <PageBanner tone="info">
-          Endpoint editing is restricted to superadmin users. You currently have read-only access.
+          {text("readOnlyBanner")}
         </PageBanner>
       )}
       {defaultError && <PageBanner tone="error">{defaultError}</PageBanner>}
@@ -898,10 +900,10 @@ export default function StorageEndpointsPage() {
 
       {deleteTarget && (
         <ConfirmActionDialog
-          title="Delete endpoint"
-          description={<>Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This action cannot be undone.</>}
-          confirmLabel="Delete"
-          processingLabel="Deleting..."
+          title={text("deleteEndpoint")}
+          description={<>{text("deleteConfirm", { name: deleteTarget.name }).split(deleteTarget.name)[0]}<strong>{deleteTarget.name}</strong>{text("deleteConfirm", { name: deleteTarget.name }).split(deleteTarget.name)[1]}</>}
+          confirmLabel={text("delete")}
+          processingLabel={text("deleting")}
           loading={deleteBusy}
           error={deleteError}
           onCancel={() => setDeleteTarget(null)}
