@@ -160,9 +160,16 @@ class ResourceTracker:
 
         for account_id, bucket_name in reversed(self.buckets):
             try:
+                account = self.admin_session.get(f"/admin/accounts/{account_id}")
+                endpoint_id = int(account["storage_endpoint_id"])
                 self.admin_session.delete(
-                    f"/manager/buckets/{bucket_name}",
-                    params={"account_id": account_id, "force": "true"},
+                    f"/ceph-admin/endpoints/{endpoint_id}/buckets/{bucket_name}",
+                    json={
+                        "confirmation": f"PURGE AND DELETE BUCKET {bucket_name}",
+                        "purge_objects": True,
+                        "bypass_gc": False,
+                    },
+                    expected_status=(200, 404),
                 )
                 if log:
                     log(f"Deleted bucket {bucket_name} (account {account_id})")
