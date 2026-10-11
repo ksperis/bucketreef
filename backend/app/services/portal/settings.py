@@ -32,9 +32,6 @@ class PortalSettingsMixin:
             raise ValueError("Persisted Portal settings override must be a JSON object")
         return PortalSettingsOverride.model_validate(payload, strict=True)
 
-    def _override_payload(self, override: PortalSettingsOverride) -> dict:
-        return override.model_dump(exclude_unset=True, exclude_none=True)
-
     def _persist_portal_settings_override(
         self,
         account: S3Account,
@@ -44,7 +41,7 @@ class PortalSettingsMixin:
         portal_collaborator_role_management_delegated: Optional[bool] = None,
         portal_collaborator_addition_delegated: Optional[bool] = None,
     ) -> None:
-        payload = self._override_payload(override)
+        payload = override.model_dump(exclude_unset=True, exclude_none=True)
         account.portal_settings_override = (
             json.dumps(payload, separators=(",", ":"), sort_keys=True)
             if payload
