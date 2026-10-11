@@ -54,6 +54,22 @@ export const storageEndpointMessages = {
   loadingError: m("Unable to load endpoints. Use Retry to try again.", "Impossible de charger les points de terminaison. Utilisez Réessayer.", "Endpunkte konnten nicht geladen werden. Verwenden Sie Erneut versuchen.", "无法加载端点。请点击“重试”。"),
   noMatches: m("No endpoints match these filters.", "Aucun point de terminaison ne correspond à ces filtres.", "Keine Endpunkte entsprechen diesen Filtern.", "没有端点符合这些筛选条件。"),
   noConfigured: m("No endpoints configured yet.", "Aucun point de terminaison n’est encore configuré.", "Noch keine Endpunkte konfiguriert.", "尚未配置端点。"),
+  pageDescription: m("Manage the S3/Ceph endpoints used by the console.", "Gérez les points de terminaison S3/Ceph utilisés par la console.", "Verwalten Sie die von der Konsole verwendeten S3-/Ceph-Endpunkte.", "管理控制台使用的 S3/Ceph 端点。"),
+  newEndpoint: m("New endpoint", "Nouveau point de terminaison", "Neuer Endpunkt", "新建端点"),
+  envManagedBanner: m("Storage endpoints are managed by environment variables (ENV_STORAGE_ENDPOINTS). Configuration changes are disabled.", "Les points de terminaison de stockage sont gérés par les variables d’environnement (ENV_STORAGE_ENDPOINTS). Les modifications de configuration sont désactivées.", "Speicherendpunkte werden durch Umgebungsvariablen (ENV_STORAGE_ENDPOINTS) verwaltet. Konfigurationsänderungen sind deaktiviert.", "存储端点由环境变量（ENV_STORAGE_ENDPOINTS）管理，配置修改已禁用。"),
+  readOnlyBanner: m("Endpoint editing is restricted to superadmin users. You currently have read-only access.", "La modification des points de terminaison est réservée aux superadministrateurs. Vous disposez actuellement d’un accès en lecture seule.", "Die Bearbeitung von Endpunkten ist auf Superadministratoren beschränkt. Sie haben derzeit nur Lesezugriff.", "端点编辑仅限超级管理员。你当前只有只读权限。"),
+  loadingStorageEndpoint: m("Loading storage endpoint", "Chargement du point de terminaison de stockage", "Speicherendpunkt wird geladen", "正在加载存储端点"),
+  loadingDescription: m("Retrieving endpoint configuration and access mode.", "Récupération de la configuration et du mode d’accès du point de terminaison.", "Endpunktkonfiguration und Zugriffsmodus werden abgerufen.", "正在获取端点配置和访问模式。"),
+  loadingConfiguration: m("Loading endpoint configuration...", "Chargement de la configuration du point de terminaison…", "Endpunktkonfiguration wird geladen…", "正在加载端点配置…"),
+  notFound: m("Storage endpoint not found", "Point de terminaison de stockage introuvable", "Speicherendpunkt nicht gefunden", "未找到存储端点"),
+  notFoundDescription: m("The requested endpoint does not exist or is no longer available.", "Le point de terminaison demandé n’existe pas ou n’est plus disponible.", "Der angeforderte Endpunkt existiert nicht oder ist nicht mehr verfügbar.", "请求的端点不存在或已不可用。"),
+  backToEndpoints: m("Back to endpoints", "Retour aux points de terminaison", "Zurück zu den Endpunkten", "返回端点列表"),
+  selectCurrentEndpoint: m("Select an endpoint from the current storage endpoint list.", "Sélectionnez un point de terminaison dans la liste actuelle.", "Wählen Sie einen Endpunkt aus der aktuellen Liste aus.", "请从当前存储端点列表中选择一个端点。"),
+  deleteEndpoint: m("Delete endpoint", "Supprimer le point de terminaison", "Endpunkt löschen", "删除端点"),
+  deleteConfirm: m("Are you sure you want to delete {name}? This action cannot be undone.", "Voulez-vous vraiment supprimer {name} ? Cette action est irréversible.", "Möchten Sie {name} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.", "确定要删除 {name} 吗？此操作无法撤销。"),
+  deleting: m("Deleting...", "Suppression…", "Wird gelöscht…", "正在删除…"),
+  endpointDeleted: m("Endpoint deleted.", "Point de terminaison supprimé.", "Endpunkt gelöscht.", "端点已删除。"),
+  defaultEndpointUpdated: m("Default endpoint updated.", "Point de terminaison par défaut mis à jour.", "Standardendpunkt aktualisiert.", "默认端点已更新。"),
 };
 
 export type StorageEndpointMessageKey = keyof typeof storageEndpointMessages;
