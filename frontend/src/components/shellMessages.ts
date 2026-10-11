@@ -16,7 +16,7 @@ export const shellMessages = {
   navigationAria: m4("{title} navigation", "Navigation {title}", "{title}-Navigation", "{title} 导航"),
   expandSidebar: m4("Expand sidebar", "Développer la barre latérale", "Seitenleiste erweitern", "展开侧边栏"),
   collapseSidebar: m4("Collapse sidebar", "Réduire la barre latérale", "Seitenleiste einklappen", "收起侧边栏"),
-  closeMobileNavigation: m("Close mobile navigation", "关闭移动端导航"),
+  closeMobileNavigation: m4("Close mobile navigation", "Fermer la navigation mobile", "Mobile Navigation schließen", "关闭移动端导航"),
   profile: m4("Profile", "Profil", "Profil", "个人资料"),
 
   unknown: m("Unknown", "未知"),
@@ -26,8 +26,8 @@ export const shellMessages = {
   user: m("User", "用户"),
   noAccess: m("No access", "无访问权限"),
   session: m("Session", "会话"),
-  openNavigation: m("Open navigation", "打开导航"),
-  closeNavigation: m("Close navigation", "关闭导航"),
+  openNavigation: m4("Open navigation", "Ouvrir la navigation", "Navigation öffnen", "打开导航"),
+  closeNavigation: m4("Close navigation", "Fermer la navigation", "Navigation schließen", "关闭导航"),
 
   accountActionsFor: m4("Account actions for {display}", "Actions du compte pour {display}", "Kontoaktionen für {display}", "账户操作：{display}"),
   accountActions: m4("Account actions", "Actions du compte", "Kontoaktionen", "账户操作"),
