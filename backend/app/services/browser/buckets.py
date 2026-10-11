@@ -64,7 +64,11 @@ class BrowserBucketsMixin:
         portal_buckets = self._list_portal_storage_space_buckets(account)
         if portal_buckets is not None:
             return portal_buckets
-        allowed_portal_buckets = account.portal_allowed_buckets
+        allowed_portal_buckets = (
+            account.portal_allowed_buckets
+            if isinstance(account, S3ExecutionContext)
+            else None
+        )
         account_key = self._account_cache_key(account)
         cached = _BUCKET_LIST_CACHE.get(account_key)
         if cached is not None:
