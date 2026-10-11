@@ -3,12 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
-import { useI18n } from "../i18n";
 import {
   TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS,
   TOPBAR_CONTEXT_SELECTOR_VALUE_WIDTH_CLASS,
   TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS,
 } from "./topbarControlWidths";
+import { useShellI18n } from "./shellMessages";
 
 type TopbarStaticAccountControlProps = {
   mode: "icon" | "icon_label";
@@ -27,8 +27,7 @@ export default function TopbarStaticAccountControl({
   badge,
   muted = false,
 }: TopbarStaticAccountControlProps) {
-  const { t } = useI18n();
-  const accountLabel = t({ en: "Account", fr: "Compte", de: "Konto", zh: "账户" });
+  const { text } = useShellI18n();
   if (mode === "icon") {
     return (
       <div
@@ -36,7 +35,7 @@ export default function TopbarStaticAccountControl({
         className={`shell-control-static inline-flex h-9 ${TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS} items-center justify-center rounded-lg border`}
       >
         <span aria-hidden="true">{icon}</span>
-        <span className="sr-only">{t({ en: `Account context ${selectedLabel}`, fr: `Contexte de compte ${selectedLabel}`, de: `Kontokontext ${selectedLabel}`, zh: `账户上下文 ${selectedLabel}` })}</span>
+        <span className="sr-only">{text("accountContextFor", { label: selectedLabel })}</span>
       </div>
     );
   }
@@ -50,7 +49,7 @@ export default function TopbarStaticAccountControl({
     >
       <span className="min-w-0 flex-1 leading-tight">
         <span className="shell-muted-text block truncate text-[10px] font-medium">
-          {accountLabel}
+          {text("account")}
         </span>
         <span className={`mt-0.5 block ${TOPBAR_CONTEXT_SELECTOR_VALUE_WIDTH_CLASS} truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]`}>
           {selectedLabel}

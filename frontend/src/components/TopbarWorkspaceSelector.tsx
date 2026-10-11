@@ -12,20 +12,20 @@ import {
 } from "react";
 
 import type { WorkspaceSwitcherModel } from "./EnvironmentSwitcher";
-import { useI18n } from "../i18n";
 import { CheckIcon, ChevronDownIcon } from "./topbarIcons";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
+import { useShellI18n, type ShellText } from "./shellMessages";
 
 type TopbarWorkspaceSelectorProps = {
   section?: string;
   workspaceSwitcher?: WorkspaceSwitcherModel | null;
 };
 
-function compactWorkspaceLabel(label?: string | null, fallback = "Workspace"): string {
+function compactWorkspaceLabel(label: string | null | undefined, text: ShellText): string {
   const normalized = (label ?? "").replace(/\s*\([^)]*\)\s*$/, "").trim();
-  if (!normalized) return fallback;
-  if (normalized.toLowerCase() === "administration") return "Admin";
+  if (!normalized) return text("workspace");
+  if (normalized.toLowerCase() === "administration") return text("admin");
   return normalized;
 }
 
@@ -33,7 +33,7 @@ export default function TopbarWorkspaceSelector({
   section,
   workspaceSwitcher,
 }: TopbarWorkspaceSelectorProps) {
-  const { t } = useI18n();
+  const { text } = useShellI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -128,16 +128,15 @@ export default function TopbarWorkspaceSelector({
     }
   };
 
-  const workspaceLabel = t({ en: "Workspace", fr: "Espace de travail", de: "Arbeitsbereich", zh: "工作区" });
   const triggerLabel = workspaceSwitcher
-    ? compactWorkspaceLabel(workspaceSwitcher.currentWorkspaceLabel, workspaceLabel)
-    : compactWorkspaceLabel(section, workspaceLabel);
+    ? compactWorkspaceLabel(workspaceSwitcher.currentWorkspaceLabel, text)
+    : compactWorkspaceLabel(section, text);
 
   if (!workspaceSwitcher) {
     return (
       <div className="shell-control-static flex h-10 w-[140px] min-w-0 items-center gap-2 rounded-lg border px-3 md:w-[152px]">
         <span className="flex min-w-0 flex-1 flex-col justify-center leading-[1.05]">
-          <span className="shell-muted-text hidden truncate text-[10px] font-medium md:block">{workspaceLabel}</span>
+          <span className="shell-muted-text hidden truncate text-[10px] font-medium md:block">{text("workspace")}</span>
           {triggerLabel && (
             <span className="block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)] md:mt-0.5">
               {triggerLabel}
@@ -154,7 +153,7 @@ export default function TopbarWorkspaceSelector({
         ref={triggerRef}
         type="button"
         onClick={() => setMenuOpen((open) => !open)}
-        aria-label={t({ en: "Switch workspace", fr: "Changer d’espace de travail", de: "Arbeitsbereich wechseln", zh: "切换工作区" })}
+        aria-label={text("switchWorkspace")}
         aria-haspopup="listbox"
         aria-expanded={menuOpen}
         aria-controls={menuOpen ? listboxId : undefined}
@@ -168,7 +167,7 @@ export default function TopbarWorkspaceSelector({
         }`}
       >
         <span className="flex min-w-0 flex-1 flex-col justify-center leading-tight">
-          <span className="shell-muted-text hidden truncate text-[10px] font-medium md:block">{workspaceLabel}</span>
+          <span className="shell-muted-text hidden truncate text-[10px] font-medium md:block">{text("workspace")}</span>
           <span className="block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)] md:mt-0.5">
             {triggerLabel}
           </span>
@@ -193,7 +192,7 @@ export default function TopbarWorkspaceSelector({
               className="max-h-72 overflow-y-auto focus:outline-none"
               role="listbox"
               tabIndex={0}
-              aria-label="Switch workspace"
+              aria-label={text("switchWorkspace")}
               aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
               onKeyDown={handleListboxKeyDown}
             >
