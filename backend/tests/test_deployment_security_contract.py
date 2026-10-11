@@ -23,8 +23,10 @@ def test_runtime_images_are_fixed_non_root_and_read_only_compatible():
     assert "USER 101:101" in frontend
     assert "listen 8080;" in nginx
     assert all(path in nginx for path in ("pid /tmp/nginx.pid", "client_body_temp_path /tmp/"))
+    assert "golang:1.26.9-alpine@sha256:" in scheduler
     assert "SUPERCRONIC_VERSION=v0.2.49" in scheduler
-    assert "sha256sum -c" in scheduler
+    assert 'go install -ldflags "-X main.Version=${SUPERCRONIC_VERSION}"' in scheduler
+    assert '"github.com/aptible/supercronic@${SUPERCRONIC_VERSION}"' in scheduler
     assert "USER 10001:10001" in scheduler
     assert "apk add" not in scheduler_entrypoint
     assert "NOTIFICATION_RETENTION_CRON_SCHEDULE" in scheduler_entrypoint
