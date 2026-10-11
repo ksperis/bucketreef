@@ -9,6 +9,7 @@ import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
 import UserAvatar from "./UserAvatar";
 import AppVersion from "./AppVersion";
+import { useShellI18n } from "./shellMessages";
 
 type TopbarAccountMenuProps = {
   avatar?: UserAvatarDescriptor | null;
@@ -29,6 +30,7 @@ export default function TopbarAccountMenu({
   profilePath,
   onLogout,
 }: TopbarAccountMenuProps) {
+  const { text } = useShellI18n();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -112,7 +114,7 @@ export default function TopbarAccountMenu({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        aria-label={`Account actions for ${display}`}
+        aria-label={text("accountActionsFor", { display })}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -144,7 +146,7 @@ export default function TopbarAccountMenu({
             id={menuId}
             ref={surfaceRef}
             role="menu"
-            aria-label="Account actions"
+            aria-label={text("accountActions")}
             className="shell-menu w-72 rounded-lg border p-1.5"
           >
             <div className="shell-menu-muted mb-1 flex items-center gap-2.5 rounded-md border px-2.5 py-2">
@@ -156,7 +158,7 @@ export default function TopbarAccountMenu({
                 className="border-[var(--shell-surface)] shadow-none"
               />
               <div className="min-w-0 flex-1">
-                <p className="shell-muted-text ui-caption">Signed in as</p>
+                <p className="shell-muted-text ui-caption">{text("signedInAs")}</p>
                 <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">{name}</p>
                 {name !== display ? (
                   <p className="shell-muted-text truncate ui-caption">{display}</p>
@@ -178,8 +180,8 @@ export default function TopbarAccountMenu({
             >
               <UserIcon className="shell-icon-muted mt-0.5 h-4 w-4" />
               <span>
-                <span className="block ui-caption font-semibold text-[var(--shell-text)]">User profile</span>
-                <span className="shell-muted-text block ui-caption">Personal details and preferences</span>
+                <span className="block ui-caption font-semibold text-[var(--shell-text)]">{text("userProfile")}</span>
+                <span className="shell-muted-text block ui-caption">{text("personalDetailsPreferences")}</span>
               </span>
             </a>
 
@@ -194,9 +196,9 @@ export default function TopbarAccountMenu({
                 <LinkIcon className="shell-icon-muted mt-0.5 h-4 w-4" />
                 <span>
                   <span className="block ui-caption font-semibold text-[var(--shell-text)]">
-                    Private S3 connections
+                    {text("privateS3Connections")}
                   </span>
-                  <span className="shell-muted-text block ui-caption">Manage your endpoints and credentials</span>
+                  <span className="shell-muted-text block ui-caption">{text("manageEndpointsCredentials")}</span>
                 </span>
               </a>
             )}
@@ -210,7 +212,7 @@ export default function TopbarAccountMenu({
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left ui-caption font-semibold text-primary-700 transition hover:bg-primary-50 dark:text-primary-200 dark:hover:bg-white/[0.06]"
             >
               <LogoutIcon className="h-4 w-4" />
-              <span>Sign out</span>
+              <span>{text("signOut")}</span>
             </button>
             <div className="shell-muted-text mt-1 border-t border-[color:var(--shell-border-soft)] px-2.5 pt-1.5 text-center">
               <AppVersion />
