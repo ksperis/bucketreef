@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { LanguageProvider } from "../../components/language";
-import { TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS } from "../../components/topbarControlWidths";
+import { TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS } from "../../components/topbarControlWidths";
 import PortalLayout from "./PortalLayout";
 import { setSessionUserCache } from "../../utils/workspaces";
 
@@ -170,10 +170,9 @@ describe("PortalLayout", () => {
     const accountSelector = within(topbar).getByRole("button", {
       name: "Select project",
     });
-    expect(accountSelector).toHaveTextContent("Project");
     expect(accountSelector).toHaveTextContent("Helios Retail");
     expect(accountSelector.parentElement).toHaveClass(
-      ...TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS.split(" "),
+      TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS,
     );
     await user.click(accountSelector);
     expect(
@@ -287,7 +286,7 @@ describe("PortalLayout", () => {
       </LanguageProvider>,
     );
 
-    const nav = screen.getByRole("navigation", { name: "PORTAL navigation" });
+    const nav = screen.getByRole("navigation", { name: "Navigation PORTAL" });
     expect(
       within(nav)
         .getAllByRole("link")
@@ -300,7 +299,7 @@ describe("PortalLayout", () => {
       "État du stockage",
     ]);
     expect(
-      await screen.findByRole("button", { name: "Switch workspace" }),
+      await screen.findByRole("button", { name: "Changer d’espace de travail" }),
     ).toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: "Sélectionner un projet" }),

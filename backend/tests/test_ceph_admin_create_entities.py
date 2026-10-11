@@ -103,9 +103,18 @@ class FakeAccountsAdmin:
         }
 
 
+def _ctx(endpoint_id: int, rgw_admin: object) -> SimpleNamespace:
+    return SimpleNamespace(
+        endpoint=SimpleNamespace(id=endpoint_id),
+        rgw_admin=rgw_admin,
+        actor=None,
+        audit_service=None,
+    )
+
+
 def test_create_rgw_account_supports_quota():
     fake_rgw = FakeAccountsAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=901), rgw_admin=fake_rgw)
+    ctx = _ctx(901, fake_rgw)
     payload = CephAdminRgwAccountCreate(
         account_id="RGW12345678901234567",
         account_name="Primary Account",
@@ -129,7 +138,7 @@ def test_create_rgw_account_supports_quota():
 
 def test_create_rgw_account_generates_configured_id_when_omitted(monkeypatch):
     fake_rgw = FakeAccountsAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=901), rgw_admin=fake_rgw)
+    ctx = _ctx(901, fake_rgw)
     monkeypatch.setattr(
         account_profiles_router,
         "load_app_settings",
@@ -156,7 +165,7 @@ def test_create_rgw_account_model_rejects_invalid_name(account_name: str):
 
 def test_update_rgw_account_quota_omits_unset_object_limit():
     fake_rgw = FakeAccountsAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=901), rgw_admin=fake_rgw)
+    ctx = _ctx(901, fake_rgw)
 
     account_profiles_router.update_rgw_account_config(
         "RGW12345678901234567",
@@ -178,7 +187,7 @@ def test_update_rgw_account_quota_omits_unset_object_limit():
 
 def test_update_rgw_account_quota_clears_object_limit_with_explicit_null():
     fake_rgw = FakeAccountsAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=901), rgw_admin=fake_rgw)
+    ctx = _ctx(901, fake_rgw)
 
     account_profiles_router.update_rgw_account_config(
         "RGW12345678901234567",
@@ -197,7 +206,7 @@ def test_update_rgw_account_quota_clears_object_limit_with_explicit_null():
 
 def test_update_rgw_bucket_quota_omits_unset_object_limit():
     fake_rgw = FakeAccountsAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=901), rgw_admin=fake_rgw)
+    ctx = _ctx(901, fake_rgw)
 
     account_profiles_router.update_rgw_account_config(
         "RGW12345678901234567",
@@ -219,7 +228,7 @@ def test_update_rgw_bucket_quota_omits_unset_object_limit():
 
 def test_update_rgw_bucket_quota_clears_object_limit_with_explicit_null():
     fake_rgw = FakeAccountsAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=901), rgw_admin=fake_rgw)
+    ctx = _ctx(901, fake_rgw)
 
     account_profiles_router.update_rgw_account_config(
         "RGW12345678901234567",
@@ -343,7 +352,7 @@ class FakeUsersAdmin:
 
 def test_create_rgw_user_with_account_scope_returns_generated_key():
     fake_rgw = FakeUsersAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=902), rgw_admin=fake_rgw)
+    ctx = _ctx(902, fake_rgw)
     payload = CephAdminRgwUserCreate(
         uid="billing-user",
         account_id="RGW99999999999999999",
@@ -392,7 +401,7 @@ def test_create_rgw_user_with_account_scope_returns_generated_key():
 
 def test_update_rgw_user_quota_omits_unset_object_limit():
     fake_rgw = FakeUsersAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=902), rgw_admin=fake_rgw)
+    ctx = _ctx(902, fake_rgw)
 
     user_profiles_router.update_rgw_user_config(
         "billing-user",
@@ -414,7 +423,7 @@ def test_update_rgw_user_quota_omits_unset_object_limit():
 
 def test_update_rgw_user_config_preserves_null_clearing_semantics():
     fake_rgw = FakeUsersAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=902), rgw_admin=fake_rgw)
+    ctx = _ctx(902, fake_rgw)
 
     user_profiles_router.update_rgw_user_config(
         "billing-user",
@@ -446,7 +455,7 @@ def test_update_rgw_user_config_preserves_null_clearing_semantics():
 
 def test_update_rgw_user_quota_clears_object_limit_with_explicit_null():
     fake_rgw = FakeUsersAdmin()
-    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=902), rgw_admin=fake_rgw)
+    ctx = _ctx(902, fake_rgw)
 
     user_profiles_router.update_rgw_user_config(
         "billing-user",

@@ -46,10 +46,11 @@ for (const { width, theme, name } of [
   test(`bucket JSON editor keeps clicks, indentation and scrolling aligned (${name})`, async ({ page }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", error => pageErrors.push(error.message));
+    await page.addInitScript(() => window.localStorage.setItem("languagePreference", "en"));
     await page.setViewportSize({ width, height: 960 });
     await page.emulateMedia({ colorScheme: "light" });
     await openDemo(page, "/manager/buckets/helios-logs?ctx=101");
-    await page.getByRole("tab", { name: "Properties", exact: true }).click();
+    await page.getByRole("tab", { name: "Data management", exact: true }).click();
     if (theme === "dark") await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
     await page.getByRole("button", { name: "Advanced editor", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Edit lifecycle rules", exact: true });

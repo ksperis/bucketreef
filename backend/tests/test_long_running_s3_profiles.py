@@ -11,6 +11,7 @@ from app.services.bucket_migration import execution_context
 from app.services.bucket_migration.execution_context import BucketMigrationExecutionContextMixin
 from app.services.bucket_purge_service import BucketPurgeService
 from app.services.bucket_usage_stats_service import BucketUsageStatsService
+from tests.execution_context_factory import make_s3_execution_context
 
 
 def test_comparison_preserves_specific_missing_credentials_error():
@@ -29,10 +30,7 @@ def test_compare_migration_purge_integrity_and_usage_select_long_running_profile
 
     monkeypatch.setattr(s3_client, "get_s3_client", fake_get_s3_client)
     monkeypatch.setattr(execution_context, "get_s3_client", fake_get_s3_client)
-    account = SimpleNamespace(
-        effective_rgw_credentials=lambda: ("AK", "SK"),
-        session_token=lambda: None,
-    )
+    account = make_s3_execution_context()
 
     BucketComparisonService()._build_client(account)
     BucketPurgeService()._build_client(account)

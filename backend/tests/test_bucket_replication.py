@@ -191,7 +191,13 @@ def test_ceph_admin_put_bucket_replication_invalidates_listing_cache(monkeypatch
 
     monkeypatch.setattr(BucketConfigurationService, "set_bucket_replication", fake_set_bucket_replication)
 
-    ctx = SimpleNamespace(endpoint=_build_endpoint(endpoint_id=99), access_key="AK", secret_key="SK")
+    ctx = SimpleNamespace(
+        endpoint=_build_endpoint(endpoint_id=99),
+        access_key="AK",
+        secret_key="SK",
+        actor=None,
+        audit_service=None,
+    )
     payload = BucketReplicationConfiguration(
         configuration={
             "Role": "arn:aws:iam::123456789012:role/replication",
@@ -218,6 +224,8 @@ def test_ceph_admin_put_bucket_replication_requires_endpoint_feature(monkeypatch
         endpoint=_build_endpoint(endpoint_id=99, replication_enabled=False),
         access_key="AK",
         secret_key="SK",
+        actor=None,
+        audit_service=None,
     )
     payload = BucketReplicationConfiguration(
         configuration={
@@ -249,7 +257,13 @@ def test_ceph_admin_delete_bucket_replication_invalidates_listing_cache(monkeypa
 
     monkeypatch.setattr(BucketConfigurationService, "delete_bucket_replication", fake_delete_bucket_replication)
 
-    ctx = SimpleNamespace(endpoint=_build_endpoint(endpoint_id=100), access_key="AK", secret_key="SK")
+    ctx = SimpleNamespace(
+        endpoint=_build_endpoint(endpoint_id=100),
+        access_key="AK",
+        secret_key="SK",
+        actor=None,
+        audit_service=None,
+    )
     response = ceph_admin_buckets_router.delete_replication("demo-bucket", ctx=ctx)
 
     assert response.status_code == 204
