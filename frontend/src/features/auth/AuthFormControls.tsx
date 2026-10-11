@@ -8,6 +8,7 @@ import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { cx } from "../../components/ui/styles";
+import { useAuthI18n } from "./authMessages";
 
 const authFieldLabelClass =
   "normal-case tracking-normal ui-body font-medium text-slate-700";
@@ -30,11 +31,15 @@ type AuthPasswordInputProps = Omit<ComponentProps<typeof AuthInput>, "type"> & {
 
 export function AuthPasswordInput({
   className,
-  secretLabel = "password",
+  secretLabel,
   ...props
 }: AuthPasswordInputProps) {
+  const { text } = useAuthI18n();
   const [visible, setVisible] = useState(false);
-  const actionLabel = `${visible ? "Hide" : "Show"} ${secretLabel}`;
+  const resolvedSecretLabel = secretLabel ?? text("passwordActionLabel");
+  const actionLabel = text(visible ? "hideSecret" : "showSecret", {
+    label: resolvedSecretLabel,
+  });
 
   return (
     <div className="relative">
@@ -50,7 +55,7 @@ export function AuthPasswordInput({
         onClick={() => setVisible((current) => !current)}
         className="absolute bottom-2.5 right-3 ui-caption font-semibold text-primary-700 hover:text-primary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
       >
-        {visible ? "Hide" : "Show"}
+        {text(visible ? "hide" : "show")}
       </button>
     </div>
   );
