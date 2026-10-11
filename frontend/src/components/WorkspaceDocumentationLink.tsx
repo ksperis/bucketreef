@@ -2,23 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useI18n } from "../i18n";
 import TopbarUtilityHint from "./TopbarUtilityHint";
+import { useShellI18n } from "./shellMessages";
 
 export default function WorkspaceDocumentationLink({ href }: { href: string }) {
-  const { t } = useI18n();
-  const label = t({
-    en: "Documentation",
-    fr: "Documentation",
-    de: "Dokumentation",
-    zh: "文档",
-  });
-  const title = t({
-    en: "Open workspace documentation",
-    fr: "Ouvrir la documentation de cet espace",
-    de: "Dokumentation dieses Arbeitsbereichs öffnen",
-    zh: "打开此工作区的文档",
-  });
+  const { text } = useShellI18n();
+  const label = text("documentation");
+  const title = text("openWorkspaceDocumentation");
 
   return (
     <TopbarUtilityHint label={label}>
