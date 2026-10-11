@@ -43,6 +43,7 @@ import {
   type BrowserFunctionalProfile,
 } from "./browserActions";
 import type { BrowserItem, ClipboardState, ContextMenuState } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type HeaderConfigColumnOption = {
   id: string;
@@ -156,6 +157,7 @@ export default function BrowserContextMenu({
   onToggleVisibleColumn,
   onResetVisibleColumns,
 }: BrowserContextMenuProps) {
+  const { text } = useBrowserI18n();
   if (!contextMenu) return null;
 
   const contextItem = contextMenu.kind === "item" ? contextMenu.item ?? null : null;
@@ -323,7 +325,7 @@ export default function BrowserContextMenu({
         <>
           {canConfigureDensity && (
             <>
-              <p className="px-2 py-1 ui-caption font-semibold uppercase tracking-wide text-slate-400">View</p>
+              <p className="px-2 py-1 ui-caption font-semibold uppercase tracking-wide text-slate-400">{text("View")}</p>
               <button
                 type="button"
                 role="menuitemradio"
@@ -335,14 +337,13 @@ export default function BrowserContextMenu({
                 disabled={!onSetCompactMode}
               >
                 <ListIcon className="h-3.5 w-3.5" />
-                Comfortable
+                {text("Comfortable")}
                 {!compactMode && (
                   <span
                     aria-hidden="true"
                     className="ml-auto rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700 dark:bg-primary-500/20 dark:text-primary-100"
                   >
-                    Active
-                  </span>
+                    {text("Active")}</span>
                 )}
               </button>
               <button
@@ -356,14 +357,13 @@ export default function BrowserContextMenu({
                 disabled={!onSetCompactMode}
               >
                 <CompactIcon className="h-3.5 w-3.5" />
-                Compact
+                {text("Compact")}
                 {compactMode && (
                   <span
                     aria-hidden="true"
                     className="ml-auto rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700 dark:bg-primary-500/20 dark:text-primary-100"
                   >
-                    Active
-                  </span>
+                    {text("Active")}</span>
                 )}
               </button>
             </>
@@ -373,7 +373,7 @@ export default function BrowserContextMenu({
               {canConfigureDensity && (
                 <div className={contextMenuSeparatorClasses} />
               )}
-              <p className="px-2 py-1 ui-caption font-semibold uppercase tracking-wide text-slate-400">Columns</p>
+              <p className="px-2 py-1 ui-caption font-semibold uppercase tracking-wide text-slate-400">{text("Columns")}</p>
               {columnOptions.map((column) => {
                 const checked = visibleColumns?.has(column.id) ?? false;
                 return (
@@ -389,7 +389,7 @@ export default function BrowserContextMenu({
                     <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[11px] font-bold">
                       {checked ? "✓" : ""}
                     </span>
-                    {column.label}
+                    {text(column.label)}
                   </button>
                 );
               })}
@@ -403,7 +403,7 @@ export default function BrowserContextMenu({
                 disabled={!onResetVisibleColumns}
               >
                 <SlidersIcon className="h-3.5 w-3.5" />
-                Reset columns
+                {text("Reset columns")}
               </button>
             </>
           )}

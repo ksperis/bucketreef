@@ -13,6 +13,7 @@ import type { BrowserObjectVersion } from "../../api/browserContracts";
 import { formatBrowserOperationError } from "./browserOperationErrors";
 import type { OperationCompletionStatus } from "./browserTypes";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -59,6 +60,7 @@ export function useBrowserVersionActions({
   startOperation,
   versioningEnabled,
 }: UseBrowserVersionActionsOptions) {
+  const { text } = useBrowserI18n();
   const refresh = useCallback(
     async (key: string) => {
       await onRefreshListing(key);
@@ -102,12 +104,12 @@ export function useBrowserVersionActions({
           controller.signal,
           requestOptions,
         );
-        onStatus(`Restored version ${version.version_id}`);
+        onStatus(text("Restored version {version}", { version: version.version_id }));
         await refresh(version.key);
       } catch (caughtError) {
         if (isOperationAborted(caughtError, controller)) {
           completionStatus = "cancelled";
-          onStatus("Restore version cancelled.");
+          onStatus(text("Restore version cancelled."));
           await refresh(version.key);
         } else {
           completionStatus = "failed";
@@ -216,11 +218,11 @@ export function useBrowserVersionActions({
         return;
       }
       onWarning(null);
-      const label = version.is_delete_marker ? "delete marker" : "version";
+      const label = version.is_delete_marker ? text("delete marker") : text("version");
       onConfirm({
-        title: `Delete ${label}`,
-        message: `Delete ${label} for ${version.key}?`,
-        confirmLabel: "Delete",
+        title: text("Delete {label}", { label }),
+        message: text("Delete {label} for {key}?", { label, key: version.key }),
+        confirmLabel: text("Delete"),
         tone: "danger",
         onConfirm: () => executeDelete(version),
       });

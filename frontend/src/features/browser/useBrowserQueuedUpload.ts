@@ -29,6 +29,7 @@ import type { BrowserTransferReporter } from "./browserPageContract";
 import type { UploadQueueItem } from "./browserTypes";
 import { isAbortError, isLikelyCorsError } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -72,6 +73,7 @@ export function useBrowserQueuedUpload({
   updateOperation,
   useProxyTransfers,
 }: UseBrowserQueuedUploadOptions) {
+  const { text } = useBrowserI18n();
   return useCallback(
     async (item: UploadQueueItem) => {
       if (!item.bucket) return false;
@@ -112,7 +114,7 @@ export function useBrowserQueuedUpload({
 
       try {
         if (!useProxyTransfers && file.size >= MULTIPART_THRESHOLD) {
-          updateOperation(operationId, { label: "Multipart upload" });
+          updateOperation(operationId, { label: text("Multipart upload") });
           await uploadBrowserFileMultipart({
             file,
             partSize: Math.max(PART_SIZE, Math.ceil(file.size / 10000 / 1048576) * 1048576),
@@ -204,9 +206,9 @@ export function useBrowserQueuedUpload({
             ) {
               throw directError;
             }
-            updateOperation(operationId, { label: "Proxy upload fallback" });
+            updateOperation(operationId, { label: text("Proxy upload fallback") });
             onWarning(
-              "Direct upload was unavailable, so BucketReef completed it through the proxy.",
+              text("Direct upload was unavailable, so BucketReef completed it through the proxy."),
             );
             await uploadFile("proxy");
           }
@@ -218,7 +220,7 @@ export function useBrowserQueuedUpload({
             itemLabel || relativePath || file.name,
           );
         }
-        onStatus(`Uploaded ${relativePath}`);
+        onStatus(text("Uploaded {path}", { path: relativePath }));
         return true;
       } catch (caughtError) {
         if (isAbortError(caughtError)) {
@@ -237,7 +239,7 @@ export function useBrowserQueuedUpload({
           onStatus(completionError);
           if (!useProxyTransfers && isLikelyCorsError(caughtError)) {
             onWarning(
-              "Direct transfer failed before S3 returned an HTTP response. Possible causes: network reachability, TLS/certificate issue, CORS policy, or endpoint/proxy configuration.",
+              text("Direct transfer failed before S3 returned an HTTP response. Possible causes: network reachability, TLS/certificate issue, CORS policy, or endpoint/proxy configuration."),
             );
           }
         }

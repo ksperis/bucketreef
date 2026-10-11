@@ -41,6 +41,7 @@ import { useBrowserObjectSignedUrl } from "./useBrowserObjectSignedUrl";
 import { useBrowserObjectArchiveRestore } from "./useBrowserObjectArchiveRestore";
 import { useBrowserObjectAcl } from "./useBrowserObjectAcl";
 import { useBrowserObjectPreview } from "./useBrowserObjectPreview";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserObjectDetailsStatus = {
   message: string;
@@ -103,6 +104,7 @@ export default function BrowserObjectDetailsDrawer({
   profile,
   requestOptions,
 }: BrowserObjectDetailsDrawerProps) {
+  const { text } = useBrowserI18n();
   const [activeTab, setActiveTab] = useState<ObjectDetailsTabId>(initialTab);
   const [itemSnapshot, setItemSnapshot] = useState(item);
   const [actionStatus, setActionStatus] =
@@ -306,7 +308,7 @@ export default function BrowserObjectDetailsDrawer({
     hasUnsavedChanges,
     onClose,
     description:
-      "You have unapplied object property changes. Closing details will discard them.",
+      text("You have unapplied object property changes. Closing details will discard them."),
   });
 
   useEffect(() => {
@@ -364,8 +366,8 @@ export default function BrowserObjectDetailsDrawer({
     runBooleanSave({
       save: saveMetadata,
       isCurrentScope: isPropertiesScopeCurrent,
-      successMessage: "Metadata updated.",
-      errorMessage: "Unable to update metadata.",
+      successMessage: text("Metadata updated."),
+      errorMessage: text("Unable to update metadata."),
       refreshObjectList: true,
     });
 
@@ -373,8 +375,8 @@ export default function BrowserObjectDetailsDrawer({
     runBooleanSave({
       save: saveTags,
       isCurrentScope: isPropertiesScopeCurrent,
-      successMessage: "Tags updated.",
-      errorMessage: "Unable to update tags.",
+      successMessage: text("Tags updated."),
+      errorMessage: text("Unable to update tags."),
       refreshObjectList: true,
     });
 
@@ -389,10 +391,10 @@ export default function BrowserObjectDetailsDrawer({
       }));
       await onRefreshBrowserObjects(itemSnapshot.key);
       if (!isPropertiesScopeCurrent()) return;
-      pushStatus("Storage class updated.", "success");
+      pushStatus(text("Storage class updated."), "success");
     } catch (err) {
       pushStatus(
-        extractApiError(err, "Unable to update storage class."),
+        extractApiError(err, text("Unable to update storage class.")),
         "error",
       );
     }
@@ -402,16 +404,16 @@ export default function BrowserObjectDetailsDrawer({
     runBooleanSave({
       save: saveAcl,
       isCurrentScope: isAclScopeCurrent,
-      successMessage: "ACL updated.",
-      errorMessage: "Unable to update ACL.",
+      successMessage: text("ACL updated."),
+      errorMessage: text("Unable to update ACL."),
     });
 
   const handleSaveLegalHold = () =>
     runBooleanSave({
       save: saveLegalHold,
       isCurrentScope: isProtectionScopeCurrent,
-      successMessage: "Legal hold updated.",
-      errorMessage: "Unable to update legal hold.",
+      successMessage: text("Legal hold updated."),
+      errorMessage: text("Unable to update legal hold."),
     });
 
   const handleSaveRetention = async () => {
@@ -419,14 +421,14 @@ export default function BrowserObjectDetailsDrawer({
     try {
       const result = await saveRetention();
       if (result === "invalid") {
-        pushStatus("Retention date is invalid.", "error");
+        pushStatus(text("Retention date is invalid."), "error");
         return;
       }
       if (result !== "saved" || !isProtectionScopeCurrent()) return;
-      pushStatus("Retention updated.", "success");
+      pushStatus(text("Retention updated."), "success");
     } catch (err) {
       pushStatus(
-        extractApiError(err, "Unable to update retention."),
+        extractApiError(err, text("Unable to update retention.")),
         "error",
       );
     }
@@ -437,22 +439,22 @@ export default function BrowserObjectDetailsDrawer({
     try {
       const result = await restoreArchive();
       if (result === "invalid") {
-        pushStatus("Restore days must be a positive number.", "error");
+        pushStatus(text("Restore days must be a positive number."), "error");
         return;
       }
       if (result !== "restored" || !isArchiveRestoreScopeCurrent()) return;
       await onRefreshBrowserObjects(itemSnapshot.key);
       if (!isArchiveRestoreScopeCurrent()) return;
-      pushStatus("Restore request sent.", "success");
+      pushStatus(text("Restore request sent."), "success");
     } catch (err) {
-      pushStatus(extractApiError(err, "Unable to restore object."), "error");
+      pushStatus(extractApiError(err, text("Unable to restore object.")), "error");
     }
   };
 
   const handleGeneratePresign = async () => {
     const result = await generatePresign();
     if (result.status === "generated") {
-      pushStatus("Signed URL generated.", "success");
+      pushStatus(text("Signed URL generated."), "success");
     } else if (result.status === "api-error") {
       pushStatus(result.message, "error");
     }
@@ -461,7 +463,7 @@ export default function BrowserObjectDetailsDrawer({
   const handleCopyPresign = async () => {
     const result = await copyPresign();
     if (result.status === "copied") {
-      pushStatus("URL copied to clipboard.", "success");
+      pushStatus(text("URL copied to clipboard."), "success");
     } else if (result.status === "fallback") {
       setCopyDialogValue(result.value);
     }
@@ -483,8 +485,8 @@ export default function BrowserObjectDetailsDrawer({
         isDeleted: isDeletedCurrent,
         profile,
         versioningEnabled,
-      }),
-    [hasArchiveTab, isDeletedCurrent, profile, versioningEnabled],
+      }).map((tab) => ({ ...tab, label: text(tab.label) })),
+    [hasArchiveTab, isDeletedCurrent, profile, text, versioningEnabled],
   );
 
   useEffect(() => {
@@ -507,8 +509,8 @@ export default function BrowserObjectDetailsDrawer({
           extractApiError(
             error,
             useProxyTransfers || sseActive
-              ? "Unable to load preview."
-              : "Unable to generate preview URL.",
+              ? text("Unable to load preview.")
+              : text("Unable to generate preview URL."),
           )
         }
       />
@@ -637,8 +639,7 @@ export default function BrowserObjectDetailsDrawer({
       return (
         <div className="space-y-4">
           <PageBanner tone="warning">
-            Latest state is deleted. Use <span className="font-bold">Versions</span> to
-            restore the object or remove the delete marker.
+            {text("Latest state is deleted. Use Versions to restore the object or remove the delete marker.")}
           </PageBanner>
           {versioningEnabled ? renderVersionsContent() : null}
         </div>
@@ -676,10 +677,10 @@ export default function BrowserObjectDetailsDrawer({
         navigation={navigation}
         name={itemSnapshot.name}
         path={path}
-        moreLabel="More"
+        moreLabel={text("More")}
         primaryAction={
           !isDeletedCurrent
-            ? { label: "Download", onSelect: () => onDownload(itemSnapshot) }
+            ? { label: text("Download"), onSelect: () => onDownload(itemSnapshot) }
             : undefined
         }
         secondaryActions={
@@ -688,7 +689,7 @@ export default function BrowserObjectDetailsDrawer({
                 ...(canCopyUrl
                   ? [{
                       id: "copy-url",
-                      label: "Copy URL",
+                      label: text("Copy URL"),
                       disabled: copyUrlDisabled,
                       title: copyUrlDisabled ? copyUrlDisabledReason : undefined,
                       onSelect: () => void onCopyUrl(itemSnapshot),
@@ -697,7 +698,7 @@ export default function BrowserObjectDetailsDrawer({
                 ...(canDelete
                   ? [{
                       id: "delete",
-                      label: "Delete",
+                      label: text("Delete"),
                       tone: "danger" as const,
                       onSelect: () => void onDelete(itemSnapshot),
                     }]
@@ -707,14 +708,14 @@ export default function BrowserObjectDetailsDrawer({
         }
         activeTab={activeTab}
         tabs={tabs}
-        tabsAriaLabel="Object details views"
+        tabsAriaLabel={text("Object details views")}
         onTabChange={(tab) => setActiveTab(tab as ObjectDetailsTabId)}
         notice={
           isDeletedCurrent || restoreStatusLabel || statusNotice ? (
             <div className="space-y-2">
               {isDeletedCurrent || restoreStatusLabel ? (
                 <div className="flex flex-wrap gap-2 ui-caption text-[var(--ui-text-muted)]">
-                  {isDeletedCurrent ? <span className="rounded-md bg-rose-50 px-2 py-1 font-semibold text-rose-700 dark:bg-rose-900/30 dark:text-rose-100">Deleted</span> : null}
+                  {isDeletedCurrent ? <span className="rounded-md bg-rose-50 px-2 py-1 font-semibold text-rose-700 dark:bg-rose-900/30 dark:text-rose-100">{text("Deleted")}</span> : null}
                   {restoreStatusLabel ? <span className="rounded-md bg-amber-50 px-2 py-1 font-semibold text-amber-700 dark:bg-amber-900/20 dark:text-amber-100">{restoreStatusLabel}</span> : null}
                 </div>
               ) : null}
@@ -729,10 +730,10 @@ export default function BrowserObjectDetailsDrawer({
 
       {copyDialogValue && (
         <BrowserCopyValueModal
-          title="Copy URL"
-          label="Signed URL"
+          title={text("Copy URL")}
+          label={text("Signed URL")}
           value={copyDialogValue}
-          onCopySuccess={() => pushStatus("URL copied to clipboard.", "success")}
+          onCopySuccess={() => pushStatus(text("URL copied to clipboard."), "success")}
           onClose={() => setCopyDialogValue(null)}
         />
       )}

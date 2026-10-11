@@ -12,6 +12,7 @@ import {
 } from "../../components/ui/styles";
 
 import { ChevronDownIcon, SearchIcon, SlidersIcon } from "./browserIcons";
+import { useBrowserI18n } from "./browserI18n";
 
 const optionCardClasses =
   "inline-flex items-center gap-2 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-2.5 py-1.5 ui-caption font-medium text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)]";
@@ -85,6 +86,7 @@ export default function BrowserObjectSearchHeader({
   onClear,
   onClose,
 }: BrowserObjectSearchHeaderProps) {
+  const { text } = useBrowserI18n();
   return (
     <div className="flex min-w-0 items-center gap-2 pr-3">
       <button
@@ -92,7 +94,7 @@ export default function BrowserObjectSearchHeader({
         onClick={onSortName}
         className="group inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap text-left text-slate-500 transition hover:text-primary-700 dark:text-slate-400 dark:hover:text-primary-100"
       >
-        <span>Name</span>
+        <span>{text("Name")}</span>
         <ChevronDownIcon
           className={`h-3 w-3 transition ${
             nameSortActive ? "opacity-100" : "opacity-30"
@@ -132,7 +134,7 @@ export default function BrowserObjectSearchHeader({
             }`}
             aria-haspopup="menu"
             aria-expanded={optionsOpen}
-            label="Search options"
+            label={text("Search options")}
             icon={<SlidersIcon className="h-3 w-3" />}
           />
         )}
@@ -146,48 +148,45 @@ export default function BrowserObjectSearchHeader({
         >
           <div ref={optionsMenuRef} className="space-y-3">
             <UiSelect
-              label="Scope"
+              label={text("Scope")}
               size="compact"
               value={searchScope}
               onChange={(event) =>
                 onScopeChange(event.target.value as BrowserSearchScope)
               }
               className="ui-list-control h-9 w-full"
-              aria-label="Search scope"
+              aria-label={text("Search scope")}
               disabled={!hasSearchQuery}
             >
-              <option value="prefix">Current path</option>
-              <option value="bucket">Whole bucket</option>
+              <option value="prefix">{text("Current path")}</option>
+              <option value="bucket">{text("Whole bucket")}</option>
             </UiSelect>
             <UiCheckboxField
               checked={recursive}
               onChange={(event) => onRecursiveChange(event.target.checked)}
               disabled={!hasSearchQuery || searchScope === "bucket"}
               className={optionCardClasses}
-              aria-label="Search recursively in subfolders"
+              aria-label={text("Search recursively in subfolders")}
             >
-              Recursive
-            </UiCheckboxField>
+              {text("Recursive")}</UiCheckboxField>
             <UiCheckboxField
               checked={exactMatch}
               onChange={(event) => onExactMatchChange(event.target.checked)}
               disabled={!hasSearchQuery}
               className={optionCardClasses}
-              aria-label="Use exact match"
+              aria-label={text("Use exact match")}
             >
-              Exact match
-            </UiCheckboxField>
+              {text("Exact match")}</UiCheckboxField>
             <UiCheckboxField
               checked={caseSensitive}
               onChange={(event) => onCaseSensitiveChange(event.target.checked)}
               disabled={!hasSearchQuery}
               className={optionCardClasses}
-              aria-label="Case-sensitive search"
+              aria-label={text("Case-sensitive search")}
             >
-              Case-sensitive
-            </UiCheckboxField>
+              {text("Case-sensitive")}</UiCheckboxField>
             <UiSelect
-              label="Type"
+              label={text("Type")}
               size="compact"
               value={typeFilter}
               onChange={(event) =>
@@ -196,23 +195,23 @@ export default function BrowserObjectSearchHeader({
                 )
               }
               className="ui-list-control h-9 w-full"
-              aria-label="Object type filter"
+              aria-label={text("Object type filter")}
             >
-              <option value="all">All</option>
-              <option value="file">Files</option>
-              <option value="folder">Folders</option>
+              <option value="all">{text("All")}</option>
+              <option value="file">{text("Files")}</option>
+              <option value="folder">{text("Folders")}</option>
             </UiSelect>
             <UiSelect
-              label="Storage class"
+              label={text("Storage class")}
               size="compact"
               value={storageFilter}
               onChange={(event) =>
                 onStorageFilterChange(event.target.value)
               }
               className="ui-list-control h-9 w-full"
-              aria-label="Storage class filter"
+              aria-label={text("Storage class filter")}
             >
-              <option value="all">All classes</option>
+              <option value="all">{text("All classes")}</option>
               {storageClasses.map((value) => (
                 <option key={value} value={value}>
                   {value}
@@ -225,15 +224,13 @@ export default function BrowserObjectSearchHeader({
                 onClick={onClear}
                 disabled={!canReset}
               >
-                Clear
-              </ListActionButton>
+                {text("Clear")}</ListActionButton>
               <ListActionButton
                 type="button"
                 onClick={onClose}
 
               >
-                Close
-              </ListActionButton>
+                {text("Close")}</ListActionButton>
             </div>
           </div>
         </AnchoredPortalMenu>

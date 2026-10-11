@@ -22,6 +22,7 @@ import {
 } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -84,6 +85,7 @@ export function useBrowserDeleteItems({
   startOperation,
   updateOperation,
 }: UseBrowserDeleteItemsOptions) {
+  const { text } = useBrowserI18n();
   const updateDeleteDetailsStatus = useCallback(
     (
       operationId: string,
@@ -225,7 +227,7 @@ export function useBrowserDeleteItems({
         );
         total = keys.length;
         if (keys.length === 0) {
-          onStatus("Folder is empty.");
+          onStatus(text("Folder is empty."));
           return completionStatus;
         }
         const detailItems = objects.map((object) => {
@@ -263,13 +265,16 @@ export function useBrowserDeleteItems({
           operationId,
           controller.signal,
         );
-        onStatus(`Deleted folder ${folder.name}`);
+        onStatus(text("Deleted folder {name}", { name: folder.name }));
       } catch (caughtError) {
         if (isOperationAborted(caughtError, controller)) {
           completionStatus = "cancelled";
           cancelDeleteDetails(operationId);
           onStatus(
-            `Delete cancelled after ${deletedCount} of ${total} item(s).`,
+            text("Delete cancelled after {done} of {total} item(s).", {
+              done: deletedCount,
+              total,
+            }),
           );
           await onRefreshNow(prefix);
         } else {
@@ -366,13 +371,16 @@ export function useBrowserDeleteItems({
               fileTargets.length > 1 ? operationId : undefined,
               controller?.signal,
             );
-            onStatus(`Deleted ${fileTargets.length} object(s)`);
+            onStatus(text("Deleted {count} object(s)", { count: fileTargets.length }));
           } catch (caughtError) {
             if (isOperationAborted(caughtError, controller)) {
               completionStatus = "cancelled";
               cancelDeleteDetails(operationId);
               onStatus(
-                `Delete cancelled after ${deletedCount} of ${fileTargets.length} item(s).`,
+                text("Delete cancelled after {done} of {total} item(s).", {
+                  done: deletedCount,
+                  total: fileTargets.length,
+                }),
               );
               await onRefreshNow(prefix);
               deleteCancelled = true;
@@ -400,7 +408,7 @@ export function useBrowserDeleteItems({
         onProcessed(processedTargets);
         await onRefresh(prefix);
       } catch {
-        onStatus("Unable to delete objects.");
+        onStatus(text("Unable to delete objects."));
       }
     },
     [
@@ -441,12 +449,12 @@ export function useBrowserDeleteItems({
       );
       if (fileTargets.length === 0 && folderTargets.length === 0) return;
       onConfirm({
-        title: "Delete objects",
+        title: text("Delete objects"),
         message:
           folderTargets.length > 0
             ? `Delete ${fileTargets.length} object(s) and ${folderTargets.length} folder(s)? This removes all objects within the selected folders.`
             : `Delete ${fileTargets.length} object(s)?`,
-        confirmLabel: "Delete",
+        confirmLabel: text("Delete"),
         tone: "danger",
         onConfirm: () => execute(targets),
       });

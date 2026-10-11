@@ -16,6 +16,7 @@ import type { BrowserItem } from "./browserTypes";
 import { formatLocalDateTime, makeId } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -98,6 +99,7 @@ export function useBrowserBulkRestore({
   updateOperation,
   versioningEnabled,
 }: UseBrowserBulkRestoreOptions) {
+  const { text } = useBrowserI18n();
   const [open, setOpen] = useState(false);
   const [targets, setTargets] = useState<BrowserItem[]>([]);
   const [draft, setDraft] = useState(createBrowserBulkRestoreDraft);
@@ -190,14 +192,14 @@ export function useBrowserBulkRestore({
   const apply = useCallback(async () => {
     if (!bucketName || !enabled) return;
     if (!versioningEnabled) {
-      setError("Versioning is not enabled for this bucket.");
+      setError(text("Versioning is not enabled for this bucket."));
       return;
     }
     const isLatestRestoreMode = draft.restoreDeleted;
     const allowDeleteMissing = !isLatestRestoreMode && draft.deleteMissing;
     const targetTime = draft.date ? new Date(draft.date).getTime() : Number.NaN;
     if (!isLatestRestoreMode && (!draft.date || Number.isNaN(targetTime))) {
-      setError("Select a valid date.");
+      setError(text("Select a valid date."));
       return;
     }
     setLoading(true);
@@ -361,7 +363,7 @@ export function useBrowserBulkRestore({
       onStatus(nextSummary);
       onRefresh(prefix);
     } catch {
-      setError("Unable to restore objects.");
+      setError(text("Unable to restore objects."));
     } finally {
       if (operationId) clearOperationController(operationId);
       setLoading(false);

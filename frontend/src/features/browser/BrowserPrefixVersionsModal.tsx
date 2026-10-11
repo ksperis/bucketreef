@@ -14,6 +14,7 @@ import { formatBytes } from "../../utils/format";
 
 import { formatDateTime } from "./browserUtils";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserPrefixVersionsModalProps = {
   bucketName: string;
@@ -44,6 +45,7 @@ export default function BrowserPrefixVersionsModal({
   onRestoreVersion,
   onDeleteVersion,
 }: BrowserPrefixVersionsModalProps) {
+  const { text } = useBrowserI18n();
   const sanitizeFilename = (value: string) => {
     const cleaned = value.replace(/[^a-zA-Z0-9-_]+/g, "_").replace(/^_+|_+$/g, "");
     return cleaned || "prefix-versions";
@@ -102,25 +104,25 @@ export default function BrowserPrefixVersionsModal({
 
   const columns: Array<DataTableColumn<BrowserObjectVersion>> = [
     {
-      id: "key", label: "Object", primary: true,
+      id: "key", label: text("Object"), primary: true,
       cellClassName: "max-w-[260px] whitespace-pre-wrap [overflow-wrap:anywhere]",
       render: (version) => <>
         <span>{version.key}</span>
         <div className="flex flex-wrap gap-1">
-          {version.is_delete_marker && <ListBadge tone="warning">delete marker</ListBadge>}
-          {version.is_latest && <ListBadge tone="success">latest</ListBadge>}
+          {version.is_delete_marker && <ListBadge tone="warning">{text("delete marker")}</ListBadge>}
+          {version.is_latest && <ListBadge tone="success">{text("latest")}</ListBadge>}
         </div>
       </>,
     },
     {
-      id: "version", label: "Version", cellClassName: "max-w-[240px] [overflow-wrap:anywhere]",
+      id: "version", label: text("Version"), cellClassName: "max-w-[240px] [overflow-wrap:anywhere]",
       render: (version) => <div>
         <p>{version.version_id ?? "-"}</p>
         {version.etag && <p>ETag {version.etag}</p>}
       </div>,
     },
     {
-      id: "details", label: "Details",
+      id: "details", label: text("Details"),
       render: (version) => <div>
         {version.last_modified && <p>{formatDateTime(version.last_modified)}</p>}
         {version.size != null && <p>{formatBytes(version.size)}</p>}
@@ -128,13 +130,13 @@ export default function BrowserPrefixVersionsModal({
       </div>,
     },
     {
-      id: "actions", label: "Actions", align: "right", mobileRole: "actions",
+      id: "actions", label: text("Actions"), align: "right", mobileRole: "actions",
       render: (version) => <ListActions>
         {!version.is_delete_marker && (
-          <ListActionButton onClick={() => onDownloadVersion(version)}>Download</ListActionButton>
+          <ListActionButton onClick={() => onDownloadVersion(version)}>{text("Download")}</ListActionButton>
         )}
         {!version.is_delete_marker && !version.is_latest && (
-          <ListActionButton onClick={() => onRestoreVersion(version)}>Restore</ListActionButton>
+          <ListActionButton onClick={() => onRestoreVersion(version)}>{text("Restore")}</ListActionButton>
         )}
         <ListActionButton variant="danger" onClick={() => onDeleteVersion(version)}>
           {version.is_delete_marker ? "Delete marker" : "Delete version"}
@@ -144,20 +146,20 @@ export default function BrowserPrefixVersionsModal({
   ];
 
   return (
-    <ListDialog title="Prefix versions" onClose={onClose} maxWidthClass="max-w-4xl"
+    <ListDialog title={text("Prefix versions")} onClose={onClose} maxWidthClass="max-w-4xl"
       description={`Bucket ${bucketName} · Prefix ${normalizedPrefix || "(bucket root)"}`}
       rowCount={prefixVersionRows.length} countLabel={`${prefixVersionRows.length} loaded`}
       loading={prefixVersionsLoading} loadingMessage="Loading prefix versions..." error={prefixVersionsError}
-      emptyMessage="No versions found." onRefresh={onRefresh} refreshDisabled={!bucketName}
+      emptyMessage={text("No versions found.")} onRefresh={onRefresh} refreshDisabled={!bucketName}
       actions={<>
-        <ListActionButton onClick={handleExportCsv} disabled={prefixVersionsLoading || !prefixVersionRows.length}>Export CSV</ListActionButton>
-        <ListActionButton onClick={handleExportJson} disabled={prefixVersionsLoading || !prefixVersionRows.length}>Export JSON</ListActionButton>
+        <ListActionButton onClick={handleExportCsv} disabled={prefixVersionsLoading || !prefixVersionRows.length}>{text("Export CSV")}</ListActionButton>
+        <ListActionButton onClick={handleExportJson} disabled={prefixVersionsLoading || !prefixVersionRows.length}>{text("Export JSON")}</ListActionButton>
       </>}
-      loadMore={{ available: canLoadMore, onClick: onLoadMore, label: "Load more versions" }}>
+      loadMore={{ available: canLoadMore, onClick: onLoadMore, label: text("Load more versions") }}>
       <DataTableShell columns={columns} rows={prefixVersionRows}
         rowKey={(version) => `${version.key}-${version.version_id ?? "none"}-${version.is_delete_marker ? "marker" : "version"}`}
         status="ready" loadingMessage="Loading prefix versions..." errorMessage="Unable to load prefix versions."
-        emptyMessage="No versions found." responsiveCards
+        emptyMessage={text("No versions found.")} responsiveCards
         containerClassName="rounded-lg border border-[var(--ui-border)]" />
     </ListDialog>
   );

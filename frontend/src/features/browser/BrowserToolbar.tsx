@@ -44,6 +44,7 @@ import {
   UploadIcon,
 } from "./browserIcons";
 import type { BrowserTransferAccessBadge } from "./browserTransferPresentation";
+import { useBrowserI18n } from "./browserI18n";
 
 const toolbarControlsGroupClasses = "flex shrink-0 items-center gap-1.5";
 const floatingMenuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
@@ -149,6 +150,7 @@ export default function BrowserToolbar({
   onRunPathAction,
   onRunSelectionAction,
 }: BrowserToolbarProps) {
+  const { text } = useBrowserI18n();
   const uploadButtonRef = useRef<HTMLButtonElement | null>(null);
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -257,7 +259,7 @@ export default function BrowserToolbar({
     <div className="flex flex-col gap-2.5">
       <div
         role="toolbar"
-        aria-label="Browser context bar"
+        aria-label={text("Browser context bar")}
         data-density={compactMode ? "compact" : "comfortable"}
         className={toolbarShellClasses}
       >
@@ -297,13 +299,13 @@ export default function BrowserToolbar({
             <ListActionButton iconOnly={compactMode} variant="secondary"
               type="button"
 
-              aria-label="Restore deleted files in this folder"
-              title="Restore deleted files in this folder"
+              aria-label={text("Restore deleted files in this folder")}
+              title={text("Restore deleted files in this folder")}
               onClick={() => onRunPathAction("restore")}
               disabled={!deletedObjects.restoreEnabled}
             >
               <HistoryIcon className="h-3.5 w-3.5" />
-              {!compactMode && <span>Restore deleted files in this folder</span>}
+              {!compactMode && <span>{text("Restore deleted files in this folder")}</span>}
             </ListActionButton>
           )}
           {contextActions.visible && (
@@ -326,11 +328,11 @@ export default function BrowserToolbar({
                     ? uploadMenuOpen
                     : undefined
                 }
-                aria-label="Upload"
-                title="Upload"
+                aria-label={text("Upload")}
+                title={text("Upload")}
               >
                 <UploadIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>Upload</span>}
+                {!compactMode && <span>{text("Upload")}</span>}
               </ListActionButton>
               <BrowserUploadQuickMenu
                 open={uploadMenuOpen}
@@ -345,21 +347,21 @@ export default function BrowserToolbar({
                 type="button"
                 onClick={() => onRunPathAction("newFolder")}
                 disabled={!contextActions.canCreateFolder}
-                aria-label="New folder"
-                title="New folder"
+                aria-label={text("New folder")}
+                title={text("New folder")}
               >
                 <FolderPlusIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>New folder</span>}
+                {!compactMode && <span>{text("New folder")}</span>}
               </ListActionButton>
               <ListActionButton iconOnly={compactMode} variant="secondary"
                 type="button"
                 onClick={() => onRunPathAction("refresh")}
                 disabled={!contextActions.canRefresh}
-                aria-label="Refresh"
-                title="Refresh"
+                aria-label={text("Refresh")}
+                title={text("Refresh")}
               >
                 <RefreshIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>Refresh</span>}
+                {!compactMode && <span>{text("Refresh")}</span>}
               </ListActionButton>
               <ListActionButton iconOnly={compactMode} variant="secondary"
                 ref={moreButtonRef}
@@ -368,11 +370,11 @@ export default function BrowserToolbar({
                 disabled={!hasMoreMenu}
                 aria-haspopup={hasMoreMenu ? "menu" : undefined}
                 aria-expanded={hasMoreMenu ? moreMenuOpen : undefined}
-                aria-label="More"
-                title="More"
+                aria-label={text("More")}
+                title={text("More")}
               >
                 <MoreIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>More</span>}
+                {!compactMode && <span>{text("More")}</span>}
               </ListActionButton>
             </div>
           )}
@@ -389,41 +391,41 @@ export default function BrowserToolbar({
                 type="button"
                 onClick={() => onRunSelectionAction("open")}
                 disabled={!selectionActions.canOpen}
-                aria-label="Open"
-                title="Open"
+                aria-label={text("Open")}
+                title={text("Open")}
               >
                 <OpenIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>Open</span>}
+                {!compactMode && <span>{text("Open")}</span>}
               </ListActionButton>
               <ListActionButton iconOnly={compactMode} variant="secondary"
                 type="button"
                 onClick={() => onRunSelectionAction("copy")}
                 disabled={!selectionActions.canCopy}
-                aria-label="Copy"
-                title="Copy"
+                aria-label={text("Copy")}
+                title={text("Copy")}
               >
                 <CopyIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>Copy</span>}
+                {!compactMode && <span>{text("Copy")}</span>}
               </ListActionButton>
               <ListActionButton iconOnly={compactMode} variant="primary"
                 type="button"
                 onClick={() => onRunSelectionAction("download")}
                 disabled={!selectionActions.canDownload}
-                aria-label="Download"
-                title="Download"
+                aria-label={text("Download")}
+                title={text("Download")}
               >
                 <DownloadIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>Download</span>}
+                {!compactMode && <span>{text("Download")}</span>}
               </ListActionButton>
               <ListActionButton iconOnly={compactMode} variant="danger"
                 type="button"
                 onClick={() => onRunSelectionAction("delete")}
                 disabled={!selectionActions.canDelete}
-                aria-label="Delete"
-                title="Delete"
+                aria-label={text("Delete")}
+                title={text("Delete")}
               >
                 <TrashIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>Delete</span>}
+                {!compactMode && <span>{text("Delete")}</span>}
               </ListActionButton>
               <ListActionButton iconOnly={compactMode} variant="secondary"
                 ref={moreButtonRef}
@@ -432,11 +434,11 @@ export default function BrowserToolbar({
                 disabled={!hasMoreMenu}
                 aria-haspopup={hasMoreMenu ? "menu" : undefined}
                 aria-expanded={hasMoreMenu ? moreMenuOpen : undefined}
-                aria-label="More"
-                title="More"
+                aria-label={text("More")}
+                title={text("More")}
               >
                 <MoreIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>More</span>}
+                {!compactMode && <span>{text("More")}</span>}
               </ListActionButton>
             </div>
           )}
@@ -455,12 +457,12 @@ export default function BrowserToolbar({
           <div
             ref={moreMenuRef}
             role="menu"
-            aria-label="More"
+            aria-label={text("More")}
             className="max-h-[min(76vh,36rem)] overflow-y-auto"
           >
             {hasPrioritizedSelectionActions && (
               <>
-                <p className={overflowSectionTitleClasses}>Selection</p>
+                <p className={overflowSectionTitleClasses}>{text("Selection")}</p>
                 {moreMenu.selectionActions.map((action) => (
                   <BrowserToolbarActionMenuItem
                     key={action.id}
@@ -475,7 +477,7 @@ export default function BrowserToolbar({
 
             {hasCurrentPathActions && !hasPrioritizedSelectionActions && (
               <>
-                <p className={overflowSectionTitleClasses}>Current path</p>
+                <p className={overflowSectionTitleClasses}>{text("Current path")}</p>
                 {currentPathMenuActions.map((action) => (
                   <BrowserToolbarActionMenuItem
                     key={action.id}
@@ -493,7 +495,7 @@ export default function BrowserToolbar({
                 {hasCurrentPathActions && (
                   <div className={contextMenuSeparatorClasses} />
                 )}
-                <p className={overflowSectionTitleClasses}>Technical tools</p>
+                <p className={overflowSectionTitleClasses}>{text("Technical tools")}</p>
                 {technicalPathMenuActions.map((action) => (
                   <BrowserToolbarActionMenuItem
                     key={action.id}
@@ -518,7 +520,7 @@ export default function BrowserToolbar({
 
             {!hasPrioritizedSelectionActions && moreMenu.view && (
               <>
-                <p className={overflowSectionTitleClasses}>Browser view</p>
+                <p className={overflowSectionTitleClasses}>{text("Browser view")}</p>
                 <button
                   type="button"
                   role="menuitemradio"
@@ -571,7 +573,7 @@ export default function BrowserToolbar({
                 {hasViewSection && (
                   <div className={contextMenuSeparatorClasses} />
                 )}
-                <p className={overflowSectionTitleClasses}>Status</p>
+                <p className={overflowSectionTitleClasses}>{text("Status")}</p>
                 {moreMenu.status.accessBadge && (
                   <div
                     className={overflowStatusRowClasses}
@@ -583,8 +585,7 @@ export default function BrowserToolbar({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-semibold text-slate-700 dark:text-slate-100">
-                          Transfers
-                        </p>
+                          {text("Transfers")}</p>
                         <ListBadge
                           tone={moreMenu.status.accessBadge.tone}
                           className="shrink-0 whitespace-nowrap"
@@ -603,7 +604,7 @@ export default function BrowserToolbar({
                   <button
                     type="button"
                     role="menuitem"
-                    aria-label="Operations overview"
+                    aria-label={text("Operations overview")}
                     className={contextMenuItemClasses}
                     onClick={() =>
                       runMoreAction(moreMenu.status.onOpenOperations)
@@ -611,7 +612,7 @@ export default function BrowserToolbar({
                   >
                     <ListIcon className="h-3.5 w-3.5" />
                     <span className="min-w-0 flex-1">
-                      <span className="block">Operations overview</span>
+                      <span className="block">{text("Operations overview")}</span>
                       <span
                         aria-hidden="true"
                         className="block text-[11px] font-medium leading-tight text-slate-400 dark:text-slate-500"
@@ -631,10 +632,10 @@ export default function BrowserToolbar({
                 {(hasViewSection || hasStatusSection) && (
                   <div className={contextMenuSeparatorClasses} />
                 )}
-                <p className={overflowSectionTitleClasses}>Panels</p>
+                <p className={overflowSectionTitleClasses}>{text("Panels")}</p>
                 {moreMenu.layout.folders && (
                   <BrowserToolbarToggleMenuItem
-                    label="Folders panel"
+                    label={text("Folders panel")}
                     icon={<FolderIcon className="h-3.5 w-3.5" />}
                     {...moreMenu.layout.folders}
                   />
@@ -647,7 +648,7 @@ export default function BrowserToolbar({
                 {(hasViewSection || hasStatusSection || hasLayoutSection) && (
                   <div className={contextMenuSeparatorClasses} />
                 )}
-                <p className={overflowSectionTitleClasses}>Columns</p>
+                <p className={overflowSectionTitleClasses}>{text("Columns")}</p>
                 <button
                   ref={columnsButtonRef}
                   type="button"
@@ -659,7 +660,7 @@ export default function BrowserToolbar({
                 >
                   <SlidersIcon className="h-3.5 w-3.5" />
                   <span className="min-w-0 flex-1">
-                    <span className="block">Columns</span>
+                    <span className="block">{text("Columns")}</span>
                     <span className="block text-[11px] font-medium leading-tight text-slate-400 dark:text-slate-500">
                       {moreMenu.columns.summary}
                     </span>
@@ -692,7 +693,7 @@ export default function BrowserToolbar({
                 )}
                 {hasSelectionActions && !hasPrioritizedSelectionActions && (
                   <>
-                    <p className={overflowSectionTitleClasses}>Selection</p>
+                    <p className={overflowSectionTitleClasses}>{text("Selection")}</p>
                     {moreMenu.selectionActions.map((action) => (
                       <BrowserToolbarActionMenuItem
                         key={action.id}
@@ -709,7 +710,7 @@ export default function BrowserToolbar({
                     {hasSelectionActions && !hasPrioritizedSelectionActions && (
                       <div className={contextMenuSeparatorClasses} />
                     )}
-                    <p className={overflowSectionTitleClasses}>Security</p>
+                    <p className={overflowSectionTitleClasses}>{text("Security")}</p>
                     <button
                       type="button"
                       role="menuitem"
@@ -722,8 +723,8 @@ export default function BrowserToolbar({
                       disabled={!sse.enabled}
                       title={
                         sse.active
-                          ? "SSE-C enabled for this bucket."
-                          : "Configure SSE-C key for this bucket."
+                          ? text("SSE-C enabled for this bucket.")
+                          : text("Configure SSE-C key for this bucket.")
                       }
                     >
                       <SettingsIcon className="h-3.5 w-3.5" />
@@ -731,8 +732,8 @@ export default function BrowserToolbar({
                         <span className="block">SSE-C</span>
                         <span className="block text-[11px] font-medium leading-tight text-slate-400 dark:text-slate-500">
                           {sse.active
-                            ? "Enabled for this bucket"
-                            : "Configure customer key"}
+                            ? text("Enabled for this bucket")
+                            : text("Configure customer key")}
                         </span>
                       </span>
                       <span
@@ -742,7 +743,7 @@ export default function BrowserToolbar({
                             : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"
                         }`}
                       >
-                        {sse.active ? "On" : "Off"}
+                        {sse.active ? text("On") : text("Off")}
                       </span>
                     </button>
                   </>

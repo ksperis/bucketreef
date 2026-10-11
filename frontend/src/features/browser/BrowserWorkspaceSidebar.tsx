@@ -4,7 +4,7 @@
  */
 import { useState, type Ref, type ReactNode } from "react";
 import BrowserUtilityIcon from "./BrowserUtilityIcon";
-import { useBrowserText } from "./browserMessages";
+import { useBrowserI18n } from "./browserI18n";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
 import UiIconButton from "../../components/ui/UiIconButton";
@@ -122,10 +122,10 @@ export default function BrowserWorkspaceSidebar({
   onLoadMore,
   workspaceAccountAction,
 }: BrowserWorkspaceSidebarProps) {
-  const tr = useBrowserText();
+  const { text: tr } = useBrowserI18n();
   const [tab, setTab] = useState<"buckets" | "favorites">("buckets");
-  const title = isPortalContext ? "Spaces" : "Buckets";
-  const searchPlaceholder = isPortalContext ? "Search storage spaces" : "Search buckets";
+  const title = isPortalContext ? tr("Spaces") : tr("Buckets");
+  const searchPlaceholder = isPortalContext ? tr("Search storage spaces") : tr("Search buckets");
   const hasUsageGauge =
     usageSummary?.available === true && usageSummary.used_bytes != null;
   const usagePercent = usageSummary ? formatUsagePercent(usageSummary) : null;
@@ -135,22 +135,21 @@ export default function BrowserWorkspaceSidebar({
     usageSummary?.quota_max_size_bytes != null && usageSummary.quota_max_size_bytes > 0
       ? formatBytes(usageSummary.quota_max_size_bytes)
       : null;
-  const itemNoun = isPortalContext ? "space" : "bucket";
   const totalLabel =
     bucketTotalCount === 1
-      ? `1 ${itemNoun}`
-      : `${bucketTotalCount} ${itemNoun}s`;
+      ? tr(isPortalContext ? "{count} space" : "{count} bucket", { count: bucketTotalCount })
+      : tr(isPortalContext ? "{count} spaces" : "{count} buckets", { count: bucketTotalCount });
   const filteredLabel =
     bucketFilter.trim().length > 0 && bucketMenuTotal !== bucketTotalCount
-      ? `${bucketMenuTotal} result${bucketMenuTotal === 1 ? "" : "s"}`
+      ? tr(bucketMenuTotal === 1 ? "{count} result" : "{count} results", { count: bucketMenuTotal })
       : totalLabel;
   const emptyListLabel = bucketError
     ? isPortalContext
-      ? "Storage Spaces list unavailable."
-      : "Bucket list unavailable."
+      ? tr("Storage Spaces list unavailable.")
+      : tr("Bucket list unavailable.")
     : bucketFilter.trim()
-      ? "No matching item."
-      : `No ${title.toLowerCase()} available.`;
+      ? tr("No matching item.")
+      : tr(isPortalContext ? "No spaces available." : "No buckets available.");
 
   return (
     <div
@@ -189,15 +188,15 @@ export default function BrowserWorkspaceSidebar({
             {bucketManagementEnabled && (
               <UiIconButton
                 onClick={onCreateBucket}
-                label="Create bucket"
+                label={tr("Create bucket")}
                 icon={<PlusIcon className="h-3.5 w-3.5" />}
               />
             )}
             <UiIconButton
               onClick={onRetryBuckets}
               disabled={loadingBuckets}
-              label={`Refresh ${title.toLowerCase()}`}
-              title={loadingBuckets ? "Refreshing" : "Refresh"}
+              label={tr(isPortalContext ? "Refresh spaces" : "Refresh buckets")}
+              title={loadingBuckets ? tr("Refreshing") : tr("Refresh")}
               icon={<RefreshIcon className={cx("h-3.5 w-3.5", loadingBuckets ? "animate-spin" : "")} />}
             />
           </div>
@@ -273,14 +272,14 @@ export default function BrowserWorkspaceSidebar({
                     </span>
                     <span
                       className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full border ${accessIndicatorClasses[access.status]}`}
-                      aria-label={accessLabel[access.status]}
+                      aria-label={tr(accessLabel[access.status])}
                       title={
                         access.status === "unavailable"
-                          ? unavailableBucketTitle
-                          : accessLabel[access.status]
+                          ? tr(unavailableBucketTitle)
+                          : tr(accessLabel[access.status])
                       }
                     >
-                      <span className="sr-only">{accessLabel[access.status]}</span>
+                      <span className="sr-only">{tr(accessLabel[access.status])}</span>
                     </span>
                   </>
                 )}
@@ -288,7 +287,7 @@ export default function BrowserWorkspaceSidebar({
             );
           })}
           {loadingBuckets && rows.length === 0 && !compact && (
-            <p className="px-2 py-2 ui-caption text-[var(--shell-muted-text)]">Loading...</p>
+            <p className="px-2 py-2 ui-caption text-[var(--shell-muted-text)]">{tr("Loading...")}</p>
           )}
           {!loadingBuckets && rows.length === 0 && !compact && (
             <p className="px-2 py-2 ui-caption text-[var(--shell-muted-text)]">
@@ -302,7 +301,7 @@ export default function BrowserWorkspaceSidebar({
               onClick={onLoadMore}
               disabled={bucketMenuLoadingMore}
             >
-              {bucketMenuLoadingMore ? "Loading..." : "Load more"}
+              {bucketMenuLoadingMore ? tr("Loading...") : tr("Load more")}
             </button>
           )}
           {loadMoreSentinelRef && <div ref={loadMoreSentinelRef} aria-hidden="true" className="h-1" />}
@@ -328,27 +327,27 @@ export default function BrowserWorkspaceSidebar({
           </button>
         )}
         {!compact && usageLoading && (
-          <p className="ui-caption text-[var(--shell-muted-text)]">Loading usage...</p>
+          <p className="ui-caption text-[var(--shell-muted-text)]">{tr("Loading usage...")}</p>
         )}
         {!compact && usageError && (
           <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">{usageError}</p>
         )}
         {!compact && hasUsageGauge && usageSummary && (
-          <div className="space-y-2" aria-label="Usage summary">
+          <div className="space-y-2" aria-label={tr("Usage summary")}>
             {usagePercent != null && (
               <UiMeterBar
                 value={usagePercent}
-                label="Storage usage"
+                label={tr("Storage usage")}
                 className="h-2 bg-slate-200 shadow-inner dark:bg-slate-800"
                 barClassName="bg-primary transition-[width]"
               />
             )}
             <p className="truncate text-[13px] font-medium text-[var(--shell-text)]">
-              <span className="text-[var(--shell-muted-text)]">Usage: </span>
+              <span className="text-[var(--shell-muted-text)]">{tr("Usage:")}</span>
               <span className="font-semibold">{usageUsedLabel}</span>
               {usageQuotaLabel && (
                 <>
-                  <span className="text-[var(--shell-muted-text)]"> of </span>
+                  <span className="text-[var(--shell-muted-text)]"> {tr("of")}</span>
                   <span className="font-semibold">{usageQuotaLabel}</span>
                 </>
               )}

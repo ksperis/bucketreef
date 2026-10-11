@@ -8,6 +8,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { formatBytes } from "../../utils/format";
 
 import { formatDateTime } from "./browserUtils";
+import { useBrowserI18n } from "./browserI18n";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -44,11 +45,12 @@ export default function BrowserObjectVersionsList({
   onDeleteVersion,
   readOnly = false,
 }: BrowserObjectVersionsListProps) {
+  const { text } = useBrowserI18n();
   return (
     <div className={containerClassName}>
       <div className="flex items-center justify-between">
         <p className={titleClassName}>{title}</p>
-        {loading && <span className="ui-caption text-slate-500 dark:text-slate-400">Loading...</span>}
+        {loading && <span className="ui-caption text-slate-500 dark:text-slate-400">{text("Loading...")}</span>}
       </div>
       {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
       <div className={bodyClassName}>
@@ -63,22 +65,20 @@ export default function BrowserObjectVersionsList({
             <div className="flex flex-wrap items-center justify-between gap-2">
               {!readOnly && <div className="flex flex-wrap items-center gap-2">
                 {ver.is_delete_marker && (
-                  <ListBadge tone="warning">delete marker</ListBadge>
+                  <ListBadge tone="warning">{text("delete marker")}</ListBadge>
                 )}
                 {ver.is_latest && (
-                  <ListBadge tone="success">latest</ListBadge>
+                  <ListBadge tone="success">{text("latest")}</ListBadge>
                 )}
               </div>}
               {!isDemo && <div className="flex flex-wrap items-center gap-2">
                 {!ver.is_delete_marker && (
                   <ListActionButton type="button" onClick={() => onDownloadVersion(ver)}>
-                    Download
-                  </ListActionButton>
+                    {text("Download")}</ListActionButton>
                 )}
                 {!ver.is_delete_marker && !ver.is_latest && (
                   <ListActionButton type="button" onClick={() => onRestoreVersion(ver)}>
-                    Restore
-                  </ListActionButton>
+                    {text("Restore")}</ListActionButton>
                 )}
                 <ListActionButton variant="danger" type="button" onClick={() => onDeleteVersion(ver)}>
                   {ver.is_delete_marker ? "Delete marker" : "Delete version"}
@@ -96,8 +96,7 @@ export default function BrowserObjectVersionsList({
       </div>
       {canLoadMore && onLoadMore && (
         <ListActionButton type="button" onClick={onLoadMore} disabled={loading}>
-          Load more versions
-        </ListActionButton>
+          {text("Load more versions")}</ListActionButton>
       )}
     </div>
   );

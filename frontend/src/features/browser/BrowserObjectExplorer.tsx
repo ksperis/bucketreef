@@ -29,6 +29,7 @@ import {
 } from "./browserActions";
 import { isBrowserInteractiveTarget } from "./browserObjectItemPresentation";
 import type { BrowserItem } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserObjectTableConfig = {
   scaffold: Omit<
@@ -142,6 +143,7 @@ export default function BrowserObjectExplorer({
   onOpenActions,
   onLoadMore,
 }: BrowserObjectExplorerProps) {
+  const { text } = useBrowserI18n();
   const objectTableColSpan = 3 + table.scaffold.columns.length;
   return (
     <div
@@ -159,7 +161,7 @@ export default function BrowserObjectExplorer({
       {dragging && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/75 text-center ui-body font-semibold text-slate-700 backdrop-blur-sm dark:bg-slate-950/70 dark:text-slate-100">
           <div className="rounded-xl border border-primary/20 bg-white/90 px-5 py-4 shadow-sm dark:border-primary-500/30 dark:bg-slate-900/85">
-            <div>Drop files or folders to upload</div>
+            <div>{text("Drop files or folders to upload")}</div>
             <div className="mt-1 ui-caption font-normal text-slate-500 dark:text-slate-400">
               {bucketName
                 ? `${bucketName}/${normalizedPrefix}`
@@ -172,7 +174,7 @@ export default function BrowserObjectExplorer({
         <div className="shrink-0 border-b border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className={searchLabelClasses}>Search</p>
+              <p className={searchLabelClasses}>{text("Search")}</p>
               <p className="mt-1 ui-body font-semibold text-slate-900 dark:text-slate-100">
                 {loading
                   ? "Searching..."
@@ -207,13 +209,12 @@ export default function BrowserObjectExplorer({
         onClick={onListBackgroundClick}
         onKeyDown={onListKeyDown}
         tabIndex={0}
-        aria-label="Objects list"
+        aria-label={text("Objects list")}
       >
         {loading && items.length > 0 && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-white/45 pt-5 ui-caption font-semibold text-slate-600 backdrop-blur-[1px] dark:bg-slate-900/40 dark:text-slate-200">
             <span className="rounded-md border border-slate-200 bg-white/90 px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
-              Refreshing objects...
-            </span>
+              {text("Refreshing objects...")}</span>
           </div>
         )}
         {mobile ? (

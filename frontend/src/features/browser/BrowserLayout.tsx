@@ -26,6 +26,7 @@ import {
   canAccessPrivateConnectionsSection,
   readStoredUser,
 } from "../../utils/workspaces";
+import { useBrowserI18n } from "./browserI18n";
 
 export type BrowserSidebarBodyRenderer = (args: SidebarBodyRenderArgs) => ReactNode;
 
@@ -46,6 +47,7 @@ export function useBrowserSidebarSlot(): BrowserSidebarSlotContextValue {
 }
 
 function BrowserShell() {
+  const { text } = useBrowserI18n();
   const location = useLocation();
   const {
     contexts,
@@ -68,14 +70,14 @@ function BrowserShell() {
   const showSelector = requiresContextSelection && contexts.length > 1;
   const identityLabel = iamIdentity
     ? identityAccessMode === "connection"
-      ? `S3 Identity: ${iamIdentity}`
-      : `IAM Identity: ${iamIdentity}`
+      ? text("S3 Identity: {identity}", { identity: iamIdentity })
+      : text("IAM Identity: {identity}", { identity: iamIdentity })
     : null;
   const selectedLabel = selected
     ? formatAccountLabel(selected)
     : requiresContextSelection
-      ? "No account selected"
-      : sessionAccountName || "S3 session";
+      ? text("No account selected")
+      : sessionAccountName || text("S3 session");
 
   useEffect(() => {
     if (!isBrowserExplorerRoute) {
@@ -163,9 +165,9 @@ function BrowserShell() {
   return (
     <BrowserSidebarSlotContext.Provider value={sidebarSlotValue}>
       <Layout
-        navLinks={BROWSER_FALLBACK_NAV_LINKS}
-        headerTitle="Browser"
-        sidebarTitle="Browser"
+        navLinks={BROWSER_FALLBACK_NAV_LINKS.map((link) => ({ ...link, label: text(link.label) }))}
+        headerTitle={text("Browser")}
+        sidebarTitle={text("Browser")}
         hideHeader
         hideSidebar={isBrowserExplorerRoute && !sidebarBody}
         renderSidebarBody={sidebarBody ?? undefined}
@@ -177,18 +179,18 @@ function BrowserShell() {
         {isBrowserExplorerRoute && accessError ? <PageBanner tone="warning">{accessError}</PageBanner> : null}
         {isBrowserExplorerRoute && requiresContextSelection && contextsLoaded && !selectedContextId ? (
           <>
-            <h1 className="sr-only">Browser</h1>
+            <h1 className="sr-only">{text("Browser")}</h1>
             <PageEmptyState
-              title={contexts.length > 0 ? "Select a private Browser connection" : "No private Browser connection"}
+              title={contexts.length > 0 ? text("Select a private Browser connection") : text("No private Browser connection")}
               description={
                 contexts.length > 0
-                  ? "Choose a private connection explicitly to start browsing."
+                  ? text("Choose a private connection explicitly to start browsing.")
                   : canManagePrivateConnections
-                    ? "Accounts, RGW users and shared connections are unavailable in Browser. Create a private connection with a dedicated access key."
-                    : "Accounts, RGW users and shared connections are unavailable in Browser. Ask your administrator to allow manual private connections before adding a dedicated access key."
+                    ? text("Accounts, RGW users and shared connections are unavailable in Browser. Create a private connection with a dedicated access key.")
+                    : text("Accounts, RGW users and shared connections are unavailable in Browser. Ask your administrator to allow manual private connections before adding a dedicated access key.")
               }
               primaryAction={canManagePrivateConnections ? {
-                label: "Manage private connections",
+                label: text("Manage private connections"),
                 to: "/browser/profile?tab=connections",
               } : undefined}
               tone="warning"

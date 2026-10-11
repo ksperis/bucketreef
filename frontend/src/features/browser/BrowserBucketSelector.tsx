@@ -6,6 +6,7 @@ import UiInput from "../../components/ui/UiInput";
 import { cx, uiMenuClass, uiMenuItemClass, uiMutedTextClass } from "../../components/ui/styles";
 import { bucketButtonClasses } from "./browserConstants";
 import { BucketIcon, ChevronDownIcon, SearchIcon } from "./browserIcons";
+import { useBrowserI18n } from "./browserI18n";
 
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
 const eyebrowClasses = cx("ui-caption font-semibold", uiMutedTextClass);
@@ -71,6 +72,7 @@ export default function BrowserBucketSelector({
   onSelectBucket,
   onLoadMore,
 }: BrowserBucketSelectorProps) {
+  const { text } = useBrowserI18n();
   const buttonClassName = cx(
     bucketButtonClasses,
     needsAttention
@@ -109,11 +111,10 @@ export default function BrowserBucketSelector({
                 type="button"
                 onClick={onCreateBucket}
                 disabled={!hasContext}
-                title="Create bucket"
-                aria-label="Create bucket"
+                title={text("Create bucket")}
+                aria-label={text("Create bucket")}
               >
-                + Bucket
-              </ListActionButton>
+                {text("+ Bucket")}</ListActionButton>
             )}
           </div>
           <div className="px-2 pb-2">
@@ -180,8 +181,7 @@ export default function BrowserBucketSelector({
                     </span>
                     {isActive && (
                       <span className="ui-caption font-semibold text-primary-600 dark:text-primary-200">
-                        Active
-                      </span>
+                        {text("Active")}</span>
                     )}
                   </button>
                 );

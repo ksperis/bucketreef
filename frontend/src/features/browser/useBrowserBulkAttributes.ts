@@ -22,6 +22,7 @@ import {
   parseKeyValueLines,
   toIsoString,
 } from "./browserUtils";
+import { useBrowserI18n, type BrowserTextFn } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -97,6 +98,7 @@ export function createBrowserBulkAttributesDraft(): BrowserBulkAttributesDraft {
 
 export function validateBrowserBulkAttributesDraft(
   draft: BrowserBulkAttributesDraft,
+  text: BrowserTextFn = (message) => message,
 ): string | null {
   if (
     !draft.applyMetadata &&
@@ -106,7 +108,7 @@ export function validateBrowserBulkAttributesDraft(
     !draft.applyLegalHold &&
     !draft.applyRetention
   ) {
-    return "Select at least one attribute to update.";
+    return text("Select at least one attribute to update.");
   }
 
   const expiresIso = draft.metadata.expires.trim()
@@ -122,16 +124,16 @@ export function validateBrowserBulkAttributesDraft(
     parseKeyValueLines(draft.metadataEntries).length > 0;
 
   if (draft.applyMetadata && draft.metadata.expires.trim() && !expiresIso) {
-    return "Provide a valid expires date.";
+    return text("Provide a valid expires date.");
   }
   if (draft.applyMetadata && !metadataHasValues) {
-    return "Provide at least one metadata field.";
+    return text("Provide at least one metadata field.");
   }
   if (draft.applyStorageClass && !draft.storageClass) {
-    return "Select a storage class.";
+    return text("Select a storage class.");
   }
   if (draft.applyTags && parseKeyValueLines(draft.tags).length === 0) {
-    return "Provide at least one valid key=value tag.";
+    return text("Provide at least one valid key=value tag.");
   }
   const retentionIso = draft.retentionDate.trim()
     ? toIsoString(draft.retentionDate)
@@ -140,7 +142,7 @@ export function validateBrowserBulkAttributesDraft(
     draft.applyRetention &&
     (!draft.retentionMode || !draft.retentionDate.trim() || !retentionIso)
   ) {
-    return "Provide retention mode and date.";
+    return text("Provide retention mode and date.");
   }
   return null;
 }
@@ -165,6 +167,7 @@ export function useBrowserBulkAttributes({
   startOperation,
   updateOperation,
 }: UseBrowserBulkAttributesOptions) {
+  const { text } = useBrowserI18n();
   const [open, setOpen] = useState(false);
   const [targets, setTargets] = useState<BrowserItem[]>([]);
   const [draft, setDraft] = useState(createBrowserBulkAttributesDraft);
@@ -191,7 +194,7 @@ export function useBrowserBulkAttributes({
     (items: BrowserItem[]) => {
       const eligibleItems = items.filter((item) => !item.isDeleted);
       if (eligibleItems.length === 0) {
-        onStatus("Deleted objects cannot receive bulk attributes.");
+        onStatus(text("Deleted objects cannot receive bulk attributes."));
         return;
       }
       onWarning(
@@ -222,7 +225,7 @@ export function useBrowserBulkAttributes({
 
   const apply = useCallback(async () => {
     if (!bucketName || !enabled) return;
-    const validationError = validateBrowserBulkAttributesDraft(draft);
+    const validationError = validateBrowserBulkAttributesDraft(draft, text);
     if (validationError) {
       setError(validationError);
       return;
@@ -245,7 +248,7 @@ export function useBrowserBulkAttributes({
     try {
       const keys = await resolveTargetKeys();
       if (keys.length === 0) {
-        setError("No objects to update.");
+        setError(text("No objects to update."));
         return;
       }
       if (keys.length > 1) {
@@ -398,7 +401,7 @@ export function useBrowserBulkAttributes({
       onStatus(nextSummary);
       onRefresh(prefix);
     } catch {
-      setError("Unable to update attributes.");
+      setError(text("Unable to update attributes."));
     } finally {
       if (operationId) {
         clearOperationController(operationId);
