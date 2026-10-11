@@ -6,7 +6,7 @@ from typing import Optional, TypeVar
 
 from sqlalchemy.orm import Session
 
-from app.db import S3Account, S3User, StorageEndpoint
+from app.db import EndpointServiceIdentity, S3Account, S3User, StorageEndpoint, User
 from app.models.key_rotation import (
     KeyRotationRequest,
     KeyRotationResponse,
@@ -19,6 +19,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 
 
 EndpointResource = TypeVar("EndpointResource", S3Account, S3User)
+RotationDispatchTarget = EndpointServiceIdentity | S3Account | S3User | StorageEndpoint
 
 
 class KeyRotationService:
@@ -37,7 +38,7 @@ class KeyRotationService:
         }
     )
 
-    def __init__(self, db: Session, *, actor=None) -> None:
+    def __init__(self, db: Session, *, actor: User | None = None) -> None:
         self.db = db
         self.actor = actor
         self._rgw = RgwAccessKeyRotator()
@@ -91,7 +92,13 @@ class KeyRotationService:
         selected = set(key_types)
         return [entry for entry in self._KEY_TYPE_ORDER if entry in selected]
 
-    def _rotate_by_type(self, *, endpoint, key_type, deactivate_only):
+    def _rotate_by_type(
+        self,
+        *,
+        endpoint: StorageEndpoint,
+        key_type: KeyRotationType,
+        deactivate_only: bool,
+    ) -> tuple[list[KeyRotationResultItem], int, int]:
         from app.services.durable_key_rotation_service import DurableKeyRotationService, SERVICE_TYPES, pending_rotation
         if endpoint.provider != "ceph":
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
@@ -104,7 +111,7 @@ class KeyRotationService:
             if identity is None or identity.mode != "managed":
                 return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
                     status="skipped", message="External service credentials must be rotated by their operator.")], 0, 0)
-            targets = [identity]
+            targets: list[RotationDispatchTarget] = [identity]
             target_type = "endpoint"
         elif key_type == KeyRotationType.CEPH_ADMIN:
             identity = endpoint.service_identity("ceph_admin")
@@ -122,7 +129,9 @@ class KeyRotationService:
         if not targets:
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type=target_type,
                 status="skipped", message="No persisted identities found for this endpoint.")], 0, 0)
-        results, deleted, disabled = [], 0, 0
+        results: list[KeyRotationResultItem] = []
+        deleted = 0
+        disabled = 0
         rotator = DurableKeyRotationService(self.db, actor=self.actor)
         for target in targets:
             label = target.name if isinstance(target, (S3Account, S3User, StorageEndpoint)) else endpoint.name
@@ -190,5 +199,9 @@ class KeyRotationService:
             .all()
         )
 
-def get_key_rotation_service(db: Session) -> KeyRotationService:
-    return KeyRotationService(db)
+def get_key_rotation_service(
+    db: Session,
+    *,
+    actor: User | None = None,
+) -> KeyRotationService:
+    return KeyRotationService(db, actor=actor)
