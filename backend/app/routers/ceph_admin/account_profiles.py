@@ -15,7 +15,11 @@ from app.models.ceph_admin import (
     CephAdminRgwAccountCreateResponse,
     CephAdminRgwAccountDetail,
 )
-from app.routers.ceph_admin.account_common import build_account_detail, load_account_payload
+from app.routers.ceph_admin.account_common import (
+    build_account_detail,
+    extract_account_bucket_list,
+    load_account_payload,
+)
 from app.routers.ceph_admin.account_listing_cache import invalidate_accounts_listing_cache
 from app.routers.ceph_admin.audit import record_ceph_admin_action
 from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
@@ -26,7 +30,6 @@ from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.rgw_identifiers import generate_rgw_account_id
-from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.usage_stats import summarize_bucket_usage
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/accounts", tags=["ceph-admin-accounts"])
@@ -245,7 +248,9 @@ def get_rgw_account_metrics(
     except RGWAdminError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
-    bucket_usage, total_bytes, total_objects, bucket_count = summarize_bucket_usage(extract_bucket_list(payload))
+    bucket_usage, total_bytes, total_objects, bucket_count = summarize_bucket_usage(
+        extract_account_bucket_list(payload, normalized_account_id)
+    )
     bucket_usage.sort(key=lambda item: item.get("used_bytes") or 0, reverse=True)
     return CephAdminEntityMetrics(
         total_bytes=total_bytes,

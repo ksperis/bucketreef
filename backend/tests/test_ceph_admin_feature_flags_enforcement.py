@@ -171,6 +171,48 @@ def test_ceph_admin_account_metrics_use_ceph_admin_when_monitoring_is_disabled()
     assert rgw_admin.with_stats_calls == [True]
 
 
+def test_ceph_admin_account_metrics_reject_foreign_buckets_when_rgw_ignores_account_filter():
+    class MixedAccountBucketsAdmin(FakeRGWAdmin):
+        def get_all_buckets(self, account_id=None, with_stats: bool = True, **_: object):
+            assert account_id == "RGW0001"
+            self.with_stats_calls.append(bool(with_stats))
+            return {
+                "buckets": [
+                    {
+                        "name": "owned",
+                        "owner": "RGW0001",
+                        "usage": {"total_bytes": 2048, "total_objects": 5},
+                    },
+                    {
+                        "name": "foreign-account",
+                        "owner": "RGW9999",
+                        "usage": {"total_bytes": 8192, "total_objects": 20},
+                    },
+                    {
+                        "name": "foreign-user",
+                        "owner": "legacy-user",
+                        "usage": {"total_bytes": 4096, "total_objects": 10},
+                    },
+                ]
+            }
+
+    rgw_admin = MixedAccountBucketsAdmin()
+    ctx = SimpleNamespace(
+        endpoint=_build_endpoint(metrics_enabled=False),
+        rgw_admin=rgw_admin,
+        access_key="AKIA_TEST",
+        secret_key="SECRET_TEST",
+    )
+
+    result = account_profiles_router.get_rgw_account_metrics(account_id="RGW0001", ctx=ctx)
+
+    assert result.total_bytes == 2048
+    assert result.total_objects == 5
+    assert result.bucket_count == 1
+    assert [entry.name for entry in result.bucket_usage] == ["owned"]
+    assert rgw_admin.with_stats_calls == [True]
+
+
 def test_ceph_admin_user_metrics_use_ceph_admin_when_monitoring_is_disabled():
     ctx, rgw_admin = _build_ctx(metrics_enabled=False)
 
