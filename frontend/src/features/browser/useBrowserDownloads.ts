@@ -41,6 +41,7 @@ import type {
 import { isAbortError, makeId } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -117,6 +118,7 @@ export function useBrowserDownloads({
   updateOperation,
   useProxyTransfers,
 }: UseBrowserDownloadsOptions) {
+  const { text } = useBrowserI18n();
   const [archivePreparation, setArchivePreparation] =
     useState<BrowserArchivePreparation | null>(null);
   const archiveInventoryControllerRef = useRef<AbortController | null>(null);
@@ -236,7 +238,11 @@ export function useBrowserDownloads({
             sizeBytes: target.sizeBytes,
           }))],
         }));
-        if (plan.excluded.length) onWarning(`${plan.excluded.length} object(s) excluded due to unsafe paths or archive collisions. See operation details.`);
+        if (plan.excluded.length) {
+          onWarning(text("{count} object(s) excluded due to unsafe paths or archive collisions. See operation details.", {
+            count: plan.excluded.length,
+          }));
+        }
         const archiveResult = await downloadBrowserFolderArchive({
           includeRootFolder: false,
           controller,
@@ -261,22 +267,32 @@ export function useBrowserDownloads({
         });
         if (archiveResult.cancelled) {
           completionStatus = "cancelled";
-          onStatus(`Download cancelled for ${folderLabel}`);
+          onStatus(text("Download cancelled for {label}", { label: folderLabel }));
           cancelDownloadDetails(operationId);
           return;
         }
         if (archiveResult.failedKeys.length > 0) {
           completionStatus = "failed";
-          completionError = `Downloaded ${folderLabel} with ${archiveResult.failedKeys.length} failed file(s).`;
+          completionError = text("Downloaded {label} with {count} failed file(s).", {
+            label: folderLabel,
+            count: archiveResult.failedKeys.length,
+          });
           onStatus(completionError);
         } else {
           if (plan.excluded.length) completionStatus = "failed";
-          onStatus(`Downloaded ${folderLabel}${plan.excluded.length ? ` (${plan.excluded.length} excluded)` : ""}`);
+          onStatus(
+            plan.excluded.length
+              ? text("Downloaded {label} ({count} excluded)", {
+                  label: folderLabel,
+                  count: plan.excluded.length,
+                })
+              : text("Downloaded {label}", { label: folderLabel }),
+          );
         }
       } catch (caughtError) {
         if (isAbortError(caughtError) || controller.signal.aborted) {
           completionStatus = "cancelled";
-          onStatus(`Download cancelled for ${folderLabel}`);
+          onStatus(text("Download cancelled for {label}", { label: folderLabel }));
           cancelDownloadDetails(operationId);
         } else {
           completionStatus = "failed";
@@ -362,7 +378,9 @@ export function useBrowserDownloads({
         );
         if (plan.excluded.length) {
           onWarning(
-            `${plan.excluded.length} object(s) excluded due to unsafe paths or archive collisions.`,
+            text("{count} object(s) excluded due to unsafe paths or archive collisions.", {
+              count: plan.excluded.length,
+            }),
           );
         }
         if (plan.targets.length === 0) {
@@ -370,7 +388,7 @@ export function useBrowserDownloads({
             archiveInventoryControllerRef.current = null;
           }
           setArchivePreparation(null);
-          onStatus("No safe files to archive.");
+          onStatus(text("No safe files to archive."));
           return;
         }
         const memoryLimitBytes =
@@ -411,7 +429,7 @@ export function useBrowserDownloads({
         if (isAbortError(caughtError) || controller.signal.aborted) {
           if (ownsPreparation) {
             setArchivePreparation(null);
-            onStatus(`Download preparation cancelled for ${folderLabel}`);
+        onStatus(text("Download preparation cancelled for {label}", { label: folderLabel }));
           }
         } else {
           const message = formatBrowserOperationError(
@@ -487,7 +505,7 @@ export function useBrowserDownloads({
     archiveInventoryControllerRef.current?.abort("cancel");
     archiveInventoryControllerRef.current = null;
     setArchivePreparation(null);
-    if (wasInventorying) onStatus("Archive preparation cancelled.");
+    if (wasInventorying) onStatus(text("Archive preparation cancelled."));
   }, [archivePreparation?.phase, onStatus]);
 
   const downloadFolder = useCallback((folder: BrowserItem) => {
@@ -596,21 +614,24 @@ export function useBrowserDownloads({
         );
         if (aborted || controller.signal.aborted) {
           completionStatus = "cancelled";
-          onStatus("Download cancelled.");
+          onStatus(text("Download cancelled."));
           cancelDownloadDetails(operationId);
           return;
         }
         updateOperation(operationId, { progress: 100 });
-        onStatus(`Downloaded ${files.length} files`);
+        onStatus(text("Downloaded {count} files", { count: files.length }));
         if (failedCount > 0) {
           completionStatus = "failed";
-          completionError = `Downloaded ${files.length - failedCount} of ${files.length} files.`;
+          completionError = text("Downloaded {done} of {total} files.", {
+            done: files.length - failedCount,
+            total: files.length,
+          });
           onStatus(completionError);
         }
       } catch (caughtError) {
         if (isAbortError(caughtError) || controller.signal.aborted) {
           completionStatus = "cancelled";
-          onStatus("Download cancelled.");
+          onStatus(text("Download cancelled."));
         } else {
           completionStatus = "failed";
           completionError = formatBrowserOperationError(
@@ -657,7 +678,7 @@ export function useBrowserDownloads({
       ).length;
       if (files.length === 0) {
         if (deletedCount > 0) {
-          onWarning("Deleted objects cannot be downloaded directly.");
+          onWarning(text("Deleted objects cannot be downloaded directly."));
         }
         return;
       }
@@ -733,7 +754,7 @@ export function useBrowserDownloads({
         version.is_delete_marker ||
         !version.version_id
       ) {
-        onWarning("This version cannot be downloaded.");
+        onWarning(text("This version cannot be downloaded."));
         return;
       }
       const filename = version.key.split("/").filter(Boolean).at(-1) || "download";
@@ -761,7 +782,7 @@ export function useBrowserDownloads({
         );
         triggerBlobDownload(filename, blob);
         if (reportedId) transferReporter?.complete(reportedId, filename);
-        onStatus(`Downloaded version of ${filename}`);
+        onStatus(text("Downloaded version of {filename}", { filename }));
       } catch (caughtError) {
         const message = formatBrowserOperationError(
           caughtError,

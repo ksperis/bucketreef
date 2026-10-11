@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
+import { useBrowserI18n } from "./browserI18n";
 
 export type BrowserCopyDialogState = {
   title: string;
@@ -18,6 +19,7 @@ type UseBrowserCopyDialogOptions = {
 export function useBrowserCopyDialog({
   onStatus,
 }: UseBrowserCopyDialogOptions) {
+  const { text } = useBrowserI18n();
   const [dialog, setDialog] = useState<BrowserCopyDialogState | null>(null);
 
   const open = useCallback((nextDialog: BrowserCopyDialogState) => {
@@ -27,8 +29,8 @@ export function useBrowserCopyDialog({
   const openSseCustomerKey = useCallback(
     (keyBase64: string) =>
       open({
-        title: "Copy SSE-C key",
-        label: "SSE-C key",
+        title: text("Copy SSE-C key"),
+        label: text("SSE-C key"),
         value: keyBase64,
         successMessage: "SSE-C key copied to clipboard.",
       }),

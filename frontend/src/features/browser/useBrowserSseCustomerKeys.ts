@@ -13,6 +13,7 @@ import {
   copySseCustomerKeyWithFallback,
   generateAndActivateSseCustomerKeyForScope,
 } from "./sseCustomerKeyActions";
+import { useBrowserI18n } from "./browserI18n";
 
 function createInputSignature(value: string): string {
   return stableSignature({ sseCustomerKeyInput: value });
@@ -37,6 +38,7 @@ export function useBrowserSseCustomerKeys({
   onManualCopyRequired,
   setStatusMessage,
 }: UseBrowserSseCustomerKeysOptions) {
+  const { text } = useBrowserI18n();
   const [keysByScope, setKeysByScope] = useState<Record<string, string>>({});
   const [showModal, setShowModal] = useState(false);
   const [input, setInput] = useState("");
@@ -112,7 +114,7 @@ export function useBrowserSseCustomerKeys({
       setError(null);
       setNotice(null);
       setShowModal(false);
-      setStatusMessage("SSE-C key enabled for this bucket.");
+      setStatusMessage(text("SSE-C key enabled for this bucket."));
     } catch (activationError) {
       setError(
         resolveActionError(
@@ -151,18 +153,18 @@ export function useBrowserSseCustomerKeys({
     );
     if (copyOutcome === "copied") {
       setNotice(
-        "SSE-C key generated and enabled. Copy and save this key now; it will be lost on browser refresh.",
+        text("SSE-C key generated and enabled. Copy and save this key now; it will be lost on browser refresh."),
       );
       setStatusMessage(
-        "SSE-C key generated, enabled, and copied to clipboard.",
+        text("SSE-C key generated, enabled, and copied to clipboard."),
       );
       return;
     }
     setNotice(
-      "SSE-C key generated and enabled. Clipboard access failed: copy and save the key now using the manual dialog.",
+      text("SSE-C key generated and enabled. Clipboard access failed: copy and save the key now using the manual dialog."),
     );
     setStatusMessage(
-      "SSE-C key generated and enabled. Copy it manually from the dialog.",
+      text("SSE-C key generated and enabled. Copy it manually from the dialog."),
     );
   }, [keysByScope, onManualCopyRequired, scopeKey, setStatusMessage]);
 
@@ -179,7 +181,7 @@ export function useBrowserSseCustomerKeys({
     setNotice(null);
     setVisible(false);
     setShowModal(false);
-    setStatusMessage("SSE-C key cleared for this bucket.");
+    setStatusMessage(text("SSE-C key cleared for this bucket."));
   }, [scopeKey, setStatusMessage]);
 
   useEffect(() => {

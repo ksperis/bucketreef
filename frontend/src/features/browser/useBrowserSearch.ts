@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useState } from "react";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserSearchScope = "prefix" | "bucket";
 type BrowserSearchTypeFilter = "all" | "file" | "folder";
@@ -16,6 +17,7 @@ export function useBrowserSearch({
   isPortalProfile,
   scopeKey,
 }: UseBrowserSearchOptions) {
+  const { text } = useBrowserI18n();
   const [filter, setFilter] = useState("");
   const [showSearchOptionsMenu, setShowSearchOptionsMenu] = useState(false);
   const [searchScope, setSearchScope] =
@@ -48,18 +50,18 @@ export function useBrowserSearch({
         : "Current path"
     : "Filters applied";
   const activeSearchStatusChips = [
-    hasSearchQuery ? { label: "Query", value: filter } : null,
+    hasSearchQuery ? { label: text("Query"), value: filter } : null,
     hasSearchQuery
-      ? { label: "Scope", value: searchResultScopeLabel }
+      ? { label: text("Scope"), value: searchResultScopeLabel }
       : null,
     searchRecursive && !isSearchingInWholeBucket
-      ? { label: "Mode", value: "Recursive" }
+      ? { label: text("Mode"), value: "Recursive" }
       : null,
-    searchExactMatch ? { label: "Match", value: "Exact" } : null,
-    searchCaseSensitive ? { label: "Case", value: "Sensitive" } : null,
-    typeFilter !== "all" ? { label: "Type", value: typeFilter } : null,
+    searchExactMatch ? { label: text("Match"), value: "Exact" } : null,
+    searchCaseSensitive ? { label: text("Case"), value: "Sensitive" } : null,
+    typeFilter !== "all" ? { label: text("Type"), value: typeFilter } : null,
     storageFilter !== "all"
-      ? { label: "Storage", value: storageFilter }
+      ? { label: text("Storage"), value: storageFilter }
       : null,
   ].filter((entry): entry is { label: string; value: string } =>
     Boolean(entry),

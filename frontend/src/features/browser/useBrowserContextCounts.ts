@@ -8,6 +8,7 @@ import type { S3AccountSelector } from "../../api/accountParams";
 import { listObjectVersions } from "../../api/browserObjects";
 import { VERSIONS_PAGE_SIZE } from "./browserConstants";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserContextCounts = {
   objects: number;
@@ -93,6 +94,7 @@ export function useBrowserContextCounts({
   requestOptions,
   versioningEnabled,
 }: UseBrowserContextCountsOptions) {
+  const { text } = useBrowserI18n();
   const [counts, setCounts] = useState<BrowserContextCounts | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -128,7 +130,7 @@ export function useBrowserContextCounts({
       setCounts(nextCounts);
     } catch {
       if (requestIdRef.current !== requestId) return;
-      setError("Unable to count objects for this prefix.");
+      setError(text("Unable to count objects for this prefix."));
     } finally {
       if (requestIdRef.current === requestId) {
         setLoading(false);

@@ -45,6 +45,7 @@ import {
   prepareLatestRequest,
 } from "./browserSearchHelpers";
 import { isAbortError, normalizePrefix } from "./browserUtils";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserObjectSearchScope = "prefix" | "bucket";
 type BrowserObjectSortBy =
@@ -127,6 +128,7 @@ export function useBrowserObjectListing({
   typeFilter,
   updateBucketAccessEntry,
 }: UseBrowserObjectListingOptions) {
+  const { text, intlLocale } = useBrowserI18n();
   const [objects, setObjects] = useState<BrowserObject[]>([]);
   const [deletedObjects, setDeletedObjects] = useState<BrowserObject[]>([]);
   const [deletedPrefixes, setDeletedPrefixes] = useState<string[]>([]);
@@ -577,7 +579,9 @@ export function useBrowserObjectListing({
           setObjectsNextToken(null);
           setObjectsIsTruncated(false);
           onWarning(
-            `Object listing is limited to ${OBJECTS_LIST_HARD_LIMIT.toLocaleString()} entries. Narrow your path or search to continue.`,
+            text("Object listing is limited to {count} entries. Narrow your path or search to continue.", {
+              count: OBJECTS_LIST_HARD_LIMIT.toLocaleString(intlLocale),
+            }),
           );
         } else {
           setObjectsNextToken(loadedObjectsNextToken);
@@ -585,7 +589,9 @@ export function useBrowserObjectListing({
         }
         if (deletedLimitReached) {
           onWarning(
-            `Deleted markers listing is limited to ${OBJECTS_LIST_HARD_LIMIT.toLocaleString()} entries. Narrow your path or search to continue.`,
+            text("Deleted markers listing is limited to {count} entries. Narrow your path or search to continue.", {
+              count: OBJECTS_LIST_HARD_LIMIT.toLocaleString(intlLocale),
+            }),
           );
         }
       } catch (error) {

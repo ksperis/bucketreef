@@ -12,27 +12,30 @@ import {
 } from "./browserObjectTableModel";
 import type { BrowserItem } from "./browserTypes";
 import { formatDateTime } from "./browserUtils";
+import { useBrowserI18n, type BrowserTextFn } from "./browserI18n";
 
 function renderLazyCellValue(
   status: LazyFieldStatus,
   value: string | number | null,
+  text: BrowserTextFn,
+  intlLocale: string,
 ): ReactNode {
   if (status === "idle") {
     return "—";
   }
   if (status === "error") {
-    return "Unavailable";
+    return text("Unavailable");
   }
   if (status === "ready") {
     if (typeof value === "number") {
-      return value.toLocaleString();
+      return value.toLocaleString(intlLocale);
     }
     return value || "—";
   }
   return (
     <span className="inline-flex items-center gap-1 text-slate-400 dark:text-slate-500">
       <span className="h-2 w-2 animate-pulse rounded-full bg-slate-300 dark:bg-slate-600" />
-      Loading...
+      {text("Loading...")}
     </span>
   );
 }
@@ -41,15 +44,15 @@ function formatExpiresCellValue(value: string | null): string | null {
   return value ? formatDateTime(value) : null;
 }
 
-function formatRestoreStatusCellValue(value: string | null): string | null {
+function formatRestoreStatusCellValue(value: string | null, text: BrowserTextFn): string | null {
   if (!value) return null;
   const prefixLabel = "Restored until ";
   if (!value.startsWith(prefixLabel)) {
     return value;
   }
   const rawDate = value.slice(prefixLabel.length).trim();
-  if (!rawDate) return "Restored";
-  return `${prefixLabel}${formatDateTime(rawDate)}`;
+  if (!rawDate) return text("Restored");
+  return text("Restored until {date}", { date: formatDateTime(rawDate) });
 }
 
 type BrowserObjectColumnValueProps = {
@@ -63,15 +66,16 @@ export function BrowserObjectColumnValue({
   columnId,
   lazyEntry,
 }: BrowserObjectColumnValueProps): ReactNode {
+  const { text, intlLocale } = useBrowserI18n();
   if (columnId === "type") {
     if (item.type === "folder") {
       return item.isHistorical
-        ? "Historical folder"
+        ? text("Historical folder")
         : item.isDeleted
-          ? "Deleted folder"
-          : "Folder";
+          ? text("Deleted folder")
+          : text("Folder");
     }
-    return item.isDeleted ? "Deleted object" : "Object";
+    return item.isDeleted ? text("Deleted object") : text("Object");
   }
   if (columnId === "size") {
     return item.size;
@@ -94,36 +98,48 @@ export function BrowserObjectColumnValue({
     return renderLazyCellValue(
       resolvedLazyEntry.metadataStatus,
       resolvedLazyEntry.contentType,
+      text,
+      intlLocale,
     );
   }
   if (columnId === "tagsCount") {
     return renderLazyCellValue(
       resolvedLazyEntry.tagsStatus,
       resolvedLazyEntry.tagsCount,
+      text,
+      intlLocale,
     );
   }
   if (columnId === "metadataCount") {
     return renderLazyCellValue(
       resolvedLazyEntry.metadataStatus,
       resolvedLazyEntry.metadataCount,
+      text,
+      intlLocale,
     );
   }
   if (columnId === "cacheControl") {
     return renderLazyCellValue(
       resolvedLazyEntry.metadataStatus,
       resolvedLazyEntry.cacheControl,
+      text,
+      intlLocale,
     );
   }
   if (columnId === "expires") {
     return renderLazyCellValue(
       resolvedLazyEntry.metadataStatus,
       formatExpiresCellValue(resolvedLazyEntry.expires),
+      text,
+      intlLocale,
     );
   }
   if (columnId === "restoreStatus") {
     return renderLazyCellValue(
       resolvedLazyEntry.metadataStatus,
-      formatRestoreStatusCellValue(resolvedLazyEntry.restoreStatus),
+      formatRestoreStatusCellValue(resolvedLazyEntry.restoreStatus, text),
+      text,
+      intlLocale,
     );
   }
   return "—";
@@ -142,9 +158,10 @@ export function BrowserObjectColumnHeaderContent({
   sortDirection,
   onSort,
 }: BrowserObjectColumnHeaderContentProps) {
+  const { text } = useBrowserI18n();
   const sortable = column.sortable;
   if (!sortable) {
-    return <span className="inline-flex h-6 items-center">{column.label}</span>;
+    return <span className="inline-flex h-6 items-center">{text(column.label)}</span>;
   }
   const active = sortKey === sortable;
   return (
@@ -153,7 +170,7 @@ export function BrowserObjectColumnHeaderContent({
       onClick={() => onSort(sortable)}
       className="group inline-flex h-6 items-center gap-1 text-left text-slate-500 transition hover:text-primary-700 dark:text-slate-400 dark:hover:text-primary-100"
     >
-      <span>{column.label}</span>
+      <span>{text(column.label)}</span>
       <ChevronDownIcon
         className={`h-3 w-3 transition ${active ? "opacity-100" : "opacity-30"} ${
           active && sortDirection === "asc" ? "-rotate-180" : ""
@@ -176,12 +193,15 @@ export function BrowserColumnResizeHandle({
   onPointerDown,
   onReset,
 }: BrowserColumnResizeHandleProps) {
+  const { text } = useBrowserI18n();
+  const translatedLabel = text(label);
+  const resizeLabel = text("Resize {label} column", { label: translatedLabel });
   return (
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label={`Resize ${label} column`}
-      title={`Resize ${label} column`}
+      aria-label={resizeLabel}
+      title={resizeLabel}
       className="absolute inset-y-0 right-0 z-10 translate-x-1/2 cursor-col-resize touch-none select-none"
       style={{ width: `${COLUMN_RESIZER_HITBOX_WIDTH_PX}px` }}
       onPointerDown={onPointerDown}

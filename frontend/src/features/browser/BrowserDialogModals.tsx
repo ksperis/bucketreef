@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
 import UiTextarea from "../../components/ui/UiTextarea";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserConfirmModalProps = {
   title: string;
@@ -56,6 +57,7 @@ export function BrowserCopyValueModal({
   onClose,
   onCopySuccess,
 }: BrowserCopyValueModalProps) {
+  const { text } = useBrowserI18n();
   const valueRef = useRef<HTMLTextAreaElement | null>(null);
   const [copyHint, setCopyHint] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
@@ -97,7 +99,7 @@ export function BrowserCopyValueModal({
           readOnly value={value} spellCheck={false} />
         {copyHint && <p role="status" className="settings-description">{copyHint}</p>}
         <ModalActions>
-          <SettingsButton variant="secondary" onClick={onClose}>Close</SettingsButton>
+          <SettingsButton variant="secondary" onClick={onClose}>{text("Close")}</SettingsButton>
           <SettingsButton disabled={copying || !value} onClick={() => void handleCopy()}>
             {copying ? "Copying..." : "Copy"}
           </SettingsButton>

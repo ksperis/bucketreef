@@ -12,6 +12,7 @@ import type {
   BrowserColumnId,
   ColumnDefinition,
 } from "./browserObjectTableModel";
+import { useBrowserI18n } from "./browserI18n";
 
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
 
@@ -34,6 +35,7 @@ export function BrowserUploadQuickMenu({
   onUploadFiles,
   onUploadFolder,
 }: BrowserUploadQuickMenuProps) {
+  const { text } = useBrowserI18n();
   return (
     <AnchoredPortalMenu
       open={open}
@@ -46,7 +48,7 @@ export function BrowserUploadQuickMenu({
       <div
         ref={menuRef}
         role="menu"
-        aria-label="Upload"
+        aria-label={text("Upload")}
         className="max-h-[min(70vh,20rem)] overflow-y-auto"
       >
         <button
@@ -57,7 +59,7 @@ export function BrowserUploadQuickMenu({
           disabled={!canUploadFiles}
         >
           <UploadIcon className="h-3.5 w-3.5" />
-          Upload files
+          {text("Upload files")}
         </button>
         <button
           type="button"
@@ -67,7 +69,7 @@ export function BrowserUploadQuickMenu({
           disabled={!canUploadFolder}
         >
           <FolderIcon className="h-3.5 w-3.5" />
-          Upload folder
+          {text("Upload folder")}
         </button>
       </div>
     </AnchoredPortalMenu>
@@ -93,6 +95,7 @@ export function BrowserColumnsMenu({
   onToggleColumn,
   onReset,
 }: BrowserColumnsMenuProps) {
+  const { text } = useBrowserI18n();
   return (
     <AnchoredPortalMenu
       open={open}
@@ -105,16 +108,14 @@ export function BrowserColumnsMenu({
       <div
         ref={menuRef}
         role="menu"
-        aria-label="Columns"
+        aria-label={text("Columns")}
         className="max-h-[min(70vh,24rem)] overflow-y-auto"
       >
         <div className="px-3 pb-2 pt-2">
           <p className="ui-caption font-semibold text-slate-700 dark:text-slate-100">
-            Object columns
-          </p>
+            {text("Object columns")}</p>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-            Only base listing columns can be sorted.
-          </p>
+            {text("Only base listing columns can be sorted.")}</p>
         </div>
         <div className={contextMenuSeparatorClasses} />
         {columns.map((column) => {
@@ -134,7 +135,7 @@ export function BrowserColumnsMenu({
               >
                 {checked ? "✓" : ""}
               </span>
-              <span className="min-w-0 flex-1">{column.label}</span>
+              <span className="min-w-0 flex-1">{text(column.label)}</span>
             </button>
           );
         })}
@@ -146,7 +147,7 @@ export function BrowserColumnsMenu({
           onClick={onReset}
         >
           <SlidersIcon className="h-3.5 w-3.5" />
-          Reset columns
+          {text("Reset columns")}
         </button>
       </div>
     </AnchoredPortalMenu>

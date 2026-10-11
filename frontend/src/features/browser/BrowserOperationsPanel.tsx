@@ -21,6 +21,7 @@ import type {
   OperationItem,
   UploadOperationGroup,
 } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserOperationsPanelProps = {
   open: boolean;
@@ -121,6 +122,7 @@ export default function BrowserOperationsPanel({
   onOpenDetails,
   onToggleOpen,
 }: BrowserOperationsPanelProps) {
+  const { text } = useBrowserI18n();
   const pendingOperationsCount = activeOperationsCount + queuedOperationsCount;
   const dominantStatus =
     failedOperationsCount > 0
@@ -269,7 +271,7 @@ export default function BrowserOperationsPanel({
   return (
     <section
       role="complementary"
-      aria-label="Operations"
+      aria-label={text("Operations")}
       className="fixed inset-x-3 bottom-4 z-[46] sm:left-auto sm:right-4 sm:w-[420px]"
     >
       <div className="overflow-hidden rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-[var(--shell-menu-shadow)]">
@@ -287,7 +289,7 @@ export default function BrowserOperationsPanel({
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center gap-2">
-                <span className="truncate ui-body font-semibold">Operations</span>
+                <span className="truncate ui-body font-semibold">{text("Operations")}</span>
                 <span className={countBadgeClasses}>{formatBadgeCount(totalOperationsCount)}</span>
               </span>
               <span className="mt-0.5 flex min-w-0 items-center gap-2">
@@ -311,8 +313,8 @@ export default function BrowserOperationsPanel({
                 type="button"
                 className="flex w-9 items-center justify-center text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-hover)] hover:text-[var(--ui-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
                 onClick={onDismiss}
-                aria-label="Dismiss operations panel"
-                title="Dismiss operations panel"
+                aria-label={text("Dismiss operations panel")}
+                title={text("Dismiss operations panel")}
               >
                 <XIcon className="h-4 w-4" />
               </button>
@@ -328,7 +330,7 @@ export default function BrowserOperationsPanel({
         {open ? (
           <div className="max-h-[65dvh] overflow-y-auto px-3 py-1 sm:max-h-[min(52vh,360px)]">
             {timelineEntries.length === 0 ? (
-              <div className="py-6 text-center ui-caption text-[var(--ui-text-muted)]">No operations to show.</div>
+              <div className="py-6 text-center ui-caption text-[var(--ui-text-muted)]">{text("No operations to show.")}</div>
             ) : (
               <div className="divide-y divide-[color:var(--ui-border-soft)]">
                 {timelineEntries.map((entry) => (
@@ -340,16 +342,15 @@ export default function BrowserOperationsPanel({
               <ListActionButton
                 type="button"
                 onClick={onOpenDetails}
-                aria-label="Operations overview"
-                title="Operations overview"
+                aria-label={text("Operations overview")}
+                title={text("Operations overview")}
               >
                 <InfoIcon className="h-3.5 w-3.5" />
-                <span>Overview</span>
+                <span>{text("Overview")}</span>
               </ListActionButton>
               {hasFinishedOperations ? (
                 <ListActionButton type="button" onClick={onClearFinishedOperations}>
-                  Clear completed/failed
-                </ListActionButton>
+                  {text("Clear completed/failed")}</ListActionButton>
               ) : null}
             </div>
           </div>

@@ -23,6 +23,7 @@ import {
 } from "./browserUtils";
 import type { OperationItem, UploadCandidate, UploadQueueItem } from "./browserTypes";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -61,6 +62,7 @@ export function useBrowserUploadQueue({
   startUpload,
   workspaceNoun,
 }: UseBrowserUploadQueueOptions) {
+  const { text } = useBrowserI18n();
   const [dragging, setDragging] = useState(false);
   const queueRef = useRef<UploadQueueItem[]>([]);
   const activeUploadsRef = useRef(0);
@@ -323,7 +325,7 @@ export function useBrowserUploadQueue({
       const files = await collectDroppedFiles(event.dataTransfer);
       if (files.length === 0) return;
       if (!bucketName || !enabled) {
-        onStatus(`Select a ${workspaceNoun} before uploading.`);
+        onStatus(text("Select a {workspace} before uploading.", { workspace: text(workspaceNoun) }));
         return;
       }
       addFiles(files);

@@ -12,6 +12,7 @@ import DetailsList from "../shared/DetailsList";
 import { useBrowserContextCounts } from "./useBrowserContextCounts";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import { buildPrefixBreadcrumbs, normalizePrefix } from "./browserUtils";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserPathDetailsDrawerProps = {
   accountId: S3AccountSelector;
@@ -34,6 +35,7 @@ export default function BrowserPathDetailsDrawer({
   onClose,
   onCopyPath,
 }: BrowserPathDetailsDrawerProps) {
+  const { text } = useBrowserI18n();
   const recursivePrefix = normalizePrefix(prefix);
   const name = buildPrefixBreadcrumbs(recursivePrefix).at(-1)?.label ?? "Bucket root";
   const path = recursivePrefix ? `${bucketName}/${recursivePrefix.slice(0, -1)}` : bucketName;
@@ -57,33 +59,31 @@ export default function BrowserPathDetailsDrawer({
       onClose={onClose}
     >
       <UiCard
-        title="Path details"
-        description="Inspect this location without leaving the current Browser context."
+        title={text("Path details")}
+        description={text("Inspect this location without leaving the current Browser context.")}
       >
         <DetailsList
           items={[
-            { label: "Bucket", value: bucketName },
-            { label: "Path", value: path, mono: true },
+            { label: text("Bucket"), value: bucketName },
+            { label: text("Path"), value: path, mono: true },
             {
-              label: "Kind",
+              label: text("Kind"),
               value: recursivePrefix ? "Folder prefix" : "Bucket root",
             },
             {
-              label: "S3 prefix",
+              label: text("S3 prefix"),
               value: recursivePrefix || "(empty)",
               mono: true,
             },
           ]}
         />
         <p className={cx("mt-4 text-xs leading-5", uiMutedTextClass)}>
-          S3 folders are virtual: this path represents the common prefix of the
-          object keys displayed in the Browser.
-        </p>
+          {text("S3 folders are virtual: this path represents the common prefix of the object keys displayed in the Browser.")}</p>
       </UiCard>
       <UiCard
         className="mt-4"
-        title="Recursive contents"
-        description="Count every object below this path, including nested prefixes."
+        title={text("Recursive contents")}
+        description={text("Count every object below this path, including nested prefixes.")}
         actions={
           <UiButton
             size="xs"
@@ -98,8 +98,7 @@ export default function BrowserPathDetailsDrawer({
         <div aria-live="polite">
           {loading && !counts ? (
             <p className={cx("text-xs", uiMutedTextClass)}>
-              Scanning the full prefix. Large paths may take a while.
-            </p>
+              {text("Scanning the full prefix. Large paths may take a while.")}</p>
           ) : error ? (
             <p className="text-xs font-semibold text-rose-600 dark:text-rose-300">
               {error}
@@ -108,17 +107,17 @@ export default function BrowserPathDetailsDrawer({
             <DetailsList
               items={[
                 {
-                  label: "Current objects",
+                  label: text("Current objects"),
                   value: counts.objects.toLocaleString(),
                 },
                 ...(versioningEnabled
                   ? [
                       {
-                        label: "Versions",
+                        label: text("Versions"),
                         value: counts.versions.toLocaleString(),
                       },
                       {
-                        label: "Delete markers",
+                        label: text("Delete markers"),
                         value: counts.deleteMarkers.toLocaleString(),
                       },
                     ]
@@ -127,8 +126,7 @@ export default function BrowserPathDetailsDrawer({
             />
           ) : (
             <p className={cx("text-xs", uiMutedTextClass)}>
-              The count runs only when requested and does not change the current list.
-            </p>
+              {text("The count runs only when requested and does not change the current list.")}</p>
           )}
         </div>
       </UiCard>

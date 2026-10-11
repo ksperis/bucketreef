@@ -11,6 +11,7 @@ import type {
   BrowserObjectPropertyEntry,
   BrowserObjectPropertyEntryField,
 } from "./useBrowserObjectProperties";
+import { useBrowserI18n } from "./browserI18n";
 
 type AsyncAction = () => Promise<unknown> | void;
 
@@ -45,6 +46,7 @@ function EditablePairs({
   addLabel, emptyLabel, entries, keyPlaceholder, onAdd, onChange,
   onRemove, title, hideLegend = false, valuePlaceholder,
 }: EditablePairsProps) {
+  const { text } = useBrowserI18n();
   return (
     <fieldset className="settings-stack min-w-0">
       <legend className={hideLegend ? "sr-only" : "settings-label mb-2"}>{title}</legend>
@@ -57,7 +59,7 @@ function EditablePairs({
           <UiInput label={`${title} value ${index + 1}`} value={entry.value}
             onChange={(event) => onChange(entry.id, "value", event.target.value)} placeholder={valuePlaceholder} />
           <SettingsButton variant="secondary" aria-label={`Remove ${title.toLowerCase()} ${index + 1}`}
-            onClick={() => onRemove(entry.id)}>Remove</SettingsButton>
+            onClick={() => onRemove(entry.id)}>{text("Remove")}</SettingsButton>
         </div>
       ))}
       <div><SettingsButton variant="secondary" onClick={onAdd}>{addLabel}</SettingsButton></div>
@@ -98,12 +100,13 @@ export default function BrowserObjectPropertiesTab({
   onRemoveTag, onSaveMetadata, onSaveStorageClass, onSaveTags, onStorageClassChange,
   onTagChange, readOnly, savingMetadata, savingStorageClass, savingTags, storageClass, tags,
 }: BrowserObjectPropertiesTabProps) {
+  const { text } = useBrowserI18n();
   const saving = savingMetadata || savingStorageClass || savingTags;
   const disabled = readOnly || loading || !loaded || saving;
 
   return (
     <div className="settings-compact settings-form">
-      {readOnly && <UiInlineMessage tone="info">Properties are read-only in the Standard Browser profile.</UiInlineMessage>}
+      {readOnly && <UiInlineMessage tone="info">{text("Properties are read-only in the Standard Browser profile.")}</UiInlineMessage>}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="settings-description" role="status">{loading ? "Loading object details..." : "Save each section independently. Refresh keeps unsaved edits."}</p>
         <SettingsButton variant="secondary" onClick={() => void onRefresh()} disabled={loading || saving}>
@@ -111,28 +114,28 @@ export default function BrowserObjectPropertiesTab({
         </SettingsButton>
       </div>
       {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
-      <SettingsOperationSection title="Metadata" description="Standard headers and custom metadata are saved together."
-        busy={savingMetadata} disabled={disabled} dirty={dirtySections?.metadata} submitLabel="Save metadata" onSubmit={onSaveMetadata}>
+      <SettingsOperationSection title={text("Metadata")} description={text("Standard headers and custom metadata are saved together.")}
+        busy={savingMetadata} disabled={disabled} dirty={dirtySections?.metadata} submitLabel={text("Save metadata")} onSubmit={onSaveMetadata}>
         <div className="settings-fields sm:grid-cols-2">
           {standardMetadataFields.map(({ field, label, placeholder, type }) => (
             <UiInput key={field} label={label} type={type} value={metadataDraft[field]}
               onChange={(event) => onMetadataDraftChange(field, event.target.value)} placeholder={placeholder} />
           ))}
         </div>
-        <EditablePairs title="Custom metadata" addLabel="Add metadata" emptyLabel="No custom metadata defined."
+        <EditablePairs title={text("Custom metadata")} addLabel="Add metadata" emptyLabel="No custom metadata defined."
           entries={metadataItems} keyPlaceholder="x-custom-key" valuePlaceholder="value"
           onAdd={onAddMetadata} onChange={onMetadataItemChange} onRemove={onRemoveMetadata} />
       </SettingsOperationSection>
-      <SettingsOperationSection title="Tags" description="Key/value tags attached to this object."
-        busy={savingTags} disabled={disabled} dirty={dirtySections?.tags} submitLabel="Save tags" onSubmit={onSaveTags}>
-        <EditablePairs title="Tags" hideLegend addLabel="Add tag" emptyLabel="No tags defined." entries={tags}
+      <SettingsOperationSection title={text("Tags")} description={text("Key/value tags attached to this object.")}
+        busy={savingTags} disabled={disabled} dirty={dirtySections?.tags} submitLabel={text("Save tags")} onSubmit={onSaveTags}>
+        <EditablePairs title={text("Tags")} hideLegend addLabel="Add tag" emptyLabel="No tags defined." entries={tags}
           keyPlaceholder="Key" valuePlaceholder="Value" onAdd={onAddTag} onChange={onTagChange} onRemove={onRemoveTag} />
       </SettingsOperationSection>
-      <SettingsOperationSection title="Storage class" description="Changing storage class copies the object to the selected storage tier."
+      <SettingsOperationSection title={text("Storage class")} description={text("Changing storage class copies the object to the selected storage tier.")}
         busy={savingStorageClass} disabled={disabled} dirty={dirtySections?.storageClass} submitDisabled={!storageClass}
-        submitLabel="Save storage class" onSubmit={onSaveStorageClass}>
-        <UiSelect label="Storage class" value={storageClass} onChange={(event) => onStorageClassChange(event.target.value)}>
-          <option value="">Select storage class</option>
+        submitLabel={text("Save storage class")} onSubmit={onSaveStorageClass}>
+        <UiSelect label={text("Storage class")} value={storageClass} onChange={(event) => onStorageClassChange(event.target.value)}>
+          <option value="">{text("Select storage class")}</option>
           {storageClassOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </UiSelect>
       </SettingsOperationSection>

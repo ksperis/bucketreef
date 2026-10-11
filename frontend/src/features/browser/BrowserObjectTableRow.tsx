@@ -16,6 +16,7 @@ import type {
   LazyColumnCacheEntry,
 } from "./browserObjectTableModel";
 import type { BrowserItem } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 const comfortableMetadataLabelClasses =
   "inline-flex items-center rounded border px-1 ui-badge font-semibold";
@@ -43,16 +44,17 @@ type BrowserObjectTableRowProps = {
 
 function resolveObjectTypeLabel(
   item: BrowserItem,
+  text: (message: string) => string,
   contentType?: string | null,
 ): string {
   if (item.type === "folder") {
-    if (item.isHistorical) return "Historical folder";
-    return item.isDeleted ? "Deleted folder" : "Prefix";
+    if (item.isHistorical) return text("Historical folder");
+    return item.isDeleted ? text("Deleted folder") : text("Prefix");
   }
-  if (item.isDeleted) return "Deleted object";
+  if (item.isDeleted) return text("Deleted object");
   const kind = objectPreviewKind(item.name, contentType);
   return kind === "generic"
-    ? "Binary"
+    ? text("Binary")
     : kind === "pdf"
       ? "PDF"
       : `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
@@ -78,6 +80,7 @@ export default function BrowserObjectTableRow({
   onRunAction,
   onOpenActions,
 }: BrowserObjectTableRowProps) {
+  const { text } = useBrowserI18n();
   const isDeleted = Boolean(item.isDeleted);
   const isHistorical = Boolean(item.isHistorical);
   return (
@@ -117,7 +120,7 @@ export default function BrowserObjectTableRow({
           type="button"
           onClick={onNameClick}
           onDoubleClick={(event) => event.preventDefault()}
-          aria-label={resolveBrowserItemOpenLabel(item)}
+          aria-label={text(resolveBrowserItemOpenLabel(item))}
           className={`flex ${primaryItemButtonHeightClasses} w-full min-w-0 items-center ${nameGapClasses} text-left`}
           title={item.name}
         >
@@ -168,7 +171,7 @@ export default function BrowserObjectTableRow({
                 <span
                   className={`${comfortableMetadataLabelClasses} border-slate-200 dark:border-slate-700`}
                 >
-                  {resolveObjectTypeLabel(item, lazyEntry?.contentType)}
+                  {resolveObjectTypeLabel(item, text, lazyEntry?.contentType)}
                 </span>
                 {(isDeleted || isHistorical) && (
                   <span
@@ -227,7 +230,7 @@ export default function BrowserObjectTableRow({
           <ListActionButton
             iconOnly
             aria-label={`More actions for ${item.name}`}
-            title="More"
+            title={text("More")}
             onClick={onOpenActions}
           >
             <MoreIcon />

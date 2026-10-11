@@ -1,4 +1,4 @@
-import { useBrowserText } from "./browserMessages";
+import { useBrowserI18n } from "./browserI18n";
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import { useMemo, useState } from "react";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
@@ -36,7 +36,7 @@ export default function BrowserFavoritesControl({
   bucketDetailsByName?: ReadonlyMap<string, BrowserBucket>;
   compact?: boolean;
 }) {
-  const tr = useBrowserText();
+  const { text: tr } = useBrowserI18n();
   const [search, setSearch] = useState("");
   const filteredFavorites = useMemo(
     () =>

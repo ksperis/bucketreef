@@ -11,6 +11,7 @@ import {
   resolveBrowserItemOpenLabel,
 } from "./browserObjectItemPresentation";
 import type { BrowserItem } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserObjectMobileListProps = {
   items: readonly BrowserItem[];
@@ -54,10 +55,11 @@ export default function BrowserObjectMobileList({
   onItemNameClick,
   onOpenActions,
 }: BrowserObjectMobileListProps) {
+  const { text } = useBrowserI18n();
   return (
     <div
       role="list"
-      aria-label="Objects"
+      aria-label={text("Objects")}
       className="ui-browser-mobile-list divide-y divide-[var(--ui-border-soft)]"
     >
       {showParentFolder && (

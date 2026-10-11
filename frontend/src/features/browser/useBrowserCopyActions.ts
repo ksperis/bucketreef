@@ -9,6 +9,7 @@ import type {
 } from "../../api/browserTransfers";
 import type { BrowserCopyDialogState } from "./useBrowserCopyDialog";
 import type { BrowserItem } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type UseBrowserCopyActionsOptions = {
   bucketName: string;
@@ -32,6 +33,7 @@ export function useBrowserCopyActions({
   presignObject,
   sseActive,
 }: UseBrowserCopyActionsOptions) {
+  const { text } = useBrowserI18n();
   const copyValue = useCallback(async (dialog: BrowserCopyDialogState) => {
     try {
       if (navigator.clipboard?.writeText) {
@@ -55,13 +57,13 @@ export function useBrowserCopyActions({
         item.isDeleted
       ) {
         if (item?.isDeleted) {
-          onWarning("Deleted objects do not have a direct download URL.");
+          onWarning(text("Deleted objects do not have a direct download URL."));
         }
         return;
       }
       if (sseActive) {
         onWarning(
-          "Copy URL is disabled in SSE-C mode: required encryption headers are missing.",
+          text("Copy URL is disabled in SSE-C mode: required encryption headers are missing."),
         );
         return;
       }
@@ -72,13 +74,13 @@ export function useBrowserCopyActions({
           expires_in: 900,
         });
         await copyValue({
-          title: "Copy URL",
-          label: "Object URL",
+          title: text("Copy URL"),
+          label: text("Object URL"),
           value: presign.url,
           successMessage: "URL copied to clipboard.",
         });
       } catch {
-        onStatus("Unable to copy URL.");
+        onStatus(text("Unable to copy URL."));
       }
     },
     [
@@ -96,8 +98,8 @@ export function useBrowserCopyActions({
     async (path: string) => {
       if (!path) return;
       await copyValue({
-        title: "Copy path",
-        label: "Object path",
+        title: text("Copy path"),
+        label: text("Object path"),
         value: path,
         successMessage: "Path copied to clipboard.",
       });

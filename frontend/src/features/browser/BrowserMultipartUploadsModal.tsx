@@ -8,6 +8,7 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import ListDialog from "../../components/list/ListDialog";
 
 import { formatDateTime } from "./browserUtils";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserMultipartUploadsModalProps = {
   bucketName: string;
@@ -38,33 +39,34 @@ export default function BrowserMultipartUploadsModal({
   onAbort,
   onClose,
 }: BrowserMultipartUploadsModalProps) {
+  const { text } = useBrowserI18n();
   const uploadColumns: Array<DataTableColumn<MultipartUploadItem>> = [
     {
       id: "key",
-      label: "Key",
+      label: text("Key"),
       primary: true,
       cellClassName: "max-w-[280px] break-all whitespace-pre-wrap",
       render: (upload) => upload.key,
     },
     {
       id: "upload-id",
-      label: "Upload ID",
+      label: text("Upload ID"),
       cellClassName: "max-w-[260px] break-all font-mono text-[11px]",
       render: (upload) => upload.upload_id,
     },
     {
       id: "initiated",
-      label: "Initiated",
+      label: text("Initiated"),
       render: (upload) => formatDateTime(upload.initiated),
     },
     {
       id: "storage-class",
-      label: "Storage class",
+      label: text("Storage class"),
       render: (upload) => upload.storage_class || "-",
     },
     {
       id: "owner",
-      label: "Owner",
+      label: text("Owner"),
       render: (upload) => (
         <span className="block max-w-[200px] [overflow-wrap:anywhere]">
           {upload.owner || "-"}
@@ -73,7 +75,7 @@ export default function BrowserMultipartUploadsModal({
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (upload) => {
@@ -93,11 +95,11 @@ export default function BrowserMultipartUploadsModal({
   ];
 
   return (
-    <ListDialog title="Multipart uploads" onClose={onClose} maxWidthClass="max-w-5xl"
+    <ListDialog title={text("Multipart uploads")} onClose={onClose} maxWidthClass="max-w-5xl"
       description={`Bucket ${bucketName} · In-progress multipart uploads.`}
       rowCount={uploads.length} countLabel={`${uploads.length} loaded`}
       loading={loading || loadingMore} loadingMessage="Loading multipart uploads..." error={error}
-      emptyMessage="No multipart uploads in progress." onRefresh={onRefresh}
+      emptyMessage={text("No multipart uploads in progress.")} onRefresh={onRefresh}
       loadMore={{ available: canLoadMore, onClick: onLoadMore }}>
       <DataTableShell
           columns={uploadColumns}
@@ -106,7 +108,7 @@ export default function BrowserMultipartUploadsModal({
           status="ready"
           loadingMessage="Loading multipart uploads..."
           errorMessage="Unable to load multipart uploads."
-          emptyMessage="No multipart uploads in progress."
+          emptyMessage={text("No multipart uploads in progress.")}
           containerClassName="rounded-lg border border-[var(--ui-border)]"
           tableClassName="ui-data-table"
           responsiveCards

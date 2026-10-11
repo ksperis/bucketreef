@@ -190,6 +190,7 @@ import type {
   ObjectDetailsTabId,
   UploadQueueItem,
 } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 const MOBILE_OBJECT_LIST_MEDIA_QUERY = "(max-width: 767px)";
 
@@ -223,6 +224,7 @@ export default function BrowserPage({
   refreshToken,
   transferReporter,
 }: BrowserPageProps = {}) {
+  const { text, intlLocale } = useBrowserI18n();
   const browserContext = useBrowserContext();
   const { setSidebarBody } = useBrowserSidebarSlot();
   const selectedContext = browserContext.selectedContext;
@@ -530,10 +532,10 @@ export default function BrowserPage({
   const requestDiscardDrawerChanges = useCallback(
     (onConfirm: () => void) => {
       openConfirmDialog({
-        title: "Discard changes?",
+        title: text("Discard changes?"),
         message:
           "You have unapplied changes in the open details drawer. Continuing will discard them.",
-        confirmLabel: "Discard changes",
+        confirmLabel: text("Discard changes"),
         tone: "danger",
         onConfirm,
       });
@@ -875,8 +877,8 @@ export default function BrowserPage({
     const primaryOps = newOps.filter((op) => op.kind !== "upload");
     if (primaryOps.length === 0) return;
     const latest = primaryOps[0];
-    setStatusMessage(`Queued: ${latest.label}.`);
-  }, [operations, setStatusMessage]);
+    setStatusMessage(text("Queued: {label}.", { label: text(latest.label) }));
+  }, [operations, setStatusMessage, text]);
 
   useEffect(() => {
     if (isVersioningEnabled) return;
@@ -925,8 +927,7 @@ export default function BrowserPage({
           className="mx-auto max-w-xl rounded-md border border-rose-200/70 bg-rose-50/70 px-2 py-1.5 text-left dark:border-rose-500/30 dark:bg-rose-900/20"
         >
           <summary className="list-none cursor-pointer ui-caption font-semibold text-rose-700 dark:text-rose-100 [&::-webkit-details-marker]:hidden">
-            Show technical details
-          </summary>
+            {text("Show technical details")}</summary>
           {showObjectsIssueTechnicalDetails && (
             <p className="mt-2 break-words ui-caption text-rose-700 dark:text-rose-100">
               {objectsIssue.technicalDetail}
@@ -1092,9 +1093,9 @@ export default function BrowserPage({
       return lockedBucketLabel?.trim() || resolvedLockedBucketName;
     }
     if (bucketName) return bucketDisplayNameByName.get(bucketName) ?? bucketName;
-    if (loadingBuckets) return `Loading ${selectorWorkspaceNounPlural}...`;
-    if (bucketTotalCount === 0) return `No ${selectorWorkspaceNounPlural}`;
-    return `Select ${selectorWorkspaceNoun}`;
+    if (loadingBuckets) return text("Loading {workspace}...", { workspace: text(selectorWorkspaceNounPlural) });
+    if (bucketTotalCount === 0) return text("No {workspace}", { workspace: text(selectorWorkspaceNounPlural) });
+    return text("Select {workspace}", { workspace: text(selectorWorkspaceNoun) });
   }, [
     bucketDisplayNameByName,
     bucketName,
@@ -1162,15 +1163,15 @@ export default function BrowserPage({
   const workspaceAccountAction = useMemo(() => {
     if (workspaceAccountActionTarget === "manager") {
       return {
-        label: "Open in Manager",
-        title: "Open this account in Manager",
+        label: text("Open in Manager"),
+        title: text("Open this account in Manager"),
         onClick: handleOpenWorkspaceAccount,
       };
     }
     if (workspaceAccountActionTarget === "portal") {
       return {
-        label: "Open in Portal",
-        title: "Open this account in Portal",
+        label: text("Open in Portal"),
+        title: text("Open this account in Portal"),
         onClick: handleOpenWorkspaceAccount,
       };
     }
@@ -1309,9 +1310,11 @@ export default function BrowserPage({
 
   const handleVersionsHardLimit = useCallback(() => {
     setWarningMessage(
-      `Versions listing is limited to ${VERSIONS_LIST_HARD_LIMIT.toLocaleString()} entries. Narrow your path to continue.`,
+      text("Versions listing is limited to {count} entries. Narrow your path to continue.", {
+        count: VERSIONS_LIST_HARD_LIMIT.toLocaleString(intlLocale),
+      }),
     );
-  }, [setWarningMessage]);
+  }, [intlLocale, setWarningMessage, text]);
   const {
     canLoadMore: canLoadMorePrefixVersions,
     close: closePrefixVersions,
@@ -2071,7 +2074,7 @@ export default function BrowserPage({
     prefix: string;
   }) => {
     addActivity("Created", `${bucketName}/${createdFolderPrefix}`);
-    setStatusMessage(`Folder ${name} created`);
+    setStatusMessage(text("Folder {name} created", { name }));
     await loadObjects({ prefixOverride: prefix });
     loadTreeChildren(prefix);
   };
@@ -2336,7 +2339,7 @@ export default function BrowserPage({
   const handleDownloadTarget = (item: BrowserItem) => {
     if (item.isDeleted) {
       setWarningMessage(
-        "This item is deleted. Open it or use versions to restore content before downloading.",
+        text("This item is deleted. Open it or use versions to restore content before downloading."),
       );
       if (item.type === "file" && isVersioningEnabled) {
         openObjectDetails(item, "versions");
@@ -2802,8 +2805,8 @@ export default function BrowserPage({
                         type="button"
                         className="inline-flex h-4 w-4 items-center justify-center rounded-full text-sky-700 transition hover:text-sky-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 dark:text-sky-200 dark:hover:text-sky-100 dark:focus-visible:outline-sky-200"
                         onClick={toggleCorsActionPopover}
-                        aria-label="CORS actions"
-                        title="CORS actions"
+                        aria-label={text("CORS actions")}
+                        title={text("CORS actions")}
                         aria-haspopup="dialog"
                         aria-expanded={showCorsActionPopover}
                       >
@@ -2964,11 +2967,11 @@ export default function BrowserPage({
               <div
                 role="separator"
                 aria-orientation="vertical"
-                aria-label="Resize folders panel"
+                aria-label={text("Resize folders panel")}
                 aria-valuemin={MIN_FOLDERS_PANEL_WIDTH_PX}
                 aria-valuemax={MAX_FOLDERS_PANEL_WIDTH_PX}
                 aria-valuenow={resolvedFoldersWidth}
-                title="Resize folders panel"
+                title={text("Resize folders panel")}
                 tabIndex={0}
                 className="absolute inset-y-0 z-20 -translate-x-1/2 cursor-col-resize touch-none select-none"
                 style={{
@@ -3291,16 +3294,16 @@ export default function BrowserPage({
           details={
             archivePreparation.phase === "ready"
               ? [
-                  { label: "Files", value: archivePreparation.fileCount },
-                  { label: "Volume", value: formatBytes(archivePreparation.totalBytes) },
+                  { label: text("Files"), value: archivePreparation.fileCount },
+                  { label: text("Volume"), value: formatBytes(archivePreparation.totalBytes) },
                   {
-                    label: "Excluded",
+                    label: text("Excluded"),
                     value: archivePreparation.excludedCount,
                   },
                 ]
               : []
           }
-          confirmLabel="Choose file and download"
+          confirmLabel={text("Choose file and download")}
           confirmDisabled={
             archivePreparation.phase === "inventorying" ||
             !archivePreparation.canDownload
