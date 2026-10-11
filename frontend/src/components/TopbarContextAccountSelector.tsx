@@ -5,7 +5,6 @@
 import { type ReactNode, useMemo } from "react";
 import type { ExecutionContext } from "../api/executionContexts";
 import { formatAccountLabel } from "../features/shared/storageEndpointLabel";
-import { useI18n } from "../i18n";
 import { useSelectorTagsPreference } from "../utils/selectorTagsPreference";
 import {
   buildUiTagItems,
@@ -17,6 +16,8 @@ import TopbarDropdownSelect, {
 } from "./TopbarDropdownSelect";
 import UiTagBadgeList from "./UiTagBadgeList";
 import { TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS } from "./topbarControlWidths";
+import { translate } from "../i18n";
+import { shellMessages, useShellI18n, type ShellText } from "./shellMessages";
 
 export type ContextAccessMode =
   | "admin"
@@ -25,38 +26,41 @@ export type ContextAccessMode =
   | "connection"
   | null;
 
-export function getContextAccessModeVisual(mode: ContextAccessMode): {
+const defaultShellText: ShellText = (key, values) =>
+  translate(shellMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match));
+
+export function getContextAccessModeVisual(mode: ContextAccessMode, text: ShellText = defaultShellText): {
   label: string;
   shortLabel: string;
   classes: string;
 } {
   if (mode === "admin") {
     return {
-      label: "Admin mode",
-      shortLabel: "Admin",
+      label: text("adminMode"),
+      shortLabel: text("adminShort"),
       classes:
         "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100",
     };
   }
   if (mode === "connection") {
     return {
-      label: "Connection mode",
-      shortLabel: "Connection",
+      label: text("connectionMode"),
+      shortLabel: text("connectionShort"),
       classes:
         "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-100",
     };
   }
   if (mode === "s3_user") {
     return {
-      label: "S3 user mode",
-      shortLabel: "S3 user",
+      label: text("s3UserMode"),
+      shortLabel: text("s3UserShort"),
       classes:
         "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-100",
     };
   }
   return {
-    label: "Session",
-    shortLabel: "Session",
+    label: text("session"),
+    shortLabel: text("session"),
     classes:
       "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
   };
@@ -95,7 +99,7 @@ export default function TopbarContextAccountSelector({
   triggerMode = "icon_label",
   showTriggerTags = true,
 }: TopbarContextAccountSelectorProps) {
-  const { t } = useI18n();
+  const { text } = useShellI18n();
   const showSelectorTags = useSelectorTagsPreference();
   const options = useMemo<TopbarDropdownOption[]>(
     () =>
@@ -105,11 +109,11 @@ export default function TopbarContextAccountSelector({
           const description =
             context.kind === "connection"
               ? context.connection_scope === "shared"
-                ? t({ en: "Shared connection", fr: "Connexion partagée", de: "Freigegebene Verbindung", zh: "共享连接" })
-                : t({ en: "Private connection", fr: "Connexion privée", de: "Private Verbindung", zh: "私有连接" })
+                ? text("sharedConnection")
+                : text("privateConnection")
               : context.kind === "s3_user"
-                ? t({ en: "S3 user identity", fr: "Identité utilisateur S3", de: "S3-Benutzeridentität", zh: "S3 用户身份" })
-                : t({ en: "RGW account", fr: "Compte RGW", de: "RGW-Konto", zh: "RGW 账户" });
+                ? text("s3UserIdentity")
+                : text("rgwAccount");
           const selectorEntityTags = filterSelectorVisibleUiTags(context.tags);
           const selectorEndpointTags = filterSelectorVisibleUiTags(
             context.endpoint_tags,
@@ -182,7 +186,7 @@ export default function TopbarContextAccountSelector({
       contexts,
       showSelectorTags,
       showTriggerTags,
-      t,
+      text,
       triggerMode,
     ],
   );
@@ -192,8 +196,8 @@ export default function TopbarContextAccountSelector({
       value={selectedContextId ?? ""}
       options={options}
       onChange={onContextChange}
-      ariaLabel={t({ en: "Select context account", fr: "Sélectionner le compte du contexte", de: "Kontextkonto auswählen", zh: "选择上下文账户" })}
-      triggerLabel={t({ en: "Account", fr: "Compte", de: "Konto", zh: "账户" })}
+      ariaLabel={text("selectContextAccount")}
+      triggerLabel={text("account")}
       placeholder={selectedLabel}
       triggerValue={selectedLabel}
       title={identityLabel ?? undefined}
@@ -201,18 +205,18 @@ export default function TopbarContextAccountSelector({
       menuHeader={
         <div className="shell-menu-muted rounded-md border px-2.5 py-2">
           <p className="shell-muted-text ui-caption uppercase">
-            {t({ en: "Current IAM identity", fr: "Identité IAM actuelle", de: "Aktuelle IAM-Identität", zh: "当前 IAM 身份" })}
+            {text("currentIamIdentity")}
           </p>
           <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">
-            {identityLabel ?? t({ en: "Not available for this context", fr: "Non disponible pour ce contexte", de: "Für diesen Kontext nicht verfügbar", zh: "此上下文不可用" })}
+            {identityLabel ?? text("unavailableForContext")}
           </p>
         </div>
       }
       search={{
         threshold: searchThreshold,
-        ariaLabel: t({ en: "Search accounts", fr: "Rechercher des comptes", de: "Konten durchsuchen", zh: "搜索账户" }),
-        placeholder: t({ en: "Search account...", fr: "Rechercher un compte...", de: "Konto suchen...", zh: "搜索账户..." }),
-        emptyMessage: t({ en: "No account matches your search.", fr: "Aucun compte ne correspond à votre recherche.", de: "Kein Konto entspricht Ihrer Suche.", zh: "没有与搜索匹配的账户。" }),
+        ariaLabel: text("searchAccounts"),
+        placeholder: text("searchAccountPlaceholder"),
+        emptyMessage: text("noAccountMatches"),
       }}
       icon={icon}
       openInPortal={openInPortal}

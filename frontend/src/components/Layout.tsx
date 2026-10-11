@@ -13,7 +13,7 @@ import WorkspaceDocumentationLink from "./WorkspaceDocumentationLink";
 import { resolveDocumentationUrl } from "../navigation/documentation";
 import { useGeneralSettings } from "./GeneralSettingsContext";
 import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
-import { useI18n } from "../i18n";
+import { useShellI18n } from "./shellMessages";
 import { useWorkspaceSwitcherModel } from "./EnvironmentSwitcher";
 import Topbar from "./Topbar";
 import type { TopbarControlDescriptor } from "./topbarControlsLayout";
@@ -79,7 +79,7 @@ export default function Layout({
   children,
 }: LayoutProps) {
   const location = useLocation();
-  const { locale } = useI18n();
+  const { locale, text } = useShellI18n();
   const { generalSettings } = useGeneralSettings();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCompact, setDesktopSidebarCompact] = useState(
@@ -201,7 +201,7 @@ export default function Layout({
               <button
                 type="button"
                 tabIndex={mobileSidebarOpen ? 0 : -1}
-                aria-label="Close mobile navigation"
+                aria-label={text("closeMobileNavigation")}
                 onClick={() => setMobileSidebarOpen(false)}
                 className={`absolute inset-0 bg-slate-950/45 transition-opacity duration-200 ${
                   mobileSidebarOpen ? "opacity-100" : "opacity-0"
