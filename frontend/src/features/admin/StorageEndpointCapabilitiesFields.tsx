@@ -5,6 +5,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { awsIamEndpointForRegion, awsStsEndpointForRegion, type FeaturesState, type FeatureKey } from "./storageEndpointFormModel";
+import { useStorageEndpointI18n } from "./storageEndpointMessages";
 
 export default function StorageEndpointCapabilitiesFields({
   features, provider, region, readOnly, updateFeatures, invalidateChecks,
@@ -23,6 +24,7 @@ export default function StorageEndpointCapabilitiesFields({
   signedProbeBlockedReason: string | null;
   detectedCapabilities: { account: boolean; usage: boolean; metrics: boolean } | null;
 }) {
+  const { text } = useStorageEndpointI18n();
   const ceph = provider === "ceph";
   const aws = provider === "aws";
   const toggle = (key: FeatureKey, title: string, locked = false, available = true) =>
@@ -30,63 +32,63 @@ export default function StorageEndpointCapabilitiesFields({
       checked={features[key].enabled} disabled={readOnly || locked || !available}
       onChange={enabled => updateFeatures(current => ({ ...current, [key]: { ...current[key], enabled } }))} />} />;
   return <>
-    {ceph && <SettingsSection title="Ceph services"
-      description="Availability is auto-detected from credentials. Detected account, usage log, and metrics services can be disabled for this endpoint. Usage log/metrics require supervision credentials."
+    {ceph && <SettingsSection title={text("cephServices")}
+      description={text("cephServicesDescription")}
       presentation="compact">
       <div className="settings-fields">
-        {detecting && <UiInlineMessage tone="info" role="status">Feature detection in progress from entered credentials.</UiInlineMessage>}
+        {detecting && <UiInlineMessage tone="info" role="status">{text("featureDetectionProgress")}</UiInlineMessage>}
         {detectionError && <UiInlineMessage tone="error" role="alert">{detectionError}</UiInlineMessage>}
         {warnings.map((warning, index) => <UiInlineMessage key={index} tone="warning">{warning}</UiInlineMessage>)}
         {usageUnavailable && <UiInlineMessage tone="warning">
-          Usage Log does not seem enabled on RGW (`rgw_enable_usage_log`), so activity stats will not be populated.
+          {text("usageLogDisabledNotice")}
         </UiInlineMessage>}
         <div>
-          {toggle("admin", "Admin enabled", true)}
-          {toggle("account", "Accounts enabled", false, detectedCapabilities?.account === true)}
-          {toggle("usage", "Usage Log enabled", false, detectedCapabilities?.usage === true)}
-          {toggle("metrics", "Metrics enabled", false, detectedCapabilities?.metrics === true)}
-          {toggle("sns", "SNS topics enabled")}
-          {toggle("replication", "Bucket replication enabled")}
+          {toggle("admin", text("adminEnabled"), true)}
+          {toggle("account", text("accountsEnabled"), false, detectedCapabilities?.account === true)}
+          {toggle("usage", text("usageLogEnabled"), false, detectedCapabilities?.usage === true)}
+          {toggle("metrics", text("metricsEnabled"), false, detectedCapabilities?.metrics === true)}
+          {toggle("sns", text("snsTopicsEnabled"))}
+          {toggle("replication", text("bucketReplicationEnabled"))}
         </div>
-        <UiInput label="Ceph admin endpoint override (optional)" value={features.admin.endpoint} readOnly={readOnly}
+        <UiInput label={text("cephAdminEndpointOverride")} value={features.admin.endpoint} readOnly={readOnly}
           placeholder="https://rgw-admin.example.com" onChange={event => { invalidateChecks(); updateFeatures(current => ({
             ...current, admin: { ...current.admin, endpoint: event.target.value },
           })); }} />
       </div>
     </SettingsSection>}
-    <SettingsSection title="S3 capabilities" description="Enabled features describe endpoint configuration, not live health." presentation="compact">
+    <SettingsSection title={text("s3Capabilities")} description={text("capabilitiesDescription")} presentation="compact">
       <div className="settings-fields">
         <div>
-          {toggle("sts", "STS enabled")}
-          {toggle("static_website", "Static website enabled")}
-          {toggle("iam", "IAM enabled")}
-          {toggle("sse", "Server-Side Encryption (SSE) enabled")}
+          {toggle("sts", text("stsEnabled"))}
+          {toggle("static_website", text("staticWebsiteEnabled"))}
+          {toggle("iam", text("iamEnabled"))}
+          {toggle("sse", text("sseEnabled"))}
         </div>
         <div className="settings-fields sm:grid-cols-2">
-          <UiInput label={aws ? "STS endpoint" : "STS endpoint override (optional)"}
+          <UiInput label={aws ? text("stsEndpoint") : text("endpointOverride", { service: "STS" })}
             value={aws ? awsStsEndpointForRegion(region) : features.sts.endpoint} readOnly={readOnly || aws} disabled={!features.sts.enabled}
-            hint={!features.sts.enabled ? "Enable STS first to define a dedicated STS endpoint." : aws ? "Derived from the AWS region." : undefined}
+            hint={!features.sts.enabled ? text("enableFirst", { service: "STS" }) : aws ? text("derivedFromAwsRegion") : undefined}
             onChange={event => { if (!aws) updateFeatures(current => ({ ...current, sts: { ...current.sts, endpoint: event.target.value } })); }} />
-          <UiInput label={aws ? "IAM endpoint" : "IAM endpoint override (optional)"}
+          <UiInput label={aws ? text("iamEndpoint") : text("endpointOverride", { service: "IAM" })}
             value={aws ? awsIamEndpointForRegion(region) : features.iam.endpoint} readOnly={readOnly || aws} disabled={!features.iam.enabled}
-            hint={!features.iam.enabled ? "Enable IAM first to define a dedicated IAM endpoint." : aws ? "Derived from the AWS region." : undefined}
+            hint={!features.iam.enabled ? text("enableFirst", { service: "IAM" }) : aws ? text("derivedFromAwsRegion") : undefined}
             onChange={event => { if (!aws) updateFeatures(current => ({ ...current, iam: { ...current.iam, endpoint: event.target.value } })); }} />
         </div>
       </div>
     </SettingsSection>
-    <SettingsSection title="Health checks" description="Choose how the endpoint is monitored." presentation="compact">
+    <SettingsSection title={text("healthChecks")} description={text("healthChecksDescription")} presentation="compact">
       <div className="settings-fields">
-        <UiSelect label="Healthcheck mode" value={features.healthcheck.mode ?? "http"} disabled={readOnly || !ceph}
+        <UiSelect label={text("healthcheckMode")} value={features.healthcheck.mode ?? "http"} disabled={readOnly || !ceph}
           hint={signedProbeBlockedReason ?? undefined} onChange={event => updateFeatures(current => ({
             ...current, healthcheck: { ...current.healthcheck, mode: event.target.value === "s3" ? "s3" : "http" },
           }))}>
-          <option value="http">HTTP probe</option>
+          <option value="http">{text("httpProbe")}</option>
           <option value="s3" disabled={Boolean(signedProbeBlockedReason)}>
-            S3 signed probe{signedProbeBlockedReason ? " (requires supervision credentials)" : ""}
+            {text("s3SignedProbe")}{signedProbeBlockedReason ? text("requiresSupervisionCredentials") : ""}
           </option>
         </UiSelect>
-        <UiInput label="Healthcheck URL override (optional)" value={features.healthcheck.endpoint} readOnly={readOnly}
-          hint="Empty value uses the endpoint URL. S3 mode signs a lightweight request with endpoint credentials."
+        <UiInput label={text("healthcheckUrlOverride")} value={features.healthcheck.endpoint} readOnly={readOnly}
+          hint={text("healthcheckUrlHint")}
           onChange={event => updateFeatures(current => ({ ...current, healthcheck: { ...current.healthcheck, endpoint: event.target.value } }))} />
       </div>
     </SettingsSection>
