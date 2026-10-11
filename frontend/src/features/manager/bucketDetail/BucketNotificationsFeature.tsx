@@ -374,6 +374,7 @@ export default function BucketNotificationsFeature({
 
   const jsonEditor = (
     <BucketFeatureJsonPane
+      text={text}
       description={text("Edit the complete S3 notification configuration object. Switching back to Visual validates the JSON first.")}
       label={text("Notification configuration (JSON)")}
       value={jsonText}

@@ -234,6 +234,7 @@ export default function BucketEncryptionFeature({
 
   const jsonEditor = (
     <BucketFeatureJsonPane
+      text={text}
       description={
         <>
         {text("Edit the complete S3 server-side encryption")} <code>{text("Rules")}</code> {text("array. Switching back to Visual validates the JSON structure first.")}
@@ -273,7 +274,7 @@ export default function BucketEncryptionFeature({
                   {ruleKmsKey(primaryRule) !== "—"
                     ? ` · ${ruleKmsKey(primaryRule)}`
                     : " · S3 managed key"}
-                  {ruleCount > 1 ? ` · ${ruleCount} rules` : ""}
+                  {ruleCount > 1 ? ` · ${ruleCount} ${text("rules")}` : ""}
                 </>
               ) : (
                 text("No default encryption configuration.")

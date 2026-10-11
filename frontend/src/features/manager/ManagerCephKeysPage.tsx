@@ -185,8 +185,12 @@ export default function ManagerCephKeysPage() {
       title: text("Disable Ceph access key?"),
       description: text("Temporarily prevent this RGW access key from authenticating."),
       confirmLabel: text("Disable key"),
+      cancelLabel: text("Cancel"),
+      processingLabel: text("Processing..."),
+      impactLabel: text("Impact"),
+      closeLabel: text("Close modal"),
       details: [{ label: text("Access key"), value: key.access_key_id, mono: true }],
-      impacts: ["Applications using this key will lose access until the key is enabled again."],
+      impacts: [text("Applications using this key will lose access until the key is enabled again.")],
       onConfirm: () => toggleKey(key),
     });
   };
@@ -196,11 +200,15 @@ export default function ManagerCephKeysPage() {
       title: text("Delete Ceph access key?"),
       description: text("Permanently remove this RGW access key from the current S3 User context."),
       confirmLabel: text("Delete key"),
+      cancelLabel: text("Cancel"),
+      processingLabel: text("Processing..."),
+      impactLabel: text("Impact"),
+      closeLabel: text("Close modal"),
       details: [
         { label: text("Context"), value: selectedS3AccountName || "Current S3 User" },
         { label: text("Access key"), value: key.access_key_id, mono: true },
       ],
-      impacts: ["Applications using this key will immediately lose access."],
+      impacts: [text("Applications using this key will immediately lose access.")],
       onConfirm: () => deleteKey(key),
     });
   };

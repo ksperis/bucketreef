@@ -202,9 +202,9 @@ export default function TopicsPage() {
       )}
 
     {active?.kind === "create" && <TopicCreateDialog accountId={active.accountId} currentAccountId={accountIdForApi}
-      onClose={close} onCreated={name => refreshAfterMutation(active.accountId, `Topic '${name}' created.`)} />}
+      onClose={close} onCreated={name => refreshAfterMutation(active.accountId, text("Topic '{name}' created.", { name }))} />}
     {active?.kind === "delete" && <TopicDeleteDialog accountId={active.accountId} currentAccountId={accountIdForApi}
       topic={active.topic} onClose={close}
-      onDeleted={() => refreshAfterMutation(active.accountId, `Topic '${active.topic.name}' deleted.`)} />}
+      onDeleted={() => refreshAfterMutation(active.accountId, text("Topic '{name}' deleted.", { name: active.topic.name }))} />}
   </div>;
 }

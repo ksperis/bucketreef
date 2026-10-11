@@ -109,4 +109,23 @@ describe("SettingsJsonEditor", () => {
     expect(screen.getByRole("textbox", { name: "JSON document" })).toHaveAttribute("readonly");
     expect(screen.queryByRole("button", { name: "Format JSON" })).not.toBeInTheDocument();
   });
+
+  it("uses supplied UI translations for syntax status and formatting actions", () => {
+    const translations: Record<string, string> = {
+      "Valid JSON": "JSON valide",
+      "Format JSON": "Formater le JSON",
+    };
+
+    render(
+      <SettingsJsonEditor
+        label="Document JSON"
+        value="{}"
+        onChange={() => {}}
+        text={(message) => translations[message] ?? message}
+      />,
+    );
+
+    expect(screen.getByText("JSON valide")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Formater le JSON" })).toBeInTheDocument();
+  });
 });

@@ -34,6 +34,7 @@ export default function ManagerRoleFormFields({
       <div className="settings-fields">
         <SettingsJsonEditor label={text("Assume role policy (JSON)")} value={policy} onChange={onPolicyChange}
           rows={10} error={policyError}
+          text={text}
           hint={text("IAM trust policy document used by STS AssumeRole. Provide valid JSON.")} />
       </div>
     </SettingsSection>

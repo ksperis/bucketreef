@@ -32,7 +32,15 @@ type BucketUsageStatsAggregateCardProps = {
   emptyDescription?: string;
   emptyTitle?: string;
   compositionLabels?: BucketUsageStatsCompositionLabels;
+  text?: (message: string, values?: Record<string, string | number>) => string;
 };
+
+function fallbackText(message: string, values?: Record<string, string | number>): string {
+  if (!values) return message;
+  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
+  );
+}
 
 export default function BucketUsageStatsAggregateCard({
   title,
@@ -45,19 +53,31 @@ export default function BucketUsageStatsAggregateCard({
   onCancel,
   onRecalculate,
   className,
-  coverageItemLabel = "buckets",
+  coverageItemLabel,
   emptyDescription,
-  emptyTitle = "No usage stats calculated yet.",
+  emptyTitle,
   compositionLabels,
+  text: translateText,
 }: BucketUsageStatsAggregateCardProps) {
+  const text = translateText ?? fallbackText;
+  const resolvedCoverageItemLabel = coverageItemLabel ?? text("buckets");
   const hasSnapshot = Boolean(aggregate && aggregate.buckets_with_snapshot > 0);
   const coverageLabel = aggregate
-    ? `${aggregate.buckets_with_snapshot} / ${aggregate.bucket_count} ${coverageItemLabel} covered`
+    ? text("{covered} / {total} {items} covered", {
+        covered: aggregate.buckets_with_snapshot,
+        total: aggregate.bucket_count,
+        items: resolvedCoverageItemLabel,
+      })
     : "";
-  const lastCalculated = aggregate?.newest_snapshot_at ? `Latest ${formatLocalDateTime(aggregate.newest_snapshot_at)}` : undefined;
+  const lastCalculated = aggregate?.newest_snapshot_at
+    ? text("Latest {date}", { date: formatLocalDateTime(aggregate.newest_snapshot_at) })
+    : undefined;
   const accountCoverage =
     aggregate?.managed_account_count != null
-      ? `${aggregate.accounts_with_listed_buckets ?? 0} / ${aggregate.managed_account_count} managed accounts listed`
+      ? text("{listed} / {total} managed accounts listed", {
+          listed: aggregate.accounts_with_listed_buckets ?? 0,
+          total: aggregate.managed_account_count,
+        })
       : undefined;
   const coverageHint = accountCoverage ? `${accountCoverage}${lastCalculated ? ` · ${lastCalculated}` : ""}` : lastCalculated;
 
@@ -74,7 +94,7 @@ export default function BucketUsageStatsAggregateCard({
             onClick={onCancel}
             className="shrink-0"
           >
-            Cancel calculation
+            {text("Cancel calculation")}
           </UiButton>
         ) : onRecalculate && import.meta.env.MODE !== "demo" ? (
           <UiButton
@@ -100,12 +120,17 @@ export default function BucketUsageStatsAggregateCard({
         </div>
       ) : !aggregate || !hasSnapshot ? (
         <MetricsEmptyState>
-          <span className={cx("block font-semibold", uiTitleTextClass)}>{emptyTitle}</span>
+          <span className={cx("block font-semibold", uiTitleTextClass)}>
+            {emptyTitle ?? text("No usage stats calculated yet.")}
+          </span>
           <span className={cx("block ui-caption", uiMutedTextClass)}>
             {emptyDescription ??
               (aggregate?.bucket_count
-                ? `0 / ${aggregate.bucket_count} ${coverageItemLabel} covered.`
-                : "Run a calculation to create the first snapshot.")}
+                ? text("0 / {total} {items} covered.", {
+                    total: aggregate.bucket_count,
+                    items: resolvedCoverageItemLabel,
+                  })
+                : text("Run a calculation to create the first snapshot."))}
           </span>
         </MetricsEmptyState>
       ) : (
@@ -116,9 +141,27 @@ export default function BucketUsageStatsAggregateCard({
 
           <BucketUsageStatsCompositionVisuals
             stats={aggregate}
-            finalMetric={{ label: "Coverage", value: coverageLabel, hint: coverageHint }}
-            currentVsNoncurrentEmptyMessage="Current/non-current unavailable."
-            labels={compositionLabels}
+            finalMetric={{ label: text("Coverage"), value: coverageLabel, hint: coverageHint }}
+            currentVsNoncurrentEmptyMessage={text("Current/non-current unavailable.")}
+            labels={{
+              logicalBytes: text("Logical bytes"),
+              currentBytes: text("Current bytes"),
+              noncurrentBytes: text("Non-current bytes"),
+              versionsUnit: text("version(s)"),
+              unavailable: text("Unavailable"),
+              versionListingWarning: text("Version listing was unavailable. Current/non-current space distribution cannot be calculated from the fallback listing."),
+              dataTypesTitle: text("Data types"),
+              dataTypesSubtitle: text("Logical bytes by inferred object type"),
+              currentVsNoncurrentTitle: text("Current vs non-current"),
+              currentVsNoncurrentSubtitle: text("Stored object-version bytes"),
+              storageClassesTitle: text("Storage classes"),
+              storageClassesSubtitle: text("Logical bytes by storage class"),
+              objectSizesTitle: text("Object sizes"),
+              objectSizesSubtitle: text("Version count by object size"),
+              objectAgeTitle: text("Object age"),
+              objectAgeSubtitle: text("Version count by last modified date"),
+              ...compositionLabels,
+            }}
           />
         </>
       )}

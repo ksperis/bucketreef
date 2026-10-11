@@ -12,6 +12,11 @@ describe("Manager i18n", () => {
     expect(managerText("Destination bucket ARN", "fr")).toBe("ARN du bucket de destination");
     expect(managerText("Add tag", "fr")).toBe("Ajouter un tag");
     expect(managerText("Bucket {name}", "fr", { name: "research" })).toBe("Bucket research");
+    expect(managerText("Logical bytes", "fr")).toBe("Octets logiques");
+    expect(managerText("Object versions are retained.", "fr")).toBe("Les versions des objets sont conservées.");
+    expect(managerText("{count} keys", "fr", { count: 2 })).toBe("2 clés");
+    expect(managerText("Topic '{name}' created.", "fr", { name: "events" })).toBe("Topic « events » créé.");
+    expect(managerText("Valid JSON", "fr")).toBe("JSON valide");
   });
 
   it("preserves S3 and IAM technical literals", () => {
@@ -42,6 +47,10 @@ describe("Manager i18n", () => {
     expect(managerText("Bucket name is required.", "zh")).toBe("必须填写存储桶名称。");
     expect(managerText("Delete bucket policy?", "de")).toBe("Bucket-Policy löschen?");
     expect(managerText("Delete bucket policy?", "zh")).toBe("删除存储桶策略？");
+    expect(managerText("Logical bytes", "de")).toBe("Logische Bytes");
+    expect(managerText("Logical bytes", "zh")).toBe("逻辑字节数");
+    expect(managerText("Valid JSON", "de")).toBe("Gültiges JSON");
+    expect(managerText("Valid JSON", "zh")).toBe("JSON 有效");
     expect(managerText("S3 rejects new PUT ACLs that grant public access to buckets or objects.", "de"))
       .toContain("S3");
     expect(managerText("S3 rejects new PUT ACLs that grant public access to buckets or objects.", "zh"))

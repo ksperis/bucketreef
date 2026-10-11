@@ -502,6 +502,7 @@ export default function BucketPolicyFeature({
 
   const jsonEditor = (
     <BucketFeatureJsonPane
+      text={text}
       description={text("Edit the complete S3 bucket policy document. Switching back to Visual validates the document shape first.")}
       label={text("Bucket policy (JSON)")}
       value={jsonText}

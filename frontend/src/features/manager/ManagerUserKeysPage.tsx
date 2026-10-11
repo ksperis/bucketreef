@@ -178,11 +178,15 @@ export default function ManagerUserKeysPage() {
       title: text("Delete IAM access key?"),
       description: text("Permanently remove this access key from the IAM user."),
       confirmLabel: text("Delete key"),
+      cancelLabel: text("Cancel"),
+      processingLabel: text("Processing..."),
+      impactLabel: text("Impact"),
+      closeLabel: text("Close modal"),
       details: [
         { label: text("User"), value: pageTitle },
         { label: text("Access key"), value: keyId, mono: true },
       ],
-      impacts: ["Applications using this key will immediately lose access."],
+      impacts: [text("Applications using this key will immediately lose access.")],
       onConfirm: () => deleteKey(keyId),
     });
   };
@@ -196,11 +200,15 @@ export default function ManagerUserKeysPage() {
       title: text("Disable IAM access key?"),
       description: text("Temporarily prevent this access key from authenticating."),
       confirmLabel: text("Disable key"),
+      cancelLabel: text("Cancel"),
+      processingLabel: text("Processing..."),
+      impactLabel: text("Impact"),
+      closeLabel: text("Close modal"),
       details: [
         { label: text("User"), value: pageTitle },
         { label: text("Access key"), value: keyId, mono: true },
       ],
-      impacts: ["Applications using this key will lose access until the key is enabled again."],
+      impacts: [text("Applications using this key will lose access until the key is enabled again.")],
       onConfirm: () => toggleKey(keyId, false),
     });
   };
@@ -375,7 +383,7 @@ export default function ManagerUserKeysPage() {
 
       <ListPageSection variant="page"
           title={text("Keys")}
-          countLabel={`${keys.length} key${keys.length === 1 ? "" : "s"}`}
+          countLabel={text(keys.length === 1 ? "{count} key" : "{count} keys", { count: keys.length })}
       >
         <DataTableShell
           responsiveCards
