@@ -108,7 +108,7 @@ class StorageEndpointsService:
             ceph_admin_enabled=self._ceph_admin_enabled(),
         )
 
-    def _ceph_admin_enabled(self):
+    def _ceph_admin_enabled(self) -> bool:
         from app.services.app_settings_service import load_app_settings_for_db_readonly
         return load_app_settings_for_db_readonly(self.db).general.ceph_admin_enabled
 
@@ -211,7 +211,11 @@ class StorageEndpointsService:
                     identity.last_reconciled_at = None
 
     @staticmethod
-    def _apply_external_credentials(identity, access, secret):
+    def _apply_external_credentials(
+        identity: EndpointServiceIdentity,
+        access: Optional[str],
+        secret: Optional[str],
+    ) -> None:
         if (identity.access_key, identity.secret_key) != (access, secret):
             identity.access_key, identity.secret_key = access, secret
             identity.status = "missing"
@@ -359,7 +363,12 @@ class StorageEndpointsService:
         finally:
             lease.release(handle)
 
-    def _sync_env_endpoints(self, configs, *, _retry_on_integrity=True):
+    def _sync_env_endpoints(
+        self,
+        configs: list[NormalizedEndpointState],
+        *,
+        _retry_on_integrity: bool = True,
+    ) -> list[StorageEndpointSchema]:
         existing_by_url = {
             endpoint.endpoint_url: endpoint
             for endpoint in self.db.query(StorageEndpoint).all()
@@ -379,7 +388,7 @@ class StorageEndpointsService:
             return self._sync_env_endpoints(configs, _retry_on_integrity=False)
         return self._serialize_env_endpoints(configs)
 
-    def reconcile_persisted_identities(self):
+    def reconcile_persisted_identities(self) -> None:
         from app.core.runtime_surfaces import endpoint_identity_management_enabled
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         if not endpoint_identity_management_enabled(settings):
@@ -491,7 +500,7 @@ class StorageEndpointsService:
             lease.release(handle)
         return self._serialize(endpoint)
 
-    def reconcile_identities(self, endpoint_id):
+    def reconcile_identities(self, endpoint_id: int) -> StorageEndpointSchema:
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if endpoint is None:
