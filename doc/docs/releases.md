@@ -8,6 +8,7 @@ Current release dates come from the changelog; reconstructed historical dates re
 
 | Version | Date | Notes | Publications |
 | --- | --- | --- | --- |
+| [0.2.15](#release-0-2-15) | 2026-10-11 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.15) |
 | [0.2.14](#release-0-2-14) | 2026-10-06 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.14) |
 | [0.2.13](#release-0-2-13) | 2026-10-01 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.13) |
 | [0.2.12](#release-0-2-12) | 2026-09-29 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.12) |
@@ -35,6 +36,32 @@ Current release dates come from the changelog; reconstructed historical dates re
 | [0.1.2](#release-0-1-2) | 2026-01-09 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.2) |
 | [0.1.1](#release-0-1-1) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.1) |
 | [0.1.0](#release-0-1-0) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.0) |
+
+## 0.2.15 {#release-0-2-15}
+
+[GitHub release](https://github.com/ksperis/bucketreef/releases/tag/v0.2.15)
+
+Compare v0.2.14 → v0.2.15: [GitHub](https://github.com/ksperis/bucketreef/compare/v0.2.14...v0.2.15)
+
+
+### Added
+
+- Complete locale-aware Browser coverage and integrate the contributor i18n foundation across authentication, errors, navigation, and responsive shell controls.
+
+### Changed
+
+- **Breaking change:** remove the retired `BUCKET_MIGRATION_WEBHOOK_*` runtime aliases. Configure webhook delivery exclusively with the canonical `WEBHOOK_*` variables; Compose and Helm defaults now use the canonical names.
+- **Breaking change:** remove the unused `endpoint_configured` and `storage_access_configured` fields from the Admin onboarding status API; clients use `complete` and journeys for setup state.
+- **Breaking change:** remove the retired `/admin/api-tokens` frontend redirect and the unused standalone API-token page mode. Superadmins manage API tokens exclusively from the shared profile API-token tab.
+- Remove the retired Browser transfer IndexedDB cleanup hook; current Browser code no longer reads, opens, or deletes the obsolete `bucketreef-browser-transfers-v1` database.
+- Reorganize Manager bucket detail navigation and simplify API error handling across Manager, Admin, and Ceph Admin surfaces.
+- Tighten typed service boundaries for storage endpoints, endpoint identities, key rotation, migrations, account capabilities, and execution targets.
+
+### Fixed
+
+- Avoid repeating the OIDC callback when changing locale and preserve translated shell controls on narrow screens.
+- Scope Ceph Admin account bucket metrics defensively and purge functional-test buckets through Ceph Admin cleanup paths.
+- Correct Manager functional UX/localization details, including French timezone wording.
 
 ## 0.2.14 {#release-0-2-14}
 
