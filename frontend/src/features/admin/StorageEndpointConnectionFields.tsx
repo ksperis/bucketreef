@@ -10,6 +10,7 @@ import UiTagBadgeList from "../../components/UiTagBadgeList";
 import { buildUiTagItems } from "../../utils/uiTags";
 import { awsS3EndpointForRegion, type FormState } from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
+import { useStorageEndpointI18n } from "./storageEndpointMessages";
 
 export default function StorageEndpointConnectionFields({
   form, setForm, readOnly, canEditTags, busy, catalog, catalogLoading, errors,
@@ -29,52 +30,53 @@ export default function StorageEndpointConnectionFields({
   invalidateChecks: () => void;
   validationStatus?: ReactNode;
 }) {
+  const { text } = useStorageEndpointI18n();
   const aws = form.provider === "aws";
   return <>
-    <SettingsSection title="Identity" description="Name and classify this endpoint." presentation="compact">
+    <SettingsSection title={text("identitySection")} description={text("identityDescription")} presentation="compact">
       <div className="settings-fields sm:grid-cols-2">
-        <UiInput label="Endpoint name" value={form.name} readOnly={readOnly} required error={errors.name}
+        <UiInput label={text("endpointName")} value={form.name} readOnly={readOnly} required error={errors.name}
           onChange={event => setForm(previous => ({ ...previous, name: event.target.value }))} />
-        {canEditTags ? <UiTagEditor label="Endpoint tags" tags={form.tags} catalog={catalog} disabled={busy}
-          onChange={tags => setForm(previous => ({ ...previous, tags }))} placeholder="Add a tag for this endpoint"
-          hint={catalogLoading ? "Loading existing endpoint tags..." : undefined} compact />
-          : <div className="settings-stack"><p className="settings-label">Endpoint tags</p>
-            <UiTagBadgeList items={buildUiTagItems(form.tags)} emptyLabel="No tags" /></div>}
+        {canEditTags ? <UiTagEditor label={text("endpointTags")} tags={form.tags} catalog={catalog} disabled={busy}
+          onChange={tags => setForm(previous => ({ ...previous, tags }))} placeholder={text("addEndpointTag")}
+          hint={catalogLoading ? text("loadingEndpointTags") : undefined} compact />
+          : <div className="settings-stack"><p className="settings-label">{text("endpointTags")}</p>
+            <UiTagBadgeList items={buildUiTagItems(form.tags)} emptyLabel={text("noTags")} /></div>}
       </div>
     </SettingsSection>
-    <SettingsSection title="Connection" description="Choose the provider and how BucketReef reaches it." presentation="compact">
+    <SettingsSection title={text("connection")} description={text("connectionDescription")} presentation="compact">
       <div className="settings-fields">
-        <fieldset aria-label="Provider" className="min-w-0">
-          <legend className="settings-label mb-1">Provider</legend>
-          {([['ceph', 'Ceph'], ['aws', 'AWS'], ['other', 'Other']] as const).map(([value, title]) =>
+        <fieldset aria-label={text("providerLabel")} className="min-w-0">
+          <legend className="settings-label mb-1">{text("providerLabel")}</legend>
+          {([['ceph', text("providerCeph")], ['aws', text("providerAws")], ['other', text("providerOther")]] as const).map(([value, title]) =>
             <SettingsChoiceRow key={value} title={title} type="radio" name="endpoint-provider" checked={form.provider === value}
               disabled={readOnly} onChange={() => onProviderChange(value)} />)}
         </fieldset>
         <div className="settings-fields sm:grid-cols-2">
-          <UiInput label="S3 endpoint URL" required value={aws ? awsS3EndpointForRegion(form.region) : form.endpoint_url}
-            readOnly={readOnly || aws} placeholder={aws ? undefined : "https://s3.example.com"} error={errors.endpoint_url}
-            hint={aws ? "Derived from the AWS region." : undefined}
+          <UiInput label={text("s3EndpointUrl")} required value={aws ? awsS3EndpointForRegion(form.region) : form.endpoint_url}
+            readOnly={readOnly || aws} placeholder={aws ? undefined : text("s3EndpointPlaceholder")} error={errors.endpoint_url}
+            hint={aws ? text("derivedFromAwsRegion") : undefined}
             onChange={event => { if (!aws) { invalidateChecks(); setForm(previous => ({ ...previous, endpoint_url: event.target.value })); } }} />
-          <UiInput label="Region (optional)" value={form.region} readOnly={readOnly} placeholder="us-east-1"
+          <UiInput label={text("optionalRegion")} value={form.region} readOnly={readOnly} placeholder="us-east-1"
             onChange={event => onRegionChange(event.target.value)} />
         </div>
         {validationStatus ? <div className="flex flex-wrap items-center gap-2">{validationStatus}</div> : null}
-        <SettingsItem title="Force path style" compact action={<SettingsSwitch ariaLabel="Force path style"
+        <SettingsItem title={text("forcePathStyle")} compact action={<SettingsSwitch ariaLabel={text("forcePathStyle")}
           checked={form.force_path_style} disabled={readOnly}
           onChange={value => setForm(previous => ({ ...previous, force_path_style: value }))} />} />
-        <SettingsItem title="Insecure SSL (skip certificate validation)" compact action={<SettingsSwitch
-          ariaLabel="Insecure SSL (skip certificate validation)" checked={!form.verify_tls} disabled={readOnly}
+        <SettingsItem title={text("insecureSsl")} compact action={<SettingsSwitch
+          ariaLabel={text("insecureSsl")} checked={!form.verify_tls} disabled={readOnly}
           onChange={value => { invalidateChecks(); setForm(previous => ({ ...previous, verify_tls: !value })); }} />} />
         {!form.verify_tls && <UiInlineMessage tone="warning">
-          TLS certificate validation is disabled for this endpoint. Use only in trusted environments.
+          {text("tlsValidationDisabled")}
         </UiInlineMessage>}
       </div>
     </SettingsSection>
-    <SettingsSection title="Location" description="Optional geographic coordinates for the endpoint map." presentation="compact">
+    <SettingsSection title={text("locationSection")} description={text("locationDescription")} presentation="compact">
       <div className="settings-fields sm:grid-cols-2">
-        <UiInput label="Latitude (optional)" type="number" value={form.latitude} readOnly={readOnly} min={-90} max={90} step="any"
+        <UiInput label={text("optionalLatitude")} type="number" value={form.latitude} readOnly={readOnly} min={-90} max={90} step="any"
           error={errors.latitude} onChange={event => setForm(previous => ({ ...previous, latitude: event.target.value }))} />
-        <UiInput label="Longitude (optional)" type="number" value={form.longitude} readOnly={readOnly} min={-180} max={180} step="any"
+        <UiInput label={text("optionalLongitude")} type="number" value={form.longitude} readOnly={readOnly} min={-180} max={180} step="any"
           error={errors.longitude} onChange={event => setForm(previous => ({ ...previous, longitude: event.target.value }))} />
       </div>
     </SettingsSection>
