@@ -148,7 +148,7 @@ export default function TopbarWorkspaceSelector({
   }
 
   return (
-    <div className="relative min-w-0 shrink-0">
+    <div className="relative w-[140px] min-w-0 md:w-[152px]">
       <button
         ref={triggerRef}
         type="button"
@@ -162,7 +162,7 @@ export default function TopbarWorkspaceSelector({
           event.preventDefault();
           setMenuOpen(true);
         }}
-        className={`shell-control inline-flex h-10 w-[140px] min-w-0 items-center rounded-lg border px-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 md:w-[152px] ${
+        className={`shell-control inline-flex h-10 w-full min-w-0 items-center rounded-lg border px-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
           menuOpen ? "shell-control-active" : ""
         }`}
       >
