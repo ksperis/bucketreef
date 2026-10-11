@@ -86,7 +86,11 @@ class BrowserObjectOperationsMixin:
         payload: CopyObjectPayload,
     ) -> None:
         source_bucket = payload.source_bucket or bucket_name
-        spaces = account.portal_storage_spaces
+        spaces = (
+            account.portal_storage_spaces
+            if isinstance(account, S3ExecutionContext)
+            else None
+        )
         if spaces is not None:
             by_bucket = {(space.internal_bucket_name or space.id): space for space in spaces}
             source = by_bucket.get(source_bucket)
