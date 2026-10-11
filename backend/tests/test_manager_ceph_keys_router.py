@@ -155,6 +155,28 @@ def test_manager_ceph_keys_update_status_records_audit(client):
     assert audit.calls[0]["action"] == "update_s3_user_access_key_status"
 
 
+def test_manager_ceph_keys_rejects_reenable_when_expiration_is_due(client, monkeypatch):
+    service = _FakeS3UsersService()
+    audit = _FakeAuditService()
+    monkeypatch.setattr(
+        manager_ceph_keys_router.AccessKeyMetadataService,
+        "expiration_due",
+        lambda _self, **_kwargs: True,
+    )
+
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
+    app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
+    app.dependency_overrides[manager_ceph_keys_router.get_audit_service] = lambda: audit
+
+    response = client.put("/api/manager/ceph/keys/AK-2/status", json={"active": True})
+
+    assert response.status_code == 409, response.text
+    assert "expiration" in response.json()["detail"].lower()
+    assert service.calls == []
+    assert audit.calls == []
+
+
 def test_manager_ceph_keys_delete_records_audit(client):
     service = _FakeS3UsersService()
     audit = _FakeAuditService()

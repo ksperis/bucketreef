@@ -12,6 +12,7 @@ import type {
   OperationDetailsKind,
   OperationItem,
 } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserOperationSection = "queued" | "completed" | "failed";
 
@@ -34,6 +35,7 @@ export function BrowserOperationCard({
   actions,
   children,
 }: BrowserOperationCardProps) {
+  const { text } = useBrowserI18n();
   return (
     <div className="border-b border-[color:var(--ui-border-soft)] py-3 last:border-b-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -57,7 +59,7 @@ export function BrowserOperationCard({
             <ListBadge disableToneStyles
               className={`shrink-0 whitespace-nowrap ${statusPill.classes}`}
             >
-              {statusPill.label}
+              {text(statusPill.label)}
             </ListBadge>
           )}
           {actions}
@@ -168,6 +170,7 @@ function DetailItemRow({
   showSize: boolean;
   showError?: boolean;
 }) {
+  const { intlLocale } = useBrowserI18n();
   return (
     <div className="ui-caption flex items-center justify-between gap-3">
       <div className="min-w-0">
@@ -177,7 +180,7 @@ function DetailItemRow({
         <p className="ui-caption text-[var(--ui-text-muted)]">
           {label}
           {showSize && item.sizeBytes != null
-            ? ` · ${formatBytes(item.sizeBytes)}`
+            ? ` · ${formatBytes(item.sizeBytes, intlLocale)}`
             : ""}
         </p>
         {showError && item.errorMessage && (
@@ -201,6 +204,7 @@ export function BrowserTransferOperationGroupCard({
   onCancel,
   onDownloadDetails,
 }: BrowserTransferOperationGroupCardProps) {
+  const { text } = useBrowserI18n();
   const config = transferOperationConfig[kind];
   const activeItems = group.items.filter(
     (item) => item.status === config.activeStatus,
@@ -243,14 +247,13 @@ export function BrowserTransferOperationGroupCard({
         type="button"
         onClick={() => onShowMore(group.op.id, section)}
       >
-        Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
+        {text("Show next {count}", { count: DEFAULT_QUEUED_VISIBLE_COUNT })}
       </ListActionButton>
       <ListActionButton
         type="button"
         onClick={downloadDetails}
       >
-        Download details (JSON)
-      </ListActionButton>
+        {text("Download details (JSON)")}</ListActionButton>
     </div>
   );
   const hasVisiblePagination =
@@ -260,9 +263,15 @@ export function BrowserTransferOperationGroupCard({
 
   return (
     <BrowserOperationCard
-      title={group.op.label}
+      title={text(group.op.label)}
       subtitle={group.op.path}
-      summary={`${activeItems.length} active · ${queuedItems.length} queued · ${completedItems.length} completed · ${failedItems.length} failed · ${group.op.progress}%`}
+      summary={text("{active} active · {queued} queued · {completed} completed · {failed} failed · {progress}%", {
+        active: activeItems.length,
+        queued: queuedItems.length,
+        completed: completedItems.length,
+        failed: failedItems.length,
+        progress: group.op.progress,
+      })}
       progress={group.op.progress}
       statusPill={statusPill}
       actions={
@@ -272,14 +281,14 @@ export function BrowserTransferOperationGroupCard({
             aria-expanded={expanded}
             onClick={() => onToggleExpanded(group.op.id)}
           >
-            {expanded ? "Hide files" : "Show files"}
+            {expanded ? text("Hide files") : text("Show files")}
           </ListActionButton>
           {group.op.cancelable && !group.op.completedAt && (
             <ListActionButton variant="danger"
               type="button"
               onClick={() => onCancel(group.op.id)}
             >
-              {config.stopLabel}
+              {text(config.stopLabel)}
             </ListActionButton>
           )}
         </>
@@ -290,8 +299,8 @@ export function BrowserTransferOperationGroupCard({
           <div className="ui-caption space-y-1 text-slate-500 dark:text-slate-400">
             <p>
               {group.op.completedAt
-                ? config.emptyCompletedLabel
-                : config.emptyPendingLabel}
+                ? text(config.emptyCompletedLabel)
+                : text(config.emptyPendingLabel)}
             </p>
             {group.op.completionStatus === "failed" &&
               group.op.errorMessage && (
@@ -304,8 +313,7 @@ export function BrowserTransferOperationGroupCard({
                 type="button"
                 onClick={downloadDetails}
               >
-                Download details (JSON)
-              </ListActionButton>
+                {text("Download details (JSON)")}</ListActionButton>
             </div>
           </div>
         ) : (
@@ -315,7 +323,7 @@ export function BrowserTransferOperationGroupCard({
                 <DetailItemRow
                   key={item.id}
                   item={item}
-                  label={config.activeLabel}
+                  label={text(config.activeLabel)}
                   showSize={config.showSize}
                 />
               ))}
@@ -324,7 +332,7 @@ export function BrowserTransferOperationGroupCard({
                 <DetailItemRow
                   key={item.id}
                   item={item}
-                  label="Queued"
+                  label={text("Queued")}
                   showSize={config.showSize}
                 />
               ))}
@@ -336,7 +344,7 @@ export function BrowserTransferOperationGroupCard({
                 <DetailItemRow
                   key={item.id}
                   item={item}
-                  label={item.status === "cancelled" ? "Cancelled" : "Done"}
+                  label={item.status === "cancelled" ? text("Cancelled") : text("Done")}
                   showSize={config.showSize}
                 />
               ))}
@@ -348,7 +356,7 @@ export function BrowserTransferOperationGroupCard({
                 <DetailItemRow
                   key={item.id}
                   item={item}
-                  label="Failed"
+                  label={text("Failed")}
                   showSize={config.showSize}
                   showError
                 />
@@ -362,8 +370,7 @@ export function BrowserTransferOperationGroupCard({
                   type="button"
                   onClick={downloadDetails}
                 >
-                  Download details (JSON)
-                </ListActionButton>
+                  {text("Download details (JSON)")}</ListActionButton>
               </div>
             )}
           </>

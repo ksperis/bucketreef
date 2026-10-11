@@ -113,6 +113,8 @@ export default function Topbar({
     [controlDescriptors]
   );
   const hasAdaptiveControls = adaptiveControlDescriptors.length > 0;
+  const minimumControlsWidth = adaptiveControlDescriptors.reduce((sum, control) => sum + control.estimatedIconWidth, 0)
+    + Math.max(0, adaptiveControlDescriptors.length - 1) * 8;
   const inlineControls = useMemo(() => {
     if (!hasAdaptiveControls) {
       return [] as { id: TopbarControlDescriptor["id"]; mode: "icon" | "icon_label"; descriptor: TopbarControlDescriptor }[];
@@ -142,7 +144,7 @@ export default function Topbar({
     if (!target) return;
 
     const updateWidth = (width: number) => {
-      if (width > 0) {
+      if (width >= 0) {
         setControlsAvailableWidth(Math.floor(width));
       }
     };
@@ -186,7 +188,7 @@ export default function Topbar({
                 aria-label={text(mobileMenuOpen ? "closeNavigation" : "openNavigation")}
                 aria-controls="mobile-navigation-panel"
                 aria-expanded={mobileMenuOpen}
-                className="shell-control inline-flex h-9 w-9 items-center justify-center rounded-lg border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 md:hidden"
+                className="shell-control inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 md:hidden"
               >
                 <HamburgerIcon className="h-4 w-4" />
               </button>
@@ -197,7 +199,7 @@ export default function Topbar({
             ) : null}
 
             {hasAdaptiveControls ? (
-              <div ref={controlsStripRef} className="flex min-w-0 flex-1 items-center">
+              <div ref={controlsStripRef} className="flex min-w-0 flex-1 items-center" style={{ minWidth: minimumControlsWidth }}>
                 <div className="flex min-w-0 items-center gap-2">
                   {inlineControls.map((entry) => {
                     return <div key={entry.id}>{entry.descriptor.renderControl(entry.mode)}</div>;

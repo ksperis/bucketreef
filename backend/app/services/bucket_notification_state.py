@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 
-def account_sns_feature_enabled(account: Any) -> bool:
-    endpoint = getattr(account, "storage_endpoint", None)
+def account_sns_feature_enabled(account: S3ExecutionTarget) -> bool:
+    endpoint = account.storage_endpoint
     if endpoint is None:
         return True
-    if getattr(endpoint, "features_config", None) is None and getattr(endpoint, "provider", None) is None:
+    if endpoint.features_config is None and endpoint.provider is None:
         return True
     try:
         return resolve_feature_flags(endpoint).sns_enabled

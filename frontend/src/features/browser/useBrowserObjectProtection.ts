@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useBrowserI18n } from "./browserI18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -40,6 +41,7 @@ export function useBrowserObjectProtection({
   requestOptions,
   versionId,
 }: UseBrowserObjectProtectionOptions) {
+  const { text } = useBrowserI18n();
   const scope = JSON.stringify([
     accountId,
     bucketName,
@@ -182,7 +184,14 @@ export function useBrowserObjectProtection({
         }
       }
     },
-    [accountId, bucketName, objectKey, requestOptions, scope, versionId],
+    [
+      accountId,
+      bucketName,
+      objectKey,
+      requestOptions,
+      scope,
+      versionId,
+    ],
   );
 
   const saveLegalHold = useCallback(async () => {
@@ -288,14 +297,14 @@ export function useBrowserObjectProtection({
   return {
     legalHoldStatus,
     setLegalHoldStatus,
-    legalHoldError,
+    legalHoldError: legalHoldError ? text(legalHoldError) : null,
     retentionMode,
     setRetentionMode,
     retentionDate,
     setRetentionDate,
     retentionBypass,
     setRetentionBypass,
-    retentionError,
+    retentionError: retentionError ? text(retentionError) : null,
     objectLockUnavailable,
     loading,
     savingLegalHold,

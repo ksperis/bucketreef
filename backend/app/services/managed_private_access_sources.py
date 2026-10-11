@@ -18,7 +18,7 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessError,
     ManagedPrivateAccessForbidden,
 )
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import (
     build_custom_endpoint_config,
@@ -45,13 +45,18 @@ class ManagedPrivateAccessDestination:
     custom_endpoint_config: str | None
 
 
+def _source_ids(account: S3ExecutionTarget) -> tuple[int | None, int | None, int | None]:
+    if isinstance(account, S3ExecutionContext):
+        return account.s3_connection_id, account.s3_user_id, account.id
+    return None, None, account.id
+
+
 def iam_source_reference(account: S3ExecutionTarget) -> tuple[str, int] | None:
-    connection_id = getattr(account, "s3_connection_id", None)
+    connection_id, s3_user_id, account_id = _source_ids(account)
     if isinstance(connection_id, int) and connection_id > 0:
         return "connection", connection_id
-    if getattr(account, "s3_user_id", None) is not None:
+    if s3_user_id is not None:
         return None
-    account_id = getattr(account, "id", None)
     if isinstance(account_id, int) and account_id > 0:
         return "account", account_id
     return None
@@ -68,7 +73,7 @@ class ManagedPrivateAccessSourceResolver:
         account: S3ExecutionTarget,
     ) -> ManagedPrivateAccessSource:
         effective = self.access.resolve_user(user)
-        connection_id = getattr(account, "s3_connection_id", None)
+        connection_id, s3_user_id, account_id = _source_ids(account)
         if isinstance(connection_id, int):
             connection = (
                 self.db.query(S3Connection)
@@ -102,11 +107,10 @@ class ManagedPrivateAccessSourceResolver:
                 username,
             )
 
-        if getattr(account, "s3_user_id", None) is not None:
+        if s3_user_id is not None:
             raise ManagedPrivateAccessForbidden(
                 "IAM provisioning is not available for an RGW User context"
             )
-        account_id = getattr(account, "id", None)
         if not isinstance(account_id, int) or account_id <= 0:
             raise ManagedPrivateAccessForbidden(
                 "A persisted RGW Account context is required"
@@ -141,7 +145,7 @@ class ManagedPrivateAccessSourceResolver:
         user: User,
         account: S3ExecutionTarget,
     ) -> ManagedPrivateAccessSource:
-        s3_user_id = getattr(account, "s3_user_id", None)
+        _, s3_user_id, _ = _source_ids(account)
         if not isinstance(s3_user_id, int) or s3_user_id <= 0:
             raise ManagedPrivateAccessForbidden(
                 "An assigned RGW User context is required"

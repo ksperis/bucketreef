@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { iamNameFormatError } from "../../utils/resourceNames";
 import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -38,12 +39,12 @@ import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
 import ManagerRoleEditor from "./ManagerRoleEditor";
 import { DEFAULT_ASSUME_ROLE_DOCUMENT, DEFAULT_ROLE_PATH, parseIamRolePolicy } from "./iamRoleForm";
-
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
+import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerRolesPage() {
+  const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [roleFilter, setRoleFilter] = useState("");
@@ -58,6 +59,8 @@ export default function ManagerRolesPage() {
     setLoading,
   } = useManagerIamCollection(listIamRoles);
   const {
+    inlineDraftNameError,
+    validateInlineDrafts,
     inlineDraftMode,
     inlineDraftName,
     inlineDrafts,
@@ -73,7 +76,7 @@ export default function ManagerRolesPage() {
     handleRemoveInlineDraft,
     handleSelectInlineDraft,
     resetInlinePolicyDraftEditor,
-  } = useInlinePolicyDraftEditor(setError);
+  } = useInlinePolicyDraftEditor(setError, "role", namingValidationProfile);
   const [advancedName, setAdvancedName] = useState("");
   const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [advancedPath, setAdvancedPath] = useState(DEFAULT_ROLE_PATH);
@@ -145,11 +148,13 @@ export default function ManagerRolesPage() {
       selectedPolicies,
     ]
   );
+  const nameFormatError = iamNameFormatError(advancedName.trim(), "role");
+
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (needsS3AccountSelection || creating) return;
     setAdvancedValidationAttempted(true);
-    if (!advancedName.trim() || advancedPolicy.error) {
+    if (!advancedName.trim() || nameFormatError || advancedPolicy.error || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
@@ -181,10 +186,10 @@ export default function ManagerRolesPage() {
       setShowPolicyOptions(false);
       resetInlinePolicyDraftEditor();
       setShowCreateForm(false);
-      setActionMessage("Role created");
+      setActionMessage(text("Role created"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setCreating(false);
     }
@@ -197,10 +202,10 @@ export default function ManagerRolesPage() {
     setActionMessage(null);
     try {
       await deleteIamRole(accountIdForApi, name);
-      setActionMessage("Role deleted");
+      setActionMessage(text("Role deleted"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setDeletingRole(null);
     }
@@ -209,10 +214,10 @@ export default function ManagerRolesPage() {
   const handleDelete = (name: string) => {
     if (needsS3AccountSelection) return;
     deleteConfirmation.requestConfirmation({
-      title: "Delete IAM role?",
-      description: "Permanently remove this IAM role from the selected account.",
-      confirmLabel: "Delete role",
-      details: [{ label: "IAM role", value: name }],
+      title: text("Delete IAM role?"),
+      description: text("Permanently remove this IAM role from the selected account."),
+      confirmLabel: text("Delete role"),
+      details: [{ label: text("IAM role"), value: name }],
       impacts: ["Workloads that assume this role will no longer receive its permissions."],
       onConfirm: () => deleteRole(name),
     });
@@ -268,12 +273,12 @@ export default function ManagerRolesPage() {
     rowCount: filteredRoles.length,
   });
   const roleTableColumns: Array<DataTableColumn<IAMRole>> = [
-    { id: "name", label: "Name", primary: true, mobileRole: "primary", render: (role) => role.name },
-    { id: "path", label: "Path", render: (role) => role.path ?? "-" },
-    { id: "arn", label: "ARN", render: (role) => role.arn ?? "-" },
+    { id: "name", label: text("Name"), primary: true, mobileRole: "primary", render: (role) => role.name },
+    { id: "path", label: text("Path"), render: (role) => role.path ?? "-" },
+    { id: "arn", label: text("ARN"), render: (role) => role.arn ?? "-" },
     {
       id: "policies",
-      label: "Policies",
+      label: text("Policies"),
       cellClassName: "ui-table-wide",
       render: (role) =>
         role.policies && role.policies.length > 0 ? (
@@ -294,7 +299,7 @@ export default function ManagerRolesPage() {
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (role) => (
@@ -302,17 +307,17 @@ export default function ManagerRolesPage() {
           <ListActionButton
             onClick={() => { setError(null); setEditingRoleName(role.name); }}
           >
-            Edit
+            {text("Edit")}
           </ListActionButton>
           <ListActionLink to={`/manager/roles/${encodeURIComponent(role.name)}/policies`}>
-            Policies
+            {text("Policies")}
           </ListActionLink>
           <ListActionButton
             onClick={() => handleDelete(role.name)}
              variant="danger"
             disabled={deletingRole === role.name}
           >
-            {deletingRole === role.name ? "Deleting..." : "Delete"}
+            {text(deletingRole === role.name ? "Deleting..." : "Delete")}
           </ListActionButton>
         </ListActions>
       ),
@@ -322,14 +327,14 @@ export default function ManagerRolesPage() {
   return (
     <div className={workflowPageHostClass(showCreateForm || Boolean(editingRoleName))}>
       <PageHeader actionPresentation="listing"
-        title="IAM Roles"
-        description="Manage roles using the account root keys."
-        breadcrumbs={managerPageBreadcrumbs("roles")}
+        title={text("IAM Roles")}
+        description={text("Manage roles using the account root keys.")}
+        breadcrumbs={managerPageBreadcrumbs(text, "roles")}
         actions={
           !needsS3AccountSelection && !isS3User
             ? [
                 {
-                  label: "Create role",
+                  label: text("Create role"),
                   onClick: openCreateForm,
                 },
               ]
@@ -337,32 +342,32 @@ export default function ManagerRolesPage() {
         }
       />
 
-      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {needsS3AccountSelection ? (
         <PageEmptyState
-          title="Select an account before managing IAM roles"
-          description="Roles are defined per execution context. Choose an account to list trust relationships and attached policies."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select an account before managing IAM roles")}
+          description={text("Roles are defined per execution context. Choose an account to list trust relationships and attached policies.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : isS3User ? (
         <PageEmptyState
-          title="IAM roles are unavailable for managed S3 user contexts"
-          description="Switch to an RGW account or S3 connection context to manage role trust policies and attached permissions."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          title={text("IAM roles are unavailable for managed S3 user contexts")}
+          description={text("Switch to an RGW account or S3 connection context to manage role trust policies and attached permissions.")}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (
         <ListPageSection variant="page"
-            title="Roles"
-            countLabel={`${filteredRoles.length} result(s)`}
+            title={text("Roles")}
+            countLabel={text(filteredRoles.length === 1 ? "{count} result" : "{count} results", { count: filteredRoles.length })}
             search={
               <ManagerToolbarSearch
                 value={roleFilter}
                 onChange={setRoleFilter}
-                placeholder="Search by name, path, or ARN"
+                placeholder={text("Search by name, path, or ARN")}
               />
             }
         >
@@ -371,9 +376,9 @@ export default function ManagerRolesPage() {
             rows={filteredRoles}
             rowKey={(role) => role.name}
             status={filteredTableStatus}
-            loadingMessage="Loading roles..."
-            errorMessage="Unable to load roles."
-            emptyMessage="No roles."
+            loadingMessage={text("Loading roles...")}
+            errorMessage={text("Unable to load roles.")}
+            emptyMessage={text("No roles.")}
             responsiveCards
             tableLayout="fixed"
           />
@@ -382,25 +387,25 @@ export default function ManagerRolesPage() {
 
       {showCreateForm && (
         <SettingsWorkflowForm
-          title="Create IAM role"
-          description="Configure the role path, trust policy and assigned permissions."
-          breadcrumbs={managerPageBreadcrumbs("roles", { label: "Create" })}
-          backLabel="Back to roles"
+          title={text("Create IAM role")}
+          description={text("Configure the role path, trust policy and assigned permissions.")}
+          breadcrumbs={managerPageBreadcrumbs(text, "roles", { label: text("Create") })}
+          backLabel={text("Back to roles")}
           onClose={closeCreateForm}
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
-          busy={creating} disabled={needsS3AccountSelection}
-          submitLabel="Create role" busyLabel="Creating..."
+          busy={creating} disabled={needsS3AccountSelection || namingValidationProfile === null}
+          submitLabel={text("Create role")} busyLabel={text("Creating...")}
         >
           <ManagerRoleFormFields name={advancedName} path={advancedPath} policy={assumeRolePolicyText}
             onNameChange={setAdvancedName} onPathChange={setAdvancedPath} onPolicyChange={setAssumeRolePolicyText}
-            nameError={advancedValidationAttempted && !advancedName.trim() ? "Role name is required." : undefined}
+            nameError={nameFormatError ? text(nameFormatError!) : advancedValidationAttempted && !advancedName.trim() ? text("Role name is required.") : undefined}
             policyError={advancedValidationAttempted ? advancedPolicy.error : undefined} />
           <ManagedPolicySelectionPanel
-            title="Attach policies"
-            description="Select managed policies to grant permissions immediately."
-            emptyMessage="No policies available. Create them first."
+            title={text("Attach policies")}
+            description={text("Select managed policies to grant permissions immediately.")}
+            emptyMessage={text("No policies available. Create them first.")}
             footer="Policies can also be attached later from the role page."
             policies={policies}
             selectedPolicyArns={selectedPolicies}
@@ -414,6 +419,7 @@ export default function ManagerRolesPage() {
             drafts={inlineDrafts}
             selectedDraftName={selectedInlineDraftName}
             draftName={inlineDraftName}
+            nameError={inlineDraftNameError}
             draftText={inlinePolicyText}
             entityLabel="role"
             mode={inlineDraftMode}
@@ -440,7 +446,7 @@ export default function ManagerRolesPage() {
         key={`${accountIdForApi}:${editingRoleName}`} accountId={accountIdForApi} roleName={editingRoleName}
         onClose={() => setEditingRoleName(null)} onSaved={() => {
           setEditingRoleName(null);
-          setActionMessage("Role updated");
+          setActionMessage(text("Role updated"));
           void load(accountIdForApi);
         }} />}
       {deleteConfirmation.confirmationDialog}

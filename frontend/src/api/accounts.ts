@@ -46,6 +46,8 @@ export type S3Account = {
   storage_endpoint_is_default: boolean;
   storage_endpoint_capabilities: Record<string, boolean>;
   allow_bucket_quota_management?: boolean;
+  allow_access_key_metadata?: boolean;
+  allow_access_key_expiration?: boolean;
 };
 
 export type S3AccountSummary = {
@@ -61,6 +63,8 @@ export type S3AccountSummary = {
   storage_endpoint_is_default: boolean;
   storage_endpoint_capabilities: Record<string, boolean>;
   allow_bucket_quota_management?: boolean;
+  allow_access_key_metadata?: boolean;
+  allow_access_key_expiration?: boolean;
 };
 
 type PaginatedS3AccountsResponse = PaginatedResponse<S3Account>;
@@ -121,6 +125,8 @@ type UpdateS3AccountPayload = {
   storage_endpoint_id?: number;
   tags?: TagDefinitionInput[] | null;
   allow_bucket_quota_management?: boolean | null;
+  allow_access_key_metadata?: boolean | null;
+  allow_access_key_expiration?: boolean | null;
 };
 
 export async function updateS3Account(accountId: number, payload: UpdateS3AccountPayload): Promise<S3Account> {

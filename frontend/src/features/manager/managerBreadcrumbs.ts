@@ -9,14 +9,17 @@ import {
 } from "../../navigation/workspacePages";
 
 type ManagerPageId = keyof typeof MANAGER_PAGE_CONTRACTS;
+type ManagerBreadcrumbText = (message: string) => string;
 
 export function managerPageBreadcrumbs(
+  text: ManagerBreadcrumbText,
   pageId: ManagerPageId,
   ...trailingBreadcrumbs: PageBreadcrumb[]
 ): PageBreadcrumb[] {
+  const page = MANAGER_PAGE_CONTRACTS[pageId];
   return buildWorkspacePageBreadcrumbs(
     "manager",
-    MANAGER_PAGE_CONTRACTS[pageId],
+    { ...page, label: text(page.label) },
     ...trailingBreadcrumbs,
   );
 }

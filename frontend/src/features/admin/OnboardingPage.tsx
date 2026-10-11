@@ -47,6 +47,7 @@ import {
 import { useI18n } from "../../i18n";
 import {
   extractApiError,
+  extractApiErrorCode,
   isCancelledError,
   isRecentWebAuthnRequired,
 } from "../../utils/apiError";
@@ -497,9 +498,8 @@ export default function OnboardingPage() {
     (cause: unknown) => {
       if (isRecentWebAuthnRequired(cause)) return t(copy.signIn);
       if (isApiError(cause)) {
-        const detail = cause.response?.data?.detail as { code?: string } | undefined;
         return message(
-          detail?.code ??
+          extractApiErrorCode(cause) ??
             (cause.response?.status === 422 ? "invalid_configuration" : "generic"),
         );
       }

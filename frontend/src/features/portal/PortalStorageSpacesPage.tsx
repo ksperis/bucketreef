@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
   type Dispatch,
+  type FormEvent,
   type ReactNode,
   type SetStateAction,
 } from "react";
@@ -49,6 +50,8 @@ import {
 } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { isValidS3BucketName } from "../../utils/s3BucketName";
 import {
   readClientStorageKey,
   writeClientStorageKey,
@@ -174,6 +177,7 @@ export default function PortalStorageSpacesPage() {
   >("generic_uuid");
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createValidationAttempted, setCreateValidationAttempted] = useState(false);
   const [importBucketName, setImportBucketName] = useState("");
   const [importDescription, setImportDescription] = useState("");
   const [importAccessMode, setImportAccessMode] =
@@ -383,6 +387,16 @@ export default function PortalStorageSpacesPage() {
   const effectiveNamingMode = canUseNamedBucket
     ? newNamingMode
     : "generic_uuid";
+  const newNameError = effectiveNamingMode === "named_bucket" && newName && !isValidS3BucketName(newName)
+    ? t({
+        en: "Invalid name. 3-63 characters, lowercase letters, numbers, dots or hyphens.",
+        fr: "Nom invalide. 3 à 63 caractères : lettres minuscules, chiffres, points ou tirets.",
+        de: "Ungültiger Name. 3–63 Zeichen: Kleinbuchstaben, Ziffern, Punkte oder Bindestriche.",
+        zh: "名称无效。长度为 3–63 个字符，只能包含小写字母、数字、点或连字符。",
+      })
+    : createValidationAttempted && !newName.trim()
+      ? t({ en: "Space name is required.", fr: "Le nom de l'espace est obligatoire.", de: "Ein Bereichsname ist erforderlich.", zh: "空间名称为必填项。" })
+      : undefined;
   const effectiveNewAccessMode: PortalAccessMode = createAccessModes.includes(newAccessMode)
     ? newAccessMode
     : createAccessModes[0] ?? "private";
@@ -470,6 +484,7 @@ export default function PortalStorageSpacesPage() {
     setRestrictedRolesByUserId({});
     setShareCandidateQuery("");
     setCreateError(null);
+    setCreateValidationAttempted(false);
     setShowCreate(true);
   }, [createAccessModes]);
 
@@ -596,13 +611,17 @@ export default function PortalStorageSpacesPage() {
     });
   };
 
-  const handleCreate = async () => {
-    if (!accountIdForApi || !newName.trim()) return;
+  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
+    setCreateValidationAttempted(true);
+    if (!accountIdForApi || !canCreate || !newName.trim() || newNameError) {
+      focusFirstInvalidField(event.currentTarget);
+      return;
+    }
     setCreateBusy(true);
     setCreateError(null);
     try {
       const created = await createPortalStorageSpace(accountIdForApi, {
-        name: newName.trim(),
+        name: effectiveNamingMode === "named_bucket" ? newName : newName.trim(),
         naming_mode: effectiveNamingMode,
         description: newDescription.trim() || null,
         ...effectiveNewAccessPayload,
@@ -986,7 +1005,8 @@ export default function PortalStorageSpacesPage() {
           onClose={closeCreate}
           draftKey={createFormSignature}
           busy={createBusy}
-          disabled={!canCreate || !newName.trim()}
+          disabled={!canCreate}
+          noValidate
           error={createError}
           onSubmit={handleCreate}
           submitLabel={t({ en: "Create", fr: "Créer", de: "Erstellen", zh: "创建" })}
@@ -1061,6 +1081,9 @@ export default function PortalStorageSpacesPage() {
               }
               size="compact"
               value={newName}
+              required
+              error={newNameError}
+              spellCheck={effectiveNamingMode !== "named_bucket"}
               onChange={(event) => setNewName(event.target.value)}
               placeholder={
                 effectiveNamingMode === "named_bucket"

@@ -1,0 +1,71 @@
+{{- if and .Values.accessKeyExpirationCronJob.enabled (eq (include "bucketreef.scheduledJobsEnabled" .) "true") }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "bucketreef.fullname" . }}-access-key-expiration
+  labels:
+    {{- include "bucketreef.labels" . | nindent 4 }}
+    app.kubernetes.io/component: access-key-expiration-cron
+spec:
+  schedule: {{ .Values.accessKeyExpirationCronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.accessKeyExpirationCronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.accessKeyExpirationCronJob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.accessKeyExpirationCronJob.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "bucketreef.labels" . | nindent 12 }}
+            app.kubernetes.io/component: access-key-expiration-cron
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            {{- toYaml .Values.cronJobs.podSecurityContext | nindent 12 }}
+          containers:
+            - name: access-key-expiration-runner
+              image: "{{ .Values.image.backend.repository }}:{{ default .Chart.AppVersion .Values.image.backend.tag }}"
+              imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+              securityContext:
+                {{- toYaml .Values.cronJobs.containerSecurityContext | nindent 16 }}
+              resources:
+                {{- toYaml .Values.cronJobs.resources | nindent 16 }}
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              env:
+                - name: ACCESS_KEY_EXPIRATION_API_BASE
+                  value: {{ printf "http://%s-backend:%d" (include "bucketreef.fullname" .) (.Values.service.backend.port | int) | quote }}
+                - name: INTERNAL_CRON_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.backend.existingSecret | quote }}
+                      key: {{ .Values.backend.secretKeys.internalCronToken | quote }}
+                {{- range .Values.accessKeyExpirationCronJob.extraEnv }}
+                - name: {{ .name }}
+                  value: {{ .value | quote }}
+                {{- end }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  python - <<'PY'
+                  import os
+                  import sys
+                  import requests
+
+                  base = os.environ.get("ACCESS_KEY_EXPIRATION_API_BASE")
+                  token = os.environ.get("INTERNAL_CRON_TOKEN")
+                  if not base or not token:
+                      print("Missing ACCESS_KEY_EXPIRATION_API_BASE or INTERNAL_CRON_TOKEN", file=sys.stderr)
+                      sys.exit(1)
+                  url = f"{base}/api/internal/access-key-expirations/run"
+                  resp = requests.post(url, headers={"X-Internal-Token": token}, timeout=30)
+                  print(f"Access-key expiration returned HTTP {resp.status_code}")
+                  resp.raise_for_status()
+                  PY
+          volumes:
+            - name: tmp
+              emptyDir: {}
+{{- end }}

@@ -117,7 +117,7 @@ class CephAdminBucketSnapshotBuilder:
                 ) from exc
             logger.warning(
                 "Ceph admin bucket listing stats fallback on endpoint=%s error=%s",
-                getattr(getattr(self.ctx, "endpoint", None), "id", "unknown"),
+                self.ctx.endpoint.id,
                 exc,
             )
             self.progress.emit(

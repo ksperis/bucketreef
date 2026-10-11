@@ -116,7 +116,7 @@ def build_storage_ops_context_refs(contexts: Iterable[ExecutionContext]) -> list
                 context_id=context.id,
                 context_name=context.display_name,
                 context_kind=context_kind,
-                endpoint_id=getattr(context, "endpoint_id", None),
+                endpoint_id=context.endpoint_id,
                 endpoint_name=context.endpoint_name,
             )
         )
@@ -250,13 +250,13 @@ def resolve_storage_ops_contexts(
 
 
 def _resolve_context_owner(account: S3ExecutionContext) -> _StorageOpsContextOwner:
-    account_id = str(getattr(account, "rgw_account_id", "") or "").strip()
+    account_id = str(account.rgw_account_id or "").strip()
     if account_id:
         return _StorageOpsContextOwner(owner=account_id)
-    user_uid = str(getattr(account, "rgw_user_uid", "") or "").strip()
+    user_uid = str(account.rgw_user_uid or "").strip()
     if user_uid:
         return _StorageOpsContextOwner(owner=user_uid, tenant=account_id or None)
-    source_connection = getattr(account, "source_connection", None)
+    source_connection = account.source_connection
     if source_connection is None:
         return _StorageOpsContextOwner(owner=None)
     resolution = ConnectionIdentityService().resolve_rgw_identity(source_connection)
@@ -294,7 +294,7 @@ def _apply_page_owner_enrichment(
         resolved = resolved_contexts_by_id.get(context_id)
         if resolved is not None:
             metadata = BucketOwnerMetadataService(
-                endpoint_id=int(getattr(getattr(resolved.account, "storage_endpoint", None), "id", 0) or 0),
+                endpoint_id=int(resolved.account.storage_endpoint_id or 0),
                 account=resolved.account,
             )
             kwargs = {
@@ -374,7 +374,7 @@ def list_storage_ops_context_buckets(
         or owner_usage_required
     ):
         metadata = BucketOwnerMetadataService(
-            endpoint_id=int(getattr(getattr(account, "storage_endpoint", None), "id", 0) or 0),
+            endpoint_id=int(account.storage_endpoint_id or 0),
             account=account,
         )
         kwargs = {

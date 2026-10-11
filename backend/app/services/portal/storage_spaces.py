@@ -57,7 +57,7 @@ class PortalStorageSpacesMixin:
         project_key: Optional[str] = None,
         dataset_label: Optional[str] = None,
     ) -> PortalStorageSpaceSummary:
-        portal_settings = self._effective_portal_settings(access.account)
+        portal_settings = self.get_effective_portal_settings(access.account)
         allow_private_create = portal_settings.allow_private_storage_space_create
         is_portal_user = access.portal_role == PortalAccountRole.PORTAL_USER.value
         is_portal_manager = access.portal_role == PortalAccountRole.PORTAL_MANAGER.value
@@ -152,7 +152,7 @@ class PortalStorageSpacesMixin:
             raise PortalBadRequestError("Bucket name requis.")
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
             raise PortalForbiddenError("Storage Space import not allowed for this role.")
-        portal_settings = self._effective_portal_settings(access.account)
+        portal_settings = self.get_effective_portal_settings(access.account)
         if visibility == "private" and not portal_settings.allow_private_storage_space_create:
             raise PortalForbiddenError("Private Storage Space creation is disabled for this project.")
         metadata = self._storage_space_metadata(access.account, cleaned_bucket_name)

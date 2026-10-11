@@ -2,9 +2,11 @@
 # Licensed under the Apache License, Version 2.0
 """Setup orchestration for the guided administrator onboarding."""
 import json
+from typing import Literal
 from urllib.parse import urlsplit
 
 from app.db import S3Account, S3Connection, StorageEndpoint, UserS3Account
+from app.models.onboarding import OnboardingApply
 from app.models.s3_account import S3AccountCreate
 from app.models.s3_connection import S3ConnectionCreate
 from app.models.storage_endpoint import (
@@ -39,6 +41,9 @@ from app.utils.storage_endpoint_features import (
 from app.utils.time import utcnow
 
 
+ManagementCredentialKind = Literal["admin", "runtime", "supervision", "ceph_admin"]
+
+
 class OnboardingSetupService:
     def __init__(self, progress):
         self.progress = progress
@@ -53,17 +58,36 @@ class OnboardingSetupService:
             raise OnboardingError("credentials_required")
         return access, secret
 
-    def _management_credentials(self, payload, endpoint, kind, required_code, *, required=True):
-        access, secret = self._pair(
-            getattr(payload, f"{kind}_access_key"),
-            getattr(payload, f"{kind}_secret_key"),
-        )
+    def _management_credentials(
+        self,
+        payload: OnboardingApply,
+        endpoint: StorageEndpoint | None,
+        kind: ManagementCredentialKind,
+        required_code: str,
+        *,
+        required: bool = True,
+    ) -> tuple[str, str, bool]:
+        credential_pair = {
+            "admin": (payload.admin_access_key, payload.admin_secret_key),
+            "runtime": (payload.runtime_access_key, payload.runtime_secret_key),
+            "supervision": (payload.supervision_access_key, payload.supervision_secret_key),
+            "ceph_admin": (payload.ceph_admin_access_key, payload.ceph_admin_secret_key),
+        }[kind]
+        access, secret = self._pair(*credential_pair)
         if access:
             return access, secret, True
         if endpoint is not None:
-            identity = endpoint if kind == "admin" else endpoint.service_identity(kind)
-            stored_access = (getattr(identity, "admin_access_key" if kind == "admin" else "access_key", None) or "")
-            stored_secret = (getattr(identity, "admin_secret_key" if kind == "admin" else "secret_key", None) or "")
+            if kind == "admin":
+                stored_access = endpoint.admin_access_key or ""
+                stored_secret = endpoint.admin_secret_key or ""
+            else:
+                identity = endpoint.service_identity(kind)
+                if identity is None:
+                    stored_access = ""
+                    stored_secret = ""
+                else:
+                    stored_access = identity.access_key or ""
+                    stored_secret = identity.secret_key or ""
             if stored_access and stored_secret:
                 return stored_access, stored_secret, False
         if required:

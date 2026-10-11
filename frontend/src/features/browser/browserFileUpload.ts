@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { UploadProgressEvent } from "../../api/browserTransfers";
+import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
 
 type PresignedFileUpload = {
   url: string;
@@ -11,6 +12,7 @@ type PresignedFileUpload = {
 };
 
 type UploadBrowserFileParams = {
+  text?: BrowserTextFn;
   file: File;
   mode: "direct" | "proxy";
   signal?: AbortSignal;
@@ -26,6 +28,7 @@ export const uploadBrowserFile = async ({
   onProgress,
   uploadProxy,
   presign,
+  text = defaultBrowserText,
 }: UploadBrowserFileParams): Promise<void> => {
   if (mode === "proxy") {
     await uploadProxy();
@@ -35,7 +38,7 @@ export const uploadBrowserFile = async ({
   const signedUpload = await presign();
   const method = signedUpload.method.toUpperCase();
   if (method !== "PUT") {
-    throw new Error(`Unexpected presigned upload method: ${method}.`);
+    throw new Error(text("Unexpected presigned upload method: {method}.", { method }));
   }
 
   onProgress({ loaded: 0, total: file.size, progress: 0 });
@@ -49,6 +52,6 @@ export const uploadBrowserFile = async ({
     credentials: "omit",
     signal,
   });
-  if (!response.ok) throw new Error(`Direct upload failed with status ${response.status}`);
+  if (!response.ok) throw new Error(text("Direct upload failed with status {status}", { status: response.status }));
   onProgress({ loaded: file.size, total: file.size, progress: 1 });
 };

@@ -11,8 +11,10 @@ import {
   putGroupInlinePolicy,
 } from "../../api/managerIamGroups";
 import ManagerEntityPoliciesPage from "./ManagerEntityPoliciesPage";
+import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerGroupPoliciesPage() {
+  const { text } = useManagerI18n();
   return (
     <ManagerEntityPoliciesPage
       entityType="group"
@@ -25,7 +27,7 @@ export default function ManagerGroupPoliciesPage() {
       deleteInlinePolicyForEntity={deleteGroupInlinePolicy}
       extraActions={(entityName) => [
         {
-          label: "Members",
+          label: text("Members"),
           to: `/manager/groups/${encodeURIComponent(entityName)}/users`,
           variant: "ghost",
         },

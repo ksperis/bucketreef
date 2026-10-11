@@ -11,10 +11,15 @@ export const clampParallelism = (value: number, fallback: number) => {
   return Math.min(20, Math.max(1, Math.floor(value)));
 };
 
-export const formatDateTime = (value?: string | null): string => {
-  if (!value) return "-";
+export const formatDateTime = (value?: string | number | null, locale?: string): string => {
+  if (value == null || value === "") return "-";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return String(value);
+  if (locale) {
+    return new Intl.DateTimeFormat(locale, {
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    }).format(date);
+  }
   const pad = (num: number) => `${num}`.padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
     date.getMinutes()

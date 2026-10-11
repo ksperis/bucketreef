@@ -6,6 +6,7 @@ import UiInput from "../../components/ui/UiInput";
 import { cx, uiMenuClass, uiMenuItemClass, uiMutedTextClass } from "../../components/ui/styles";
 import { bucketButtonClasses } from "./browserConstants";
 import { BucketIcon, ChevronDownIcon, SearchIcon } from "./browserIcons";
+import { useBrowserI18n } from "./browserI18n";
 
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
 const eyebrowClasses = cx("ui-caption font-semibold", uiMutedTextClass);
@@ -71,6 +72,7 @@ export default function BrowserBucketSelector({
   onSelectBucket,
   onLoadMore,
 }: BrowserBucketSelectorProps) {
+  const { text, intlLocale } = useBrowserI18n();
   const buttonClassName = cx(
     bucketButtonClasses,
     needsAttention
@@ -103,17 +105,16 @@ export default function BrowserBucketSelector({
           className={`absolute left-0 top-[calc(100%+8px)] z-[60] w-80 max-w-[calc(100vw-1rem)] ui-caption ${menuClasses}`}
         >
           <div className="flex items-center justify-between gap-3 px-2 pb-2 pt-1">
-            <p className={eyebrowClasses}>{workspaceNounTitle}</p>
+            <p className={eyebrowClasses}>{text(workspaceNounTitle)}</p>
             {bucketManagementEnabled && (
               <ListActionButton
                 type="button"
                 onClick={onCreateBucket}
                 disabled={!hasContext}
-                title="Create bucket"
-                aria-label="Create bucket"
+                title={text("Create bucket")}
+                aria-label={text("Create bucket")}
               >
-                + Bucket
-              </ListActionButton>
+                {text("+ Bucket")}</ListActionButton>
             )}
           </div>
           <div className="px-2 pb-2">
@@ -124,8 +125,8 @@ export default function BrowserBucketSelector({
                 type="text"
                 value={filter}
                 onChange={(event) => onFilterChange(event.target.value)}
-                placeholder={`Filter ${workspaceNounPlural}`}
-                aria-label={`Filter ${workspaceNounPlural}`}
+                placeholder={text("Filter {workspace}", { workspace: text(workspaceNounPlural) })}
+                aria-label={text("Filter {workspace}", { workspace: text(workspaceNounPlural) })}
                 size="compact"
                 fieldClassName="w-full"
                 className="ui-list-control ui-list-control-with-icon w-full font-medium"
@@ -136,26 +137,26 @@ export default function BrowserBucketSelector({
           <div className="max-h-56 overflow-y-auto px-1 pb-1">
             {loading && items.length === 0 ? (
               <div className="px-2 py-2 ui-caption text-slate-500 dark:text-slate-400">
-                {`Loading ${workspaceNounPlural}...`}
+                {text("Loading {workspace}...", { workspace: text(workspaceNounPlural) })}
               </div>
             ) : totalCount === 0 ? (
               <div className="space-y-2 px-2 py-2">
                 <div className="ui-caption text-slate-500 dark:text-slate-400">
                   {hasError
-                    ? `Unable to load ${workspaceNounPlural}.`
-                    : `No ${workspaceNounPlural} available.`}
+                    ? text("Unable to load {workspace}.", { workspace: text(workspaceNounPlural) })
+                    : text("No {workspace} available.", { workspace: text(workspaceNounPlural) })}
                 </div>
                 <ListActionButton
                   type="button"
                   onClick={onRetry}
                   disabled={loading || !hasContext}
                 >
-                  {loading ? "Retrying..." : "Retry"}
+                  {loading ? text("Retrying...") : text("Retry")}
                 </ListActionButton>
               </div>
             ) : items.length === 0 ? (
               <div className="px-2 py-2 ui-caption text-slate-500 dark:text-slate-400">
-                {`No ${workspaceNounPlural} match this filter.`}
+                {text("No {workspace} match this filter.", { workspace: text(workspaceNounPlural) })}
               </div>
             ) : (
               items.map((bucket) => {
@@ -180,8 +181,7 @@ export default function BrowserBucketSelector({
                     </span>
                     {isActive && (
                       <span className="ui-caption font-semibold text-primary-600 dark:text-primary-200">
-                        Active
-                      </span>
+                        {text("Active")}</span>
                     )}
                   </button>
                 );
@@ -190,7 +190,7 @@ export default function BrowserBucketSelector({
           </div>
           {!loading && totalCount > 0 && (
             <div className="border-t border-slate-200 px-2.5 py-2 ui-caption text-slate-400 dark:border-slate-700 dark:text-slate-500">
-              {`${items.length} of ${total} ${workspaceNoun}${total === 1 ? "" : "s"}`}
+              {text("{count} of {total} {workspace}", { count: items.length.toLocaleString(intlLocale), total: total.toLocaleString(intlLocale), workspace: text(total === 1 ? workspaceNoun : workspaceNounPlural) })}
             </div>
           )}
           {canLoadMore && (
@@ -200,7 +200,7 @@ export default function BrowserBucketSelector({
                 onClick={onLoadMore}
                 disabled={loadingMore}
               >
-                {loadingMore ? "Loading..." : "Load more"}
+                {loadingMore ? text("Loading...") : text("Load more")}
               </ListActionButton>
             </div>
           )}

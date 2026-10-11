@@ -17,7 +17,7 @@ from app.db import (
 )
 from app.models.s3_connection_admin import S3ConnectionAdminUpdate
 from app.models.ui_group import UiGroupCreate, UiGroupUpdate
-from app.models.user import UserUpdate
+from app.models.user import ManagerToolAccess, UserUpdate
 from app.routers.auth_session_guards import current_auth_session, require_recent_mfa, require_recent_primary_auth
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.manager_tool_access import read_manager_tool_access
@@ -38,13 +38,10 @@ _DIRECT_ACCESS_FIELDS = (
 _GROUP_DIRECT_ACCESS_FIELDS = _DIRECT_ACCESS_FIELDS
 
 
-def _manager_tool_access_enabled(value: object) -> bool:
+def _manager_tool_access_enabled(value: ManagerToolAccess | None) -> bool:
     if value is None:
         return False
-    model_dump = getattr(value, "model_dump", None)
-    if callable(model_dump):
-        return any(bool(enabled) for enabled in model_dump().values())
-    return False
+    return any(bool(enabled) for enabled in value.model_dump().values())
 
 
 def passkey_required_for_role(db: Session, role: str) -> bool:

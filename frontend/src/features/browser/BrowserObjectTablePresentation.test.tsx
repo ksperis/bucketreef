@@ -53,7 +53,7 @@ describe("BrowserObjectTablePresentation", () => {
     );
     expect(
       screen.getByText(
-        `Restored until ${formatDateTime("2026-08-25T10:00:00Z")}`,
+        `Restored until ${formatDateTime("2026-08-25T10:00:00Z", "en-US")}`,
       ),
     ).toBeInTheDocument();
 

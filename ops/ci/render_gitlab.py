@@ -63,12 +63,19 @@ def render(plan):
         if plan["ref"] == "dev":
             names.update(f"promote-{c}-dev" for c in plan["images"])
     payload = base64.b64encode(json.dumps(plan).encode()).decode()
+    plan_bootstrap = "\n".join([
+        "python3 - <<'BUCKETREEF_CI_PLAN_PY'",
+        "import base64",
+        "from pathlib import Path",
+        f"Path('ci-plan.json').write_bytes(base64.b64decode('''{payload}'''))",
+        "BUCKETREEF_CI_PLAN_PY",
+    ])
     config = {
         "workflow": {"rules": [{"if": '$CI_PIPELINE_SOURCE == "parent_pipeline" && $CI_COMMIT_REF_PROTECTED == "true"'}, {"when": "never"}]},
         "stages": ["plan", "test", "build", "security", "promote", "deploy", "evidence", "candidate", "installation", "ready", "finalize", "publish-demo"],
         "default": {"interruptible": profile == "integration", "retry": {"max": 1, "when": ["api_failure", "runner_system_failure", "stuck_or_timeout_failure"]}, "tags": ["bucketreef-protected"]},
         **yaml.safe_load((ROOT / "ops/ci/gitlab/variables.yml").read_text()),
-        "pipeline-plan": {"stage": "plan", "image": "python:3.12-slim", "script": [f"python3 -c \"import base64; open('ci-plan.json','wb').write(base64.b64decode('{payload}'))\""], "artifacts": {"paths": ["ci-plan.json"]}},
+        "pipeline-plan": {"stage": "plan", "image": "python:3.12-slim", "script": [plan_bootstrap], "artifacts": {"paths": ["ci-plan.json"]}},
     }
     # Extends may reference a concrete job (the release Kind variant).
     for name, value in source.items():

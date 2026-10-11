@@ -11,6 +11,7 @@ from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwAccountSummary
 from app.routers.ceph_admin.account_common import (
+    extract_account_bucket_list,
     extract_bucket_count,
     extract_user_count,
 )
@@ -25,7 +26,6 @@ from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.usage_stats import summarize_bucket_usage
 
 
@@ -144,7 +144,7 @@ def _apply_account_detail_payload(
         except RGWAdminError as exc:
             raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
         _usage, total_bytes, total_objects, _count = summarize_bucket_usage(
-            extract_bucket_list(buckets_payload)
+            extract_account_bucket_list(buckets_payload, account.account_id)
         )
         account.used_bytes = total_bytes
         account.object_count = total_objects

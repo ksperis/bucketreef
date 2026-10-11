@@ -8,6 +8,7 @@ import type { S3AccountSelector } from "../../api/accountParams";
 import { cleanupObjectVersions } from "../../api/browserObjects";
 import type { OperationCompletionStatus } from "./browserTypes";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -64,6 +65,7 @@ export function useBrowserVersionCleanup({
   startOperation,
   versioningEnabled,
 }: UseBrowserVersionCleanupOptions) {
+  const { text } = useBrowserI18n();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(createBrowserVersionCleanupDraft);
   const [loading, setLoading] = useState(false);
@@ -90,15 +92,15 @@ export function useBrowserVersionCleanup({
       ? undefined
       : parsedOlderThanDays;
     if (!keepLast && !olderThanDays && !draft.deleteOrphanMarkers) {
-      setError("Select at least one cleanup rule.");
+      setError(text("Select at least one cleanup rule."));
       return;
     }
     if (keepLast !== undefined && keepLast < 1) {
-      setError("Keep last versions must be at least 1.");
+      setError(text("Keep last versions must be at least 1."));
       return;
     }
     if (olderThanDays !== undefined && olderThanDays < 1) {
-      setError("Older than days must be at least 1.");
+      setError(text("Older than days must be at least 1."));
       return;
     }
 
@@ -129,7 +131,7 @@ export function useBrowserVersionCleanup({
         controller.signal,
         requestOptions,
       );
-      const nextSummary = `Removed ${result.deleted_versions} version(s) and ${result.deleted_delete_markers} delete marker(s).`;
+      const nextSummary = text("Removed {versions} version(s) and {markers} delete marker(s).", { versions: result.deleted_versions, markers: result.deleted_delete_markers });
       setSummary(nextSummary);
       onStatus(nextSummary);
       onRefresh(prefix);
@@ -137,7 +139,7 @@ export function useBrowserVersionCleanup({
       if (isOperationAborted(caughtError, controller)) {
         completionStatus = "cancelled";
         setSummary("Cleanup cancelled.");
-        onStatus("Cleanup cancelled.");
+        onStatus(text("Cleanup cancelled."));
         await onRefreshNow(prefix);
       } else {
         completionStatus = "failed";
@@ -167,6 +169,7 @@ export function useBrowserVersionCleanup({
     requestOptions,
     showOperations,
     startOperation,
+    text,
   ]);
 
   return {

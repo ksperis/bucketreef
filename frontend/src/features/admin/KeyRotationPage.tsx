@@ -115,10 +115,6 @@ function isEndpointEligible(endpoint: StorageEndpoint, types: KeyRotationType[])
   });
 }
 
-function extractError(err: unknown): string {
-  return extractApiError(err, "Unable to run key rotation.");
-}
-
 const resultTableColumns: Array<DataTableColumn<KeyRotationResultRow>> = [
   {
     id: "endpoint",
@@ -216,7 +212,7 @@ export default function KeyRotationPage() {
         setSelectedEndpointIds(eligibleIds);
       } catch (err) {
         if (!mounted) return;
-        setError(extractError(err));
+        setError(extractApiError(err, "Unable to run key rotation."));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -326,7 +322,7 @@ export default function KeyRotationPage() {
     } catch (err) {
       if (active.current)
         setError(
-          `${extractError(err)} The outcome may be incomplete. Retry the same categories to resume their persisted rotations.`,
+          `${extractApiError(err, "Unable to run key rotation.")} The outcome may be incomplete. Retry the same categories to resume their persisted rotations.`,
         );
     } finally {
       pending.current = false;

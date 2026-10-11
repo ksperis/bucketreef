@@ -28,7 +28,10 @@
   background: var(--ui-surface);
 }
 
-.settings-json-input {
+.settings-json-editor textarea.settings-json-input {
+  /* Keep native caret geometry aligned with the pre despite generic form styles. */
+  display: block;
+  white-space: pre;
   position: relative;
   z-index: 1;
   overflow: auto;

@@ -10,6 +10,7 @@ import UiIconButton from "../../components/ui/UiIconButton";
 import { cx, uiTitleTextClass } from "../../components/ui/styles";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { XIcon } from "../browser/browserIcons";
+import { useI18n } from "../../i18n";
 
 const DETAILS_DRAWER_MODAL_MEDIA_QUERY = "(max-width: 1023px)";
 
@@ -37,9 +38,10 @@ export default function DetailsDrawerShell({
   onTabChange,
   subtitle,
   tabs = [],
-  tabsAriaLabel = "Details views",
+  tabsAriaLabel,
   title,
 }: DetailsDrawerShellProps) {
+  const { t } = useI18n();
   const idPrefix = useId();
   const modal = useMediaQuery(DETAILS_DRAWER_MODAL_MEDIA_QUERY);
 
@@ -64,12 +66,12 @@ export default function DetailsDrawerShell({
               </h2>
               {subtitle ? <div className="mt-1 min-w-0">{subtitle}</div> : null}
             </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
               {actions}
               <UiIconButton
                 variant="ghost"
                 onClick={onClose}
-                label="Close details"
+                label={t({ en: "Close details", fr: "Fermer les détails", de: "Details schließen", zh: "关闭详情" })}
                 icon={<XIcon className="h-4 w-4" />}
               />
             </div>
@@ -81,7 +83,7 @@ export default function DetailsDrawerShell({
                 activeTab={activeTab}
                 onChange={onTabChange}
                 variant="bar"
-                ariaLabel={tabsAriaLabel}
+                ariaLabel={tabsAriaLabel ?? t({ en: "Details views", fr: "Vues des détails", de: "Detailansichten", zh: "详情视图" })}
                 idPrefix={idPrefix}
               />
             </div>

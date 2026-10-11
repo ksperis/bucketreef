@@ -5,14 +5,18 @@ from __future__ import annotations
 
 import json
 import secrets
+from collections.abc import Callable
+from typing import Literal
 from uuid import uuid4
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from app.db import AppSetting, EndpointServiceIdentity, StorageEndpoint
+from app.db import AppSetting, EndpointServiceIdentity, StorageEndpoint, User
+from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services.audit_service import AuditService
-from app.services.operation_lease_service import OperationLeaseService
-from app.services.rgw_admin import RGWAdminError
+from app.services.operation_lease_service import OperationLeaseHandle, OperationLeaseService
+from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import extract_ceph_admin_flags, classify_rgw_credential_failure
 from app.services.rgw_endpoint_clients import get_endpoint_bootstrap_rgw_client
 from app.services.storage_endpoint_admin_permissions import _parse_caps_payload, admin_ops_permissions_from_caps
@@ -25,6 +29,9 @@ SERVICE_CAPS = {
 }
 INSTALLATION_KEY = "endpoint-service-identity-installation"
 STARTUP_RECOVERY_KEY_TYPES = frozenset({"endpoint_runtime", "endpoint_supervision"})
+ServiceIdentityKind = Literal["runtime", "supervision", "ceph_admin"]
+ManagedServiceIdentityKind = Literal["runtime", "supervision"]
+EndpointClientFactory = Callable[[StorageEndpoint], RGWAdminClient]
 
 
 class ManagedIdentityKeyDriftError(ValueError):
@@ -38,12 +45,18 @@ class ManagedIdentityKeyDriftError(ValueError):
 
 
 class EndpointServiceIdentityService:
-    def __init__(self, db, *, actor=None, client_factory=None):
+    def __init__(
+        self,
+        db: Session,
+        *,
+        actor: User | None = None,
+        client_factory: EndpointClientFactory | None = None,
+    ) -> None:
         self.db = db
         self.actor = actor
         self.client_factory = client_factory or get_endpoint_bootstrap_rgw_client
 
-    def _installation_id(self):
+    def _installation_id(self) -> str:
         row = self.db.get(AppSetting, INSTALLATION_KEY)
         if row is None:
             row = AppSetting(key=INSTALLATION_KEY, payload_json=json.dumps(uuid4().hex))
@@ -53,9 +66,17 @@ class EndpointServiceIdentityService:
                     self.db.flush()
             except IntegrityError:
                 row = self.db.get(AppSetting, INSTALLATION_KEY)
-        return json.loads(row.payload_json)
+        installation_id = json.loads(row.payload_json)
+        if not isinstance(installation_id, str):
+            raise ValueError("Service identity installation id is invalid.")
+        return installation_id
 
-    def _audit(self, endpoint, identity, action):
+    def _audit(
+        self,
+        endpoint: StorageEndpoint,
+        identity: EndpointServiceIdentity,
+        action: str,
+    ) -> None:
         AuditService(self.db).record_action(
             user=self.actor, user_email="system" if self.actor is None else None,
             scope="admin", action=f"endpoint_service_identity.{action}",
@@ -65,13 +86,17 @@ class EndpointServiceIdentityService:
         )
 
     @staticmethod
-    def _owns(identity, payload):
+    def _owns(identity: EndpointServiceIdentity, payload: object) -> bool:
         return bool(isinstance(payload, dict) and isinstance(payload.get("keys"), list) and identity.access_key and any(
             key.get("access_key") == identity.access_key
             for key in payload.get("keys", []) if isinstance(key, dict)
         ))
 
-    def _validate_managed_keys(self, identity, payload):
+    def _validate_managed_keys(
+        self,
+        identity: EndpointServiceIdentity,
+        payload: object,
+    ) -> None:
         if not isinstance(payload, dict):
             raise ManagedIdentityKeyDriftError()
         from app.services.durable_key_rotation_service import pending_rotation
@@ -95,7 +120,12 @@ class EndpointServiceIdentityService:
         ):
             raise ManagedIdentityKeyDriftError()
 
-    def _record_key_drift(self, endpoint, identity, error):
+    def _record_key_drift(
+        self,
+        endpoint: StorageEndpoint,
+        identity: EndpointServiceIdentity,
+        error: ManagedIdentityKeyDriftError,
+    ) -> None:
         changed = identity.last_error != str(error)
         if identity.status != "revocation_pending":
             identity.status = "error"
@@ -105,7 +135,10 @@ class EndpointServiceIdentityService:
         if changed:
             self._audit(endpoint, identity, "key_drift_detected")
 
-    def _lease(self, endpoint):
+    def _lease(
+        self,
+        endpoint: StorageEndpoint,
+    ) -> tuple[OperationLeaseService, OperationLeaseHandle]:
         # The bound exceeds the configured RGW timeouts for this workflow.
         endpoint_id = endpoint.id
         lease = OperationLeaseService(self.db)
@@ -118,7 +151,10 @@ class EndpointServiceIdentityService:
             raise ValueError("Endpoint no longer exists.")
         return lease, handle
 
-    def admin_permissions(self, endpoint):
+    def admin_permissions(
+        self,
+        endpoint: StorageEndpoint,
+    ) -> tuple[RGWAdminClient, StorageEndpointAdminOpsPermissions]:
         admin = self.client_factory(endpoint)
         payload = admin.get_user_by_access_key(endpoint.admin_access_key, allow_not_found=True)
         if not isinstance(payload, dict):
@@ -129,17 +165,11 @@ class EndpointServiceIdentityService:
         return admin, permissions
 
     @staticmethod
-    def validate_payload(kind, payload, *, allow_legacy_system=False):
+    def validate_payload(kind: ServiceIdentityKind, payload: object) -> None:
         if not isinstance(payload, dict) or not payload:
             raise ValueError(f"{kind} access key is not recognized by RGW.")
         is_admin, is_system = extract_ceph_admin_flags(payload)
         if kind == "ceph_admin":
-            if allow_legacy_system:
-                if not (is_admin or is_system):
-                    raise ValueError(
-                        "Migrated Ceph Admin credentials require admin=true or system=true."
-                    )
-                return
             if not is_admin or is_system:
                 raise ValueError("Ceph Admin requires admin=true and system=false.")
             return
@@ -151,15 +181,14 @@ class EndpointServiceIdentityService:
     @classmethod
     def validate_functional_access(
         cls,
-        kind,
-        client,
+        kind: ServiceIdentityKind,
+        client: RGWAdminClient,
         *,
-        access_key=None,
-        bucket_uid=None,
-        check_buckets=True,
-        check_usage=True,
-        allow_legacy_system=False,
-    ):
+        access_key: str | None = None,
+        bucket_uid: str | None = None,
+        check_buckets: bool = True,
+        check_usage: bool = True,
+    ) -> dict | None:
         if kind == "runtime":
             if not access_key:
                 raise ValueError("Runtime access key is required for validation.")
@@ -188,32 +217,41 @@ class EndpointServiceIdentityService:
         if kind == "ceph_admin":
             if not access_key:
                 raise ValueError("Ceph Admin access key is required for validation.")
-            cls.validate_payload(
-                "ceph_admin",
-                client.get_user_by_access_key(access_key, allow_not_found=True),
-                allow_legacy_system=allow_legacy_system,
-            )
+            cls.validate_payload("ceph_admin", client.get_user_by_access_key(access_key, allow_not_found=True))
             return None
 
         raise ValueError(f"Unsupported service identity kind: {kind}.")
 
-    def _functional_check(self, endpoint, identity):
+    def _functional_check(
+        self,
+        endpoint: StorageEndpoint,
+        *,
+        kind: ServiceIdentityKind,
+        rgw_uid: str,
+        access_key: str,
+        secret_key: str,
+    ) -> None:
         from app.services.rgw_admin import get_rgw_admin_client
         from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
-        client = get_rgw_admin_client(access_key=identity.access_key, secret_key=identity.secret_key,
+        client = get_rgw_admin_client(access_key=access_key, secret_key=secret_key,
                                       endpoint=resolve_rgw_admin_api_endpoint(endpoint), region=endpoint.region,
                                       verify_tls=endpoint.verify_tls)
         self.validate_functional_access(
-            identity.kind,
+            kind,
             client,
-            access_key=identity.access_key,
-            bucket_uid=identity.rgw_uid,
-            allow_legacy_system=bool(
-                getattr(identity, "legacy_system_compat", False)
-            ),
+            access_key=access_key,
+            bucket_uid=rgw_uid,
         )
 
-    def _ensure(self, endpoint, kind, admin, permissions, *, managed):
+    def _ensure(
+        self,
+        endpoint: StorageEndpoint,
+        kind: ManagedServiceIdentityKind,
+        admin: RGWAdminClient,
+        permissions: StorageEndpointAdminOpsPermissions,
+        *,
+        managed: bool,
+    ) -> EndpointServiceIdentity:
         if kind == "ceph_admin":
             raise ValueError("Ceph Admin credentials must be supplied manually.")
         identity = endpoint.service_identity(kind)
@@ -270,14 +308,20 @@ class EndpointServiceIdentityService:
         if managed:
             self._validate_managed_keys(identity, payload)
         identity.rgw_uid = str(payload.get("user_id") or payload.get("uid") or identity.rgw_uid or "")
-        self._functional_check(endpoint, identity)
+        self._functional_check(
+            endpoint,
+            kind=identity.kind,
+            rgw_uid=identity.rgw_uid,
+            access_key=identity.access_key,
+            secret_key=identity.secret_key,
+        )
         identity.status, identity.last_error = "ready", None
         identity.last_reconciled_at = utcnow()
         self.db.commit()
         self._audit(endpoint, identity, "validated")
         return identity
 
-    def validate_ceph_admin(self, endpoint):
+    def validate_ceph_admin(self, endpoint: StorageEndpoint) -> dict[str, str]:
         """Authenticate the supplied pair without using bootstrap credentials or RGW writes."""
         identity = endpoint.service_identity("ceph_admin")
         if identity is None:
@@ -297,11 +341,7 @@ class EndpointServiceIdentityService:
                     verify_tls=endpoint.verify_tls,
                 )
                 payload = client.get_user_by_access_key(identity.access_key, allow_not_found=True)
-                self.validate_payload(
-                    "ceph_admin",
-                    payload,
-                    allow_legacy_system=bool(identity.legacy_system_compat),
-                )
+                self.validate_payload("ceph_admin", payload)
                 uid = payload.get("user_id") or payload.get("uid")
                 if not uid:
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
@@ -322,7 +362,7 @@ class EndpointServiceIdentityService:
         self.db.commit()
         return {"kind": "ceph_admin", "status": identity.status}
 
-    def revoke(self, endpoint, kind):
+    def revoke(self, endpoint: StorageEndpoint, kind: ServiceIdentityKind) -> bool:
         if kind == "ceph_admin":
             return True  # External principals and keys belong to the operator.
         identity = endpoint.service_identity(kind)
@@ -368,7 +408,13 @@ class EndpointServiceIdentityService:
             self.db.commit()
             return False
 
-    def rotate(self, endpoint, kind, *, deactivate_only=False):
+    def rotate(
+        self,
+        endpoint: StorageEndpoint,
+        kind: ServiceIdentityKind,
+        *,
+        deactivate_only: bool = False,
+    ) -> tuple[str, str, str]:
         from app.services.durable_key_rotation_service import DurableKeyRotationService
         identity = endpoint.service_identity(kind)
         if identity is None or identity.mode != "managed":
@@ -378,7 +424,9 @@ class EndpointServiceIdentityService:
             endpoint, key_type, identity.id, deactivate_only=deactivate_only)
 
     @staticmethod
-    def _identity_is_locally_ready(identity) -> bool:
+    def _identity_is_locally_ready(
+        identity: EndpointServiceIdentity | None,
+    ) -> bool:
         if (
             identity is None
             or identity.status != "ready"
@@ -389,7 +437,7 @@ class EndpointServiceIdentityService:
             return False
         return identity.mode != "managed" or bool(identity.provenance)
 
-    def needs_startup_reconciliation(self, endpoint) -> bool:
+    def needs_startup_reconciliation(self, endpoint: StorageEndpoint) -> bool:
         """Return whether persisted local state requires an RGW recovery pass."""
         if endpoint.provider != "ceph":
             return False
@@ -416,12 +464,14 @@ class EndpointServiceIdentityService:
         )
 
     @staticmethod
-    def desired_service_kinds(endpoint) -> list[str]:
+    def desired_service_kinds(
+        endpoint: StorageEndpoint,
+    ) -> list[ManagedServiceIdentityKind]:
         """Keep configured/in-flight identities, skip unused empty placeholders."""
         required = required_service_identity_kinds(normalize_features_config(
             endpoint.provider, endpoint.features_config, endpoint.region,
         ))
-        desired = []
+        desired: list[ManagedServiceIdentityKind] = []
         for kind in ("runtime", "supervision"):
             identity = endpoint.service_identity(kind)
             tracked = identity is not None and identity.status != "disabled" and (
@@ -437,11 +487,11 @@ class EndpointServiceIdentityService:
 
     def reconcile(
         self,
-        endpoint,
+        endpoint: StorageEndpoint,
         *,
-        locked=False,
-        provision_unprovisioned=False,
-    ):
+        locked: bool = False,
+        provision_unprovisioned: bool = False,
+    ) -> list[dict[str, str]]:
         if endpoint.provider != "ceph":
             return []
         lease, handle = (None, None) if locked else self._lease(endpoint)

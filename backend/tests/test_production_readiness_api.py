@@ -80,6 +80,25 @@ def test_production_readiness_returns_grouped_runtime_summary_without_secrets(mo
     )
 
 
+def test_production_readiness_uses_configured_documentation_base(monkeypatch, db_session):
+    app_settings = AppSettings(
+        general={"documentation_base_url": "https://docs.example.com/bucketreef/"}
+    )
+    monkeypatch.setattr(
+        production_readiness_router,
+        "load_app_settings_for_db",
+        lambda _db: app_settings,
+    )
+
+    response = _client(_settings(), db_session).get("/api/admin/production-readiness")
+
+    assert response.status_code == 200
+    assert all(
+        item["documentation_url"].startswith("https://docs.example.com/bucketreef/admin/en/")
+        for item in response.json()["findings"]
+    )
+
+
 def test_production_readiness_reports_admin_passkey_policy_as_critical(monkeypatch, db_session):
     monkeypatch.setattr(
         production_readiness_router,

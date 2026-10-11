@@ -123,6 +123,31 @@ describe("CreateManagedPrivateAccessModal", () => {
     expect(screen.getByText("Customized")).toBeInTheDocument();
   });
 
+  it("blocks private access for invalid Ceph inline names and clears the error after correction", async () => {
+    const user = userEvent.setup();
+    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" contextName="account-test"
+      namingValidationProfile="ceph" onClose={vi.fn()} onCreated={vi.fn()} />);
+    await user.click(screen.getByText("Advanced configuration"));
+    const name = screen.getByLabelText("Inline policy name");
+    await user.type(name, "policy_under+score");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    await user.click(screen.getByRole("button", { name: "Add inline policy" }));
+    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    expect(createIamMock).not.toHaveBeenCalled();
+    await user.clear(name);
+    await user.click(screen.getByRole("button", { name: "Add inline policy" }));
+    expect(name).toHaveAccessibleDescription("Inline policy name is required.");
+    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    expect(createIamMock).not.toHaveBeenCalled();
+    await user.type(name, "policy:valid");
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+    await user.click(screen.getByRole("button", { name: "Add inline policy" }));
+    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await waitFor(() => expect(createIamMock).toHaveBeenCalledWith("acc-7", expect.objectContaining({
+      inline_policies: [{ name: "policy:valid", document: { Version: "2012-10-17", Statement: [] } }],
+    })));
+  });
+
   it("keeps the RGW User payload limited to name and explicit workspace flags", async () => {
     const user = userEvent.setup();
     render(

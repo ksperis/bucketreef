@@ -14,6 +14,7 @@ import {
 } from "./browserConstants";
 import type { TreeNode } from "./browserTypes";
 import type { BucketAccessEntry } from "./browserBucketsPanelHelpers";
+import { useBrowserI18n, type BrowserTextFn } from "./browserI18n";
 
 type BrowserFoldersPanelProps = {
   currentBucket: BrowserBucket | null;
@@ -36,6 +37,7 @@ function renderTreeNodes(
   depth: number,
   onSelectPrefix: (prefix: string) => void,
   onToggleTreeNode: (node: TreeNode) => void,
+  text: BrowserTextFn,
 ): JSX.Element {
   return (
     <ul className="w-full min-w-0 space-y-1">
@@ -53,8 +55,10 @@ function renderTreeNodes(
                 className={`${treeToggleButtonClasses} mt-1 h-5 w-5 rounded-md`}
                 onClick={() => onToggleTreeNode(node)}
                 disabled={!canToggle}
-                aria-label={node.isExpanded ? `Collapse ${node.name}` : `Expand ${node.name}`}
-                title={node.isExpanded ? "Collapse" : "Expand"}
+                aria-label={node.isExpanded
+                  ? text("Collapse {name}", { name: node.name })
+                  : text("Expand {name}", { name: node.name })}
+                title={node.isExpanded ? text("Collapse") : text("Expand")}
               >
                 {canToggle ? (node.isExpanded ? "-" : "+") : ""}
               </button>
@@ -71,9 +75,9 @@ function renderTreeNodes(
             {node.isExpanded && (node.isLoading || node.children.length > 0) && (
               <div className="mt-1">
                 {node.isLoading ? (
-                  <div className="pl-8 ui-caption text-slate-400 dark:text-slate-500">Loading folders...</div>
+                  <div className="pl-8 ui-caption text-slate-400 dark:text-slate-500">{text("Loading folders...")}</div>
                 ) : (
-                  renderTreeNodes(node.children, activePrefix, depth + 1, onSelectPrefix, onToggleTreeNode)
+                  renderTreeNodes(node.children, activePrefix, depth + 1, onSelectPrefix, onToggleTreeNode, text)
                 )}
               </div>
             )}
@@ -95,6 +99,7 @@ export default function BrowserFoldersPanel({
   onSelectPrefix,
   onToggleTreeNode,
 }: BrowserFoldersPanelProps) {
+  const { text } = useBrowserI18n();
   const currentBucketChildren = treeRootNode?.children ?? [];
   const currentBucketLoading = Boolean(currentBucket && treeRootNode?.isLoading);
   const currentBucketHasFolders = currentBucketChildren.length > 0;
@@ -105,7 +110,7 @@ export default function BrowserFoldersPanel({
     <div className={cx(uiCardClass, "flex h-full min-h-0 min-w-0 flex-col p-3")}>
       <div className="flex shrink-0 items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className={panelSectionTitleClasses}>Folders</p>
+          <p className={panelSectionTitleClasses}>{text("Folders")}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <UiIconButton
@@ -113,20 +118,20 @@ export default function BrowserFoldersPanel({
             className="shrink-0"
             onClick={onRefresh}
             disabled={!currentBucket}
-            label="Refresh folders"
+            label={text("Refresh folders")}
             icon={<RefreshIcon className="h-3.5 w-3.5" />}
           />
           <UiIconButton
             variant="ghost"
             className="shrink-0"
             onClick={onClose}
-            label="Close folders panel"
+            label={text("Close folders panel")}
             icon={<XIcon className="h-3.5 w-3.5" />}
           />
         </div>
       </div>
 
-      <section className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1" aria-label={`Current ${normalizedWorkspaceNoun}`}>
+      <section className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1" aria-label={text("Current {workspace}", { workspace: normalizedWorkspaceNoun })}>
         <div className="min-w-0">
           <button
             type="button"
@@ -137,28 +142,27 @@ export default function BrowserFoldersPanel({
             disabled={!currentBucket}
           >
             <FolderIcon className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Root</span>
+            <span className="truncate">{text("Root")}</span>
           </button>
 
           <div className="mt-2 min-w-0">
             {!currentBucket && (
               <p className="ui-caption text-slate-500 dark:text-slate-400">
-                {`Select a ${normalizedWorkspaceNoun} to browse folders.`}
+                {text("Select a {workspace} to browse folders.", { workspace: normalizedWorkspaceNoun })}
               </p>
             )}
             {currentBucket && currentBucketUnavailable && (
               <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Folder tree unavailable with current credentials.
-              </p>
+                {text("Folder tree unavailable with current credentials.")}</p>
             )}
             {currentBucketLoading && !currentBucketUnavailable && (
-              <p className="ui-caption text-slate-500 dark:text-slate-400">Loading folders...</p>
+              <p className="ui-caption text-slate-500 dark:text-slate-400">{text("Loading folders...")}</p>
             )}
             {currentBucket && !currentBucketUnavailable && !currentBucketLoading && !currentBucketHasFolders && (
-              <p className="ui-caption text-slate-500 dark:text-slate-400">No folders at this level.</p>
+              <p className="ui-caption text-slate-500 dark:text-slate-400">{text("No folders at this level.")}</p>
             )}
             {!currentBucketUnavailable && currentBucketHasFolders &&
-              renderTreeNodes(currentBucketChildren, activePrefix, 0, onSelectPrefix, onToggleTreeNode)}
+              renderTreeNodes(currentBucketChildren, activePrefix, 0, onSelectPrefix, onToggleTreeNode, text)}
           </div>
         </div>
       </section>

@@ -13,12 +13,29 @@ export type ManagerCephAccessKey = {
   is_active: boolean;
   is_private_access_managed?: boolean;
   managed_connection_id?: number | null;
+  name?: string | null;
+  notes?: string | null;
+  expires_at?: string | null;
+  expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
+  expiration_enforced_at?: string | null;
+  expiration_last_attempt_at?: string | null;
+  expiration_last_error?: string | null;
 };
 
 export type ManagerCephGeneratedAccessKey = {
   access_key_id: string;
   secret_access_key: string;
   created_at?: string | null;
+  name?: string | null;
+  notes?: string | null;
+  expires_at?: string | null;
+  expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
+};
+
+type ManagerAccessKeyMetadataInput = {
+  name?: string | null;
+  notes?: string | null;
+  expires_at?: string | null;
 };
 
 export async function listManagerCephAccessKeys(accountId?: S3AccountSelector): Promise<ManagerCephAccessKey[]> {
@@ -28,11 +45,27 @@ export async function listManagerCephAccessKeys(accountId?: S3AccountSelector): 
   return data;
 }
 
-export async function createManagerCephAccessKey(accountId?: S3AccountSelector): Promise<ManagerCephGeneratedAccessKey> {
+export async function createManagerCephAccessKey(
+  accountId?: S3AccountSelector,
+  metadata?: ManagerAccessKeyMetadataInput,
+): Promise<ManagerCephGeneratedAccessKey> {
   const { data } = await client.post<ManagerCephGeneratedAccessKey>(
     "/manager/ceph/keys",
-    {},
+    metadata ?? {},
     { params: withS3AccountParam(undefined, accountId) }
+  );
+  return data;
+}
+
+export async function updateManagerCephAccessKeyMetadata(
+  accountId: S3AccountSelector,
+  accessKeyId: string,
+  metadata: ManagerAccessKeyMetadataInput,
+): Promise<ManagerAccessKeyMetadataInput> {
+  const { data } = await client.put<ManagerAccessKeyMetadataInput>(
+    `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}/metadata`,
+    metadata,
+    { params: withS3AccountParam(undefined, accountId) },
   );
   return data;
 }

@@ -35,14 +35,14 @@ def _resolve_ceph_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
 
 
 def _manager_scope_id(account: S3Account) -> str:
-    account_id = getattr(account, "id", None)
+    account_id = account.id
     if not isinstance(account_id, int) or account_id <= 0:
         raise ValueError("Managed S3 account is missing a local identifier.")
     return str(account_id)
 
 
 def _account_label(account: S3Account) -> str:
-    return getattr(account, "name", None) or getattr(account, "rgw_account_id", None) or f"Account {account.id}"
+    return account.name or account.rgw_account_id or f"Account {account.id}"
 
 
 def _managed_accounts_for_endpoint(db: Session, endpoint_id: int) -> list[S3Account]:

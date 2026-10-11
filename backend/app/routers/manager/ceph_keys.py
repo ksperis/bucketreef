@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
+from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.s3_user import S3UserAccessKey, S3UserAccessKeyStatusChange, S3UserGeneratedKey
 from app.routers.dependencies import (
@@ -15,9 +16,10 @@ from app.routers.dependencies import (
     require_manager_rgw_access_key_management,
 )
 from app.services.audit_service import AuditService
+from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.s3_users_service import S3UsersService, get_s3_users_service
 from app.services.managed_private_access_service import ManagedPrivateAccessService
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
 
 router = APIRouter(prefix="/manager/ceph/keys", tags=["manager-ceph-keys"])
 
@@ -29,7 +31,7 @@ def get_manager_ceph_s3_users_service(
 
 
 def _resolve_s3_user_id(account: S3ExecutionContext) -> int:
-    s3_user_id = getattr(account, "s3_user_id", None)
+    s3_user_id = account.s3_user_id
     if not isinstance(s3_user_id, int) or s3_user_id <= 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -48,6 +50,12 @@ def list_ceph_access_keys(
     try:
         source_id = _resolve_s3_user_id(account)
         keys = service.list_keys(source_id)
+        metadata_service = AccessKeyMetadataService(db)
+        metadata_service.apply_metadata(
+            keys,
+            metadata_service.s3_user_metadata(source_id),
+            include_labels=metadata_service.metadata_enabled_for_context(account),
+        )
         managed = {
             row.access_key_id: row
             for row in ManagedPrivateAccessService(db).managed_resources_for_source("s3_user", source_id)
@@ -65,14 +73,28 @@ def list_ceph_access_keys(
 
 @router.post("", response_model=S3UserGeneratedKey, status_code=status.HTTP_201_CREATED)
 def create_ceph_access_key(
+    payload: AccessKeyMetadataInput | None = None,
     account: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
     service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> S3UserGeneratedKey:
     s3_user_id = _resolve_s3_user_id(account)
+    metadata_service = AccessKeyMetadataService(db)
+    if payload is not None and payload.model_fields_set:
+        try:
+            metadata_service.validate_payload(account, payload)
+        except PermissionError as exc:
+            raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
+        except ValueError as exc:
+            raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
     try:
         key = service.create_access_key_entry(s3_user_id)
+        if payload is not None and payload.model_fields_set:
+            row = metadata_service.set_s3_user_metadata(s3_user_id, key.access_key_id, payload)
+            if row is not None:
+                metadata_service.apply_metadata([key], {key.access_key_id: row})
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -83,6 +105,54 @@ def create_ceph_access_key(
             metadata={"access_key_id": key.access_key_id},
         )
         return key
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
+
+
+@router.put("/{access_key}/metadata", response_model=AccessKeyMetadata)
+def update_ceph_access_key_metadata(
+    access_key: str,
+    payload: AccessKeyMetadataInput,
+    account: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
+    service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
+    current_user: User = Depends(get_current_account_user),
+    audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
+) -> AccessKeyMetadata:
+    s3_user_id = _resolve_s3_user_id(account)
+    metadata_service = AccessKeyMetadataService(db)
+    try:
+        metadata_service.validate_payload(account, payload)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
+    except ValueError as exc:
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+    try:
+        existing = next((key for key in service.list_keys(s3_user_id) if key.access_key_id == access_key), None)
+        if existing is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access key not found")
+        managed_private = ManagedPrivateAccessService(db).managed_key("s3_user", s3_user_id, access_key) is not None
+        if metadata_service.expiration_requested(payload) and (existing.is_ui_managed or managed_private):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Expiration cannot be managed for BucketReef interface or managed private-access keys",
+            )
+        row = metadata_service.set_s3_user_metadata(s3_user_id, access_key, payload)
+        audit_service.record_action(
+            user=current_user,
+            scope="manager",
+            action="update_s3_user_access_key_metadata",
+            entity_type="s3_user",
+            entity_id=str(s3_user_id),
+            account=account,
+            metadata={
+                "access_key_id": access_key,
+                "has_name": bool(row and row.name),
+                "has_notes": bool(row and row.notes),
+                "has_expiration": bool(row and row.expires_at),
+            },
+        )
+        return metadata_service.to_api(row)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -102,6 +172,14 @@ def update_ceph_access_key_status(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; update or delete its private connection instead",
+        )
+    if payload.active and AccessKeyMetadataService(db).expiration_due(
+        s3_user_id=s3_user_id,
+        access_key_id=access_key,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Remove or move the expired access-key expiration before enabling this key",
         )
     try:
         updated = service.set_key_status(s3_user_id, access_key, payload.active)
@@ -141,6 +219,7 @@ def delete_ceph_access_key(
         )
     try:
         service.delete_key(s3_user_id, access_key)
+        AccessKeyMetadataService(db).delete_s3_user_metadata(s3_user_id, access_key)
         audit_service.record_action(
             user=current_user,
             scope="manager",

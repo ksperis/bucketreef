@@ -155,13 +155,17 @@ def delete_bucket_config(
     account: S3ExecutionTarget,
     bucket_name: str,
     force: bool = False,
-    not_empty_detail: str | None = None,
 ) -> tuple[dict[str, str], dict[str, Any]]:
     try:
         service.delete_bucket(bucket_name, account, force=force)
     except BucketNotEmptyError as exc:
-        detail = not_empty_detail if isinstance(not_empty_detail, str) and not_empty_detail.strip() else str(exc)
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "bucket_not_empty",
+                "message": f"Bucket '{bucket_name}' is not empty. Empty it before deleting.",
+            },
+        ) from exc
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
     return {"message": f"Bucket '{bucket_name}' deleted"}, {"force": force}

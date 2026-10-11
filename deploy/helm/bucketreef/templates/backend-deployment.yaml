@@ -3,7 +3,7 @@
 {{- $deploymentProfile := include "bucketreef.deploymentProfile" . -}}
 {{- $runtimeEnv := include "bucketreef.runtimeEnv" . | fromYaml -}}
 {{- $scheduledJobs := eq (include "bucketreef.scheduledJobsEnabled" .) "true" -}}
-{{- if and (not $scheduledJobs) (or .Values.billingCronJob.enabled .Values.healthcheckCronJob.enabled .Values.quotaMonitorCronJob.enabled .Values.usageHistoryCronJob.enabled .Values.notificationRetentionCronJob.enabled) -}}
+{{- if and (not $scheduledJobs) (or .Values.billingCronJob.enabled .Values.healthcheckCronJob.enabled .Values.quotaMonitorCronJob.enabled .Values.usageHistoryCronJob.enabled .Values.notificationRetentionCronJob.enabled .Values.accessKeyExpirationCronJob.enabled) -}}
 {{- fail "CronJobs require SCHEDULED_JOBS_ENABLED=true; disable CronJobs on runtimes without scheduled jobs." -}}
 {{- end -}}
 {{- range .Values.backend.extraEnv -}}

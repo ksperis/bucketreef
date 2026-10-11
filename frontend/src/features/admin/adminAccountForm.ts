@@ -11,6 +11,8 @@ export function adminAccountForm(account: S3Account) {
     quota_max_size_unit: quota.unit as string,
     quota_max_objects: account.quota_max_objects == null ? "" : String(account.quota_max_objects),
     allow_bucket_quota_management: Boolean(account.allow_bucket_quota_management),
+    allow_access_key_metadata: Boolean(account.allow_access_key_metadata),
+    allow_access_key_expiration: Boolean(account.allow_access_key_expiration),
     user_links: account.user_links.map<AccountUserLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
     group_links: account.group_links.map<AccountGroupLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
   };
@@ -25,12 +27,16 @@ export function accountQuotaChanged(draft: AdminAccountForm, baseline: AdminAcco
 }
 
 /** Quota fields are one RGW operation: omit unchanged quotas, retain explicit clears. */
-export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAccountForm, allowQuotaUpdates: boolean, canManagePrivilegedTargets: boolean): Parameters<typeof updateS3Account>[1] {
+export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAccountForm, allowQuotaUpdates: boolean, canManageManagerFeatures: boolean): Parameters<typeof updateS3Account>[1] {
   return {
     tags: normalizeUiTags(draft.tags),
     user_links: draft.user_links,
     group_links: draft.group_links,
-    ...(canManagePrivilegedTargets ? { allow_bucket_quota_management: draft.allow_bucket_quota_management } : {}),
+    ...(canManageManagerFeatures ? {
+      allow_bucket_quota_management: draft.allow_bucket_quota_management,
+      allow_access_key_metadata: draft.allow_access_key_metadata,
+      allow_access_key_expiration: draft.allow_access_key_expiration,
+    } : {}),
     ...(allowQuotaUpdates && accountQuotaChanged(draft, baseline) ? {
       quota_max_size_gb: draft.quota_max_size_gb !== "" ? Number(draft.quota_max_size_gb) : null,
       quota_max_size_unit: draft.quota_max_size_gb !== "" ? draft.quota_max_size_unit : null,

@@ -229,10 +229,11 @@ class S3AccountsService:
     def _root_display_name(self, account_name: Optional[str], account_identifier: str) -> str:
         base = (account_name or account_identifier or "").strip()
         # Ceph RGW Tentacle rejects account-root creation with InvalidArgument
-        # when display-name is serialized with whitespace in the Admin Ops
-        # query string. Keep the human-readable name while making it safe for
-        # this account-root path.
-        safe = re.sub(r"\s+", "-", base)
+        # for characters that are valid in an RGW account name but are not
+        # accepted reliably by the account-root user creation path. Keep the
+        # account name itself untouched and normalize only this technical
+        # display name using a conservative ASCII subset.
+        safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", base).strip("-")
         return safe or "bucketreef-admin-user"
 
     @staticmethod
@@ -269,7 +270,7 @@ class S3AccountsService:
         except RGWAdminError as exc:
             logger.debug("Unable to fetch account info for %s: %s", account_identifier, exc)
             return None, None
-        if getattr(admin, "account_api_supported", None) is False:
+        if admin.account_api_supported is False:
             return None, None
         if not account_info:
             return 0, []
@@ -792,6 +793,10 @@ class S3AccountsService:
             self.tags.replace_account_tags(account, payload.tags)
         if payload.allow_bucket_quota_management is not None:
             account.allow_bucket_quota_management = bool(payload.allow_bucket_quota_management)
+        if payload.allow_access_key_metadata is not None:
+            account.allow_access_key_metadata = bool(payload.allow_access_key_metadata)
+        if payload.allow_access_key_expiration is not None:
+            account.allow_access_key_expiration = bool(payload.allow_access_key_expiration)
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None

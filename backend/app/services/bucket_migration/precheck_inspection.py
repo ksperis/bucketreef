@@ -8,8 +8,20 @@ from typing import Any, Callable
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.sensitive_data import sanitized_error_log_detail
+from app.models.bucket import (
+    BucketAcl,
+    BucketEncryptionConfiguration,
+    BucketLifecycleConfig,
+    BucketLoggingConfiguration,
+    BucketNotificationConfiguration,
+    BucketObjectLock,
+    BucketReplicationConfiguration,
+    BucketWebsiteConfiguration,
+)
 from app.utils.aws_errors import aws_error_code
 from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features_config
+
+from ._shared import _ResolvedContext
 
 
 _ALWAYS_PROBED_FEATURES = frozenset(
@@ -52,39 +64,39 @@ def _normalized_sse_rule(rule: Any) -> tuple[str | None, str | None]:
     return algorithm, kms_key_id
 
 
-def _bucket_acl_is_default_private(acl: Any) -> bool:
-    grants = getattr(acl, "grants", None) or []
-    owner = str(getattr(acl, "owner", None) or "").strip() or None
+def _bucket_acl_is_default_private(acl: BucketAcl) -> bool:
+    grants = acl.grants
+    owner = str(acl.owner or "").strip() or None
     if not grants:
         return True
     if len(grants) != 1:
         return False
     grant = grants[0]
-    permission = str(getattr(grant, "permission", "") or "").strip().upper()
-    grantee = getattr(grant, "grantee", None)
-    grantee_uri = str(getattr(grantee, "uri", "") or "").strip() or None
-    grantee_name = str(getattr(grantee, "display_name", "") or "").strip() or None
+    permission = str(grant.permission or "").strip().upper()
+    grantee = grant.grantee
+    grantee_uri = str(grantee.uri or "").strip() or None
+    grantee_name = str(grantee.display_name or "").strip() or None
     return permission == "FULL_CONTROL" and grantee_uri is None and (
         owner is None or grantee_name is None or grantee_name == owner
     )
 
 
-def _website_is_configured(website: Any) -> bool:
+def _website_is_configured(website: BucketWebsiteConfiguration | None) -> bool:
     if website is None:
         return False
-    index_document = str(getattr(website, "index_document", "") or "").strip()
-    error_document = str(getattr(website, "error_document", "") or "").strip()
-    redirect = getattr(website, "redirect_all_requests_to", None)
-    redirect_host = str(getattr(redirect, "host_name", "") or "").strip() if redirect is not None else ""
-    routing_rules = getattr(website, "routing_rules", None) or []
+    index_document = str(website.index_document or "").strip()
+    error_document = str(website.error_document or "").strip()
+    redirect = website.redirect_all_requests_to
+    redirect_host = str(redirect.host_name or "").strip() if redirect is not None else ""
+    routing_rules = website.routing_rules
     return bool(index_document or error_document or redirect_host or routing_rules)
 
 
-def _logging_is_configured(logging_cfg: Any) -> bool:
+def _logging_is_configured(logging_cfg: BucketLoggingConfiguration | None) -> bool:
     if logging_cfg is None:
         return False
-    enabled = bool(getattr(logging_cfg, "enabled", False))
-    target_bucket = str(getattr(logging_cfg, "target_bucket", "") or "").strip()
+    enabled = bool(logging_cfg.enabled)
+    target_bucket = str(logging_cfg.target_bucket or "").strip()
     return bool(enabled and target_bucket)
 
 
@@ -199,23 +211,23 @@ class _BucketFeatureProbe:
 @dataclass(frozen=True)
 class _BucketInspectionValues:
     versioning_status: str | None
-    object_lock: Any
-    encryption: Any
+    object_lock: BucketObjectLock | None
+    encryption: BucketEncryptionConfiguration | None
     policy: Any
-    logging: Any
+    logging: BucketLoggingConfiguration | None
     tags: Any
-    lifecycle: Any
+    lifecycle: BucketLifecycleConfig | None
     cors: Any
     public_access_block: Any
-    website: Any
-    notifications: Any
-    replication: Any
-    acl: Any
+    website: BucketWebsiteConfiguration | None
+    notifications: BucketNotificationConfiguration | None
+    replication: BucketReplicationConfiguration | None
+    acl: BucketAcl | None
     version_scan: dict[str, Any]
 
 
-def _encryption_profile(encryption: Any) -> dict[str, Any]:
-    rules = list(getattr(encryption, "rules", None) or [])
+def _encryption_profile(encryption: BucketEncryptionConfiguration | None) -> dict[str, Any]:
+    rules = list(encryption.rules if encryption is not None else [])
     algorithms: list[str] = []
     kms_keys: list[str] = []
     supported = True
@@ -250,9 +262,9 @@ def _unsupported_settings(values: _BucketInspectionValues) -> list[str]:
         unsupported.append("acl")
     if _website_is_configured(values.website):
         unsupported.append("website")
-    if bool(getattr(values.notifications, "configuration", None)):
+    if values.notifications is not None and bool(values.notifications.configuration):
         unsupported.append("notifications")
-    replication = getattr(values.replication, "configuration", None) or {}
+    replication = values.replication.configuration if values.replication is not None else {}
     if isinstance(replication, dict) and bool(replication.get("Rules")):
         unsupported.append("replication")
     return unsupported
@@ -263,7 +275,7 @@ def _supported_settings(
     encryption_profile: dict[str, Any],
 ) -> dict[str, bool | None]:
     lifecycle = (
-        bool(getattr(values.lifecycle, "rules", None) or [])
+        bool(values.lifecycle.rules)
         if values.lifecycle is not None
         else None
     )
@@ -289,9 +301,8 @@ class BucketMigrationInspector:
             return _ALWAYS_PROBED_FEATURES | _COPY_SETTINGS_ONLY_FEATURES
         return _ALWAYS_PROBED_FEATURES
 
-    def _endpoint_capabilities(self, ctx: Any) -> dict[str, bool]:
-        account = getattr(ctx, "account", None)
-        endpoint = getattr(account, "storage_endpoint", None)
+    def _endpoint_capabilities(self, ctx: _ResolvedContext) -> dict[str, bool]:
+        endpoint = ctx.account.storage_endpoint
         if endpoint is None:
             return {}
         try:
@@ -301,7 +312,7 @@ class BucketMigrationInspector:
         raw = features_to_capabilities(features)
         return {str(key): bool(value) for key, value in raw.items()}
 
-    def scan_bucket_versions(self, ctx: Any, bucket_name: str) -> dict[str, Any]:
+    def scan_bucket_versions(self, ctx: _ResolvedContext, bucket_name: str) -> dict[str, Any]:
         client = self._service._context_client(ctx)
         key_marker: str | None = None
         version_marker: str | None = None
@@ -383,7 +394,7 @@ class BucketMigrationInspector:
 
     def inspect_bucket_state(
         self,
-        ctx: Any,
+        ctx: _ResolvedContext,
         bucket_name: str,
         *,
         probe_policy: set[str] | frozenset[str] | None = None,
@@ -410,9 +421,9 @@ class BucketMigrationInspector:
             "version_scan": values.version_scan,
             "object_lock": {
                 "enabled": bool(values.object_lock and values.object_lock.enabled),
-                "mode": getattr(values.object_lock, "mode", None),
-                "days": getattr(values.object_lock, "days", None),
-                "years": getattr(values.object_lock, "years", None),
+                "mode": values.object_lock.mode if values.object_lock is not None else None,
+                "days": values.object_lock.days if values.object_lock is not None else None,
+                "years": values.object_lock.years if values.object_lock is not None else None,
             },
             "encryption": encryption,
             "supported_settings": _supported_settings(values, encryption),
@@ -423,7 +434,7 @@ class BucketMigrationInspector:
 
     def _collect_bucket_state(
         self,
-        ctx: Any,
+        ctx: _ResolvedContext,
         bucket_name: str,
         probe: _BucketFeatureProbe,
         *,

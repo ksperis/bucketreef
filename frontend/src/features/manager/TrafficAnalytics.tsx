@@ -36,6 +36,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useManagerI18n } from "./managerI18n";
 
 const WINDOW_OPTIONS: { label: string; value: TrafficWindow; helper: string }[] = [
   { label: "24h", value: "day", helper: "Last day" },
@@ -70,6 +71,7 @@ export default function TrafficAnalytics({
   enabled = true,
   visible = true,
 }: TrafficAnalyticsProps) {
+  const { text } = useManagerI18n();
   const [window, setWindow] = useState<TrafficWindow>("week");
   const [traffic, setTraffic] = useState<ManagerTrafficStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -105,7 +107,7 @@ export default function TrafficAnalytics({
       } catch (err) {
         if (!cancelled) {
           setTraffic(null);
-          setError(extractApiError(err, "Unable to retrieve traffic logs."));
+          setError(extractApiError(err, text("Unable to retrieve traffic logs.")));
         }
       } finally {
         if (!cancelled) {
@@ -117,7 +119,7 @@ export default function TrafficAnalytics({
     return () => {
       cancelled = true;
     };
-  }, [accountId, endpointId, window, bucketName, scope, enabled]);
+  }, [accountId, endpointId, window, bucketName, scope, enabled, text]);
 
   const totals = traffic?.totals;
   const hasSeries = (traffic?.series ?? []).length > 0;
@@ -133,38 +135,38 @@ export default function TrafficAnalytics({
 
   return (
     <MetricsCard
-      title="Traffic"
-      description="Ingress/egress volume, request types, and busiest buckets."
+      title={text("Traffic")}
+      description={text("Ingress/egress volume, request types, and busiest buckets.")}
       actions={
         <UiSegmentedControl
-          ariaLabel="Traffic window"
-          options={WINDOW_OPTIONS}
+          ariaLabel={text("Traffic window")}
+          options={WINDOW_OPTIONS.map((option) => ({ ...option, helper: text(option.helper) }))}
           value={window}
           onChange={setWindow}
         />
       }
     >
 
-      {error && <PageBanner tone="warning">{error}</PageBanner>}
+      {error && <PageBanner tone="warning">{text(error)}</PageBanner>}
 
       {!hideMetrics && (
         <div className="grid gap-4 md:grid-cols-3">
           <TrafficTotalCard
-            label="Egress traffic"
+            label={text("Egress traffic")}
             value={formatBytes(totals?.bytes_out ?? 0)}
-            hint="Bytes sent"
+            hint={text("Bytes sent")}
             loading={loading}
           />
           <TrafficTotalCard
-            label="Ingress traffic"
+            label={text("Ingress traffic")}
             value={formatBytes(totals?.bytes_in ?? 0)}
-            hint="Bytes received"
+            hint={text("Bytes received")}
             loading={loading}
           />
           <TrafficTotalCard
-            label="Success rate"
+            label={text("Success rate")}
             value={totals?.success_rate != null ? formatPercentage(totals.success_rate * 100) : "—"}
-            hint={`${formatCompactNumber(totals?.ops ?? 0)} requests`}
+            hint={text("{count} requests", { count: formatCompactNumber(totals?.ops ?? 0) })}
             loading={loading}
           />
         </div>
@@ -174,8 +176,8 @@ export default function TrafficAnalytics({
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <ChartCard
-              title={window === "week" || window === "month" ? "Daily traffic" : "Hourly traffic"}
-              subtitle="Ingress vs egress comparison"
+              title={window === "week" || window === "month" ? text("Daily traffic") : text("Hourly traffic")}
+              subtitle={text("Ingress vs egress comparison")}
               loading={loading}
               hasData={hasSeries}
             >
@@ -189,7 +191,7 @@ export default function TrafficAnalytics({
             </ChartCard>
           </div>
           <div>
-            <ChartCard title="Request breakdown" subtitle="By functional group" loading={loading} hasData={requestPieData.length > 0}>
+            <ChartCard title={text("Request breakdown")} subtitle={text("By functional group")} loading={loading} hasData={requestPieData.length > 0}>
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                 <ResponsiveContainer width="60%" height={280}>
                   <PieChart>
@@ -252,8 +254,9 @@ type ChartCardProps = {
 };
 
 function ChartCard({ title, subtitle, loading, children, hasData }: ChartCardProps) {
+  const { text } = useManagerI18n();
   return (
-    <MetricsChartPanel title={title} description={subtitle} loading={loading} hasData={hasData} emptyMessage="No usable measurements yet for this time window.">
+    <MetricsChartPanel title={title} description={subtitle} loading={loading} hasData={hasData} emptyMessage={text("No usable measurements yet for this time window.")}>
       {children}
     </MetricsChartPanel>
   );
@@ -277,6 +280,7 @@ type BucketRankingProps = {
 };
 
 function BucketRanking({ rankings, loading }: BucketRankingProps) {
+  const { text } = useManagerI18n();
   const maxComponent = Math.max(
     ...rankings.map((entry) => Math.max(entry.bytes_in ?? 0, entry.bytes_out ?? 0)),
     0
@@ -284,8 +288,8 @@ function BucketRanking({ rankings, loading }: BucketRankingProps) {
   const safeMaxComponent = maxComponent || 1;
   return (
     <ChartCard
-      title="Most active buckets"
-      subtitle="Top 5 for the selected window"
+      title={text("Most active buckets")}
+      subtitle={text("Top 5 for the selected window")}
       loading={loading}
       hasData={rankings.length > 0}
     >
@@ -296,16 +300,17 @@ function BucketRanking({ rankings, loading }: BucketRankingProps) {
               <div className="min-w-0">
                 <p className="truncate font-semibold text-[var(--ui-text)]" title={entry.bucket}>{entry.bucket}</p>
                 <p className="ui-caption text-[var(--ui-text-muted)]">
-                  {`${formatCompactNumber(entry.ops)} ops · success ${
-                    entry.success_ratio != null ? formatPercentage(entry.success_ratio * 100) : "n/a"
-                  }`}
+                  {text("{ops} ops · success {success}", {
+                    ops: formatCompactNumber(entry.ops),
+                    success: entry.success_ratio != null ? formatPercentage(entry.success_ratio * 100) : "n/a",
+                  })}
                 </p>
               </div>
               <p className="shrink-0 ui-caption font-semibold text-[var(--ui-text-muted)]">{formatBytes(entry.bytes_total)}</p>
             </div>
             <div className="space-y-1">
-              <BucketBar label="In" color="#0EA5E9" value={entry.bytes_in ?? 0} max={safeMaxComponent} />
-              <BucketBar label="Out" color="#4F46E5" value={entry.bytes_out ?? 0} max={safeMaxComponent} />
+              <BucketBar label={text("In")} color="#0EA5E9" value={entry.bytes_in ?? 0} max={safeMaxComponent} />
+              <BucketBar label={text("Out")} color="#4F46E5" value={entry.bytes_out ?? 0} max={safeMaxComponent} />
             </div>
           </li>
         ))}
@@ -320,12 +325,13 @@ type CategoryChartProps = {
 };
 
 function CategoryChart({ categories, loading }: CategoryChartProps) {
+  const { text } = useManagerI18n();
   const chartData = categories.map((entry) => ({
     ...entry,
     total: entry.bytes_in + entry.bytes_out,
   }));
   return (
-    <ChartCard title="Top request categories" subtitle="By transferred volume" loading={loading} hasData={chartData.length > 0}>
+    <ChartCard title={text("Top request categories")} subtitle={text("By transferred volume")} loading={loading} hasData={chartData.length > 0}>
       <ResponsiveContainer width="100%" height={240}>
         <BarChart data={chartData} layout="vertical" margin={{ left: 60 }}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />

@@ -22,8 +22,6 @@ import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
-import PageHeader from "../../components/PageHeader";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
@@ -50,10 +48,6 @@ const API_SCOPES = [
   "storage-ops:read", "storage-ops:write",
 ];
 
-function extractError(error: unknown): string {
-  return extractApiError(error, "Unable to complete request.");
-}
-
 function formatDate(value?: string | null): string {
   if (!value) return "-";
   const parsed = new Date(value);
@@ -77,11 +71,10 @@ function StatusBadge({ status }: { status: TokenStatus }) {
 }
 
 type ApiTokensPageProps = {
-  showPageHeader?: boolean;
   onUnsavedChangesChange?: (dirty: boolean) => void;
 };
 
-export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesChange }: ApiTokensPageProps) {
+export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageProps) {
   const [tokens, setTokens] = useState<ApiTokenInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -143,7 +136,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       const data = await listApiTokens(includeRevoked);
       if (generation === loadGeneration.current) setTokens(data);
     } catch (loadError) {
-      if (generation === loadGeneration.current) setLoadError(extractError(loadError));
+      if (generation === loadGeneration.current) setLoadError(extractApiError(loadError, "Unable to complete request."));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);
     }
@@ -225,7 +218,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       await loadTokens();
     } catch (createError) {
       if (!isRecentWebAuthnVerificationCancelled(createError)) {
-        setFormError(extractError(createError));
+        setFormError(extractApiError(createError, "Unable to complete request."));
       }
     } finally {
       creatingRef.current = false;
@@ -245,7 +238,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       await loadTokens();
     } catch (revokeError) {
       if (!isRecentWebAuthnVerificationCancelled(revokeError)) {
-        setActionError(extractError(revokeError));
+        setActionError(extractApiError(revokeError, "Unable to complete request."));
       }
     } finally {
       setBusyTokenId(null);
@@ -273,7 +266,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       setCopyMessage(message);
       window.setTimeout(() => setCopyMessage(null), 2500);
     } catch (copyError) {
-      setActionError(extractError(copyError));
+      setActionError(extractApiError(copyError, "Unable to complete request."));
     }
   };
 
@@ -291,12 +284,6 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
         '  Content-Type: "application/json"',
       ].join("\n")
     : "";
-  const headerActions = [
-    {
-      label: "Create token", disabled: isDemo,
-      onClick: openCreateModal,
-    },
-  ];
   const tokenTableColumns: Array<DataTableColumn<ApiTokenInfo>> = [
     {
       id: "name",
@@ -350,15 +337,6 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
 
   return (
     <div className="space-y-4">
-      {showPageHeader ? (
-        <PageHeader actionPresentation="listing"
-          title="API tokens"
-          description="Manage personal API tokens linked to your account for automation and integrations."
-          breadcrumbs={adminPageBreadcrumbs("api-tokens")}
-          actions={headerActions}
-        />
-      ) : null}
-
       {loadError && sortedTokens.length > 0 ? <PageBanner tone="error">{loadError}</PageBanner> : null}
       {actionError ? <PageBanner tone="error">{actionError}</PageBanner> : null}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
@@ -401,7 +379,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       <ListPageSection
           title="API tokens"
           description="Manage personal API tokens linked to your account for automation and integrations."
-          variant={showPageHeader ? "page" : "section"}
+          variant="section"
           countLabel={`${sortedTokens.length} token${sortedTokens.length === 1 ? "" : "s"}${includeRevoked ? " (including revoked/expired)" : ""}`}
           filters={
             <UiCheckboxField
@@ -413,7 +391,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
             </UiCheckboxField>
           }
           actions={<ListActionButton onClick={() => void loadTokens()} loading={loading}>Refresh</ListActionButton>}
-          headingActions={!showPageHeader ? <ListActionButton variant="primary" disabled={isDemo} onClick={openCreateModal}>Create token</ListActionButton> : undefined}
+          headingActions={<ListActionButton variant="primary" disabled={isDemo} onClick={openCreateModal}>Create token</ListActionButton>}
       >
         <DataTableShell
           columns={tokenTableColumns}

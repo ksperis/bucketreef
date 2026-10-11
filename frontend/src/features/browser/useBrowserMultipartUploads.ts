@@ -16,6 +16,7 @@ import {
   MULTIPART_UPLOADS_PAGE_SIZE,
 } from "./browserConstants";
 import { getMultipartUploadEntryId } from "./browserListingState";
+import { useBrowserI18n } from "./browserI18n";
 
 type UseBrowserMultipartUploadsOptions = {
   accountIdForApi: S3AccountSelector;
@@ -42,6 +43,7 @@ export function useBrowserMultipartUploads({
   setStatusMessage,
   setWarningMessage,
 }: UseBrowserMultipartUploadsOptions) {
+  const { text, intlLocale } = useBrowserI18n();
   const [showModal, setShowModal] = useState(false);
   const [uploads, setUploads] = useState<MultipartUploadItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,7 +110,9 @@ export function useBrowserMultipartUploads({
         setNextUploadId(null);
         setIsTruncated(false);
         setWarningMessage(
-          `Multipart uploads listing is limited to ${MULTIPART_UPLOADS_HARD_LIMIT.toLocaleString()} entries. Narrow your scope to continue.`,
+          text("Multipart uploads listing is limited to {count} entries. Narrow your scope to continue.", {
+            count: MULTIPART_UPLOADS_HARD_LIMIT.toLocaleString(intlLocale),
+          }),
         );
       } else {
         setNextKey(data.next_key ?? null);
@@ -117,7 +121,7 @@ export function useBrowserMultipartUploads({
       }
     } catch (loadError) {
       setError(
-        extractApiError(loadError, "Unable to list multipart uploads."),
+        extractApiError(loadError, text("Unable to list multipart uploads.")),
       );
       if (!append) {
         setUploads([]);
@@ -172,11 +176,11 @@ export function useBrowserMultipartUploads({
           (entry) => getMultipartUploadEntryId(entry) !== uploadRowId,
         ),
       );
-      setStatusMessage(`Multipart upload aborted for ${upload.key}.`);
+      setStatusMessage(text("Multipart upload aborted for {key}.", { key: upload.key }));
     } catch (abortError) {
       const message = extractApiError(
         abortError,
-        "Unable to abort multipart upload.",
+        text("Unable to abort multipart upload."),
       );
       setError(message);
       setStatusMessage(message);
@@ -191,9 +195,9 @@ export function useBrowserMultipartUploads({
 
   const requestAbort = (upload: MultipartUploadItem) => {
     requestConfirmation({
-      title: "Abort multipart upload",
-      message: `Abort multipart upload for ${upload.key}?`,
-      confirmLabel: "Abort",
+      title: text("Abort multipart upload"),
+      message: text("Abort multipart upload for {key}?", { key: upload.key }),
+      confirmLabel: text("Abort"),
       tone: "danger",
       onConfirm: () => abort(upload),
     });

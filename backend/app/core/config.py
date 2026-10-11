@@ -574,43 +574,6 @@ class Settings(BaseSettings):
         description="Retention for terminal webhook deliveries; 0 disables purge (WEBHOOK_RETENTION_DAYS)",
     )
 
-    # Deprecated aliases retained for one upgrade window. New WEBHOOK_* values
-    # take precedence when both are explicitly configured.
-    bucket_migration_webhook_timeout_seconds: float = Field(
-        2.0,
-        gt=0,
-        description="HTTP timeout for bucket migration webhooks (BUCKET_MIGRATION_WEBHOOK_TIMEOUT_SECONDS)",
-    )
-    bucket_migration_webhook_allow_private_targets: bool = Field(
-        False,
-        description=(
-            "Allow bucket migration webhooks to target private/local network addresses "
-            "(BUCKET_MIGRATION_WEBHOOK_ALLOW_PRIVATE_TARGETS)"
-        ),
-    )
-    bucket_migration_webhook_allowed_hosts: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Optional allow-list for bucket migration webhook hosts (JSON list or comma-separated, "
-            "BUCKET_MIGRATION_WEBHOOK_ALLOWED_HOSTS)"
-        ),
-    )
-    bucket_migration_webhook_queue_size: int = Field(
-        500,
-        ge=1,
-        le=10000,
-        description=(
-            "Deprecated compatibility setting; ignored because webhook deliveries now use a durable database queue "
-            "(BUCKET_MIGRATION_WEBHOOK_QUEUE_SIZE)"
-        ),
-    )
-    bucket_migration_webhook_workers: int = Field(
-        1,
-        ge=1,
-        le=8,
-        description="Number of background webhook workers for bucket migration events (BUCKET_MIGRATION_WEBHOOK_WORKERS)",
-    )
-
     @field_validator("database_url", mode="before")
     @classmethod
     def normalize_database_url(cls, value):
@@ -618,7 +581,6 @@ class Settings(BaseSettings):
 
     @field_validator(
         "webhook_allowed_hosts",
-        "bucket_migration_webhook_allowed_hosts",
         "user_supplied_s3_endpoint_allowed_hosts",
         mode="before",
     )

@@ -6,10 +6,11 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 
 from app.models.base import ApiModel
 from app.models.user import UserAvatar
+from app.utils.resource_names import validate_s3_bucket_name
 
 
 PortalStorageSpaceRole = Literal["Viewer", "Editor", "Owner", "Manager"]
@@ -80,8 +81,8 @@ class PortalStorageSpaceInitialShare(ApiModel):
 
 
 class PortalStorageSpaceCreate(ApiModel):
-    name: str = Field(min_length=1, max_length=120)
     naming_mode: PortalStorageSpaceNamingMode = "generic_uuid"
+    name: str = Field(min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=2000)
     visibility: PortalStorageSpaceVisibility = "private"
     share_scope: PortalStorageSpaceShareScope = "restricted"
@@ -92,7 +93,9 @@ class PortalStorageSpaceCreate(ApiModel):
 
     @field_validator("name")
     @classmethod
-    def _validate_name(cls, value: str) -> str:
+    def _validate_name(cls, value: str, info: ValidationInfo) -> str:
+        if info.data.get("naming_mode") == "named_bucket":
+            return validate_s3_bucket_name(value)
         cleaned = " ".join(value.split())
         if not cleaned:
             raise ValueError("Storage Space name is required")

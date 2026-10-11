@@ -254,7 +254,6 @@ def delete_bucket(
         service=service,
         account=account,
         bucket_name=bucket_name,
-        not_empty_detail=f"Bucket '{bucket_name}' is not empty. Empty it before deleting.",
     )
     _invalidate_bucket_listing_for_account(account)
     audit_service.record_action(
@@ -265,7 +264,7 @@ def delete_bucket(
         entity_id=bucket_name,
         account=account,
     )
-    endpoint_id = int(getattr(account, "storage_endpoint_id", 0) or 0)
+    endpoint_id = int(account.storage_endpoint_id or 0)
     if endpoint_id > 0:
         tag_service = BucketUiTagsService(audit_service.db)
         with tag_service.transaction():
@@ -307,13 +306,14 @@ def stream_delete_bucket_with_purge(
         "include_versions": True,
         "confirmation": "matched",
     }
+    endpoint_id = int(account.storage_endpoint_id or 0)
     deleted_bucket_target = (
         PhysicalBucketTarget.create(
-            int(getattr(account, "storage_endpoint_id", 0) or 0),
+            endpoint_id,
             resolve_storage_ops_context_tenant(account),
             bucket_name,
         )
-        if int(getattr(account, "storage_endpoint_id", 0) or 0) > 0
+        if endpoint_id > 0
         else None
     )
 

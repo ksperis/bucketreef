@@ -20,11 +20,13 @@ import TopicCreateDialog from "./TopicCreateDialog";
 import TopicDeleteDialog from "./TopicDeleteDialog";
 import TopicAttributesEditor from "./TopicAttributesEditor";
 import TopicPolicyEditor from "./TopicPolicyEditor";
+import { useManagerI18n } from "./managerI18n";
 
 type TopicAction = { kind: "create"; accountId: S3AccountSelector }
   | { kind: "attributes" | "policy" | "delete"; accountId: S3AccountSelector; topic: Topic };
 
 export default function TopicsPage() {
+  const { text } = useManagerI18n();
   const { accounts, selectedS3AccountId, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const selectedS3Account = accounts.find(account => String(account.id) === String(accountIdForApi ?? selectedS3AccountId));
@@ -45,11 +47,11 @@ export default function TopicsPage() {
       const data = await listTopics(accountId);
       if (request === requestSequence.current) setTopics(data);
     } catch (error) {
-      if (request === requestSequence.current) { setTopics([]); setError(extractApiError(error, "Unable to load topics.")); }
+      if (request === requestSequence.current) { setTopics([]); setError(extractApiError(error, text("Unable to load topics."))); }
     } finally {
       if (request === requestSequence.current) setLoading(false);
     }
-  }, []);
+  }, [text]);
   useEffect(() => {
     setActionMessage(null);
     if (needsS3AccountSelection) { setTopics([]); setLoading(false); }
@@ -75,7 +77,7 @@ export default function TopicsPage() {
   const topicColumns: Array<DataTableColumn<Topic>> = [
     {
       id: "topic",
-      label: "Topic",
+      label: text("Topic"),
       primary: true,
       cellClassName: "ui-table-wide",
       render: (topic) => (
@@ -87,7 +89,7 @@ export default function TopicsPage() {
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (topic) => (
@@ -96,20 +98,20 @@ export default function TopicsPage() {
             type="button"
             onClick={() => setActive({ kind: "attributes", accountId: accountIdForApi, topic })}
           >
-            Attributes
+            {text("Attributes")}
           </ListActionButton>
           <ListActionButton
             type="button"
             onClick={() => setActive({ kind: "policy", accountId: accountIdForApi, topic })}
           >
-            Policy
+            {text("Policy")}
           </ListActionButton>
           <ListActionButton
             type="button"
             variant="danger"
             onClick={() => setActive({ kind: "delete", accountId: accountIdForApi, topic })}
           >
-            Delete
+            {text("Delete")}
           </ListActionButton>
         </ListActions>
       ),
@@ -128,14 +130,14 @@ export default function TopicsPage() {
 
   return <div className="space-y-4">
       <PageHeader actionPresentation="listing"
-        title="SNS Topics"
-        description="List, create, and secure account-owned SNS topics."
-        breadcrumbs={managerPageBreadcrumbs("topics")}
+        title={text("SNS Topics")}
+        description={text("List, create, and secure account-owned SNS topics.")}
+        breadcrumbs={managerPageBreadcrumbs(text, "topics")}
         actions={
           !needsS3AccountSelection && snsFeatureEnabled
             ? [
                 {
-                  label: "Create topic",
+                  label: text("Create topic"),
                   onClick: () => setActive({ kind: "create", accountId: accountIdForApi }),
                 },
               ]
@@ -151,37 +153,37 @@ export default function TopicsPage() {
             onClick={() => setActionMessage(null)}
             className="ui-caption font-semibold text-emerald-900 underline dark:text-emerald-100"
           >
-            Dismiss
+            {text("Dismiss")}
           </button>
         </PageBanner>
       )}
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
       {needsS3AccountSelection ? (
         <PageEmptyState
-          title="Select an account before managing SNS topics"
-          description="SNS topics are created within an execution context. Choose an account to list topics and update notification settings."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select an account before managing SNS topics")}
+          description={text("SNS topics are created within an execution context. Choose an account to list topics and update notification settings.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : !snsFeatureEnabled ? (
         <PageEmptyState
-          title="SNS topics are disabled for this endpoint"
-          description="Enable the SNS capability on the selected storage endpoint before creating or managing topic-based bucket notifications."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          title={text("SNS topics are disabled for this endpoint")}
+          description={text("Enable the SNS capability on the selected storage endpoint before creating or managing topic-based bucket notifications.")}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (
         <ListPageSection variant="page"
-            title="Topics"
-            countLabel={`${filteredTopics.length} result(s)`}
+            title={text("Topics")}
+            countLabel={text(filteredTopics.length === 1 ? "{count} result" : "{count} results", { count: filteredTopics.length })}
             search={
-              <UiInput aria-label="Search" size="compact"
+              <UiInput aria-label={text("Search")} size="compact"
                 type="search"
                 value={topicFilter}
                 onChange={(e) => setTopicFilter(e.target.value)}
-                placeholder="Search by topic or ARN"
+                placeholder={text("Search by topic or ARN")}
               />
             }
         >
@@ -190,9 +192,9 @@ export default function TopicsPage() {
             rows={filteredTopics}
             rowKey={(topic) => topic.arn}
             status={filteredTableStatus}
-            loadingMessage="Loading topics..."
-            errorMessage="Unable to load topics."
-            emptyMessage="No topics."
+            loadingMessage={text("Loading topics...")}
+            errorMessage={text("Unable to load topics.")}
+            emptyMessage={text("No topics.")}
             tableClassName="ui-data-table"
             responsiveCards
           />
@@ -200,9 +202,9 @@ export default function TopicsPage() {
       )}
 
     {active?.kind === "create" && <TopicCreateDialog accountId={active.accountId} currentAccountId={accountIdForApi}
-      onClose={close} onCreated={name => refreshAfterMutation(active.accountId, `Topic '${name}' created.`)} />}
+      onClose={close} onCreated={name => refreshAfterMutation(active.accountId, text("Topic '{name}' created.", { name }))} />}
     {active?.kind === "delete" && <TopicDeleteDialog accountId={active.accountId} currentAccountId={accountIdForApi}
       topic={active.topic} onClose={close}
-      onDeleted={() => refreshAfterMutation(active.accountId, `Topic '${active.topic.name}' deleted.`)} />}
+      onDeleted={() => refreshAfterMutation(active.accountId, text("Topic '{name}' deleted.", { name: active.topic.name }))} />}
   </div>;
 }

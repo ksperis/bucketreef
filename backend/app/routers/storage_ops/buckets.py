@@ -129,7 +129,7 @@ def refresh_storage_ops_bucket_listing_cache(
     endpoint_ids: set[int] = set()
     for context in resolved_contexts:
         invalidate_bucket_listing_cache_for_account(context.account)
-        endpoint_id = int(getattr(getattr(context.account, "storage_endpoint", None), "id", 0) or 0)
+        endpoint_id = int(context.account.storage_endpoint_id or 0)
         if endpoint_id > 0:
             endpoint_ids.add(endpoint_id)
     for endpoint_id in endpoint_ids:

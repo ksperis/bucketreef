@@ -31,8 +31,11 @@ router = APIRouter(prefix="/admin/storage-endpoints", tags=["admin-storage-endpo
 logger = logging.getLogger(__name__)
 
 
-def get_service(db: Session = Depends(get_db)) -> StorageEndpointsService:
-    return get_storage_endpoints_service(db)
+def get_service(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_super_admin),
+) -> StorageEndpointsService:
+    return get_storage_endpoints_service(db, actor=current_user)
 
 
 @router.get("", response_model=list[StorageEndpoint])
@@ -89,7 +92,6 @@ def create_storage_endpoint(
     current_user: User = Depends(get_current_ui_superadmin),
 ) -> StorageEndpoint:
     require_admin_sensitive_action(request, service.db, current_user)
-    service.actor = current_user
     try:
         created = service.create_endpoint(payload)
         audit_service.record_action(
@@ -122,7 +124,6 @@ def update_storage_endpoint(
     current_user: User = Depends(get_current_ui_superadmin),
 ) -> StorageEndpoint:
     require_admin_sensitive_action(request, service.db, current_user)
-    service.actor = current_user
     try:
         updated = service.update_endpoint(endpoint_id, payload)
         audit_service.record_action(
@@ -200,7 +201,6 @@ def delete_storage_endpoint(
     current_user: User = Depends(get_current_ui_superadmin),
 ) -> None:
     try:
-        service.actor = current_user
         service.delete_endpoint(endpoint_id)
         audit_service.record_action(
             user=current_user,
@@ -221,7 +221,6 @@ def reconcile_service_identities(
     audit_service: AuditService = Depends(get_audit_service),
 ):
     require_admin_sensitive_action(request, service.db, current_user)
-    service.actor = current_user
     try:
         endpoint = service.db.get(DBStorageEndpoint, endpoint_id)
         initial_provisioning = bool(

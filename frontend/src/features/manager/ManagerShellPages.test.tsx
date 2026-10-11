@@ -15,6 +15,7 @@ const useManagerStatsMock = vi.fn();
 const useIamOverviewMock = vi.fn();
 const listBucketsMock = vi.fn();
 const createBucketMock = vi.fn();
+const deleteBucketMock = vi.fn();
 const getBucketPropertiesMock = vi.fn();
 const listManagerActivityMock = vi.fn();
 const fetchManagerTrafficMock = vi.fn();
@@ -107,7 +108,7 @@ vi.mock("../../api/managerBuckets", async () => {
     ...actual,
     listBuckets: (...args: unknown[]) => listBucketsMock(...args),
     createBucket: (...args: unknown[]) => createBucketMock(...args),
-    deleteBucket: vi.fn(),
+    deleteBucket: (...args: unknown[]) => deleteBucketMock(...args),
   };
 });
 
@@ -295,6 +296,7 @@ describe("manager shell pages", () => {
     });
     listBucketsMock.mockResolvedValue([]);
     createBucketMock.mockReset();
+    deleteBucketMock.mockReset();
     getBucketPropertiesMock.mockResolvedValue({
       lifecycle_rules: [],
       cors_rules: [],
@@ -420,7 +422,7 @@ describe("manager shell pages", () => {
     expect(quotaStatus).not.toBeNull();
     expect(useIamOverviewMock).toHaveBeenCalledWith("conn-1", true, true, "connection:0");
     expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("Users1");
-    expect(within(quotaStatus!).getByRole("link", { name: "View all users" })).toHaveAttribute("href", "/manager/users");
+    expect(within(quotaStatus!).getByRole("link", { name: /view all users/i })).toHaveAttribute("href", "/manager/users");
     expect(screen.queryByRole("heading", { name: "Access management" })).not.toBeInTheDocument();
   });
 
@@ -517,6 +519,7 @@ describe("manager shell pages", () => {
     expect(within(overviewGrid).queryByText("Recent activity")).not.toBeInTheDocument();
     expect(within(activityIncidentsRow).getByText("Recent activity")).toBeInTheDocument();
     expect(within(activityIncidentsRow).getByText("Ongoing / Recent incidents")).toBeInTheDocument();
+    expect(within(recentActivityCard).queryByText("View all")).not.toBeInTheDocument();
     expect(topBucketsCard).toHaveClass("xl:col-span-5");
     expect(recentActivityCard.parentElement).toBe(activityIncidentsRow);
     expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledWith("account-1");
@@ -1081,16 +1084,16 @@ describe("manager shell pages", () => {
     ).toEqual(["Storage", "Objects", "Buckets", "Users", "Roles", "Groups"]);
     expect(quotaStatusScope.getByText("Buckets")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Buckets"]')).toHaveTextContent("2 / 4");
-    expect(quotaStatusScope.getByRole("link", { name: "View all buckets" })).toHaveAttribute("href", "/manager/buckets");
+    expect(quotaStatusScope.getByRole("link", { name: /view all buckets/i })).toHaveAttribute("href", "/manager/buckets");
     expect(quotaStatusScope.getByText("Users")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("2 / 5");
-    expect(quotaStatusScope.getByRole("link", { name: "View all users" })).toHaveAttribute("href", "/manager/users");
+    expect(quotaStatusScope.getByRole("link", { name: /view all users/i })).toHaveAttribute("href", "/manager/users");
     expect(quotaStatusScope.getByText("Roles")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Roles"]')).toHaveTextContent("3 / 6");
-    expect(quotaStatusScope.getByRole("link", { name: "View all roles" })).toHaveAttribute("href", "/manager/roles");
+    expect(quotaStatusScope.getByRole("link", { name: /view all roles/i })).toHaveAttribute("href", "/manager/roles");
     expect(quotaStatusScope.getByText("Groups")).toBeInTheDocument();
     expect(quotaStatus!.querySelector('[data-quota-status-row="Groups"]')).toHaveTextContent("1 / 4");
-    expect(quotaStatusScope.getByRole("link", { name: "View all groups" })).toHaveAttribute("href", "/manager/groups");
+    expect(quotaStatusScope.getByRole("link", { name: /view all groups/i })).toHaveAttribute("href", "/manager/groups");
     expect(screen.queryByRole("heading", { name: "Access management" })).not.toBeInTheDocument();
     expect(quotaStatusScope.queryByText("Bandwidth (month)")).not.toBeInTheDocument();
     expect(await screen.findByText(trendText("1.0 GB vs last 30 days"))).toBeInTheDocument();
@@ -1098,7 +1101,7 @@ describe("manager shell pages", () => {
     expect(screen.getByText(trendText("1 vs last 30 days"))).toBeInTheDocument();
     expect(screen.getByText(trendText("4 vs last 30 days"))).toBeInTheDocument();
     expect(
-      within(screen.getByTestId("manager-dashboard-top-buckets-card")).getByRole("link", { name: "View all buckets" }),
+      within(screen.getByTestId("manager-dashboard-top-buckets-card")).getByRole("link", { name: /view all buckets/i }),
     ).toHaveAttribute("href", "/manager/buckets");
   });
 
@@ -1199,8 +1202,8 @@ describe("manager shell pages", () => {
     const embed = await screen.findByTestId("browser-embed");
     expect(embed).toHaveAttribute("data-account-id", "account-1");
     expect(embed).toHaveAttribute("data-workspace-surface", "manager");
-    expect(screen.getByText("Effective S3 identity")).toBeInTheDocument();
-    expect(screen.getAllByText("RGW-ROOT").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Effective S3 identity")).not.toBeInTheDocument();
+    expect(screen.queryByText("RGW-ROOT")).not.toBeInTheDocument();
     expect(screen.getByText(/RGW logs will attribute operations to RGW-ROOT, not to the UI user/)).toBeInTheDocument();
     fireEvent.click(embed);
 
@@ -1269,7 +1272,7 @@ describe("manager shell pages", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Create bucket" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Create bucket" }));
     const form = within(screen.getByRole("form", { name: "Create bucket" }));
-    await user.type(form.getByRole("textbox", { name: "Bucket name" }), "NEW-BUCKET");
+    await user.type(form.getByRole("textbox", { name: "Bucket name" }), "new-bucket");
     await user.click(form.getByRole("switch", { name: "Custom LocationConstraint" }));
     await user.type(form.getByRole("textbox", { name: "LocationConstraint" }), " eu-west-1 ");
     await user.click(form.getByRole("switch", { name: "Versioning" }));
@@ -1530,6 +1533,85 @@ describe("manager shell pages", () => {
       screen.getByText("This permanently removes the bucket after server-side checks confirm it is empty.")
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Type DELETE BUCKET bucket-empty")).not.toBeInTheDocument();
+  });
+
+  it("uses the structured bucket-not-empty error code after a delete race", async () => {
+    listBucketsMock.mockResolvedValue([
+      {
+        name: "bucket-race",
+        used_bytes: 0,
+        object_count: 0,
+      },
+    ]);
+    deleteBucketMock.mockRejectedValue(
+      new ApiError("Request failed", {
+        response: {
+          status: 409,
+          data: {
+            detail: {
+              code: "bucket_not_empty",
+              message: "Storage returned a conflict.",
+            },
+          },
+          headers: {},
+        },
+      }),
+    );
+    setSelectedManagerAccountContext();
+
+    render(
+      <MemoryRouter>
+        <BucketsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("bucket-race")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete bucket" }));
+
+    expect(
+      await screen.findByText("Bucket 'bucket-race' is not empty. Empty it before deleting."),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves unrelated conflict details when bucket deletion returns HTTP 409", async () => {
+    listBucketsMock.mockResolvedValue([
+      {
+        name: "bucket-conflict",
+        used_bytes: 0,
+        object_count: 0,
+      },
+    ]);
+    deleteBucketMock.mockRejectedValue(
+      new ApiError("Request failed", {
+        response: {
+          status: 409,
+          data: {
+            detail: {
+              code: "bucket_state_conflict",
+              message: "Bucket state changed concurrently.",
+            },
+          },
+          headers: {},
+        },
+      }),
+    );
+    setSelectedManagerAccountContext();
+
+    render(
+      <MemoryRouter>
+        <BucketsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("bucket-conflict")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete bucket" }));
+
+    expect(await screen.findByText("Bucket state changed concurrently.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Bucket 'bucket-conflict' is not empty. Empty it before deleting."),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps non-empty delete guidance compact when purge access is unavailable", async () => {

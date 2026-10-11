@@ -8,7 +8,7 @@ import { useSettingsFormController } from "./useSettingsFormController";
 /** Mount for one draft. Callers own validation, permissions and persistence. */
 export default function SettingsFormDialog({
   title, draftKey, busy = false, disabled = false, submitDisabled = false, error, submitLabel,
-  danger = false, completed = false, onSubmit, onClose, children,
+  danger = false, completed = false, noValidate = false, onSubmit, onClose, children,
   maxWidthClass = "max-w-lg", maxBodyHeightClass, className,
 }: {
   title: string;
@@ -20,6 +20,7 @@ export default function SettingsFormDialog({
   submitLabel: string;
   danger?: boolean;
   completed?: boolean;
+  noValidate?: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   /** Navigation already has a destination; close without rewriting the URL. */
   onClose: (reason?: "navigation") => void;
@@ -39,7 +40,7 @@ export default function SettingsFormDialog({
       closeOnBackdropClick={!locked} closeOnEscape={!locked} closeLabel={labels.close}
       closeAriaLabel={labels.close} initialFocusRef={initialFocus}
       maxWidthClass={maxWidthClass} maxBodyHeightClass={maxBodyHeightClass} className={className}>
-      <SettingsForm label={title} onSubmit={submit} presentation="dialog" noValidate={false}
+      <SettingsForm label={title} onSubmit={submit} presentation="dialog" noValidate={noValidate}
         busy={locked}
         submitDisabled={disabled || submitDisabled || completed} onCancel={requestClose}
         submitLabel={submitLabel} busyLabel={submitLabel}

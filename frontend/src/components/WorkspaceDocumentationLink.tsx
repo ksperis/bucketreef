@@ -17,7 +17,7 @@ export default function WorkspaceDocumentationLink({ href }: { href: string }) {
         target="_blank"
         rel="noreferrer"
         aria-label={title}
-        className="shell-utility-button"
+        className="shell-utility-button hidden md:inline-flex"
       >
         <DocumentationIcon />
       </a>

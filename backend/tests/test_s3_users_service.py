@@ -697,6 +697,28 @@ def test_create_access_key_entry_selects_new_key_when_response_contains_existing
     assert generated.secret_access_key == "SK-NEW-SELECT"
 
 
+def test_create_access_key_entry_accepts_list_response(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+
+    created = service.create_user(S3UserCreate(name="CreateList", uid="create-list", storage_endpoint_id=endpoint.id))
+
+    def create_with_list_response(uid: str, tenant: Optional[str] = None):
+        assert uid == "create-list"
+        assert tenant is None
+        new_key = {"access_key": "AK-NEW-LIST", "secret_key": "SK-NEW-LIST", "active": True}
+        fake.remote_users[uid]["keys"].append(dict(new_key))
+        return [dict(new_key)]
+
+    monkeypatch.setattr(fake, "create_access_key", create_with_list_response)
+
+    generated = service.create_access_key_entry(created.id)
+
+    assert generated.access_key_id == "AK-NEW-LIST"
+    assert generated.secret_access_key == "SK-NEW-LIST"
+
+
 def test_delete_key_validations(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()

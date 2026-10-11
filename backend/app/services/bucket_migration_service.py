@@ -40,6 +40,12 @@ class BucketMigrationService(
         self._configuration = BucketConfigurationService()
         self._inspector = BucketMigrationInspector(self)
         self._precheck_planner = BucketMigrationPrecheckPlanner(self, self._inspector)
+        self._preparation_active_checks = False
+        self._preparation_checkpoint = None
+        self._preparation_item = None
+        self._execution_item = None
+        self._workflow_migration_id = None
+        self._workflow_worker_id = None
         self._authorized_context_ids: Optional[set[str]]
         self._admin_account_context_ids: Optional[set[str]]
         if authorized_context_ids is None:

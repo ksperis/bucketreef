@@ -9,6 +9,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import { stableSignature } from "../../utils/stableSignature";
 import type { BrowserVersionCleanupDraft } from "./useBrowserVersionCleanup";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserCleanupModalProps = {
   currentPath: string;
@@ -31,32 +32,31 @@ export default function BrowserCleanupModal({
   setDraft,
   summary,
 }: BrowserCleanupModalProps) {
+  const { text } = useBrowserI18n();
   const updateDraft = <Key extends keyof BrowserVersionCleanupDraft>(
     key: Key,
     value: BrowserVersionCleanupDraft[Key],
   ) => setDraft((previous) => ({ ...previous, [key]: value }));
 
   return (
-    <SettingsFormDialog title="Clean old versions" draftKey={stableSignature(draft)}
+    <SettingsFormDialog title={text("Clean old versions")} draftKey={stableSignature(draft)}
       busy={loading} error={error} onSubmit={onApply} onClose={onClose}
-      submitLabel={loading ? "Cleaning..." : "Run cleanup"} danger maxWidthClass="max-w-2xl">
+      submitLabel={loading ? text("Cleaning...") : text("Run cleanup")} danger maxWidthClass="max-w-2xl">
       <p className="settings-description break-all">
-        Context: {currentPath || "Select a bucket to get started."}
+        {text("Context: {path}", { path: currentPath || text("Select a bucket to get started.") })}
       </p>
       {summary && <UiInlineMessage tone="success" role="status">{summary}</UiInlineMessage>}
-      <UiInput label="Keep only the N most recent versions per object" type="number"
-        min={1} inputMode="numeric" placeholder="e.g. 3" value={draft.keepLast}
+      <UiInput label={text("Keep only the N most recent versions per object")} type="number"
+        min={1} inputMode="numeric" placeholder={text("e.g. 3")} value={draft.keepLast}
         onChange={(event) => updateDraft("keepLast", event.target.value)} />
-      <UiInput label="Delete versions older than (days)" type="number"
-        min={1} inputMode="numeric" placeholder="e.g. 30" value={draft.olderThanDays}
+      <UiInput label={text("Delete versions older than (days)")} type="number"
+        min={1} inputMode="numeric" placeholder={text("e.g. 30")} value={draft.olderThanDays}
         onChange={(event) => updateDraft("olderThanDays", event.target.value)} />
       <UiCheckboxField className="settings-choice" checked={draft.deleteOrphanMarkers}
         onChange={(event) => updateDraft("deleteOrphanMarkers", event.target.checked)}>
-        Delete orphan delete markers (runs after version cleanup)
-      </UiCheckboxField>
+        {text("Delete orphan delete markers (runs after version cleanup)")}</UiCheckboxField>
       <p className="settings-description">
-        If multiple rules are set, versions matching any rule are removed. The latest version is never deleted.
-      </p>
+        {text("If multiple rules are set, versions matching any rule are removed. The latest version is never deleted.")}</p>
     </SettingsFormDialog>
   );
 }

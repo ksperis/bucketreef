@@ -5,6 +5,10 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiTagEditor from "../../components/UiTagEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import type { UiTagDefinition } from "../../utils/uiTags";
+import { useI18n } from "../../i18n";
+import { rgwUserNameErrorText } from "../../utils/rgwUserNameMessages";
+import { rgwUserUidFormatError } from "../../utils/resourceNames";
+import { rgwAccountNameFormatError } from "../../utils/rgwAccountName";
 import AdminRgwEndpointField from "./AdminRgwEndpointField";
 import AdminQuotaFields from "./AdminQuotaFields";
 
@@ -20,13 +24,15 @@ export default function AdminRgwCreateFields({kind, value, onChange, errors, bus
   endpoint: Omit<ComponentProps<typeof AdminRgwEndpointField>, "value" | "onChange" | "error">;
   tags: { catalog: ComponentProps<typeof UiTagEditor>["catalog"]; loading: boolean; error: string | null };
 }) {
+  const { locale } = useI18n();
+  const liveNameError = kind === "account" ? rgwAccountNameFormatError(value.name) : undefined;
   return <>
     <SettingsSection presentation="compact" title={kind === "account" ? "Account details" : "User details"}>
       <div className="settings-fields">
         <div className="grid gap-3 md:grid-cols-2">
           <UiInput label={kind === "account" ? "Account name *" : "Display name *"} name="name" value={value.name}
-            error={errors.name} required onChange={event => onChange({name: event.target.value})} />
-          {kind === "user" && <UiInput label="UID (optional)" name="uid" value={value.uid ?? ""} placeholder="user-123"
+            error={errors.name ?? liveNameError} required onChange={event => onChange({name: event.target.value})} />
+          {kind === "user" && <UiInput label="UID (optional)" name="uid" value={value.uid ?? ""} placeholder="user-123" error={rgwUserNameErrorText(errors.uid ?? rgwUserUidFormatError((value.uid ?? "").trim()), locale)}
             onChange={event => onChange({uid: event.target.value})} />}
           <UiInput label={kind === "account" ? "Email contact" : "Email"} name="email" type="email" value={value.email}
             error={errors.email} placeholder="contact@example.com" onChange={event => onChange({email: event.target.value})} />

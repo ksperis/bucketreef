@@ -11,6 +11,7 @@ import {
   DEFAULT_PROXY_UPLOAD_PARALLELISM,
 } from "./browserConstants";
 import { clampParallelism } from "./browserUtils";
+import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
 
 const STS_REFRESH_WINDOW_MS = 2 * 60 * 1000;
 export const CORS_DIRECT_TRANSFER_WARNING =
@@ -104,24 +105,27 @@ export function buildBrowserTransferWarnings({
   stsCredentialsError,
   corsEnabled,
   proxyAllowed,
-}: BrowserTransferWarningsInput): string[] {
+}: BrowserTransferWarningsInput, text?: BrowserTextFn): string[] {
   const items = [warningMessage, corsFixError, stsCredentialsError].filter(
     (item): item is string => Boolean(item),
   );
   if (corsEnabled === false && !proxyAllowed) {
-    items.push("Proxy transfers are disabled in settings.");
+    items.push(text ? text("Proxy transfers are disabled in settings.") : "Proxy transfers are disabled in settings.");
   }
   return items;
 }
 
 export function resolveDirectCredentialStsTooltip(
   contextKind: "connection" | "s3_user" | null,
+  text?: BrowserTextFn,
 ): string {
   if (contextKind === "connection") {
-    return "STS is not available for S3 connections. Presigned URLs are used instead.";
+    const message = "STS is not available for S3 connections. Presigned URLs are used instead.";
+    return text ? text(message) : message;
   }
   if (contextKind === "s3_user") {
-    return "STS is not available for S3 users. Presigned URLs are used instead.";
+    const message = "STS is not available for S3 users. Presigned URLs are used instead.";
+    return text ? text(message) : message;
   }
   return "";
 }
@@ -135,6 +139,7 @@ type BrowserTransferAccessBadgeInput = {
   hasStsCredentials: boolean;
   stsExpirationLabel: string;
   directCredentialStsTooltip: string;
+  text?: BrowserTextFn;
 };
 
 export function resolveBrowserTransferAccessBadge({
@@ -146,13 +151,14 @@ export function resolveBrowserTransferAccessBadge({
   hasStsCredentials,
   stsExpirationLabel,
   directCredentialStsTooltip,
+  text,
 }: BrowserTransferAccessBadgeInput): BrowserTransferAccessBadge | null {
+  const tr = text ?? defaultBrowserText;
   if (!hasContext) return null;
   if (corsEnabled === false && !proxyAllowed) {
     return {
-      label: "Unavailable",
-      title:
-        "Download/Upload unavailable: CORS is disabled and proxy transfers are disabled.",
+      label: tr("Unavailable"),
+      title: tr("Download/Upload unavailable: CORS is disabled and proxy transfers are disabled."),
       tone: "danger",
       indicatorClassName:
         "border-rose-200/70 bg-rose-200/60 dark:border-rose-400/40 dark:bg-rose-400/25",
@@ -160,8 +166,8 @@ export function resolveBrowserTransferAccessBadge({
   }
   if (useProxyTransfers) {
     return {
-      label: "Proxy",
-      title: "Download/Upload mode: Backend proxy transfers are active.",
+      label: tr("Proxy"),
+      title: tr("Download/Upload mode: Backend proxy transfers are active."),
       tone: "info",
       indicatorClassName:
         "border-amber-200/70 bg-amber-200/60 dark:border-amber-400/40 dark:bg-amber-400/25",
@@ -170,8 +176,7 @@ export function resolveBrowserTransferAccessBadge({
   if (sseActive) {
     return {
       label: "SSE-C",
-      title:
-        "Download/Upload mode: SSE-C customer key is active for this bucket.",
+      title: tr("Download/Upload mode: SSE-C customer key is active for this bucket."),
       tone: "info",
       indicatorClassName:
         "border-sky-200/70 bg-sky-200/60 dark:border-sky-400/40 dark:bg-sky-400/25",
@@ -181,18 +186,18 @@ export function resolveBrowserTransferAccessBadge({
     return {
       label: "STS",
       title: stsExpirationLabel
-        ? `Download/Upload mode: STS credentials active (expires at ${stsExpirationLabel}).`
-        : "Download/Upload mode: STS credentials are active.",
+        ? tr("Download/Upload mode: STS credentials active (expires at {date}).", { date: stsExpirationLabel })
+        : tr("Download/Upload mode: STS credentials are active."),
       tone: "success",
       indicatorClassName:
         "border-emerald-200/70 bg-emerald-200/60 dark:border-emerald-400/40 dark:bg-emerald-400/25",
     };
   }
   return {
-    label: "Presign",
+    label: tr("Presign"),
     title: directCredentialStsTooltip
-      ? `Download/Upload mode: Presigned URLs are active. ${directCredentialStsTooltip}`
-      : "Download/Upload mode: Presigned URLs are active.",
+      ? tr("Download/Upload mode: Presigned URLs are active. {detail}", { detail: directCredentialStsTooltip })
+      : tr("Download/Upload mode: Presigned URLs are active."),
     tone: "success",
     indicatorClassName:
       "border-emerald-200/70 bg-emerald-200/60 dark:border-emerald-400/40 dark:bg-emerald-400/25",

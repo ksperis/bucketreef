@@ -36,6 +36,7 @@ SIGNAL_FIELDS = {
     "delegated_portal_version_cleanup_audit": "stream_portal_storage_space_version_cleanup(",
     "delegated_onboarding_audit": "OnboardingService(",
     "delegated_bucket_migration_maintenance_audit": "_queue_maintenance(",
+    "delegated_access_key_expiration_audit": "AccessKeyExpirationService(db).run_due(",
 }
 DELEGATED_AUDIT_SIGNALS = frozenset(
     {
@@ -57,6 +58,7 @@ DELEGATED_AUDIT_SIGNALS = frozenset(
         "delegated_portal_version_cleanup_audit",
         "delegated_onboarding_audit",
         "delegated_bucket_migration_maintenance_audit",
+        "delegated_access_key_expiration_audit",
     }
 )
 

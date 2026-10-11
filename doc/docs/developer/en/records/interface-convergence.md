@@ -835,7 +835,7 @@ Temporary screenshots, scripts and authentication state remain outside commits.
 
 `AdminAccountEditor` owns a keyed account draft and its read/retry lifecycle,
 leaving listing, creation, import and deletion in `AccountsPage`. General,
-linked users, linked groups, privileged access and Portal settings share the
+linked users, linked groups, Manager features and Portal settings share the
 compact workflow presentation. General uses side-title settings sections for
 tags, observed usage and quotas; `InlineSummary` preserves unknown versus zero
 usage and shows the saved limits separately from editable quota values.

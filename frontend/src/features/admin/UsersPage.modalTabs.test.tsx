@@ -932,7 +932,7 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Allow managed private connection provisioning" }));
 
     expect(screen.getByRole("heading", { name: "Manager", exact: true })).toBeInTheDocument();
-    expect(screen.queryByText("Privileged Ceph access")).not.toBeInTheDocument();
+    expect(screen.queryByText("Privileged Ceph operations")).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Bucket quota management" })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Ceph S3 User keys" })).not.toBeInTheDocument();
     const managerSection = screen.getByRole("region", { name: "Manager", exact: true });

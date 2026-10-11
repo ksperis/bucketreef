@@ -1,8 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from types import SimpleNamespace
-
 from app.db import AccountIAMUser
+from app.models.iam import AccessKey
 from app.services.mappers.portal import (
     portal_access_key_from_active_link,
     portal_access_key_from_iam_metadata,
@@ -12,7 +11,7 @@ from app.services.mappers.portal import (
 
 def test_portal_access_key_from_iam_metadata_maps_public_fields():
     created_at = "2026-01-01T00:00:00Z"
-    metadata = SimpleNamespace(access_key_id="AKIAUSER", status="Inactive", created_at=created_at)
+    metadata = AccessKey(access_key_id="AKIAUSER", status="Inactive", created_at=created_at)
 
     key = portal_access_key_from_iam_metadata(
         metadata,
@@ -31,7 +30,7 @@ def test_portal_access_key_from_iam_metadata_maps_public_fields():
 
 
 def test_portal_access_key_mapper_can_override_status_default():
-    metadata = SimpleNamespace(access_key_id="AKIAUSER", status=None, created_at=None)
+    metadata = AccessKey(access_key_id="AKIAUSER", status=None, created_at=None)
 
     key = portal_access_key_from_iam_metadata(
         metadata,

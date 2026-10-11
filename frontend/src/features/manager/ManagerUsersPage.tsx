@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { iamNameFormatError } from "../../utils/resourceNames";
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
@@ -43,10 +44,10 @@ import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import { SettingsButton } from "../../components/settings/SettingsControls";
-
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
+import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerUsersPage() {
+  const { text } = useManagerI18n();
   type SortField = SortableField<IAMUser>;
   const deleteConfirmation = useConfirmActionDialog();
 
@@ -57,6 +58,7 @@ export default function ManagerUsersPage() {
     requiresS3AccountSelection,
     accessMode,
     managerPrivateAccessEnabled,
+    namingValidationProfile,
   } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
@@ -71,6 +73,8 @@ export default function ManagerUsersPage() {
     setLoading,
   } = useManagerIamCollection(listIamUsers);
   const {
+    inlineDraftNameError,
+    validateInlineDrafts,
     inlineDraftMode,
     inlineDraftName,
     inlineDrafts,
@@ -86,7 +90,7 @@ export default function ManagerUsersPage() {
     handleRemoveInlineDraft,
     handleSelectInlineDraft,
     resetInlinePolicyDraftEditor,
-  } = useInlinePolicyDraftEditor(setError);
+  } = useInlinePolicyDraftEditor(setError, "user", namingValidationProfile);
   const [advancedName, setAdvancedName] = useState("");
   const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [createKey, setCreateKey] = useState(true);
@@ -220,11 +224,13 @@ export default function ManagerUsersPage() {
     setSort((current) => nextSortState(current, field, "desc"));
   };
 
+  const nameFormatError = iamNameFormatError(advancedName.trim(), "user");
+
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (needsS3AccountSelection || busy !== null) return;
     setAdvancedValidationAttempted(true);
-    if (!advancedName.trim()) {
+    if (!advancedName.trim() || nameFormatError || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
@@ -254,10 +260,10 @@ export default function ManagerUsersPage() {
         setCreatedKey(created.access_key);
         setCreatedForUser(created.name);
       }
-      setActionMessage("User created");
+      setActionMessage(text("User created"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -270,10 +276,10 @@ export default function ManagerUsersPage() {
     setActionMessage(null);
     try {
       await deleteIamUser(accountIdForApi, name);
-      setActionMessage("User deleted");
+      setActionMessage(text("User deleted"));
       await load(accountIdForApi);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -282,10 +288,10 @@ export default function ManagerUsersPage() {
   const handleDelete = (name: string) => {
     if (needsS3AccountSelection) return;
     deleteConfirmation.requestConfirmation({
-      title: "Delete IAM user?",
-      description: "Permanently remove this IAM user from the selected account.",
-      confirmLabel: "Delete user",
-      details: [{ label: "IAM user", value: name }],
+      title: text("Delete IAM user?"),
+      description: text("Permanently remove this IAM user from the selected account."),
+      confirmLabel: text("Delete user"),
+      details: [{ label: text("IAM user"), value: name }],
       impacts: ["Credentials and permissions attached to this user will no longer grant access."],
       onConfirm: () => deleteUser(name),
     });
@@ -332,7 +338,7 @@ export default function ManagerUsersPage() {
   const userTableColumns: Array<DataTableColumn<IAMUser, SortField>> = [
     {
       id: "name",
-      label: "Name",
+      label: text("Name"),
       field: "name",
       primary: true,
       mobileRole: "primary",
@@ -343,11 +349,11 @@ export default function ManagerUsersPage() {
           (user.inline_policies?.length ?? 0) === 0;
         const lacksKeys = user.has_keys === false;
         const showWarning = lacksGroupOrPolicy || lacksKeys;
-        const warningTitle = lacksGroupOrPolicy && lacksKeys
+        const warningTitle = text(lacksGroupOrPolicy && lacksKeys
           ? "No groups/policies or access keys assigned"
           : lacksGroupOrPolicy
             ? "No groups or policies assigned"
-            : "No access keys registered";
+            : "No access keys registered");
 
         return (
           <div className="flex items-center gap-2">
@@ -355,9 +361,9 @@ export default function ManagerUsersPage() {
             {user.is_private_access_managed && (
               <ListBadge
                 tone="primary"
-                title="Managed private access identity"
+                title={text("Managed private access identity")}
               >
-                Private access
+                {text("Private access")}
               </ListBadge>
             )}
             {showWarning && (
@@ -365,7 +371,7 @@ export default function ManagerUsersPage() {
                 className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-100"
                 title={warningTitle}
                 role="img"
-                aria-label="Warning: user might lack necessary permissions"
+                aria-label={text("Warning: user might lack necessary permissions")}
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -388,10 +394,10 @@ export default function ManagerUsersPage() {
         );
       },
     },
-    { id: "arn", label: "ARN", field: "arn", render: (user) => user.arn ?? "-" },
+    { id: "arn", label: text("ARN"), field: "arn", render: (user) => user.arn ?? "-" },
     {
       id: "groups",
-      label: "Groups",
+      label: text("Groups"),
       cellClassName: "ui-table-wide",
       render: (user) =>
         user.groups && user.groups.length > 0 ? (
@@ -411,7 +417,7 @@ export default function ManagerUsersPage() {
     },
     {
       id: "policies",
-      label: "Policies",
+      label: text("Policies"),
       cellClassName: "ui-table-wide",
       render: (user) =>
         user.policies && user.policies.length > 0 ? (
@@ -432,24 +438,24 @@ export default function ManagerUsersPage() {
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (user) => (
         <ListActions>
           <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}/keys`}>
-            Keys
+            {text("Keys")}
           </ListActionLink>
           <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}/policies`}>
-            Policies
+            {text("Policies")}
           </ListActionLink>
           <ListActionButton
             onClick={() => handleDelete(user.name)}
              variant="danger"
             disabled={busy === user.name || user.is_private_access_managed}
-            title={user.is_private_access_managed ? "Delete the linked private connection instead" : undefined}
+            title={user.is_private_access_managed ? text("Delete the linked private connection instead") : undefined}
           >
-            {busy === user.name ? "Deleting..." : "Delete"}
+            {text(busy === user.name ? "Deleting..." : "Delete")}
           </ListActionButton>
         </ListActions>
       ),
@@ -459,42 +465,42 @@ export default function ManagerUsersPage() {
   return (
     <div className={workflowPageHostClass(showCreateForm)}>
       <PageHeader actionPresentation="listing"
-        title="Users"
-        description="Create/delete via the account root credentials. Optionally generate an access key on creation."
-        breadcrumbs={managerPageBreadcrumbs("users")}
+        title={text("Users")}
+        description={text("Create/delete via the account root credentials. Optionally generate an access key on creation.")}
+        breadcrumbs={managerPageBreadcrumbs(text, "users")}
         actions={!needsS3AccountSelection && !isS3User
           ? [
               {
-                label: "Create user",
+                label: text("Create user"),
                 onClick: openCreateForm,
               },
               ...(managerPrivateAccessEnabled
-                ? [{ label: "Create my private access", onClick: () => setShowPrivateAccessModal(true), variant: "primary" as const }]
+                ? [{ label: text("Create my private access"), onClick: () => setShowPrivateAccessModal(true), variant: "primary" as const }]
                 : []),
             ]
           : []}
       />
 
-      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && createdForUser && (
         <OneTimeSecretPanel
           title={`Key created for ${createdForUser}`}
-          description="Copy these values now; the secret will only be shown once."
+          description={text("Copy these values now; the secret will only be shown once.")}
           values={[
-            { label: "Access key", value: createdKey.access_key_id, copyLabel: "Copy" },
+            { label: text("Access key"), value: createdKey.access_key_id, copyLabel: text("Copy") },
             {
-              label: "Secret key",
+              label: text("Secret key"),
               value: createdKey.secret_access_key ?? "Not provided",
-              copyLabel: createdKey.secret_access_key ? "Copy" : undefined,
+              copyLabel: createdKey.secret_access_key ? text("Copy") : undefined,
             },
           ]}
           actions={
             <ListActionLink
               to={`/manager/users/${encodeURIComponent(createdForUser)}/keys`}
             >
-              Manage keys
+              {text("Manage keys")}
             </ListActionLink>
           }
         />
@@ -502,29 +508,29 @@ export default function ManagerUsersPage() {
 
       {needsS3AccountSelection ? (
         <PageEmptyState
-          title="Select an account before managing IAM users"
-          description="Users are created within an execution context. Choose an account to list identities, generate keys, and attach policies."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select an account before managing IAM users")}
+          description={text("Users are created within an execution context. Choose an account to list identities, generate keys, and attach policies.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : isS3User ? (
         <PageEmptyState
-          title="IAM users are unavailable for managed S3 user contexts"
-          description="Switch to an RGW account or S3 connection context to manage account-level IAM identities."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          title={text("IAM users are unavailable for managed S3 user contexts")}
+          description={text("Switch to an RGW account or S3 connection context to manage account-level IAM identities.")}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (
         <ListPageSection
           variant="page"
           mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-            title="Users"
-            countLabel={`${filteredUsers.length} result(s)`}
+            title={text("Users")}
+            countLabel={text(filteredUsers.length === 1 ? "{count} result" : "{count} results", { count: filteredUsers.length })}
             search={
               <ManagerToolbarSearch
                 value={filter}
                 onChange={setFilter}
-                placeholder="Search by name or ARN"
+                placeholder={text("Search by name or ARN")}
                 className="w-full sm:w-64 md:w-72"
               />
             }
@@ -534,9 +540,9 @@ export default function ManagerUsersPage() {
             rows={filteredUsers}
             rowKey={(user) => user.name}
             status={tableStatus}
-            loadingMessage="Loading users..."
-            errorMessage="Unable to load users."
-            emptyMessage="No users."
+            loadingMessage={text("Loading users...")}
+            errorMessage={text("Unable to load users.")}
+            emptyMessage={text("No users.")}
             responsiveCards
             sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
             tableLayout="fixed"
@@ -546,37 +552,37 @@ export default function ManagerUsersPage() {
 
       {showCreateForm && (
         <SettingsWorkflowForm
-          title="Create IAM user"
-          description="Create the identity, attach managed or inline policies, and optionally generate its first access key."
-          breadcrumbs={managerPageBreadcrumbs("users", { label: "Create" })}
-          backLabel="Back to users"
+          title={text("Create IAM user")}
+          description={text("Create the identity, attach managed or inline policies, and optionally generate its first access key.")}
+          breadcrumbs={managerPageBreadcrumbs(text, "users", { label: text("Create") })}
+          backLabel={text("Back to users")}
           onClose={closeCreateForm}
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
-          busy={busy !== null} disabled={needsS3AccountSelection}
-          submitLabel="Create user" busyLabel="Creating..."
+          busy={busy !== null} disabled={needsS3AccountSelection || namingValidationProfile === null}
+          submitLabel={text("Create user")} busyLabel={text("Creating...")}
         >
-          <SettingsSection title="Identity" presentation="compact">
+          <SettingsSection title={text("Identity")} presentation="compact">
             <div className="settings-fields">
-              <UiInput label="User name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
-                placeholder="User name" error={advancedValidationAttempted && !advancedName.trim() ? "User name is required." : undefined} />
+              <UiInput label={text("User name")} required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+                placeholder={text("User name")} error={nameFormatError ? text(nameFormatError!) : advancedValidationAttempted && !advancedName.trim() ? text("User name is required.") : undefined} />
               <UiCheckboxField checked={createKey} onChange={(event) => setCreateKey(event.target.checked)} className="settings-choice settings-body">
-                Auto-generate an access key (shown only once)
+                {text("Auto-generate an access key (shown only once)")}
               </UiCheckboxField>
             </div>
           </SettingsSection>
-          <SettingsSection title="Add to groups (optional)" description="Launch permissions by linking groups before creation." presentation="compact">
+          <SettingsSection title={text("Add to groups (optional)")} description={text("Launch permissions by linking groups before creation.")} presentation="compact">
             <div className="settings-stack">
               <div className="flex flex-wrap items-center justify-end gap-2">
-                {selectedGroups.length > 0 && <span className="settings-description">{selectedGroups.length} selected</span>}
+                {selectedGroups.length > 0 && <span className="settings-description">{selectedGroups.length} {text("selected")}</span>}
                 <SettingsButton variant="secondary" onClick={() => setShowGroupOptions((prev) => !prev)}
                   aria-expanded={showGroupOptions} aria-controls={groupOptionsId}>
-                  {showGroupOptions ? "Hide" : "Show"}
+                  {text(showGroupOptions ? "Hide" : "Show")}
                 </SettingsButton>
               </div>
               <div id={groupOptionsId} hidden={!showGroupOptions} className={showGroupOptions ? "settings-fields" : undefined}>
-                {groups.length === 0 && <p className="settings-description">No groups available.</p>}
+                {groups.length === 0 && <p className="settings-description">{text("No groups available.")}</p>}
                 <div className="grid gap-x-4 sm:grid-cols-2">
                   {groups.map((group) => (
                     <UiCheckboxField key={group.name} checked={selectedGroups.includes(group.name)}
@@ -591,9 +597,9 @@ export default function ManagerUsersPage() {
             </div>
           </SettingsSection>
           <ManagedPolicySelectionPanel
-            title="Attach policies (optional)"
-            description="Bind JSON policies now or skip and attach later."
-            emptyMessage="No policies available. Create them in the Policies tab."
+            title={text("Attach policies (optional)")}
+            description={text("Bind JSON policies now or skip and attach later.")}
+            emptyMessage={text("No policies available. Create them in the Policies tab.")}
             footer="Policies must be created first in the Policies tab."
             policies={policies}
             selectedPolicyArns={selectedPolicies}
@@ -607,6 +613,7 @@ export default function ManagerUsersPage() {
             drafts={inlineDrafts}
             selectedDraftName={selectedInlineDraftName}
             draftName={inlineDraftName}
+            nameError={inlineDraftNameError}
             draftText={inlinePolicyText}
             entityLabel="user"
             mode={inlineDraftMode}
@@ -632,6 +639,7 @@ export default function ManagerUsersPage() {
 
       {showPrivateAccessModal && (
         <CreateManagedPrivateAccessModal
+          namingValidationProfile={namingValidationProfile}
           variant="iam"
           accountId={accountIdForApi}
           contextName={selectedS3AccountName}

@@ -137,9 +137,7 @@ class PortalServerAccessLogQueriesMixin:
         )
 
     def _portal_server_access_rgw_admin_client(self, account: S3Account) -> Optional[RGWAdminClient]:
-        endpoint = getattr(account, "storage_endpoint", None)
-        if endpoint is None:
-            return None
+        endpoint = account.storage_endpoint
         admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
         if not admin_endpoint:
             return None
@@ -151,8 +149,8 @@ class PortalServerAccessLogQueriesMixin:
             access_key=access_key,
             secret_key=secret_key,
             endpoint=admin_endpoint,
-            region=getattr(endpoint, "region", None),
-            verify_tls=bool(getattr(endpoint, "verify_tls", True)),
+            region=endpoint.region,
+            verify_tls=endpoint.verify_tls,
         )
 
     def _portal_server_access_identity_from_rgw_payload(

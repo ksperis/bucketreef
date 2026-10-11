@@ -19,12 +19,10 @@ import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import UiButton from "../../components/ui/UiButton";
 import UiSelect from "../../components/ui/UiSelect";
-
-function extractError(err: unknown): string {
-  return extractApiError(err, "Unexpected error");
-}
+import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerGroupUsersPage() {
+  const { text } = useManagerI18n();
   const { groupName } = useParams<{ groupName: string }>();
   const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
@@ -59,7 +57,7 @@ export default function ManagerGroupUsersPage() {
       setUsers(members);
       setAllUsers(existingUsers);
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
@@ -99,9 +97,9 @@ export default function ManagerGroupUsersPage() {
       await addIamGroupUser(accountIdForApi, groupName, newUser.trim());
       setNewUser("");
       await load(accountIdForApi, groupName);
-      setActionMessage("User added to group");
+      setActionMessage(text("User added to group"));
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -115,9 +113,9 @@ export default function ManagerGroupUsersPage() {
     try {
       await removeIamGroupUser(accountIdForApi, groupName, userName);
       await load(accountIdForApi, groupName);
-      setActionMessage("User removed from group");
+      setActionMessage(text("User removed from group"));
     } catch (err) {
-      setError(extractError(err));
+      setError(extractApiError(err, "Unexpected error"));
     } finally {
       setBusy(null);
     }
@@ -125,12 +123,12 @@ export default function ManagerGroupUsersPage() {
 
   const handleRemove = (userName: string) => {
     memberConfirmation.requestConfirmation({
-      title: "Remove user from group?",
-      description: "Detach this IAM user from the selected group.",
-      confirmLabel: "Remove user",
+      title: text("Remove user from group?"),
+      description: text("Detach this IAM user from the selected group."),
+      confirmLabel: text("Remove user"),
       details: [
-        { label: "Group", value: decodedGroup },
-        { label: "User", value: userName },
+        { label: text("Group"), value: decodedGroup },
+        { label: text("User"), value: userName },
       ],
       impacts: ["Permissions inherited only through this group will no longer apply to the user."],
       onConfirm: () => removeUser(userName),
@@ -140,21 +138,21 @@ export default function ManagerGroupUsersPage() {
   if (isS3User) {
     return (
       <PageShell actionPresentation="listing"
-          title="Group members"
-          description="Manage IAM group membership."
-          breadcrumbs={managerPageBreadcrumbs("groups", { label: "Users" })}
+          title={text("Group members")}
+          description={text("Manage IAM group membership.")}
+          breadcrumbs={managerPageBreadcrumbs(text, "groups", { label: text("Users") })}
       >
-        <PageBanner tone="info">IAM features are disabled for standalone S3 users. Select an S3 Account to continue.</PageBanner>
+        <PageBanner tone="info">{text("IAM features are disabled for standalone S3 users. Select an S3 Account to continue.")}</PageBanner>
       </PageShell>
     );
   }
 
   if (!groupName) {
-    return <div className="ui-body text-slate-600">Group not specified.</div>;
+    return <div className="ui-body text-slate-600">{text("Group not specified.")}</div>;
   }
 
   if (needsS3AccountSelection) {
-    return <div className="ui-body text-slate-600">Select an account before managing groups.</div>;
+    return <div className="ui-body text-slate-600">{text("Select an account before managing groups.")}</div>;
   }
 
   const handleRefresh = () => {
@@ -172,19 +170,19 @@ export default function ManagerGroupUsersPage() {
   const userColumns: Array<DataTableColumn<IAMUser>> = [
     {
       id: "user",
-      label: "User",
+      label: text("User"),
       primary: true,
       render: (user) => user.name,
     },
     {
       id: "arn",
-      label: "ARN",
+      label: text("ARN"),
       cellClassName: "break-all font-mono text-[11px]",
       render: (user) => user.arn ?? "-",
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (user) => (
@@ -193,7 +191,7 @@ export default function ManagerGroupUsersPage() {
           onClick={() => handleRemove(user.name)}
           disabled={busy === user.name}
         >
-          {busy === user.name ? "Removing..." : "Remove"}
+          {text(busy === user.name ? "Removing..." : "Remove")}
         </ListActionButton>
       ),
     },
@@ -201,28 +199,27 @@ export default function ManagerGroupUsersPage() {
 
   return (
     <PageShell actionPresentation="listing"
-      title="Group members"
+      title={text("Group members")}
       description={
         <>
-          Manage users for <span className="font-semibold text-slate-700 dark:text-slate-100">{decodedGroup}</span>.
+          {text("Manage users for")} <span className="font-semibold text-slate-700 dark:text-slate-100">{decodedGroup}</span>.
         </>
       }
-      breadcrumbs={managerPageBreadcrumbs(
-        "groups",
+      breadcrumbs={managerPageBreadcrumbs(text, "groups",
         { label: decodedGroup },
-        { label: "Users" },
+        { label: text("Users") },
       )}
       actions={[
-        { label: "← Back to groups", to: "/manager/groups", variant: "ghost" },
-        { label: "Attached policies", to: `/manager/groups/${encodeURIComponent(decodedGroup)}/policies`, variant: "ghost" },
-        { label: "Refresh", onClick: handleRefresh, variant: "ghost" },
+        { label: text("← Back to groups"), to: "/manager/groups", variant: "ghost" },
+        { label: text("Attached policies"), to: `/manager/groups/${encodeURIComponent(decodedGroup)}/policies`, variant: "ghost" },
+        { label: text("Refresh"), onClick: handleRefresh, variant: "ghost" },
       ]}
     >
 
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {noAvailableUsers && (
-        <PageBanner tone="warning">No IAM users available to add. Create one before managing this group.</PageBanner>
+        <PageBanner tone="warning">{text("No IAM users available to add. Create one before managing this group.")}</PageBanner>
       )}
 
       <form
@@ -231,13 +228,13 @@ export default function ManagerGroupUsersPage() {
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <UiSelect
-            label="IAM user"
+            label={text("IAM user")}
             fieldClassName="flex-1"
             className="w-full"
             value={newUser}
             onChange={(e) => setNewUser(e.target.value)}
           >
-            <option value="">Select an existing user</option>
+            <option value="">{text("Select an existing user")}</option>
             {availableUsers.map((u) => (
               <option key={u.name} value={u.name}>
                 {u.name}
@@ -249,23 +246,23 @@ export default function ManagerGroupUsersPage() {
             disabled={busy !== null || !newUser}
             loading={busy === "add"}
           >
-            Add
+            {text("Add")}
           </UiButton>
         </div>
         <p className="ui-caption text-slate-500 dark:text-slate-400">
-          Users come from IAM. Add them here to attach them to the group.
+          {text("Users come from IAM. Add them here to attach them to the group.")}
         </p>
       </form>
 
-      <ListPageSection variant="section" title="Users" description="Members of this group.">
+      <ListPageSection variant="section" title={text("Users")} description={text("Members of this group.")}>
         <DataTableShell
           columns={userColumns}
           rows={users}
           rowKey={(user) => user.name}
           status={tableStatus}
-          loadingMessage="Loading members..."
-          errorMessage="Unable to load users."
-          emptyMessage="No members in this group."
+          loadingMessage={text("Loading members...")}
+          errorMessage={text("Unable to load users.")}
+          emptyMessage={text("No members in this group.")}
           tableClassName="ui-data-table"
           responsiveCards
         />

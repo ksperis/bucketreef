@@ -43,7 +43,15 @@ describe("RGW user configuration form", () => {
       extra_params: { "default-placement": "", "default-storage-class": "STANDARD" },
     }), "tenant-a"));
     const payload = updateConfig.mock.calls[0][2];
+    for (const field of ["admin", "system"]) expect(payload).not.toHaveProperty(field);
     for (const field of ["quota_enabled", "quota_max_size_bytes", "quota_max_objects"]) expect(payload).not.toHaveProperty(field);
+  });
+
+  it("keeps admin and system flags read-only while suspended remains editable", async () => {
+    await openConfiguration();
+    expect(screen.getByLabelText("Suspended")).toBeEnabled();
+    expect(screen.getByLabelText("Admin")).toBeDisabled();
+    expect(screen.getByLabelText("System")).toBeDisabled();
   });
 
   it("shows field errors, clears them on correction and retains explicit quota clearing", async () => {

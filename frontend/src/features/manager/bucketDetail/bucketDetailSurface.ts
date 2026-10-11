@@ -13,12 +13,10 @@ export type BucketDetailMode = "manager" | "ceph-admin";
 export type BucketDetailTabId =
   | "overview"
   | "objects"
-  | "usage-stats"
-  | "ceph"
   | "properties"
   | "permissions"
-  | "advanced"
-  | "metrics";
+  | "data-management"
+  | "usage-metrics";
 
 type BucketDetailSurface = {
   mode: BucketDetailMode;
@@ -47,25 +45,13 @@ export function resolveBucketDetailSurface(mode: BucketDetailMode): BucketDetail
 }
 
 export function resolveBucketDetailTabs({
-  mode,
   showObjectsTab,
-  showQuotaTab,
 }: {
-  mode: BucketDetailMode;
   showObjectsTab: boolean;
-  showQuotaTab: boolean;
 }): BucketDetailTabId[] {
-  if (mode === "ceph-admin") {
-    return showObjectsTab
-      ? ["overview", "objects", "ceph", "usage-stats", "properties", "permissions", "advanced", "metrics"]
-      : ["overview", "ceph", "usage-stats", "properties", "permissions", "advanced", "metrics"];
-  }
-  const baseTabs: BucketDetailTabId[] = showObjectsTab
-    ? ["overview", "objects", "usage-stats", "properties", "permissions", "advanced", "metrics"]
-    : ["overview", "usage-stats", "properties", "permissions", "advanced", "metrics"];
-  if (!showQuotaTab) return baseTabs;
-  const insertAt = Math.max(1, baseTabs.indexOf("usage-stats"));
-  return [...baseTabs.slice(0, insertAt), "ceph", ...baseTabs.slice(insertAt)];
+  return showObjectsTab
+    ? ["overview", "objects", "properties", "permissions", "data-management", "usage-metrics"]
+    : ["overview", "properties", "permissions", "data-management", "usage-metrics"];
 }
 
 export function buildBucketDetailBreadcrumbs(mode: BucketDetailMode, bucketName: string | null | undefined) {

@@ -67,7 +67,7 @@ export function readModels(c: DemoRequest): Response | undefined {
   if (path === "/browser/settings") return json(settings.browser);
   if (["/auth/security/webauthn/credentials", "/auth/security/external-identities", "/auth/sessions", "/auth/api-tokens", "/admin/identity/sessions", "/admin/identity/link-requests", "/admin/settings/ldap/providers", "/admin/settings/oidc/providers", "/auth/oidc/providers", "/auth/ldap/providers"].includes(path)) return json([]);
   if (["/admin/settings/webhooks", "/admin/settings/webhooks/events"].includes(path)) return json([]);
-  if (path === "/admin/onboarding") return json({ dismissed: true, complete: true, endpoint_configured: true, storage_access_configured: true });
+  if (path === "/admin/onboarding") return json({ dismissed: true, complete: true });
   if (path === "/admin/navigation/pending-requests") return json({ identity_link_requests: 0, portal_requests: state.requests.filter(r => r.status === "pending").length });
   if (path === "/admin/audit/logs") return json({ logs: state.history.slice(-20).reverse().map((p, i) => ({ id: 800 - i, created_at: p.timestamp, user_email: state.users[i % 5].email, user_role: "ui_admin", scope: i % 2 ? "manager" : "admin", action: i % 2 ? "put_bucket_lifecycle" : "account.link_user", entity_type: i % 2 ? "bucket" : "account", entity_id: i % 2 ? "helios-documents" : "Helios Retail", account_id: 101, account_name: "Helios Retail", status: "success", message: "Historical demo activity", metadata: {} })), next_cursor: null });
   if (path === "/admin/access-audit" || path === "/admin/access-audit/export.csv") {

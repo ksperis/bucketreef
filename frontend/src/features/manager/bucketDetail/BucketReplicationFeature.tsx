@@ -35,6 +35,7 @@ import {
   type ReplicationVisualRulePatch,
 } from "./replicationEditorModel";
 import type { useBucketReplicationController } from "./useBucketReplicationController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketReplicationController = ReturnType<typeof useBucketReplicationController>;
 
@@ -64,6 +65,7 @@ function ReplicationRuleEditor({
   onChange: (patch: ReplicationVisualRulePatch) => void;
   onRemove: () => void;
 }) {
+  const { text } = useManagerI18n();
   const editable = isReplicationRuleVisuallyEditable(rule);
   const summary = replicationRuleSummary(rule);
   const draft = readReplicationVisualRule(rule);
@@ -79,10 +81,10 @@ function ReplicationRuleEditor({
               {summary.status} · {summary.prefix} · {summary.destination}
             </p>
           </div>
-          <UiBadge tone="warning">Advanced rule — edit in JSON</UiBadge>
+          <UiBadge tone="warning">{text("Advanced rule — edit in JSON")}</UiBadge>
         </div>
         <p className="settings-description">
-          This rule contains S3 fields that the visual editor cannot represent without loss.
+          {text("This rule contains S3 fields that the visual editor cannot represent without loss.")}
         </p>
       </BucketFeatureEditorItem>
     );
@@ -95,7 +97,7 @@ function ReplicationRuleEditor({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="settings-label">Rule {index + 1}</p>
+          <p className="settings-label">{text("Rule")} {index + 1}</p>
         </div>
         <SettingsButton
           type="button"
@@ -103,31 +105,31 @@ function ReplicationRuleEditor({
           onClick={onRemove}
           disabled={disabled}
         >
-          Remove rule
+          {text("Remove rule")}
         </SettingsButton>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
         <SettingsInput
-          label="ID"
+          label={text("ID")}
           value={draft.id}
           onChange={(event) => onChange({ id: event.target.value })}
           placeholder={`rule-${index + 1}`}
           disabled={disabled}
         />
         <SettingsSelect
-          label="Status"
+          label={text("Status")}
           value={draft.status}
           onChange={(event) =>
             onChange({ status: event.target.value as "Enabled" | "Disabled" })
           }
           disabled={disabled}
         >
-          <option value="Enabled">Enabled</option>
-          <option value="Disabled">Disabled</option>
+          <option value="Enabled">{text("Enabled")}</option>
+          <option value="Disabled">{text("Disabled")}</option>
         </SettingsSelect>
         <SettingsInput
-          label="Priority"
+          label={text("Priority")}
           type="number"
           min={0}
           step={1}
@@ -140,18 +142,18 @@ function ReplicationRuleEditor({
 
       <div className="grid gap-3 md:grid-cols-2">
         <SettingsAutocomplete
-          label="Prefix / filter"
+          label={text("Prefix / filter")}
           value={draft.prefix}
           onChange={(value) => onChange({ prefix: value })}
-          placeholder="logs/"
+          placeholder={text("logs/")}
           disabled={disabled}
           {...prefixes}
         />
         <SettingsAutocomplete
-          label="Destination bucket ARN"
+          label={text("Destination bucket ARN")}
           value={draft.destinationBucket}
           onChange={(value) => onChange({ destinationBucket: value })}
-          placeholder="arn:aws:s3:::target-bucket"
+          placeholder={text("arn:aws:s3:::target-bucket")}
           disabled={disabled}
           {...destinationBucketArns}
         />
@@ -159,7 +161,7 @@ function ReplicationRuleEditor({
 
       <div className="max-w-sm">
         <SettingsSelect
-          label="Delete marker replication"
+          label={text("Delete marker replication")}
           value={draft.deleteMarkerStatus}
           onChange={(event) =>
             onChange({
@@ -168,8 +170,8 @@ function ReplicationRuleEditor({
           }
           disabled={disabled}
         >
-          <option value="Disabled">Disabled</option>
-          <option value="Enabled">Enabled</option>
+          <option value="Disabled">{text("Disabled")}</option>
+          <option value="Enabled">{text("Enabled")}</option>
         </SettingsSelect>
       </div>
     </BucketFeatureEditorItem>
@@ -180,6 +182,7 @@ export default function BucketReplicationFeature({
   blocked,
   controller,
 }: BucketReplicationFeatureProps) {
+  const { text } = useManagerI18n();
   const {
     addRule,
     advancedRuleCount,
@@ -236,7 +239,7 @@ export default function BucketReplicationFeature({
   const summaryColumns: Array<DataTableColumn<ReplicationSummaryRow>> = [
     {
       id: "id",
-      label: "Rule",
+      label: text("Rule"),
       primary: true,
       headerClassName: "min-w-40",
       cellClassName: "min-w-40",
@@ -244,7 +247,7 @@ export default function BucketReplicationFeature({
     },
     {
       id: "status",
-      label: "Status",
+      label: text("Status"),
       headerClassName: "w-px whitespace-nowrap",
       cellClassName: "w-px whitespace-nowrap",
       render: ({ rule, index }) => {
@@ -264,28 +267,28 @@ export default function BucketReplicationFeature({
     },
     {
       id: "priority",
-      label: "Priority",
+      label: text("Priority"),
       headerClassName: "w-px whitespace-nowrap",
       cellClassName: "w-px whitespace-nowrap",
       render: ({ rule }) => replicationRuleSummary(rule).priority,
     },
     {
       id: "prefix",
-      label: "Prefix",
+      label: text("Prefix"),
       headerClassName: "min-w-32",
       cellClassName: "min-w-32 break-all",
       render: ({ rule }) => replicationRuleSummary(rule).prefix,
     },
     {
       id: "destination",
-      label: "Destination",
+      label: text("Destination"),
       headerClassName: "min-w-56",
       cellClassName: "min-w-56 break-all font-mono ui-caption",
       render: ({ rule }) => replicationRuleSummary(rule).destination,
     },
     {
       id: "manage",
-      label: "Manage",
+      label: text("Manage"),
       mobileRole: "actions",
       headerClassName: "w-px whitespace-nowrap text-right",
       cellClassName: "w-px whitespace-nowrap",
@@ -297,7 +300,7 @@ export default function BucketReplicationFeature({
             onClick={() => openEditorFor(index)}
             disabled={saving || featureDisabled}
           >
-            Edit
+            {text("Edit")}
           </SettingsButton>
           <SettingsButton
             type="button"
@@ -305,7 +308,7 @@ export default function BucketReplicationFeature({
             onClick={() => removeRuleDirect(index)}
             disabled={saving || featureDisabled}
           >
-            Remove
+            {text("Remove")}
           </SettingsButton>
         </div>
       ),
@@ -316,18 +319,17 @@ export default function BucketReplicationFeature({
   const visualEditor = (
     <div className="space-y-4">
       <SettingsInput
-        label="Role ARN"
+        label={text("Role ARN")}
         type="text"
         value={role}
         onChange={(event) => updateRole(event.target.value)}
-        placeholder="arn:aws:iam::123456789012:role/replication-role"
+        placeholder={text("arn:aws:iam::123456789012:role/replication-role")}
         disabled={saving}
       />
 
       {(advancedRuleCount > 0 || hasAdvancedTopLevelFields) && (
         <UiInlineMessage tone="warning">
-          Advanced replication fields are preserved in the draft. Advanced rules
-          are read-only here and can be changed from the JSON tab.
+          {text("Advanced replication fields are preserved in the draft. Advanced rules\n          are read-only here and can be changed from the JSON tab.")}
         </UiInlineMessage>
       )}
 
@@ -339,19 +341,18 @@ export default function BucketReplicationFeature({
             onClick={addRule}
             disabled={saving}
           >
-            Add rule
+            {text("Add rule")}
           </SettingsButton>
         }
       >
         <p>
-          Edit supported rules visually. Nothing is persisted until Save.
+          {text("Edit supported rules visually. Nothing is persisted until Save.")}
         </p>
       </BucketFeatureEditorToolbar>
 
       {rules.length === 0 ? (
         <BucketFeatureEditorEmpty>
-          No replication rules. Saving this draft will clear the replication
-          configuration.
+          {text("No replication rules. Saving this draft will clear the replication\n          configuration.")}
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
@@ -376,16 +377,16 @@ export default function BucketReplicationFeature({
 
   const jsonEditor = (
     <BucketFeatureJsonPane
-      description="Edit the complete S3 replication configuration. Switching back to Visual validates the JSON structure first."
-      label="Replication configuration (JSON)"
+      text={text}
+      description={text("Edit the complete S3 replication configuration. Switching back to Visual validates the JSON structure first.")}
+      label={text("Replication configuration (JSON)")}
       value={jsonText}
       onChange={updateJsonText}
       disabled={saving}
     >
       {hasUnsupportedZone && (
         <UiInlineMessage tone="warning">
-          Destination.Zone is preserved in this draft, but the current BucketReef
-          replication API rejects it on Save.
+          {text("Destination.Zone is preserved in this draft, but the current BucketReef\n          replication API rejects it on Save.")}
         </UiInlineMessage>
       )}
     </BucketFeatureJsonPane>
@@ -394,10 +395,10 @@ export default function BucketReplicationFeature({
   return (
     <>
       <BucketFeatureSummarySection
-        title="Replication / multisite"
-        description="Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup."
+        title={text("Replication / multisite")}
+        description={text("Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup.")}
         visualState={visualState}
-        metadata={ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
+        metadata={`${ruleCount} ${text(ruleCount === 1 ? "rule" : "rules")}`}
         loading={loading}
         error={error}
         successMessage={status}
@@ -411,13 +412,13 @@ export default function BucketReplicationFeature({
             onClick={openEditorWithNew}
             disabled={featureDisabled || busy}
           >
-            Add rule
+            {text("Add rule")}
           </SettingsButton>
         }
         testId="bucket-feature-replication"
       >
         {blocked ? (
-          <EndpointFeatureDisabledNotice featureLabel="Bucket replication" />
+          <EndpointFeatureDisabledNotice featureLabel={text("Bucket replication")} />
         ) : (
           <div className="space-y-3">
             <DataTableShell
@@ -425,22 +426,22 @@ export default function BucketReplicationFeature({
               rows={summaryRows}
               rowKey={(row) => row.key}
               status={summaryRows.length === 0 ? "empty" : "ready"}
-              loadingMessage="Loading replication configuration..."
-              errorMessage="Unable to load replication configuration."
-              emptyMessage="No replication rules configured on this bucket."
+              loadingMessage={text("Loading replication configuration...")}
+              errorMessage={text("Unable to load replication configuration.")}
+              emptyMessage={text("No replication rules configured on this bucket.")}
               primaryColumnId="id"
               responsiveCards
               containerClassName="bucket-feature-collection-table"
             />
             <div className="bucket-feature-add-row">
-              <span>Enable, disable, remove or create ordinary replication rules here; advanced fields stay in the editor.</span>
+              <span>{text("Enable, disable, remove or create ordinary replication rules here; advanced fields stay in the editor.")}</span>
               <SettingsButton
                 type="button"
                 variant="secondary"
                 onClick={openEditorWithNew}
                 disabled={featureDisabled || busy}
               >
-                + Add rule
+                {text("+ Add rule")}
               </SettingsButton>
             </div>
           </div>
@@ -449,7 +450,7 @@ export default function BucketReplicationFeature({
 
       {editorOpen ? (
         <BucketFeatureEditorDialog
-          title="Edit replication configuration"
+          title={text("Edit replication configuration")}
           mode={editorMode}
           onModeChange={updateEditorMode}
           draftKey={draftSignature}

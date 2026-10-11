@@ -463,8 +463,6 @@ export default function UsersPage() {
     setPage(1);
   };
 
-  const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -905,7 +903,7 @@ export default function UsersPage() {
       setShowCreateModal(false);
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setActionError(extractError(err));
+        setActionError(extractApiError(err, "Unexpected error"));
       }
     } finally {
       savingRef.current = false;
@@ -1102,7 +1100,7 @@ export default function UsersPage() {
       }
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setActionError(extractError(err));
+        setActionError(extractApiError(err, "Unexpected error"));
       }
     } finally {
       savingRef.current = false;
@@ -1133,7 +1131,7 @@ export default function UsersPage() {
       setPendingDeleteUser(null);
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setActionError(extractError(err));
+        setActionError(extractApiError(err, "Unexpected error"));
       }
     } finally {
       setBusyId(null);

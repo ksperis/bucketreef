@@ -134,11 +134,11 @@ export default function TopbarWorkspaceSelector({
 
   if (!workspaceSwitcher) {
     return (
-      <div className="shell-control-static flex h-10 w-[140px] min-w-0 items-center gap-2 rounded-lg border px-3">
-        <span className="min-w-0 leading-[1.05]">
-          <span className="shell-muted-text block truncate text-[10px] font-medium">{text("workspace")}</span>
+      <div className="shell-control-static flex h-10 w-[140px] min-w-0 items-center gap-2 rounded-lg border px-3 md:w-[152px]">
+        <span className="flex min-w-0 flex-1 flex-col justify-center leading-[1.05]">
+          <span className="shell-muted-text hidden truncate text-[10px] font-medium md:block">{text("workspace")}</span>
           {triggerLabel && (
-            <span className="mt-0.5 block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]">
+            <span className="block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)] md:mt-0.5">
               {triggerLabel}
             </span>
           )}
@@ -148,7 +148,7 @@ export default function TopbarWorkspaceSelector({
   }
 
   return (
-    <div className="relative min-w-0 shrink-0">
+    <div className="relative w-[140px] min-w-0 md:w-[152px]">
       <button
         ref={triggerRef}
         type="button"
@@ -162,13 +162,13 @@ export default function TopbarWorkspaceSelector({
           event.preventDefault();
           setMenuOpen(true);
         }}
-        className={`shell-control inline-flex h-10 w-[140px] min-w-0 items-center rounded-lg border px-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
+        className={`shell-control inline-flex h-10 w-full min-w-0 items-center rounded-lg border px-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
           menuOpen ? "shell-control-active" : ""
         }`}
       >
-        <span className="min-w-0 flex-1 leading-tight">
-          <span className="shell-muted-text block truncate text-[10px] font-medium">{text("workspace")}</span>
-          <span className="mt-0.5 block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]">
+        <span className="flex min-w-0 flex-1 flex-col justify-center leading-tight">
+          <span className="shell-muted-text hidden truncate text-[10px] font-medium md:block">{text("workspace")}</span>
+          <span className="block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)] md:mt-0.5">
             {triggerLabel}
           </span>
         </span>

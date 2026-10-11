@@ -180,7 +180,7 @@ describe("S3UsersPage modal tabs", () => {
 
     const generalPanel = await screen.findByRole("tabpanel", { name: "General" });
     expect(
-      screen.getByText("Manage quotas, usage, UI associations, and privileged access for this RGW user.")
+      screen.getByText("Manage quotas, usage, UI associations, and Manager features for this RGW user.")
     ).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "User details" })).toBeInTheDocument();
     expect(within(generalPanel).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuenow", "50");
@@ -421,7 +421,7 @@ describe("S3UsersPage modal tabs", () => {
     );
   });
 
-  it("submits privileged access grants from the S3 user edit tab", async () => {
+  it("submits Manager feature grants from the S3 user edit tab", async () => {
     render(
       <MemoryRouter>
         <S3UsersPage />
@@ -430,11 +430,19 @@ describe("S3UsersPage modal tabs", () => {
 
     await screen.findByText("rgw-user-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
-    expect(screen.getByText("Privileged Ceph access")).toBeInTheDocument();
+    const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
+    const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
+    expect(within(extensionsSection).getByRole("switch", { name: "Access-key names and notes" })).toBeInTheDocument();
+    expect(within(extensionsSection).getByRole("switch", { name: "Access-key expiration" })).toBeInTheDocument();
+    expect(within(extensionsSection).queryByRole("switch", { name: "Bucket quota management" })).not.toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("switch", { name: "Bucket quota management" })).toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("switch", { name: "Ceph S3 User keys" })).toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("switch", { name: "Managed private connection provisioning" })).toBeInTheDocument();
+    expect(within(privilegedSection).queryByRole("switch", { name: "Access-key names and notes" })).not.toBeInTheDocument();
     expect(
-      screen.getByText("Ceph admin-API actions granted directly to this RGW user outside the Ceph Admin workspace.")
+      screen.getByText("Manager operations that require delegated Ceph/RGW administrative capabilities.")
     ).toBeInTheDocument();
     expect(
       screen.getByText("Allow Ceph bucket quota updates for this RGW User in Manager.")
@@ -465,7 +473,7 @@ describe("S3UsersPage modal tabs", () => {
     );
   });
 
-  it("lets ui_admin submit privileged access grants from S3 user edits", async () => {
+  it("lets ui_admin submit Manager feature grants from S3 user edits", async () => {
     setSessionUserCache({ id: 2, role: "ui_admin" });
 
     render(
@@ -476,7 +484,7 @@ describe("S3UsersPage modal tabs", () => {
 
     await screen.findByText("rgw-user-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
     const quotaCheckbox = screen.getByRole("switch", { name: /Bucket quota management/ });
     const keysCheckbox = screen.getByRole("switch", { name: /Ceph S3 User keys/ });

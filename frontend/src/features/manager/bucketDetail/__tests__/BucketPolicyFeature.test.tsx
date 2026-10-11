@@ -121,6 +121,25 @@ describe("BucketPolicyFeature", () => {
     expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
   });
 
+  it("keeps the Sid input mounted and focused while its value changes", async () => {
+    apiMocks.getBucketPolicy.mockResolvedValue({ policy: simplePolicy });
+    const user = userEvent.setup();
+    renderPolicyFeature();
+
+    const section = await screen.findByTestId("bucket-feature-policy");
+    await waitFor(() => expect(within(section).getByText("ReadObjects")).toBeInTheDocument());
+    await user.click(within(section).getByRole("button", { name: "Edit" }));
+    const editor = screen.getByRole("dialog", { name: "Edit bucket policy" });
+    const sid = within(editor).getByLabelText("Sid");
+
+    await user.click(sid);
+    await user.type(sid, "X");
+
+    expect(within(editor).getByLabelText("Sid")).toBe(sid);
+    expect(sid).toHaveFocus();
+    expect(sid).toHaveValue("ReadObjectsX");
+  });
+
   it("renders an empty policy collection and opens a new statement", async () => {
     apiMocks.getBucketPolicy.mockResolvedValue({ policy: null });
     const user = userEvent.setup();

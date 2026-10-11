@@ -32,9 +32,6 @@ class PortalSettingsMixin:
             raise ValueError("Persisted Portal settings override must be a JSON object")
         return PortalSettingsOverride.model_validate(payload, strict=True)
 
-    def _override_payload(self, override: PortalSettingsOverride) -> dict:
-        return override.model_dump(exclude_unset=True, exclude_none=True)
-
     def _persist_portal_settings_override(
         self,
         account: S3Account,
@@ -44,7 +41,7 @@ class PortalSettingsMixin:
         portal_collaborator_role_management_delegated: Optional[bool] = None,
         portal_collaborator_addition_delegated: Optional[bool] = None,
     ) -> None:
-        payload = self._override_payload(override)
+        payload = override.model_dump(exclude_unset=True, exclude_none=True)
         account.portal_settings_override = (
             json.dumps(payload, separators=(",", ":"), sort_keys=True)
             if payload
@@ -107,20 +104,17 @@ class PortalSettingsMixin:
                 override.bucket_defaults,
             )
 
-    def _effective_portal_settings(self, account: S3Account, base_settings: Optional[PortalSettings] = None) -> PortalSettings:
-        base = base_settings or self._portal_settings()
-        override = self._load_portal_settings_override(account)
-        effective = base.model_copy(deep=True)
-        self._apply_override(effective, override)
-        return effective
-
     def get_effective_portal_settings(
         self,
         account: S3Account,
         *,
         base_settings: Optional[PortalSettings] = None,
     ) -> PortalSettings:
-        return self._effective_portal_settings(account, base_settings=base_settings)
+        base = base_settings or self._portal_settings()
+        override = self._load_portal_settings_override(account)
+        effective = base.model_copy(deep=True)
+        self._apply_override(effective, override)
+        return effective
 
     def get_portal_account_settings(self, account: S3Account) -> PortalAccountSettings:
         base = self._portal_settings()

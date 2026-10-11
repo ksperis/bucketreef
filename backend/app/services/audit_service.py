@@ -68,7 +68,7 @@ class AuditService:
             return resolved_account_id, account_name
 
         resolved_account_name = account.name if account.name else account_name
-        raw_account_id = getattr(account, "id", None)
+        raw_account_id = account.id
         if isinstance(raw_account_id, int) and raw_account_id > 0:
             return raw_account_id, resolved_account_name
         return None, resolved_account_name

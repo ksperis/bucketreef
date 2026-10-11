@@ -243,6 +243,26 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     runManagerBucketCompareActionMock.mockResolvedValue(buildActionResult());
   });
 
+  it("shows missing target buckets only after selecting a target context", async () => {
+    listBucketsMock.mockResolvedValueOnce([]);
+    const user = userEvent.setup();
+    render(
+      <ManagerBucketCompareModal
+        sourceContextId="ctx-source"
+        sourceContextName="Source context"
+        sourceBuckets={["bucket-a"]}
+        contexts={contexts}
+        onClose={() => undefined}
+      />
+    );
+
+    expect(screen.queryByText(/target bucket does not exist with the same name/i)).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Target context"), "ctx-target");
+
+    expect(await screen.findByText(/1 target bucket does not exist with the same name/i)).toBeInTheDocument();
+  });
+
   it("keeps pair progress indeterminate until the comparison settles", async () => {
     let resolveComparison!: (result: ManagerBucketCompareResult) => void;
     compareManagerBucketPairMock.mockReturnValue(new Promise((resolve) => { resolveComparison = resolve; }));

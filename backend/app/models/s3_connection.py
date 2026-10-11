@@ -29,10 +29,11 @@ S3_CONNECTION_ENDPOINT_FIELDS = S3_CONNECTION_CUSTOM_ENDPOINT_FIELDS | {
 
 class _CanonicalEndpointPayload(ApiModel):
     endpoint_conflict_scope: ClassVar[str]
+    storage_endpoint_id: Optional[int] = None
 
     @model_validator(mode="after")
     def ensure_canonical_endpoint(self) -> Self:
-        if getattr(self, "storage_endpoint_id", None) is None:
+        if self.storage_endpoint_id is None:
             return self
         conflicting = sorted(
             S3_CONNECTION_CUSTOM_ENDPOINT_FIELDS & self.model_fields_set
@@ -76,7 +77,6 @@ class S3ConnectionCreate(_CanonicalEndpointPayload):
 
     name: str
     provider_hint: Optional[str] = None
-    storage_endpoint_id: Optional[int] = None
     access_manager: bool = False
     access_browser: bool = True
     credential_owner_type: Optional[CredentialOwnerType] = None
@@ -95,7 +95,6 @@ class S3ConnectionUpdate(_CanonicalEndpointPayload):
 
     name: Optional[str] = None
     provider_hint: Optional[str] = None
-    storage_endpoint_id: Optional[int] = None
     is_active: Optional[bool] = None
     access_manager: Optional[bool] = None
     access_browser: Optional[bool] = None
@@ -124,7 +123,6 @@ class S3ConnectionCredentialsUpdate(ApiModel):
 class S3ConnectionCredentialsValidationRequest(_CanonicalEndpointPayload):
     endpoint_conflict_scope = "S3 credential validation"
 
-    storage_endpoint_id: Optional[int] = None
     endpoint_url: Optional[str] = None
     region: Optional[str] = None
     access_key_id: str

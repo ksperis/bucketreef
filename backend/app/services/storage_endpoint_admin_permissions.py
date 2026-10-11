@@ -3,6 +3,7 @@
 import logging
 import re
 from collections.abc import Callable, Mapping
+from typing import Literal
 
 from app.db import StorageEndpoint, StorageProvider
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
@@ -12,6 +13,16 @@ from app.utils.storage_endpoint_features import resolve_admin_endpoint
 logger = logging.getLogger(__name__)
 
 RGWAdminClientFactory = Callable[..., RGWAdminClient]
+AdminOpsPermissionName = Literal[
+    "users_read",
+    "users_write",
+    "buckets_read",
+    "buckets_write",
+    "accounts_read",
+    "accounts_write",
+    "usage_read",
+    "usage_write",
+]
 
 
 def _empty_permissions() -> StorageEndpointAdminOpsPermissions:
@@ -151,7 +162,11 @@ def has_account_provisioning_permissions(
     )
 
 
-def require_endpoint_permissions(endpoint, *required, client=None):
+def require_endpoint_permissions(
+    endpoint: StorageEndpoint,
+    *required: AdminOpsPermissionName,
+    client: RGWAdminClient | None = None,
+) -> None:
     from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
     admin = client or get_endpoint_admin_rgw_client(endpoint)
     payload = admin.get_user_by_access_key(endpoint.admin_access_key, allow_not_found=True)

@@ -54,6 +54,30 @@ def test_rgw_account_id_prefix_defaults_to_80_and_requires_one_to_three_digits()
             AppSettings(general={"rgw_account_id_prefix": value})
 
 
+def test_documentation_base_url_defaults_normalizes_and_validates():
+    assert AppSettings().general.documentation_base_url == "https://docs.bucketreef.ksperis.com"
+    assert (
+        AppSettings(general={"documentation_base_url": " https://docs.example.com/bucketreef/ "})
+        .general.documentation_base_url
+        == "https://docs.example.com/bucketreef"
+    )
+    assert AppSettings(general={"documentation_base_url": "/docs/"}).general.documentation_base_url == "/docs"
+    assert (
+        AppSettings(general={"documentation_base_url": "   "}).general.documentation_base_url
+        == "https://docs.bucketreef.ksperis.com"
+    )
+
+    for value in (
+        "docs.example.com",
+        "//docs.example.com",
+        "ftp://docs.example.com",
+        "https://docs.example.com/?tenant=1",
+        "/docs#section",
+    ):
+        with pytest.raises(ValidationError):
+            AppSettings(general={"documentation_base_url": value})
+
+
 def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, db_session):
     settings_path = tmp_path / "app_settings.json"
     persisted = AppSettings()
@@ -218,6 +242,25 @@ def test_branding_settings_reject_invalid_logo_url():
 def test_manager_ceph_s3_user_keys_flag_default_enabled():
     settings = AppSettings()
     assert settings.general.manager_ceph_s3_user_keys_enabled is True
+
+
+def test_fresh_settings_enable_access_key_extensions_and_preserve_disabled_choices(monkeypatch, tmp_path, db_session):
+    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: tmp_path / "missing.json")
+    monkeypatch.setattr(app_settings_service, "get_settings", _runtime_settings)
+    _use_settings_db(monkeypatch, db_session)
+
+    settings = app_settings_service.load_app_settings()
+    fields = ("manager_access_key_metadata_enabled", "manager_access_key_expiration_enabled")
+    for field in fields:
+        assert getattr(settings.general, field) is True
+        assert _raw_db_settings(db_session)["general"][field] is True
+        setattr(settings.general, field, False)
+
+    app_settings_service.save_app_settings(settings)
+    reloaded = app_settings_service.load_app_settings()
+    for field in fields:
+        assert getattr(reloaded.general, field) is False
+        assert _raw_db_settings(db_session)["general"][field] is False
 
 
 def test_managed_private_connection_provisioning_flag_default_disabled():

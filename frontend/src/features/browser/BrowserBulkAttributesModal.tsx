@@ -16,6 +16,7 @@ import {
   validateBrowserBulkAttributesDraft,
   type BrowserBulkAttributesDraft,
 } from "./useBrowserBulkAttributes";
+import { useBrowserI18n } from "./browserI18n";
 
 const metadataFields = [
   ["contentType", "Content-Type"],
@@ -62,6 +63,7 @@ export default function BrowserBulkAttributesModal({
   setDraft,
   summary,
 }: BrowserBulkAttributesModalProps) {
+  const { text } = useBrowserI18n();
   const updateDraft = <Key extends keyof BrowserBulkAttributesDraft>(
     key: Key,
     value: BrowserBulkAttributesDraft[Key],
@@ -77,59 +79,59 @@ export default function BrowserBulkAttributesModal({
   const draftValidationError = validateBrowserBulkAttributesDraft(draft);
 
   return (
-    <SettingsFormDialog title="Bulk attributes" draftKey={stableSignature(draft)}
+    <SettingsFormDialog title={text("Bulk attributes")} draftKey={stableSignature(draft)}
       busy={loading} error={error} onSubmit={onApply} onClose={onClose}
       submitDisabled={Boolean(draftValidationError)}
       submitLabel={loading ? "Updating..." : "Apply changes"} maxWidthClass="max-w-3xl">
-      <InlineSummary label="Targets" items={[
-        { label: "Files", value: fileCount },
-        { label: "Folders", value: folderCount, hint: folderCount > 0 ? "Folders expanded to files." : undefined },
+      <InlineSummary label={text("Targets")} items={[
+        { label: text("Files"), value: fileCount },
+        { label: text("Folders"), value: folderCount, hint: folderCount > 0 ? "Folders expanded to files." : undefined },
       ]} />
       {summary && <UiInlineMessage tone="success" role="status">{summary}</UiInlineMessage>}
       {draftValidationError && (
         <UiInlineMessage tone="info">{draftValidationError}</UiInlineMessage>
       )}
       <div className="settings-stack">
-        <AttributeOption label="Metadata headers" checked={draft.applyMetadata} onChange={(value) => updateDraft("applyMetadata", value)}>
+        <AttributeOption label={text("Metadata headers")} checked={draft.applyMetadata} onChange={(value) => updateDraft("applyMetadata", value)}>
           <div className="grid gap-3 sm:grid-cols-2">
             {metadataFields.map(([key, label]) => <UiInput key={key} label={label} placeholder={label}
               type={key === "expires" ? "datetime-local" : "text"}
               value={draft.metadata[key]} onChange={(event) => updateMetadata(key, event.target.value)} />)}
           </div>
-          <UiTextarea label="Custom metadata" hint="One key=value pair per line." rows={3}
+          <UiTextarea label={text("Custom metadata")} hint={text("One key=value pair per line.")} rows={3}
             value={draft.metadataEntries} onChange={(event) => updateDraft("metadataEntries", event.target.value)} />
         </AttributeOption>
-        <AttributeOption label="Tags (key=value per line)" checked={draft.applyTags} onChange={(value) => updateDraft("applyTags", value)}>
-          <UiTextarea label="Tags" rows={3} value={draft.tags} onChange={(event) => updateDraft("tags", event.target.value)} />
+        <AttributeOption label={text("Tags (key=value per line)")} checked={draft.applyTags} onChange={(value) => updateDraft("applyTags", value)}>
+          <UiTextarea label={text("Tags")} rows={3} value={draft.tags} onChange={(event) => updateDraft("tags", event.target.value)} />
         </AttributeOption>
-        <AttributeOption label="Storage class" checked={draft.applyStorageClass} onChange={(value) => updateDraft("applyStorageClass", value)}>
-          <UiSelect label="Storage class" value={draft.storageClass} onChange={(event) => updateDraft("storageClass", event.target.value)}>
-            <option value="">Select storage class</option>
+        <AttributeOption label={text("Storage class")} checked={draft.applyStorageClass} onChange={(value) => updateDraft("applyStorageClass", value)}>
+          <UiSelect label={text("Storage class")} value={draft.storageClass} onChange={(event) => updateDraft("storageClass", event.target.value)}>
+            <option value="">{text("Select storage class")}</option>
             {storageClassOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </UiSelect>
         </AttributeOption>
-        <AttributeOption label="ACL" checked={draft.applyAcl} onChange={(value) => updateDraft("applyAcl", value)}>
-          <UiSelect label="ACL" value={draft.aclValue} onChange={(event) => updateDraft("aclValue", event.target.value)}>
+        <AttributeOption label={text("ACL")} checked={draft.applyAcl} onChange={(value) => updateDraft("applyAcl", value)}>
+          <UiSelect label={text("ACL")} value={draft.aclValue} onChange={(event) => updateDraft("aclValue", event.target.value)}>
             {aclOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </UiSelect>
         </AttributeOption>
-        <AttributeOption label="Legal hold" checked={draft.applyLegalHold} onChange={(value) => updateDraft("applyLegalHold", value)}>
-          <UiSelect label="Legal hold status" value={draft.legalHoldStatus}
+        <AttributeOption label={text("Legal hold")} checked={draft.applyLegalHold} onChange={(value) => updateDraft("applyLegalHold", value)}>
+          <UiSelect label={text("Legal hold status")} value={draft.legalHoldStatus}
             onChange={(event) => updateDraft("legalHoldStatus", event.target.value as "ON" | "OFF")}>
-            <option value="OFF">OFF</option><option value="ON">ON</option>
+            <option value="OFF">{text("OFF")}</option><option value="ON">{text("ON")}</option>
           </UiSelect>
         </AttributeOption>
-        <AttributeOption label="Retention" checked={draft.applyRetention} onChange={(value) => updateDraft("applyRetention", value)}>
+        <AttributeOption label={text("Retention")} checked={draft.applyRetention} onChange={(value) => updateDraft("applyRetention", value)}>
           <div className="grid gap-3 sm:grid-cols-2">
-            <UiSelect label="Retention mode" value={draft.retentionMode}
+            <UiSelect label={text("Retention mode")} value={draft.retentionMode}
               onChange={(event) => updateDraft("retentionMode", event.target.value as "" | "GOVERNANCE" | "COMPLIANCE")}>
-              <option value="">Select mode</option><option value="GOVERNANCE">GOVERNANCE</option><option value="COMPLIANCE">COMPLIANCE</option>
+            <option value="">{text("Select mode")}</option><option value="GOVERNANCE">GOVERNANCE</option><option value="COMPLIANCE">COMPLIANCE</option>
             </UiSelect>
-            <UiInput label="Retain until" type="datetime-local" value={draft.retentionDate}
+            <UiInput label={text("Retain until")} type="datetime-local" value={draft.retentionDate}
               onChange={(event) => updateDraft("retentionDate", event.target.value)} />
           </div>
           <UiCheckboxField className="settings-choice" checked={draft.retentionBypass}
-            onChange={(event) => updateDraft("retentionBypass", event.target.checked)}>Bypass governance</UiCheckboxField>
+            onChange={(event) => updateDraft("retentionBypass", event.target.checked)}>{text("Bypass governance")}</UiCheckboxField>
         </AttributeOption>
       </div>
     </SettingsFormDialog>

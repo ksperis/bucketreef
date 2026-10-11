@@ -36,6 +36,7 @@ import type {
   OperationItem,
   UploadQueueItem,
 } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationSection = "queued" | "completed" | "failed";
 type OperationFilter = "active" | OperationSection;
@@ -80,6 +81,7 @@ export function useBrowserOperationOverview({
   setCopyDetails,
   setStatusMessage,
 }: UseBrowserOperationOverviewOptions) {
+  const { text } = useBrowserI18n();
   const [operationFilter, setOperationFilter] =
     useState<OperationFilter | null>(null);
   const [expandedOperationGroups, setExpandedOperationGroups] = useState<
@@ -282,7 +284,7 @@ export function useBrowserOperationOverview({
         uploadGroups,
       });
       if (!exported) {
-        setStatusMessage("No details available for this operation.");
+        setStatusMessage(text("No details available for this operation."));
         return;
       }
 
@@ -300,6 +302,7 @@ export function useBrowserOperationOverview({
       operations,
       setStatusMessage,
       uploadGroups,
+    text,
     ],
   );
   const clearFinishedOperations = useCallback(() => {

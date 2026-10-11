@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.db import S3Account, StorageEndpoint
-from app.models.portal_storage_spaces import PortalStorageSpaceIcon
+from app.models.portal_storage_spaces import PortalStorageSpaceIcon, PortalStorageSpaceSummary
 from app.services.browser import _shared as browser_shared
 from app.services.browser import sorted_listing
 from app.services.browser_service import BrowserService
@@ -56,10 +56,11 @@ def test_listportal_storage_spaces_includes_descriptions():
         secret_key="secret-key",
     )
     account.portal_storage_spaces = [
-        SimpleNamespace(
+        PortalStorageSpaceSummary(
             id="space-1",
             internal_bucket_name="internal-space-1",
             name="Research Data",
+            role="Editor",
             description="Shared research datasets",
             icon=PortalStorageSpaceIcon(source="preset", preset="database"),
         )

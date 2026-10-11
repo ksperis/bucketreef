@@ -8,6 +8,7 @@ from typing import Any, Callable, Optional
 from app.core.sensitive_data import sanitized_error_log_detail, sanitize_error_detail
 from app.models.bucket_migration import BucketMigrationDiagnostic
 
+from .diagnostics import MigrationPermissionCheckError
 from .precheck_inspection import BucketMigrationInspector
 from .precheck_rules import BucketMigrationPrecheckRules, PrecheckItemSafety
 
@@ -227,14 +228,16 @@ class BucketMigrationPrecheckPlanner:
                 context, item.source_bucket
             )
         except Exception as exc:  # noqa: BLE001
+            permission = exc.permission if isinstance(exc, MigrationPermissionCheckError) else None
+            details = exc.details if isinstance(exc, MigrationPermissionCheckError) else None
             add_check(
                 code="source_access_failed",
                 severity="error",
                 blocking=True,
                 scope="source_bucket",
                 message=f"Source bucket read/list check failed: {exc}",
-                permission=getattr(exc, "permission", None),
-                details=getattr(exc, "details", None),
+                permission=permission,
+                details=details,
             )
             return _SourceInspection(access_ok=False, object_count=None, profile=None)
 
@@ -849,7 +852,7 @@ class BucketMigrationPrecheckPlanner:
             planned.report["state"] = (
                 "unverified"
                 if only_active_pending
-                and not getattr(self._service, "_preparation_active_checks", False)
+                and not self._service._preparation_active_checks
                 else (
                     "blocked"
                     if planned.blocking_errors

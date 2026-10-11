@@ -4,6 +4,7 @@ import { ApiError } from "../api/client";
 import {
   classifyApiError,
   extractApiError,
+  extractApiErrorCode,
   isApiFeatureNotImplemented,
   isCancelledError,
   isRecentWebAuthnRequired,
@@ -25,6 +26,26 @@ describe("extractApiError", () => {
     });
 
     expect(extractApiError(error, "Fallback message")).toBe("Forbidden by policy");
+  });
+
+  it("reads structured backend detail codes and messages", () => {
+    const error = new ApiError("Request failed with status 409", {
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            code: "bucket_not_empty",
+            message: "Bucket 'archive' is not empty. Empty it before deleting.",
+          },
+        },
+        headers: {},
+      },
+    });
+
+    expect(extractApiErrorCode(error)).toBe("bucket_not_empty");
+    expect(extractApiError(error, "Fallback message")).toBe(
+      "Bucket 'archive' is not empty. Empty it before deleting.",
+    );
   });
 
   it("formats FastAPI validation details with their payload location", () => {

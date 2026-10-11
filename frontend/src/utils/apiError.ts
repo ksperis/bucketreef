@@ -51,6 +51,14 @@ export function extractApiError(error: unknown, fallback: string): string {
   return classifyApiError(error, fallback).message;
 }
 
+export function extractApiErrorCode(error: unknown): string | null {
+  if (!isApiError(error)) return null;
+  const detail = (error.response?.data as { detail?: unknown } | undefined)?.detail;
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const code = (detail as { code?: unknown }).code;
+  return typeof code === "string" && code.trim().length > 0 ? code.trim() : null;
+}
+
 export function isRecentWebAuthnRequired(error: unknown): boolean {
   if (!isApiError(error) || error.response?.status !== 403) return false;
   const detail = (error.response.data as { detail?: unknown } | undefined)?.detail;
@@ -89,6 +97,14 @@ function formatFastApiValidationDetail(detail: unknown, fallback: string): strin
   return `${visibleIssues.join(" · ")}${suffix}`;
 }
 
+function formatStructuredApiDetail(detail: unknown, fallback: string): string | null {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const message = (detail as { message?: unknown }).message;
+  return typeof message === "string" && message.trim().length > 0
+    ? sanitizeErrorMessage(message, fallback)
+    : null;
+}
+
 export function classifyApiError(error: unknown, fallback: string): ApiFailure {
   if (isApiError(error)) {
     const status = error.response?.status ?? null;
@@ -98,7 +114,7 @@ export function classifyApiError(error: unknown, fallback: string): ApiFailure {
     const safeDetail =
       typeof detail === "string" && detail.trim().length > 0
         ? sanitizeErrorMessage(detail, fallback)
-        : formatFastApiValidationDetail(detail, fallback);
+        : formatFastApiValidationDetail(detail, fallback) ?? formatStructuredApiDetail(detail, fallback);
     if (
       code === "ECONNABORTED" ||
       code === "ETIMEDOUT" ||

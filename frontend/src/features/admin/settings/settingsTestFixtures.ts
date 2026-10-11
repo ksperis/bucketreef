@@ -5,6 +5,7 @@ export function createAppSettings(
   return {
     general: {
       rgw_account_id_prefix: "80",
+      documentation_base_url: "https://docs.bucketreef.ksperis.com",
       managed_private_connection_provisioning_enabled: false,
       require_passkey_for_admins: false,
       require_passkey_for_users: false,
@@ -30,6 +31,8 @@ export function createAppSettings(
       bucket_usage_stats_enabled: true,
       bucket_quota_management_enabled: true,
       manager_ceph_s3_user_keys_enabled: true,
+      manager_access_key_metadata_enabled: false,
+      manager_access_key_expiration_enabled: false,
       allow_login_access_keys: false,
       allow_login_endpoint_list: false,
       allow_login_custom_endpoint: false,

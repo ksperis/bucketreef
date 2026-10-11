@@ -17,7 +17,9 @@ from app.routers.dependencies import (
     is_manager_bucket_quota_available,
     is_manager_rgw_access_key_management_available,
 )
+from app.services.resource_name_validation import naming_validation_profile
 from app.services.app_settings_service import load_app_settings
+from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_users_service import get_s3_users_service
@@ -260,6 +262,8 @@ def get_manager_context(
         if isinstance(actor, User)
         else False
     )
+    manager_access_key_metadata_enabled = AccessKeyMetadataService(db).metadata_enabled_for_context(account)
+    manager_access_key_expiration_enabled = AccessKeyMetadataService(db).expiration_enabled_for_context(account)
     manager_private_access_enabled = _manager_private_access_enabled(
         account,
         actor,
@@ -278,6 +282,7 @@ def get_manager_context(
     )
 
     return ManagerContext(
+        naming_validation_profile=naming_validation_profile(account),
         access_mode=access_mode,
         context_kind=("connection" if access_mode == "connection" else "account"),
         iam_identity=iam_identity,
@@ -287,6 +292,8 @@ def get_manager_context(
         manager_browser_message=browser_state.message,
         manager_bucket_quota_enabled=manager_bucket_quota_enabled,
         manager_ceph_keys_enabled=manager_ceph_keys_enabled,
+        manager_access_key_metadata_enabled=manager_access_key_metadata_enabled,
+        manager_access_key_expiration_enabled=manager_access_key_expiration_enabled,
         manager_private_access_enabled=manager_private_access_enabled,
         quota_max_size_gb=limits.quota_max_size_gb,
         quota_max_objects=limits.quota_max_objects,

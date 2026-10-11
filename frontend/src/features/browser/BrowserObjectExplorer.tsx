@@ -29,6 +29,7 @@ import {
 } from "./browserActions";
 import { isBrowserInteractiveTarget } from "./browserObjectItemPresentation";
 import type { BrowserItem } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserObjectTableConfig = {
   scaffold: Omit<
@@ -142,6 +143,7 @@ export default function BrowserObjectExplorer({
   onOpenActions,
   onLoadMore,
 }: BrowserObjectExplorerProps) {
+  const { text, intlLocale } = useBrowserI18n();
   const objectTableColSpan = 3 + table.scaffold.columns.length;
   return (
     <div
@@ -159,11 +161,11 @@ export default function BrowserObjectExplorer({
       {dragging && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/75 text-center ui-body font-semibold text-slate-700 backdrop-blur-sm dark:bg-slate-950/70 dark:text-slate-100">
           <div className="rounded-xl border border-primary/20 bg-white/90 px-5 py-4 shadow-sm dark:border-primary-500/30 dark:bg-slate-900/85">
-            <div>Drop files or folders to upload</div>
+            <div>{text("Drop files or folders to upload")}</div>
             <div className="mt-1 ui-caption font-normal text-slate-500 dark:text-slate-400">
               {bucketName
                 ? `${bucketName}/${normalizedPrefix}`
-                : `Select a ${workspaceNoun} first`}
+                : text("Select a {workspace} first", { workspace: text(workspaceNoun) })}
             </div>
           </div>
         </div>
@@ -172,11 +174,11 @@ export default function BrowserObjectExplorer({
         <div className="shrink-0 border-b border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className={searchLabelClasses}>Search</p>
+              <p className={searchLabelClasses}>{text("Search")}</p>
               <p className="mt-1 ui-body font-semibold text-slate-900 dark:text-slate-100">
                 {loading
-                  ? "Searching..."
-                  : `${items.length} result${items.length === 1 ? "" : "s"}`}
+                  ? text("Searching...")
+                  : text(items.length === 1 ? "{count} result" : "{count} results", { count: items.length.toLocaleString(intlLocale) })}
               </p>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -207,13 +209,12 @@ export default function BrowserObjectExplorer({
         onClick={onListBackgroundClick}
         onKeyDown={onListKeyDown}
         tabIndex={0}
-        aria-label="Objects list"
+        aria-label={text("Objects list")}
       >
         {loading && items.length > 0 && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-white/45 pt-5 ui-caption font-semibold text-slate-600 backdrop-blur-[1px] dark:bg-slate-900/40 dark:text-slate-200">
             <span className="rounded-md border border-slate-200 bg-white/90 px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
-              Refreshing objects...
-            </span>
+              {text("Refreshing objects...")}</span>
           </div>
         )}
         {mobile ? (
@@ -248,22 +249,22 @@ export default function BrowserObjectExplorer({
             {loading && items.length === 0 && (
               <TableEmptyState
                 colSpan={objectTableColSpan}
-                message={`Loading ${workspaceObjectNounPlural}...`}
+                message={text("Loading {objects}...", { objects: text(workspaceObjectNounPlural) })}
                 className="py-10 text-center"
               />
             )}
             {!loading && !bucketName && (
               <TableEmptyState
                 colSpan={objectTableColSpan}
-                message={`Select a ${workspaceNoun} to browse ${workspaceObjectNounPlural}.`}
+                message={text("Select a {workspace} to browse {objects}.", { workspace: text(workspaceNoun), objects: text(workspaceObjectNounPlural) })}
                 className="py-10 text-center"
               />
             )}
             {!loading && bucketName && issue && items.length === 0 && (
               <TableEmptyState
                 colSpan={objectTableColSpan}
-                title={issue.title}
-                description={issue.description}
+                title={text(issue.title)}
+                description={typeof issue.description === "string" ? text(issue.description) : issue.description}
                 tone="error"
                 className="py-10 text-center"
               />
@@ -273,10 +274,10 @@ export default function BrowserObjectExplorer({
                 colSpan={objectTableColSpan}
                 message={
                   hasActiveSearchFilters
-                    ? "No objects matched this search."
+                    ? text("No objects matched this search.")
                     : showDeletedObjects && deletedObjectsIsTruncated
-                      ? "No deleted files found yet. Continue loading to search more history."
-                      : "No objects found for this path."
+                      ? text("No deleted files found yet. Continue loading to search more history.")
+                      : text("No objects found for this path.")
                 }
                 className="py-10 text-center"
               />
@@ -337,10 +338,10 @@ export default function BrowserObjectExplorer({
             disabled={loadingMore}
           >
             {loadingMore
-              ? "Loading..."
+              ? text("Loading...")
               : !objectsIsTruncated && deletedObjectsIsTruncated
-                ? "Continue loading deleted files"
-                : "Load more"}
+                ? text("Continue loading deleted files")
+                : text("Load more")}
           </ListActionButton>
         </div>
       )}

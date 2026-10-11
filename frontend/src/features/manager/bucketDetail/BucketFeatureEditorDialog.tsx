@@ -5,6 +5,7 @@
 import { useId, type ReactNode } from "react";
 import PageTabs from "../../../components/PageTabs";
 import SettingsFormDialog from "../../../components/settings/SettingsFormDialog";
+import { useManagerI18n } from "../managerI18n";
 
 export type BucketFeatureEditorMode = "visual" | "json";
 
@@ -37,6 +38,7 @@ export default function BucketFeatureEditorDialog({
   onSave,
   onClose,
 }: BucketFeatureEditorDialogProps) {
+  const { text } = useManagerI18n();
   const tabsId = useId();
   return (
     <SettingsFormDialog
@@ -44,8 +46,8 @@ export default function BucketFeatureEditorDialog({
       draftKey={draftKey}
       busy={busy}
       submitDisabled={!dirty || saveDisabled}
-      error={error}
-      submitLabel="Save"
+      error={error ? text(error) : error}
+      submitLabel={text("Save")}
       onSubmit={onSave}
       onClose={onClose}
       className="bucket-feature-editor-dialog"
@@ -54,13 +56,13 @@ export default function BucketFeatureEditorDialog({
     >
       <PageTabs
         tabs={[
-          { id: "visual", label: "Visual", content: visualContent },
-          { id: "json", label: "JSON", content: jsonContent },
+          { id: "visual", label: text("Visual"), content: visualContent },
+          { id: "json", label: text("JSON"), content: jsonContent },
         ]}
         activeTab={mode}
         onChange={(nextMode) => onModeChange(nextMode as BucketFeatureEditorMode)}
         variant="line"
-        ariaLabel={`${title} editor mode`}
+        ariaLabel={text("{title} editor mode", { title })}
         idPrefix={tabsId}
       />
     </SettingsFormDialog>

@@ -178,4 +178,4 @@ CSV files display an inert table, including quoted and multiline cells. JSON fil
 
 Transfers show their progress and results during the current session. Stop cancels an active operation. Failed transfers can be started again through the normal upload, download or clipboard actions; no failed-item replay or persistent history is kept.
 
-Closing or reloading the Browser interrupts transfers. Multipart uploads are not resumable after returning. Retired local recovery records are cleared without aborting remote uploads; authorized operators can inspect and abort orphaned multiparts through the existing multipart tools.
+Closing or reloading the Browser interrupts transfers. Multipart uploads are not resumable after returning. BucketReef does not read, open, or maintain the retired local recovery database; authorized operators can inspect and abort orphaned multiparts through the existing multipart tools.

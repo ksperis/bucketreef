@@ -14,8 +14,11 @@ from app.core.sensitive_data import sanitize_error_detail
 router = APIRouter(prefix="/admin/key-rotation", tags=["admin-key-rotation"])
 
 
-def get_service(db: Session = Depends(get_db)) -> KeyRotationService:
-    return get_key_rotation_service(db)
+def get_service(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_super_admin),
+) -> KeyRotationService:
+    return get_key_rotation_service(db, actor=current_user)
 
 
 @router.post("", response_model=KeyRotationResponse)
@@ -26,7 +29,6 @@ def rotate_keys(
     audit: AuditService = Depends(get_audit_service),
 ) -> KeyRotationResponse:
     try:
-        service.actor = current_user
         result = service.rotate_keys(payload)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc

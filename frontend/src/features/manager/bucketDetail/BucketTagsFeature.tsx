@@ -11,6 +11,7 @@ import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketTagsController } from "./useBucketTagsController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketTagsController = ReturnType<typeof useBucketTagsController>;
 
@@ -23,6 +24,7 @@ export default function BucketTagsFeature({
   controller,
   onRequestClear,
 }: BucketTagsFeatureProps) {
+  const { text } = useManagerI18n();
   const [editorOpen, setEditorOpen] = useState(false);
   const {
     add,
@@ -54,23 +56,25 @@ export default function BucketTagsFeature({
   return (
     <>
       <BucketFeatureSection
-        title="Bucket tags"
-        description="S3 key/value metadata attached to the bucket."
+        title={text("Bucket tags")}
+        description={text("S3 key/value metadata attached to the bucket.")}
         mode="graphical"
         visualState={visualState}
-        stateLabel={dirty ? undefined : configured ? `${visibleTags.length} ${visibleTags.length === 1 ? "tag" : "tags"}` : "Inactive"}
+        stateLabel={dirty ? undefined : configured
+          ? text("{count} {tagLabel}", { count: visibleTags.length, tagLabel: text(visibleTags.length === 1 ? "tag" : "tags") })
+          : text("Inactive")}
         successMessage={status}
         busy={loading}
         testId="bucket-feature-tags"
       >
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
         {loading ? (
-          <UiInlineMessage>Loading bucket tags...</UiInlineMessage>
+          <UiInlineMessage>{text("Loading bucket tags...")}</UiInlineMessage>
         ) : (
           <div className="bucket-feature-summary-row">
             <div className="flex min-w-0 flex-wrap gap-1.5">
               {visibleTags.length === 0 ? (
-                <span className="bucket-feature-summary-muted">No tags configured on this bucket.</span>
+                <span className="bucket-feature-summary-muted">{text("No tags configured on this bucket.")}</span>
               ) : (
                 <>
                   {visibleTags.slice(0, 3).map((tag) => (
@@ -88,7 +92,7 @@ export default function BucketTagsFeature({
               onClick={() => setEditorOpen(true)}
               disabled={notImplemented || loading || saving || clearing}
             >
-              {configured ? "Edit" : "Configure"}
+              {text(configured ? "Edit" : "Configure")}
             </SettingsButton>
           </div>
         )}
@@ -96,7 +100,7 @@ export default function BucketTagsFeature({
 
       {editorOpen ? (
         <BucketFeatureSettingsDialog
-          title="Edit bucket tags"
+          title={text("Edit bucket tags")}
           dirty={dirty}
           busy={saving || clearing}
           error={error}
@@ -109,13 +113,13 @@ export default function BucketTagsFeature({
             variant="danger"
             disabled={notImplemented || loading || saving || clearing || tags.length === 0}
           >
-            {clearing ? "Clearing..." : "Clear"}
+            {text(clearing ? "Clearing..." : "Clear")}
           </SettingsButton>
           }
         >
           <div className="space-y-2">
           {tags.length === 0 && (
-            <p className="settings-description">No tags configured on this bucket.</p>
+            <p className="settings-description">{text("No tags configured on this bucket.")}</p>
           )}
           {tags.map((tag) => (
             <div
@@ -126,17 +130,17 @@ export default function BucketTagsFeature({
               <SettingsInput
                 type="text"
                 value={tag.key}
-                aria-label="Tag key"
+                aria-label={text("Tag key")}
                 onChange={(event) => update(tag.uiId, { key: event.target.value })}
-                placeholder="Tag key"
+                placeholder={text("Tag key")}
                 disabled={notImplemented || saving || clearing}
               />
               <SettingsInput
                 type="text"
                 value={tag.value}
-                aria-label="Tag value"
+                aria-label={text("Tag value")}
                 onChange={(event) => update(tag.uiId, { value: event.target.value })}
-                placeholder="Tag value"
+                placeholder={text("Tag value")}
                 disabled={notImplemented || saving || clearing}
               />
               <SettingsButton
@@ -145,7 +149,7 @@ export default function BucketTagsFeature({
                 variant="secondary"
                 disabled={notImplemented || saving || clearing}
               >
-                Remove
+                {text("Remove")}
               </SettingsButton>
             </div>
           ))}
@@ -156,9 +160,9 @@ export default function BucketTagsFeature({
               variant="secondary"
               disabled={notImplemented || saving || clearing}
             >
-              Add tag
+              {text("Add tag")}
             </SettingsButton>
-            <p className="settings-description">Tag keys must be unique and cannot be empty.</p>
+            <p className="settings-description">{text("Tag keys must be unique and cannot be empty.")}</p>
           </div>
         </div>
         </BucketFeatureSettingsDialog>

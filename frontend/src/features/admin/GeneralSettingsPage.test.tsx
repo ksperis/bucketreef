@@ -53,6 +53,7 @@ function buildSettings(): AppSettings {
   return {
     general: {
       rgw_account_id_prefix: "80",
+      documentation_base_url: "https://docs.bucketreef.ksperis.com",
       manager_enabled: true,
       ceph_admin_enabled: false,
       storage_ops_enabled: false,
@@ -146,8 +147,6 @@ describe("GeneralSettingsPage branding", () => {
     fetchOnboardingStatusMock.mockResolvedValue({
       dismissed: false,
       complete: false,
-      endpoint_configured: false,
-      storage_access_configured: false,
       journeys: [],
       can_configure: true,
       actor_id: 1,
@@ -156,8 +155,6 @@ describe("GeneralSettingsPage branding", () => {
     resumeOnboardingMock.mockResolvedValue({
       dismissed: false,
       complete: false,
-      endpoint_configured: false,
-      storage_access_configured: false,
       journeys: [],
       can_configure: true,
       actor_id: 1,
@@ -206,6 +203,38 @@ describe("GeneralSettingsPage branding", () => {
 
     await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
     expect(updateAppSettingsMock.mock.calls[0][0].general.rgw_account_id_prefix).toBe("123");
+  });
+
+  it("saves a custom documentation base URL", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const input = await screen.findByLabelText("Documentation base URL");
+    await user.clear(input);
+    await user.type(input, "https://docs.example.com/bucketreef");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
+    expect(updateAppSettingsMock.mock.calls[0][0].general.documentation_base_url).toBe(
+      "https://docs.example.com/bucketreef",
+    );
+  });
+
+  it("rejects a documentation base URL with a query string", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const input = await screen.findByLabelText("Documentation base URL");
+    await user.clear(input);
+    await user.type(input, "https://docs.example.com/bucketreef?tenant=1");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(
+      await screen.findByText(
+        "Use an HTTP(S) or root-relative URL without a query string or fragment.",
+      ),
+    ).toBeInTheDocument();
+    expect(updateAppSettingsMock).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid RGW account ID prefix", async () => {
