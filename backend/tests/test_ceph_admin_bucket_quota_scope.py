@@ -25,6 +25,8 @@ def _build_ctx(bucket_info: dict) -> SimpleNamespace:
         rgw_admin=_FakeRGWAdmin(bucket_info),
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
+        actor=None,
+        audit_service=None,
     )
 
 

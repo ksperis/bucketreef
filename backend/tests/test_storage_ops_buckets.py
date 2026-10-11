@@ -91,6 +91,20 @@ def _source_context(context_id: str, **overrides) -> S3ExecutionContext:
     )
 
 
+def _storage_endpoint(endpoint_id: int, **overrides) -> SimpleNamespace:
+    values = {
+        "id": endpoint_id,
+        "endpoint_url": "https://s3.example.test",
+        "region": None,
+        "force_path_style": False,
+        "verify_tls": True,
+        "provider": "ceph",
+        "features_config": "",
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
 def _patch_effective_storage_ops_access(monkeypatch):
     class FakeEffectiveAccessService:
         def __init__(self, db):
@@ -1460,14 +1474,14 @@ def test_storage_ops_owner_quota_and_usage_use_context_principal_and_resolve_con
                 "1",
                 rgw_account_id="RGW00000000000000011",
                 rgw_user_uid="root-11",
-                storage_endpoint=SimpleNamespace(id=11),
+                storage_endpoint=_storage_endpoint(11),
             )
         if account_ref == "conn-2":
             return _source_context(
                 "conn-2",
                 rgw_account_id=None,
                 rgw_user_uid=None,
-                storage_endpoint=SimpleNamespace(id=12),
+                storage_endpoint=_storage_endpoint(12),
                 source_connection=SimpleNamespace(id=22),
             )
         raise AssertionError(f"unexpected context {account_ref}")
@@ -1615,8 +1629,8 @@ def test_storage_ops_bucket_listing_does_not_expose_quota_write_availability(cli
     def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
         return _source_context(
             account_ref,
-            storage_endpoint=SimpleNamespace(
-                provider="ceph",
+            storage_endpoint=_storage_endpoint(
+                1,
                 admin_access_key="admin-ak",
                 admin_secret_key="admin-sk",
                 features_config='{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}',
@@ -1682,7 +1696,7 @@ def test_storage_ops_bucket_listing_filters_by_owner_suspended_status(client, mo
             account_ref,
             rgw_account_id=None,
             rgw_user_uid={"1": "user-active", "2": "user-suspended"}[account_ref],
-            storage_endpoint=SimpleNamespace(id=21),
+            storage_endpoint=_storage_endpoint(21),
         )
 
     class FakeBucketsService(_CompositeConfigurationStub):
@@ -1751,7 +1765,7 @@ def test_storage_ops_owner_identity_failures_leave_owner_quota_fields_null(clien
             account_ref,
             rgw_account_id=None,
             rgw_user_uid=None,
-            storage_endpoint=SimpleNamespace(id=13),
+            storage_endpoint=_storage_endpoint(13),
             source_connection=SimpleNamespace(id=33),
         )
 

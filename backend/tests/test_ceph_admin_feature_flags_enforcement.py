@@ -59,6 +59,8 @@ def _build_ctx(*, metrics_enabled: bool, sse_enabled: bool = False) -> tuple[Sim
         rgw_admin=rgw_admin,
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
+        actor=None,
+        audit_service=None,
     )
     return ctx, rgw_admin
 
@@ -140,6 +142,8 @@ def test_ceph_admin_bucket_listing_returns_owner_and_usage_without_metrics_featu
         rgw_admin=rgw_admin,
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
+        actor=None,
+        audit_service=None,
     )
 
     response = buckets_router.list_buckets(
@@ -202,6 +206,8 @@ def test_ceph_admin_account_metrics_reject_foreign_buckets_when_rgw_ignores_acco
         rgw_admin=rgw_admin,
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
+        actor=None,
+        audit_service=None,
     )
 
     result = account_profiles_router.get_rgw_account_metrics(account_id="RGW0001", ctx=ctx)
