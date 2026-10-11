@@ -10,6 +10,8 @@ import {
   isBrowserInteractiveTarget,
   resolveBrowserItemOpenLabel,
 } from "./browserObjectItemPresentation";
+import { formatBytes } from "../../utils/format";
+import { formatDateTime } from "./browserUtils";
 import type { BrowserItem } from "./browserTypes";
 import { useBrowserI18n } from "./browserI18n";
 
@@ -55,7 +57,7 @@ export default function BrowserObjectMobileList({
   onItemNameClick,
   onOpenActions,
 }: BrowserObjectMobileListProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   return (
     <div
       role="list"
@@ -71,20 +73,23 @@ export default function BrowserObjectMobileList({
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
             <UpIcon className="h-4 w-4" />
           </span>
-          Parent folder
+          {text("Parent folder")}
         </button>
       )}
       {!loading && !hasBucket && (
         <p className="px-4 py-10 text-center ui-body text-slate-500">
-          {`Select a ${workspaceNoun} to browse ${workspaceObjectNounPlural}.`}
+          {text("Select a {workspace} to browse {objects}.", {
+            workspace: text(workspaceNoun),
+            objects: text(workspaceObjectNounPlural),
+          })}
         </p>
       )}
       {!loading && hasBucket && items.length === 0 && (
         <p className="px-4 py-10 text-center ui-body text-slate-500">
-          {issueTitle ??
+          {issueTitle ? text(issueTitle) :
             (hasActiveSearchFilters
-              ? "No objects matched this search."
-              : "No objects found for this path.")}
+              ? text("No objects matched this search.")
+              : text("No objects found for this path."))}
         </p>
       )}
       {items.map((item) => {
@@ -115,7 +120,7 @@ export default function BrowserObjectMobileList({
               checked={!isDeleted && isSelected}
               onClick={(event) => onToggleSelection(item, event.shiftKey)}
               onChange={() => undefined}
-              aria-label={`Select ${item.name}`}
+              aria-label={text("Select {name}", { name: item.name })}
               disabled={isDeleted}
               touchTarget
             />
@@ -123,7 +128,7 @@ export default function BrowserObjectMobileList({
               type="button"
               onClick={(event) => onItemNameClick(event, item)}
               onDoubleClick={(event) => event.preventDefault()}
-              aria-label={resolveBrowserItemOpenLabel(item)}
+              aria-label={resolveBrowserItemOpenLabel(item, text)}
               className="flex min-h-11 min-w-0 items-center gap-3 text-left"
             >
               <span
@@ -149,13 +154,13 @@ export default function BrowserObjectMobileList({
                 </span>
                 <span className="mt-0.5 flex min-w-0 items-center gap-2 ui-caption text-slate-500 dark:text-slate-400">
                   <span className="truncate">
-                    {item.type === "folder" ? "Folder" : item.size}
+                    {item.type === "folder" ? text("Folder") : item.sizeBytes == null ? item.size : formatBytes(item.sizeBytes, intlLocale)}
                   </span>
                   <span aria-hidden="true">·</span>
-                  <span className="truncate">{item.modified}</span>
+                  <span className="truncate">{item.modifiedAt == null ? item.modified : formatDateTime(item.modifiedAt, intlLocale)}</span>
                   {(isDeleted || isHistorical) && (
                     <ListBadge tone={isDeleted ? "danger" : "warning"} className="shrink-0">
-                      {isDeleted ? "Deleted" : "History"}
+                      {isDeleted ? text("Deleted") : text("History")}
                     </ListBadge>
                   )}
                 </span>
@@ -163,7 +168,7 @@ export default function BrowserObjectMobileList({
             </button>
             <ListActionButton
               iconOnly
-              aria-label={`More actions for ${item.name}`}
+              aria-label={text("More actions for {name}", { name: item.name })}
               onClick={(event) => onOpenActions(event, item)}
             >
               <MoreIcon />

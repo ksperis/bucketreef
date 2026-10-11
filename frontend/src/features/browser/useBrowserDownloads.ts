@@ -141,8 +141,9 @@ export function useBrowserDownloads({
 
   const downloadBlob = useCallback(
     async (key: string, signal?: AbortSignal, versionId?: string) => {
-      if (!bucketName || !enabled) throw new Error("Missing bucket context.");
+      if (!bucketName || !enabled) throw new Error(text("Missing bucket context."));
       return downloadBrowserTransferBlob({
+        text,
         selector: accountId,
         bucket: bucketName,
         key,
@@ -162,13 +163,15 @@ export function useBrowserDownloads({
       requestOptions,
       sseCustomerKeyBase64,
       useProxyTransfers,
+      text,
     ],
   );
 
   const downloadStream = useCallback(
     async (key: string, signal?: AbortSignal) => {
-      if (!bucketName || !enabled) throw new Error("Missing bucket context.");
+      if (!bucketName || !enabled) throw new Error(text("Missing bucket context."));
       return downloadBrowserTransferStream({
+        text,
         selector: accountId,
         bucket: bucketName,
         key,
@@ -187,6 +190,7 @@ export function useBrowserDownloads({
       requestOptions,
       sseCustomerKeyBase64,
       useProxyTransfers,
+      text,
     ],
   );
 
@@ -220,7 +224,7 @@ export function useBrowserDownloads({
       showOperations();
       const operationId = startOperation(
         "downloading",
-        output.kind === "stream" ? "Streaming zip" : "Downloading archive",
+        output.kind === "stream" ? text("Streaming zip") : text("Downloading archive"),
         `${bucketName}/${basePrefix}`,
         { kind: "download", cancelable: true },
       );
@@ -230,7 +234,7 @@ export function useBrowserDownloads({
       try {
         setDownloadDetails((previous) => ({
           ...previous,
-          [operationId]: [...plan.excluded.map(entry => ({ id: makeId(), key: entry.key, label: entry.key, status: "failed" as const, errorMessage: `Excluded: ${entry.reason}` })), ...plan.targets.map((target) => ({
+          [operationId]: [...plan.excluded.map(entry => ({ id: makeId(), key: entry.key, label: entry.key, status: "failed" as const, errorMessage: text("Excluded: {reason}", { reason: text(entry.reason) }) })), ...plan.targets.map((target) => ({
             id: target.detailId,
             key: target.key,
             label: target.relativeKey,
@@ -264,6 +268,7 @@ export function useBrowserDownloads({
             Math.max(0, streamingZipThresholdMb) * 1024 * 1024,
           targets: plan.targets,
           totalBytes: plan.totalBytes,
+          text,
         });
         if (archiveResult.cancelled) {
           completionStatus = "cancelled";
@@ -299,8 +304,8 @@ export function useBrowserDownloads({
           console.error(caughtError);
           completionError = formatBrowserOperationError(
             caughtError,
-            "Unable to download folder.",
-            "Unable to download folder.",
+            text("Unable to download folder."),
+            text("Unable to download folder."),
           );
           onStatus(completionError);
 
@@ -327,6 +332,7 @@ export function useBrowserDownloads({
       streamingZipThresholdMb,
       updateDownloadDetail,
       updateOperation,
+      text,
     ],
   );
 
@@ -369,6 +375,7 @@ export function useBrowserDownloads({
                     }
                   : current,
               ),
+            text,
           ));
         controller.signal.throwIfAborted();
         const plan = buildBrowserFolderDownloadPlan(
@@ -407,7 +414,7 @@ export function useBrowserDownloads({
             canDownload,
             error: canDownload
               ? undefined
-              : "This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser.",
+              : text("This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser."),
             basePrefix,
             plan,
           });
@@ -434,8 +441,8 @@ export function useBrowserDownloads({
         } else {
           const message = formatBrowserOperationError(
             caughtError,
-            "Unable to prepare the archive.",
-            "Unable to prepare the archive.",
+            text("Unable to prepare the archive."),
+            text("Unable to prepare the archive."),
           );
           if (ownsPreparation) {
             setArchivePreparation(null);
@@ -456,6 +463,7 @@ export function useBrowserDownloads({
       onStatus,
       onWarning,
       streamingZipThresholdMb,
+      text,
     ],
   );
 
@@ -466,6 +474,8 @@ export function useBrowserDownloads({
     try {
       const fileHandle = await chooseBrowserArchiveFile(
         archivePreparation.folderLabel,
+        undefined,
+        text,
       );
       if (!fileHandle) {
         setArchivePreparation((current) =>
@@ -473,7 +483,7 @@ export function useBrowserDownloads({
             ? {
                 ...current,
                 error:
-                  "File selection was cancelled. Choose a file when you are ready to start the download.",
+                  text("File selection was cancelled. Choose a file when you are ready to start the download."),
               }
             : current,
         );
@@ -490,7 +500,7 @@ export function useBrowserDownloads({
     } catch (caughtError) {
       const message = formatBrowserOperationError(
         caughtError,
-        "Unable to choose the archive destination.",
+        text("Unable to choose the archive destination."),
       );
       setArchivePreparation((current) =>
         current?.phase === "ready"
@@ -498,7 +508,7 @@ export function useBrowserDownloads({
           : current,
       );
     }
-  }, [archivePreparation, executeArchive]);
+  }, [archivePreparation, executeArchive, text]);
 
   const cancelArchivePreparation = useCallback(() => {
     const wasInventorying = archivePreparation?.phase === "inventorying";
@@ -506,7 +516,7 @@ export function useBrowserDownloads({
     archiveInventoryControllerRef.current = null;
     setArchivePreparation(null);
     if (wasInventorying) onStatus(text("Archive preparation cancelled."));
-  }, [archivePreparation?.phase, onStatus]);
+  }, [archivePreparation?.phase, onStatus, text]);
 
   const downloadFolder = useCallback((folder: BrowserItem) => {
     const key = folder.key.endsWith("/") ? folder.key.slice(0, -1) : folder.key;
@@ -518,7 +528,7 @@ export function useBrowserDownloads({
       showOperations();
       const operationId = startOperation(
         "downloading",
-        `Downloading ${files.length} files`,
+        text("Downloading {count} files", { count: files.length }),
         currentPath || bucketName,
         { kind: "download", cancelable: true },
       );
@@ -585,7 +595,7 @@ export function useBrowserDownloads({
                   "cancelled",
                 );
                 if (reportedId) {
-                  transferReporter?.fail(reportedId, "Download cancelled.");
+                  transferReporter?.fail(reportedId, text("Download cancelled."));
                 }
                 aborted = true;
                 controller.abort();
@@ -594,7 +604,7 @@ export function useBrowserDownloads({
               console.error(caughtError);
               const errorMessage = formatBrowserOperationError(
                 caughtError,
-                "Download failed.",
+                text("Download failed."),
               );
               updateDownloadDetail(
                 operationId,
@@ -636,8 +646,8 @@ export function useBrowserDownloads({
           completionStatus = "failed";
           completionError = formatBrowserOperationError(
             caughtError,
-            "Unable to download files.",
-            "Unable to download files.",
+            text("Unable to download files."),
+            text("Unable to download files."),
           );
           onStatus(completionError);
         }
@@ -664,6 +674,7 @@ export function useBrowserDownloads({
       transferReporter,
       updateDownloadDetail,
       updateOperation,
+      text,
     ],
   );
 
@@ -684,7 +695,7 @@ export function useBrowserDownloads({
       }
       onWarning(
         deletedCount > 0
-          ? "Deleted objects were skipped. Open versions to restore before download."
+          ? text("Deleted objects were skipped. Open versions to restore before download.")
           : null,
       );
       if (files.length > 1 || (files[0].sizeBytes != null && files[0].sizeBytes <= 25 * 1024 * 1024)) {
@@ -707,7 +718,7 @@ export function useBrowserDownloads({
                 reportedId,
                 formatBrowserOperationError(
                   caughtError,
-                  "Unable to download object.",
+                  text("Unable to download object."),
                 ),
               );
             }
@@ -726,8 +737,8 @@ export function useBrowserDownloads({
       } catch {
         onStatus(
           useProxyTransfers || sseActive
-            ? "Unable to download object."
-            : "Unable to generate download URL.",
+            ? text("Unable to download object.")
+            : text("Unable to generate download URL."),
         );
       }
     },
@@ -743,6 +754,7 @@ export function useBrowserDownloads({
       startReportedTransfer,
       transferReporter,
       useProxyTransfers,
+      text,
     ],
   );
 
@@ -786,7 +798,7 @@ export function useBrowserDownloads({
       } catch (caughtError) {
         const message = formatBrowserOperationError(
           caughtError,
-          "Unable to download object version.",
+          text("Unable to download object version."),
         );
         if (reportedId) transferReporter?.fail(reportedId, message);
         onStatus(message);
@@ -800,6 +812,7 @@ export function useBrowserDownloads({
       onWarning,
       startReportedTransfer,
       transferReporter,
+      text,
     ],
   );
 

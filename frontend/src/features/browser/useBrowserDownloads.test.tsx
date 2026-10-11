@@ -290,6 +290,8 @@ describe("useBrowserDownloads", () => {
 
     expect(archiveMocks.chooseBrowserArchiveFile).toHaveBeenCalledWith(
       "archive",
+      undefined,
+      expect.any(Function),
     );
     expect(archiveMocks.downloadBrowserFolderArchive).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -91,6 +91,7 @@ export function useBrowserCopyActions({
       onWarning,
       presignObject,
       sseActive,
+    text,
     ],
   );
 
@@ -104,7 +105,7 @@ export function useBrowserCopyActions({
         successMessage: "Path copied to clipboard.",
       });
     },
-    [copyValue],
+    [copyValue, text],
   );
 
   return { copyPath, copyUrl };

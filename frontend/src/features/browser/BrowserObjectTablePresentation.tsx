@@ -12,6 +12,7 @@ import {
 } from "./browserObjectTableModel";
 import type { BrowserItem } from "./browserTypes";
 import { formatDateTime } from "./browserUtils";
+import { formatBytes } from "../../utils/format";
 import { useBrowserI18n, type BrowserTextFn } from "./browserI18n";
 
 function renderLazyCellValue(
@@ -40,11 +41,11 @@ function renderLazyCellValue(
   );
 }
 
-function formatExpiresCellValue(value: string | null): string | null {
-  return value ? formatDateTime(value) : null;
+function formatExpiresCellValue(value: string | null, intlLocale: string): string | null {
+  return value ? formatDateTime(value, intlLocale) : null;
 }
 
-function formatRestoreStatusCellValue(value: string | null, text: BrowserTextFn): string | null {
+function formatRestoreStatusCellValue(value: string | null, text: BrowserTextFn, intlLocale: string): string | null {
   if (!value) return null;
   const prefixLabel = "Restored until ";
   if (!value.startsWith(prefixLabel)) {
@@ -52,7 +53,7 @@ function formatRestoreStatusCellValue(value: string | null, text: BrowserTextFn)
   }
   const rawDate = value.slice(prefixLabel.length).trim();
   if (!rawDate) return text("Restored");
-  return text("Restored until {date}", { date: formatDateTime(rawDate) });
+  return text("Restored until {date}", { date: formatDateTime(rawDate, intlLocale) });
 }
 
 type BrowserObjectColumnValueProps = {
@@ -78,10 +79,10 @@ export function BrowserObjectColumnValue({
     return item.isDeleted ? text("Deleted object") : text("Object");
   }
   if (columnId === "size") {
-    return item.size;
+    return item.sizeBytes == null ? item.size : formatBytes(item.sizeBytes, intlLocale);
   }
   if (columnId === "modified") {
-    return item.modified;
+    return item.modifiedAt == null ? item.modified : formatDateTime(item.modifiedAt, intlLocale);
   }
   if (columnId === "storageClass") {
     return item.storageClass ?? "—";
@@ -129,7 +130,7 @@ export function BrowserObjectColumnValue({
   if (columnId === "expires") {
     return renderLazyCellValue(
       resolvedLazyEntry.metadataStatus,
-      formatExpiresCellValue(resolvedLazyEntry.expires),
+      formatExpiresCellValue(resolvedLazyEntry.expires, intlLocale),
       text,
       intlLocale,
     );
@@ -137,7 +138,7 @@ export function BrowserObjectColumnValue({
   if (columnId === "restoreStatus") {
     return renderLazyCellValue(
       resolvedLazyEntry.metadataStatus,
-      formatRestoreStatusCellValue(resolvedLazyEntry.restoreStatus, text),
+      formatRestoreStatusCellValue(resolvedLazyEntry.restoreStatus, text, intlLocale),
       text,
       intlLocale,
     );

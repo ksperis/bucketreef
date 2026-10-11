@@ -34,7 +34,7 @@ export function useBrowserCopyDialog({
         value: keyBase64,
         successMessage: "SSE-C key copied to clipboard.",
       }),
-    [open],
+    [open, text],
   );
   const notifyCopySuccess = useCallback(() => {
     if (dialog?.successMessage) onStatus(dialog.successMessage);

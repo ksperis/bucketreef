@@ -83,7 +83,7 @@ export function useBrowserCreateBucket({
       return;
     }
     if (!isValidS3BucketName(normalizedName)) {
-      setError(INVALID_BUCKET_NAME_MESSAGE);
+      setError(text(INVALID_BUCKET_NAME_MESSAGE));
       return;
     }
     setLoading(true);
@@ -111,7 +111,7 @@ export function useBrowserCreateBucket({
             setCorsError(status.error);
           }
         } catch {
-          setCorsError("Bucket created, but unable to auto-apply CORS.");
+          setCorsError(text("Bucket created, but unable to auto-apply CORS."));
         }
       }
       setShowModal(false);
@@ -119,13 +119,17 @@ export function useBrowserCreateBucket({
       setStatusMessage(
         uiOrigin
           ? corsApplied
-            ? `Bucket ${normalizedName} created with CORS enabled.`
-            : `Bucket ${normalizedName} created. CORS could not be auto-enabled.`
-          : `Bucket ${normalizedName} created.`,
+            ? text("Bucket {name} created with CORS enabled.", {
+                name: normalizedName,
+              })
+            : text("Bucket {name} created. CORS could not be auto-enabled.", {
+                name: normalizedName,
+              })
+          : text("Bucket {name} created.", { name: normalizedName }),
       );
       await onCreated(normalizedName);
     } catch (submitError) {
-      setError(extractApiError(submitError, "Unable to create bucket."));
+      setError(extractApiError(submitError, text("Unable to create bucket.")));
     } finally {
       setLoading(false);
     }
@@ -138,7 +142,7 @@ export function useBrowserCreateBucket({
     loading,
     error,
     isNameValid: !name || isValidS3BucketName(name),
-    invalidNameMessage: INVALID_BUCKET_NAME_MESSAGE,
+    invalidNameMessage: text(INVALID_BUCKET_NAME_MESSAGE),
     open,
     updateName,
     setVersioning,

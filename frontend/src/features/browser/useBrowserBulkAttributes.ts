@@ -199,14 +199,14 @@ export function useBrowserBulkAttributes({
       }
       onWarning(
         eligibleItems.length !== items.length
-          ? "Deleted objects were skipped for bulk attributes."
+          ? text("Deleted objects were skipped for bulk attributes.")
           : null,
       );
       setTargets(eligibleItems);
       reset();
       setOpen(true);
     },
-    [onStatus, onWarning, reset],
+    [onStatus, onWarning, reset, text],
   );
 
   const close = useCallback(() => setOpen(false), []);
@@ -382,7 +382,7 @@ export function useBrowserBulkAttributes({
         () => cancelled,
       );
       if (cancelled || controller.signal.aborted) {
-        const nextSummary = `Update cancelled after ${succeeded} of ${total} item(s).`;
+        const nextSummary = text("Update cancelled after {count} of {total} item(s).", { count: succeeded, total });
         completeOperation(operationId, "cancelled");
         setSummary(nextSummary);
         onStatus(nextSummary);
@@ -396,7 +396,7 @@ export function useBrowserBulkAttributes({
           ? "Some objects failed to update attributes."
           : undefined,
       );
-      const nextSummary = `Updated ${Math.max(0, total - failures)} of ${total} object(s).`;
+      const nextSummary = text("Updated {count} of {total} object(s).", { count: Math.max(0, total - failures), total });
       setSummary(nextSummary);
       onStatus(nextSummary);
       onRefresh(prefix);
@@ -427,6 +427,7 @@ export function useBrowserBulkAttributes({
     showOperations,
     startOperation,
     updateOperation,
+    text,
   ]);
 
   return {

@@ -34,6 +34,8 @@ export function browserText(
   return interpolate(translated, values);
 }
 
+export const defaultBrowserText: BrowserTextFn = (message, values) => browserText(message, "en", values);
+
 export function browserIntlLocale(locale: UiLanguage): string {
   if (locale === "fr") return "fr-FR";
   if (locale === "de") return "de-DE";

@@ -44,15 +44,15 @@ export function BrowserObjectFactsSection({
   item,
   metadata,
 }: Pick<BrowserObjectReadOnlyDetailsTabProps, "bucketName" | "item" | "metadata">) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const facts: Array<[string, string]> = [
     ["Bucket", bucketName],
-    ["Size", formatBytes(metadata?.size ?? item.sizeBytes ?? null)],
+    ["Size", formatBytes(metadata?.size ?? item.sizeBytes ?? null, intlLocale)],
     [
       "Last modified",
       metadata?.last_modified
-        ? formatDateTime(metadata.last_modified)
-        : item.modified,
+        ? formatDateTime(metadata.last_modified, intlLocale)
+        : item.modifiedAt == null ? item.modified : formatDateTime(item.modifiedAt, intlLocale),
     ],
     ["Owner", item.owner || "-"],
     ["Storage class", metadata?.storage_class ?? item.storageClass ?? "-"],
@@ -66,7 +66,7 @@ export function BrowserObjectFactsSection({
       <DetailsList
         compact
         valueAlign="end"
-        items={facts.map(([label, value]) => ({ label, value, title: value }))}
+        items={facts.map(([label, value]) => ({ label: text(label), value, title: value }))}
       />
       </SettingsSection>
     </div>
@@ -83,14 +83,14 @@ export default function BrowserObjectReadOnlyDetailsTab({
   onRefresh,
   tags,
 }: BrowserObjectReadOnlyDetailsTabProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const headers: Array<[string, string]> = [
     ["Content type", metadata?.content_type ?? "-"],
     ["Cache control", metadata?.cache_control ?? "-"],
     ["Content disposition", metadata?.content_disposition ?? "-"],
     ["Content encoding", metadata?.content_encoding ?? "-"],
     ["Content language", metadata?.content_language ?? "-"],
-    ["Expires", metadata?.expires ? formatDateTime(metadata.expires) : "-"],
+    ["Expires", metadata?.expires ? formatDateTime(metadata.expires, intlLocale) : "-"],
   ];
   const customMetadata = Object.entries(metadata?.metadata ?? {}).map(([key, value]) => ({ key, value }));
 
@@ -111,14 +111,14 @@ export default function BrowserObjectReadOnlyDetailsTab({
         <DetailsList
           compact
           valueAlign="end"
-          items={headers.map(([label, value]) => ({ label, value, title: value }))}
+          items={headers.map(([label, value]) => ({ label: text(label), value, title: value }))}
         />
       </SettingsSection>
       <SettingsSection title={text("Custom metadata")} presentation="compact">
-        <PairList items={customMetadata} emptyLabel="No custom metadata defined." />
+        <PairList items={customMetadata} emptyLabel={text("No custom metadata defined.")} />
       </SettingsSection>
       <SettingsSection title={text("Tags")} presentation="compact">
-        <PairList items={tags} emptyLabel="No tags defined." />
+        <PairList items={tags} emptyLabel={text("No tags defined.")} />
       </SettingsSection>
     </div>
   );

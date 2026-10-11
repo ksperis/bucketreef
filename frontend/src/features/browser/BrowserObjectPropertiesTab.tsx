@@ -54,11 +54,11 @@ function EditablePairs({
         <p className="settings-description">{emptyLabel}</p>
       ) : entries.map((entry, index) => (
         <div key={entry.id} className="settings-fields sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-          <UiInput label={`${title} key ${index + 1}`} value={entry.key}
+          <UiInput label={text("{title} key {index}", { title, index: index + 1 })} value={entry.key}
             onChange={(event) => onChange(entry.id, "key", event.target.value)} placeholder={keyPlaceholder} />
-          <UiInput label={`${title} value ${index + 1}`} value={entry.value}
+          <UiInput label={text("{title} value {index}", { title, index: index + 1 })} value={entry.value}
             onChange={(event) => onChange(entry.id, "value", event.target.value)} placeholder={valuePlaceholder} />
-          <SettingsButton variant="secondary" aria-label={`Remove ${title.toLowerCase()} ${index + 1}`}
+          <SettingsButton variant="secondary" aria-label={text("Remove {title} {index}", { title: title.toLowerCase(), index: index + 1 })}
             onClick={() => onRemove(entry.id)}>{text("Remove")}</SettingsButton>
         </div>
       ))}
@@ -108,9 +108,9 @@ export default function BrowserObjectPropertiesTab({
     <div className="settings-compact settings-form">
       {readOnly && <UiInlineMessage tone="info">{text("Properties are read-only in the Standard Browser profile.")}</UiInlineMessage>}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="settings-description" role="status">{loading ? "Loading object details..." : "Save each section independently. Refresh keeps unsaved edits."}</p>
+        <p className="settings-description" role="status">{loading ? text("Loading object details...") : text("Save each section independently. Refresh keeps unsaved edits.")}</p>
         <SettingsButton variant="secondary" onClick={() => void onRefresh()} disabled={loading || saving}>
-          {error ? "Retry" : "Refresh"}
+          {error ? text("Retry") : text("Refresh")}
         </SettingsButton>
       </div>
       {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
@@ -118,17 +118,17 @@ export default function BrowserObjectPropertiesTab({
         busy={savingMetadata} disabled={disabled} dirty={dirtySections?.metadata} submitLabel={text("Save metadata")} onSubmit={onSaveMetadata}>
         <div className="settings-fields sm:grid-cols-2">
           {standardMetadataFields.map(({ field, label, placeholder, type }) => (
-            <UiInput key={field} label={label} type={type} value={metadataDraft[field]}
+            <UiInput key={field} label={text(label)} type={type} value={metadataDraft[field]}
               onChange={(event) => onMetadataDraftChange(field, event.target.value)} placeholder={placeholder} />
           ))}
         </div>
-        <EditablePairs title={text("Custom metadata")} addLabel="Add metadata" emptyLabel="No custom metadata defined."
+        <EditablePairs title={text("Custom metadata")} addLabel={text("Add metadata")} emptyLabel={text("No custom metadata defined.")}
           entries={metadataItems} keyPlaceholder="x-custom-key" valuePlaceholder="value"
           onAdd={onAddMetadata} onChange={onMetadataItemChange} onRemove={onRemoveMetadata} />
       </SettingsOperationSection>
       <SettingsOperationSection title={text("Tags")} description={text("Key/value tags attached to this object.")}
         busy={savingTags} disabled={disabled} dirty={dirtySections?.tags} submitLabel={text("Save tags")} onSubmit={onSaveTags}>
-        <EditablePairs title={text("Tags")} hideLegend addLabel="Add tag" emptyLabel="No tags defined." entries={tags}
+        <EditablePairs title={text("Tags")} hideLegend addLabel={text("Add tag")} emptyLabel={text("No tags defined.")} entries={tags}
           keyPlaceholder="Key" valuePlaceholder="Value" onAdd={onAddTag} onChange={onTagChange} onRemove={onRemoveTag} />
       </SettingsOperationSection>
       <SettingsOperationSection title={text("Storage class")} description={text("Changing storage class copies the object to the selected storage tier.")}

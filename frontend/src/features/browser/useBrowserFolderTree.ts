@@ -200,6 +200,8 @@ export function useBrowserFolderTree({
       enabled,
       listTreePrefixes,
       onWarning,
+      intlLocale,
+      text,
     ],
   );
 

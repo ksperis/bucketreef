@@ -214,7 +214,7 @@ export default function BrowserBucketDetailsContent({
   includeStaticWebsite,
   includeUsage,
 }: BrowserBucketDetailsContentProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const [data, setData] = useState<BucketDetailsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -242,7 +242,7 @@ export default function BrowserBucketDetailsContent({
       setError(
         extractApiError(
           failure?.status === "rejected" ? failure.reason : null,
-          "Unable to load bucket details.",
+          text("Unable to load bucket details."),
         ),
       );
     }
@@ -255,7 +255,7 @@ export default function BrowserBucketDetailsContent({
       unavailableSections,
     });
     setLoading(false);
-  }, [accountId, bucketName, includeStaticWebsite, includeUsage]);
+  }, [accountId, bucketName, includeStaticWebsite, includeUsage, text]);
 
   useEffect(() => {
     void load();
@@ -298,33 +298,33 @@ export default function BrowserBucketDetailsContent({
               {
                 label: text("Created"),
                 value: bucket?.creation_date
-                  ? formatDateTime(bucket.creation_date)
+                  ? formatDateTime(bucket.creation_date, intlLocale)
                   : "-",
               },
               {
                 label: text("Storage used"),
-                value: formatBytes(bucket?.used_bytes ?? null),
+                value: formatBytes(bucket?.used_bytes ?? null, intlLocale),
               },
               {
                 label: text("Object count"),
                 value:
                   bucket?.object_count != null
-                    ? bucket.object_count.toLocaleString()
+                    ? bucket.object_count.toLocaleString(intlLocale)
                     : "-",
               },
               {
                 label: text("Storage quota"),
                 value:
                   (bucket?.quota_max_size_bytes ?? 0) > 0
-                    ? formatBytes(bucket?.quota_max_size_bytes ?? null)
-                    : "Not set",
+                    ? formatBytes(bucket?.quota_max_size_bytes ?? null, intlLocale)
+                    : text("Not set"),
               },
               {
                 label: text("Object quota"),
                 value:
                   (bucket?.quota_max_objects ?? 0) > 0
-                    ? (bucket?.quota_max_objects ?? 0).toLocaleString()
-                    : "Not set",
+                    ? (bucket?.quota_max_objects ?? 0).toLocaleString(intlLocale)
+                    : text("Not set"),
               },
             ]}
           />
@@ -342,10 +342,10 @@ export default function BrowserBucketDetailsContent({
               className="flex min-w-0 items-center justify-between gap-3 border-b border-[color:var(--ui-border-soft)] py-2 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0"
             >
               <span className={cx("min-w-0 text-xs font-semibold", uiMutedTextClass)}>
-                {feature.label}
+                {text(feature.label)}
               </span>
               <UiBadge tone={feature.tone} className="shrink-0">
-                {feature.state}
+                {text(feature.state)}
               </UiBadge>
             </div>
           ))}

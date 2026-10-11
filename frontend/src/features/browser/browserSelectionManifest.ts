@@ -2,12 +2,15 @@ import type { BrowserObject } from "../../api/browserContracts";
 import type { BrowserItem } from "./browserTypes";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 
+import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
+
 /** Enumerate exact object keys once, even for overlapping folder selections. */
 export async function buildBrowserSelectionManifest(
   items: readonly BrowserItem[],
   list: ListAllBrowserObjectsForPrefix,
   signal: AbortSignal,
   onProgress: (completed: number, total: number) => void = () => {},
+  text: BrowserTextFn = defaultBrowserText,
 ): Promise<BrowserObject[]> {
   const objects = new Map<string, BrowserObject>();
   const folders = items.filter((item) => item.type === "folder" && !item.isDeleted)
@@ -16,7 +19,7 @@ export async function buildBrowserSelectionManifest(
   const roots = folders.filter((prefix, index) => !folders.slice(0, index).some((parent) => prefix.startsWith(parent)));
   for (const item of items) {
     if (item.type !== "file" || item.isDeleted || roots.some((prefix) => item.key.startsWith(prefix))) continue;
-    if (item.sizeBytes == null) throw new Error(`Size unavailable for ${item.name}. Refresh the listing first.`);
+    if (item.sizeBytes == null) throw new Error(text("Size unavailable for {name}. Refresh the listing first.", { name: item.name }));
     objects.set(item.key, { key: item.key, size: item.sizeBytes, etag: item.etag });
   }
   for (const [index, prefix] of roots.entries()) {

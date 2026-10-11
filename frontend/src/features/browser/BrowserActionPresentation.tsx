@@ -25,6 +25,7 @@ import {
   UploadIcon,
 } from "./browserIcons";
 import type { BrowserActionId, BrowserActionState } from "./browserActions";
+import { useBrowserI18n } from "./browserI18n";
 
 type ActionIconComponent = ComponentType<{ className?: string }>;
 
@@ -82,15 +83,16 @@ export function BrowserDirectItemActionButton({
   itemName,
   onSelect,
 }: BrowserDirectItemActionButtonProps) {
-  const accessibleLabel = `${action.label} ${itemName}`;
+  const { text } = useBrowserI18n();
+  const accessibleLabel = text("{action} {name}", { action: text(action.label), name: itemName });
   const disabledLabel =
     !action.enabled && action.disabledReason
-      ? `${accessibleLabel}. Unavailable: ${action.disabledReason}`
+      ? text("{action}. Unavailable: {reason}", { action: accessibleLabel, reason: text(action.disabledReason) })
       : accessibleLabel;
   return (
     <ListActionButton iconOnly variant={action.id === "delete" ? "danger" : "secondary"}
       aria-label={disabledLabel}
-      title={action.enabled ? action.label : action.disabledReason}
+      title={action.enabled ? text(action.label) : action.disabledReason ? text(action.disabledReason) : undefined}
       disabled={!action.enabled}
       onClick={(event) => {
         event.stopPropagation();
@@ -111,20 +113,21 @@ export function BrowserToolbarActionMenuItem({
   action,
   onSelect,
 }: BrowserToolbarActionMenuItemProps) {
+  const { text } = useBrowserI18n();
   return (
     <button
       type="button"
       role="menuitem"
-      aria-label={action.label}
+      aria-label={text(action.label)}
       className={`${contextMenuItemClasses} ${
         !action.enabled ? contextMenuItemDisabledClasses : ""
       }`}
       onClick={onSelect}
       disabled={!action.enabled}
-      title={action.disabledReason}
+      title={action.disabledReason ? text(action.disabledReason) : undefined}
     >
       <BrowserActionIcon actionId={action.id} />
-      {action.label}
+      {text(action.label)}
     </button>
   );
 }

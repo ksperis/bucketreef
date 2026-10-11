@@ -131,7 +131,7 @@ export function useBrowserVersionCleanup({
         controller.signal,
         requestOptions,
       );
-      const nextSummary = `Removed ${result.deleted_versions} version(s) and ${result.deleted_delete_markers} delete marker(s).`;
+      const nextSummary = text("Removed {versions} version(s) and {markers} delete marker(s).", { versions: result.deleted_versions, markers: result.deleted_delete_markers });
       setSummary(nextSummary);
       onStatus(nextSummary);
       onRefresh(prefix);
@@ -169,6 +169,7 @@ export function useBrowserVersionCleanup({
     requestOptions,
     showOperations,
     startOperation,
+    text,
   ]);
 
   return {

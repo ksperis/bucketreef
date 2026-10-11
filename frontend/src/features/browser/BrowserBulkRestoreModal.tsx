@@ -55,20 +55,20 @@ export default function BrowserBulkRestoreModal({
   return (
     <SettingsFormDialog title={text("Restore to date")} draftKey={stableSignature(draft)}
       busy={loading} error={error} onSubmit={onApply} onClose={onClose}
-      submitLabel={loading ? (draft.dryRun ? "Previewing..." : "Restoring...") : draft.dryRun ? "Preview changes" : "Run restore"}
+      submitLabel={loading ? (draft.dryRun ? text("Previewing...") : text("Restoring...")) : draft.dryRun ? text("Preview changes") : text("Run restore")}
       maxWidthClass="max-w-2xl">
       <InlineSummary label={text("Targets")} items={[
         { label: text("Files"), value: fileCount },
-        { label: text("Folders"), value: folderCount, hint: folderCount > 0 ? "Folders use prefix history." : undefined },
+        { label: text("Folders"), value: folderCount, hint: folderCount > 0 ? text("Folders use prefix history.") : undefined },
       ]} />
-      {targetPath && <p className="settings-description break-all">Path: {targetPath}</p>}
+      {targetPath && <p className="settings-description break-all">{text("Path: {path}", { path: targetPath })}</p>}
       {summary && <UiInlineMessage tone="success" role="status">{summary}</UiInlineMessage>}
       <UiCheckboxField className="settings-choice" checked={draft.restoreDeleted}
         onChange={(event) => updateDraft("restoreDeleted", event.target.checked)}>
         {text("Restore deleted objects to their latest version")}</UiCheckboxField>
       <UiInput label={text("Target date")} type="datetime-local" value={draft.date}
         onChange={(event) => updateDraft("date", event.target.value)} disabled={draft.restoreDeleted}
-        hint={draft.restoreDeleted ? "Date is ignored while latest deleted-object restore is enabled." : undefined} />
+        hint={draft.restoreDeleted ? text("Date is ignored while latest deleted-object restore is enabled.") : undefined} />
       <UiCheckboxField className="settings-choice" checked={draft.deleteMissing} disabled={draft.restoreDeleted}
         onChange={(event) => updateDraft("deleteMissing", event.target.checked)}>
         {text("Delete objects not present at the selected date")}</UiCheckboxField>
@@ -91,14 +91,14 @@ export default function BrowserBulkRestoreModal({
             {keys.length === 0 ? <p className="settings-description">{text("No items")}</p> :
               <ul className="settings-description">{keys.map((key) =>
                 <li key={key} className="break-all whitespace-pre-wrap">{key}</li>)}</ul>}
-            {total > keys.length && <p className="settings-description">+{total - keys.length} more</p>}
+            {total > keys.length && <p className="settings-description">{text("+{count} more", { count: total - keys.length })}</p>}
           </div>)}
         </div>
       </section>}
       <p className="settings-description">
         {draft.restoreDeleted
-          ? "Restores deleted objects to their latest non-delete-marker version. Target date is ignored in this mode."
-          : "Restores the latest version at or before the selected date. Objects with a delete marker at that date are skipped unless deletion is enabled or deleted-object restore is selected."}
+          ? text("Restores deleted objects to their latest non-delete-marker version. Target date is ignored in this mode.")
+          : text("Restores the latest version at or before the selected date. Objects with a delete marker at that date are skipped unless deletion is enabled or deleted-object restore is selected.")}
       </p>
     </SettingsFormDialog>
   );

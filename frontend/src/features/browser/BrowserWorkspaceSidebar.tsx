@@ -122,7 +122,7 @@ export default function BrowserWorkspaceSidebar({
   onLoadMore,
   workspaceAccountAction,
 }: BrowserWorkspaceSidebarProps) {
-  const { text: tr } = useBrowserI18n();
+  const { text: tr, intlLocale } = useBrowserI18n();
   const [tab, setTab] = useState<"buckets" | "favorites">("buckets");
   const title = isPortalContext ? tr("Spaces") : tr("Buckets");
   const searchPlaceholder = isPortalContext ? tr("Search storage spaces") : tr("Search buckets");
@@ -130,10 +130,10 @@ export default function BrowserWorkspaceSidebar({
     usageSummary?.available === true && usageSummary.used_bytes != null;
   const usagePercent = usageSummary ? formatUsagePercent(usageSummary) : null;
   const usageUsedLabel =
-    usageSummary?.used_bytes == null ? null : formatBytes(usageSummary.used_bytes);
+    usageSummary?.used_bytes == null ? null : formatBytes(usageSummary.used_bytes, intlLocale);
   const usageQuotaLabel =
     usageSummary?.quota_max_size_bytes != null && usageSummary.quota_max_size_bytes > 0
-      ? formatBytes(usageSummary.quota_max_size_bytes)
+      ? formatBytes(usageSummary.quota_max_size_bytes, intlLocale)
       : null;
   const totalLabel =
     bucketTotalCount === 1

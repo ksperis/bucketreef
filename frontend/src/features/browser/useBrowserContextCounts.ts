@@ -144,6 +144,7 @@ export function useBrowserContextCounts({
     prefix,
     requestOptions,
     versioningEnabled,
+    text,
   ]);
 
   return { count, counts, error, loading };

@@ -136,6 +136,7 @@ export function useBrowserBucketCors({
     requestOptions,
     scopeKey,
     setStatusMessage,
+    text,
   ]);
 
   useEffect(() => {

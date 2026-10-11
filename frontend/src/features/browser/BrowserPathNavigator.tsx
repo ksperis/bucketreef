@@ -88,7 +88,7 @@ export default function BrowserPathNavigator({
             onChange={(event) => onChange(event.target.value)}
             onBlur={onBlur}
             onKeyDown={onKeyDown}
-            placeholder="root"
+            placeholder={tr("root")}
             aria-label={tr("Path")}
             role="combobox"
             aria-autocomplete="list"

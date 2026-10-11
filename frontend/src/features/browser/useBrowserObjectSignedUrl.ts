@@ -120,7 +120,7 @@ export function useBrowserObjectSignedUrl({
       if (!isCurrentScope()) return { status: "skipped" };
       const message = extractApiError(
         generateError,
-        "Unable to generate signed URL.",
+        text("Unable to generate signed URL."),
       );
       setError(message);
       return { status: "api-error", message };
@@ -133,6 +133,7 @@ export function useBrowserObjectSignedUrl({
     objectKey,
     requestOptions,
     sseCustomerKeyBase64,
+    text,
   ]);
 
   const copy = useCallback(async (): Promise<CopySignedUrlResult> => {

@@ -534,13 +534,13 @@ export default function BrowserPage({
       openConfirmDialog({
         title: text("Discard changes?"),
         message:
-          "You have unapplied changes in the open details drawer. Continuing will discard them.",
+          text("You have unapplied changes in the open details drawer. Continuing will discard them."),
         confirmLabel: text("Discard changes"),
         tone: "danger",
         onConfirm,
       });
     },
-    [openConfirmDialog],
+    [openConfirmDialog, text],
   );
   const {
     bucketName: configBucketName,
@@ -767,7 +767,7 @@ export default function BrowserPage({
   const corsEnabled =
     corsAvailability === "unknown" ? null : corsAvailability === "enabled";
   const corsInformation =
-    corsEnabled === false ? CORS_DIRECT_TRANSFER_WARNING : null;
+    corsEnabled === false ? text(CORS_DIRECT_TRANSFER_WARNING) : null;
   const useProxyTransfers = Boolean(
     bucketName &&
       hasS3AccountContext &&
@@ -809,23 +809,24 @@ export default function BrowserPage({
         stsCredentialsError,
         corsEnabled,
         proxyAllowed,
-      }),
+      }, text),
     [
       corsFixError,
       corsEnabled,
       proxyAllowed,
       stsCredentialsError,
       warningMessage,
+    text,
     ],
   );
   const stsExpirationLabel = useMemo(() => {
     if (!stsCredentials?.expiration) return "";
-    const formatted = formatDateTime(stsCredentials.expiration);
+    const formatted = formatDateTime(stsCredentials.expiration, intlLocale);
     return formatted === "-" ? "" : formatted;
-  }, [stsCredentials?.expiration]);
+  }, [stsCredentials?.expiration, intlLocale]);
   const directCredentialStsTooltip = useMemo(
-    () => resolveDirectCredentialStsTooltip(directCredentialContextKind),
-    [directCredentialContextKind],
+    () => resolveDirectCredentialStsTooltip(directCredentialContextKind, text),
+    [directCredentialContextKind, text],
   );
   const accessBadge = useMemo(
     () =>
@@ -838,6 +839,7 @@ export default function BrowserPage({
         hasStsCredentials: Boolean(stsCredentials),
         stsExpirationLabel,
         directCredentialStsTooltip,
+        text,
       }),
     [
       corsEnabled,
@@ -847,6 +849,7 @@ export default function BrowserPage({
       sseActive,
       stsCredentials,
       stsExpirationLabel,
+      text,
       useProxyTransfers,
     ],
   );
@@ -918,7 +921,7 @@ export default function BrowserPage({
     }
     return (
       <div className="space-y-2">
-        <p>{objectsIssue.description}</p>
+        <p>{text(objectsIssue.description)}</p>
         <details
           open={showObjectsIssueTechnicalDetails}
           onToggle={(event) =>
@@ -940,6 +943,7 @@ export default function BrowserPage({
     objectsIssue,
     setShowObjectsIssueTechnicalDetails,
     showObjectsIssueTechnicalDetails,
+    text,
   ]);
 
   const displayPrefixForItems = useMemo(() => {
@@ -1105,12 +1109,13 @@ export default function BrowserPage({
     resolvedLockedBucketName,
     selectorWorkspaceNoun,
     selectorWorkspaceNounPlural,
+    text,
   ]);
   const bucketSelectorNeedsAttention =
     hasS3AccountContext && !bucketName && bucketTotalCount > 0;
   const bucketButtonActionLabel = resolvedLockedBucketName
-    ? `Selected ${selectorWorkspaceNoun}`
-    : `Select ${selectorWorkspaceNoun}`;
+    ? text("Selected {workspace}", { workspace: text(selectorWorkspaceNoun) })
+    : text("Select {workspace}", { workspace: text(selectorWorkspaceNoun) });
   const useBucketsPanel = showWorkspaceSidebar;
   const { currentBucket: currentBucketPanelItem } = useMemo(
     () => splitBucketPanelBuckets(bucketName, bucketMenuItems),
@@ -1176,7 +1181,7 @@ export default function BrowserPage({
       };
     }
     return undefined;
-  }, [handleOpenWorkspaceAccount, workspaceAccountActionTarget]);
+  }, [handleOpenWorkspaceAccount, workspaceAccountActionTarget, text]);
 
   useLayoutEffect(() => {
     if (!useBucketsPanel) {
@@ -1568,7 +1573,7 @@ export default function BrowserPage({
       requestedTab,
       versioningEnabled: isVersioningEnabled,
     });
-    if (resolution.warning) setWarningMessage(resolution.warning);
+    if (resolution.warning) setWarningMessage(text(resolution.warning));
     if (!resolution.initialTab) return;
     const initialTab = resolution.initialTab;
     requestDetailsDrawerTransition(() => {
@@ -2503,7 +2508,7 @@ export default function BrowserPage({
       delete: () => handleDeleteItems([item]),
     });
     if (!result.executed) {
-      setWarningMessage(result.reason);
+      setWarningMessage(text(result.reason));
     }
   };
 
@@ -2539,7 +2544,7 @@ export default function BrowserPage({
   const browserNoticeShellClasses = "shrink-0 pb-2";
   const browserContentShellClasses =
     "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
-  const toolbarSelectionSummary = `${selectedCount} selected`;
+  const toolbarSelectionSummary = text("{count} selected", { count: selectedCount.toLocaleString(intlLocale) });
   const toolbarCanUploadFiles = pathActionStates.uploadFiles.enabled;
   const toolbarCanUploadFolder = pathActionStates.uploadFolder.enabled;
   const toolbarCanCreateFolder = pathActionStates.newFolder.enabled;
@@ -2569,7 +2574,7 @@ export default function BrowserPage({
   const hasToolbarStatusSection = Boolean(accessBadge) || hasToolbarOperationsAction;
   const hasToolbarColumnsSection =
     resolvedFunctionalProfile === "advanced";
-  const toolbarColumnsSummary = `${effectiveVisibleColumns.length}/${COLUMN_DEFINITIONS.length} visible`;
+  const toolbarColumnsSummary = text("{count}/{total} visible", { count: effectiveVisibleColumns.length, total: COLUMN_DEFINITIONS.length });
   const handleToolbarDownload = () => {
     runSelectionAction("download");
   };
@@ -2616,9 +2621,9 @@ export default function BrowserPage({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       {isEmbeddedBrowserPath ? (
-        <h2 className="sr-only">{isPortalBrowserSurface ? "Portal browser" : "Browser"}</h2>
+        <h2 className="sr-only">{isPortalBrowserSurface ? text("Portal browser") : text("Browser")}</h2>
       ) : (
-        <h1 className="sr-only">{isPortalBrowserSurface ? "Portal browser" : "Browser"}</h1>
+        <h1 className="sr-only">{isPortalBrowserSurface ? text("Portal browser") : text("Browser")}</h1>
       )}
       <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
         <div className={browserShellClasses}>
@@ -2787,7 +2792,7 @@ export default function BrowserPage({
             >
               {bucketError && (
                 <p className="font-semibold text-rose-600 dark:text-rose-200">
-                  {bucketError}
+                  {text(bucketError)}
                 </p>
               )}
               {statusMessage && (
@@ -2822,7 +2827,7 @@ export default function BrowserPage({
                       >
                         <div ref={corsActionPopoverRef}>
                           <p className="ui-caption text-slate-600 dark:text-slate-300">
-                            {`Allow direct access from ${uiOrigin} by adding CORS rules to this bucket.`}
+                            {text("Allow direct access from {origin} by adding CORS rules to this bucket.", { origin: uiOrigin ?? "" })}
                           </p>
                           <ListActionButton
                             type="button"
@@ -2830,12 +2835,12 @@ export default function BrowserPage({
                             className="mt-2"
                             onClick={handleEnsureCors}
                             disabled={corsFixing}
-                            title={`Add ${uiOrigin} to bucket CORS rules.`}
-                            aria-label={`Add ${uiOrigin} to CORS`}
+                            title={text("Add {origin} to bucket CORS rules.", { origin: uiOrigin ?? "" })}
+                            aria-label={text("Add {origin} to CORS", { origin: uiOrigin ?? "" })}
                           >
                             {corsFixing
-                              ? "Adding..."
-                              : `Add ${uiOrigin} to CORS`}
+                              ? text("Adding...")
+                              : text("Add {origin} to CORS", { origin: uiOrigin ?? "" })}
                           </ListActionButton>
                         </div>
                       </AnchoredPortalMenu>
@@ -3281,21 +3286,27 @@ export default function BrowserPage({
         <ConfirmActionDialog
           title={
             archivePreparation.phase === "inventorying"
-              ? "Preparing ZIP archive"
-              : "Save large ZIP archive"
+              ? text("Preparing ZIP archive")
+              : text("Save large ZIP archive")
           }
           description={
             archivePreparation.phase === "inventorying"
               ? archivePreparation.totalFolders > 0
-                ? `Checking folders and archive paths (${archivePreparation.completedFolders}/${archivePreparation.totalFolders}). No object content is downloaded during this step.`
-                : "Checking files and archive paths. No object content is downloaded during this step."
-              : "The inventory is complete. Choose the destination file to start downloading object content."
+                ? text(
+                    "Checking folders and archive paths ({completed}/{total}). No object content is downloaded during this step.",
+                    {
+                      completed: archivePreparation.completedFolders,
+                      total: archivePreparation.totalFolders,
+                    },
+                  )
+                : text("Checking files and archive paths. No object content is downloaded during this step.")
+              : text("The inventory is complete. Choose the destination file to start downloading object content.")
           }
           details={
             archivePreparation.phase === "ready"
               ? [
                   { label: text("Files"), value: archivePreparation.fileCount },
-                  { label: text("Volume"), value: formatBytes(archivePreparation.totalBytes) },
+                  { label: text("Volume"), value: formatBytes(archivePreparation.totalBytes, intlLocale) },
                   {
                     label: text("Excluded"),
                     value: archivePreparation.excludedCount,
@@ -3310,8 +3321,8 @@ export default function BrowserPage({
           }
           cancelLabel={
             archivePreparation.phase === "inventorying"
-              ? "Cancel preparation"
-              : "Close"
+              ? text("Cancel preparation")
+              : text("Close")
           }
           tone="primary"
           error={

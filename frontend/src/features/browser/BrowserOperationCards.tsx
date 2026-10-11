@@ -170,6 +170,7 @@ function DetailItemRow({
   showSize: boolean;
   showError?: boolean;
 }) {
+  const { intlLocale } = useBrowserI18n();
   return (
     <div className="ui-caption flex items-center justify-between gap-3">
       <div className="min-w-0">
@@ -179,7 +180,7 @@ function DetailItemRow({
         <p className="ui-caption text-[var(--ui-text-muted)]">
           {label}
           {showSize && item.sizeBytes != null
-            ? ` · ${formatBytes(item.sizeBytes)}`
+            ? ` · ${formatBytes(item.sizeBytes, intlLocale)}`
             : ""}
         </p>
         {showError && item.errorMessage && (
@@ -246,7 +247,7 @@ export function BrowserTransferOperationGroupCard({
         type="button"
         onClick={() => onShowMore(group.op.id, section)}
       >
-        Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
+        {text("Show next {count}", { count: DEFAULT_QUEUED_VISIBLE_COUNT })}
       </ListActionButton>
       <ListActionButton
         type="button"

@@ -104,7 +104,7 @@ export default function BrowserObjectDetailsDrawer({
   profile,
   requestOptions,
 }: BrowserObjectDetailsDrawerProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const [activeTab, setActiveTab] = useState<ObjectDetailsTabId>(initialTab);
   const [itemSnapshot, setItemSnapshot] = useState(item);
   const [actionStatus, setActionStatus] =
@@ -238,8 +238,8 @@ export default function BrowserObjectDetailsDrawer({
         metadata?.restore_status),
   );
   const restoreStatusLabel = useMemo(
-    () => formatRestoreStatus(metadata?.restore_status),
-    [metadata?.restore_status],
+    () => formatRestoreStatus(metadata?.restore_status, text, intlLocale),
+    [metadata?.restore_status, text, intlLocale],
   );
   const {
     days: restoreDays,
