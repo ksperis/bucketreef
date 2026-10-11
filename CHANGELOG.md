@@ -2,12 +2,26 @@
 
 ## Unreleased
 
+## 0.2.15 - 2026-10-11
+
+### Added
+
+- Complete locale-aware Browser coverage and integrate the contributor i18n foundation across authentication, errors, navigation, and responsive shell controls.
+
 ### Changed
 
 - **Breaking change:** remove the retired `BUCKET_MIGRATION_WEBHOOK_*` runtime aliases. Configure webhook delivery exclusively with the canonical `WEBHOOK_*` variables; Compose and Helm defaults now use the canonical names.
 - **Breaking change:** remove the unused `endpoint_configured` and `storage_access_configured` fields from the Admin onboarding status API; clients use `complete` and journeys for setup state.
 - **Breaking change:** remove the retired `/admin/api-tokens` frontend redirect and the unused standalone API-token page mode. Superadmins manage API tokens exclusively from the shared profile API-token tab.
 - Remove the retired Browser transfer IndexedDB cleanup hook; current Browser code no longer reads, opens, or deletes the obsolete `bucketreef-browser-transfers-v1` database.
+- Reorganize Manager bucket detail navigation and simplify API error handling across Manager, Admin, and Ceph Admin surfaces.
+- Tighten typed service boundaries for storage endpoints, endpoint identities, key rotation, migrations, account capabilities, and execution targets.
+
+### Fixed
+
+- Avoid repeating the OIDC callback when changing locale and preserve translated shell controls on narrow screens.
+- Scope Ceph Admin account bucket metrics defensively and purge functional-test buckets through Ceph Admin cleanup paths.
+- Correct Manager functional UX/localization details, including French timezone wording.
 
 ## 0.2.14 - 2026-10-06
 
