@@ -723,7 +723,7 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole("tab", { name: "Objects / S3 Console" }));
+    await user.click(screen.getByRole("tab", { name: "Objects" }));
 
     await waitFor(() =>
       expect(listCephAdminBucketObjectsMock).toHaveBeenCalledWith(1, "demo-bucket", "")
@@ -771,7 +771,7 @@ describe("BucketDetailPage replication state", () => {
     expect(getBucketLoggingMock).toHaveBeenCalledOnce();
 
     vi.clearAllMocks();
-    await user.click(screen.getByRole("tab", { name: "Objects / S3 Console" }));
+    await user.click(screen.getByRole("tab", { name: "Objects" }));
 
     await waitFor(() => {
       expect(listManagerObjectsMock).toHaveBeenCalledOnce();
@@ -820,7 +820,7 @@ describe("BucketDetailPage replication state", () => {
     await waitFor(() => {
       expect(getBucketLoggingMock).toHaveBeenCalledWith("acc-old", "demo-bucket");
     });
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
 
     accountId = "acc-new";
     view.rerender(renderPage());
@@ -841,7 +841,7 @@ describe("BucketDetailPage replication state", () => {
 
     expect(within(accessLoggingCard).getByText("new-logs")).toBeInTheDocument();
     expect(within(accessLoggingCard).queryByText("old-logs")).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Advanced" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Properties" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("uses the shared warning banner when Ceph Admin bucket context is missing", async () => {
@@ -861,7 +861,7 @@ describe("BucketDetailPage replication state", () => {
     expect(endpointWarning).toHaveClass("border-amber-200");
   });
 
-  it("hides Manager quota tab without bucket quota access", async () => {
+  it("hides Manager quota configuration without bucket quota access", async () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [{ id: "ceph-account", name: "Ceph account", endpoint_provider: "ceph" }],
       selectedS3AccountId: "ceph-account",
@@ -877,11 +877,12 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    await screen.findByRole("heading", { name: "Bucket demo-bucket" });
-    expect(screen.queryByRole("tab", { name: "Privileged Ceph" })).not.toBeInTheDocument();
+    await userEvent.setup().click(await screen.findByRole("tab", { name: "Usage & Metrics" }));
+    expect(screen.queryByTestId("bucket-feature-quota")).not.toBeInTheDocument();
   });
 
-  it("shows Manager quota tab with bucket quota access", async () => {
+  it("shows Manager quota configuration with bucket quota access", async () => {
+    const user = userEvent.setup();
     setSessionUserCache({
       role: "ui_user",
       manager_tool_access: {
@@ -906,10 +907,12 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("tab", { name: "Privileged Ceph" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("tab", { name: "Usage & Metrics" }));
+    expect(await screen.findByTestId("bucket-feature-quota")).toBeInTheDocument();
   });
 
-  it("hides Storage Ops quota tab when the context is not quota eligible", async () => {
+  it("hides Storage Ops quota configuration when the context is not quota eligible", async () => {
+    const user = userEvent.setup();
     setSessionUserCache({
       role: "ui_user",
       manager_tool_access: {
@@ -932,8 +935,8 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    await screen.findByRole("heading", { name: "Bucket demo-bucket" });
-    expect(screen.queryByRole("tab", { name: "Privileged Ceph" })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("tab", { name: "Usage & Metrics" }));
+    expect(screen.queryByTestId("bucket-feature-quota")).not.toBeInTheDocument();
   });
 
   it("treats replication payload with empty role and no rules as not configured", async () => {
@@ -951,7 +954,7 @@ describe("BucketDetailPage replication state", () => {
     expect(screen.getByText("Replication")).toBeInTheDocument();
     expect((await screen.findAllByText("Not set")).length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Data management" }));
     const replicationCard = await screen.findByTestId("bucket-feature-replication");
     expect(replicationCard).toHaveAttribute("data-feature-state", "neutral");
     expect(within(replicationCard).getByText("0 rules")).toBeInTheDocument();
@@ -988,7 +991,7 @@ describe("BucketDetailPage replication state", () => {
     );
 
     await waitFor(() => expect(getCephAdminBucketReplicationMock).toHaveBeenCalled());
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Data management" }));
 
     const replicationCard = await screen.findByTestId("bucket-feature-replication");
     expect(within(replicationCard).getByText("rule-1")).toBeInTheDocument();
@@ -1060,13 +1063,14 @@ describe("BucketDetailPage replication state", () => {
     const policyCard = await screen.findByTestId("bucket-feature-policy");
     expect(within(policyCard).getByRole("button", { name: "JSON" })).toBeEnabled();
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
     await assertConfirmation("bucket-feature-website", "Edit static website", "Delete", "Delete static website configuration?");
     await assertConfirmation("bucket-feature-access-logging", "Edit server access logging", "Disable", "Disable server access logging?");
 
     const notificationsCard = await screen.findByTestId("bucket-feature-notifications");
     expect(within(notificationsCard).getByRole("button", { name: "JSON" })).toBeEnabled();
 
+    await user.click(screen.getByRole("tab", { name: "Data management" }));
     const replicationCard = await screen.findByTestId("bucket-feature-replication");
     expect(within(replicationCard).getByRole("button", { name: "JSON" })).toBeEnabled();
     expect(within(replicationCard).queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
@@ -1125,7 +1129,7 @@ describe("BucketDetailPage replication state", () => {
 
     expect(screen.queryByText("Replication")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Data management" }));
 
     expect(getCephAdminBucketReplicationMock).not.toHaveBeenCalled();
     const replicationCard = await screen.findByTestId("bucket-feature-replication");
@@ -1208,7 +1212,7 @@ describe("BucketDetailPage replication state", () => {
       expect(getCephAdminBucketNotificationsMock).toHaveBeenCalled();
     });
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
     const notificationsCard = await screen.findByTestId("bucket-feature-notifications");
     expect(notificationsCard).toHaveAttribute("data-feature-state", "neutral");
   });
@@ -1243,7 +1247,7 @@ describe("BucketDetailPage replication state", () => {
     expect(versioningCallOrder).toBeLessThan(objectLockCallOrder);
   });
 
-  it("does not render replication info card in Ceph Admin tab", async () => {
+  it("does not render replication info card in Usage & Metrics", async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -1255,7 +1259,7 @@ describe("BucketDetailPage replication state", () => {
       expect(getCephAdminBucketReplicationMock).toHaveBeenCalled();
     });
 
-    await user.click(screen.getByRole("tab", { name: "Ceph Admin" }));
+    await user.click(screen.getByRole("tab", { name: "Usage & Metrics" }));
     expect(screen.queryByText("Replication / multisite")).not.toBeInTheDocument();
   });
 
@@ -1277,9 +1281,11 @@ describe("BucketDetailPage replication state", () => {
 
     expect(await screen.findByTestId("bucket-feature-versioning")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-feature-object-lock")).toBeInTheDocument();
-    expect(screen.getByTestId("bucket-feature-lifecycle")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-feature-tags")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-feature-encryption")).toBeInTheDocument();
+    expect(screen.getByTestId("bucket-feature-website")).toBeInTheDocument();
+    expect(screen.getByTestId("bucket-feature-access-logging")).toBeInTheDocument();
+    expect(screen.getByTestId("bucket-feature-notifications")).toBeInTheDocument();
   });
 
   it("keeps non-versioning Properties cards visible when versioning is unavailable", async () => {
@@ -1296,8 +1302,8 @@ describe("BucketDetailPage replication state", () => {
 
     expect(await screen.findByText("versioning unavailable")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-feature-object-lock")).toBeInTheDocument();
-    expect(screen.getByTestId("bucket-feature-lifecycle")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-feature-tags")).toBeInTheDocument();
+    expect(screen.getByTestId("bucket-feature-website")).toBeInTheDocument();
   });
 
   it("keeps non-object-lock Properties cards visible when Object Lock is unavailable", async () => {
@@ -1314,8 +1320,8 @@ describe("BucketDetailPage replication state", () => {
 
     expect(await screen.findByText("object lock unavailable")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-feature-versioning")).toBeInTheDocument();
-    expect(screen.getByTestId("bucket-feature-lifecycle")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-feature-tags")).toBeInTheDocument();
+    expect(screen.getByTestId("bucket-feature-access-logging")).toBeInTheDocument();
   });
 
   it("renders Lifecycle as a read-only collection with row and advanced edit actions", async () => {
@@ -1338,7 +1344,7 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole("tab", { name: "Properties" }));
+    await user.click(screen.getByRole("tab", { name: "Data management" }));
 
     const lifecycle = await screen.findByTestId("bucket-feature-lifecycle");
     expect(lifecycle).toHaveAttribute("data-feature-presentation", "collection");
@@ -1365,7 +1371,7 @@ describe("BucketDetailPage replication state", () => {
       expect(getCephAdminBucketLifecycleMock).toHaveBeenCalled();
     });
 
-    await user.click(screen.getByRole("tab", { name: "Properties" }));
+    await user.click(screen.getByRole("tab", { name: "Data management" }));
     const lifecycle = await screen.findByTestId("bucket-feature-lifecycle");
     expect(within(lifecycle).getByText("0 rules")).toBeInTheDocument();
     expect(within(lifecycle).getByRole("table")).toBeInTheDocument();
@@ -1438,7 +1444,7 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole("tab", { name: "Properties" }));
+    await user.click(screen.getByRole("tab", { name: "Data management" }));
     const lifecycle = await screen.findByTestId("bucket-feature-lifecycle");
     await user.click(within(lifecycle).getByRole("button", { name: "Edit" }));
 
@@ -1471,7 +1477,7 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole("tab", { name: "Properties" }));
+    await user.click(screen.getByRole("tab", { name: "Data management" }));
     const lifecycle = await screen.findByTestId("bucket-feature-lifecycle");
     const editButton = within(lifecycle).getByRole("button", { name: "Edit" });
     await user.click(editButton);
@@ -1513,7 +1519,7 @@ describe("BucketDetailPage replication state", () => {
       expect(getCephAdminBucketLoggingMock).toHaveBeenCalled();
     });
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
 
     const accessLoggingCard = await screen.findByTestId("bucket-feature-access-logging");
     expect(accessLoggingCard).toHaveAttribute("data-feature-state", "disabled");
@@ -1539,7 +1545,7 @@ describe("BucketDetailPage replication state", () => {
       expect(getCephAdminBucketNotificationsMock).toHaveBeenCalled();
     });
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
 
     const notificationsCard = await screen.findByTestId("bucket-feature-notifications");
     expect(notificationsCard).toHaveAttribute("data-feature-state", "disabled");
@@ -1562,7 +1568,7 @@ describe("BucketDetailPage replication state", () => {
       expect(getCephAdminBucketLoggingMock).toHaveBeenCalled();
     });
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
 
     const accessLoggingCard = await screen.findByTestId("bucket-feature-access-logging");
     const accessDeniedMessage = within(accessLoggingCard).getByText("AccessDenied");
@@ -1615,8 +1621,7 @@ describe("BucketDetailPage replication state", () => {
       expect(getBucketStatsMock).toHaveBeenCalledWith("conn-aws", "demo-bucket", { with_stats: false });
     });
 
-    const metricsTab = screen.getByRole("tab", { name: "Metrics" });
-    expect(metricsTab).not.toBeDisabled();
+    const metricsTab = screen.getByRole("tab", { name: "Usage & Metrics" });
 
     await user.click(metricsTab);
 
@@ -1635,8 +1640,7 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    const metricsTab = screen.getByRole("tab", { name: "Metrics" });
-    expect(metricsTab).not.toBeDisabled();
+    const metricsTab = screen.getByRole("tab", { name: "Usage & Metrics" });
 
     await user.click(metricsTab);
 
@@ -1670,8 +1674,7 @@ describe("BucketDetailPage replication state", () => {
       expect(listCephAdminBucketsMock).toHaveBeenCalled();
     });
 
-    const metricsTab = screen.getByRole("tab", { name: "Metrics" });
-    expect(metricsTab).not.toBeDisabled();
+    const metricsTab = screen.getByRole("tab", { name: "Usage & Metrics" });
 
     await user.click(metricsTab);
 

@@ -1275,5 +1275,11 @@
   "Name must contain 1–128 ASCII letters, digits or _+=,.@-.": "Der Name muss 1 bis 128 ASCII-Buchstaben, Ziffern oder Zeichen _+=,.@- enthalten.",
   "Ceph inline policy name must contain 1–128 ASCII letters, digits or :=,.@-.": "Der Name einer Ceph-Inline-Richtlinie muss 1 bis 128 ASCII-Buchstaben, Ziffern oder Zeichen :=,.@- enthalten.",
   "Topic name must contain 1–256 ASCII letters, digits, underscores or hyphens.": "Der Topic-Name muss 1 bis 256 ASCII-Buchstaben, Ziffern, Unterstriche oder Bindestriche enthalten.",
-  "Naming rules are unavailable. Reload the context before saving.": "Die Namensregeln sind nicht verfügbar. Laden Sie den Kontext vor dem Speichern neu."
+  "Naming rules are unavailable. Reload the context before saving.": "Die Namensregeln sind nicht verfügbar. Laden Sie den Kontext vor dem Speichern neu.",
+  "Data management": "Datenverwaltung",
+  "Bucket data management": "Bucket-Datenverwaltung",
+  "Configure lifecycle and replication rules that control how bucket data is retained and copied.": "Konfigurieren Sie Lebenszyklus- und Replikationsregeln, die steuern, wie Bucket-Daten aufbewahrt und kopiert werden.",
+  "Bucket overview, objects, configuration, data management, usage and metrics.": "Bucket-Übersicht, Objekte, Konfiguration, Datenverwaltung, Nutzung und Metriken.",
+  "Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available above.": "Live-Endpunkt-Metriken sind nicht verfügbar. Die von BucketReef aus Objektlisten berechneten Nutzungsstatistiken bleiben oben verfügbar.",
+  "Inventory statistics": "Inventarstatistiken"
 }

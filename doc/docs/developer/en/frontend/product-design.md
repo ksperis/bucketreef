@@ -348,6 +348,15 @@ or page-specific table geometry. Successful mutations use the section's compact
 success feedback; keep errors and warnings in the more prominent inline-message
 presentation.
 
+Manager and Ceph Admin bucket detail use the same task-oriented tab order:
+Overview, Objects, Properties, Permissions, Data management, then Usage &
+Metrics. Properties owns bucket-level configuration and integrations;
+Permissions owns access controls; Data management owns lifecycle and
+replication; Usage & Metrics combines quota configuration, persisted inventory
+statistics and live traffic metrics. Do not expose execution mechanisms such as
+privileged Ceph access as a separate user-facing category when they only gate a
+feature inside one of these tasks.
+
 Validate a 1440 × 900 viewport with two open sessions: all three security sections
 must fit without opening details. Check German wrapping, keyboard focus, mobile
 touch targets, both themes and actual authenticated routes.

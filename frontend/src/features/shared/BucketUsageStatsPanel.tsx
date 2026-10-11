@@ -11,6 +11,7 @@ import { formatLocalDateTime } from "../../utils/dateTime";
 import { BucketUsageStatsCompositionVisuals } from "./BucketUsageStatsVisuals";
 
 type BucketUsageStatsPanelProps = {
+  title?: string;
   snapshot?: BucketUsageStatsSnapshot | null;
   loading?: boolean;
   error?: string | null;
@@ -29,6 +30,7 @@ function fallbackText(message: string, values?: Record<string, string | number>)
 }
 
 export default function BucketUsageStatsPanel({
+  title,
   snapshot,
   loading,
   error,
@@ -41,7 +43,7 @@ export default function BucketUsageStatsPanel({
   const text = translateText ?? fallbackText;
   return (
     <MetricsCard
-      title={text("Usage stats")}
+      title={title ?? text("Usage stats")}
       description={text("Latest persisted calculation from object listings. Space ratios use logical object-version bytes.")}
       actions={
         <>
