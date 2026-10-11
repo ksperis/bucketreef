@@ -132,6 +132,14 @@ def test_storage_endpoint_error_status_does_not_depend_on_message_text(client: T
     assert resp.status_code == 400, resp.text
 
 
+def test_storage_endpoint_service_dependency_binds_authenticated_actor(db_session):
+    user = _superadmin_user()
+
+    service = storage_endpoints_router.get_service(db_session, user)
+
+    assert service.actor is user
+
+
 def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision(monkeypatch):
     endpoint = SimpleNamespace(
         service_identities=[
@@ -150,7 +158,6 @@ def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision
     class FakeService:
         def __init__(self):
             self.db = FakeDB()
-            self.actor = None
             self.calls = []
 
         def reconcile_identities(self, endpoint_id):
@@ -185,7 +192,6 @@ def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision
     )
 
     assert result is reconciled
-    assert service.actor is user
     assert service.calls == [7]
     assert audit.calls[0]["metadata"] == {"endpoint_id": 7, "operation": "provision"}
     assert len(background_tasks.tasks) == 1

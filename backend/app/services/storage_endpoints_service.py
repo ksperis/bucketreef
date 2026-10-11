@@ -16,6 +16,7 @@ from app.db import (
     S3User,
     StorageEndpoint,
     StorageProvider,
+    User,
 )
 from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionRequest,
@@ -61,7 +62,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 class StorageEndpointsService:
-    def __init__(self, db: Session, *, actor=None) -> None:
+    def __init__(self, db: Session, *, actor: User | None = None) -> None:
         self.db = db
         self.actor = actor
         self.tags = TagsService(db)
@@ -611,5 +612,9 @@ class StorageEndpointsService:
         return self._serialize(entry)
 
 
-def get_storage_endpoints_service(db: Session) -> StorageEndpointsService:
-    return StorageEndpointsService(db)
+def get_storage_endpoints_service(
+    db: Session,
+    *,
+    actor: User | None = None,
+) -> StorageEndpointsService:
+    return StorageEndpointsService(db, actor=actor)
