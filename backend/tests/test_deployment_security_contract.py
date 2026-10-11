@@ -29,6 +29,8 @@ def test_runtime_images_are_fixed_non_root_and_read_only_compatible():
     assert "apk add" not in scheduler_entrypoint
     assert "NOTIFICATION_RETENTION_CRON_SCHEDULE" in scheduler_entrypoint
     assert "run-notification-retention.sh" in scheduler_entrypoint
+    assert "ACCESS_KEY_EXPIRATION_CRON_SCHEDULE" in scheduler_entrypoint
+    assert "run-access-key-expirations.sh" in scheduler_entrypoint
     assert "exec supercronic" in scheduler_entrypoint
 
 
@@ -82,6 +84,9 @@ def test_compose_services_drop_privileges_and_keep_public_port():
         assert services["scheduler"]["environment"][
             "NOTIFICATION_RETENTION_CRON_SCHEDULE"
         ]
+        assert services["scheduler"]["environment"][
+            "ACCESS_KEY_EXPIRATION_CRON_SCHEDULE"
+        ]
 
 
 def test_helm_workloads_apply_least_privilege_contract():
@@ -94,6 +99,7 @@ def test_helm_workloads_apply_least_privilege_contract():
         "quota-monitor-cronjob.yaml",
         "usage-history-cronjob.yaml",
         "notification-retention-cronjob.yaml",
+        "access-key-expiration-cronjob.yaml",
     ]
     for filename in templates:
         template = _read(f"deploy/helm/bucketreef/templates/{filename}")

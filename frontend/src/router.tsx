@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { Suspense, lazy, useMemo } from "react";
-import { Navigate, Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useLocation } from "react-router-dom";
+import { Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import { useGeneralSettings } from "./components/GeneralSettingsContext";
 import FeatureDisabledPage from "./features/shared/FeatureDisabledPage";
@@ -370,7 +370,6 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route path="webhook-settings/:endpointId" element={<WebhookEndpointPage />} />
                   <Route path="key-rotation" element={<KeyRotationPage />} />
                 </Route>
-                <Route path="api-tokens" element={<Navigate to="/admin/profile?tab=api-tokens" replace />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Route>

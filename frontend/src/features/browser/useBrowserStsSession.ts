@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useBrowserI18n } from "./browserI18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -46,6 +47,7 @@ export function useBrowserStsSession({
   hasContext,
   requestOptions,
 }: UseBrowserStsSessionOptions) {
+  const { text } = useBrowserI18n();
   const scopeKey =
     enabled && hasContext
       ? createScopeKey(accountIdForApi, requestOptions)
@@ -119,7 +121,12 @@ export function useBrowserStsSession({
         });
       inFlightRef.current = { scopeKey: requestedScopeKey, request };
       return request;
-    }, [accountIdForApi, requestOptions, scopeKey, status?.available],
+    }, [
+      accountIdForApi,
+      requestOptions,
+      scopeKey,
+      status?.available,
+    ],
   );
 
   useEffect(() => {
@@ -161,7 +168,7 @@ export function useBrowserStsSession({
   return {
     available: Boolean(scopeKey && status?.available),
     credentials,
-    credentialsError,
+    credentialsError: credentialsError ? text(credentialsError) : null,
     ensureCredentials,
   };
 }

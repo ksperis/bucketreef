@@ -12,6 +12,7 @@ import {
 } from "../../api/browserBuckets";
 import type { BucketCorsStatus } from "../../api/browserContracts";
 import { resolveBrowserCorsAvailability } from "./browserTransferPresentation";
+import { useBrowserI18n } from "./browserI18n";
 
 type ScopedValue<T> = {
   scopeKey: string;
@@ -51,6 +52,7 @@ export function useBrowserBucketCors({
   requestOptions,
   setStatusMessage,
 }: UseBrowserBucketCorsOptions) {
+  const { text } = useBrowserI18n();
   const scopeKey = enabled
     ? createScopeKey(accountIdForApi, bucketName, origin, requestOptions)
     : null;
@@ -106,7 +108,7 @@ export function useBrowserBucketCors({
       if (activeScopeRef.current !== requestedScopeKey) return;
       setStatusState({ scopeKey: requestedScopeKey, value: nextStatus });
       if (nextStatus.enabled) {
-        setStatusMessage("CORS rules updated for this bucket.");
+        setStatusMessage(text("CORS rules updated for this bucket."));
         setPopoverOpen(false);
       } else {
         setErrorState({
@@ -134,6 +136,7 @@ export function useBrowserBucketCors({
     requestOptions,
     scopeKey,
     setStatusMessage,
+    text,
   ]);
 
   useEffect(() => {

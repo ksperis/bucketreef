@@ -99,6 +99,20 @@ Portal → Admin → Portal approval loop, cross-workspace state visibility,
 Viewer denial, upload boundaries, reset, deep links, profile switching,
 keyboard controls, mobile layouts and light/dark themes.
 
+The shared JSON editor has a browser regression in
+`frontend/e2e/demo/json-editor.spec.ts`, exercised through the Manager bucket
+Lifecycle dialog. It clicks the actual highlighted character coordinates after
+a long line and verifies native caret positions and inserted text, including
+after formatting and Tab/Shift+Tab indentation. It also checks alignment at the
+bottom of a long document on desktop in both themes and at mobile width.
+Component tests alone do not measure the geometry of the transparent textarea
+and highlighted layer. To run only this regression against a fresh demo build:
+
+```sh
+npm run build:demo
+npx playwright test -c playwright.demo.config.ts e2e/demo/json-editor.spec.ts
+```
+
 ## Publication
 
 The Cloudflare Pages project is `bucketreef-demo`, with production branch `main`.

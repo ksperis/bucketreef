@@ -58,6 +58,31 @@ The frontend theme is anchored by the shared shell and UI tokens in
   descriptions and never suppress a field error with an explicit false ARIA
   state. `ui-control[aria-invalid="true"]` uses the semantic danger border;
   errors must also have visible text. Modal controls keep 44px touch targets.
+  For resource identifiers, show format errors immediately for non-empty values,
+  defer required-field errors until submission, and clear them as the value is
+  corrected. Use the shared `resourceNames` validators and `UiInput`/`UiField`;
+  do not introduce local red-border classes. Block submission with the same rules.
+  IAM inline-policy rules use `ManagerContext.naming_validation_profile` (`ceph`
+  or `standard`), reset on context changes; unknown providers use the standard
+  profile. Ceph Tentacle User/Group inline-policy names accept `:=,.@-` in
+  addition to ASCII letters/digits, whereas Role inline policies only require a
+  non-empty name. Standard IAM names accept `_+=,.@-`, with 64 characters for
+  Users/Roles and 128 for Groups/Policies. RGW UID parsing retains qualified
+  tenant/namespace forms and has no invented IAM length/alphabet restriction.
+  Standard SNS topic names accept ASCII letters/digits, `_` and `-` up to 256
+  characters; existing AWS FIFO API requests additionally require `.fifo` and
+  `FifoTopic=true`. The UI continues to create standard topics. API write-side
+  checks return field-located 422 errors and validate all inline policies before
+  creating the principal, including managed private access. Existing read models
+  and identifiers are not revalidated. The UI/API test suites share the naming
+  vectors in `backend/tests/fixtures/resource_names.json`. Manager bucket creation
+  and Portal `named_bucket` creation
+  retains exactly what was typed or pasted: no lowercasing, character replacement,
+  trimming or silent length truncation. Its existing S3/DNS validator marks the
+  field invalid immediately and only valid unchanged names reach the create call.
+  Portal rejects invalid named identifiers on the API write model and returns a
+  conflict for an existing name instead of generating a suffix. Generic Portal
+  spaces keep their display-label normalization and generated UUID identifier.
   `size="compact"` on `UiInput`, `UiSelect` and `UiTextarea` uses the shared
   `ui-control-compact` class: 12px text, an 18px line height and a 28px minimum
   height, increasing to 44px on mobile or coarse pointers. This explicit size

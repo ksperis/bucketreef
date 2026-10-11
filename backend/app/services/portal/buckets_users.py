@@ -29,7 +29,7 @@ class PortalBucketsUsersMixin:
         portal_settings: Optional[PortalSettings] = None,
     ) -> Bucket:
         account = access.account
-        portal_defaults = portal_settings or self._effective_portal_settings(account)
+        portal_defaults = portal_settings or self.get_effective_portal_settings(account)
         versioning_flag = portal_defaults.bucket_defaults.versioning if versioning is None else versioning
         is_portal_user_creation = bool(
             access.portal_role == PortalAccountRole.PORTAL_USER.value and portal_defaults.allow_private_storage_space_create

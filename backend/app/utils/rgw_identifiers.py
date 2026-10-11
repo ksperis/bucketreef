@@ -38,6 +38,37 @@ def is_rgw_account_id(identifier: str | None) -> bool:
     return bool(value and _ACCOUNT_ID_PATTERN.match(value))
 
 
+def validate_rgw_tenant(tenant: str) -> str:
+    if tenant and not re.fullmatch(r"[A-Za-z0-9_]+", tenant):
+        raise ValueError("Tenant must contain only ASCII letters, digits or underscores.")
+    if re.fullmatch(r"RGW[0-9]{17}", tenant):
+        raise ValueError("Tenant must not be a reserved RGW account ID.")
+    return tenant
+
+
+def validate_rgw_user_uid(uid: str, tenant: str | None = None) -> str:
+    value = uid.strip()
+    if not value:
+        raise ValueError("UID is required.")
+    parts = value.split("$", 2)
+    parsed_tenant = parts[0] if len(parts) > 1 else ""
+    namespace = parts[1] if len(parts) > 2 else ""
+    identifier = parts[-1]
+    effective_tenant = tenant.strip() if tenant and tenant.strip() else parsed_tenant
+    validate_rgw_tenant(effective_tenant)
+    if not identifier:
+        raise ValueError("UID must contain a non-empty user identifier after '$'.")
+    if re.fullmatch(r"RGW[0-9]{17}", identifier):
+        raise ValueError("UID must not be a reserved RGW account ID.")
+    if not effective_tenant and not namespace and identifier == "anonymous":
+        raise ValueError("UID 'anonymous' is reserved.")
+    try:
+        value.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as exc:
+        raise ValueError("UID must be valid UTF-8.") from exc
+    return uid
+
+
 def normalize_rgw_identifier(identifier: str | None) -> str | None:
     if identifier is None:
         return None

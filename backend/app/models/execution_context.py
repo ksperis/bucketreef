@@ -35,6 +35,7 @@ class ExecutionContext(ApiModel):
 
 
 class ManagerContext(ApiModel):
+    naming_validation_profile: Literal["ceph", "standard"] = "standard"
     access_mode: str
     context_kind: str = "account"
     iam_identity: Optional[str] = None
@@ -44,6 +45,8 @@ class ManagerContext(ApiModel):
     manager_browser_message: Optional[str] = None
     manager_bucket_quota_enabled: bool = False
     manager_ceph_keys_enabled: bool = False
+    manager_access_key_metadata_enabled: bool = False
+    manager_access_key_expiration_enabled: bool = False
     manager_private_access_enabled: bool = False
     quota_max_size_gb: Optional[float] = None
     quota_max_objects: Optional[int] = None

@@ -12,6 +12,7 @@ import {
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime } from "./browserUtils";
 import { runBrowserScopedSave } from "./browserScopedSave";
+import { useBrowserI18n } from "./browserI18n";
 
 type GenerateSignedUrlResult =
   | { status: "generated" }
@@ -42,6 +43,7 @@ export function useBrowserObjectSignedUrl({
   requestOptions,
   sseCustomerKeyBase64,
 }: UseBrowserObjectSignedUrlOptions) {
+  const { text } = useBrowserI18n();
   const scope = JSON.stringify([
     accountId,
     bucketName,
@@ -79,16 +81,16 @@ export function useBrowserObjectSignedUrl({
     setError(null);
     const expiresAt = expires ? new Date(expires) : null;
     if (!expiresAt || Number.isNaN(expiresAt.getTime())) {
-      setError("Select a valid expiration date.");
+      setError(text("Select a valid expiration date."));
       return { status: "validation-error" };
     }
     const seconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
     if (seconds < 60) {
-      setError("Expiration must be at least 1 minute from now.");
+      setError(text("Expiration must be at least 1 minute from now."));
       return { status: "validation-error" };
     }
     if (seconds > 43200) {
-      setError("Expiration must be within 12 hours.");
+      setError(text("Expiration must be within 12 hours."));
       return { status: "validation-error" };
     }
 
@@ -118,7 +120,7 @@ export function useBrowserObjectSignedUrl({
       if (!isCurrentScope()) return { status: "skipped" };
       const message = extractApiError(
         generateError,
-        "Unable to generate signed URL.",
+        text("Unable to generate signed URL."),
       );
       setError(message);
       return { status: "api-error", message };
@@ -131,6 +133,7 @@ export function useBrowserObjectSignedUrl({
     objectKey,
     requestOptions,
     sseCustomerKeyBase64,
+    text,
   ]);
 
   const copy = useCallback(async (): Promise<CopySignedUrlResult> => {

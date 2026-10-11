@@ -44,7 +44,7 @@ class PortalStorageSpaceSettingsMixin:
         expiration = expiration_rule.get("NoncurrentVersionExpiration")
         retention_days = expiration.get("NoncurrentDays") if isinstance(expiration, dict) else None
         if not isinstance(retention_days, int) or isinstance(retention_days, bool) or retention_days < 1:
-            retention_days = self._effective_portal_settings(
+            retention_days = self.get_effective_portal_settings(
                 account
             ).bucket_defaults.noncurrent_version_expiration_days
         return PortalStorageSpaceSettings(

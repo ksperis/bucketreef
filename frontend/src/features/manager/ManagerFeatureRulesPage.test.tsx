@@ -136,7 +136,7 @@ describe("ManagerFeatureRulesPage", () => {
     await waitFor(() => expect(listFeatureRuleInventoryMock).toHaveBeenCalledWith("account-1", "tags"));
     expect(screen.getByRole("columnheader", { name: "Tag" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Value" })).toBeInTheDocument();
-    expect(screen.getByText("1 tag(s)")).toBeInTheDocument();
+    expect(screen.getByText("1 tag")).toBeInTheDocument();
     expect(screen.getByText("environment")).toBeInTheDocument();
     expect(screen.getByText("prod")).toBeInTheDocument();
     expect(screen.getByText("No tags")).toBeInTheDocument();

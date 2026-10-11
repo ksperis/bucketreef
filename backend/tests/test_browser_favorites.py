@@ -3,6 +3,7 @@ from pathlib import Path
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 
 from app.db import User
@@ -133,6 +134,7 @@ def test_full_alembic_chain_upgrades_empty_database_and_round_trips(tmp_path):
     config = Config(str(backend / "alembic.ini"))
     config.set_main_option("script_location", str(backend / "alembic"))
     config.attributes["configure_logger"] = False
+    expected_head = ScriptDirectory.from_config(config).get_current_head()
     engine = create_engine(f"sqlite:///{tmp_path / 'migration.db'}")
     with engine.begin() as connection:
         config.attributes["connection"] = connection
@@ -143,4 +145,4 @@ def test_full_alembic_chain_upgrades_empty_database_and_round_trips(tmp_path):
         assert "browser_presets" in inspect(connection).get_table_names()
         command.upgrade(config, "head")
         assert "browser_presets" not in inspect(connection).get_table_names()
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0144_legacy_ceph_admin_system_compat"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == expected_head

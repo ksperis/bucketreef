@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
+from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
 from app.models.iam import AccessKey, AccessKeyStatusChange, IAMUser, IAMUserCreate, IAMUserWithKey
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
@@ -22,6 +23,8 @@ from app.routers.manager.iam_common import (
     save_inline_policy,
 )
 from app.services.audit_service import AuditService
+from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
+from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_sources import iam_source_reference
 
@@ -61,6 +64,7 @@ def create_user(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMUserWithKey:
+    validate_inline_policy_requests(payload.inline_policies, "user", account)
     service = get_iam_service_for_account(account)
     try:
         created_user, created_key = service.create_user(payload.name, create_key=payload.create_key)
@@ -114,6 +118,8 @@ def delete_user(
     service = get_iam_service_for_account(account)
     try:
         service.delete_user(user_name)
+        if account.id is not None:
+            AccessKeyMetadataService(db).delete_iam_principal_metadata(account.id, user_name)
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -136,6 +142,13 @@ def list_access_keys(
     service = get_iam_service_for_account(account)
     try:
         keys = service.list_access_keys(user_name)
+        metadata_service = AccessKeyMetadataService(db)
+        if account.id is not None:
+            metadata_service.apply_metadata(
+                keys,
+                metadata_service.iam_metadata(account.id, user_name),
+                include_labels=metadata_service.metadata_enabled_for_context(account),
+            )
         source = iam_source_reference(account)
         if source is not None:
             managed = {
@@ -156,6 +169,7 @@ def list_access_keys(
 @router.post("/{user_name}/keys", response_model=AccessKey, status_code=status.HTTP_201_CREATED)
 def create_access_key(
     user_name: str,
+    payload: AccessKeyMetadataInput | None = None,
     account: S3ExecutionContext = Depends(get_account_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
@@ -167,9 +181,23 @@ def create_access_key(
             status_code=status.HTTP_409_CONFLICT,
             detail="Managed private access IAM users cannot receive keys through the generic endpoint",
         )
+    metadata_service = AccessKeyMetadataService(db)
+    if payload is not None and payload.model_fields_set:
+        if account.id is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access-key details are not available for this context")
+        try:
+            metadata_service.validate_payload(account, payload)
+        except PermissionError as exc:
+            raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
+        except ValueError as exc:
+            raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
     service = get_iam_service_for_account(account)
     try:
         key = service.create_access_key(user_name)
+        if payload is not None and payload.model_fields_set and account.id is not None:
+            row = metadata_service.set_iam_metadata(account.id, user_name, key.access_key_id, payload)
+            if row is not None:
+                metadata_service.apply_metadata([key], {key.access_key_id: row})
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -180,6 +208,49 @@ def create_access_key(
             metadata={"access_key_id": key.access_key_id},
         )
         return key
+    except RuntimeError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+
+
+@router.put("/{user_name}/keys/{access_key_id}/metadata", response_model=AccessKeyMetadata)
+def update_access_key_metadata(
+    user_name: str,
+    access_key_id: str,
+    payload: AccessKeyMetadataInput,
+    account: S3ExecutionContext = Depends(get_account_context),
+    current_user: ManagerActor = Depends(require_iam_capable_manager),
+    audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
+) -> AccessKeyMetadata:
+    metadata_service = AccessKeyMetadataService(db)
+    if account.id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access-key details are not available for this context")
+    try:
+        metadata_service.validate_payload(account, payload)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
+    except ValueError as exc:
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+    service = get_iam_service_for_account(account)
+    try:
+        if not any(key.access_key_id == access_key_id for key in service.list_access_keys(user_name)):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access key not found")
+        row = metadata_service.set_iam_metadata(account.id, user_name, access_key_id, payload)
+        audit_service.record_action(
+            user=current_user,
+            scope="manager",
+            action="update_access_key_metadata",
+            entity_type="iam_user",
+            entity_id=user_name,
+            account=account,
+            metadata={
+                "access_key_id": access_key_id,
+                "has_name": bool(row and row.name),
+                "has_notes": bool(row and row.notes),
+                "has_expiration": bool(row and row.expires_at),
+            },
+        )
+        return metadata_service.to_api(row)
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
@@ -199,6 +270,15 @@ def update_access_key_status(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; update or delete its private connection instead",
+        )
+    if payload.active and account.id is not None and AccessKeyMetadataService(db).expiration_due(
+        account_id=account.id,
+        principal_name=user_name,
+        access_key_id=access_key_id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Remove or move the expired access-key expiration before enabling this key",
         )
     service = get_iam_service_for_account(account)
     status_value = "Active" if payload.active else "Inactive"
@@ -242,6 +322,8 @@ def delete_access_key(
     service = get_iam_service_for_account(account)
     try:
         service.delete_access_key(user_name, access_key_id)
+        if account.id is not None:
+            AccessKeyMetadataService(db).delete_iam_metadata(account.id, user_name, access_key_id)
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -281,6 +363,8 @@ def put_user_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
+    validate_inline_policy_request(payload.name, "user", account)
+    validate_inline_policy_request(policy_name, "user", account, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
     service = get_iam_service_for_account(account)
     try:

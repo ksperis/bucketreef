@@ -37,6 +37,7 @@ vi.mock("../../api/users", () => ({
 
 const baseSettings: GeneralSettings = {
   rgw_account_id_prefix: "80",
+  documentation_base_url: "https://docs.bucketreef.ksperis.com",
   manager_enabled: true,
   ceph_admin_enabled: false,
   storage_ops_enabled: false,
@@ -57,6 +58,8 @@ const baseSettings: GeneralSettings = {
   bucket_usage_stats_enabled: true,
   bucket_quota_management_enabled: true,
   manager_ceph_s3_user_keys_enabled: true,
+  manager_access_key_metadata_enabled: false,
+  manager_access_key_expiration_enabled: false,
   managed_private_connection_provisioning_enabled: false,
   allow_login_access_keys: false,
   allow_login_endpoint_list: false,

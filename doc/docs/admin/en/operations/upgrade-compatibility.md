@@ -189,13 +189,10 @@ are imported once as disabled endpoints subscribed to
 `manager.bucket_migration.event`; they intentionally have no signing secret and
 must be reviewed, assigned a new secret, and enabled by a super-administrator.
 
-For one upgrade window, `BUCKET_MIGRATION_WEBHOOK_TIMEOUT_SECONDS`,
-`BUCKET_MIGRATION_WEBHOOK_ALLOW_PRIVATE_TARGETS`,
-`BUCKET_MIGRATION_WEBHOOK_ALLOWED_HOSTS`, and
-`BUCKET_MIGRATION_WEBHOOK_WORKERS` remain fallback aliases if their new
-`WEBHOOK_*` equivalents are not explicitly configured. The new variables take
-precedence. `BUCKET_MIGRATION_WEBHOOK_QUEUE_SIZE` is accepted but ignored
-because queue state is now durable in the database.
+The temporary `BUCKET_MIGRATION_WEBHOOK_*` configuration aliases have been
+removed. Before upgrading, migrate any remaining webhook settings to the
+canonical `WEBHOOK_*` variables. The durable database queue has no queue-size
+environment setting.
 
 ## 2026-09 Manager and Portal account-role split
 
@@ -240,8 +237,8 @@ databases do not reopen bootstrap. Existing-administrator recovery remains a
 separate command and never creates a new first user.
 
 Deploy migration, backend and frontend together. The Admin onboarding response
-now exposes `endpoint_configured`, `storage_access_configured` and `complete`;
-clients using the removed seed-account readiness field must update atomically.
+uses `complete` and the journey list as its setup-state contract; obsolete
+endpoint/storage readiness summary fields are no longer returned.
 
 ## 2026-08 authentication cutover
 

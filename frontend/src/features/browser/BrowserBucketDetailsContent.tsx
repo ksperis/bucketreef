@@ -22,6 +22,7 @@ import { extractApiError } from "../../utils/apiError";
 import { formatBytes } from "../../utils/format";
 import DetailsList from "../shared/DetailsList";
 import { formatDateTime } from "./browserUtils";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserBucketDetailsContentProps = {
   accountId: S3AccountSelector;
@@ -213,6 +214,7 @@ export default function BrowserBucketDetailsContent({
   includeStaticWebsite,
   includeUsage,
 }: BrowserBucketDetailsContentProps) {
+  const { text, intlLocale } = useBrowserI18n();
   const [data, setData] = useState<BucketDetailsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -240,7 +242,7 @@ export default function BrowserBucketDetailsContent({
       setError(
         extractApiError(
           failure?.status === "rejected" ? failure.reason : null,
-          "Unable to load bucket details.",
+          text("Unable to load bucket details."),
         ),
       );
     }
@@ -253,7 +255,7 @@ export default function BrowserBucketDetailsContent({
       unavailableSections,
     });
     setLoading(false);
-  }, [accountId, bucketName, includeStaticWebsite, includeUsage]);
+  }, [accountId, bucketName, includeStaticWebsite, includeUsage, text]);
 
   useEffect(() => {
     void load();
@@ -273,60 +275,56 @@ export default function BrowserBucketDetailsContent({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className={cx("text-xs", uiMutedTextClass)}>
-          Read-only S3 information for the current Browser connection.
-        </p>
+          {text("Read-only S3 information for the current Browser connection.")}</p>
         <UiButton size="xs" variant="secondary" loading={loading} onClick={() => void load()}>
-          Refresh
-        </UiButton>
+          {text("Refresh")}</UiButton>
       </div>
 
       {error ? <PageBanner tone="error">{error}</PageBanner> : null}
       {data && data.unavailableSections > 0 && !error ? (
         <PageBanner tone="warning">
-          Some bucket information is unavailable for this connection.
-        </PageBanner>
+          {text("Some bucket information is unavailable for this connection.")}</PageBanner>
       ) : null}
 
-      <UiCard title="Overview">
+      <UiCard title={text("Overview")}>
         {loading && !data ? (
           <p className={cx("text-xs font-semibold", uiMutedTextClass)}>
-            Loading bucket details...
-          </p>
+            {text("Loading bucket details...")}</p>
         ) : (
           <DetailsList
             columns={2}
             items={[
-              { label: "Owner", value: owner },
+              { label: text("Owner"), value: owner },
               {
-                label: "Created",
+                label: text("Created"),
                 value: bucket?.creation_date
-                  ? formatDateTime(bucket.creation_date)
+                  ? formatDateTime(bucket.creation_date, intlLocale)
                   : "-",
               },
               {
-                label: "Storage used",
-                value: formatBytes(bucket?.used_bytes ?? null),
+                label: text("Storage used"),
+                value: formatBytes(bucket?.used_bytes ?? null, intlLocale),
               },
               {
-                label: "Object count",
+                label: text("Object count"),
                 value:
                   bucket?.object_count != null
-                    ? bucket.object_count.toLocaleString()
+                    ? bucket.object_count.toLocaleString(intlLocale)
                     : "-",
               },
               {
-                label: "Storage quota",
+                label: text("Storage quota"),
                 value:
                   (bucket?.quota_max_size_bytes ?? 0) > 0
-                    ? formatBytes(bucket?.quota_max_size_bytes ?? null)
-                    : "Not set",
+                    ? formatBytes(bucket?.quota_max_size_bytes ?? null, intlLocale)
+                    : text("Not set"),
               },
               {
-                label: "Object quota",
+                label: text("Object quota"),
                 value:
                   (bucket?.quota_max_objects ?? 0) > 0
-                    ? (bucket?.quota_max_objects ?? 0).toLocaleString()
-                    : "Not set",
+                    ? (bucket?.quota_max_objects ?? 0).toLocaleString(intlLocale)
+                    : text("Not set"),
               },
             ]}
           />
@@ -334,8 +332,8 @@ export default function BrowserBucketDetailsContent({
       </UiCard>
 
       <UiCard
-        title="Features"
-        description="Effective bucket configuration visible to this connection."
+        title={text("Features")}
+        description={text("Effective bucket configuration visible to this connection.")}
       >
         <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
           {features.map((feature) => (
@@ -344,10 +342,10 @@ export default function BrowserBucketDetailsContent({
               className="flex min-w-0 items-center justify-between gap-3 border-b border-[color:var(--ui-border-soft)] py-2 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0"
             >
               <span className={cx("min-w-0 text-xs font-semibold", uiMutedTextClass)}>
-                {feature.label}
+                {text(feature.label)}
               </span>
               <UiBadge tone={feature.tone} className="shrink-0">
-                {feature.state}
+                {text(feature.state)}
               </UiBadge>
             </div>
           ))}

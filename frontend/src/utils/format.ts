@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-export function formatBytes(value?: number | null): string {
+export function formatBytes(value?: number | null, locale?: string): string {
   if (value === undefined || value === null) return "-";
   if (value === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB", "PB"];
@@ -13,7 +13,10 @@ export function formatBytes(value?: number | null): string {
     idx += 1;
   }
   const decimals = size >= 10 || idx === 0 ? 0 : 1;
-  return `${size.toFixed(decimals)} ${units[idx]}`;
+  const formatted = locale
+    ? size.toLocaleString(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    : size.toFixed(decimals);
+  return `${formatted} ${units[idx]}`;
 }
 
 export function formatBytesAxis(value: number): string {

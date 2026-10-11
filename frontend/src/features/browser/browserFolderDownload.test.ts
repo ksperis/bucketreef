@@ -49,6 +49,7 @@ import {
   downloadBrowserFolderArchive,
   resolveBrowserFolderArchiveLabel,
 } from "./browserFolderDownload";
+import { browserText } from "./browserI18n";
 
 beforeEach(() => {
   mocks.memoryEntries.length = 0;
@@ -257,6 +258,16 @@ describe("browser folder downloads", () => {
     expect(picker).toHaveBeenCalledWith(
       expect.objectContaining({ suggestedName: "reports.zip" }),
     );
+  });
+
+  it("localizes the archive picker description while preserving its filename and MIME filter", async () => {
+    const handle = { createWritable: vi.fn() };
+    const picker = vi.fn().mockResolvedValue(handle);
+    await expect(chooseBrowserArchiveFile("reports", picker, (message, values) => browserText(message, "fr", values))).resolves.toBe(handle);
+    expect(picker).toHaveBeenCalledWith(expect.objectContaining({
+      suggestedName: "reports.zip",
+      types: [{ description: "Archive ZIP", accept: { "application/zip": [".zip"] } }],
+    }));
   });
 });
 

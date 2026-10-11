@@ -50,6 +50,7 @@ import {
 } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 type ClipboardTransferParameters = Parameters<
@@ -108,6 +109,7 @@ export function useBrowserClipboard({
   uiOrigin,
   updateOperation,
 }: UseBrowserClipboardOptions) {
+  const { text } = useBrowserI18n();
   const [clipboard, setClipboard] = useState<ClipboardState | null>(null);
   const currentAccountId = normalizeS3AccountSelectorId(accountId);
   const clipboardAccountId = normalizeS3AccountSelectorId(
@@ -126,12 +128,12 @@ export function useBrowserClipboard({
       if (!bucketName || items.length === 0) return;
       const eligibleItems = items.filter((item) => !item.isDeleted);
       if (eligibleItems.length === 0) {
-        onWarning("Deleted objects cannot be copied directly.");
+        onWarning(text("Deleted objects cannot be copied directly."));
         return;
       }
       onWarning(
         eligibleItems.length !== items.length
-          ? "Deleted objects were skipped."
+          ? text("Deleted objects were skipped.")
           : null,
       );
       setClipboard({
@@ -140,9 +142,9 @@ export function useBrowserClipboard({
         sourceSelector: accountId ?? null,
         mode: "copy",
       });
-      onStatus("Items copied.");
+      onStatus(text("Items copied."));
     },
-    [accountId, bucketName, onStatus, onWarning],
+    [accountId, bucketName, onStatus, onWarning, text],
   );
 
   const cut = useCallback(
@@ -150,12 +152,12 @@ export function useBrowserClipboard({
       if (!bucketName || items.length === 0) return;
       const eligibleItems = items.filter((item) => !item.isDeleted);
       if (eligibleItems.length === 0) {
-        onWarning("Deleted objects cannot be moved directly.");
+        onWarning(text("Deleted objects cannot be moved directly."));
         return;
       }
       onWarning(
         eligibleItems.length !== items.length
-          ? "Deleted objects were skipped."
+          ? text("Deleted objects were skipped.")
           : null,
       );
       setClipboard({
@@ -164,9 +166,9 @@ export function useBrowserClipboard({
         sourceSelector: accountId ?? null,
         mode: "move",
       });
-      onStatus("Items ready to move.");
+      onStatus(text("Items ready to move."));
     },
-    [accountId, bucketName, onStatus, onWarning],
+    [accountId, bucketName, onStatus, onWarning, text],
   );
 
   const resolveTransferMode = useCallback(
@@ -189,10 +191,10 @@ export function useBrowserClipboard({
       }
       if (proxyAllowed) return "proxy";
       throw new Error(
-        `Direct transfer is unavailable for ${targetBucket} and proxy transfers are disabled.`,
+        text("Direct transfer is unavailable for {bucket} and proxy transfers are disabled.", { bucket: targetBucket }),
       );
     },
-    [proxyAllowed, requestOptions, uiOrigin],
+    [proxyAllowed, requestOptions, uiOrigin, text],
   );
 
   const downloadBlob = useCallback<
@@ -200,10 +202,11 @@ export function useBrowserClipboard({
   >(
     (parameters) =>
       downloadBrowserTransferBlob({
+        text,
         ...parameters,
         options: requestOptions,
       }),
-    [requestOptions],
+    [requestOptions, text],
   );
 
   const downloadStream = useCallback<
@@ -211,19 +214,21 @@ export function useBrowserClipboard({
   >(
     (parameters) =>
       downloadBrowserTransferStream({
+        text,
         ...parameters,
         options: requestOptions,
       }),
-    [requestOptions],
+    [requestOptions, text],
   );
 
   const uploadBlob = useCallback<ClipboardTransferParameters["uploadBlob"]>(
     (parameters) =>
       uploadBrowserTransferBlob({
+        text,
         ...parameters,
         options: requestOptions,
       }),
-    [requestOptions],
+    [requestOptions, text],
   );
 
   const uploadMultipartStream = useCallback<
@@ -319,7 +324,7 @@ export function useBrowserClipboard({
     if (!clipboard || !bucketName || !enabled) return;
     if (functionalProfile !== "advanced" && !clipboardMatchesContext) {
       onWarning(
-        "Cross-context copy and move require the Advanced Browser profile.",
+        text("Cross-context copy and move require the Advanced Browser profile."),
       );
       return;
     }
@@ -424,7 +429,7 @@ export function useBrowserClipboard({
     }
 
     if (copyTasks.length === 0) {
-      onStatus(skipped > 0 ? "Nothing new to paste here." : "No items to paste.");
+      onStatus(skipped > 0 ? text("Nothing new to paste here.") : text("No items to paste."));
       return;
     }
 
@@ -510,6 +515,7 @@ export function useBrowserClipboard({
                 requestOptions,
               );
               await transferClipboardObjectBetweenContexts({
+        text,
                 source: {
                   selector: task.sourceSelector,
                   bucket: task.sourceBucket,
@@ -583,7 +589,10 @@ export function useBrowserClipboard({
         cancelCopyDetails(operationId);
         completeOperation(operationId, "cancelled");
         onStatus(
-          `${isMove ? "Move" : "Copy"} cancelled after ${succeeded} of ${total} item(s).`,
+          text(isMove ? "Move cancelled after {done} of {total} item(s)." : "Copy cancelled after {done} of {total} item(s).", {
+            done: succeeded,
+            total,
+          }),
         );
         await onRefreshNow(normalizedPrefix);
         return;
@@ -597,7 +606,10 @@ export function useBrowserClipboard({
         completionError,
       );
       onStatus(
-        `${isMove ? "Moved" : "Copied"} ${total - failures} of ${total} item(s).`,
+        text(isMove ? "Moved {done} of {total} item(s)." : "Copied {done} of {total} item(s).", {
+          done: total - failures,
+          total,
+        }),
       );
       await onRefreshNow(normalizedPrefix);
       if (isMove && failures === 0) setClipboard(null);
@@ -606,7 +618,10 @@ export function useBrowserClipboard({
         cancelCopyDetails(operationId);
         completeOperation(operationId, "cancelled");
         onStatus(
-          `${isMove ? "Move" : "Copy"} cancelled after ${succeeded} of ${total} item(s).`,
+          text(isMove ? "Move cancelled after {done} of {total} item(s)." : "Copy cancelled after {done} of {total} item(s).", {
+            done: succeeded,
+            total,
+          }),
         );
         await onRefreshNow(normalizedPrefix);
         return;
@@ -651,6 +666,7 @@ export function useBrowserClipboard({
     updateOperation,
     uploadBlob,
     uploadMultipartStream,
+    text,
   ]);
 
   return useMemo(

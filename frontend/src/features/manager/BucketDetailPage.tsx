@@ -4,6 +4,7 @@
  */
 import { useEffect, useMemo, useState, useCallback, useId, useRef } from "react";
 import { useParams } from "react-router-dom";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { uiDataTableClass, uiTableContainerClass } from "../../components/ui/styles";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageHeader from "../../components/PageHeader";
@@ -74,6 +75,7 @@ import {
 import { formatBytes } from "../../utils/format";
 import type { UiRole } from "../../api/users";
 import BucketFeatureGrid from "./bucketDetail/BucketFeatureGrid";
+import { useManagerI18n } from "./managerI18n";
 
 function getUserRole(): UiRole | null {
   return readStoredUser()?.role ?? null;
@@ -167,11 +169,12 @@ export default function BucketDetailPage({ onDirtyChange, onBusyChange, ...props
   return <>
     <BucketDetailContent {...props} onDirtyChange={handleDirtyChange} onBusyChange={handleBusyChange} />
     <SettingsNavigationGuard dirty={dirty || busy} discardDisabled={busy}
-      title={busy ? t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft" }) : labels.discardTitle}
+      title={busy ? t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft", zh: "操作正在进行" }) : labels.discardTitle}
       description={busy ? t({
         en: "Wait for the operation to finish before leaving this page.",
         fr: "Attendez la fin de l’opération avant de quitter cette page.",
         de: "Warten Sie, bis der Vorgang abgeschlossen ist, bevor Sie diese Seite verlassen.",
+        zh: "请等待操作完成后再离开此页面。",
       }) : labels.discardDescription}
       confirmLabel={labels.discard} cancelLabel={labels.keepEditing} closeLabel={labels.close} />
   </>;
@@ -194,6 +197,8 @@ function BucketDetailPageContent({
   routeBucketName,
   s3AccountContext,
 }: BucketDetailPageContentProps) {
+  const { text, intlLocale } = useManagerI18n();
+  const { generalSettings } = useGeneralSettings();
   const tabsId = useId();
   const bucketName = bucketNameOverride ?? routeBucketName;
   const isCephAdmin = mode === "ceph-admin";
@@ -205,6 +210,7 @@ function BucketDetailPageContent({
     managerBucketQuotaEnabled,
     managerStatsEnabled,
     managerStatsMessage,
+    managerBrowserEnabled,
   } = s3AccountContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
@@ -228,6 +234,10 @@ function BucketDetailPageContent({
   const endpointId = selectedEndpointId ?? null;
   const hasCephContext = Boolean(endpointId);
   const hasContext = isCephAdmin ? hasCephContext : hasAccountContext;
+  const managerBrowserAvailable =
+    generalSettings.browser_enabled &&
+    generalSettings.browser_manager_enabled &&
+    managerBrowserEnabled === true;
   const versioningController = useBucketVersioningController({
     accountId,
     bucketName,
@@ -362,8 +372,8 @@ function BucketDetailPageContent({
   const showQuotaTab = !hideQuotaTab && (isCephAdmin || Boolean(quotaFeatureEnabled && hasAccountContext));
   const showObjectsTab = !hideObjectsTab;
   const availableTabs = useMemo(() => {
-    return resolveBucketDetailTabs({ mode, showObjectsTab, showQuotaTab });
-  }, [mode, showObjectsTab, showQuotaTab]);
+    return resolveBucketDetailTabs({ showObjectsTab });
+  }, [showObjectsTab]);
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
@@ -488,14 +498,7 @@ function BucketDetailPageContent({
     }
     return Boolean(managerStatsEnabled) && (selectedS3Account?.storage_endpoint_capabilities?.metrics ?? true);
   }, [isCephAdmin, managerStatsEnabled, selectedEndpoint, selectedS3Account]);
-  const canViewBucketMetrics = hasContext;
   const canViewLiveBucketMetrics = Boolean(isCephEndpoint && usageFeatureEnabled);
-
-  useEffect(() => {
-    if (activeTab === "metrics" && !canViewBucketMetrics) {
-      onActiveTabChange("overview");
-    }
-  }, [activeTab, canViewBucketMetrics, onActiveTabChange]);
   const userRole = getUserRole();
   const isAdmin = isAdminLikeRole(userRole);
   const canEditQuota =
@@ -602,23 +605,15 @@ function BucketDetailPageContent({
       ]);
       return;
     }
-    if (activeTab === "metrics") {
-      if (!canViewBucketMetrics) return;
-      await loadClean("quota", refreshBucketMeta);
-      return;
-    }
     if (activeTab === "objects") {
       await refreshObjects();
       return;
     }
-    if (activeTab === "usage-stats") {
-      await loadUsageStats();
-      return;
-    }
     if (activeTab === "properties") {
       await Promise.all([
-        loadClean("versioning", loadVersioning), loadClean("objectLock", loadObjectLock),
-        loadClean("lifecycle", loadLifecycle), loadClean("tags", loadBucketTags), loadClean("encryption", loadEncryption),
+        loadClean("versioning", loadVersioning), loadClean("objectLock", loadObjectLock), loadClean("tags", loadBucketTags),
+        loadClean("encryption", loadEncryption), loadClean("website", loadWebsite), loadClean("accessLogging", loadAccessLogging),
+        loadClean("notifications", loadNotifications),
       ]);
       return;
     }
@@ -629,21 +624,19 @@ function BucketDetailPageContent({
       ]);
       return;
     }
-    if (activeTab === "advanced") {
+    if (activeTab === "data-management") {
       await Promise.all([
-        loadClean("website", loadWebsite), loadClean("replication", loadReplication),
-        loadClean("accessLogging", loadAccessLogging), loadClean("notifications", loadNotifications),
+        loadClean("lifecycle", loadLifecycle), loadClean("replication", loadReplication),
       ]);
       return;
     }
-    if (activeTab === "ceph") {
+    if (activeTab === "usage-metrics") {
       await Promise.all([
-        loadClean("quota", refreshBucketMeta), loadClean("versioning", loadVersioning), loadClean("objectLock", loadObjectLock),
+        loadClean("quota", refreshBucketMeta), loadUsageStats(),
       ]);
     }
   }, [
     activeTab,
-    canViewBucketMetrics,
     loadAccessLogging,
     loadBucketAcl,
     loadBucketTags,
@@ -682,26 +675,20 @@ function BucketDetailPageContent({
         publicAccessLoading
       );
     }
-    if (activeTab === "metrics") {
-      return loadingBucket;
-    }
     if (activeTab === "objects") {
       return objectsLoading;
     }
-    if (activeTab === "usage-stats") {
-      return usageStatsLoading || usageStatsRecalculating;
-    }
     if (activeTab === "properties") {
-      return versioningLoading || objectLockLoading || lifecycleLoading || bucketTagsLoading || encryptionLoading;
+      return versioningLoading || objectLockLoading || bucketTagsLoading || encryptionLoading || websiteLoading || accessLoggingLoading || notificationsLoading;
     }
     if (activeTab === "permissions") {
       return publicAccessLoading || bucketAclLoading || policyLoading || corsLoading;
     }
-    if (activeTab === "advanced") {
-      return websiteLoading || replicationLoading || accessLoggingLoading || notificationsLoading;
+    if (activeTab === "data-management") {
+      return lifecycleLoading || replicationLoading;
     }
-    if (activeTab === "ceph") {
-      return loadingBucket || versioningLoading || objectLockLoading;
+    if (activeTab === "usage-metrics") {
+      return loadingBucket || usageStatsLoading || usageStatsRecalculating;
     }
     return false;
   }, [
@@ -725,15 +712,7 @@ function BucketDetailPageContent({
     websiteLoading,
   ]);
 
-  const canRefreshActiveTab = useMemo(() => {
-    if (activeTab === "metrics") {
-      return hasContext && canViewBucketMetrics;
-    }
-    if (activeTab === "objects") {
-      return hasContext;
-    }
-    return hasContext;
-  }, [activeTab, canViewBucketMetrics, hasContext]);
+  const canRefreshActiveTab = hasContext;
 
   const storageUsage = useMemo(
     () => ({
@@ -923,28 +902,28 @@ function BucketDetailPageContent({
       publicAccessLoading || publicAccessError ? "unknown" : publicAccessBlockEnabled || publicAccessBlockPartial ? "active" : "inactive";
 
     const summary: PropertySummary[] = [
-      { label: "Versioning", state: versioningState, tone: versioningTone },
-      { label: "Object Lock", state: objectLockState, tone: objectLockTone },
-      { label: "Block public access", state: publicAccessState, tone: publicAccessTone },
-      { label: "Lifecycle rules", state: lifecycleState, tone: lifecycleTone },
+      { label: text("Versioning"), state: text(versioningState), tone: versioningTone },
+      { label: text("Object Lock"), state: text(objectLockState), tone: objectLockTone },
+      { label: text("Block public access"), state: text(publicAccessState), tone: publicAccessTone },
+      { label: text("Lifecycle rules"), state: text(lifecycleState), tone: lifecycleTone },
     ];
     if (staticWebsiteEnabled) {
-      summary.push({ label: "Static website", state: websiteState, tone: websiteTone });
+      summary.push({ label: text("Static website"), state: text(websiteState), tone: websiteTone });
     }
     if (quotaFeatureEnabled) {
-      summary.push({ label: "Quota", state: quotaState, tone: quotaTone });
+      summary.push({ label: text("Quota"), state: text(quotaState), tone: quotaTone });
     }
-    summary.push({ label: "Bucket policy", state: policyState, tone: policyTone });
-    summary.push({ label: "CORS", state: corsState, tone: corsTone });
+    summary.push({ label: text("Bucket policy"), state: text(policyState), tone: policyTone });
+    summary.push({ label: text("CORS"), state: text(corsState), tone: corsTone });
     if (sseFeatureEnabled) {
-      summary.push({ label: "Server-side encryption", state: encryptionState, tone: encryptionTone });
+      summary.push({ label: text("Server-side encryption"), state: text(encryptionState), tone: encryptionTone });
     }
-    summary.push({ label: "Access logging", state: accessLoggingState, tone: accessLoggingTone });
+    summary.push({ label: text("Access logging"), state: text(accessLoggingState), tone: accessLoggingTone });
     if (snsFeatureEnabled) {
-      summary.push({ label: "Notifications", state: notificationsState, tone: notificationsTone });
+      summary.push({ label: text("Notifications"), state: text(notificationsState), tone: notificationsTone });
     }
     if (replicationFeatureEnabled) {
-      summary.push({ label: "Replication", state: replicationState, tone: replicationTone });
+      summary.push({ label: text("Replication"), state: text(replicationState), tone: replicationTone });
     }
 
     return summary;
@@ -992,6 +971,7 @@ function BucketDetailPageContent({
     websiteConfigured,
     websiteError,
     websiteLoading,
+    text,
   ]);
 
   const basePath = useMemo(
@@ -1038,31 +1018,31 @@ function BucketDetailPageContent({
       <div className={bucketDetailSectionStackClass}>
       {!embedded && (
         <PageHeader
-          title={bucketName ?? "Bucket"}
+          title={bucketName ?? text("Bucket")}
           description={
             bucketError ||
             (isCephAdmin
-              ? "Bucket configuration and permissions (Admin Ops + S3)."
-              : "Bucket overview, objects, properties, permissions, metrics.")
+              ? text("Bucket configuration and permissions (Admin Ops + S3).")
+              : text("Bucket overview, objects, configuration, data management, usage and metrics."))
           }
           breadcrumbs={breadcrumbs}
           actions={[
             onBackToBuckets
-              ? { label: "← Back to buckets", onClick: onBackToBuckets, variant: "ghost" }
-              : { label: "← Back to buckets", to: basePath, variant: "ghost" },
+              ? { label: text("← Back to buckets"), onClick: onBackToBuckets, variant: "ghost" }
+              : { label: text("← Back to buckets"), to: basePath, variant: "ghost" },
           ]}
         />
       )}
 
       {isCephAdmin && !endpointId && (
-        <PageBanner tone="warning">Select a Ceph endpoint before managing this bucket.</PageBanner>
+        <PageBanner tone="warning">{text("Select a Ceph endpoint before managing this bucket.")}</PageBanner>
       )}
 
-      {bucketError && <PageBanner tone="error">{bucketError}</PageBanner>}
+      {bucketError && <PageBanner tone="error">{text(bucketError)}</PageBanner>}
 
       <PageTabs
         variant="line"
-        ariaLabel="Bucket sections"
+        ariaLabel={text("Bucket sections")}
         idPrefix={tabsId}
         activeTab={activeTab}
         onChange={(id) => onActiveTabChange(id as BucketDetailTabId)}
@@ -1073,53 +1053,53 @@ function BucketDetailPageContent({
             onClick={refreshActiveTab}
             disabled={!canRefreshActiveTab || activeTabLoading}
           >
-            {activeTabLoading ? "Loading..." : "Refresh"}
+            {text(activeTabLoading ? "Loading..." : "Refresh")}
           </SettingsButton>
         }
         tabs={[
           {
             id: "overview",
-            label: "Overview",
+            label: text("Overview"),
             content: (
               <section className="space-y-4 px-1 py-2">
                 <header className={bucketDetailTightStackClass}>
                   <h3 className="ui-subtitle font-semibold text-slate-900 dark:text-slate-100">
-                    {bucketName ? `Bucket ${bucketName}` : "Bucket overview"}
+                    {bucketName ? text("Bucket {name}", { name: bucketName }) : text("Bucket overview")}
                   </h3>
                   <dl className="flex flex-wrap gap-x-6 gap-y-1">
                     <div className={bucketDetailHintClass}>
-                      <dt className="inline">Owner: </dt>
-                      <dd className="inline font-semibold text-slate-700 dark:text-slate-200">{bucketOwner ?? (loadingBucket || bucketAclLoading ? "Loading..." : "Unknown")}</dd>
+                      <dt className="inline">{text("Owner:")} </dt>
+                      <dd className="inline font-semibold text-slate-700 dark:text-slate-200">{bucketOwner ?? text(loadingBucket || bucketAclLoading ? "Loading..." : "Unknown")}</dd>
                     </div>
                     <div className={bucketDetailHintClass}>
-                      <dt className="inline">Created: </dt>
-                      <dd className="inline font-semibold text-slate-700 dark:text-slate-200">{loadingBucket ? "Loading..." : formatLocalDateTime(bucket?.creation_date)}</dd>
+                      <dt className="inline">{text("Created:")} </dt>
+                      <dd className="inline font-semibold text-slate-700 dark:text-slate-200">{loadingBucket ? text("Loading...") : formatLocalDateTime(bucket?.creation_date)}</dd>
                     </div>
                   </dl>
                 </header>
                 <div className={bucketDetailTwoColumnGridClass}>
                   <UsageTile
-                    label="Storage"
+                    label={text("Storage")}
                     used={storageUsage.used}
                     quota={storageUsage.quota}
                     formatter={formatBytes}
                     quotaFormatter={formatBytes}
                     loading={loadingBucket}
-                    emptyHint="No storage quota configured."
+                    emptyHint={text("No storage quota configured.")}
                   />
                   <UsageTile
-                    label="Objects"
+                    label={text("Objects")}
                     used={objectUsage.used}
                     quota={objectUsage.quota}
                     formatter={formatCompactNumber}
-                    quotaFormatter={(value) => (value != null ? value.toLocaleString() : "-")}
+                    quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
                     loading={loadingBucket}
-                    unitHint="objects"
-                    emptyHint="No object quota configured."
+                    unitHint={text("objects")}
+                    emptyHint={text("No object quota configured.")}
                   />
                 </div>
                 <div className="border-t border-[color:var(--ui-border-soft)] pt-4">
-                  <p className="ui-body font-semibold text-slate-900 dark:text-slate-50">Bucket properties</p>
+                  <p className="ui-body font-semibold text-slate-900 dark:text-slate-50">{text("Bucket properties")}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {propertySummary.map((item) => (
                       <PropertySummaryChip key={item.label} label={item.label} state={item.state} tone={item.tone} />
@@ -1133,12 +1113,12 @@ function BucketDetailPageContent({
             ? [
                 {
                   id: "objects",
-                  label: "Objects / S3 Console",
+                  label: text("Objects"),
                   content: (
                     <SplitView
                       left={
                   <div className="p-3 space-y-2">
-                    <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">Prefixes</p>
+                    <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">{text("Prefixes")}</p>
                     <div className={bucketDetailTightStackClass}>
                       <ListActionButton
                         variant="ghost"
@@ -1147,7 +1127,7 @@ function BucketDetailPageContent({
                         className="w-full !justify-between text-left"
                         onClick={() => openObjectsPrefix("")}
                       >
-                        <span>(root)</span>
+                        <span>{text("(root)")}</span>
                       </ListActionButton>
                       {parentPrefix !== "" && (
                         <ListActionButton
@@ -1155,7 +1135,7 @@ function BucketDetailPageContent({
                           className="w-full !justify-between text-left"
                           onClick={() => openObjectsPrefix(parentPrefix)}
                         >
-                          <span>⬆️ Up</span>
+                          <span>{text("⬆️ Up")}</span>
                           <span className={bucketDetailHintClass}>{parentPrefix || "/"}</span>
                         </ListActionButton>
                       )}
@@ -1182,14 +1162,16 @@ function BucketDetailPageContent({
                   <div className="space-y-3 p-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className={bucketDetailTightStackClass}>
-                        <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">Path</p>
+                        <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">{text("Path")}</p>
                         <div className="ui-caption text-slate-500 dark:text-slate-300">
                           {bucketName}/{currentPrefix || "(root)"}
                         </div>
                         <div className={bucketDetailHintClass}>
                           {isCephAdmin
-                            ? "Read-only preview using the selected endpoint's Ceph Admin credentials."
-                            : "Read-only preview. Use the main Browser page for object operations."}
+                            ? text("Read-only preview using the selected endpoint's Ceph Admin credentials.")
+                            : managerBrowserAvailable
+                              ? text("Read-only preview. Use the main Browser page for object operations.")
+                              : text("Read-only preview. Object operations are unavailable because Manager Browser is disabled.")}
                         </div>
                       </div>
                       <div className={bucketDetailWrapActionsClass}>
@@ -1197,12 +1179,12 @@ function BucketDetailPageContent({
                           onClick={() => void refreshObjects()}
                           loading={objectsLoading}
                         >
-                          Refresh
+                          {text("Refresh")}
                         </ListActionButton>
                       </div>
                     </div>
                     {objectsError && (
-                      <UiInlineMessage tone="error">{objectsError}</UiInlineMessage>
+                      <UiInlineMessage tone="error">{text(objectsError)}</UiInlineMessage>
                     )}
 
                     <div className={uiTableContainerClass}>
@@ -1210,16 +1192,16 @@ function BucketDetailPageContent({
                         <thead>
                           <tr>
                             <th className="text-left">
-                              Name
+                              {text("Name")}
                             </th>
                             <th className="text-left">
-                              Size
+                              {text("Size")}
                             </th>
                             <th className="text-left">
-                              Last modified
+                              {text("Last modified")}
                             </th>
                             <th className="text-left">
-                              Storage class
+                              {text("Storage class")}
                             </th>
                           </tr>
                         </thead>
@@ -1227,14 +1209,14 @@ function BucketDetailPageContent({
                           {objectsLoading && (
                             <tr>
                               <td colSpan={4} className="ui-table-secondary">
-                                Loading objects...
+                                {text("Loading objects...")}
                               </td>
                             </tr>
                           )}
                           {!objectsLoading && objectRows.length === 0 && (
                             <tr>
                               <td colSpan={4} className="ui-table-secondary">
-                                No objects in this prefix.
+                                {text("No objects in this prefix.")}
                               </td>
                             </tr>
                           )}
@@ -1261,7 +1243,7 @@ function BucketDetailPageContent({
                                   <td className="ui-table-primary">{row.name}</td>
                                   <td className="ui-table-secondary">{formatBytes(row.object.size)}</td>
                                   <td className="ui-table-secondary">
-                                    {row.object.last_modified ? new Date(row.object.last_modified).toLocaleString() : "-"}
+                                    {row.object.last_modified ? new Date(row.object.last_modified).toLocaleString(intlLocale) : "-"}
                                   </td>
                                   <td className="ui-table-secondary">{row.object.storage_class ?? "-"}</td>
                                 </tr>
@@ -1279,18 +1261,20 @@ function BucketDetailPageContent({
       : []),
           {
             id: "properties",
-            label: "Properties",
+            label: text("Properties"),
             content: (
               <BucketFeatureGrid
-                title="Bucket properties"
-                description="Configured features are highlighted. Changes remain scoped to each S3 feature."
-                summary={`${[
+                title={text("Bucket properties")}
+                description={text("Configured features are highlighted. Changes remain scoped to each S3 feature.")}
+                summary={text("{count} configured", { count: [
                   versioningController.isEnabled,
                   objectLockController.persistentlyEnabled,
                   encryptionController.configured,
-                  lifecycleController.hasRules,
                   bucketTagsController.configured,
-                ].filter(Boolean).length} configured`}
+                  websiteController.configured,
+                  accessLoggingController.configured,
+                  notificationsController.configured,
+                ].filter(Boolean).length })}
               >
                   <BucketVersioningFeature
                     controller={versioningController}
@@ -1308,23 +1292,33 @@ function BucketDetailPageContent({
                     controller={bucketTagsController}
                     onRequestClear={() => setPendingConfigurationDelete("tags")}
                   />
-                  <BucketLifecycleFeature controller={lifecycleController} />
+                  <BucketWebsiteFeature
+                    blocked={!staticWebsiteEnabled}
+                    bucketName={bucketName}
+                    controller={websiteController}
+                    onRequestDelete={() => setPendingConfigurationDelete("website")}
+                  />
+                  <BucketAccessLoggingFeature
+                    controller={accessLoggingController}
+                    onRequestDisable={() => setPendingConfigurationDelete("access-logging")}
+                  />
+                  <BucketNotificationsFeature controller={notificationsController} />
               </BucketFeatureGrid>
             ),
           },
           {
             id: "permissions",
-            label: "Permissions",
+            label: text("Permissions"),
             content: (
               <BucketFeatureGrid
-                title="Bucket permissions"
-                description="Configured protections and access rules are highlighted. Common list actions stay on this page."
-                summary={`${[
+                title={text("Bucket permissions")}
+                description={text("Configured protections and access rules are highlighted. Common list actions stay on this page.")}
+                summary={text("{count} configured", { count: [
                   publicAccessController.fullyEnabled || publicAccessController.partiallyEnabled,
                   Boolean(bucketAclController.acl),
                   policyController.configured,
                   corsController.configured,
-                ].filter(Boolean).length} configured`}
+                ].filter(Boolean).length })}
               >
                 <BucketPublicAccessFeature controller={publicAccessController} />
 
@@ -1341,85 +1335,76 @@ function BucketDetailPageContent({
             ),
           },
           {
-            id: "advanced",
-            label: "Advanced",
+            id: "data-management",
+            label: text("Data management"),
             content: (
               <BucketFeatureGrid
-                title="Advanced bucket features"
-                description="Configured integrations are highlighted; collections expose their common row actions directly."
-                summary={`${[
-                  websiteController.configured,
+                title={text("Bucket data management")}
+                description={text("Configure lifecycle and replication rules that control how bucket data is retained and copied.")}
+                summary={text("{count} configured", { count: [
+                  lifecycleController.hasRules,
                   isCephEndpoint && replicationController.configured,
-                  accessLoggingController.configured,
-                  notificationsController.configured,
-                ].filter(Boolean).length} configured`}
+                ].filter(Boolean).length })}
               >
-                <BucketWebsiteFeature
-                  blocked={!staticWebsiteEnabled}
-                  bucketName={bucketName}
-                  controller={websiteController}
-                  onRequestDelete={() => setPendingConfigurationDelete("website")}
-                />
-                <BucketAccessLoggingFeature
-                  controller={accessLoggingController}
-                  onRequestDisable={() => setPendingConfigurationDelete("access-logging")}
-                />
+                <BucketLifecycleFeature controller={lifecycleController} />
                 {isCephEndpoint && (
                   <BucketReplicationFeature
                     blocked={!replicationFeatureEnabled}
                     controller={replicationController}
                   />
                 )}
-                <BucketNotificationsFeature
-                  controller={notificationsController}
-                />
               </BucketFeatureGrid>
             ),
           },
           {
-            id: "usage-stats",
-            label: "Usage stats",
-            content: (
-              <BucketUsageStatsPanel
-                snapshot={usageStatsSnapshot}
-                loading={usageStatsLoading}
-                error={usageStatsError}
-                recalculating={usageStatsRecalculating}
-                onCancel={cancelUsageStatsRecalculation}
-                onRefresh={loadUsageStats}
-                onRecalculate={recalculateUsageStats}
-              />
-            ),
-          },
-          {
-            id: "metrics",
-            label: "Metrics",
-            disabled: !canViewBucketMetrics,
+            id: "usage-metrics",
+            label: text("Usage & Metrics"),
             content: (
               <div className={bucketDetailSectionStackClass}>
+                {showQuotaTab && (
+                  <div className="settings-compact">
+                    <BucketQuotaFeature
+                      controller={quotaController}
+                      editable={canEditQuota}
+                      featureEnabled={quotaFeatureEnabled}
+                      loading={loadingBucket}
+                    />
+                  </div>
+                )}
+                <BucketUsageStatsPanel
+                  title={text("Inventory statistics")}
+                  snapshot={usageStatsSnapshot}
+                  loading={usageStatsLoading}
+                  error={usageStatsError}
+                  recalculating={usageStatsRecalculating}
+                  onCancel={cancelUsageStatsRecalculation}
+                  onRefresh={loadUsageStats}
+                  onRecalculate={recalculateUsageStats}
+                  text={text}
+                />
                 <MetricsCard
-                  title="Current usage and quota"
-                  description="Live usage, quotas, and traffic sourced from backend metrics."
+                  title={text("Current usage and quota")}
+                  description={text("Live usage, quotas, and traffic sourced from backend metrics.")}
                 >
                   <div className={bucketDetailTwoColumnGridClass}>
                     <UsageTile
-                      label="Storage"
+                      label={text("Storage")}
                       used={storageUsage.used}
                       quota={storageUsage.quota}
                       formatter={formatBytes}
                       quotaFormatter={formatBytes}
                       loading={loadingBucket}
-                      emptyHint="No storage quota defined."
+                      emptyHint={text("No storage quota defined.")}
                     />
                     <UsageTile
-                      label="Objects"
+                      label={text("Objects")}
                       used={objectUsage.used}
                       quota={objectUsage.quota}
                       formatter={formatCompactNumber}
-                      quotaFormatter={(value) => (value != null ? value.toLocaleString() : "-")}
+                      quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
                       loading={loadingBucket}
-                      unitHint="objects"
-                      emptyHint="No object quota defined."
+                      unitHint={text("objects")}
+                      emptyHint={text("No object quota defined.")}
                     />
                   </div>
                 </MetricsCard>
@@ -1427,7 +1412,7 @@ function BucketDetailPageContent({
                   <PageBanner>
                     {!isCephAdmin && managerStatsMessage
                       ? managerStatsMessage
-                      : "Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available in the Usage stats tab."}
+                      : text("Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available above.")}
                   </PageBanner>
                 )}
                 {canViewLiveBucketMetrics &&
@@ -1435,44 +1420,26 @@ function BucketDetailPageContent({
                     endpointId && bucketName ? (
                       <TrafficAnalytics scope="ceph-admin" endpointId={endpointId} bucketName={bucketName} enabled={hasCephContext} />
                     ) : (
-                      <PageBanner tone="warning">Select an endpoint and a bucket to view detailed metrics.</PageBanner>
+                      <PageBanner tone="warning">{text("Select an endpoint and a bucket to view detailed metrics.")}</PageBanner>
                     )
                   ) : hasAccountContext && bucketName ? (
                     <TrafficAnalytics accountId={accountIdForApi} bucketName={bucketName} enabled={hasAccountContext} />
                   ) : (
-                    <PageBanner tone="warning">Select an account and a bucket to view detailed metrics.</PageBanner>
+                    <PageBanner tone="warning">{text("Select an account and a bucket to view detailed metrics.")}</PageBanner>
                   ))}
               </div>
             ),
           },
-          ...(showQuotaTab
-            ? [
-                {
-                  id: "ceph",
-                  label: isCephAdmin ? "Ceph Admin" : "Privileged Ceph",
-                  content: (
-                    <div className="settings-compact">
-                      <BucketQuotaFeature
-                        controller={quotaController}
-                        editable={canEditQuota}
-                        featureEnabled={quotaFeatureEnabled}
-                        loading={loadingBucket}
-                      />
-                    </div>
-                  ),
-                },
-              ]
-            : []),
         ].sort((a, b) => availableTabs.indexOf(a.id as BucketDetailTabId) - availableTabs.indexOf(b.id as BucketDetailTabId))}
       />
 
       {pendingConfigurationDelete && (
         <ConfirmActionDialog
-          title={bucketConfigurationDeleteCopy[pendingConfigurationDelete].title}
-          description={bucketConfigurationDeleteCopy[pendingConfigurationDelete].description}
-          confirmLabel={bucketConfigurationDeleteCopy[pendingConfigurationDelete].confirmLabel}
-          details={[{ label: "Bucket", value: bucketName ?? "Unknown", mono: true }]}
-          impacts={bucketConfigurationDeleteCopy[pendingConfigurationDelete].impacts}
+          title={text(bucketConfigurationDeleteCopy[pendingConfigurationDelete].title)}
+          description={text(bucketConfigurationDeleteCopy[pendingConfigurationDelete].description)}
+          confirmLabel={text(bucketConfigurationDeleteCopy[pendingConfigurationDelete].confirmLabel)}
+          details={[{ label: text("Bucket"), value: bucketName ?? text("Unknown"), mono: true }]}
+          impacts={bucketConfigurationDeleteCopy[pendingConfigurationDelete].impacts.map((impact) => text(impact))}
           loading={configurationDeleteLoading}
           onCancel={() => setPendingConfigurationDelete(null)}
           onConfirm={() => void confirmPendingConfigurationDelete()}

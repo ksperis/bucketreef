@@ -47,12 +47,14 @@ const CONTEXTS: ExecutionContext[] = [
 ];
 
 function Probe() {
-  const { selectedS3AccountId, selectedS3AccountType } = useS3AccountContext();
+  const { selectedS3AccountId, selectedS3AccountType, namingValidationProfile } = useS3AccountContext();
   const location = useLocation();
   const navigate = useNavigate();
   return (
     <>
       <div data-testid="selected">{selectedS3AccountId ?? "null"}</div>
+      <div data-testid="naming-profile">{namingValidationProfile ?? "pending"}</div>
+      <button type="button" onClick={() => navigate("/manager?ctx=s3u-2")}>Switch context</button>
       <div data-testid="selected-type">{selectedS3AccountType ?? "null"}</div>
       <div data-testid="location">{`${location.pathname}${location.search}`}</div>
       <button type="button" onClick={() => navigate("/manager/next")}>Navigate without context</button>
@@ -207,4 +209,25 @@ describe("S3AccountProvider", () => {
     expect(localStorage.getItem("selectedManagerExecutionContextId")).toBeNull();
     expect(screen.getByTestId("location")).toHaveTextContent("/manager");
   });
+
+
+it("clears the naming profile on context switches and ignores stale context responses", async () => {
+  const user = userEvent.setup();
+  listExecutionContextsMock.mockResolvedValue(CONTEXTS);
+  let resolveFirst!: (value: Awaited<ReturnType<typeof fetchManagerContext>>) => void;
+  let resolveSecond!: (value: Awaited<ReturnType<typeof fetchManagerContext>>) => void;
+  fetchManagerContextMock.mockReset();
+  fetchManagerContextMock.mockReturnValueOnce(new Promise(resolve => { resolveFirst = resolve; }))
+    .mockReturnValueOnce(new Promise(resolve => { resolveSecond = resolve; }));
+  renderProvider("/manager?ctx=conn-1");
+  await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalledWith("conn-1"));
+  await user.click(screen.getByRole("button", { name: "Switch context" }));
+  await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalledWith("s3u-2"));
+  expect(screen.getByTestId("naming-profile")).toHaveTextContent("pending");
+  const base = { access_mode: "admin" as const, manager_stats_enabled: false, manager_browser_enabled: false };
+  await act(async () => resolveSecond({ ...base, naming_validation_profile: "standard" }));
+  expect(screen.getByTestId("naming-profile")).toHaveTextContent("standard");
+  await act(async () => resolveFirst({ ...base, naming_validation_profile: "ceph" }));
+  expect(screen.getByTestId("naming-profile")).toHaveTextContent("standard");
+});
 });

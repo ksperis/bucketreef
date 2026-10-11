@@ -190,7 +190,7 @@ describe("ProfilePage live validation", () => {
   it("opts non-Browser connection lists into the common header and keeps creation in the page header", async () => {
     const target = document.createElement("header");
     document.body.append(target);
-    const { unmount } = render(<ProfilePage showPageHeader={false} showSettingsCards={false}
+    const { unmount } = render(<ProfilePage showSettingsCards={false}
       showConnectionsSection listPresentation headerActionsTarget={target} />);
     await waitFor(() => expect(listConnectionsMock).toHaveBeenCalled());
     expect(screen.getByRole("region", { name: "Private S3 connections" })).toHaveAttribute("data-list-variant", "page");
@@ -203,7 +203,7 @@ describe("ProfilePage live validation", () => {
   });
 
   it("uses the shared search control in the compact private connections presentation", async () => {
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await waitFor(() => expect(listConnectionsMock).toHaveBeenCalled());
 
     const search = screen.getByRole("searchbox", { name: "Search connections" });
@@ -213,7 +213,7 @@ describe("ProfilePage live validation", () => {
   });
 
   it("describes an administrator-managed identity as read-only", async () => {
-    render(<ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />);
+    render(<ProfilePage showSettingsCards showConnectionsSection={false} />);
 
     expect(await screen.findByText("Your personal details and profile image.")).toBeInTheDocument();
     expect(screen.getByText("Managed by your administrator.")).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe("ProfilePage live validation", () => {
       },
     });
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />);
+    render(<ProfilePage showSettingsCards showConnectionsSection={false} />);
 
     expect(await screen.findByText("Identity provider", { exact: false })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
@@ -248,7 +248,7 @@ describe("ProfilePage live validation", () => {
 
   it("uploads and removes a profile image", async () => {
     render(
-      <ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />,
+      <ProfilePage showSettingsCards showConnectionsSection={false} />,
     );
     await screen.findByText("Admin User");
     fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
@@ -278,11 +278,11 @@ describe("ProfilePage live validation", () => {
 
   it("does not carry a discarded preference draft into the private connections tab", async () => {
     const onDirty = vi.fn();
-    const { rerender } = render(<ProfilePage showPageHeader={false} onUnsavedChangesChange={onDirty} />);
+    const { rerender } = render(<ProfilePage onUnsavedChangesChange={onDirty} />);
     await screen.findByText("Admin User");
     fireEvent.click(screen.getByRole("switch", { name: "Show selector tags" }));
     expect(onDirty).toHaveBeenLastCalledWith(true);
-    rerender(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection onUnsavedChangesChange={onDirty} />);
+    rerender(<ProfilePage showSettingsCards={false} showConnectionsSection onUnsavedChangesChange={onDirty} />);
     await screen.findByRole("table");
     expect(onDirty).toHaveBeenLastCalledWith(false);
   });
@@ -324,7 +324,7 @@ describe("ProfilePage live validation", () => {
   });
 
   it("shows validation error without disabling Create connection", async () => {
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByRole("table");
 
     fireEvent.click(screen.getByRole("button", { name: "Add connection" }));
@@ -367,7 +367,7 @@ describe("ProfilePage live validation", () => {
   it("hides credentials action in private connections table", async () => {
     listConnectionsMock.mockResolvedValue([makeConnection()]);
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
 
     const connectionName = await screen.findByText("managed-connection");
     expect(connectionName.closest("td")).toHaveClass("ui-table-primary");
@@ -380,7 +380,7 @@ describe("ProfilePage live validation", () => {
     listConnectionsMock.mockResolvedValue([makeConnection()]);
     updateConnectionMock.mockResolvedValue(makeConnection({ name: "renamed" }));
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
 
     await screen.findByText("managed-connection");
     expect(screen.queryByRole("button", { name: "Add connection" })).not.toBeInTheDocument();
@@ -427,7 +427,7 @@ describe("ProfilePage live validation", () => {
     ]);
     updateConnectionMock.mockResolvedValue(makeConnection({ storage_endpoint_id: 3 }));
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("managed-connection");
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -476,7 +476,7 @@ describe("ProfilePage live validation", () => {
     ]);
     updateConnectionMock.mockResolvedValue(makeConnection({ storage_endpoint_id: null, endpoint_url: "https://custom.example.test" }));
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("managed-connection");
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -519,7 +519,7 @@ describe("ProfilePage live validation", () => {
       { id: 2, name: "Endpoint A", endpoint_url: "https://managed-a.example.test", is_default: true },
     ]);
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("managed-connection");
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -544,7 +544,7 @@ describe("ProfilePage live validation", () => {
       makeConnection({ id: 42, name: "connection-b" }),
     ]);
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("connection-a");
 
     fireEvent.click(screen.getByLabelText("Select all filtered private connections"));
@@ -563,7 +563,7 @@ describe("ProfilePage live validation", () => {
       makeConnection({ id: 42, name: "connection-b", is_active: false }),
     ]);
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("connection-a");
 
     fireEvent.click(screen.getByLabelText("Select all filtered private connections"));
@@ -586,7 +586,7 @@ describe("ProfilePage live validation", () => {
       )
     );
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("connection-12");
 
     fireEvent.click(screen.getByLabelText("Select all filtered private connections"));
@@ -609,7 +609,7 @@ describe("ProfilePage live validation", () => {
       )
     );
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("page-connection-12");
 
     fireEvent.click(screen.getByLabelText("Select private connection page-connection-12"));
@@ -628,7 +628,7 @@ describe("ProfilePage live validation", () => {
       makeConnection({ id: 42, name: "connection-b" }),
     ]);
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("connection-a");
 
     fireEvent.click(screen.getByLabelText("Select all filtered private connections"));
@@ -651,7 +651,7 @@ describe("ProfilePage live validation", () => {
       makeConnection({ id: 41, name: "connection-a", endpoint_url: "https://s3.example.test" }),
     ]);
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     const connectionName = await screen.findByText("connection-a");
     const row = connectionName.closest("tr");
     expect(row).not.toBeNull();
@@ -666,7 +666,7 @@ describe("ProfilePage live validation", () => {
   });
 
   it("saves the selector-tags preference to localStorage", async () => {
-    render(<ProfilePage showPageHeader={false} showConnectionsSection={false} />);
+    render(<ProfilePage showConnectionsSection={false} />);
 
     await screen.findByText("Admin User");
     fireEvent.click(screen.getByRole("switch", { name: /show selector tags/i }));
@@ -683,7 +683,7 @@ describe("ProfilePage live validation", () => {
     updateCurrentUserMock.mockRejectedValueOnce(new Error("Language save failed"));
 
     try {
-      render(<ProfilePage showPageHeader={false} showConnectionsSection={false} />);
+      render(<ProfilePage showConnectionsSection={false} />);
 
       await screen.findByText("Admin User");
       fireEvent.click(screen.getByRole("switch", { name: /show selector tags/i }));
@@ -704,7 +704,7 @@ describe("ProfilePage live validation", () => {
       makeConnection({ id: 42, name: "connection-b", tags: ["test"] }),
     ]);
 
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByText("connection-a");
     expect(screen.getByText("prod")).toBeInTheDocument();
     expect(screen.getByText("ops")).toBeInTheDocument();
@@ -718,7 +718,7 @@ describe("ProfilePage live validation", () => {
   });
 
   it("uses the inline private tag editor in the create modal", async () => {
-    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await screen.findByRole("table");
 
     fireEvent.click(screen.getByRole("button", { name: "Add connection" }));

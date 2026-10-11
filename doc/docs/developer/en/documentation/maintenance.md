@@ -132,7 +132,10 @@ The application resolves workspace documentation through
 that resolver instead of hardcoding them in workspace components. `Layout`
 uses the active route and UI language to expose the corresponding guide from
 the top bar; when a translation is unavailable, the resolver falls back to an
-available guide language.
+available guide language. The resolver also accepts the deployment's configured
+documentation base URL; keep the guide and language paths stable so an
+organization can host the assembled documentation under another domain or
+root-relative application path.
 
 Embedded Browser help follows the host workspace. Browser operations opened in
 Manager resolve to the Manager Browser pages, Portal file help stays in Portal,
@@ -142,8 +145,11 @@ operation- or version-specific links so a shared Browser component never has to
 choose a guide by itself.
 
 Backend-generated public documentation URLs must use the same canonical guide
-paths. Production-readiness findings, for example, link to
-`/admin/en/operations/production-checks/` and preserve their section anchors.
+paths. Production-readiness findings, for example, expose
+`/admin/en/operations/production-checks/`, preserve their section anchors, and
+rebase those application-facing links onto the configured documentation base.
+Startup checks that run before application settings are available keep the
+official BucketReef documentation URL.
 
 Shared documentation assets use an absolute site path:
 

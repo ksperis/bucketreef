@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+from app.db import S3Connection
+
 
 _CUSTOM_ENDPOINT_FIELDS = {
     "endpoint_url",
@@ -103,9 +105,9 @@ class ConnectionEndpointDetails:
     endpoint_name: Optional[str]
 
 
-def resolve_connection_details(conn: object) -> ConnectionEndpointDetails:
-    endpoint = getattr(conn, "storage_endpoint", None)
-    if endpoint:
+def resolve_connection_details(conn: S3Connection) -> ConnectionEndpointDetails:
+    endpoint = conn.storage_endpoint
+    if endpoint is not None:
         return ConnectionEndpointDetails(
             endpoint.endpoint_url,
             endpoint.region,
@@ -114,7 +116,7 @@ def resolve_connection_details(conn: object) -> ConnectionEndpointDetails:
             endpoint.provider,
             endpoint.name,
         )
-    raw_config = getattr(conn, "custom_endpoint_config", None)
+    raw_config = conn.custom_endpoint_config
     if raw_config is None:
         raise ValueError("Manual S3 connection is missing its endpoint configuration")
     config = parse_custom_endpoint_config(raw_config)
@@ -128,6 +130,6 @@ def resolve_connection_details(conn: object) -> ConnectionEndpointDetails:
     )
 
 
-def resolve_connection_endpoint(conn: object) -> Tuple[Optional[str], Optional[str], bool, bool]:
+def resolve_connection_endpoint(conn: S3Connection) -> Tuple[Optional[str], Optional[str], bool, bool]:
     details = resolve_connection_details(conn)
     return details.endpoint_url, details.region, details.force_path_style, details.verify_tls

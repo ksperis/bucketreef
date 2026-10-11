@@ -200,7 +200,7 @@ def apply_owner_enrichment(
     if not buckets or (not include_suspended and not include_quota and not include_usage):
         return buckets
     service = BucketOwnerMetadataService(
-        endpoint_id=int(getattr(ctx.endpoint, "id", 0) or 0),
+        endpoint_id=ctx.endpoint.id,
         endpoint=ctx.endpoint,
         rgw_admin=ctx.rgw_admin,
     )

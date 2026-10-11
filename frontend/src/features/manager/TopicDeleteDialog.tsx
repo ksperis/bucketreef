@@ -5,6 +5,7 @@ import type { S3AccountSelector } from "../../api/accountParams";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { extractApiError } from "../../utils/apiError";
+import { useManagerI18n } from "./managerI18n";
 
 export default function TopicDeleteDialog({ accountId, currentAccountId, topic, onDeleted, onClose }: {
   accountId: S3AccountSelector;
@@ -13,6 +14,7 @@ export default function TopicDeleteDialog({ accountId, currentAccountId, topic, 
   onDeleted: () => void;
   onClose: () => void;
 }) {
+  const { text } = useManagerI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
@@ -25,16 +27,16 @@ export default function TopicDeleteDialog({ accountId, currentAccountId, topic, 
     setBusy(true);
     setError(null);
     try { await deleteTopic(accountId, topic.arn); onDeleted(); }
-    catch (error) { setError(extractApiError(error, "Unable to delete topic.")); }
+    catch (error) { setError(extractApiError(error, text("Unable to delete topic."))); }
     finally { submitting.current = false; setBusy(false); }
   };
-  return <><ConfirmActionDialog title="Delete notification topic?"
-    description="Permanently remove this SNS topic from the selected account."
-    confirmLabel="Delete topic" loading={busy} error={error}
-    details={[{ label: "Topic", value: topic.name }, { label: "ARN", value: topic.arn, mono: true }]}
+  return <><ConfirmActionDialog title={text("Delete notification topic?")}
+    description={text("Permanently remove this SNS topic from the selected account.")}
+    confirmLabel={text("Delete topic")} loading={busy} error={error}
+    details={[{ label: text("Topic"), value: topic.name }, { label: text("ARN"), value: topic.arn, mono: true }]}
     impacts={["Bucket notifications targeting this topic will no longer be delivered."]}
     onCancel={() => { if (!submitting.current) onClose(); }} onConfirm={() => void confirm()} />
-    <SettingsNavigationGuard dirty={busy} discardDisabled title="Operation in progress"
-      description="Wait for the topic deletion to finish before leaving this page." />
+    <SettingsNavigationGuard dirty={busy} discardDisabled title={text("Operation in progress")}
+      description={text("Wait for the topic deletion to finish before leaving this page.")} />
   </>;
 }

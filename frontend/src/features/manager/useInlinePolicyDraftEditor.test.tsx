@@ -41,7 +41,8 @@ describe("useInlinePolicyDraftEditor", () => {
     const { result } = renderHook(() => useInlinePolicyDraftEditor(setError));
 
     act(() => result.current.handleAddInlineDraft());
-    expect(setError).toHaveBeenLastCalledWith("Inline policy name is required.");
+    expect(result.current.inlineDraftNameError).toBe("Inline policy name is required.");
+    expect(setError).not.toHaveBeenCalled();
 
     act(() => {
       result.current.setInlineDraftName("invalid-json");

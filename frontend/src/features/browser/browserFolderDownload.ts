@@ -9,6 +9,7 @@ import type { BrowserObject } from "../../api/browserContracts";
 import { runWithConcurrency } from "../../utils/concurrency";
 import { triggerBlobDownload } from "../../utils/download";
 import { formatBrowserOperationError } from "./browserOperationErrors";
+import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
 import type { DownloadDetailStatus } from "./browserTypes";
 import { isAbortError } from "./browserUtils";
 
@@ -55,7 +56,7 @@ type BrowserFolderArchiveOptions = {
     status: DownloadDetailStatus,
     errorMessage?: string,
   ) => void;
-  onPhaseChange: (label: "Streaming zip" | "Packaging zip") => void;
+  onPhaseChange: (label: string) => void;
   onProgress: (percent: number) => void;
   output: BrowserArchiveOutput;
   parallelism: number;
@@ -63,6 +64,7 @@ type BrowserFolderArchiveOptions = {
   finalizationTimeoutMs?: number;
   targets: BrowserFolderDownloadTarget[];
   totalBytes: number;
+  text?: BrowserTextFn;
 };
 
 type BrowserFolderArchiveResult = {
@@ -132,10 +134,11 @@ export const canStreamBrowserArchive = (
 export const chooseBrowserArchiveFile = async (
   folderLabel: string,
   picker = browserArchiveSaveFilePicker(),
+  text: BrowserTextFn = defaultBrowserText,
 ): Promise<BrowserArchiveFileHandle | null> => {
   if (!canStreamBrowserArchive(picker) || !picker) {
     throw new Error(
-      "This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser.",
+      text("This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser."),
     );
   }
   try {
@@ -143,7 +146,7 @@ export const chooseBrowserArchiveFile = async (
       suggestedName: `${folderLabel}.zip`,
       types: [
         {
-          description: "ZIP archive",
+          description: text("ZIP archive"),
           accept: { "application/zip": [".zip"] },
         },
       ],
@@ -163,6 +166,7 @@ const finalizeStreamingArchive = async (
   zipWriter: ZipWriter<Uint8Array>,
   fileStream: WritableFileStream,
   timeoutMs: number,
+  text: BrowserTextFn,
 ) => {
   let finalizationActive = true;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -180,7 +184,10 @@ const finalizeStreamingArchive = async (
     timeoutId = setTimeout(() => {
       reject(
         new Error(
-          `The ZIP archive could not be finalized within ${Math.round(timeoutMs / 1000)} seconds. Delete the partial file and try the download again.`,
+          text(
+            "The ZIP archive could not be finalized within {seconds} seconds. Delete the partial file and try the download again.",
+            { seconds: Math.round(timeoutMs / 1000) },
+          ),
         ),
       );
     }, timeoutMs);
@@ -211,6 +218,7 @@ export const downloadBrowserFolderArchive = async ({
   finalizationTimeoutMs = 30_000,
   targets,
   totalBytes,
+  text = defaultBrowserText,
 }: BrowserFolderArchiveOptions): Promise<BrowserFolderArchiveResult> => {
   const entryName = (target: BrowserFolderDownloadTarget) => includeRootFolder ? `${folderLabel}/${target.relativeKey}` : target.relativeKey;
   const totalCount = targets.length;
@@ -228,7 +236,7 @@ export const downloadBrowserFolderArchive = async ({
   if (output.kind === "stream") {
     if (!canStreamBrowserArchive(() => Promise.resolve(output.fileHandle))) {
       throw new Error(
-        "This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser.",
+        text("This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser."),
       );
     }
     let fileStream: WritableFileStream | null = null;
@@ -241,7 +249,7 @@ export const downloadBrowserFolderArchive = async ({
     const zipWriter = new ZipWriter<Uint8Array>(fileStream);
 
     try {
-      onPhaseChange("Streaming zip");
+      onPhaseChange(text("Streaming zip"));
       for (const target of targets) {
         if (controller.signal.aborted) {
           aborted = true;
@@ -271,7 +279,7 @@ export const downloadBrowserFolderArchive = async ({
           onDetailChange(
             target.detailId,
             "failed",
-            formatBrowserOperationError(error, "Download failed."),
+            formatBrowserOperationError(error, text("Download failed.")),
           );
           failedKeys.push(target.key);
         } finally {
@@ -287,7 +295,7 @@ export const downloadBrowserFolderArchive = async ({
       if (succeeded === 0) {
         abortPartialArchive(
           fileStream,
-          new Error("No files could be added to the archive."),
+          new Error(text("No files could be added to the archive.")),
         );
         return { cancelled: false, failedKeys };
       }
@@ -295,6 +303,7 @@ export const downloadBrowserFolderArchive = async ({
         zipWriter,
         fileStream,
         finalizationTimeoutMs,
+        text,
       );
       onProgress(100);
       return { cancelled: false, failedKeys };
@@ -306,7 +315,7 @@ export const downloadBrowserFolderArchive = async ({
 
   if (totalBytes >= memoryLimitBytes && totalBytes > 0) {
     throw new Error(
-      "This archive exceeds the configured in-memory limit. Choose a streaming destination before downloading.",
+      text("This archive exceeds the configured in-memory limit. Choose a streaming destination before downloading."),
     );
   }
 
@@ -328,7 +337,7 @@ export const downloadBrowserFolderArchive = async ({
           retainedBytes + blob.size > 0
         ) {
           throw new Error(
-            "The files grew beyond the configured archive memory limit. Choose a streaming destination and try again.",
+            text("The files grew beyond the configured archive memory limit. Choose a streaming destination and try again."),
           );
         }
         retainedBytes += blob.size;
@@ -346,7 +355,7 @@ export const downloadBrowserFolderArchive = async ({
         onDetailChange(
           target.detailId,
           "failed",
-          formatBrowserOperationError(error, "Download failed."),
+          formatBrowserOperationError(error, text("Download failed.")),
         );
         failedKeys.push(target.key);
       } finally {
@@ -364,7 +373,7 @@ export const downloadBrowserFolderArchive = async ({
   if (succeeded === 0) {
     return { cancelled: false, failedKeys };
   }
-  onPhaseChange("Packaging zip");
+  onPhaseChange(text("Packaging zip"));
   const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) => {
     controller.signal.throwIfAborted();
     onProgress(Math.min(99, 80 + Math.round(metadata.percent * 0.2)));

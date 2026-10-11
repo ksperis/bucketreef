@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StsCredentials } from "../../api/browserContracts";
+import { LanguageProvider, useLanguage } from "../../components/language";
 import { useBrowserStsSession } from "./useBrowserStsSession";
 
 const apiMocks = vi.hoisted(() => ({
@@ -67,6 +68,21 @@ describe("useBrowserStsSession", () => {
     });
 
     expect(cachedCredentials?.access_key_id).toBe("key-1");
+    expect(apiMocks.getBrowserStsCredentials).toHaveBeenCalledTimes(1);
+  });
+
+  it("retranslates fallback errors without repeating STS requests when the language changes", async () => {
+    apiMocks.getBrowserStsCredentials.mockRejectedValue({});
+    const { result } = renderHook(() => ({
+      session: useBrowserStsSession({ accountIdForApi: "acc-1", enabled: true, hasContext: true }),
+      language: useLanguage(),
+    }), { wrapper: LanguageProvider });
+    await waitFor(() => expect(result.current.session.credentialsError).toBe("Unable to load STS credentials."));
+    await act(async () => result.current.language.setLanguage("fr"));
+    expect(result.current.session.credentialsError).toBe("Impossible de charger les identifiants STS.");
+    await act(async () => result.current.language.setLanguage("de"));
+    expect(result.current.session.credentialsError).toBe("STS-Zugangsdaten konnten nicht geladen werden.");
+    expect(apiMocks.getBrowserStsStatus).toHaveBeenCalledTimes(1);
     expect(apiMocks.getBrowserStsCredentials).toHaveBeenCalledTimes(1);
   });
 

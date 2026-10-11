@@ -7,12 +7,19 @@ import { SIDEBAR_COMPACT_WIDTH, SIDEBAR_DEFAULT_WIDTH } from "../sidebarSizing";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
 const mocks = vi.hoisted(() => ({
+  documentationBaseUrl: "https://docs.bucketreef.ksperis.com",
   workspaceSwitcherModel: null as {
     currentWorkspaceId: string;
     currentWorkspaceLabel: string;
     options: Array<{ value: string; label: string }>;
     onChange: (next: string) => void;
   } | null,
+}));
+
+vi.mock("../GeneralSettingsContext", () => ({
+  useGeneralSettings: () => ({
+    generalSettings: { documentation_base_url: mocks.documentationBaseUrl },
+  }),
 }));
 
 vi.mock("../../api/auth", () => ({
@@ -116,6 +123,7 @@ describe("Layout", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
+    mocks.documentationBaseUrl = "https://docs.bucketreef.ksperis.com";
     mocks.workspaceSwitcherModel = null;
   });
 
@@ -130,9 +138,22 @@ describe("Layout", () => {
   it("exposes documentation for the active workspace context", () => {
     renderWorkspaceLayout("/manager/browser");
 
-    expect(screen.getByRole("link", { name: "Open workspace documentation" })).toHaveAttribute(
+    const documentationLink = screen.getByRole("link", { name: "Open workspace documentation" });
+
+    expect(documentationLink).toHaveAttribute(
       "href",
       "https://docs.bucketreef.ksperis.com/manager/en/browser/object-operations/",
+    );
+    expect(documentationLink).toHaveClass("hidden", "md:inline-flex");
+  });
+
+  it("uses the configured documentation base URL", () => {
+    mocks.documentationBaseUrl = "https://docs.example.com/bucketreef";
+    renderWorkspaceLayout("/manager/browser");
+
+    expect(screen.getByRole("link", { name: "Open workspace documentation" })).toHaveAttribute(
+      "href",
+      "https://docs.example.com/bucketreef/manager/en/browser/object-operations/",
     );
   });
 

@@ -57,7 +57,6 @@ class _FeatureDetectionContext:
     runtime_credentials: _FeatureDetectionCredentials
     supervision_credentials: _FeatureDetectionCredentials
     ceph_admin_credentials: _FeatureDetectionCredentials
-    ceph_admin_legacy_system_compat: bool = False
 
 
 class StorageEndpointFeatureDetector:
@@ -125,7 +124,7 @@ class StorageEndpointFeatureDetector:
             endpoint_url == stored_endpoint_url
             and admin_endpoint == stored_admin_endpoint
             and region == stored_region
-            and verify_tls == bool(getattr(stored_endpoint, "verify_tls", True))
+            and verify_tls == bool(stored_endpoint.verify_tls)
         )
 
     def _context(
@@ -153,7 +152,7 @@ class StorageEndpointFeatureDetector:
         if payload.verify_tls is not None:
             verify_tls = bool(payload.verify_tls)
         elif stored_endpoint is not None:
-            verify_tls = bool(getattr(stored_endpoint, "verify_tls", True))
+            verify_tls = bool(stored_endpoint.verify_tls)
         else:
             verify_tls = True
 
@@ -215,12 +214,6 @@ class StorageEndpointFeatureDetector:
             ),
             supervision_credentials=supervision_credentials,
             ceph_admin_credentials=ceph_admin_credentials,
-            ceph_admin_legacy_system_compat=bool(
-                stored_ceph_admin
-                and stored_ceph_admin.legacy_system_compat
-                and ceph_admin_credentials.access_key == stored_ceph_admin.access_key
-                and ceph_admin_credentials.secret_key == stored_ceph_admin.secret_key
-            ),
         )
 
     @staticmethod
@@ -425,10 +418,17 @@ class StorageEndpointFeatureDetector:
                 return True
         return False
 
-    def _detect_runtime_credentials(self, context, result):
+    def _detect_runtime_credentials(
+        self,
+        context: _FeatureDetectionContext,
+        result: StorageEndpointFeatureDetectionResult,
+    ) -> None:
         credentials = context.runtime_credentials
         if credentials.partial:
-            result.credential_checks.runtime = StorageEndpointCredentialCheck(status="incomplete", message="Enter both Runtime Read Ops keys.")
+            result.credential_checks.runtime = StorageEndpointCredentialCheck(
+                status="incomplete",
+                message="Enter both Runtime Read Ops keys.",
+            )
         elif credentials.complete:
             try:
                 client = self._client(context, credentials)
@@ -437,9 +437,18 @@ class StorageEndpointFeatureDetector:
                     client,
                     access_key=credentials.access_key,
                 )
-                result.credential_checks.runtime = StorageEndpointCredentialCheck(status="valid", message="Runtime Read Ops was validated without user keys.")
+                result.credential_checks.runtime = StorageEndpointCredentialCheck(
+                    status="valid",
+                    message="Runtime Read Ops was validated without user keys.",
+                )
             except ValueError:
-                result.credential_checks.runtime = StorageEndpointCredentialCheck(status="denied", message="Runtime Read Ops credentials or permissions could not be validated.")
+                result.credential_checks.runtime = StorageEndpointCredentialCheck(
+                    status="denied",
+                    message=(
+                        "Runtime Read Ops credentials or permissions could not be "
+                        "validated."
+                    ),
+                )
             except RGWAdminError as exc:
                 result.credential_checks.runtime = self._failed_check(
                     exc,
@@ -450,37 +459,52 @@ class StorageEndpointFeatureDetector:
                     ),
                 )
 
-    def _detect_ceph_admin_credentials(self, context, result):
+    def _detect_ceph_admin_credentials(
+        self,
+        context: _FeatureDetectionContext,
+        result: StorageEndpointFeatureDetectionResult,
+    ) -> None:
         credentials = context.ceph_admin_credentials
         if credentials.partial:
             result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
-                status="incomplete", message="Enter both Ceph Admin keys.")
+                status="incomplete",
+                message="Enter both Ceph Admin keys.",
+            )
         elif credentials.complete:
             try:
                 client = self._client(context, credentials)
-                payload = client.get_user_by_access_key(credentials.access_key, allow_not_found=True)
-                EndpointServiceIdentityService.validate_payload(
-                    "ceph_admin",
-                    payload,
-                    allow_legacy_system=context.ceph_admin_legacy_system_compat,
+                payload = client.get_user_by_access_key(
+                    credentials.access_key,
+                    allow_not_found=True,
                 )
+                EndpointServiceIdentityService.validate_payload("ceph_admin", payload)
                 if not (payload.get("user_id") or payload.get("uid")):
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
-                validation_message = (
-                    "Migrated Ceph Admin credentials were validated with legacy admin/system compatibility."
-                    if context.ceph_admin_legacy_system_compat
-                    else "Ceph Admin credentials were validated with admin=true and system=false."
-                )
                 result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
-                    status="valid", message=validation_message)
+                    status="valid",
+                    message=(
+                        "Ceph Admin credentials were validated with admin=true and "
+                        "system=false."
+                    ),
+                )
             except ValueError as exc:
                 result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
-                    status="denied", message=str(exc))
+                    status="denied",
+                    message=str(exc),
+                )
             except RGWAdminError as exc:
                 result.credential_checks.ceph_admin = self._failed_check(
-                    exc, denied_message="Ceph Admin credentials were denied by RGW.",
-                    misconfigured_message="Ceph Admin endpoint configuration is invalid; check the RGW Admin Ops URL and redirects.",
-                    unavailable_message="Ceph Admin could not be checked because the RGW endpoint is unavailable.")
+                    exc,
+                    denied_message="Ceph Admin credentials were denied by RGW.",
+                    misconfigured_message=(
+                        "Ceph Admin endpoint configuration is invalid; check the RGW "
+                        "Admin Ops URL and redirects."
+                    ),
+                    unavailable_message=(
+                        "Ceph Admin could not be checked because the RGW endpoint is "
+                        "unavailable."
+                    ),
+                )
 
     def detect(
         self,

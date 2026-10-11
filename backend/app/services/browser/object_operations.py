@@ -23,11 +23,11 @@ from app.models.browser import (
     SseCustomerContext,
 )
 from app.services.s3_deletion import delete_objects
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 
 
-def require_multipart_write_access(account, bucket_name):
-    spaces = getattr(account, "portal_storage_spaces", None)
+def require_multipart_write_access(account: S3ExecutionTarget, bucket_name: str) -> None:
+    spaces = account.portal_storage_spaces if isinstance(account, S3ExecutionContext) else None
     if spaces is not None:
         space = next((space for space in spaces if (space.internal_bucket_name or space.id) == bucket_name), None)
         if space is None or space.role == "Viewer":
@@ -86,7 +86,7 @@ class BrowserObjectOperationsMixin:
         payload: CopyObjectPayload,
     ) -> None:
         source_bucket = payload.source_bucket or bucket_name
-        spaces = getattr(account, "portal_storage_spaces", None)
+        spaces = account.portal_storage_spaces
         if spaces is not None:
             by_bucket = {(space.internal_bucket_name or space.id): space for space in spaces}
             source = by_bucket.get(source_bucket)

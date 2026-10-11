@@ -11,6 +11,9 @@ from app.core.config import get_settings
 from app.models.storage_endpoint import StorageEndpointPublic
 
 
+DEFAULT_DOCUMENTATION_BASE_URL = "https://docs.bucketreef.ksperis.com"
+
+
 def _default_portal_cors_origins() -> list[str]:
     return list(get_settings().cors_origins or [])
 
@@ -58,6 +61,7 @@ class PortalBucketDefaults(ApiModel):
 
 class GeneralSettings(ApiModel):
     rgw_account_id_prefix: str = Field(default="80", pattern=r"^\d{1,3}$")
+    documentation_base_url: str = DEFAULT_DOCUMENTATION_BASE_URL
     manager_enabled: bool = True
     ceph_admin_enabled: bool = False
     storage_ops_enabled: bool = False
@@ -78,6 +82,8 @@ class GeneralSettings(ApiModel):
     bucket_purge_enabled: bool = False
     bucket_quota_management_enabled: bool = False
     manager_ceph_s3_user_keys_enabled: bool = True
+    manager_access_key_metadata_enabled: bool = True
+    manager_access_key_expiration_enabled: bool = True
     managed_private_connection_provisioning_enabled: bool = False
     allow_login_access_keys: bool = False
     allow_login_endpoint_list: bool = False
@@ -86,6 +92,32 @@ class GeneralSettings(ApiModel):
     require_passkey_for_users: bool = False
     allow_user_profile_name_edit: bool = False
     allow_user_external_identity_unlink: bool = False
+
+    @field_validator("documentation_base_url", mode="before")
+    @classmethod
+    def normalize_documentation_base_url(cls, value: Optional[str]) -> str:
+        if value is None:
+            return DEFAULT_DOCUMENTATION_BASE_URL
+        if not isinstance(value, str):
+            raise ValueError("documentation_base_url must be a string")
+        normalized = value.strip()
+        if not normalized:
+            return DEFAULT_DOCUMENTATION_BASE_URL
+        parsed = urlparse(normalized)
+        if normalized.startswith("//"):
+            raise ValueError("documentation_base_url must be an http(s) or root-relative URL")
+        if normalized.startswith("/"):
+            if parsed.query or parsed.fragment:
+                raise ValueError("documentation_base_url must not contain a query string or fragment")
+            return normalized.rstrip("/") or "/"
+        if (
+            parsed.scheme in {"http", "https"}
+            and bool(parsed.netloc)
+            and not parsed.query
+            and not parsed.fragment
+        ):
+            return normalized.rstrip("/")
+        raise ValueError("documentation_base_url must be an http(s) or root-relative URL")
 
 
 class GeneralFeatureLock(ApiModel):

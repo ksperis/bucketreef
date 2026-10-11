@@ -25,6 +25,7 @@ import {
   updateTreeNodes,
 } from "./browserUtils";
 import type { TreeNode } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type UseBrowserFolderTreeOptions = {
   accountId: S3AccountSelector;
@@ -53,6 +54,7 @@ export function useBrowserFolderTree({
   prefix,
   requestOptions,
 }: UseBrowserFolderTreeOptions) {
+  const { text, intlLocale } = useBrowserI18n();
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([]);
   const requestControllersRef = useRef(
     new Map<string, AbortController>(),
@@ -161,7 +163,9 @@ export function useBrowserFolderTree({
         if (!isCurrentRequest()) return;
         if (data.truncated) {
           onWarning(
-            `Folders panel is limited to ${TREE_PREFIXES_HARD_LIMIT.toLocaleString()} prefixes. Narrow the path to continue.`,
+            text("Folders panel is limited to {count} prefixes. Narrow the path to continue.", {
+              count: TREE_PREFIXES_HARD_LIMIT.toLocaleString(intlLocale),
+            }),
           );
         }
         const children = buildTreeNodes(data.prefixes, normalizedPrefix);
@@ -196,6 +200,8 @@ export function useBrowserFolderTree({
       enabled,
       listTreePrefixes,
       onWarning,
+      intlLocale,
+      text,
     ],
   );
 

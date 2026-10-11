@@ -1,4 +1,3 @@
-import { retireBrowserTransferStorage } from "./browserRetiredTransferStorage";
 import type { BrowserFavorite } from "../../api/browserFavorites";
 import BrowserFavoritesControl from "./BrowserFavoritesControl";
 /*
@@ -191,6 +190,7 @@ import type {
   ObjectDetailsTabId,
   UploadQueueItem,
 } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 const MOBILE_OBJECT_LIST_MEDIA_QUERY = "(max-width: 767px)";
 
@@ -224,6 +224,7 @@ export default function BrowserPage({
   refreshToken,
   transferReporter,
 }: BrowserPageProps = {}) {
+  const { text, intlLocale } = useBrowserI18n();
   const browserContext = useBrowserContext();
   const { setSidebarBody } = useBrowserSidebarSlot();
   const selectedContext = browserContext.selectedContext;
@@ -296,7 +297,6 @@ export default function BrowserPage({
   const isCephAdminContext = executionContextKind === "ceph_admin";
   const isS3UserContext = executionContextKind === "s3_user";
   const isConnectionContext = executionContextKind === "connection";
-  useEffect(retireBrowserTransferStorage, []);
   const [showBucketMenu, setShowBucketMenu] = useState(false);
   const {
     settings: browserSettings,
@@ -532,15 +532,15 @@ export default function BrowserPage({
   const requestDiscardDrawerChanges = useCallback(
     (onConfirm: () => void) => {
       openConfirmDialog({
-        title: "Discard changes?",
+        title: text("Discard changes?"),
         message:
-          "You have unapplied changes in the open details drawer. Continuing will discard them.",
-        confirmLabel: "Discard changes",
+          text("You have unapplied changes in the open details drawer. Continuing will discard them."),
+        confirmLabel: text("Discard changes"),
         tone: "danger",
         onConfirm,
       });
     },
-    [openConfirmDialog],
+    [openConfirmDialog, text],
   );
   const {
     bucketName: configBucketName,
@@ -767,7 +767,7 @@ export default function BrowserPage({
   const corsEnabled =
     corsAvailability === "unknown" ? null : corsAvailability === "enabled";
   const corsInformation =
-    corsEnabled === false ? CORS_DIRECT_TRANSFER_WARNING : null;
+    corsEnabled === false ? text(CORS_DIRECT_TRANSFER_WARNING) : null;
   const useProxyTransfers = Boolean(
     bucketName &&
       hasS3AccountContext &&
@@ -809,23 +809,24 @@ export default function BrowserPage({
         stsCredentialsError,
         corsEnabled,
         proxyAllowed,
-      }),
+      }, text),
     [
       corsFixError,
       corsEnabled,
       proxyAllowed,
       stsCredentialsError,
       warningMessage,
+    text,
     ],
   );
   const stsExpirationLabel = useMemo(() => {
     if (!stsCredentials?.expiration) return "";
-    const formatted = formatDateTime(stsCredentials.expiration);
+    const formatted = formatDateTime(stsCredentials.expiration, intlLocale);
     return formatted === "-" ? "" : formatted;
-  }, [stsCredentials?.expiration]);
+  }, [stsCredentials?.expiration, intlLocale]);
   const directCredentialStsTooltip = useMemo(
-    () => resolveDirectCredentialStsTooltip(directCredentialContextKind),
-    [directCredentialContextKind],
+    () => resolveDirectCredentialStsTooltip(directCredentialContextKind, text),
+    [directCredentialContextKind, text],
   );
   const accessBadge = useMemo(
     () =>
@@ -838,6 +839,7 @@ export default function BrowserPage({
         hasStsCredentials: Boolean(stsCredentials),
         stsExpirationLabel,
         directCredentialStsTooltip,
+        text,
       }),
     [
       corsEnabled,
@@ -847,6 +849,7 @@ export default function BrowserPage({
       sseActive,
       stsCredentials,
       stsExpirationLabel,
+      text,
       useProxyTransfers,
     ],
   );
@@ -877,8 +880,8 @@ export default function BrowserPage({
     const primaryOps = newOps.filter((op) => op.kind !== "upload");
     if (primaryOps.length === 0) return;
     const latest = primaryOps[0];
-    setStatusMessage(`Queued: ${latest.label}.`);
-  }, [operations, setStatusMessage]);
+    setStatusMessage(text("Queued: {label}.", { label: text(latest.label) }));
+  }, [operations, setStatusMessage, text]);
 
   useEffect(() => {
     if (isVersioningEnabled) return;
@@ -918,7 +921,7 @@ export default function BrowserPage({
     }
     return (
       <div className="space-y-2">
-        <p>{objectsIssue.description}</p>
+        <p>{text(objectsIssue.description)}</p>
         <details
           open={showObjectsIssueTechnicalDetails}
           onToggle={(event) =>
@@ -927,8 +930,7 @@ export default function BrowserPage({
           className="mx-auto max-w-xl rounded-md border border-rose-200/70 bg-rose-50/70 px-2 py-1.5 text-left dark:border-rose-500/30 dark:bg-rose-900/20"
         >
           <summary className="list-none cursor-pointer ui-caption font-semibold text-rose-700 dark:text-rose-100 [&::-webkit-details-marker]:hidden">
-            Show technical details
-          </summary>
+            {text("Show technical details")}</summary>
           {showObjectsIssueTechnicalDetails && (
             <p className="mt-2 break-words ui-caption text-rose-700 dark:text-rose-100">
               {objectsIssue.technicalDetail}
@@ -941,6 +943,7 @@ export default function BrowserPage({
     objectsIssue,
     setShowObjectsIssueTechnicalDetails,
     showObjectsIssueTechnicalDetails,
+    text,
   ]);
 
   const displayPrefixForItems = useMemo(() => {
@@ -1094,9 +1097,9 @@ export default function BrowserPage({
       return lockedBucketLabel?.trim() || resolvedLockedBucketName;
     }
     if (bucketName) return bucketDisplayNameByName.get(bucketName) ?? bucketName;
-    if (loadingBuckets) return `Loading ${selectorWorkspaceNounPlural}...`;
-    if (bucketTotalCount === 0) return `No ${selectorWorkspaceNounPlural}`;
-    return `Select ${selectorWorkspaceNoun}`;
+    if (loadingBuckets) return text("Loading {workspace}...", { workspace: text(selectorWorkspaceNounPlural) });
+    if (bucketTotalCount === 0) return text("No {workspace}", { workspace: text(selectorWorkspaceNounPlural) });
+    return text("Select {workspace}", { workspace: text(selectorWorkspaceNoun) });
   }, [
     bucketDisplayNameByName,
     bucketName,
@@ -1106,12 +1109,13 @@ export default function BrowserPage({
     resolvedLockedBucketName,
     selectorWorkspaceNoun,
     selectorWorkspaceNounPlural,
+    text,
   ]);
   const bucketSelectorNeedsAttention =
     hasS3AccountContext && !bucketName && bucketTotalCount > 0;
   const bucketButtonActionLabel = resolvedLockedBucketName
-    ? `Selected ${selectorWorkspaceNoun}`
-    : `Select ${selectorWorkspaceNoun}`;
+    ? text("Selected {workspace}", { workspace: text(selectorWorkspaceNoun) })
+    : text("Select {workspace}", { workspace: text(selectorWorkspaceNoun) });
   const useBucketsPanel = showWorkspaceSidebar;
   const { currentBucket: currentBucketPanelItem } = useMemo(
     () => splitBucketPanelBuckets(bucketName, bucketMenuItems),
@@ -1164,20 +1168,20 @@ export default function BrowserPage({
   const workspaceAccountAction = useMemo(() => {
     if (workspaceAccountActionTarget === "manager") {
       return {
-        label: "Open in Manager",
-        title: "Open this account in Manager",
+        label: text("Open in Manager"),
+        title: text("Open this account in Manager"),
         onClick: handleOpenWorkspaceAccount,
       };
     }
     if (workspaceAccountActionTarget === "portal") {
       return {
-        label: "Open in Portal",
-        title: "Open this account in Portal",
+        label: text("Open in Portal"),
+        title: text("Open this account in Portal"),
         onClick: handleOpenWorkspaceAccount,
       };
     }
     return undefined;
-  }, [handleOpenWorkspaceAccount, workspaceAccountActionTarget]);
+  }, [handleOpenWorkspaceAccount, workspaceAccountActionTarget, text]);
 
   useLayoutEffect(() => {
     if (!useBucketsPanel) {
@@ -1311,9 +1315,11 @@ export default function BrowserPage({
 
   const handleVersionsHardLimit = useCallback(() => {
     setWarningMessage(
-      `Versions listing is limited to ${VERSIONS_LIST_HARD_LIMIT.toLocaleString()} entries. Narrow your path to continue.`,
+      text("Versions listing is limited to {count} entries. Narrow your path to continue.", {
+        count: VERSIONS_LIST_HARD_LIMIT.toLocaleString(intlLocale),
+      }),
     );
-  }, [setWarningMessage]);
+  }, [intlLocale, setWarningMessage, text]);
   const {
     canLoadMore: canLoadMorePrefixVersions,
     close: closePrefixVersions,
@@ -1567,7 +1573,7 @@ export default function BrowserPage({
       requestedTab,
       versioningEnabled: isVersioningEnabled,
     });
-    if (resolution.warning) setWarningMessage(resolution.warning);
+    if (resolution.warning) setWarningMessage(text(resolution.warning));
     if (!resolution.initialTab) return;
     const initialTab = resolution.initialTab;
     requestDetailsDrawerTransition(() => {
@@ -2073,7 +2079,7 @@ export default function BrowserPage({
     prefix: string;
   }) => {
     addActivity("Created", `${bucketName}/${createdFolderPrefix}`);
-    setStatusMessage(`Folder ${name} created`);
+    setStatusMessage(text("Folder {name} created", { name }));
     await loadObjects({ prefixOverride: prefix });
     loadTreeChildren(prefix);
   };
@@ -2338,7 +2344,7 @@ export default function BrowserPage({
   const handleDownloadTarget = (item: BrowserItem) => {
     if (item.isDeleted) {
       setWarningMessage(
-        "This item is deleted. Open it or use versions to restore content before downloading.",
+        text("This item is deleted. Open it or use versions to restore content before downloading."),
       );
       if (item.type === "file" && isVersioningEnabled) {
         openObjectDetails(item, "versions");
@@ -2502,7 +2508,7 @@ export default function BrowserPage({
       delete: () => handleDeleteItems([item]),
     });
     if (!result.executed) {
-      setWarningMessage(result.reason);
+      setWarningMessage(text(result.reason));
     }
   };
 
@@ -2538,7 +2544,7 @@ export default function BrowserPage({
   const browserNoticeShellClasses = "shrink-0 pb-2";
   const browserContentShellClasses =
     "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
-  const toolbarSelectionSummary = `${selectedCount} selected`;
+  const toolbarSelectionSummary = text("{count} selected", { count: selectedCount.toLocaleString(intlLocale) });
   const toolbarCanUploadFiles = pathActionStates.uploadFiles.enabled;
   const toolbarCanUploadFolder = pathActionStates.uploadFolder.enabled;
   const toolbarCanCreateFolder = pathActionStates.newFolder.enabled;
@@ -2568,7 +2574,7 @@ export default function BrowserPage({
   const hasToolbarStatusSection = Boolean(accessBadge) || hasToolbarOperationsAction;
   const hasToolbarColumnsSection =
     resolvedFunctionalProfile === "advanced";
-  const toolbarColumnsSummary = `${effectiveVisibleColumns.length}/${COLUMN_DEFINITIONS.length} visible`;
+  const toolbarColumnsSummary = text("{count}/{total} visible", { count: effectiveVisibleColumns.length, total: COLUMN_DEFINITIONS.length });
   const handleToolbarDownload = () => {
     runSelectionAction("download");
   };
@@ -2615,9 +2621,9 @@ export default function BrowserPage({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       {isEmbeddedBrowserPath ? (
-        <h2 className="sr-only">{isPortalBrowserSurface ? "Portal browser" : "Browser"}</h2>
+        <h2 className="sr-only">{isPortalBrowserSurface ? text("Portal browser") : text("Browser")}</h2>
       ) : (
-        <h1 className="sr-only">{isPortalBrowserSurface ? "Portal browser" : "Browser"}</h1>
+        <h1 className="sr-only">{isPortalBrowserSurface ? text("Portal browser") : text("Browser")}</h1>
       )}
       <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
         <div className={browserShellClasses}>
@@ -2786,7 +2792,7 @@ export default function BrowserPage({
             >
               {bucketError && (
                 <p className="font-semibold text-rose-600 dark:text-rose-200">
-                  {bucketError}
+                  {text(bucketError)}
                 </p>
               )}
               {statusMessage && (
@@ -2804,8 +2810,8 @@ export default function BrowserPage({
                         type="button"
                         className="inline-flex h-4 w-4 items-center justify-center rounded-full text-sky-700 transition hover:text-sky-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 dark:text-sky-200 dark:hover:text-sky-100 dark:focus-visible:outline-sky-200"
                         onClick={toggleCorsActionPopover}
-                        aria-label="CORS actions"
-                        title="CORS actions"
+                        aria-label={text("CORS actions")}
+                        title={text("CORS actions")}
                         aria-haspopup="dialog"
                         aria-expanded={showCorsActionPopover}
                       >
@@ -2821,7 +2827,7 @@ export default function BrowserPage({
                       >
                         <div ref={corsActionPopoverRef}>
                           <p className="ui-caption text-slate-600 dark:text-slate-300">
-                            {`Allow direct access from ${uiOrigin} by adding CORS rules to this bucket.`}
+                            {text("Allow direct access from {origin} by adding CORS rules to this bucket.", { origin: uiOrigin ?? "" })}
                           </p>
                           <ListActionButton
                             type="button"
@@ -2829,12 +2835,12 @@ export default function BrowserPage({
                             className="mt-2"
                             onClick={handleEnsureCors}
                             disabled={corsFixing}
-                            title={`Add ${uiOrigin} to bucket CORS rules.`}
-                            aria-label={`Add ${uiOrigin} to CORS`}
+                            title={text("Add {origin} to bucket CORS rules.", { origin: uiOrigin ?? "" })}
+                            aria-label={text("Add {origin} to CORS", { origin: uiOrigin ?? "" })}
                           >
                             {corsFixing
-                              ? "Adding..."
-                              : `Add ${uiOrigin} to CORS`}
+                              ? text("Adding...")
+                              : text("Add {origin} to CORS", { origin: uiOrigin ?? "" })}
                           </ListActionButton>
                         </div>
                       </AnchoredPortalMenu>
@@ -2966,11 +2972,11 @@ export default function BrowserPage({
               <div
                 role="separator"
                 aria-orientation="vertical"
-                aria-label="Resize folders panel"
+                aria-label={text("Resize folders panel")}
                 aria-valuemin={MIN_FOLDERS_PANEL_WIDTH_PX}
                 aria-valuemax={MAX_FOLDERS_PANEL_WIDTH_PX}
                 aria-valuenow={resolvedFoldersWidth}
-                title="Resize folders panel"
+                title={text("Resize folders panel")}
                 tabIndex={0}
                 className="absolute inset-y-0 z-20 -translate-x-1/2 cursor-col-resize touch-none select-none"
                 style={{
@@ -3280,37 +3286,43 @@ export default function BrowserPage({
         <ConfirmActionDialog
           title={
             archivePreparation.phase === "inventorying"
-              ? "Preparing ZIP archive"
-              : "Save large ZIP archive"
+              ? text("Preparing ZIP archive")
+              : text("Save large ZIP archive")
           }
           description={
             archivePreparation.phase === "inventorying"
               ? archivePreparation.totalFolders > 0
-                ? `Checking folders and archive paths (${archivePreparation.completedFolders}/${archivePreparation.totalFolders}). No object content is downloaded during this step.`
-                : "Checking files and archive paths. No object content is downloaded during this step."
-              : "The inventory is complete. Choose the destination file to start downloading object content."
+                ? text(
+                    "Checking folders and archive paths ({completed}/{total}). No object content is downloaded during this step.",
+                    {
+                      completed: archivePreparation.completedFolders,
+                      total: archivePreparation.totalFolders,
+                    },
+                  )
+                : text("Checking files and archive paths. No object content is downloaded during this step.")
+              : text("The inventory is complete. Choose the destination file to start downloading object content.")
           }
           details={
             archivePreparation.phase === "ready"
               ? [
-                  { label: "Files", value: archivePreparation.fileCount },
-                  { label: "Volume", value: formatBytes(archivePreparation.totalBytes) },
+                  { label: text("Files"), value: archivePreparation.fileCount },
+                  { label: text("Volume"), value: formatBytes(archivePreparation.totalBytes, intlLocale) },
                   {
-                    label: "Excluded",
+                    label: text("Excluded"),
                     value: archivePreparation.excludedCount,
                   },
                 ]
               : []
           }
-          confirmLabel="Choose file and download"
+          confirmLabel={text("Choose file and download")}
           confirmDisabled={
             archivePreparation.phase === "inventorying" ||
             !archivePreparation.canDownload
           }
           cancelLabel={
             archivePreparation.phase === "inventorying"
-              ? "Cancel preparation"
-              : "Close"
+              ? text("Cancel preparation")
+              : text("Close")
           }
           tone="primary"
           error={

@@ -23,6 +23,7 @@ from app.routers.manager.iam_common import (
     save_inline_policy,
 )
 from app.services.audit_service import AuditService
+from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 DEFAULT_ASSUME_ROLE = """
 {
@@ -60,6 +61,7 @@ def create_role(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMRole:
+    validate_inline_policy_requests(payload.inline_policies, "role", account)
     service = get_iam_service_for_account(account)
     assume_policy = payload.assume_role_policy_document or DEFAULT_ASSUME_ROLE
     if isinstance(assume_policy, str):
@@ -199,6 +201,8 @@ def put_role_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
+    validate_inline_policy_request(payload.name, "role", account)
+    validate_inline_policy_request(policy_name, "role", account, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
     service = get_iam_service_for_account(account)
     try:

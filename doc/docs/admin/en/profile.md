@@ -28,7 +28,7 @@ shown only during the delivery flow.
 
 Administrators handle other users' platform sessions and manual identity-link
 requests from **Platform > Identity security**. Superadmins manage scoped
-automation tokens from **Settings > API tokens**.
+automation tokens from the **API tokens** tab in their own profile.
 
 ## Notifications
 

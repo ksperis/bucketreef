@@ -117,6 +117,19 @@ def test_backend_audit_matrix_tracks_bucket_migration_maintenance_delegation():
         ]
 
 
+def test_backend_audit_matrix_tracks_access_key_expiration_delegation():
+    backend_root = Path(__file__).resolve().parents[1]
+    row = next(
+        row
+        for row in collect_rows(backend_root)
+        if row.function == "run_access_key_expirations"
+        and row.file.relative_to(backend_root)
+        == Path("app/routers/internal/access_key_expirations.py")
+    )
+
+    assert row.signals["delegated_access_key_expiration_audit"]
+
+
 def test_backend_audit_matrix_tracks_ceph_admin_bucket_ui_tag_delegation():
     backend_root = Path(__file__).resolve().parents[1]
     row = next(

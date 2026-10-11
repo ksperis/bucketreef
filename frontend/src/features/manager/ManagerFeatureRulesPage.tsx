@@ -25,6 +25,7 @@ import { extractApiError } from "../../utils/apiError";
 import { useS3AccountContext } from "./S3AccountContext";
 import FeatureRulesTable from "./FeatureRulesTable";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
+import { useManagerI18n } from "./managerI18n";
 
 type StatusFilter = "all" | FeatureRuleInventoryStatus;
 
@@ -48,10 +49,6 @@ const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: "unavailable", label: "Unavailable" },
 ];
 
-function extractError(err: unknown): string {
-  return extractApiError(err, "Unexpected error");
-}
-
 function ruleSearchText(row: FeatureRuleInventoryBucket): string {
   return [
     row.bucket_name,
@@ -64,6 +61,7 @@ function ruleSearchText(row: FeatureRuleInventoryBucket): string {
 }
 
 export default function ManagerFeatureRulesPage() {
+  const { text } = useManagerI18n();
   const { accounts, selectedS3AccountId, requiresS3AccountSelection, accountIdForApi } = useS3AccountContext();
   const [feature, setFeature] = useState<FeatureRuleFeature>("lifecycle");
   const [statusFilterValue, setStatusFilterValue] = useState<StatusFilter>("all");
@@ -101,7 +99,7 @@ export default function ManagerFeatureRulesPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(extractError(err));
+          setError(extractApiError(err, text("Unexpected error")));
           setItems([]);
         }
       } finally {
@@ -121,7 +119,7 @@ export default function ManagerFeatureRulesPage() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, feature, needsS3AccountSelection]);
+  }, [accountIdForApi, feature, needsS3AccountSelection, text]);
 
   const filteredItems = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -139,38 +137,49 @@ export default function ManagerFeatureRulesPage() {
 
   const configuredCount = items.filter((item) => item.status === "configured").length;
   const ruleCount = items.reduce((sum, item) => sum + item.rules.length, 0);
-  const selectedFeatureLabel = FEATURE_OPTIONS.find((option) => option.id === feature)?.label ?? "Feature";
-  const selectedItemLabel = feature === "tags" ? "tag(s)" : "rule(s)";
-  const emptyRulesLabel = feature === "tags" ? "No tags" : "No rules";
-  const readErrorFallback = feature === "tags" ? "Unable to read tags" : "Unable to read rules";
+  const selectedFeatureLabel = text(FEATURE_OPTIONS.find((option) => option.id === feature)?.label ?? "Feature");
+  const selectedItemLabel = text(
+    feature === "tags"
+      ? ruleCount === 1 ? "tag" : "tags"
+      : ruleCount === 1 ? "rule" : "rules",
+  );
+  const emptyRulesLabel = text(feature === "tags" ? "No tags" : "No rules");
+  const readErrorFallback = text(feature === "tags" ? "Unable to read tags" : "Unable to read rules");
 
   return (
     <PageShell
-      title="Feature rule inventory"
-      description="Read-only inventory of bucket feature rules and tags in the active manager context."
-      breadcrumbs={managerPageBreadcrumbs("feature-rules")}
+      title={text("Feature rule inventory")}
+      description={text("Read-only inventory of bucket feature rules and tags in the active manager context.")}
+      breadcrumbs={managerPageBreadcrumbs(text, "feature-rules")}
     >
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
       {needsS3AccountSelection ? (
         <PageEmptyState
-          title="Select an account before inventorying feature rules"
-          description="The rule inventory uses the selected manager execution context to read bucket configuration."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select an account before inventorying feature rules")}
+          description={text("The rule inventory uses the selected manager execution context to read bucket configuration.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : (
         <ListPageSection
-            title="Feature rules"
+            title={text("Feature rules")}
             variant="page"
-            countLabel={`${filteredItems.length} bucket(s) · ${ruleCount} ${selectedItemLabel} · ${configuredCount} configured`}
+            countLabel={text(filteredItems.length === 1
+              ? "{buckets} bucket · {rules} {itemLabel} · {configured} configured"
+              : "{buckets} buckets · {rules} {itemLabel} · {configured} configured", {
+              buckets: filteredItems.length,
+              rules: ruleCount,
+              itemLabel: selectedItemLabel,
+              configured: configuredCount,
+            })}
             search={
               <UiInput
-                label="Search"
+                label={text("Search")}
                 type="search"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
-                placeholder="Bucket, rule, tag"
+                placeholder={text("Bucket, rule, tag")}
                 fieldClassName="w-full sm:w-64"
                 size="compact"
               />
@@ -178,20 +187,20 @@ export default function ManagerFeatureRulesPage() {
             filters={
               <>
                 <UiSelect
-                  label="Feature"
+                  label={text("Feature")}
                   value={feature}
                   onChange={(event) => setFeature(event.target.value as FeatureRuleFeature)}
                   size="compact"
                 >
                   {FEATURE_OPTIONS.map((option) => (
                     <option key={option.id} value={option.id} disabled={option.id === "notifications" && !snsFeatureEnabled}>
-                      {option.label}
+                      {text(option.label)}
                     </option>
                   ))}
                 </UiSelect>
                 <UiSegmentedControl
-                  ariaLabel="Status"
-                  options={STATUS_OPTIONS}
+                  ariaLabel={text("Status")}
+                  options={STATUS_OPTIONS.map((option) => ({ ...option, label: text(option.label) }))}
                   value={statusFilterValue}
                   onChange={setStatusFilterValue}
                 />
@@ -200,14 +209,14 @@ export default function ManagerFeatureRulesPage() {
         >
 
           <FeatureRulesTable
-            emptyMessage="No buckets match the current filters."
+            emptyMessage={text("No buckets match the current filters.")}
             emptyRulesLabel={emptyRulesLabel}
-            errorMessage="Unable to load buckets."
+            errorMessage={text("Unable to load buckets.")}
             feature={feature}
             featureLabel={selectedFeatureLabel}
             items={filteredItems}
             itemLabel={selectedItemLabel}
-            loadingMessage={`Loading ${selectedFeatureLabel.toLowerCase()}...`}
+            loadingMessage={text("Loading {feature}...", { feature: selectedFeatureLabel.toLowerCase() })}
             onOpenRule={(bucketName, rule) => setSelectedRule({ bucketName, rule })}
             readErrorFallback={readErrorFallback}
             status={tableStatus}
@@ -217,13 +226,13 @@ export default function ManagerFeatureRulesPage() {
 
       {selectedRule && (
         <SettingsDialog
-          title="Rule details"
+          title={text("Rule details")}
           onClose={() => setSelectedRule(null)}
           initialFocusRef={ruleJsonRef}
         >
           <div className="settings-stack settings-fields">
             <p className="settings-description [overflow-wrap:anywhere]">{selectedRule.bucketName} · {selectedRule.rule.title}</p>
-            <UiTextarea ref={ruleJsonRef} label="Rule JSON" readOnly rows={16}
+            <UiTextarea ref={ruleJsonRef} label={text("Rule JSON")} readOnly rows={16}
               value={JSON.stringify(selectedRule.rule.raw, null, 2)}
               className="font-mono [overflow-wrap:anywhere]" spellCheck={false} />
           </div>

@@ -10,6 +10,7 @@ import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { useManagerI18n } from "./managerI18n";
 
 export type InlinePolicyDraftEditorMode = "idle" | "create" | "edit";
 
@@ -17,6 +18,7 @@ type InlinePolicyDraftEditorProps = {
   drafts: InlinePolicy[];
   selectedDraftName: string | null;
   draftName: string;
+  nameError?: string;
   draftText: string;
   entityLabel: string;
   mode: InlinePolicyDraftEditorMode;
@@ -36,6 +38,7 @@ export default function InlinePolicyDraftEditor({
   drafts,
   selectedDraftName,
   draftName,
+  nameError,
   draftText,
   entityLabel,
   mode,
@@ -50,6 +53,7 @@ export default function InlinePolicyDraftEditor({
   onInsertTemplate,
   onToggleExpanded,
 }: InlinePolicyDraftEditorProps) {
+  const { text } = useManagerI18n();
   const contentId = useId();
   const replacementMessageId = `${contentId}-replacement`;
   const hasDrafts = drafts.length > 0;
@@ -58,35 +62,35 @@ export default function InlinePolicyDraftEditor({
   const replacementTarget = trimmedName
     ? drafts.find((draft) => draft.name === trimmedName && draft.name !== selectedDraftName) ?? null
     : null;
-  const actionLabel = mode === "edit" ? "Update draft" : "Save draft";
+  const actionLabel = text(mode === "edit" ? "Update draft" : "Save draft");
   const showIdleState = mode === "idle" && hasDrafts;
   const showEditor = mode !== "idle" || !hasDrafts;
 
   return (
     <SettingsSection
-      title="Inline policies (optional)"
-      description={`Save inline JSON policies that embed directly on this ${entityLabel}.`}
+      title={text("Inline policies (optional)")}
+      description={text("Save inline JSON policies that embed directly on {entity}.", { entity: entityLabel })}
       presentation="compact"
     >
       <div className="settings-stack">
         {(hasDrafts || onToggleExpanded) && (
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {hasDrafts && <span className="settings-description">{drafts.length} saved</span>}
+            {hasDrafts && <span className="settings-description">{drafts.length} {text("saved")}</span>}
             {onToggleExpanded && (
               <SettingsButton
                 variant="secondary"
                 onClick={onToggleExpanded}
-                aria-label={expanded ? "Hide inline policies" : "Show inline policies"}
+                aria-label={expanded ? text("Hide inline policies") : text("Show inline policies")}
                 aria-expanded={expanded}
                 aria-controls={contentId}
               >
-                {expanded ? "Hide" : "Show"}
+                {text(expanded ? "Hide" : "Show")}
               </SettingsButton>
             )}
             {hasDrafts && (
               <>
-                <SettingsButton variant="secondary" onClick={onClearDrafts}>Clear all</SettingsButton>
-                <SettingsButton variant="secondary" onClick={onCreateDraft}>Create new inline policy</SettingsButton>
+                <SettingsButton variant="secondary" onClick={onClearDrafts}>{text("Clear all")}</SettingsButton>
+                <SettingsButton variant="secondary" onClick={onCreateDraft}>{text("Create new inline policy")}</SettingsButton>
               </>
             )}
           </div>
@@ -95,8 +99,8 @@ export default function InlinePolicyDraftEditor({
           {hasDrafts && (
             <div className="settings-stack">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="settings-label">Saved inline policies</h3>
-                {showIdleState && <span className="settings-description">Select one to edit or create a new one.</span>}
+                <h3 className="settings-label">{text("Saved inline policies")}</h3>
+                {showIdleState && <span className="settings-description">{text("Select one to edit or create a new one.")}</span>}
               </div>
               <div className="grid gap-2">
                 {drafts.map((draft) => {
@@ -107,9 +111,9 @@ export default function InlinePolicyDraftEditor({
                       <SettingsButton
                         variant="ghost"
                         onClick={() => onRemoveDraft(draft.name)}
-                        aria-label={`Remove inline policy ${draft.name}`}
+                        aria-label={text("Remove inline policy {name}", { name: draft.name })}
                       >
-                        Remove
+                        {text("Remove")}
                       </SettingsButton>
                     </div>
                   );
@@ -119,9 +123,9 @@ export default function InlinePolicyDraftEditor({
           )}
           {showIdleState && (
             <div className="settings-body">
-              <p>Select a saved inline policy to edit, or create a new one.</p>
+              <p>{text("Select a saved inline policy to edit, or create a new one.")}</p>
               <p className="settings-description mt-1">
-                Existing inline policies stay listed above so you can review them before adding another draft.
+                {text("Existing inline policies stay listed above so you can review them before adding another draft.")}
               </p>
             </div>
           )}
@@ -129,39 +133,43 @@ export default function InlinePolicyDraftEditor({
             <div className="settings-fields">
               <div>
                 <h3 className="settings-label break-words [overflow-wrap:anywhere]">
-                  {mode === "edit" ? `Editing "${selectedDraftName}"` : "Create a new inline policy"}
+                  {mode === "edit"
+                    ? text("Editing \"{name}\"", { name: selectedDraftName ?? "" })
+                    : text("Create a new inline policy")}
                 </h3>
                 <p className="settings-description mt-1">
                   {mode === "edit"
-                    ? `Update the selected draft before creating the ${entityLabel}.`
-                    : "Provide a name and valid JSON to keep this inline policy draft visible in the form."}
+                    ? text("Update the selected draft before creating the {entity}.", { entity: entityLabel })
+                    : text("Provide a name and valid JSON to keep this inline policy draft visible in the form.")}
                 </p>
               </div>
               {replacementTarget && (
                 <div id={replacementMessageId}>
                   <UiInlineMessage tone="warning" className="[overflow-wrap:anywhere]">
-                    Saving this draft will replace the existing draft "{replacementTarget.name}".
+                    {text("Saving this draft will replace the existing draft \"")}{replacementTarget.name}".
                   </UiInlineMessage>
                 </div>
               )}
               <UiInput
-                label="Inline policy name"
+                label={text("Inline policy name")}
                 aria-describedby={replacementTarget ? replacementMessageId : undefined}
+                error={nameError}
                 value={draftName}
                 onChange={(event) => onDraftNameChange(event.target.value)}
-                placeholder="inline-policy"
+                placeholder={text("inline-policy")}
               />
               <SettingsJsonEditor
-                label="Inline policy document"
+                label={text("Inline policy document")}
                 value={draftText}
                 onChange={onDraftTextChange}
                 rows={8}
-                hint="Provide valid JSON. Blank defaults to an empty document."
+                text={text}
+                hint={text("Provide valid JSON. Blank defaults to an empty document.")}
               />
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <SettingsButton variant="secondary" onClick={onInsertTemplate}>Insert template</SettingsButton>
+                <SettingsButton variant="secondary" onClick={onInsertTemplate}>{text("Insert template")}</SettingsButton>
                 {hasDrafts && (
-                  <SettingsButton variant="secondary" onClick={() => onSelectDraft(null)}>Cancel</SettingsButton>
+                  <SettingsButton variant="secondary" onClick={() => onSelectDraft(null)}>{text("Cancel")}</SettingsButton>
                 )}
                 <SettingsButton onClick={onSaveDraft}>{actionLabel}</SettingsButton>
               </div>

@@ -24,6 +24,8 @@ import S3ConnectionAccessFields from "../shared/S3ConnectionAccessFields";
 import { extractApiError } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { inlinePolicyNameFormatError, type NamingValidationProfile } from "../../utils/resourceNames";
+import { useManagerI18n } from "./managerI18n";
 
 const AMAZON_S3_FULL_ACCESS_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonS3FullAccess";
 
@@ -31,6 +33,7 @@ const INLINE_POLICY_TEMPLATE = '{\n  "Version": "2012-10-17",\n  "Statement": []
 
 type Props = {
   variant: "iam" | "rgw_user";
+  namingValidationProfile?: NamingValidationProfile | null;
   accountId: S3AccountSelector;
   contextName?: string | null;
   groups?: IAMGroup[];
@@ -41,6 +44,7 @@ type Props = {
 
 export default function CreateManagedPrivateAccessModal({
   variant,
+  namingValidationProfile = "standard",
   accountId,
   contextName,
   groups = [],
@@ -48,6 +52,7 @@ export default function CreateManagedPrivateAccessModal({
   onClose,
   onCreated,
 }: Props) {
+  const { text } = useManagerI18n();
   const formRef = useRef<HTMLFormElement>(null);
   const connectionNameRef = useRef<HTMLInputElement | null>(null);
   const [initialConnectionName] = useState(() => {
@@ -71,7 +76,9 @@ export default function CreateManagedPrivateAccessModal({
   const [inlineDocumentError, setInlineDocumentError] = useState<string>();
   const [accessError, setAccessError] = useState<string>();
 
-  const title = variant === "iam" ? "Create my private access" : "Create my private RGW access";
+  const inlineFormatError = inlinePolicyNameFormatError(inlineName.trim(), "user", namingValidationProfile ?? "standard");
+  const namingRulesPending = variant === "iam" && namingValidationProfile === null;
+  const title = text(variant === "iam" ? "Create my private access" : "Create my private RGW access");
   const selectedInlineNames = useMemo(() => new Set(inlinePolicies.map((policy) => policy.name)), [inlinePolicies]);
   const availablePolicies = useMemo(
     () => policies.some((policy) => policy.arn === AMAZON_S3_FULL_ACCESS_POLICY_ARN)
@@ -106,17 +113,23 @@ export default function CreateManagedPrivateAccessModal({
   };
 
   const addInlinePolicy = () => {
-    if (busy) return;
+    if (busy || namingRulesPending) return;
     setInlineNameError(undefined);
     setInlineDocumentError(undefined);
     const name = inlineName.trim();
+    const formatError = inlinePolicyNameFormatError(name, "user", namingValidationProfile ?? "standard");
+    if (formatError) {
+      setInlineNameError(text(formatError));
+      focusInvalidField();
+      return;
+    }
     if (!name) {
-      setInlineNameError("Inline policy name is required.");
+      setInlineNameError(text("Inline policy name is required."));
       focusInvalidField();
       return;
     }
     if (selectedInlineNames.has(name)) {
-      setInlineNameError("Inline policy names must be unique.");
+      setInlineNameError(text("Inline policy names must be unique."));
       focusInvalidField();
       return;
     }
@@ -129,14 +142,22 @@ export default function CreateManagedPrivateAccessModal({
       setInlineName("");
       setError(null);
     } catch {
-      setInlineDocumentError("Inline policy document must be a JSON object.");
+      setInlineDocumentError(text("Inline policy document must be a JSON object."));
       focusInvalidField();
     }
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || namingRulesPending) return;
+    const invalidPolicy = variant === "iam" ? inlinePolicies.map(policy => inlinePolicyNameFormatError(policy.name, "user", namingValidationProfile ?? "standard")).find(Boolean) : undefined;
+    if (invalidPolicy || (variant === "iam" && (inlineFormatError || inlineNameError))) {
+      if (invalidPolicy) setError(text(invalidPolicy));
+      const details = formRef.current?.querySelector("details");
+      if (details) details.open = true;
+      focusInvalidField();
+      return;
+    }
     const missingName = !connectionName.trim();
     const missingAccess = !accessBrowser && !accessManager;
     setNameError(missingName ? "Connection name is required." : undefined);
@@ -167,7 +188,7 @@ export default function CreateManagedPrivateAccessModal({
       onCreated(result.connection.name);
       onClose();
     } catch (err) {
-      setError(extractApiError(err, "Unable to create managed private access."));
+      setError(extractApiError(err, text("Unable to create managed private access.")));
     } finally {
       setBusy(false);
     }
@@ -195,7 +216,7 @@ export default function CreateManagedPrivateAccessModal({
           </UiInlineMessage>
           <UiInput
             ref={connectionNameRef}
-            label="Connection name"
+            label={text("Connection name")}
             value={connectionName}
             error={nameError}
             onChange={(event) => { setConnectionName(event.target.value); setNameError(undefined); }}
@@ -204,15 +225,15 @@ export default function CreateManagedPrivateAccessModal({
 
           <UiDetails className="modal-disclosure">
             <summary>
-              Advanced configuration
-              {!usesDefaultConfiguration && <span className="settings-description ml-2">Customized</span>}
+              {text("Advanced configuration")}
+              {!usesDefaultConfiguration && <span className="settings-description ml-2">{text("Customized")}</span>}
             </summary>
             <div className="settings-stack pt-2">
               {variant === "iam" && (
                 <div>
-                  <SettingsSection title="IAM groups" presentation="compact">
+                  <SettingsSection title={text("IAM groups")} presentation="compact">
                     <div className="settings-fields">
-                      {groups.length === 0 && <span className="settings-description">No groups available.</span>}
+                      {groups.length === 0 && <span className="settings-description">{text("No groups available.")}</span>}
                       {groups.map((group) => (
                         <UiCheckboxField
                           key={group.name}
@@ -227,7 +248,7 @@ export default function CreateManagedPrivateAccessModal({
                       ))}
                     </div>
                   </SettingsSection>
-                  <SettingsSection title="Managed policies" presentation="compact">
+                  <SettingsSection title={text("Managed policies")} presentation="compact">
                     <div className="settings-fields">
                       {availablePolicies.map((policy) => (
                         <UiCheckboxField
@@ -244,7 +265,7 @@ export default function CreateManagedPrivateAccessModal({
                       ))}
                     </div>
                   </SettingsSection>
-                  <SettingsSection title="Inline policies" presentation="compact">
+                  <SettingsSection title={text("Inline policies")} presentation="compact">
                     <div className="settings-fields">
                       {inlinePolicies.length > 0 && (
                         <ul className="grid gap-2">
@@ -253,28 +274,29 @@ export default function CreateManagedPrivateAccessModal({
                               <span className="settings-label min-w-0 [overflow-wrap:anywhere]">{policy.name}</span>
                               <SettingsButton variant="ghost" aria-label={`Remove inline policy ${policy.name}`}
                                 onClick={() => { setInlinePolicies((current) => current.filter((item) => item.name !== policy.name)); setInlineNameError(undefined); }}>
-                                Remove
+                                {text("Remove")}
                               </SettingsButton>
                             </li>
                           ))}
                         </ul>
                       )}
                       <UiInput
-                        label="Inline policy name"
+                        label={text("Inline policy name")}
                         value={inlineName}
-                        error={inlineNameError}
+                        error={inlineFormatError ? text(inlineFormatError) : inlineNameError}
                         onChange={(event) => { setInlineName(event.target.value); setInlineNameError(undefined); }}
                       />
                       <SettingsJsonEditor
-                        label="Inline policy document"
+                        label={text("Inline policy document")}
                         value={inlineDocument}
                         error={inlineDocumentError}
-                        hint="Provide a JSON object, then add it to the policies for this access."
+                        hint={text("Provide a JSON object, then add it to the policies for this access.")}
                         onChange={(value) => { setInlineDocument(value); setInlineDocumentError(undefined); }}
                         rows={6}
+                        text={text}
                       />
                       <div className="flex justify-end">
-                        <SettingsButton variant="secondary" onClick={addInlinePolicy}>Add inline policy</SettingsButton>
+                        <SettingsButton variant="secondary" onClick={addInlinePolicy}>{text("Add inline policy")}</SettingsButton>
                       </div>
                     </div>
                   </SettingsSection>
@@ -285,15 +307,15 @@ export default function CreateManagedPrivateAccessModal({
                 accessManager={accessManager}
                 onAccessBrowserChange={(value) => { setAccessBrowser(value); setAccessError(undefined); }}
                 onAccessManagerChange={(value) => { setAccessManager(value); setAccessError(undefined); }}
-                hint="Browser is selected by default. At least one workspace must remain enabled."
+                hint={text("Browser is selected by default. At least one workspace must remain enabled.")}
                 error={accessError}
                 className="settings-fields"
               />
             </div>
           </UiDetails>
           <ModalActions>
-            <SettingsButton variant="secondary" onClick={closeGuard.requestClose}>Cancel</SettingsButton>
-            <SettingsButton type="submit">{busy ? "Creating…" : "Create my private access"}</SettingsButton>
+            <SettingsButton variant="secondary" onClick={closeGuard.requestClose}>{text("Cancel")}</SettingsButton>
+            <SettingsButton type="submit" disabled={namingRulesPending}>{text(busy ? "Creating…" : "Create my private access")}</SettingsButton>
           </ModalActions>
         </fieldset>
       </form>

@@ -2,9 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from app.db import AccountIAMUser, PortalExternalAccessCredential
+from app.models.iam import AccessKey
 from app.models.portal_access_keys import PortalAccessKey
 
 
@@ -15,7 +16,7 @@ def portal_access_key_is_active(status: Optional[str], *, default: bool = True) 
 
 
 def portal_access_key_from_iam_metadata(
-    metadata: Any,
+    metadata: AccessKey,
     *,
     is_portal: bool,
     deletable: bool,
@@ -24,11 +25,11 @@ def portal_access_key_from_iam_metadata(
     active_default: bool = True,
     status: Optional[str] = None,
 ) -> PortalAccessKey:
-    status_value = status if status is not None else getattr(metadata, "status", None)
+    status_value = status if status is not None else metadata.status
     return PortalAccessKey(
-        access_key_id=getattr(metadata, "access_key_id", None),
+        access_key_id=metadata.access_key_id,
         status=status_value,
-        created_at=getattr(metadata, "created_at", None),
+        created_at=metadata.created_at,
         is_active=portal_access_key_is_active(status_value, default=active_default) if is_active is None else is_active,
         secret_access_key=secret_access_key,
         is_portal=is_portal,

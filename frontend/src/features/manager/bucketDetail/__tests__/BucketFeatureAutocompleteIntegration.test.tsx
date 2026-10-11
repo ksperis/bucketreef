@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import BucketAccessLoggingFeature from "../BucketAccessLoggingFeature";
 import BucketCorsFeature from "../BucketCorsFeature";
+import BucketNotificationsFeature from "../BucketNotificationsFeature";
 import BucketReplicationFeature from "../BucketReplicationFeature";
 import BucketWebsiteFeature from "../BucketWebsiteFeature";
 import { useBucketAccessLoggingController } from "../useBucketAccessLoggingController";
 import { useBucketCorsController } from "../useBucketCorsController";
+import { useBucketNotificationsController } from "../useBucketNotificationsController";
 import { useBucketReplicationController } from "../useBucketReplicationController";
 import { useBucketWebsiteController } from "../useBucketWebsiteController";
 
@@ -43,6 +45,17 @@ function CorsHarness() {
     endpointId: null,
   });
   return <BucketCorsFeature controller={controller} />;
+}
+
+function NotificationsHarness() {
+  const controller = useBucketNotificationsController({
+    accountId: "acc-1",
+    bucketName: "source-bucket",
+    cephAdmin: false,
+    enabled: true,
+    endpointId: null,
+  });
+  return <BucketNotificationsFeature controller={controller} />;
 }
 
 function WebsiteHarness() {
@@ -106,6 +119,29 @@ describe("bucket feature autocomplete integrations", () => {
     await user.type(exposedHeader, "ETag");
     await user.keyboard("{ArrowDown}{Enter}");
     expect(within(dialog).getByText("ETag")).toBeInTheDocument();
+  });
+
+  it("keeps editable CORS and notification identifiers focused while they change", async () => {
+    const user = userEvent.setup();
+    const cors = render(<CorsHarness />);
+
+    await user.click(screen.getByRole("button", { name: "Add rule", exact: true }));
+    let dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
+    const ruleId = within(dialog).getByLabelText("Rule ID (optional)");
+    await user.click(ruleId);
+    await user.type(ruleId, "x");
+    expect(within(dialog).getByLabelText("Rule ID (optional)")).toBe(ruleId);
+    expect(ruleId).toHaveFocus();
+
+    cors.unmount();
+    render(<NotificationsHarness />);
+    await user.click(screen.getByRole("button", { name: "Add notification", exact: true }));
+    dialog = screen.getByRole("dialog", { name: "Edit bucket notifications" });
+    const notificationId = within(dialog).getByLabelText("ID (optional)");
+    await user.click(notificationId);
+    await user.type(notificationId, "x");
+    expect(within(dialog).getByLabelText("ID (optional)")).toBe(notificationId);
+    expect(notificationId).toHaveFocus();
   });
 
   it("suggests website object keys and constrains redirect protocol to http/https", async () => {

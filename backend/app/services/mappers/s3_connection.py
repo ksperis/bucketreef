@@ -39,7 +39,7 @@ def s3_connection_from_db(
         server_managed=bool(row.server_managed),
         managed_access_state=(
             row.managed_private_access.state
-            if getattr(row, "managed_private_access", None) is not None
+            if row.managed_private_access is not None
             else None
         ),
         credential_owner_type=row.credential_owner_type,

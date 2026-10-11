@@ -5,6 +5,7 @@
 import { useId, type ReactNode } from "react";
 import UiBadge from "../../../components/ui/UiBadge";
 import { cx, type UiTone } from "../../../components/ui/styles";
+import { useManagerI18n, type ManagerTextValues } from "../managerI18n";
 import type { BucketFeatureMode, BucketFeatureVisualState } from "./bucketFeatureState";
 import "./bucketFeatureCards.css";
 
@@ -30,20 +31,21 @@ type BucketFeatureSectionProps = {
 function defaultStateBadge(
   visualState: BucketFeatureVisualState,
   showConfiguredBadge: boolean,
+  text: (message: string, values?: ManagerTextValues) => string,
 ) {
   if (visualState === "unsaved") {
-    return <UiBadge tone="warning">Unsaved changes</UiBadge>;
+    return <UiBadge tone="warning">{text("Unsaved changes")}</UiBadge>;
   }
   if (visualState === "configured" && showConfiguredBadge) {
-    return <UiBadge tone="primary">Configured</UiBadge>;
+    return <UiBadge tone="primary">{text("Configured")}</UiBadge>;
   }
   if (visualState === "configured") {
     return null;
   }
   if (visualState === "disabled") {
-    return <UiBadge tone="neutral">Unavailable</UiBadge>;
+    return <UiBadge tone="neutral">{text("Unavailable")}</UiBadge>;
   }
-  return <UiBadge tone="neutral">Inactive</UiBadge>;
+  return <UiBadge tone="neutral">{text("Inactive")}</UiBadge>;
 }
 
 export default function BucketFeatureSection({
@@ -62,6 +64,7 @@ export default function BucketFeatureSection({
   className,
   testId,
 }: BucketFeatureSectionProps) {
+  const { text } = useManagerI18n();
   const titleId = useId();
   const resolvedPresentation = presentation === "workbench" ? "collection" : presentation;
   const stateBadge = stateLabel ? (
@@ -77,7 +80,7 @@ export default function BucketFeatureSection({
     >
       {stateLabel}
     </UiBadge>
-  ) : defaultStateBadge(visualState, showConfiguredBadge);
+  ) : defaultStateBadge(visualState, showConfiguredBadge, text);
 
   return (
     <section
@@ -90,7 +93,7 @@ export default function BucketFeatureSection({
     >
       <fieldset
         className="bucket-feature-card-fieldset"
-        aria-label={`${title} configuration`}
+        aria-label={text("{title} configuration", { title })}
         aria-busy={busy}
         disabled={busy || visualState === "disabled"}
         data-testid={testId}
@@ -110,7 +113,7 @@ export default function BucketFeatureSection({
             {actions ? (
               <div
                 role="group"
-                aria-label={`${title} actions`}
+                aria-label={text("{title} actions", { title })}
                 className="bucket-feature-card-actions"
               >
                 {actions}
@@ -122,7 +125,9 @@ export default function BucketFeatureSection({
         <div className="bucket-feature-card-body">
           {successMessage ? (
             <div aria-live="polite" className="bucket-feature-card-feedback">
-              <UiBadge tone="success">{successMessage}</UiBadge>
+              <UiBadge tone="success">
+                {typeof successMessage === "string" ? text(successMessage) : successMessage}
+              </UiBadge>
             </div>
           ) : null}
           {children}

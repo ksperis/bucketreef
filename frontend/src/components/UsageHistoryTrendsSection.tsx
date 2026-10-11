@@ -45,6 +45,7 @@ type UsageHistoryTrendsSectionProps = {
   error?: string | null;
   title?: string;
   description?: string;
+  text?: (message: string, values?: Record<string, string | number>) => string;
   labels?: {
     unavailableDescription?: string;
     latestStorage?: string;
@@ -66,16 +67,26 @@ type UsageHistoryTrendsSectionProps = {
   };
 };
 
+function fallbackText(message: string, values?: Record<string, string | number>): string {
+  if (!values) return message;
+  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
+  );
+}
+
 export default function UsageHistoryTrendsSection({
   trends,
   window,
   onWindowChange,
   loading,
   error,
-  title = "Usage history",
+  title,
   description,
+  text: translateText,
   labels,
 }: UsageHistoryTrendsSectionProps) {
+  const text = translateText ?? fallbackText;
+  const resolvedTitle = title ?? text("Usage history");
   const chartData = useMemo<TrendPoint[]>(
     () =>
       (trends?.points ?? [])
@@ -99,14 +110,14 @@ export default function UsageHistoryTrendsSection({
   }, [chartData, window]);
   const summary = trends?.summary;
   const hasData = chartData.length > 0;
-  const helper = WINDOW_OPTIONS.find((option) => option.value === window)?.helper ?? "Stored snapshots";
-  const subtitle = description ?? `${helper} from collected quota usage history.`;
+  const helper = text(WINDOW_OPTIONS.find((option) => option.value === window)?.helper ?? "Stored snapshots");
+  const subtitle = description ?? text("{helper} from collected quota usage history.", { helper });
 
   if (error) {
     return (
       <MetricsUnavailableCard
-        title={title}
-        description={labels?.unavailableDescription ?? "Stored quota snapshots over time."}
+        title={resolvedTitle}
+        description={labels?.unavailableDescription ?? text("Stored quota snapshots over time.")}
         message={error}
         tone="error"
       />
@@ -116,20 +127,20 @@ export default function UsageHistoryTrendsSection({
   if (trends && !trends.available) {
     return (
       <MetricsUnavailableCard
-        title={title}
-        description={labels?.unavailableDescription ?? "Stored quota snapshots over time."}
-        message={trends.unavailable_reason || "Usage history trends are unavailable for this context."}
+        title={resolvedTitle}
+        description={labels?.unavailableDescription ?? text("Stored quota snapshots over time.")}
+        message={trends.unavailable_reason || text("Usage history trends are unavailable for this context.")}
       />
     );
   }
 
   return (
     <MetricsCard
-      title={title}
+      title={resolvedTitle}
       description={subtitle}
       actions={
         <UiSegmentedControl
-          ariaLabel={`${title} window`}
+          ariaLabel={text("{title} window", { title: resolvedTitle })}
           options={WINDOW_OPTIONS}
           value={window}
           onChange={onWindowChange}
@@ -139,38 +150,38 @@ export default function UsageHistoryTrendsSection({
 
       <div className="grid gap-4 md:grid-cols-4">
         <MetricsSnapshotCard
-          label={labels?.latestStorage ?? "Latest storage"}
+          label={labels?.latestStorage ?? text("Latest storage")}
           value={formatBytes(summary?.latest_used_bytes ?? 0)}
-          hint={labels?.latestStorageHint ?? `${formatCompactNumber(summary?.subjects_count ?? 0)} subjects`}
+          hint={labels?.latestStorageHint ?? text("{count} subjects", { count: formatCompactNumber(summary?.subjects_count ?? 0) })}
           loading={loading}
         />
         <MetricsSnapshotCard
-          label={labels?.latestObjects ?? "Latest objects"}
+          label={labels?.latestObjects ?? text("Latest objects")}
           value={formatCompactNumber(summary?.latest_used_objects ?? 0)}
-          hint={labels?.latestObjectsHint ?? `${formatCompactNumber(summary?.latest_bucket_count ?? 0)} buckets`}
+          hint={labels?.latestObjectsHint ?? text("{count} buckets", { count: formatCompactNumber(summary?.latest_bucket_count ?? 0) })}
           loading={loading}
         />
         <MetricsSnapshotCard
-          label={labels?.maxQuotaRatio ?? "Max quota ratio"}
+          label={labels?.maxQuotaRatio ?? text("Max quota ratio")}
           value={formatPercentage(summary?.max_usage_ratio_pct)}
-          hint={labels?.maxQuotaHint ?? "Highest point"}
+          hint={labels?.maxQuotaHint ?? text("Highest point")}
           loading={loading}
         />
         <MetricsSnapshotCard
-          label={labels?.snapshots ?? "Snapshots"}
+          label={labels?.snapshots ?? text("Snapshots")}
           value={formatCompactNumber(summary?.total_records ?? 0)}
-          hint={labels?.snapshotsHint ?? `${formatCompactNumber(summary?.points_count ?? 0)} periods`}
+          hint={labels?.snapshotsHint ?? text("{count} periods", { count: formatCompactNumber(summary?.points_count ?? 0) })}
           loading={loading}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard
-          title={labels?.storageChartTitle ?? "Storage evolution"}
-          subtitle={labels?.storageChartSubtitle ?? "Used bytes over time"}
+          title={labels?.storageChartTitle ?? text("Storage evolution")}
+          subtitle={labels?.storageChartSubtitle ?? text("Used bytes over time")}
           loading={loading}
           hasData={hasData}
-          emptyMessage={labels?.emptyMessage}
+          emptyMessage={labels?.emptyMessage ?? text("No usage history snapshots for this window yet.")}
         >
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={chartData}>
@@ -186,17 +197,17 @@ export default function UsageHistoryTrendsSection({
               />
               <YAxis tickFormatter={(value) => formatBytesAxis(Number(value) || 0)} stroke="#94A3B8" />
               <Tooltip content={<UsageHistoryTooltip window={window} metric="storage" />} />
-              <Area type="monotone" dataKey="used_bytes" name={labels?.storageLineName ?? "Storage"} stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.16} />
+              <Area type="monotone" dataKey="used_bytes" name={labels?.storageLineName ?? text("Storage")} stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.16} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
 
         <ChartCard
-          title={labels?.inventoryChartTitle ?? "Objects & buckets"}
-          subtitle={labels?.inventoryChartSubtitle ?? "Inventory snapshots over time"}
+          title={labels?.inventoryChartTitle ?? text("Objects & buckets")}
+          subtitle={labels?.inventoryChartSubtitle ?? text("Inventory snapshots over time")}
           loading={loading}
           hasData={hasData}
-          emptyMessage={labels?.emptyMessage}
+          emptyMessage={labels?.emptyMessage ?? text("No usage history snapshots for this window yet.")}
         >
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={chartData}>
@@ -213,8 +224,8 @@ export default function UsageHistoryTrendsSection({
               <YAxis tickFormatter={(value) => formatCompactNumber(Number(value) || 0)} stroke="#94A3B8" />
               <Tooltip content={<UsageHistoryTooltip window={window} metric="inventory" />} />
               <Legend />
-              <Line type="monotone" dataKey="used_objects" name={labels?.objectLineName ?? "Objects"} stroke="#0EA5E9" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="bucket_count" name={labels?.bucketLineName ?? "Buckets"} stroke="#14B8A6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="used_objects" name={labels?.objectLineName ?? text("Objects")} stroke="#0EA5E9" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="bucket_count" name={labels?.bucketLineName ?? text("Buckets")} stroke="#14B8A6" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>

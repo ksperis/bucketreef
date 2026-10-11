@@ -74,6 +74,8 @@ type BucketUsageStatsDataTypesCardProps = {
   loading?: boolean;
   error?: string | null;
   className?: string;
+  text?: (message: string, values?: Record<string, string | number>) => string;
+  locale?: string;
   "data-testid"?: string;
 };
 
@@ -161,22 +163,36 @@ export function BucketUsageStatsDataTypesCard({
   loading,
   error,
   className,
+  text: translateText,
+  locale,
   "data-testid": dataTestId,
 }: BucketUsageStatsDataTypesCardProps) {
+  const text = (message: string, values?: Record<string, string | number>) => {
+    if (translateText) return translateText(message, values);
+    if (!values) return message;
+    return message.replace(/\{(\w+)\}/g, (match, key: string) =>
+      Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
+    );
+  };
   const rawEntries = nonEmptyUsageStatsEntries(aggregate?.data_type_distribution);
   const entries = topEntries(rawEntries, rawEntries.length);
   const topDataTypes = entries.slice(0, 4);
   const hasSnapshot = Boolean(aggregate && aggregate.buckets_with_snapshot > 0);
-  const coverage = aggregate ? `${aggregate.buckets_with_snapshot} / ${aggregate.bucket_count} buckets covered` : "";
-  const latest = aggregate?.newest_snapshot_at ? formatLocalDateTime(aggregate.newest_snapshot_at) : null;
+  const coverage = aggregate
+    ? text("{covered} / {total} buckets covered", {
+        covered: aggregate.buckets_with_snapshot,
+        total: aggregate.bucket_count,
+      })
+    : "";
+  const latest = aggregate?.newest_snapshot_at ? formatLocalDateTime(aggregate.newest_snapshot_at, locale) : null;
 
   return (
     <section className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-panel ui-dashboard-data-types" : "h-full p-4", className)} data-testid={dataTestId}>
       <div>
         <div className="min-w-0">
-          <h2 className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>Data types</h2>
+          <h2 className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{text("Data types")}</h2>
           <div className={cx("mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 ui-caption", uiMutedTextClass)}>
-            <span>{latest ? `Latest ${latest}` : "Latest bucket snapshots"}</span>
+            <span>{latest ? text("Latest {date}", { date: latest }) : text("Latest bucket snapshots")}</span>
             {aggregate && <span>{coverage}</span>}
           </div>
         </div>
@@ -189,7 +205,7 @@ export function BucketUsageStatsDataTypesCard({
       ) : loading && !aggregate ? (
         <div className="mt-3 h-36 animate-pulse rounded-md bg-[var(--ui-surface-muted)]" />
       ) : !hasSnapshot ? (
-        <MetricsEmptyState className="mt-3 py-6 ui-caption">No usage stats snapshot yet.</MetricsEmptyState>
+        <MetricsEmptyState className="mt-3 py-6 ui-caption">{text("No usage stats snapshot yet.")}</MetricsEmptyState>
       ) : (
         <div className="mt-3 grid gap-3 sm:grid-cols-[128px_minmax(0,1fr)] xl:grid-cols-1 2xl:grid-cols-[128px_minmax(0,1fr)]">
           <div className="h-32 min-w-0">
@@ -204,8 +220,8 @@ export function BucketUsageStatsDataTypesCard({
                     data-testid={`manager-dashboard-data-type-color-${entry.key}`}
                     style={{ backgroundColor: usageStatsChartColor(index) }}
                   />
-                  <span className={presentation === "compact" ? "ui-dashboard-label ui-dashboard-data-type-label" : "truncate ui-caption font-semibold text-[var(--ui-text)]"} title={entry.label}>
-                    {entry.label}
+                  <span className={presentation === "compact" ? "ui-dashboard-label ui-dashboard-data-type-label" : "truncate ui-caption font-semibold text-[var(--ui-text)]"} title={text(entry.label)}>
+                    {text(entry.label)}
                   </span>
                 </span>
                 <span className={cx("shrink-0 ui-caption font-semibold", uiMutedTextClass)}>

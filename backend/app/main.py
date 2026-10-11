@@ -75,6 +75,7 @@ from app.routers.internal import healthchecks as internal_healthchecks
 from app.routers.internal import quota_monitor as internal_quota_monitor
 from app.routers.internal import usage_history as internal_usage_history
 from app.routers.internal import user_notifications as internal_user_notifications
+from app.routers.internal import access_key_expirations as internal_access_key_expirations
 from app.routers.manager import activity as manager_activity
 from app.routers.manager import buckets as manager_buckets
 from app.routers.manager import context as manager_context
@@ -308,6 +309,7 @@ if runtime_surface_enabled(settings, "storage_ops"):
     app.include_router(storage_ops_purge.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
     app.include_router(storage_ops_usage_stats.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
 if settings.scheduled_jobs_enabled:
+    app.include_router(internal_access_key_expirations.router, prefix=settings.api_v1_prefix)
     app.include_router(internal_billing.router, prefix=settings.api_v1_prefix)
     app.include_router(internal_healthchecks.router, prefix=settings.api_v1_prefix)
     app.include_router(internal_quota_monitor.router, prefix=settings.api_v1_prefix)

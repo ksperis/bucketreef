@@ -604,10 +604,18 @@ def test_revalidation_distinguishes_transient_failure_from_denied_key(identities
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
     functional = service._functional_check
-    def check(ep, row):
-        if row.kind == kind:
+    target_kind = kind
+
+    def check(ep, *, kind, rgw_uid, access_key, secret_key):
+        if kind == target_kind:
             raise RGWAdminError("temporary or denied", status_code=403 if denied else 503)
-        return functional(ep, row)
+        return functional(
+            ep,
+            kind=kind,
+            rgw_uid=rgw_uid,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
     monkeypatch.setattr(service, "_functional_check", check)
     service.reconcile(endpoint)
     assert identity.status == ("error" if denied else "ready")

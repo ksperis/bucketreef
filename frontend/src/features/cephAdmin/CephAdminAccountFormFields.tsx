@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
+import { rgwAccountNameFormatError } from "../../utils/rgwAccountName";
 import { ACCOUNT_LIMIT_FIELDS, type CephAdminAccountProfileValues, type CephAdminAccountProfileErrors } from "./cephAdminAccountForm";
 
 export default function CephAdminAccountFormFields({ values, onChange, errors, creating = false }: {
@@ -9,11 +10,12 @@ export default function CephAdminAccountFormFields({ values, onChange, errors, c
   errors?: CephAdminAccountProfileErrors;
   creating?: boolean;
 }) {
+  const liveNameError = rgwAccountNameFormatError(values.accountName);
   return <>
     <SettingsSection title="Account" presentation="compact">
       <div className="settings-fields md:grid-cols-2">
         <UiInput label="Account name" required={creating} value={values.accountName}
-          onChange={(event) => onChange("accountName", event.target.value)} error={errors?.accountName} />
+          onChange={(event) => onChange("accountName", event.target.value)} error={errors?.accountName ?? liveNameError} />
         <UiInput label="Email" type="email" value={values.email}
           onChange={(event) => onChange("email", event.target.value)} />
       </div>

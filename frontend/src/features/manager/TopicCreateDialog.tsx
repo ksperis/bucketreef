@@ -5,6 +5,9 @@ import type { S3AccountSelector } from "../../api/accountParams";
 import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import UiInput from "../../components/ui/UiInput";
 import { extractApiError } from "../../utils/apiError";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { topicNameFormatError } from "../../utils/resourceNames";
+import { useManagerI18n } from "./managerI18n";
 
 export default function TopicCreateDialog({ accountId, currentAccountId, onCreated, onClose }: {
   accountId: S3AccountSelector;
@@ -12,26 +15,30 @@ export default function TopicCreateDialog({ accountId, currentAccountId, onCreat
   onCreated: (name: string) => void;
   onClose: () => void;
 }) {
+  const { text } = useManagerI18n();
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (currentAccountId !== accountId && !name) onClose();
   }, [accountId, currentAccountId, name, onClose]);
-  return <SettingsFormDialog title="Create SNS topic" draftKey={name} onClose={onClose}
-    error={error} submitLabel="Create topic" onSubmit={async () => {
+  const nameFormatError = topicNameFormatError(name.trim());
+  return <SettingsFormDialog title={text("Create SNS topic")} draftKey={name} onClose={onClose}
+    error={error} submitLabel={text("Create topic")} onSubmit={async (event) => {
       const trimmedName = name.trim();
-      if (!trimmedName) { setNameError("Topic name is required."); return; }
+      const formatError = topicNameFormatError(trimmedName);
+      if (formatError) { setNameError(text(formatError)); focusFirstInvalidField(event.currentTarget); return; }
+      if (!trimmedName) { setNameError(text("Topic name is required.")); focusFirstInvalidField(event.currentTarget); return; }
       setNameError(null);
       setError(null);
       try {
         await createTopic(accountId, { name: trimmedName });
         onCreated(trimmedName);
       } catch (error) {
-        setError(extractApiError(error, "Unable to create topic."));
+        setError(extractApiError(error, text("Unable to create topic.")));
       }
     }}>
-    <UiInput label="Topic name" value={name} placeholder="events-topic" error={nameError}
+    <UiInput label={text("Topic name")} value={name} placeholder={text("events-topic")} error={nameFormatError ? text(nameFormatError) : nameError}
       onChange={event => { setName(event.target.value); setNameError(null); }} />
   </SettingsFormDialog>;
 }

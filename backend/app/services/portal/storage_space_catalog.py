@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -16,6 +15,8 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceVisibility,
 )
 from app.services.managed_resource_naming import portal_storage_space_bucket_name
+from app.services.portal.exceptions import PortalBadRequestError, PortalConflictError
+from app.utils.resource_names import validate_s3_bucket_name
 from app.utils.time import normalize_utc
 
 if TYPE_CHECKING:
@@ -88,24 +89,14 @@ class PortalStorageSpaceCatalogMixin:
             return None
         return normalize_utc(value, name="Storage space timestamp")
 
-    def _storage_space_slug(self, value: str) -> str:
-        slug = re.sub(r"[^a-z0-9-]+", "-", value.strip().lower())
-        slug = re.sub(r"-+", "-", slug).strip("-")
-        if not slug:
-            slug = "storage-space"
-        if len(slug) > 52:
-            slug = slug[:52].rstrip("-")
-        return slug
-
     def _unique_storage_space_bucket_name(self, base_name: str, existing: set[str]) -> str:
-        base = self._storage_space_slug(base_name)
-        candidate = base
-        counter = 2
-        while candidate in existing:
-            suffix = f"-{counter}"
-            candidate = f"{base[: 63 - len(suffix)].rstrip('-')}{suffix}"
-            counter += 1
-        return candidate
+        try:
+            validate_s3_bucket_name(base_name)
+        except ValueError as exc:
+            raise PortalBadRequestError(str(exc)) from exc
+        if base_name in existing:
+            raise PortalConflictError("A Storage Space with this bucket name already exists.")
+        return base_name
 
     def _unique_uuid_storage_space_bucket_name(self, existing: set[str]) -> str:
         candidate = portal_storage_space_bucket_name()
@@ -151,8 +142,8 @@ class PortalStorageSpaceCatalogMixin:
         collaborator_count: int = 0,
     ) -> PortalStorageSpaceSummary:
         role = role or self._storage_space_role(access)
-        endpoint = getattr(access.account, "storage_endpoint", None)
-        region = getattr(endpoint, "region", None)
+        endpoint = access.account.storage_endpoint
+        region = endpoint.region
         name = self._display_storage_space_name(bucket.name, metadata)
         return PortalStorageSpaceSummary(
             id=bucket.name,
@@ -163,7 +154,7 @@ class PortalStorageSpaceCatalogMixin:
                 metadata
                 and self._metadata_visibility(metadata) == "private"
                 and role == "Manager"
-                and metadata.owner_user_id != getattr(access.actor, "id", None)
+                and metadata.owner_user_id != access.actor.id
             ),
             can_delete=can_delete,
             status=self._storage_space_status(bucket, role, metadata),

@@ -9,7 +9,10 @@ import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerCo
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
+import type { NamingValidationProfile } from "../../utils/resourceNames";
+
 type S3AccountContextType = {
+  namingValidationProfile: NamingValidationProfile | null;
   accounts: ExecutionContext[];
   selectedS3AccountId: string | null;
   requiresS3AccountSelection: boolean;
@@ -27,10 +30,13 @@ type S3AccountContextType = {
   managerBrowserMessage: string | null;
   managerBucketQuotaEnabled: boolean | null;
   managerCephKeysEnabled: boolean | null;
+  managerAccessKeyMetadataEnabled: boolean | null;
+  managerAccessKeyExpirationEnabled: boolean | null;
   managerPrivateAccessEnabled: boolean | null;
 };
 
 const S3AccountContext = createContext<S3AccountContextType>({
+  namingValidationProfile: null,
   accounts: [],
   selectedS3AccountId: null,
   requiresS3AccountSelection: true,
@@ -48,6 +54,8 @@ const S3AccountContext = createContext<S3AccountContextType>({
   managerBrowserMessage: null,
   managerBucketQuotaEnabled: null,
   managerCephKeysEnabled: null,
+  managerAccessKeyMetadataEnabled: null,
+  managerAccessKeyExpirationEnabled: null,
   managerPrivateAccessEnabled: null,
 });
 
@@ -90,6 +98,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         : "Access to manager is denied for this user.",
     revokedSelectionMessage: "The previously selected Manager context is no longer authorized.",
   });
+  const [namingProfileState, setNamingProfileState] = useState<{ accountId: S3AccountSelector; profile: NamingValidationProfile } | null>(null);
   const [iamIdentity, setIamIdentity] = useState<string | null>(null);
   const [accessMode, setAccessModeState] = useState<ManagerAccessMode | null>(null);
   const [managerStatsEnabled, setManagerStatsEnabled] = useState<boolean | null>(null);
@@ -98,13 +107,19 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const [managerBrowserMessage, setManagerBrowserMessage] = useState<string | null>(null);
   const [managerBucketQuotaEnabled, setManagerBucketQuotaEnabled] = useState<boolean | null>(null);
   const [managerCephKeysEnabled, setManagerCephKeysEnabled] = useState<boolean | null>(null);
+  const [managerAccessKeyMetadataEnabled, setManagerAccessKeyMetadataEnabled] = useState<boolean | null>(null);
+  const [managerAccessKeyExpirationEnabled, setManagerAccessKeyExpirationEnabled] = useState<boolean | null>(null);
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
   const hasS3AccountContext = requiresS3AccountSelection ? selectedS3Account !== null : true;
   const accountIdForApi: S3AccountSelector = requiresS3AccountSelection ? selectedS3AccountId : null;
   const selectedS3AccountName = selectedS3Account?.display_name ?? sessionAccountName;
   const selectedS3AccountType = deriveS3AccountType(selectedS3Account);
 
+  const namingValidationProfile = hasS3AccountContext && namingProfileState?.accountId === accountIdForApi
+    ? namingProfileState.profile : null;
+
   useEffect(() => {
+    setNamingProfileState(null);
     if (!hasS3AccountContext) {
       setIamIdentity(null);
       setAccessModeState(null);
@@ -114,6 +129,8 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
       setManagerBrowserMessage(null);
       setManagerBucketQuotaEnabled(null);
       setManagerCephKeysEnabled(null);
+      setManagerAccessKeyMetadataEnabled(null);
+      setManagerAccessKeyExpirationEnabled(null);
       setManagerPrivateAccessEnabled(null);
       return;
     }
@@ -124,10 +141,13 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     setManagerBrowserMessage(null);
     setManagerBucketQuotaEnabled(null);
     setManagerCephKeysEnabled(null);
+    setManagerAccessKeyMetadataEnabled(null);
+    setManagerAccessKeyExpirationEnabled(null);
     setManagerPrivateAccessEnabled(null);
     fetchManagerContext(accountIdForApi)
       .then((data) => {
         if (!isMounted) return;
+        setNamingProfileState({ accountId: accountIdForApi, profile: data.naming_validation_profile ?? "standard" });
         setIamIdentity(data.iam_identity ?? null);
         setAccessModeState(data.access_mode);
         setManagerStatsEnabled(Boolean(data.manager_stats_enabled));
@@ -136,6 +156,8 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         setManagerBrowserMessage(data.manager_browser_message ?? null);
         setManagerBucketQuotaEnabled(Boolean(data.manager_bucket_quota_enabled));
         setManagerCephKeysEnabled(Boolean(data.manager_ceph_keys_enabled));
+        setManagerAccessKeyMetadataEnabled(Boolean(data.manager_access_key_metadata_enabled));
+        setManagerAccessKeyExpirationEnabled(Boolean(data.manager_access_key_expiration_enabled));
         setManagerPrivateAccessEnabled(Boolean(data.manager_private_access_enabled));
       })
       .catch(() => {
@@ -148,6 +170,8 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         setManagerBrowserMessage(null);
         setManagerBucketQuotaEnabled(null);
         setManagerCephKeysEnabled(null);
+        setManagerAccessKeyMetadataEnabled(null);
+        setManagerAccessKeyExpirationEnabled(null);
         setManagerPrivateAccessEnabled(null);
       });
     return () => {
@@ -158,6 +182,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   return (
     <S3AccountContext.Provider
       value={{
+        namingValidationProfile,
         accounts,
         selectedS3AccountId,
         requiresS3AccountSelection,
@@ -175,6 +200,8 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         managerBrowserMessage,
         managerBucketQuotaEnabled,
         managerCephKeysEnabled,
+        managerAccessKeyMetadataEnabled,
+        managerAccessKeyExpirationEnabled,
         managerPrivateAccessEnabled,
       }}
     >

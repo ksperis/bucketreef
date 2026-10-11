@@ -12,6 +12,7 @@ Configuration is split between backend environment variables and UI settings.
 | Recommended | Feature flags for Manager, Portal, Browser, Ceph Admin, Storage Ops, billing, endpoint status, usage history, and quota alerts | Users should see only the surfaces that are intentionally launched. |
 | Recommended | Healthcheck, billing, quota, usage-history, and notification-retention schedules | Operational data should be fresh enough to support troubleshooting and notification history should remain bounded. |
 | Recommended | SMTP settings when quota alerts are enabled | Quota alerts need a deliverable notification path. |
+| Optional | Documentation base URL | Lets an organization host the BucketReef guides on its own domain or under its own application path. |
 | Optional | Branding color and login logo | Useful for tenant or lab identity, but not required for safe operation. |
 
 ## Find the right configuration area
@@ -61,7 +62,7 @@ Key areas:
   and public. Webhooks remain HTTPS by default; private HTTP webhooks require
   both `WEBHOOK_ALLOW_PRIVATE_TARGETS=true` and an explicit host allowlist
   entry. See [Operations: webhooks](../operations/webhooks.md) for delivery,
-  signing, retries, and compatibility aliases.
+  signing, retries, and runtime configuration.
 - Database: `DATABASE_URL` (SQLite defaults to `backend/app.db`; relative SQLite paths are normalized against `backend/`). Multi-backend deployments require PostgreSQL.
 - CORS: `CORS_ORIGINS`.
 - Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
@@ -271,7 +272,20 @@ Managed from Admin UI:
 - Browser sub-flags (`browser_root_enabled`, `browser_manager_enabled`, `browser_portal_enabled`, `browser_ceph_admin_enabled`).
 - Portal settings (`portal`): standalone Browser access (`browser_access_enabled`, enabled by default), IAM key availability, private Storage Space creation, portal user access-key creation, Portal User external sharing (`allow_portal_user_external_sharing`, disabled by default), server access log retention for newly created technical log buckets, max portal user keys, and bucket defaults. When external sharing is enabled, a `portal_user` may create public links and external S3 credentials only for an owned Storage Space; disabling it blocks new creation while existing links and credentials remain manageable. Portal Managers keep their existing behavior independently of this flag. Portal settings can be overridden per account by a super-admin. The per-account `portal_settings_delegated` flag is disabled by default; when enabled, project Portal Managers can edit the same shared override from `/portal/settings`. Disabling delegation keeps the stored override effective but read-only in Portal. `bucket_defaults.noncurrent_version_expiration_days` is the internal key for **Version history retention**; it is a positive integer (90 by default) and applies only when provisioning a new Storage Space with the default lifecycle enabled. Existing buckets are not reconciled automatically.
 - Manager tool flags and behavior: bucket migration, compare, integrity check,
-  purge, usage stats, Ceph S3 User key management, and migration parallelism.
+  purge, usage stats, Ceph S3 User key management, optional access-key names
+  and notes (`manager_access_key_metadata_enabled`), optional access-key
+  expiration (`manager_access_key_expiration_enabled`), and migration
+  parallelism.
+  Access-key names and notes are enabled globally by default on new deployments and require a separate
+  resource opt-in: `allow_access_key_metadata=true` on each RGW Account or S3
+  User where Manager should expose the BucketReef-only metadata.
+  Access-key expiration is also enabled globally by default and requires
+  `allow_access_key_expiration=true` on each eligible RGW Account or S3 User.
+  Both resource opt-ins remain disabled by default. Explicitly saved global
+  settings are preserved. Expiration additionally depends on scheduled jobs; the Compose scheduler runs
+  `ACCESS_KEY_EXPIRATION_CRON_SCHEDULE` every minute by default, while Helm uses
+  `accessKeyExpirationCronJob`. Disabling an opt-in does not cancel expirations
+  that were already scheduled.
 - Quota notification policy (`quota_notifications`: threshold, SMTP non-secret fields, contact-email option).
 
 On a fresh deployment with no persisted app settings, `Endpoint Status` and
@@ -369,6 +383,20 @@ Admin can set:
 
 - primary accent color (`#RRGGBB`)
 - optional login logo URL
+
+## Documentation hosting
+
+Admin **General settings** exposes a **Documentation base URL**. It defaults to
+`https://docs.bucketreef.ksperis.com`, but a deployment can point contextual
+application links to an internally hosted copy, for example
+`https://docs.example.com/bucketreef` or `/docs` behind the same reverse proxy.
+
+The hosted copy must preserve the BucketReef guide tree below that base URL,
+including paths such as `/admin/en/`, `/manager/en/`, `/browser/en/`, and
+`/portal/en/`. Portal translations keep their language segment, for example
+`/portal/fr/`. URLs with query strings or fragments are not accepted as the
+base URL because individual application links append their own paths and
+anchors.
 
 ## Related pages
 

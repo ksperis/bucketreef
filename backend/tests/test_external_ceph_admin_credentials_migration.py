@@ -11,6 +11,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from alembic.script import ScriptDirectory
 
 from app.core.config import get_settings
 from app.core.security import (
@@ -94,6 +95,7 @@ def test_upgrade_from_0_2_13_preserves_ceph_admin_credentials(tmp_path, monkeypa
         backend = Path(__file__).resolve().parents[1]
         config = Config(str(backend / "alembic.ini"))
         config.attributes["configure_logger"] = False
+        expected_head = ScriptDirectory.from_config(config).get_current_head()
         command.upgrade(config, "0137_browser_path_favorites")
 
         engine = sa.create_engine(database_url)
@@ -118,7 +120,7 @@ def test_upgrade_from_0_2_13_preserves_ceph_admin_credentials(tmp_path, monkeypa
         with engine.connect() as connection:
             identity = connection.execute(
                 sa.text(
-                    "SELECT mode, access_key, secret_key, status, rgw_uid, provenance, legacy_system_compat "
+                    "SELECT mode, access_key, secret_key, status, rgw_uid, provenance "
                     "FROM endpoint_service_identities WHERE kind = 'ceph_admin'"
                 )
             ).mappings().one()
@@ -129,11 +131,15 @@ def test_upgrade_from_0_2_13_preserves_ceph_admin_credentials(tmp_path, monkeypa
             assert identity["status"] == "missing"
             assert identity["rgw_uid"] is None
             assert identity["provenance"] is None
-            assert bool(identity["legacy_system_compat"]) is True
+            identity_columns = {
+                column["name"]
+                for column in sa.inspect(connection).get_columns("endpoint_service_identities")
+            }
+            assert "legacy_system_compat" not in identity_columns
             columns = {column["name"] for column in sa.inspect(connection).get_columns("storage_endpoints")}
             assert "ceph_admin_access_key" not in columns
             assert "ceph_admin_secret_key" not in columns
-            assert connection.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one() == "0144_legacy_ceph_admin_system_compat"
+            assert connection.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one() == expected_head
     finally:
         if engine is not None:
             engine.dispose()

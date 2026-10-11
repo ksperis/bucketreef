@@ -12,7 +12,6 @@ from app.core.config import get_settings
 from app.db import (
     OnboardingJourney,
     OnboardingPreference,
-    S3Account,
     StorageEndpoint,
     StorageProvider,
     User,
@@ -325,17 +324,10 @@ class OnboardingService:
             if rows
             else bool(preference and preference.initial_setup_completed_at)
         )
-        endpoint_configured = self.db.query(StorageEndpoint.id).first() is not None
-        storage_access_configured = (
-            self.db.query(S3Account.id).first() is not None
-            or bool(self.access.list_workspace_connections(actor, workspace="manager"))
-        )
         return OnboardingStatus(
             dismissed=preference.dismissed if preference else False,
             complete=complete,
-            endpoint_configured=endpoint_configured,
-            storage_access_configured=storage_access_configured,
-            source=getattr(get_settings(), "onboarding_source", "standard"),
+            source=get_settings().onboarding_source,
             journeys=journeys,
             can_configure=is_superadmin_ui_role(actor.role),
             actor_id=actor.id,

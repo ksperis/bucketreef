@@ -27,15 +27,24 @@ This is different from:
 - The S3 User record has `allow_access_key_management=true`.
 - The endpoint is a Ceph-compatible endpoint with Admin Ops credentials
   available.
+- Optional names and notes additionally require
+  `manager_access_key_metadata_enabled=true` and the selected S3 User record to
+  have `allow_access_key_metadata=true`.
+- Optional expiration additionally requires
+  `manager_access_key_expiration_enabled=true`, scheduled jobs to be enabled,
+  and the selected S3 User record to have `allow_access_key_expiration=true`.
 
 ## Steps
 
 1. Open `/manager` and select the intended S3 User context.
 2. Open **Ceph > Access keys**.
-3. Review the current key list and search by access key id or status when
-   needed.
+3. Review the current key list. When access-key metadata is enabled, the list
+   also shows the BucketReef name and notes and search includes those fields.
 4. Select **New key** only when the caller is ready to store the generated
-   secret. The secret is shown once.
+   secret. When access-key metadata is enabled, optionally enter a short name
+   and notes before creation. When access-key expiration is enabled, optionally
+   choose an expiration date and time. The secret is shown once. Use **Edit
+   details** to add, change, or clear these optional values on an existing key.
 5. Select **Create my private access** to have BucketReef create a distinct RGW
    User key and private connection without transmitting the secret to the
    browser. This separate workflow requires the UI right
@@ -76,7 +85,7 @@ credentials.
     shared chat.
 
 !!! note
-    The UI-managed key marked `KLO` is locked. It cannot be disabled or deleted
+    The BucketReef **Interface key** is locked. It cannot be disabled or deleted
     from this page.
 
 !!! note
@@ -89,6 +98,34 @@ credentials.
 !!! note
     This feature does not grant storage permission by itself. The resulting key
     still follows RGW/S3 permissions for the underlying S3 User.
+
+!!! note
+    Access-key names and notes are local BucketReef metadata. They are not sent
+    to Ceph RGW and do not alter the credential. The global feature is enabled by default on new deployments; the S3
+    User opt-in remains disabled by default, independently of key management. Turning
+    either metadata gate off hides saved metadata but keeps it persisted so it
+    becomes visible again if the feature is re-enabled.
+
+!!! note
+    Access-key expiration is enabled globally by default on new deployments,
+    but requires a separate resource opt-in because it changes provider state. BucketReef stores the schedule locally, then the scheduler disables
+    the individual RGW key in Ceph when the time is reached. Under normal
+    operation enforcement occurs within about one minute. The key list keeps
+    the provider **Active / Inactive** state separate from the expiration state;
+    an enforcement failure is shown as **Retrying** or **Action required**, not
+    as a successful expiration.
+
+!!! note
+    Turning the expiration feature or resource opt-in off prevents new changes
+    but does not cancel expirations that were already scheduled. After a key has
+    expired, remove or move its expiration first, then explicitly enable the
+    key if access should be restored. Changing the expiration never re-enables a
+    key automatically.
+
+!!! note
+    BucketReef interface keys and keys owned by managed private access cannot
+    receive an expiration from this inventory because their lifecycle is owned
+    by their dedicated BucketReef workflows.
 
 ## Related pages
 

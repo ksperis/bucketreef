@@ -10,6 +10,7 @@ import BucketFeatureSection from "./BucketFeatureSection";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { BucketQuotaUnit, useBucketQuotaController } from "./useBucketQuotaController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketQuotaController = ReturnType<typeof useBucketQuotaController>;
 
@@ -28,6 +29,7 @@ export default function BucketQuotaFeature({
   featureEnabled,
   loading,
 }: BucketQuotaFeatureProps) {
+  const { text } = useManagerI18n();
   const {
     configured,
     dirty,
@@ -55,8 +57,8 @@ export default function BucketQuotaFeature({
 
   return (
     <BucketFeatureSection
-      title="Quota"
-      description="Allowed bucket size and object count."
+      title={text("Quota")}
+      description={text("Allowed bucket size and object count.")}
       mode="graphical"
       visualState={visualState}
       successMessage={status}
@@ -64,15 +66,15 @@ export default function BucketQuotaFeature({
       testId="bucket-feature-quota"
       actions={
         restricted ? (
-          <ListBadge tone="neutral">Restricted</ListBadge>
+          <ListBadge tone="neutral">{text("Restricted")}</ListBadge>
         ) : editable ? (
           <SettingsButton type="submit" form={formId} disabled={saving || !dirty} variant="primary">
-            {saving ? "Saving..." : "Save"}
+            {text(saving ? "Saving..." : "Save")}
           </SettingsButton>
         ) : null
       }
     >
-      {!featureEnabled && <EndpointFeatureDisabledNotice featureLabel="Quota" />}
+      {!featureEnabled && <EndpointFeatureDisabledNotice featureLabel={text("Quota")} />}
       <form
         id={formId}
         className={`mt-2 space-y-2 ${restricted ? "pointer-events-none" : ""}`}
@@ -81,45 +83,45 @@ export default function BucketQuotaFeature({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="flex flex-wrap items-end gap-2">
             <SettingsInput
-              label="Size"
+              label={text("Size")}
               type="number"
               min={0}
               step="0.1"
               value={maxSize}
               onChange={(event) => updateMaxSize(event.target.value)}
               fieldClassName="min-w-36 flex-1"
-              placeholder="e.g. 100"
+              placeholder={text("e.g. 100")}
               disabled={!editable}
             />
             <SettingsSelect
               value={unit}
-              aria-label="Quota size unit"
+              aria-label={text("Quota size unit")}
               onChange={(event) => updateUnit(event.target.value as BucketQuotaUnit)}
               className="w-20"
               disabled={!editable}
             >
-              <option value="MiB">MiB</option>
-              <option value="GiB">GiB</option>
-              <option value="TiB">TiB</option>
+              <option value="MiB">{text("MiB")}</option>
+              <option value="GiB">{text("GiB")}</option>
+              <option value="TiB">{text("TiB")}</option>
             </SettingsSelect>
           </div>
           <SettingsInput
-            label="Object count"
+            label={text("Object count")}
             type="number"
             min={0}
             step="1"
             value={maxObjects}
             onChange={(event) => updateMaxObjects(event.target.value)}
-            placeholder="e.g. 1000000"
+            placeholder={text("e.g. 1000000")}
             disabled={!editable}
           />
         </div>
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
       </form>
       <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
         {featureEnabled
-          ? `Leave empty to remove the quota. ${editable ? "" : "(Privileged Ceph access required.)"}`
-          : "Quota management is unavailable on this endpoint."}
+          ? `${text("Leave empty to remove the quota.")} ${editable ? "" : text("(Privileged Ceph access required.)")}`
+          : text("Quota management is unavailable on this endpoint.")}
       </p>
     </BucketFeatureSection>
   );

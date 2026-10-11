@@ -17,6 +17,7 @@ from app.models.managed_private_access import (
 )
 from app.models.s3_connection import CredentialOwnerType
 from app.services import app_settings_service
+from app.services.resource_name_validation import validate_inline_policy_requests
 from app.services.audit_service import AuditService
 from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
 from app.services.managed_private_access_errors import (
@@ -81,6 +82,7 @@ class ManagedPrivateAccessService:
         payload: ManagedIAMPrivateAccessRequest,
     ) -> ManagedPrivateAccessResult:
         self._ensure_managed_private_connection_provisioning_allowed(user)
+        validate_inline_policy_requests(payload.inline_policies, "user", account)
         source = self.sources.resolve_iam_source(user, account)
         destination = self.sources.derive_destination(source)
         iam = self._iam_service_for_account(account)

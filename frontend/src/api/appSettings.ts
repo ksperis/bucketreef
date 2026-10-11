@@ -52,6 +52,7 @@ export type PortalSettingsAdminUpdate = PortalSettingsOverride & {
 
 export type GeneralSettings = {
   rgw_account_id_prefix: string;
+  documentation_base_url: string;
   manager_enabled: boolean;
   ceph_admin_enabled: boolean;
   storage_ops_enabled: boolean;
@@ -72,6 +73,8 @@ export type GeneralSettings = {
   bucket_usage_stats_enabled: boolean;
   bucket_quota_management_enabled: boolean;
   manager_ceph_s3_user_keys_enabled: boolean;
+  manager_access_key_metadata_enabled: boolean;
+  manager_access_key_expiration_enabled: boolean;
   managed_private_connection_provisioning_enabled: boolean;
   allow_login_access_keys: boolean;
   allow_login_endpoint_list: boolean;

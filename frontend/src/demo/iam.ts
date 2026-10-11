@@ -41,7 +41,8 @@ export function iam(c: DemoRequest): Response | undefined {
     if (c.method === "GET") return json(collection.map(entity => ({ ...entity, has_keys: (data.keys[entity.name]?.length ?? 0) > 0 })));
     if (c.method === "POST") {
       const name = textField(c.body, "name"); if (collection.some(e => e.name === name)) throw new DemoError(409, "An IAM entity already has this name");
-      const entity = { ...c.body, name, arn: `arn:aws:iam::${account.rgw_account_id}:${segment.slice(0, -1)}/${name}` };
+      const arnResource = segment === "policies" ? "policy" : segment.slice(0, -1);
+      const entity = { ...c.body, name, arn: `arn:aws:iam::${account.rgw_account_id}:${arnResource}/${name}` };
       collection.push(entity);
       if (Array.isArray(c.body.inline_policies)) data.inline[`${segment}/${name}`] = c.body.inline_policies as InlinePolicy[];
       if (c.body.create_key) { const key = generatedKey(c); data.keys[name] = [key]; return json({ ...entity, access_key: { ...key, secret_access_key: "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE" } }); }

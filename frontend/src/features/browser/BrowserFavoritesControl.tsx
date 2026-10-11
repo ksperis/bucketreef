@@ -1,5 +1,5 @@
-import { useBrowserText } from "./browserMessages";
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
+import { useBrowserI18n } from "./browserI18n";
 import { useMemo, useState } from "react";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import StorageSpaceIcon from "../../components/StorageSpaceIcon";
@@ -36,7 +36,7 @@ export default function BrowserFavoritesControl({
   bucketDetailsByName?: ReadonlyMap<string, BrowserBucket>;
   compact?: boolean;
 }) {
-  const tr = useBrowserText();
+  const { text: tr, intlLocale } = useBrowserI18n();
   const [search, setSearch] = useState("");
   const filteredFavorites = useMemo(
     () =>
@@ -55,10 +55,10 @@ export default function BrowserFavoritesControl({
       }),
     [bucketLabels, current.context, favorites, search],
   );
-  const totalLabel = favorites.length === 1 ? "1 favorite" : `${favorites.length} favorites`;
+  const totalLabel = tr(favorites.length === 1 ? "{count} favorite" : "{count} favorites", { count: favorites.length.toLocaleString(intlLocale) });
   const filteredLabel =
     search.trim().length > 0 && filteredFavorites.length !== favorites.length
-      ? `${filteredFavorites.length} result${filteredFavorites.length === 1 ? "" : "s"}`
+      ? tr(filteredFavorites.length === 1 ? "{count} result" : "{count} results", { count: filteredFavorites.length.toLocaleString(intlLocale) })
       : totalLabel;
 
   return (
@@ -214,7 +214,7 @@ export default function BrowserFavoritesControl({
               <p className="px-2 py-2 ui-caption text-[var(--shell-muted-text)]">
                 {favorites.length === 0
                   ? tr("No saved items in this workspace.")
-                  : "No matching favorite."}
+                  : tr("No matching favorite.")}
               </p>
             )}
             </div>

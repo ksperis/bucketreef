@@ -16,6 +16,7 @@ import type { BrowserItem } from "./browserTypes";
 import { formatLocalDateTime, makeId } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
+import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
@@ -98,6 +99,7 @@ export function useBrowserBulkRestore({
   updateOperation,
   versioningEnabled,
 }: UseBrowserBulkRestoreOptions) {
+  const { text } = useBrowserI18n();
   const [open, setOpen] = useState(false);
   const [targets, setTargets] = useState<BrowserItem[]>([]);
   const [draft, setDraft] = useState(createBrowserBulkRestoreDraft);
@@ -190,14 +192,14 @@ export function useBrowserBulkRestore({
   const apply = useCallback(async () => {
     if (!bucketName || !enabled) return;
     if (!versioningEnabled) {
-      setError("Versioning is not enabled for this bucket.");
+      setError(text("Versioning is not enabled for this bucket."));
       return;
     }
     const isLatestRestoreMode = draft.restoreDeleted;
     const allowDeleteMissing = !isLatestRestoreMode && draft.deleteMissing;
     const targetTime = draft.date ? new Date(draft.date).getTime() : Number.NaN;
     if (!isLatestRestoreMode && (!draft.date || Number.isNaN(targetTime))) {
-      setError("Select a valid date.");
+      setError(text("Select a valid date."));
       return;
     }
     setLoading(true);
@@ -223,8 +225,8 @@ export function useBrowserBulkRestore({
       if (total === 0) {
         if (unchangedCount > 0) {
           const nextSummary = draft.dryRun
-            ? `Dry run: unchanged ${unchangedCount} object(s).`
-            : `Unchanged ${unchangedCount} object(s).`;
+            ? text("Dry run: unchanged {count} object(s).", { count: unchangedCount })
+            : text("Unchanged {count} object(s).", { count: unchangedCount });
           setSummary(nextSummary);
           onStatus(nextSummary);
           if (draft.dryRun) {
@@ -240,8 +242,8 @@ export function useBrowserBulkRestore({
         } else {
           setError(
             isLatestRestoreMode
-              ? "No deleted objects can be restored to their latest version."
-              : "No objects matched the selected date.",
+              ? text("No deleted objects can be restored to their latest version.")
+              : text("No objects matched the selected date."),
           );
         }
         return;
@@ -249,7 +251,7 @@ export function useBrowserBulkRestore({
 
       if (draft.dryRun) {
         setSummary(
-          `Dry run: would restore ${restoreList.length} object(s), delete ${deleteList.length} object(s), unchanged ${unchangedCount} object(s).`,
+          text("Dry run: would restore {restored} object(s), delete {deleted} object(s), unchanged {unchanged} object(s).", { restored: restoreList.length, deleted: deleteList.length, unchanged: unchangedCount }),
         );
         setPreview({
           restoreKeys: restoreList.slice(0, 20).map((item) => item.key),
@@ -340,7 +342,7 @@ export function useBrowserBulkRestore({
       }
 
       if (cancelled || controller.signal.aborted) {
-        const nextSummary = `Restore cancelled after ${restoredCount + deletedCount} of ${total} item(s).`;
+        const nextSummary = text("Restore cancelled after {count} of {total} item(s).", { count: restoredCount + deletedCount, total });
         completeOperation(operationId, "cancelled");
         setSummary(nextSummary);
         onStatus(nextSummary);
@@ -356,12 +358,12 @@ export function useBrowserBulkRestore({
           ? "Some objects failed to restore or delete."
           : undefined,
       );
-      const nextSummary = `Restored ${restoreList.length - restoreFailures} object(s), deleted ${deleteList.length - deleteFailures} object(s), unchanged ${unchangedCount} object(s).`;
+      const nextSummary = text("Restored {restored} object(s), deleted {deleted} object(s), unchanged {unchanged} object(s).", { restored: restoreList.length - restoreFailures, deleted: deleteList.length - deleteFailures, unchanged: unchangedCount });
       setSummary(nextSummary);
       onStatus(nextSummary);
       onRefresh(prefix);
     } catch {
-      setError("Unable to restore objects.");
+      setError(text("Unable to restore objects."));
     } finally {
       if (operationId) clearOperationController(operationId);
       setLoading(false);
@@ -390,6 +392,7 @@ export function useBrowserBulkRestore({
     targets,
     updateOperation,
     versioningEnabled,
+    text,
   ]);
 
   return {

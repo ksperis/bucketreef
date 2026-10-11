@@ -5,6 +5,8 @@
 import type { S3AccountSelector } from "../../api/accountParams";
 import { MULTIPART_THRESHOLD } from "./browserConstants";
 
+import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
+
 export type ClipboardTransferMode = "direct" | "proxy";
 
 type ClipboardTransferObjectRef = {
@@ -34,6 +36,7 @@ type ClipboardTransferUploadStreamRef = ClipboardTransferObjectRef & {
 };
 
 type TransferClipboardObjectParams = {
+  text?: BrowserTextFn;
   source: ClipboardTransferObjectRef;
   destination: ClipboardTransferObjectRef;
   sizeBytes: number;
@@ -74,6 +77,7 @@ export async function transferClipboardObjectBetweenContexts({
   uploadMultipartStream,
   verifyObject,
   deleteObject,
+  text = defaultBrowserText,
 }: TransferClipboardObjectParams): Promise<void> {
   const sourceMode = await resolveMode(source.selector, source.bucket);
   const destinationMode = await resolveMode(
@@ -119,7 +123,7 @@ export async function transferClipboardObjectBetweenContexts({
   const verified = await verifyObject(destination);
   if (verified.sizeBytes !== sizeBytes) {
     throw new Error(
-      `Copy verification failed for '${destination.key}' (size mismatch).`,
+      text("Copy verification failed for '{key}' (size mismatch).", { key: destination.key }),
     );
   }
 

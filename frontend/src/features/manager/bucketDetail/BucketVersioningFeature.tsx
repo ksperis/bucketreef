@@ -9,6 +9,7 @@ import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketVersioningController } from "./useBucketVersioningController";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketVersioningController = ReturnType<typeof useBucketVersioningController>;
 
@@ -21,6 +22,7 @@ export default function BucketVersioningFeature({
   controller,
   disableBlocked,
 }: BucketVersioningFeatureProps) {
+  const { text } = useManagerI18n();
   const {
     dirty,
     draftEnabled,
@@ -42,11 +44,11 @@ export default function BucketVersioningFeature({
 
   return (
     <BucketFeatureSection
-      title="Versioning"
-      description="Enable or suspend S3 object versioning."
+      title={text("Versioning")}
+      description={text("Enable or suspend S3 object versioning.")}
       mode="graphical"
       visualState={visualState}
-      stateLabel={dirty ? undefined : isEnabled ? "Enabled" : isSuspended ? "Suspended" : "Inactive"}
+      stateLabel={dirty ? undefined : text(isEnabled ? "Enabled" : isSuspended ? "Suspended" : "Inactive")}
       stateTone={isSuspended ? "warning" : isEnabled ? "primary" : "neutral"}
       busy={saving || loading}
       testId="bucket-feature-versioning"
@@ -56,35 +58,35 @@ export default function BucketVersioningFeature({
             type="button"
             onClick={() => void save(disableBlocked)}
             disabled={saving || loading || Boolean(loadError) || disableBlocked}
-            title={disableBlocked ? "Disable Object Lock to change versioning." : undefined}
+            title={disableBlocked ? text("Disable Object Lock to change versioning.") : undefined}
             variant="primary"
           >
-            {saving ? "Saving..." : "Save"}
+            {text(saving ? "Saving..." : "Save")}
           </SettingsButton>
         ) : undefined
       }
     >
-      {loading && <UiInlineMessage>Loading versioning...</UiInlineMessage>}
-      {loadError && <UiInlineMessage tone="error">{loadError}</UiInlineMessage>}
-      {saveError && <UiInlineMessage tone="error">{saveError}</UiInlineMessage>}
+      {loading && <UiInlineMessage>{text("Loading versioning...")}</UiInlineMessage>}
+      {loadError && <UiInlineMessage tone="error">{text(loadError)}</UiInlineMessage>}
+      {saveError && <UiInlineMessage tone="error">{text(saveError)}</UiInlineMessage>}
       <div className="bucket-feature-summary-row">
         <div className="bucket-feature-summary-value">
           {draftEnabled
-            ? "Object versions are retained."
+            ? text("Object versions are retained.")
             : isSuspended
-              ? "New object versions are suspended."
-              : "Object version history is disabled."}
+              ? text("New object versions are suspended.")
+              : text("Object version history is disabled.")}
         </div>
         <SettingsSwitch
           checked={draftEnabled}
           disabled={saving || loading || Boolean(loadError) || disableBlocked}
-          ariaLabel="Enable versioning"
+          ariaLabel={text("Enable versioning")}
           onChange={updateDraft}
         />
       </div>
       {disableBlocked && (
         <p className="mt-2 bucket-feature-summary-muted">
-          Versioning cannot be disabled while Object Lock is enabled.
+          {text("Versioning cannot be disabled while Object Lock is enabled.")}
         </p>
       )}
     </BucketFeatureSection>

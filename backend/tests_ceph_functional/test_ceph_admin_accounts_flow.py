@@ -2,11 +2,14 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 from .ceph_admin_helpers import run_or_skip
 from .clients import BackendSession
 from .conftest import CephAdminEndpointTestContext, S3AccountTestContext
+from .resources import ResourceTracker
 
 
 def _parse_int(value) -> int | None:
@@ -83,6 +86,39 @@ def _find_account(items: list[dict], account_id: str) -> dict | None:
         if str(item.get("account_id") or "").strip() == account_id:
             return item
     return None
+
+
+@pytest.mark.ceph_functional
+def test_ceph_admin_account_metrics_are_scoped_to_requested_account(
+    super_admin_session: BackendSession,
+    ceph_admin_endpoint: CephAdminEndpointTestContext,
+    provisioned_account: S3AccountTestContext,
+    resource_tracker: ResourceTracker,
+    ceph_test_settings,
+) -> None:
+    rgw_account_id = (provisioned_account.rgw_account_id or "").strip()
+    if not rgw_account_id:
+        pytest.skip("Ceph Admin account metrics require an RGW account_id on the provisioned test account")
+
+    prefix = ceph_test_settings.test_prefix[:40].rstrip("-")
+    bucket_name = f"{prefix}-acct-metrics-{uuid.uuid4().hex[:8]}"
+    provisioned_account.manager_session.post(
+        "/manager/buckets",
+        params={"account_id": provisioned_account.account_id},
+        json={"name": bucket_name},
+        expected_status=201,
+    )
+    resource_tracker.track_bucket(provisioned_account.account_id, bucket_name)
+
+    metrics = run_or_skip(
+        "ceph-admin account metrics",
+        lambda: super_admin_session.get(
+            f"/ceph-admin/endpoints/{ceph_admin_endpoint.endpoint_id}/accounts/{rgw_account_id}/metrics"
+        ),
+    )
+
+    assert metrics["bucket_count"] == 1
+    assert [entry["name"] for entry in metrics["bucket_usage"]] == [bucket_name]
 
 
 @pytest.mark.ceph_functional

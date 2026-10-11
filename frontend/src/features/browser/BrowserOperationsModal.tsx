@@ -23,6 +23,7 @@ import type {
   OperationItem,
   UploadOperationGroup,
 } from "./browserTypes";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserOperationsModalProps = {
   totalOperationsCount: number;
@@ -62,6 +63,7 @@ type BrowserOperationsModalProps = {
 };
 
 export default function BrowserOperationsModal(props: BrowserOperationsModalProps) {
+  const { text, intlLocale } = useBrowserI18n();
   const {
     totalOperationsCount,
     activeOperationsCount,
@@ -109,8 +111,8 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
       type="button"
       iconOnly
       onClick={() => onDownloadOperationDetails(kind, operationId)}
-      title="Export details (JSON)"
-      aria-label="Export operation details (JSON)"
+      title={text("Export details (JSON)")}
+      aria-label={text("Export operation details (JSON)")}
     >
       <DownloadIcon className="h-3.5 w-3.5" />
     </ListActionButton>
@@ -120,8 +122,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
       type="button"
       onClick={() => onDownloadOperationDetails(kind, operationId)}
     >
-      Download details (JSON)
-    </ListActionButton>
+      {text("Download details (JSON)")}</ListActionButton>
   );
 
   const timelineEntries = useMemo(
@@ -176,8 +177,12 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
       status: "uploading",
       completionStatus: hasFailed ? "failed" : "done",
     });
-    const title = group.kind === "folder" ? `Upload folder ${group.label}` : `Upload ${group.label}`;
-    const subtitle = group.totalBytes > 0 ? `${formatBytes(group.totalBytes)} total` : undefined;
+    const title = group.kind === "folder"
+      ? text("Upload folder {label}", { label: group.label })
+      : text("Upload {label}", { label: group.kind === "files" ? text("Files") : group.label });
+    const subtitle = group.totalBytes > 0
+      ? text("{size} total", { size: formatBytes(group.totalBytes, intlLocale) })
+      : undefined;
     const actions = (
       <>
         <ListActionButton
@@ -185,12 +190,11 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
           aria-expanded={isGroupExpanded(group.id)}
           onClick={() => toggleGroupExpanded(group.id)}
         >
-          {isGroupExpanded(group.id) ? "Hide files" : "Show files"}
+          {isGroupExpanded(group.id) ? text("Hide files") : text("Show files")}
         </ListActionButton>
         {(activeCount > 0 || queuedCount > 0) && (
           <ListActionButton type="button" variant="danger" onClick={() => cancelUploadGroup(group.id)}>
-            Stop all
-          </ListActionButton>
+            {text("Stop all")}</ListActionButton>
         )}
       </>
     );
@@ -202,7 +206,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
               <div className="min-w-0">
                 <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">{op.itemLabel ?? op.path}</p>
                 <p className="ui-caption text-[var(--ui-text-muted)]">
-                  Uploading · {op.progress > 0 ? `${op.progress}%` : "In progress"}
+                  {text("Uploading")} · {op.progress > 0 ? `${op.progress}%` : text("In progress")}
                 </p>
               </div>
               <ListActionButton
@@ -211,8 +215,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
                 onClick={() => cancelUploadOperation(op.id)}
                 disabled={!op.cancelable}
               >
-                Stop
-              </ListActionButton>
+                {text("Stop")}</ListActionButton>
             </div>
           ))}
         {showQueuedSection &&
@@ -220,11 +223,10 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
             <div key={item.id} className="flex items-center justify-between gap-3 ui-caption">
               <div className="min-w-0">
                 <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">{item.itemLabel || item.key}</p>
-                <p className="ui-caption text-[var(--ui-text-muted)]">Queued · {formatBytes(item.file.size)}</p>
+                <p className="ui-caption text-[var(--ui-text-muted)]">{text("Queued")} · {formatBytes(item.file.size, intlLocale)}</p>
               </div>
               <ListActionButton type="button" variant="danger" onClick={() => removeQueuedUpload(item.id)}>
-                Stop
-              </ListActionButton>
+                {text("Stop")}</ListActionButton>
             </div>
           ))}
         {showQueuedSection && hasMoreQueued && (
@@ -233,7 +235,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
               type="button"
               onClick={() => showMoreSection(group.id, "queued")}
             >
-              Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
+              {text("Show next {count}", { count: DEFAULT_QUEUED_VISIBLE_COUNT })}
             </ListActionButton>
             {renderDetailsTextAction("upload", group.id)}
           </div>
@@ -246,8 +248,8 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
                   {item.itemLabel ?? item.path}
                 </p>
                 <p className="ui-caption text-[var(--ui-text-muted)]">
-                  {operationCompletionLabel(item.completionStatus)}
-                  {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes)}` : ""}
+                  {text(operationCompletionLabel(item.completionStatus))}
+                  {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes, intlLocale)}` : ""}
                 </p>
               </div>
             </div>
@@ -258,7 +260,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
               type="button"
               onClick={() => showMoreSection(group.id, "completed")}
             >
-              Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
+              {text("Show next {count}", { count: DEFAULT_QUEUED_VISIBLE_COUNT })}
             </ListActionButton>
             {renderDetailsTextAction("upload", group.id)}
           </div>
@@ -269,8 +271,8 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
               <div className="min-w-0">
                 <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">{item.itemLabel ?? item.path}</p>
                 <p className="ui-caption text-[var(--ui-text-muted)]">
-                  Failed
-                  {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes)}` : ""}
+                  {text("Failed")}
+                  {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes, intlLocale)}` : ""}
                 </p>
                 {item.errorMessage && (
                   <p className="ui-caption [overflow-wrap:anywhere] text-[var(--list-danger-text)]">{item.errorMessage}</p>
@@ -284,7 +286,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
               type="button"
               onClick={() => showMoreSection(group.id, "failed")}
             >
-              Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
+              {text("Show next {count}", { count: DEFAULT_QUEUED_VISIBLE_COUNT })}
             </ListActionButton>
             {renderDetailsTextAction("upload", group.id)}
           </div>
@@ -302,7 +304,13 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
         key={group.id}
         title={title}
         subtitle={subtitle}
-        summary={`${activeCount} active · ${queuedCount} queued · ${completedCount} completed · ${failedCount} failed · ${group.progress}%`}
+        summary={text("{active} active · {queued} queued · {completed} completed · {failed} failed · {progress}%", {
+          active: activeCount,
+          queued: queuedCount,
+          completed: completedCount,
+          failed: failedCount,
+          progress: group.progress,
+        })}
         progress={group.progress}
         statusPill={statusPill}
         actions={actions}
@@ -323,22 +331,21 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
       completionStatus: op.completionStatus,
     });
     const summary = isCompleted
-      ? `${operationCompletionLabel(op.completionStatus)}${op.completedAt ? ` · ${op.completedAt}` : ""}`
-      : `${op.progress > 0 ? `${op.progress}%` : "In progress"}`;
+      ? `${text(operationCompletionLabel(op.completionStatus))}${op.completedAt ? ` · ${op.completedAt}` : ""}`
+      : `${op.progress > 0 ? `${op.progress}%` : text("In progress")}`;
     const actions = (
       <>
         {renderDetailsAction("other", op.id)}
         {!isCompleted && op.cancelable && (
           <ListActionButton type="button" variant="danger" onClick={() => cancelOperation(op.id)}>
-            Stop
-          </ListActionButton>
+            {text("Stop")}</ListActionButton>
         )}
       </>
     );
     return (
       <BrowserOperationCard
         key={op.id}
-        title={op.label}
+        title={text(op.label)}
         subtitle={op.path}
         summary={summary}
         progress={op.progress}
@@ -353,22 +360,24 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
   };
 
   const filters = [
-    { label: "Active", count: activeOperationsCount, selected: showActiveOperations, toggle: onToggleActive },
-    { label: "Queue", count: queuedOperationsCount, selected: showQueuedOperations, toggle: onToggleQueued },
-    { label: "Completed", count: completedOperationsCount, selected: showCompletedOperations, toggle: onToggleCompleted },
-    { label: "Failed", count: failedOperationsCount, selected: showFailedOperations, toggle: onToggleFailed },
+    { label: text("Active"), count: activeOperationsCount, selected: showActiveOperations, toggle: onToggleActive },
+    { label: text("Queue"), count: queuedOperationsCount, selected: showQueuedOperations, toggle: onToggleQueued },
+    { label: text("Completed"), count: completedOperationsCount, selected: showCompletedOperations, toggle: onToggleCompleted },
+    { label: text("Failed"), count: failedOperationsCount, selected: showFailedOperations, toggle: onToggleFailed },
   ];
 
   return (
-    <ListDialog title="Operations overview" onClose={onClose} maxWidthClass="max-w-4xl"
-      rowCount={timelineEntries.length} countLabel={`${formatBadgeCount(totalOperationsCount)} operation${totalOperationsCount === 1 ? "" : "s"}`}
-      emptyMessage="No operations to show."
+    <ListDialog title={text("Operations overview")} onClose={onClose} maxWidthClass="max-w-4xl"
+      rowCount={timelineEntries.length} countLabel={totalOperationsCount === 1
+        ? text("{count} operation", { count: formatBadgeCount(totalOperationsCount) })
+        : text("{count} operations", { count: formatBadgeCount(totalOperationsCount) })}
+      emptyMessage={text("No operations to show.")}
       filters={filters.map((filter) => (
         <ListActionButton key={filter.label} aria-pressed={filter.selected} onClick={filter.toggle}>
-          {filter.label}{" "}<ListBadge tone={filter.label === "Failed" ? "danger" : "neutral"}>{formatBadgeCount(filter.count)}</ListBadge>
+          {filter.label}{" "}<ListBadge tone={filter.label === text("Failed") ? "danger" : "neutral"}>{formatBadgeCount(filter.count)}</ListBadge>
         </ListActionButton>
       ))}
-      actions={<ListActionButton onClick={onClearFinishedOperations} disabled={!hasFinishedOperations}>Clear completed/failed</ListActionButton>}>
+      actions={<ListActionButton onClick={onClearFinishedOperations} disabled={!hasFinishedOperations}>{text("Clear completed/failed")}</ListActionButton>}>
       <div>
         {timelineEntries.map((entry) => {
           if (entry.type === "download" || entry.type === "delete" || entry.type === "copy") {

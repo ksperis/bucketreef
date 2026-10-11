@@ -107,8 +107,6 @@ class OnboardingJourneyOut(ApiModel):
 class OnboardingStatus(ApiModel):
     dismissed: bool
     complete: bool
-    endpoint_configured: bool
-    storage_access_configured: bool
     source: Literal["quickstart", "standard"] = "standard"
     journeys: list[OnboardingJourneyOut] = Field(default_factory=list)
     can_configure: bool = False

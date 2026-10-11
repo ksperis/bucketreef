@@ -247,7 +247,7 @@ class BucketMigrationPrecheckRules:
                 target_context,
                 item.source_bucket,
                 auto_grant=bool(migration.auto_grant_source_read_for_copy)
-                and bool(getattr(self._service, "_preparation_active_checks", False)),
+                and self._service._preparation_active_checks,
                 strategy=strategy,
                 source_profile=source_profile,
             )
@@ -303,7 +303,7 @@ class BucketMigrationPrecheckRules:
         strategy,
         add_check,
     ) -> None:
-        if not getattr(self._service, "_preparation_active_checks", False):
+        if not self._service._preparation_active_checks:
             add_check(
                 code="active_checks_required",
                 severity="info",

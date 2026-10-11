@@ -5,7 +5,7 @@
 import type { UiLanguage } from "../components/language";
 import type { WorkspaceId } from "../utils/workspaces";
 
-const DOCUMENTATION_BASE_URL = "https://docs.bucketreef.ksperis.com";
+const DEFAULT_DOCUMENTATION_BASE_URL = "https://docs.bucketreef.ksperis.com";
 
 type DocumentationGuide = "admin" | "manager" | "portal" | "browser";
 type DocumentationLanguage = "en" | "fr";
@@ -136,15 +136,27 @@ function resolveLanguage(guide: DocumentationGuide, requested?: UiLanguage): Doc
     : languages[0];
 }
 
-function buildDocumentationUrl(target: DocumentationTarget, language?: UiLanguage): string {
+function normalizeDocumentationBaseUrl(baseUrl?: string): string {
+  const trimmed = baseUrl?.trim();
+  if (!trimmed) return DEFAULT_DOCUMENTATION_BASE_URL;
+  const normalized = trimmed.replace(/\/+$/, "");
+  return normalized || (trimmed.startsWith("/") ? "" : DEFAULT_DOCUMENTATION_BASE_URL);
+}
+
+function buildDocumentationUrl(
+  target: DocumentationTarget,
+  language?: UiLanguage,
+  baseUrl?: string,
+): string {
   const resolvedLanguage = resolveLanguage(target.guide, language);
   const page = target.page ? `/${target.page.replace(/^\/+|\/+$/g, "")}` : "";
-  return `${DOCUMENTATION_BASE_URL}/${target.guide}/${resolvedLanguage}${page}/`;
+  const documentationBaseUrl = normalizeDocumentationBaseUrl(baseUrl);
+  return `${documentationBaseUrl}/${target.guide}/${resolvedLanguage}${page}/`;
 }
 
 export function resolveDocumentationUrl(
   pathname: string,
-  options: { language?: UiLanguage; topic?: DocumentationTopic } = {},
+  options: { language?: UiLanguage; topic?: DocumentationTopic; baseUrl?: string } = {},
 ): string | null {
   const normalizedPathname = normalizePathname(pathname);
   const workspace = workspaceFromPath(normalizedPathname);
@@ -152,14 +164,22 @@ export function resolveDocumentationUrl(
 
   if (options.topic === "troubleshooting") {
     const guide = WORKSPACE_GUIDES[workspace];
-    return guide ? buildDocumentationUrl({ guide, page: "help/troubleshooting" }, options.language) : null;
+    return guide
+      ? buildDocumentationUrl(
+          { guide, page: "help/troubleshooting" },
+          options.language,
+          options.baseUrl,
+        )
+      : null;
   }
 
   if (options.topic === "browser-operations" || options.topic === "browser-versions") {
     const target = BROWSER_TOPIC_TARGETS[workspace]?.[options.topic];
-    if (target) return buildDocumentationUrl(target, options.language);
+    if (target) return buildDocumentationUrl(target, options.language, options.baseUrl);
   }
 
   const routeTarget = ROUTE_TARGETS.find(({ prefix }) => routeMatches(normalizedPathname, prefix))?.target;
-  return routeTarget ? buildDocumentationUrl(routeTarget, options.language) : null;
+  return routeTarget
+    ? buildDocumentationUrl(routeTarget, options.language, options.baseUrl)
+    : null;
 }

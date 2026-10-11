@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useBrowserI18n } from "./browserI18n";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -93,6 +94,7 @@ export function useBrowserObjectProperties({
   requestOptions,
   sseCustomerKeyBase64,
 }: UseBrowserObjectPropertiesOptions) {
+  const { text } = useBrowserI18n();
   const scope = JSON.stringify([
     accountId,
     bucketName,
@@ -509,7 +511,7 @@ export function useBrowserObjectProperties({
     metadata,
     loading,
     loaded,
-    error,
+    error: error ? text(error) : null,
     versionId: metadata?.version_id ?? tagsVersionId ?? undefined,
     metadataDraft,
     updateMetadataDraft,

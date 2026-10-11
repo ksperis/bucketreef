@@ -702,7 +702,7 @@ class PortalRequestsService:
         except Exception as exc:  # noqa: BLE001 - usage may be unavailable on degraded RGW paths.
             logger.warning("Unable to validate Portal quota request against usage: %s", exc)
             return
-        used_bytes = getattr(usage, "used_bytes", None)
+        used_bytes = usage.used_bytes
         if used_bytes is not None and target_bytes < int(used_bytes):
             raise ValueError("Requested quota cannot be lower than the space already used")
 

@@ -12,7 +12,7 @@ import { ProfileConfirmation } from "./ProfileControls";
 import { useProfileI18n } from "./profileMessages";
 import {
   canAccessPrivateConnectionsSection,
-  isAdminLikeRole,
+  isSuperAdminRole,
   readStoredUser,
 } from "../../utils/workspaces";
 import ApiTokensPage from "../admin/ApiTokensPage";
@@ -33,7 +33,7 @@ export default function AccountProfilePage() {
   const location = useLocation();
   const storedUser = useMemo(() => readStoredUser(), []);
   const isS3Session = storedUser?.authType === "s3_session";
-  const canAccessApiTokens = !isS3Session && isAdminLikeRole(storedUser?.role);
+  const canAccessApiTokens = !isS3Session && isSuperAdminRole(storedUser?.role);
   const canAccessPrivateConnections =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);
   const availableTabs = useMemo<AccountTab[]>(
@@ -102,16 +102,16 @@ export default function AccountProfilePage() {
       />
       <PageTabPanel idPrefix="account-profile" tabId={activeTab}>
         {activeTab === "profile" ? (
-          <ProfilePage profilePath={profilePath} showPageHeader={false} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
+          <ProfilePage profilePath={profilePath} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "connections" ? (
-          <ProfilePage profilePath={profilePath} showPageHeader={false} showSettingsCards={false} showConnectionsSection
+          <ProfilePage profilePath={profilePath} showSettingsCards={false} showConnectionsSection
             listPresentation={workspace !== "browser"} headerActionsTarget={connectionActionsTarget}
             onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "security" ? <SecurityPage onUnsavedChangesChange={setHasUnsavedChanges} /> : null}
         {activeTab === "api-tokens" ? (
-          <ApiTokensPage showPageHeader={false} onUnsavedChangesChange={setHasUnsavedChanges} />
+          <ApiTokensPage onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
       </PageTabPanel>
       <SettingsNavigationGuard dirty={hasUnsavedChanges} onDiscard={() => setHasUnsavedChanges(false)} title={text("discardTitle")} description={text("discardDescription")} confirmLabel={text("discard")} cancelLabel={text("keepEditing")} closeLabel={text("close")} />

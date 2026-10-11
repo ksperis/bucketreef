@@ -5,6 +5,7 @@
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import { ListActionButton } from "../../components/list/ListControls";
 import BrowserObjectVersionsList from "./BrowserObjectVersionsList";
+import { useBrowserI18n } from "./browserI18n";
 
 type BrowserObjectVersionsTabProps = {
   canLoadMore: boolean;
@@ -33,24 +34,22 @@ export default function BrowserObjectVersionsTab({
   savingAction,
   versions,
 }: BrowserObjectVersionsTabProps) {
+  const { text } = useBrowserI18n();
   const busy = loading || savingAction;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="ui-caption text-slate-500 dark:text-slate-400">
-          Inspect and download previous object states, delete markers, and
-          restore the latest state when needed.
-        </p>
+          {text("Inspect and download previous object states, delete markers, and restore the latest state when needed.")}</p>
         <ListActionButton
           type="button"
           onClick={onRefresh}
           disabled={busy}
         >
-          Refresh
-        </ListActionButton>
+          {text("Refresh")}</ListActionButton>
       </div>
       <BrowserObjectVersionsList
-        title="Versions"
+        title={text("Versions")}
         versions={versions}
         loading={busy}
         error={error}

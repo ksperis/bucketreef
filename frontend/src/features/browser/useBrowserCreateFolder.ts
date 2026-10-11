@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3AccountSelector } from "../../api/accountParams";
 import { createFolder } from "../../api/browserObjects";
+import { useBrowserI18n } from "./browserI18n";
 
 type CreatedFolder = {
   name: string;
@@ -29,6 +30,7 @@ export function useBrowserCreateFolder({
   requestOptions,
   onCreated,
 }: UseBrowserCreateFolderOptions) {
+  const { text } = useBrowserI18n();
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export function useBrowserCreateFolder({
     if (!bucketName || !hasContext || loading) return;
     const normalizedName = name.replace(/^\/+|\/+$/g, "");
     if (!normalizedName) {
-      setError("Folder name is required.");
+      setError(text("Folder name is required."));
       return;
     }
     const folderPrefix = `${parentPrefix}${normalizedName}/`;
@@ -73,7 +75,7 @@ export function useBrowserCreateFolder({
       reset();
       await onCreated({ name: normalizedName, prefix: folderPrefix });
     } catch {
-      setError("Unable to create folder.");
+      setError(text("Unable to create folder."));
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import UiSegmentedControl from "../../../components/ui/UiSegmentedControl";
+import { useManagerI18n } from "../managerI18n";
 
 type BucketFeatureModeOption<T extends string> = {
   value: T;
@@ -22,9 +23,10 @@ export default function BucketFeatureModeToggle<T extends string>({
   onChange,
   disabled = false,
 }: BucketFeatureModeToggleProps<T>) {
+  const { text } = useManagerI18n();
   return (
     <UiSegmentedControl
-      ariaLabel="Editor mode"
+      ariaLabel={text("Editor mode")}
       value={value}
       onChange={onChange}
       options={options.map((option) => ({ ...option, disabled }))}

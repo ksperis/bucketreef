@@ -7,39 +7,25 @@ import {
 } from "../bucketDetailSurface";
 
 describe("bucketDetailSurface", () => {
-  it("keeps Manager bucket detail tabs object-first with optional Ceph quota", () => {
-    expect(resolveBucketDetailTabs({ mode: "manager", showObjectsTab: true, showQuotaTab: false })).toEqual([
+  it("keeps bucket detail tabs ordered by user task", () => {
+    expect(resolveBucketDetailTabs({ showObjectsTab: true })).toEqual([
       "overview",
       "objects",
-      "usage-stats",
       "properties",
       "permissions",
-      "advanced",
-      "metrics",
+      "data-management",
+      "usage-metrics",
     ]);
-    expect(resolveBucketDetailTabs({ mode: "manager", showObjectsTab: true, showQuotaTab: true })).toEqual([
+    expect(resolveBucketDetailTabs({ showObjectsTab: false })).toEqual([
       "overview",
-      "objects",
-      "ceph",
-      "usage-stats",
       "properties",
       "permissions",
-      "advanced",
-      "metrics",
+      "data-management",
+      "usage-metrics",
     ]);
   });
 
-  it("keeps Ceph Admin bucket detail endpoint-scoped and exposes object browsing", () => {
-    expect(resolveBucketDetailTabs({ mode: "ceph-admin", showObjectsTab: true, showQuotaTab: true })).toEqual([
-      "overview",
-      "objects",
-      "ceph",
-      "usage-stats",
-      "properties",
-      "permissions",
-      "advanced",
-      "metrics",
-    ]);
+  it("keeps Ceph Admin bucket detail endpoint-scoped", () => {
     expect(resolveBucketDetailSurface("ceph-admin")).toMatchObject({
       rootPath: "/ceph-admin",
       rootLabel: "Ceph Admin",

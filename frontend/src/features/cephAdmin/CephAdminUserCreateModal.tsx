@@ -2,6 +2,9 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useI18n } from "../../i18n";
+import { rgwUserNameErrorText } from "../../utils/rgwUserNameMessages";
+import { rgwUserUidFormatError, rgwTenantFormatError } from "../../utils/resourceNames";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   CephAdminRgwUserDetail,
@@ -45,13 +48,12 @@ type AccountOption = {
   account_name?: string | null;
 };
 
-const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
-
 export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onClose, onCreated }: Props) {
   const canAddAsS3Connection = useMemo(
     () => canCreateManualPrivateConnections(readStoredUser()),
     []
   );
+  const { locale } = useI18n();
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [accountsError, setAccountsError] = useState<string | null>(null);
@@ -146,7 +148,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         setAccounts(options);
       } catch (err) {
         if (cancelled) return;
-        setAccountsError(extractError(err));
+        setAccountsError(extractApiError(err, "Unexpected error"));
       } finally {
         if (!cancelled) {
           setAccountsLoading(false);
@@ -160,12 +162,16 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
   }, [endpointId]);
 
   const [validationShown, setValidationShown] = useState(false);
+  const uidFormatError = rgwUserNameErrorText(rgwUserUidFormatError(uid.trim(), tenant.trim()), locale);
+  const tenantFormatError = rgwUserNameErrorText(rgwTenantFormatError(tenant.trim()), locale);
   const validationErrors = {
+    ...(uidFormatError ? { uid: uidFormatError } : {}),
+    ...(tenantFormatError ? { tenant: tenantFormatError } : {}),
     ...validateCephAdminUserLimits({ maxBuckets, quotaEnabled, quotaSize, quotaUnit, quotaObjects }),
-    ...(!uid.trim() ? { uid: "UID is required." } : {}),
+    ...(!uid.trim() ? { uid: rgwUserNameErrorText("UID is required.", locale)! } : {}),
     ...(selectedAccountId && tenant.trim() ? { tenant: "Tenant cannot be used when an account is selected." } : {}),
   };
-  const fieldErrors = validationShown ? validationErrors : {};
+  const fieldErrors = validationShown ? validationErrors : { uid: uidFormatError, tenant: tenantFormatError };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (saving) return;
@@ -219,7 +225,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         setInitialSignature(currentSignature);
         setStatus(`User ${response.detail.uid} created.`);
       } catch (err) {
-        setError(extractError(err));
+        setError(extractApiError(err, "Unexpected error"));
       } finally {
         setSaving(false);
       }

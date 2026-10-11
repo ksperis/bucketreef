@@ -65,11 +65,12 @@ export function useSettingsFormController({
     confirmationDialog: guard.confirmationDialog,
     navigationGuard: (<SettingsNavigationGuard dirty={!completed && (unsaved || locked)} discardDisabled={!completed && locked}
       onDiscard={() => onClose("navigation")} {...guardLabels}
-      title={locked ? t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft" }) : guardLabels.title}
+      title={locked ? t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft", zh: "操作正在进行" }) : guardLabels.title}
       description={locked ? t({
         en: "Wait for the operation to finish before leaving this page.",
         fr: "Attendez la fin de l’opération avant de quitter cette page.",
         de: "Warten Sie, bis der Vorgang abgeschlossen ist, bevor Sie diese Seite verlassen.",
+        zh: "请等待操作完成后再离开此页面。",
       }) : guardLabels.description} />),
   };
 }

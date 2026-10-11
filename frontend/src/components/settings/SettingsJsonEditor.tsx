@@ -33,7 +33,15 @@ type SettingsJsonEditorProps = {
   id?: string;
   className?: string;
   onValidityChange?: (valid: boolean) => void;
+  text?: (message: string, values?: Record<string, string | number>) => string;
 };
+
+function fallbackText(message: string, values?: Record<string, string | number>): string {
+  if (!values) return message;
+  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
+  );
+}
 
 const JSON_TOKEN_PATTERN = /"(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b/g;
 
@@ -97,11 +105,13 @@ export default function SettingsJsonEditor({
   id,
   className,
   onValidityChange,
+  text: translateText,
 }: SettingsJsonEditorProps) {
+  const text = translateText ?? fallbackText;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const highlightRef = useRef<HTMLPreElement | null>(null);
   const state = useMemo(() => syntaxState(value), [value]);
-  const syntaxError = state.kind === "invalid" ? state.message : undefined;
+  const syntaxError = state.kind === "invalid" ? text("Invalid JSON: {message}", { message: state.message.replace(/^Invalid JSON:\s*/, "") }) : undefined;
   const displayError = error ?? syntaxError;
 
   useEffect(() => {
@@ -166,10 +176,10 @@ export default function SettingsJsonEditor({
   };
 
   const statusText = state.kind === "valid"
-    ? "Valid JSON"
+    ? text("Valid JSON")
     : state.kind === "empty"
-      ? "Empty JSON document"
-      : "JSON syntax error";
+      ? text("Empty JSON document")
+      : text("JSON syntax error");
 
   return (
     <UiField
@@ -229,7 +239,7 @@ export default function SettingsJsonEditor({
                 onClick={formatJson}
                 disabled={disabled || state.kind !== "valid" || !onChange}
               >
-                Format JSON
+                {text("Format JSON")}
               </SettingsButton>
             ) : null}
           </div>

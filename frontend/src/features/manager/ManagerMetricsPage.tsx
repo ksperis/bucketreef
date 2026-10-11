@@ -26,10 +26,12 @@ import TrafficAnalytics from "./TrafficAnalytics";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerStats } from "./useManagerStats";
+import { useManagerI18n } from "./managerI18n";
 
 type ManagerMetricsTab = "storage" | "usage-composition" | "usage-history" | "traffic";
 
 export default function ManagerMetricsPage() {
+  const { text } = useManagerI18n();
   const { generalSettings } = useGeneralSettings();
   const [activeTab, setActiveTab] = useState<ManagerMetricsTab>("storage");
   const {
@@ -62,7 +64,7 @@ export default function ManagerMetricsPage() {
   const showTrafficDisabledBanner = hasContext && managerStatsEnabled && usageFeatureEnabled && !metricsFeatureEnabled;
   const managerMetricsMessage =
     hasContext && !managerStatsEnabled
-      ? managerStatsMessage || "Metrics are unavailable for this context."
+      ? managerStatsMessage || text("Metrics are unavailable for this context.")
       : null;
 
   const { stats, loading, error } = useManagerStats(
@@ -106,11 +108,11 @@ export default function ManagerMetricsPage() {
       setUsageStatsAggregate(data.aggregate);
     } catch (err) {
       setUsageStatsAggregate(null);
-      setUsageStatsError(extractApiError(err, "Unable to load usage composition."));
+      setUsageStatsError(extractApiError(err, text("Unable to load usage composition.")));
     } finally {
       setUsageStatsLoading(false);
     }
-  }, [accountIdForApi, canLoadUsageStatsAggregate]);
+  }, [accountIdForApi, canLoadUsageStatsAggregate, text]);
 
   useEffect(() => {
     void loadUsageStatsAggregate();
@@ -131,7 +133,7 @@ export default function ManagerMetricsPage() {
       await loadUsageStatsAggregate();
     } catch (err) {
       if (!isCancelledError(err)) {
-        setUsageStatsError(extractApiError(err, "Unable to recalculate usage composition."));
+        setUsageStatsError(extractApiError(err, text("Unable to recalculate usage composition.")));
       }
     } finally {
       if (usageStatsAbortRef.current === controller) {
@@ -139,7 +141,7 @@ export default function ManagerMetricsPage() {
         setUsageStatsRecalculating(false);
       }
     }
-  }, [accountIdForApi, canLoadUsageStatsAggregate, loadUsageStatsAggregate, usageStatsRecalculating]);
+  }, [accountIdForApi, canLoadUsageStatsAggregate, loadUsageStatsAggregate, text, usageStatsRecalculating]);
 
   const handleCancelUsageStats = useCallback(() => {
     usageStatsAbortRef.current?.abort();
@@ -168,7 +170,7 @@ export default function ManagerMetricsPage() {
       .catch((err) => {
         if (!cancelled) {
           setUsageHistoryTrends(null);
-          setUsageHistoryError(extractApiError(err, "Unable to load usage history trends."));
+          setUsageHistoryError(extractApiError(err, text("Unable to load usage history trends.")));
         }
       })
       .finally(() => {
@@ -177,17 +179,18 @@ export default function ManagerMetricsPage() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, showUsageHistoryTrends, usageHistoryWindow]);
+  }, [accountIdForApi, showUsageHistoryTrends, text, usageHistoryWindow]);
 
   const usageStatsAggregateSection = canLoadUsageStatsAggregate ? (
     <BucketUsageStatsAggregateCard
-      title="Account usage composition"
-      description="Latest calculated bucket snapshots for the active account context."
+      title={text("Account usage composition")}
+      description={text("Latest calculated bucket snapshots for the active account context.")}
       aggregate={usageStatsAggregate}
       loading={usageStatsLoading}
       error={usageStatsError}
       recalculating={usageStatsRecalculating}
-      recalculateLabel="Recalculate account"
+      recalculateLabel={text("Recalculate account")}
+      text={text}
       onCancel={handleCancelUsageStats}
       onRecalculate={handleRecalculateUsageStats}
     />
@@ -195,12 +198,12 @@ export default function ManagerMetricsPage() {
   const metricsTabs = useMemo(
     () =>
       [
-        { id: "storage" as const, label: "Storage" },
-        ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: "Usage composition" }] : []),
-        ...(showUsageHistoryTrends ? [{ id: "usage-history" as const, label: "Usage history" }] : []),
-        { id: "traffic" as const, label: "Traffic" },
+        { id: "storage" as const, label: text("Storage") },
+        ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: text("Usage composition") }] : []),
+        ...(showUsageHistoryTrends ? [{ id: "usage-history" as const, label: text("Usage history") }] : []),
+        { id: "traffic" as const, label: text("Traffic") },
       ],
-    [canLoadUsageStatsAggregate, showUsageHistoryTrends]
+    [canLoadUsageStatsAggregate, showUsageHistoryTrends, text]
   );
 
   useEffect(() => {
@@ -211,29 +214,29 @@ export default function ManagerMetricsPage() {
 
   return (
     <PageShell
-      title="Usage & Metrics"
-      description="Logical usage composition, storage analytics, and traffic analytics for the active execution context."
-      breadcrumbs={managerPageBreadcrumbs("metrics")}
+      title={text("Usage & Metrics")}
+      description={text("Logical usage composition, storage analytics, and traffic analytics for the active execution context.")}
+      breadcrumbs={managerPageBreadcrumbs(text, "metrics")}
     >
       {!hasContext ? (
         <PageEmptyState
-          title="Select an account to view usage and metrics"
-          description="Usage composition and Manager metrics depend on an execution context. Choose an account to load bucket usage, storage, and traffic analytics."
-          primaryAction={{ label: "Open dashboard", to: "/manager" }}
+          title={text("Select an account to view usage and metrics")}
+          description={text("Usage composition and Manager metrics depend on an execution context. Choose an account to load bucket usage, storage, and traffic analytics.")}
+          primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />
       ) : showFullPageMetricsUnavailable ? (
         <PageEmptyState
-          title="Metrics are unavailable for this context"
+          title={text("Metrics are unavailable for this context")}
           description={managerMetricsMessage ?? "Metrics are unavailable for this context."}
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : showFullPageMetricsDisabled ? (
         <PageEmptyState
-          title="Metrics are disabled for this endpoint"
-          description="Neither storage analytics nor traffic analytics are enabled on the selected endpoint."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          title={text("Metrics are disabled for this endpoint")}
+          description={text("Neither storage analytics nor traffic analytics are enabled on the selected endpoint.")}
+          primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (
@@ -243,7 +246,7 @@ export default function ManagerMetricsPage() {
             activeTab={activeTab}
             onChange={(tab) => setActiveTab(tab as ManagerMetricsTab)}
             variant="line"
-            ariaLabel="Manager metrics sections"
+            ariaLabel={text("Manager metrics sections")}
             idPrefix="manager-metrics"
           />
 
@@ -252,9 +255,9 @@ export default function ManagerMetricsPage() {
             <>
               {managerMetricsMessage && !showUsageBreakdowns && (
                 <MetricsUnavailableCard
-                  eyebrow="Metrics"
-                  title="Storage analytics"
-                  description="Bucket volume and object counts for the active context."
+                  eyebrow={text("Metrics")}
+                  title={text("Storage analytics")}
+                  description={text("Bucket volume and object counts for the active context.")}
                   message={managerMetricsMessage}
                   tone="warning"
                 />
@@ -262,23 +265,23 @@ export default function ManagerMetricsPage() {
               {!managerMetricsMessage && showMetricsDisabledBanner && (
                 <MetricsUnavailableCard
                   eyebrow="Metrics"
-                  title="Storage analytics"
-                  description="Bucket volume and object counts for the active context."
-                  message="Neither storage analytics nor traffic analytics are enabled on the selected endpoint."
+                  title={text("Storage analytics")}
+                  description={text("Bucket volume and object counts for the active context.")}
+                  message={text("Neither storage analytics nor traffic analytics are enabled on the selected endpoint.")}
                   tone="warning"
                 />
               )}
               {!managerMetricsMessage && !showMetricsDisabledBanner && showUsageDisabledBanner && (
                 <MetricsUnavailableCard
-                  title="Storage analytics"
-                  description="Bucket volume and object counts for the active context."
-                  message="Storage analytics are disabled for this endpoint."
+                  title={text("Storage analytics")}
+                  description={text("Bucket volume and object counts for the active context.")}
+                  message={text("Storage analytics are disabled for this endpoint.")}
                 />
               )}
               {!managerMetricsMessage && !showMetricsDisabledBanner && error && (
                 <MetricsUnavailableCard
-                  title="Storage analytics"
-                  description="Bucket volume and object counts for the active context."
+                  title={text("Storage analytics")}
+                  description={text("Bucket volume and object counts for the active context.")}
                   message={error}
                   tone="error"
                 />
@@ -286,7 +289,7 @@ export default function ManagerMetricsPage() {
               {!managerMetricsMessage && !showMetricsDisabledBanner && showUsageBreakdowns && (
                 <div className="grid gap-6 lg:grid-cols-2">
                   <UsageBreakdown
-                    title="Bucket breakdown (storage)"
+                    title={text("Bucket breakdown (storage)")}
                     loading={loading}
                     metric="bytes"
                     items={(stats?.bucket_usage ?? []).map((bucket) => ({
@@ -295,10 +298,13 @@ export default function ManagerMetricsPage() {
                       usedBytes: bucket.used_bytes ?? null,
                       objectCount: bucket.object_count ?? null,
                     }))}
-                    emptyMessage="No bucket storage metrics available."
+                    emptyMessage={text("No bucket storage metrics available.")}
+                    objectUnitLabel={text("objects")}
+                    othersLabel={text("Others")}
+                    totalLabel={text("Total")}
                   />
                   <UsageBreakdown
-                    title="Bucket breakdown (objects)"
+                    title={text("Bucket breakdown (objects)")}
                     loading={loading}
                     metric="objects"
                     items={(stats?.bucket_usage ?? []).map((bucket) => ({
@@ -307,7 +313,10 @@ export default function ManagerMetricsPage() {
                       usedBytes: bucket.used_bytes ?? null,
                       objectCount: bucket.object_count ?? null,
                     }))}
-                    emptyMessage="No bucket object metrics available."
+                    emptyMessage={text("No bucket object metrics available.")}
+                    objectUnitLabel={text("objects")}
+                    othersLabel={text("Others")}
+                    totalLabel={text("Total")}
                   />
                 </div>
               )}
@@ -323,33 +332,34 @@ export default function ManagerMetricsPage() {
               onWindowChange={setUsageHistoryWindow}
               loading={usageHistoryLoading}
               error={usageHistoryError}
-              description="Stored usage snapshots for the active execution context."
+              description={text("Stored usage snapshots for the active execution context.")}
+              text={text}
             />
           )}
 
           {activeTab === "traffic" && managerMetricsMessage && !showTrafficAnalytics ? (
             <MetricsUnavailableCard
-              eyebrow="Metrics"
-              title="Traffic"
-              description="Ingress/egress volume, request types, and busiest buckets."
+              eyebrow={text("Metrics")}
+              title={text("Traffic")}
+              description={text("Ingress/egress volume, request types, and busiest buckets.")}
               message={managerMetricsMessage}
               tone="warning"
             />
           ) : null}
           {activeTab === "traffic" && !managerMetricsMessage && showMetricsDisabledBanner ? (
             <MetricsUnavailableCard
-              eyebrow="Metrics"
-              title="Traffic"
-              description="Ingress/egress volume, request types, and busiest buckets."
-              message="Neither storage analytics nor traffic analytics are enabled on the selected endpoint."
+              eyebrow={text("Metrics")}
+              title={text("Traffic")}
+              description={text("Ingress/egress volume, request types, and busiest buckets.")}
+              message={text("Neither storage analytics nor traffic analytics are enabled on the selected endpoint.")}
               tone="warning"
             />
           ) : null}
           {activeTab === "traffic" && !managerMetricsMessage && !showMetricsDisabledBanner && showTrafficDisabledBanner ? (
             <MetricsUnavailableCard
-              title="Traffic"
-              description="Ingress/egress volume, request types, and busiest buckets."
-              message="Traffic analytics are disabled for this endpoint."
+              title={text("Traffic")}
+              description={text("Ingress/egress volume, request types, and busiest buckets.")}
+              message={text("Traffic analytics are disabled for this endpoint.")}
             />
           ) : null}
           {showTrafficAnalytics && (

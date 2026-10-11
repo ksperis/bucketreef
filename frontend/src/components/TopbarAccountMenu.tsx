@@ -132,11 +132,11 @@ export default function TopbarAccountMenu({
           size="md"
           className="border-[var(--shell-surface)] shadow-none"
         />
-        <span className="hidden min-w-0 max-w-40 truncate text-[12px] font-semibold text-[var(--shell-text)] sm:block lg:max-w-52">
+        <span className="hidden min-w-0 max-w-52 truncate text-[12px] font-semibold text-[var(--shell-text)] lg:block">
           {display}
         </span>
         <ChevronDownIcon
-          className={`shell-icon-muted hidden h-4 w-4 transition-transform sm:block ${open ? "rotate-180" : ""}`}
+          className={`shell-icon-muted hidden h-4 w-4 transition-transform lg:block ${open ? "rotate-180" : ""}`}
         />
       </button>
 
