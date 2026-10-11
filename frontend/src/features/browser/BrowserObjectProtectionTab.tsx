@@ -68,17 +68,17 @@ export default function BrowserObjectProtectionTab({
         submitLabel={text("Update legal hold")} onSubmit={onSaveLegalHold}>
         {protectionLoading && <p className="settings-description" role="status">{text("Loading legal hold...")}</p>}
         {legalHoldError && <UiInlineMessage tone="error" role="alert">{legalHoldError}</UiInlineMessage>}
-        {objectLockUnavailable && <UiInlineMessage tone="info">{OBJECT_LOCK_DISABLED_MESSAGE}</UiInlineMessage>}
+        {objectLockUnavailable && <UiInlineMessage tone="info">{text(OBJECT_LOCK_DISABLED_MESSAGE)}</UiInlineMessage>}
         <UiSelect label={text("Legal hold status")} value={legalHoldStatus}
           onChange={(event) => onLegalHoldStatusChange(event.target.value as "ON" | "OFF")}>
-          <option value="OFF">OFF</option><option value="ON">ON</option>
+          <option value="OFF">{text("OFF")}</option><option value="ON">{text("ON")}</option>
         </UiSelect>
       </SettingsOperationSection>
       <SettingsOperationSection title={text("Retention")} busy={savingRetention} disabled={protectionDisabled}
         submitDisabled={!retentionMode || !retentionDate} submitLabel={text("Update retention")} onSubmit={onSaveRetention}>
         {protectionLoading && <p className="settings-description" role="status">{text("Loading retention...")}</p>}
         {retentionError && <UiInlineMessage tone="error" role="alert">{retentionError}</UiInlineMessage>}
-        {objectLockUnavailable && <UiInlineMessage tone="info">{OBJECT_LOCK_DISABLED_MESSAGE}</UiInlineMessage>}
+        {objectLockUnavailable && <UiInlineMessage tone="info">{text(OBJECT_LOCK_DISABLED_MESSAGE)}</UiInlineMessage>}
         <div className="settings-fields sm:grid-cols-2">
           <UiSelect label={text("Mode")} value={retentionMode}
             onChange={(event) => onRetentionModeChange(event.target.value as ObjectRetentionMode)}>
@@ -98,7 +98,7 @@ export default function BrowserObjectProtectionTab({
           onChange={(event) => onPresignExpiresChange(event.target.value)} />
         {presignError && <UiInlineMessage tone="error" role="alert">{presignError}</UiInlineMessage>}
         {presignUrl && <div className="settings-stack">
-          <UiTextarea label={text("Signed URL")} hint={`HTTP method: ${presignMethod || "GET"}`} rows={3}
+          <UiTextarea label={text("Signed URL")} hint={text("HTTP method: {method}", { method: presignMethod || "GET" })} rows={3}
             readOnly value={presignUrl} spellCheck={false} className="font-mono" />
           <div><SettingsButton variant="secondary" onClick={() => void onCopyPresign()}>{text("Copy URL")}</SettingsButton></div>
           {presignHeaders && Object.keys(presignHeaders).length > 0 && (

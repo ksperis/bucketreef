@@ -22,9 +22,12 @@ import {
   readBrowserTransferStream,
 } from "./browserFetchTransferResponse";
 
+import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
+
 type BrowserTransferMode = "direct" | "proxy";
 
 type BrowserTransferObjectRef = {
+  text?: BrowserTextFn;
   versionId?: string;
   selector: S3AccountSelector;
   bucket: string;
@@ -83,6 +86,7 @@ export const downloadBrowserTransferBlob = async (
     bucket,
     key,
     mode,
+    text = defaultBrowserText,
     signal,
     sseCustomerKeyBase64,
     options,
@@ -103,7 +107,7 @@ export const downloadBrowserTransferBlob = async (
     headers: signedDownload.headers || undefined,
     signal,
   });
-  return readBrowserTransferBlob(response, `Download failed for ${key}`);
+  return readBrowserTransferBlob(response, text("Download failed for {key}", { key }));
 };
 
 export const downloadBrowserTransferStream = async (
@@ -114,6 +118,7 @@ export const downloadBrowserTransferStream = async (
     bucket,
     key,
     mode,
+    text = defaultBrowserText,
     signal,
     sseCustomerKeyBase64,
     options,
@@ -129,14 +134,14 @@ export const downloadBrowserTransferStream = async (
       credentials: "include",
       signal,
     });
-    return readBrowserTransferStream(response, `Download failed for ${key}`);
+    return readBrowserTransferStream(response, text("Download failed for {key}", { key }));
   }
   const signedDownload = await presignDownload(params);
   const response = await fetch(signedDownload.url, {
     headers: signedDownload.headers || undefined,
     signal,
   });
-  return readBrowserTransferStream(response, `Download failed for ${key}`);
+  return readBrowserTransferStream(response, text("Download failed for {key}", { key }));
 };
 
 export const uploadBrowserTransferBlob = async ({
@@ -149,6 +154,7 @@ export const uploadBrowserTransferBlob = async ({
   signal,
   sseCustomerKeyBase64,
   options,
+  text = defaultBrowserText,
 }: BrowserTransferUploadParams): Promise<void> => {
   if (mode === "proxy") {
     await proxyUpload(
@@ -178,7 +184,7 @@ export const uploadBrowserTransferBlob = async ({
   );
   const method = signedUpload.method.toUpperCase();
   if (method !== "PUT") {
-    throw new Error(`Unexpected presigned upload method: ${method}.`);
+    throw new Error(text("Unexpected presigned upload method: {method}.", { method }));
   }
   const response = await fetch(signedUpload.url, {
     method: "PUT",
@@ -191,6 +197,6 @@ export const uploadBrowserTransferBlob = async ({
   });
   await ensureSuccessfulBrowserTransferResponse(
     response,
-    `Upload failed for ${key}`,
+    text("Upload failed for {key}", { key }),
   );
 };

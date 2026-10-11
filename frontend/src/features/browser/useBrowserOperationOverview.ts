@@ -302,6 +302,7 @@ export function useBrowserOperationOverview({
       operations,
       setStatusMessage,
       uploadGroups,
+    text,
     ],
   );
   const clearFinishedOperations = useCallback(() => {

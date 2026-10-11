@@ -118,7 +118,7 @@ export default function BrowserBulkAttributesModal({
         <AttributeOption label={text("Legal hold")} checked={draft.applyLegalHold} onChange={(value) => updateDraft("applyLegalHold", value)}>
           <UiSelect label={text("Legal hold status")} value={draft.legalHoldStatus}
             onChange={(event) => updateDraft("legalHoldStatus", event.target.value as "ON" | "OFF")}>
-            <option value="OFF">OFF</option><option value="ON">ON</option>
+            <option value="OFF">{text("OFF")}</option><option value="ON">{text("ON")}</option>
           </UiSelect>
         </AttributeOption>
         <AttributeOption label={text("Retention")} checked={draft.applyRetention} onChange={(value) => updateDraft("applyRetention", value)}>

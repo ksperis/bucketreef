@@ -57,7 +57,7 @@ function resolveObjectTypeLabel(
     ? text("Binary")
     : kind === "pdf"
       ? "PDF"
-      : `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+      : text({ image: "Image", video: "Video", audio: "Audio", text: "Text" }[kind]);
 }
 
 export default function BrowserObjectTableRow({
@@ -102,7 +102,7 @@ export default function BrowserObjectTableRow({
           checked={!isDeleted && selected}
           onClick={(event) => onToggleSelection(event.shiftKey)}
           onChange={() => undefined}
-          aria-label={`Select ${item.name}`}
+          aria-label={text("Select {name}", { name: item.name })}
           disabled={isDeleted}
         />
       </td>
@@ -120,7 +120,7 @@ export default function BrowserObjectTableRow({
           type="button"
           onClick={onNameClick}
           onDoubleClick={(event) => event.preventDefault()}
-          aria-label={text(resolveBrowserItemOpenLabel(item))}
+          aria-label={resolveBrowserItemOpenLabel(item, text)}
           className={`flex ${primaryItemButtonHeightClasses} w-full min-w-0 items-center ${nameGapClasses} text-left`}
           title={item.name}
         >
@@ -162,7 +162,7 @@ export default function BrowserObjectTableRow({
                       : "text-rose-500 dark:text-rose-300"
                   }`}
                 >
-                  {isHistorical ? "(history)" : "(deleted)"}
+                  {isHistorical ? text("(history)") : text("(deleted)")}
                 </span>
               )}
             </span>
@@ -182,10 +182,10 @@ export default function BrowserObjectTableRow({
                     }`}
                   >
                     {isHistorical
-                      ? "Version history"
+                      ? text("Version history")
                       : item.type === "folder"
-                        ? "Delete markers"
-                        : "Delete marker"}
+                        ? text("Delete markers")
+                        : text("Delete marker")}
                   </span>
                 )}
                 {item.storageClass && (
@@ -229,7 +229,7 @@ export default function BrowserObjectTableRow({
           ))}
           <ListActionButton
             iconOnly
-            aria-label={`More actions for ${item.name}`}
+            aria-label={text("More actions for {name}", { name: item.name })}
             title={text("More")}
             onClick={onOpenActions}
           >

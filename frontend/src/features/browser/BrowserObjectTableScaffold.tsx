@@ -113,7 +113,7 @@ export function BrowserObjectTableScaffold({
           {columns.map((column) => (
             <th
               key={column.id}
-              aria-label={column.label}
+              aria-label={text(column.label)}
               className={`relative  ${headerPaddingClasses} !align-middle ${
                 column.align === "right" ? "text-right" : "text-left"
               } `}

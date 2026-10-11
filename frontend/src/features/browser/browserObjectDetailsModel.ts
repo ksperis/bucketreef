@@ -5,6 +5,7 @@
 import type { ObjectTag } from "../../api/browserContracts";
 import type { ObjectDetailsTabId } from "./browserTypes";
 import { formatDateTime } from "./browserUtils";
+import type { BrowserTextFn } from "./browserI18n";
 
 export const ARCHIVE_STORAGE_CLASSES = new Set([
   "GLACIER",
@@ -20,20 +21,21 @@ export const normalizeObjectDetailPairs = (items: ObjectTag[]) =>
     return acc;
   }, {});
 
-export const formatRestoreStatus = (value?: string | null) => {
+export const formatRestoreStatus = (value?: string | null, text?: BrowserTextFn, intlLocale?: string) => {
   if (!value) return null;
   const normalized = value.toLowerCase();
   if (normalized.includes('ongoing-request="true"')) {
-    return "Restore in progress.";
+    return text ? text("Restore in progress.") : "Restore in progress.";
   }
   if (normalized.includes('ongoing-request="false"')) {
     const expiryMatch = value.match(/expiry-date="([^"]+)"/i);
     if (!expiryMatch?.[1]) {
-      return "Temporary restore is available.";
+      return text ? text("Temporary restore is available.") : "Temporary restore is available.";
     }
-    return `Temporary restore available until ${formatDateTime(
-      expiryMatch[1],
-    )}.`;
+    const date = formatDateTime(expiryMatch[1], intlLocale);
+    return text
+      ? text("Temporary restore available until {date}.", { date })
+      : `Temporary restore available until ${date}.`;
   }
   return value;
 };

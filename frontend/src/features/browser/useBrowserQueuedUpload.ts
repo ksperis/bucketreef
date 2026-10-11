@@ -183,6 +183,7 @@ export function useBrowserQueuedUpload({
               requestOptions,
             );
           const uploadFile = (mode: "direct" | "proxy") => uploadBrowserFile({
+        text,
             file,
             mode,
             signal: controller.signal,
@@ -225,14 +226,14 @@ export function useBrowserQueuedUpload({
       } catch (caughtError) {
         if (isAbortError(caughtError)) {
           completeOperation(operationId, "cancelled");
-          const message = `Upload cancelled for ${relativePath}`;
+          const message = text("Upload cancelled for {path}", { path: relativePath });
           if (transferId) transferReporter?.fail(transferId, message);
           onStatus(message);
         } else {
           const completionError = formatBrowserOperationError(
             caughtError,
-            `Upload failed for ${relativePath}`,
-            `Upload failed for ${relativePath}`,
+            text("Upload failed for {path}", { path: relativePath }),
+            text("Upload failed for {path}", { path: relativePath }),
           );
           completeOperation(operationId, "failed", completionError);
           if (transferId) transferReporter?.fail(transferId, completionError);
@@ -263,6 +264,7 @@ export function useBrowserQueuedUpload({
       transferReporter,
       updateOperation,
       useProxyTransfers,
+    text,
     ],
   );
 }

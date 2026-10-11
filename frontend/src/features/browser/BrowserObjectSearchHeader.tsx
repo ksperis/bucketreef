@@ -112,8 +112,8 @@ export default function BrowserObjectSearchHeader({
           type="text"
           value={filter}
           onChange={(event) => onFilterChange(event.target.value)}
-          placeholder={`Search ${objectNounPlural}`}
-          aria-label={`Search ${objectNounPlural}`}
+          placeholder={text("Search {objects}", { objects: text(objectNounPlural) })}
+          aria-label={text("Search {objects}", { objects: text(objectNounPlural) })}
           size="compact"
           fieldClassName="w-full"
           className={cx(

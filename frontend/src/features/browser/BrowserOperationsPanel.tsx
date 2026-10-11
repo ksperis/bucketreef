@@ -56,7 +56,7 @@ type OperationRowProps = {
   progress: number;
   statusLabel: string;
   statusClasses: string;
-  actionLabel?: "Stop" | "Stop all";
+  actionLabel?: string;
   onAction?: () => void;
 };
 
@@ -122,7 +122,7 @@ export default function BrowserOperationsPanel({
   onOpenDetails,
   onToggleOpen,
 }: BrowserOperationsPanelProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const pendingOperationsCount = activeOperationsCount + queuedOperationsCount;
   const dominantStatus =
     failedOperationsCount > 0
@@ -198,13 +198,18 @@ export default function BrowserOperationsPanel({
       });
       return (
         <OperationRow
-          title={group.kind === "folder" ? `Upload folder ${group.label}` : `Upload ${group.label}`}
-          subtitle={group.totalBytes > 0 ? `${formatBytes(group.totalBytes)} total` : undefined}
-          summary={`${activeCount} active · ${queuedCount} queued · ${completedCount} completed · ${failedCount} failed`}
+          title={group.kind === "folder" ? text("Upload folder {label}", { label: group.label }) : text("Upload {label}", { label: group.kind === "files" ? text("Files") : group.label })}
+          subtitle={group.totalBytes > 0 ? text("{size} total", { size: formatBytes(group.totalBytes, intlLocale) }) : undefined}
+          summary={text("{active} active · {queued} queued · {completed} completed · {failed} failed", {
+            active: activeCount,
+            queued: queuedCount,
+            completed: completedCount,
+            failed: failedCount,
+          })}
           progress={group.progress}
-          statusLabel={status.label}
+          statusLabel={text(status.label)}
           statusClasses={status.classes}
-          actionLabel={activeCount > 0 || queuedCount > 0 ? "Stop all" : undefined}
+          actionLabel={activeCount > 0 || queuedCount > 0 ? text("Stop all") : undefined}
           onAction={activeCount > 0 || queuedCount > 0 ? () => cancelUploadGroup(group.id) : undefined}
           extraActions={<div className="flex flex-col gap-1">
           </div>}
@@ -224,13 +229,13 @@ export default function BrowserOperationsPanel({
       });
       return (
         <OperationRow
-          title={op.label}
+          title={text(op.label)}
           subtitle={op.path}
-          summary={isCompleted ? operationCompletionLabel(op.completionStatus) : `${op.progress}%`}
+          summary={isCompleted ? text(operationCompletionLabel(op.completionStatus)) : `${op.progress}%`}
           progress={op.progress}
-          statusLabel={status.label}
+          statusLabel={text(status.label)}
           statusClasses={status.classes}
-          actionLabel={!isCompleted && op.cancelable ? "Stop" : undefined}
+          actionLabel={!isCompleted && op.cancelable ? text("Stop") : undefined}
           onAction={!isCompleted && op.cancelable ? () => cancelOperation(op.id) : undefined}
         />
       );
@@ -256,13 +261,18 @@ export default function BrowserOperationsPanel({
     });
     return (
       <OperationRow
-        title={group.op.label}
+        title={text(group.op.label)}
         subtitle={group.op.path}
-        summary={`${activeCount} active · ${queuedCount} queued · ${completedCount} completed · ${failedCount} failed`}
+        summary={text("{active} active · {queued} queued · {completed} completed · {failed} failed", {
+          active: activeCount,
+          queued: queuedCount,
+          completed: completedCount,
+          failed: failedCount,
+        })}
         progress={group.op.progress}
-        statusLabel={status.label}
+        statusLabel={text(status.label)}
         statusClasses={status.classes}
-        actionLabel={group.op.cancelable && !group.op.completedAt ? (entry.type === "download" ? "Stop" : "Stop all") : undefined}
+        actionLabel={group.op.cancelable && !group.op.completedAt ? text(entry.type === "download" ? "Stop" : "Stop all") : undefined}
         onAction={group.op.cancelable && !group.op.completedAt ? () => cancelOperation(group.op.id) : undefined}
       />
     );
@@ -281,8 +291,8 @@ export default function BrowserOperationsPanel({
             className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left transition hover:bg-[var(--ui-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
             onClick={onToggleOpen}
             aria-expanded={open}
-            aria-label={open ? "Collapse operations" : "Expand operations"}
-            title={open ? "Collapse operations" : "Expand operations"}
+            aria-label={open ? text("Collapse operations") : text("Expand operations")}
+            title={open ? text("Collapse operations") : text("Expand operations")}
           >
             <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]">
               <DownloadIcon className="h-4 w-4" />
@@ -298,10 +308,10 @@ export default function BrowserOperationsPanel({
                 </span>
                 <span className="truncate ui-caption text-[var(--ui-text-muted)]">
                   {pendingOperationsCount > 0
-                    ? `${pendingOperationsCount} active or queued`
+                    ? text("{count} active or queued", { count: pendingOperationsCount })
                     : hasFinishedOperations
-                      ? "Finished operations"
-                      : "No operations"}
+                      ? text("Finished operations")
+                      : text("No operations")}
                 </span>
               </span>
             </span>

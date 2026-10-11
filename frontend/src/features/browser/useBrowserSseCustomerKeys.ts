@@ -123,7 +123,7 @@ export function useBrowserSseCustomerKeys({
         ),
       );
     }
-  }, [input, keysByScope, scopeKey, setStatusMessage]);
+  }, [input, keysByScope, scopeKey, setStatusMessage, text]);
 
   const generate = useCallback(async () => {
     if (!scopeKey) return;
@@ -166,7 +166,7 @@ export function useBrowserSseCustomerKeys({
     setStatusMessage(
       text("SSE-C key generated and enabled. Copy it manually from the dialog."),
     );
-  }, [keysByScope, onManualCopyRequired, scopeKey, setStatusMessage]);
+  }, [keysByScope, onManualCopyRequired, scopeKey, setStatusMessage, text]);
 
   const clear = useCallback(() => {
     if (!scopeKey) return;
@@ -182,7 +182,7 @@ export function useBrowserSseCustomerKeys({
     setVisible(false);
     setShowModal(false);
     setStatusMessage(text("SSE-C key cleared for this bucket."));
-  }, [scopeKey, setStatusMessage]);
+  }, [scopeKey, setStatusMessage, text]);
 
   useEffect(() => {
     if (!enabled && showModal) {

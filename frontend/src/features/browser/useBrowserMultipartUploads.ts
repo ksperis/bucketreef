@@ -121,7 +121,7 @@ export function useBrowserMultipartUploads({
       }
     } catch (loadError) {
       setError(
-        extractApiError(loadError, "Unable to list multipart uploads."),
+        extractApiError(loadError, text("Unable to list multipart uploads.")),
       );
       if (!append) {
         setUploads([]);
@@ -180,7 +180,7 @@ export function useBrowserMultipartUploads({
     } catch (abortError) {
       const message = extractApiError(
         abortError,
-        "Unable to abort multipart upload.",
+        text("Unable to abort multipart upload."),
       );
       setError(message);
       setStatusMessage(message);
@@ -196,7 +196,7 @@ export function useBrowserMultipartUploads({
   const requestAbort = (upload: MultipartUploadItem) => {
     requestConfirmation({
       title: text("Abort multipart upload"),
-      message: `Abort multipart upload for ${upload.key}?`,
+      message: text("Abort multipart upload for {key}?", { key: upload.key }),
       confirmLabel: text("Abort"),
       tone: "danger",
       onConfirm: () => abort(upload),

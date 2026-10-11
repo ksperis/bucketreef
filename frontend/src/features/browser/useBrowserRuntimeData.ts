@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useBrowserI18n } from "./browserI18n";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -55,6 +56,7 @@ export function useBrowserRuntimeData({
   requestOptions,
   showUsage,
 }: UseBrowserRuntimeDataOptions) {
+  const { text } = useBrowserI18n();
   const [settingsState, setSettingsState] = useState<SettingsState>(
     EMPTY_SETTINGS_STATE,
   );
@@ -137,7 +139,7 @@ export function useBrowserRuntimeData({
 
   return {
     settings,
-    usageError: canLoadUsage ? (currentUsage?.error ?? null) : null,
+    usageError: canLoadUsage && currentUsage?.error ? text(currentUsage.error) : null,
     usageLoading: canLoadUsage
       ? (currentUsage?.loading ?? true)
       : false,

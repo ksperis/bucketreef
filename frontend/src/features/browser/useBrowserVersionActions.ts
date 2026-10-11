@@ -139,6 +139,7 @@ export function useBrowserVersionActions({
       requestOptions,
       startOperation,
       versioningEnabled,
+    text,
     ],
   );
 
@@ -163,7 +164,7 @@ export function useBrowserVersionActions({
           requestOptions,
         );
         onStatus(
-          isDeleteMarker ? "Delete marker removed." : "Version deleted.",
+          isDeleteMarker ? text("Delete marker removed.") : text("Version deleted."),
         );
         await refresh(version.key);
       } catch (caughtError) {
@@ -171,8 +172,8 @@ export function useBrowserVersionActions({
           completionStatus = "cancelled";
           onStatus(
             isDeleteMarker
-              ? "Delete marker removal cancelled."
-              : "Delete version cancelled.",
+              ? text("Delete marker removal cancelled.")
+              : text("Delete version cancelled."),
           );
           await refresh(version.key);
         } else {
@@ -203,7 +204,7 @@ export function useBrowserVersionActions({
       onWarning,
       refresh,
       requestOptions,
-      startOperation,
+      startOperation, text,
     ],
   );
 
@@ -234,6 +235,7 @@ export function useBrowserVersionActions({
       onConfirm,
       onWarning,
       versioningEnabled,
+    text,
     ],
   );
 

@@ -101,7 +101,7 @@ export function BrowserCopyValueModal({
         <ModalActions>
           <SettingsButton variant="secondary" onClick={onClose}>{text("Close")}</SettingsButton>
           <SettingsButton disabled={copying || !value} onClick={() => void handleCopy()}>
-            {copying ? "Copying..." : "Copy"}
+            {copying ? text("Copying...") : text("Copy")}
           </SettingsButton>
         </ModalActions>
       </div>

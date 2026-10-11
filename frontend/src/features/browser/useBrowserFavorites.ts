@@ -9,6 +9,7 @@ import {
 } from "../../api/browserFavorites";
 import { searchBrowserBuckets } from "../../api/browserBuckets";
 import { listBrowserObjects } from "../../api/browserObjects";
+import { useBrowserI18n } from "./browserI18n";
 
 const favoriteLocationKey = (favorite: BrowserFavoriteInput) =>
   [favorite.surface, favorite.workspace, favorite.context, favorite.bucket, favorite.prefix].join("\u0000");
@@ -53,6 +54,7 @@ export function useBrowserFavorites({
   onStatus,
   onWarning,
 }: UseBrowserFavoritesOptions) {
+  const { text } = useBrowserI18n();
   const active = useRef(true);
   const scope = useRef(current.context);
   scope.current = current.context;
@@ -129,7 +131,7 @@ export function useBrowserFavorites({
       } catch (reason) {
         const message = messageFrom(
           reason,
-          "Unable to save favorite. Refresh and try again.",
+          text("Unable to save favorite. Refresh and try again."),
         );
         await reload();
         if (active.current) setError(message);
@@ -138,7 +140,7 @@ export function useBrowserFavorites({
         if (active.current) setMutationBusy(false);
       }
     },
-    [onStatus, onWarning, reload],
+    [onStatus, onWarning, reload, text],
   );
 
   const toggleCurrent = useCallback(async () => {
@@ -147,12 +149,12 @@ export function useBrowserFavorites({
     if (matches.length > 0) {
       await runMutation(
         () => Promise.all(matches.map((favorite) => deleteBrowserFavorite(favorite))),
-        "Removed from favorites.",
+        text("Removed from favorites."),
       );
       return;
     }
-    await runMutation(() => saveBrowserFavorite(current), "Added to favorites.");
-  }, [accountUser, current, enabled, favorites, mutationBusy, runMutation]);
+    await runMutation(() => saveBrowserFavorite(current), text("Added to favorites."));
+  }, [accountUser, current, enabled, favorites, mutationBusy, runMutation, text]);
 
   const removeLocation = useCallback(
     async (favorite: BrowserFavorite) => {
@@ -160,10 +162,10 @@ export function useBrowserFavorites({
       const matches = favorites.filter((candidate) => sameFavoriteLocation(candidate, favorite));
       await runMutation(
         () => Promise.all(matches.map((candidate) => deleteBrowserFavorite(candidate))),
-        "Removed from favorites.",
+        text("Removed from favorites."),
       );
     },
-    [favorites, mutationBusy, runMutation],
+    [favorites, mutationBusy, runMutation, text],
   );
 
   const apply = useCallback(
@@ -171,14 +173,14 @@ export function useBrowserFavorites({
       if (favorite.context !== current.context && !availableContexts.includes(favorite.context)) {
         setUnavailable((previous) => ({
           ...previous,
-          [favorite.id]: `Select the saved context (${favorite.context}) to open this favorite.`,
+          [favorite.id]: text("Select the saved context ({context}) to open this favorite.", { context: favorite.context }),
         }));
         return false;
       }
       if (lockedBucket && favorite.bucket !== lockedBucket) {
         setUnavailable((previous) => ({
           ...previous,
-          [favorite.id]: "Open this saved Storage Space to open this favorite.",
+          [favorite.id]: text("Open this saved Storage Space to open this favorite."),
         }));
         return false;
       }
@@ -191,7 +193,7 @@ export function useBrowserFavorites({
           pageSize: 1,
         });
         if (!result.items.some((item) => item.name === favorite.bucket)) {
-          throw new Error("Saved location is unavailable. Its identity has been kept.");
+          throw new Error(text("Saved location is unavailable. Its identity has been kept."));
         }
         await listBrowserObjects(favorite.context, favorite.bucket, {
           workspaceSurface: favorite.workspace,
@@ -210,14 +212,14 @@ export function useBrowserFavorites({
         if (!active.current) return false;
         setUnavailable((previous) => ({
           ...previous,
-          [favorite.id]: messageFrom(reason, "Saved location is unavailable."),
+          [favorite.id]: messageFrom(reason, text("Saved location is unavailable.")),
         }));
         return false;
       } finally {
         if (active.current) setApplyingId(null);
       }
     },
-    [availableContexts, current.context, lockedBucket, onApply],
+    [availableContexts, current.context, lockedBucket, onApply, text],
   );
 
   return {
@@ -229,7 +231,7 @@ export function useBrowserFavorites({
       loaded &&
       !error &&
       Boolean(current.bucket && current.context),
-    error,
+    error: text(error),
     favorites: uniqueFavorites,
     isCurrentFavorite: currentMatches.length > 0,
     loaded,

@@ -39,7 +39,7 @@ export default function BrowserMultipartUploadsModal({
   onAbort,
   onClose,
 }: BrowserMultipartUploadsModalProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const uploadColumns: Array<DataTableColumn<MultipartUploadItem>> = [
     {
       id: "key",
@@ -57,7 +57,7 @@ export default function BrowserMultipartUploadsModal({
     {
       id: "initiated",
       label: text("Initiated"),
-      render: (upload) => formatDateTime(upload.initiated),
+      render: (upload) => formatDateTime(upload.initiated, intlLocale),
     },
     {
       id: "storage-class",
@@ -87,7 +87,7 @@ export default function BrowserMultipartUploadsModal({
             onClick={() => onAbort(upload)}
             disabled={aborting}
           >
-            {aborting ? "Aborting..." : "Abort"}
+            {aborting ? text("Aborting...") : text("Abort")}
           </ListActionButton>
         );
       },
@@ -96,8 +96,8 @@ export default function BrowserMultipartUploadsModal({
 
   return (
     <ListDialog title={text("Multipart uploads")} onClose={onClose} maxWidthClass="max-w-5xl"
-      description={`Bucket ${bucketName} · In-progress multipart uploads.`}
-      rowCount={uploads.length} countLabel={`${uploads.length} loaded`}
+      description={text("Bucket {bucket} · In-progress multipart uploads.", { bucket: bucketName })}
+      rowCount={uploads.length} countLabel={text("{count} loaded", { count: uploads.length.toLocaleString(intlLocale) })}
       loading={loading || loadingMore} loadingMessage="Loading multipart uploads..." error={error}
       emptyMessage={text("No multipart uploads in progress.")} onRefresh={onRefresh}
       loadMore={{ available: canLoadMore, onClick: onLoadMore }}>

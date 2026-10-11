@@ -226,8 +226,8 @@ export function useBrowserUploadQueue({
       if (queuedFromBatch > 0) {
         onStatus(
           queuedFromBatch === 1
-            ? "1 upload queued."
-            : `${queuedFromBatch} uploads queued.`,
+            ? text("1 upload queued.")
+            : text("{count} uploads queued.", { count: queuedFromBatch }),
         );
       }
     },
@@ -241,6 +241,7 @@ export function useBrowserUploadQueue({
       onWarning,
       processQueue,
       updateQueue,
+    text,
     ],
   );
 
@@ -330,7 +331,7 @@ export function useBrowserUploadQueue({
       }
       addFiles(files);
     },
-    [addFiles, bucketName, enabled, onStatus, workspaceNoun],
+    [addFiles, bucketName, enabled, onStatus, workspaceNoun, text],
   );
 
   return {

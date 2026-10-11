@@ -649,6 +649,8 @@ export function useBrowserObjectListing({
       storageFilter,
       typeFilter,
       updateBucketAccessEntry,
+      intlLocale,
+      text,
     ],
   );
 

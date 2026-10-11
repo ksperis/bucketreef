@@ -63,7 +63,7 @@ type BrowserOperationsModalProps = {
 };
 
 export default function BrowserOperationsModal(props: BrowserOperationsModalProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const {
     totalOperationsCount,
     activeOperationsCount,
@@ -179,9 +179,9 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
     });
     const title = group.kind === "folder"
       ? text("Upload folder {label}", { label: group.label })
-      : text("Upload {label}", { label: group.label });
+      : text("Upload {label}", { label: group.kind === "files" ? text("Files") : group.label });
     const subtitle = group.totalBytes > 0
-      ? text("{size} total", { size: formatBytes(group.totalBytes) })
+      ? text("{size} total", { size: formatBytes(group.totalBytes, intlLocale) })
       : undefined;
     const actions = (
       <>
@@ -223,7 +223,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
             <div key={item.id} className="flex items-center justify-between gap-3 ui-caption">
               <div className="min-w-0">
                 <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">{item.itemLabel || item.key}</p>
-                <p className="ui-caption text-[var(--ui-text-muted)]">{text("Queued")} · {formatBytes(item.file.size)}</p>
+                <p className="ui-caption text-[var(--ui-text-muted)]">{text("Queued")} · {formatBytes(item.file.size, intlLocale)}</p>
               </div>
               <ListActionButton type="button" variant="danger" onClick={() => removeQueuedUpload(item.id)}>
                 {text("Stop")}</ListActionButton>
@@ -249,7 +249,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
                 </p>
                 <p className="ui-caption text-[var(--ui-text-muted)]">
                   {text(operationCompletionLabel(item.completionStatus))}
-                  {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes)}` : ""}
+                  {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes, intlLocale)}` : ""}
                 </p>
               </div>
             </div>
@@ -272,7 +272,7 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
                 <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">{item.itemLabel ?? item.path}</p>
                 <p className="ui-caption text-[var(--ui-text-muted)]">
                   {text("Failed")}
-                  {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes)}` : ""}
+                  {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes, intlLocale)}` : ""}
                 </p>
                 {item.errorMessage && (
                   <p className="ui-caption [overflow-wrap:anywhere] text-[var(--list-danger-text)]">{item.errorMessage}</p>

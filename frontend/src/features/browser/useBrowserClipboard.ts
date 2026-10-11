@@ -133,7 +133,7 @@ export function useBrowserClipboard({
       }
       onWarning(
         eligibleItems.length !== items.length
-          ? "Deleted objects were skipped."
+          ? text("Deleted objects were skipped.")
           : null,
       );
       setClipboard({
@@ -144,7 +144,7 @@ export function useBrowserClipboard({
       });
       onStatus(text("Items copied."));
     },
-    [accountId, bucketName, onStatus, onWarning],
+    [accountId, bucketName, onStatus, onWarning, text],
   );
 
   const cut = useCallback(
@@ -157,7 +157,7 @@ export function useBrowserClipboard({
       }
       onWarning(
         eligibleItems.length !== items.length
-          ? "Deleted objects were skipped."
+          ? text("Deleted objects were skipped.")
           : null,
       );
       setClipboard({
@@ -168,7 +168,7 @@ export function useBrowserClipboard({
       });
       onStatus(text("Items ready to move."));
     },
-    [accountId, bucketName, onStatus, onWarning],
+    [accountId, bucketName, onStatus, onWarning, text],
   );
 
   const resolveTransferMode = useCallback(
@@ -191,10 +191,10 @@ export function useBrowserClipboard({
       }
       if (proxyAllowed) return "proxy";
       throw new Error(
-        `Direct transfer is unavailable for ${targetBucket} and proxy transfers are disabled.`,
+        text("Direct transfer is unavailable for {bucket} and proxy transfers are disabled.", { bucket: targetBucket }),
       );
     },
-    [proxyAllowed, requestOptions, uiOrigin],
+    [proxyAllowed, requestOptions, uiOrigin, text],
   );
 
   const downloadBlob = useCallback<
@@ -202,10 +202,11 @@ export function useBrowserClipboard({
   >(
     (parameters) =>
       downloadBrowserTransferBlob({
+        text,
         ...parameters,
         options: requestOptions,
       }),
-    [requestOptions],
+    [requestOptions, text],
   );
 
   const downloadStream = useCallback<
@@ -213,19 +214,21 @@ export function useBrowserClipboard({
   >(
     (parameters) =>
       downloadBrowserTransferStream({
+        text,
         ...parameters,
         options: requestOptions,
       }),
-    [requestOptions],
+    [requestOptions, text],
   );
 
   const uploadBlob = useCallback<ClipboardTransferParameters["uploadBlob"]>(
     (parameters) =>
       uploadBrowserTransferBlob({
+        text,
         ...parameters,
         options: requestOptions,
       }),
-    [requestOptions],
+    [requestOptions, text],
   );
 
   const uploadMultipartStream = useCallback<
@@ -426,7 +429,7 @@ export function useBrowserClipboard({
     }
 
     if (copyTasks.length === 0) {
-      onStatus(skipped > 0 ? "Nothing new to paste here." : "No items to paste.");
+      onStatus(skipped > 0 ? text("Nothing new to paste here.") : text("No items to paste."));
       return;
     }
 
@@ -512,6 +515,7 @@ export function useBrowserClipboard({
                 requestOptions,
               );
               await transferClipboardObjectBetweenContexts({
+        text,
                 source: {
                   selector: task.sourceSelector,
                   bucket: task.sourceBucket,
@@ -662,6 +666,7 @@ export function useBrowserClipboard({
     updateOperation,
     uploadBlob,
     uploadMultipartStream,
+    text,
   ]);
 
   return useMemo(

@@ -118,7 +118,7 @@ export function BrowserBucketConfigurationDrawer({
       title={bucketName}
       subtitle={
         <p className="ui-caption text-[var(--ui-text-muted)]">
-          {browserReadOnly ? "Bucket details" : "Bucket settings"}
+          {browserReadOnly ? text("Bucket details") : text("Bucket settings")}
         </p>
       }
       onClose={closeGuard.requestClose}
@@ -148,7 +148,7 @@ export function BrowserCreateBucketModal({
   return (
     <SettingsFormDialog title={text("Create bucket")} draftKey={stableSignature({ name, versioning })}
       busy={loading} disabled={!hasS3AccountContext || !name.trim() || !isNameValid}
-      error={error} submitLabel={loading ? "Creating..." : "Create bucket"}
+      error={error} submitLabel={loading ? text("Creating...") : text("Create bucket")}
       onSubmit={onSubmit} onClose={onClose}>
       <UiInput label={text("Bucket name")} type="text" value={name}
         onChange={(event) => onNameChange(normalizeS3BucketNameInput(event.target.value))}
@@ -190,10 +190,10 @@ export function BrowserSseCustomerKeyModal({
           {({ id, describedBy, invalid }) => <div className="flex min-w-0 items-center gap-2">
             <input ref={inputRef} id={id} aria-describedby={describedBy} aria-invalid={invalid || undefined}
               type={resolveSseCustomerKeyInputType(visible)} value={value}
-              onChange={(event) => onValueChange(event.target.value)} placeholder="Base64 key"
+              onChange={(event) => onValueChange(event.target.value)} placeholder={text("Base64 key")}
               className={`${uiInputClass} min-w-0 flex-1`} spellCheck={false} />
             <SettingsButton variant="secondary" className="shrink-0" onClick={onToggleVisibility} aria-pressed={visible}>
-              {visible ? "Hide" : "Show"}
+              {visible ? text("Hide") : text("Show")}
             </SettingsButton>
           </div>}
         </UiField>
@@ -214,9 +214,11 @@ export function BrowserCreateFolderModal({
   return (
     <SettingsFormDialog title={text("Create folder")} draftKey={name} busy={loading}
       disabled={!bucketName || !hasS3AccountContext} error={error}
-      submitLabel={loading ? "Creating..." : "Create"} onSubmit={onSubmit} onClose={onClose}
+      submitLabel={loading ? text("Creating...") : text("Create")} onSubmit={onSubmit} onClose={onClose}
       maxWidthClass="max-w-md">
-      <p className="settings-description break-all whitespace-pre-wrap">Destination: {currentPath || `${bucketName}/`}</p>
+      <p className="settings-description break-all whitespace-pre-wrap">
+        {text("Destination: {path}", { path: currentPath || `${bucketName}/` })}
+      </p>
       <UiInput label={text("Folder name")} type="text" value={name}
         onChange={(event) => onNameChange(event.target.value)} placeholder="my-folder" spellCheck={false} />
     </SettingsFormDialog>

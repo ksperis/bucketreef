@@ -45,7 +45,7 @@ export default function BrowserPrefixVersionsModal({
   onRestoreVersion,
   onDeleteVersion,
 }: BrowserPrefixVersionsModalProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const sanitizeFilename = (value: string) => {
     const cleaned = value.replace(/[^a-zA-Z0-9-_]+/g, "_").replace(/^_+|_+$/g, "");
     return cleaned || "prefix-versions";
@@ -124,8 +124,8 @@ export default function BrowserPrefixVersionsModal({
     {
       id: "details", label: text("Details"),
       render: (version) => <div>
-        {version.last_modified && <p>{formatDateTime(version.last_modified)}</p>}
-        {version.size != null && <p>{formatBytes(version.size)}</p>}
+        {version.last_modified && <p>{formatDateTime(version.last_modified, intlLocale)}</p>}
+        {version.size != null && <p>{formatBytes(version.size, intlLocale)}</p>}
         {version.storage_class && <p>{version.storage_class}</p>}
       </div>,
     },
@@ -139,7 +139,7 @@ export default function BrowserPrefixVersionsModal({
           <ListActionButton onClick={() => onRestoreVersion(version)}>{text("Restore")}</ListActionButton>
         )}
         <ListActionButton variant="danger" onClick={() => onDeleteVersion(version)}>
-          {version.is_delete_marker ? "Delete marker" : "Delete version"}
+          {version.is_delete_marker ? text("Delete marker") : text("Delete version")}
         </ListActionButton>
       </ListActions>,
     },
@@ -147,8 +147,8 @@ export default function BrowserPrefixVersionsModal({
 
   return (
     <ListDialog title={text("Prefix versions")} onClose={onClose} maxWidthClass="max-w-4xl"
-      description={`Bucket ${bucketName} · Prefix ${normalizedPrefix || "(bucket root)"}`}
-      rowCount={prefixVersionRows.length} countLabel={`${prefixVersionRows.length} loaded`}
+      description={text("Bucket {bucket} · Prefix {prefix}", { bucket: bucketName, prefix: normalizedPrefix || text("(bucket root)") })}
+      rowCount={prefixVersionRows.length} countLabel={text("{count} loaded", { count: prefixVersionRows.length.toLocaleString(intlLocale) })}
       loading={prefixVersionsLoading} loadingMessage="Loading prefix versions..." error={prefixVersionsError}
       emptyMessage={text("No versions found.")} onRefresh={onRefresh} refreshDisabled={!bucketName}
       actions={<>

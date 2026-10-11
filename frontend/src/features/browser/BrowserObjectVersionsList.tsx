@@ -45,7 +45,7 @@ export default function BrowserObjectVersionsList({
   onDeleteVersion,
   readOnly = false,
 }: BrowserObjectVersionsListProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   return (
     <div className={containerClassName}>
       <div className="flex items-center justify-between">
@@ -81,14 +81,14 @@ export default function BrowserObjectVersionsList({
                     {text("Restore")}</ListActionButton>
                 )}
                 <ListActionButton variant="danger" type="button" onClick={() => onDeleteVersion(ver)}>
-                  {ver.is_delete_marker ? "Delete marker" : "Delete version"}
+                  {ver.is_delete_marker ? text("Delete marker") : text("Delete version")}
                 </ListActionButton>
               </div>}
             </div>
             <div className="mt-2 space-y-1 ui-caption text-slate-500 dark:text-slate-400">
               {ver.version_id && <div>v: {ver.version_id}</div>}
-              {ver.last_modified && <div>Modified: {formatDateTime(ver.last_modified)}</div>}
-              {ver.size != null && <div>Size: {formatBytes(ver.size)}</div>}
+              {ver.last_modified && <div>{text("Modified: {date}", { date: formatDateTime(ver.last_modified, intlLocale) })}</div>}
+              {ver.size != null && <div>{text("Size: {size}", { size: formatBytes(ver.size, intlLocale) })}</div>}
               {ver.etag && <div>ETag: {ver.etag}</div>}
             </div>
           </div>

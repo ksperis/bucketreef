@@ -304,12 +304,12 @@ export default function BrowserContextMenu({
         !action.enabled ? contextMenuItemDisabledClasses : ""
       }`}
       onClick={onClick}
-      aria-label={action.label}
+      aria-label={text(action.label)}
       disabled={!action.enabled}
-      title={action.disabledReason}
+      title={action.disabledReason ? text(action.disabledReason) : undefined}
     >
       {iconByActionId[action.id]}
-      {action.label}
+      {text(action.label)}
     </button>
   );
 

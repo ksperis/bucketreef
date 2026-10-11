@@ -91,7 +91,7 @@ export default function BrowserPathDetailsDrawer({
             loading={loading}
             onClick={() => void count()}
           >
-            {loading ? "Counting..." : counts ? "Count again" : "Count contents"}
+            {loading ? text("Counting...") : counts ? text("Count again") : text("Count contents")}
           </UiButton>
         }
       >

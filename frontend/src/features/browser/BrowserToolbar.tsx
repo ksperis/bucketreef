@@ -150,7 +150,7 @@ export default function BrowserToolbar({
   onRunPathAction,
   onRunSelectionAction,
 }: BrowserToolbarProps) {
-  const { text } = useBrowserI18n();
+  const { text, intlLocale } = useBrowserI18n();
   const uploadButtonRef = useRef<HTMLButtonElement | null>(null);
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -275,22 +275,22 @@ export default function BrowserToolbar({
               aria-pressed={deletedObjects.showDeleted}
               aria-label={
                 deletedObjects.showDeleted
-                  ? "Hide deleted files"
-                  : "Show deleted files"
+                  ? text("Hide deleted files")
+                  : text("Show deleted files")
               }
               onClick={() => onRunPathAction("toggleShowDeleted")}
               title={
                 deletedObjects.showDeleted
-                  ? "Hide deleted files"
-                  : "Show deleted files"
+                  ? text("Hide deleted files")
+                  : text("Show deleted files")
               }
             >
               <TrashIcon className="h-3.5 w-3.5" />
               {!compactMode && (
                 <span>
                   {deletedObjects.showDeleted
-                    ? "Hide deleted files"
-                    : "Show deleted files"}
+                    ? text("Hide deleted files")
+                    : text("Show deleted files")}
                 </span>
               )}
             </ListActionButton>
@@ -533,7 +533,7 @@ export default function BrowserToolbar({
                   }
                 >
                   <ListIcon className="h-3.5 w-3.5" />
-                  Comfortable
+                  {text("Comfortable")}
                   {!moreMenu.view.compactMode && (
                     <span
                       aria-hidden="true"
@@ -555,7 +555,7 @@ export default function BrowserToolbar({
                   }
                 >
                   <CompactIcon className="h-3.5 w-3.5" />
-                  Compact
+                  {text("Compact")}
                   {moreMenu.view.compactMode && (
                     <span
                       aria-hidden="true"
@@ -618,8 +618,8 @@ export default function BrowserToolbar({
                         className="block text-[11px] font-medium leading-tight text-slate-400 dark:text-slate-500"
                       >
                         {moreMenu.status.operationsCount === 1
-                          ? "1 operation"
-                          : `${moreMenu.status.operationsCount} operations`}
+                          ? text("1 operation")
+                          : text("{count} operations", { count: moreMenu.status.operationsCount.toLocaleString(intlLocale) })}
                       </span>
                     </span>
                   </button>

@@ -309,6 +309,7 @@ export function useBrowserDeleteItems({
       showOperations,
       startOperation,
       updateOperation,
+    text,
     ],
   );
 
@@ -332,7 +333,7 @@ export function useBrowserDeleteItems({
             "deleting",
             fileTargets.length === 1
               ? "Deleting object"
-              : `Deleting ${fileTargets.length} objects`,
+              : text("Deleting {count} objects", { count: fileTargets.length }),
             targetPath,
             {
               kind: fileTargets.length > 1 ? "delete" : "other",
@@ -430,6 +431,7 @@ export function useBrowserDeleteItems({
       showOperations,
       startOperation,
       updateOperation,
+    text,
     ],
   );
 
@@ -444,7 +446,7 @@ export function useBrowserDeleteItems({
       );
       onWarning(
         targets.some((item) => item.isDeleted)
-          ? "Deleted items are shown from delete markers. Use versions to restore or remove markers."
+          ? text("Deleted items are shown from delete markers. Use versions to restore or remove markers.")
           : null,
       );
       if (fileTargets.length === 0 && folderTargets.length === 0) return;
@@ -452,14 +454,14 @@ export function useBrowserDeleteItems({
         title: text("Delete objects"),
         message:
           folderTargets.length > 0
-            ? `Delete ${fileTargets.length} object(s) and ${folderTargets.length} folder(s)? This removes all objects within the selected folders.`
-            : `Delete ${fileTargets.length} object(s)?`,
+            ? text("Delete {objects} object(s) and {folders} folder(s)? This removes all objects within the selected folders.", { objects: fileTargets.length, folders: folderTargets.length })
+            : text("Delete {count} object(s)?", { count: fileTargets.length }),
         confirmLabel: text("Delete"),
         tone: "danger",
         onConfirm: () => execute(targets),
       });
     },
-    [bucketName, enabled, execute, onConfirm, onWarning],
+    [bucketName, enabled, execute, onConfirm, onWarning, text],
   );
 
   return { deleteObjectsInBatches, remove };
