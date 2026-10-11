@@ -64,6 +64,17 @@ def test_selected_graph_has_no_dangling_or_optional_needs(paths):
     assert config['ceph-functional-tests']['allow_failure'] is False if 'ceph-functional-tests' in config else True
 
 
+def test_pipeline_plan_bootstrap_round_trips_large_plan_without_argv_payload(tmp_path):
+    plan = {**select('integration', ['README.md']), 'sha': 'a' * 40, 'parent_id': 10}
+    plan['reasons']['large-plan-regression'] = ['x' * 1024 for _ in range(300)]
+    script = render(plan)['pipeline-plan']['script'][0]
+
+    assert "python3 - <<'BUCKETREEF_CI_PLAN_PY'" in script
+    assert 'python3 -c' not in script
+    subprocess.run(['bash', '-eu', '-c', script], cwd=tmp_path, check=True)
+    assert json.loads((tmp_path / 'ci-plan.json').read_text()) == plan
+
+
 def test_public_frontend_tests_are_two_fixed_shards_with_distinct_artifacts():
     config = yaml.safe_load((ROOT / '.github/workflows/pr.yml').read_text())
     job = config['jobs']['frontend-tests']
