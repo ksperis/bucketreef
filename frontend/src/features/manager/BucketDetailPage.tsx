@@ -372,8 +372,8 @@ function BucketDetailPageContent({
   const showQuotaTab = !hideQuotaTab && (isCephAdmin || Boolean(quotaFeatureEnabled && hasAccountContext));
   const showObjectsTab = !hideObjectsTab;
   const availableTabs = useMemo(() => {
-    return resolveBucketDetailTabs({ mode, showObjectsTab, showQuotaTab });
-  }, [mode, showObjectsTab, showQuotaTab]);
+    return resolveBucketDetailTabs({ showObjectsTab });
+  }, [showObjectsTab]);
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
@@ -498,14 +498,7 @@ function BucketDetailPageContent({
     }
     return Boolean(managerStatsEnabled) && (selectedS3Account?.storage_endpoint_capabilities?.metrics ?? true);
   }, [isCephAdmin, managerStatsEnabled, selectedEndpoint, selectedS3Account]);
-  const canViewBucketMetrics = hasContext;
   const canViewLiveBucketMetrics = Boolean(isCephEndpoint && usageFeatureEnabled);
-
-  useEffect(() => {
-    if (activeTab === "metrics" && !canViewBucketMetrics) {
-      onActiveTabChange("overview");
-    }
-  }, [activeTab, canViewBucketMetrics, onActiveTabChange]);
   const userRole = getUserRole();
   const isAdmin = isAdminLikeRole(userRole);
   const canEditQuota =
@@ -612,23 +605,15 @@ function BucketDetailPageContent({
       ]);
       return;
     }
-    if (activeTab === "metrics") {
-      if (!canViewBucketMetrics) return;
-      await loadClean("quota", refreshBucketMeta);
-      return;
-    }
     if (activeTab === "objects") {
       await refreshObjects();
       return;
     }
-    if (activeTab === "usage-stats") {
-      await loadUsageStats();
-      return;
-    }
     if (activeTab === "properties") {
       await Promise.all([
-        loadClean("versioning", loadVersioning), loadClean("objectLock", loadObjectLock),
-        loadClean("lifecycle", loadLifecycle), loadClean("tags", loadBucketTags), loadClean("encryption", loadEncryption),
+        loadClean("versioning", loadVersioning), loadClean("objectLock", loadObjectLock), loadClean("tags", loadBucketTags),
+        loadClean("encryption", loadEncryption), loadClean("website", loadWebsite), loadClean("accessLogging", loadAccessLogging),
+        loadClean("notifications", loadNotifications),
       ]);
       return;
     }
@@ -639,21 +624,19 @@ function BucketDetailPageContent({
       ]);
       return;
     }
-    if (activeTab === "advanced") {
+    if (activeTab === "data-management") {
       await Promise.all([
-        loadClean("website", loadWebsite), loadClean("replication", loadReplication),
-        loadClean("accessLogging", loadAccessLogging), loadClean("notifications", loadNotifications),
+        loadClean("lifecycle", loadLifecycle), loadClean("replication", loadReplication),
       ]);
       return;
     }
-    if (activeTab === "ceph") {
+    if (activeTab === "usage-metrics") {
       await Promise.all([
-        loadClean("quota", refreshBucketMeta), loadClean("versioning", loadVersioning), loadClean("objectLock", loadObjectLock),
+        loadClean("quota", refreshBucketMeta), loadUsageStats(),
       ]);
     }
   }, [
     activeTab,
-    canViewBucketMetrics,
     loadAccessLogging,
     loadBucketAcl,
     loadBucketTags,
@@ -692,26 +675,20 @@ function BucketDetailPageContent({
         publicAccessLoading
       );
     }
-    if (activeTab === "metrics") {
-      return loadingBucket;
-    }
     if (activeTab === "objects") {
       return objectsLoading;
     }
-    if (activeTab === "usage-stats") {
-      return usageStatsLoading || usageStatsRecalculating;
-    }
     if (activeTab === "properties") {
-      return versioningLoading || objectLockLoading || lifecycleLoading || bucketTagsLoading || encryptionLoading;
+      return versioningLoading || objectLockLoading || bucketTagsLoading || encryptionLoading || websiteLoading || accessLoggingLoading || notificationsLoading;
     }
     if (activeTab === "permissions") {
       return publicAccessLoading || bucketAclLoading || policyLoading || corsLoading;
     }
-    if (activeTab === "advanced") {
-      return websiteLoading || replicationLoading || accessLoggingLoading || notificationsLoading;
+    if (activeTab === "data-management") {
+      return lifecycleLoading || replicationLoading;
     }
-    if (activeTab === "ceph") {
-      return loadingBucket || versioningLoading || objectLockLoading;
+    if (activeTab === "usage-metrics") {
+      return loadingBucket || usageStatsLoading || usageStatsRecalculating;
     }
     return false;
   }, [
@@ -735,15 +712,7 @@ function BucketDetailPageContent({
     websiteLoading,
   ]);
 
-  const canRefreshActiveTab = useMemo(() => {
-    if (activeTab === "metrics") {
-      return hasContext && canViewBucketMetrics;
-    }
-    if (activeTab === "objects") {
-      return hasContext;
-    }
-    return hasContext;
-  }, [activeTab, canViewBucketMetrics, hasContext]);
+  const canRefreshActiveTab = hasContext;
 
   const storageUsage = useMemo(
     () => ({
@@ -1054,7 +1023,7 @@ function BucketDetailPageContent({
             bucketError ||
             (isCephAdmin
               ? text("Bucket configuration and permissions (Admin Ops + S3).")
-              : text("Bucket overview, objects, properties, permissions, metrics."))
+              : text("Bucket overview, objects, configuration, data management, usage and metrics."))
           }
           breadcrumbs={breadcrumbs}
           actions={[
@@ -1144,7 +1113,7 @@ function BucketDetailPageContent({
             ? [
                 {
                   id: "objects",
-                  label: text("Objects / S3 Console"),
+                  label: text("Objects"),
                   content: (
                     <SplitView
                       left={
@@ -1301,8 +1270,10 @@ function BucketDetailPageContent({
                   versioningController.isEnabled,
                   objectLockController.persistentlyEnabled,
                   encryptionController.configured,
-                  lifecycleController.hasRules,
                   bucketTagsController.configured,
+                  websiteController.configured,
+                  accessLoggingController.configured,
+                  notificationsController.configured,
                 ].filter(Boolean).length })}
               >
                   <BucketVersioningFeature
@@ -1321,7 +1292,17 @@ function BucketDetailPageContent({
                     controller={bucketTagsController}
                     onRequestClear={() => setPendingConfigurationDelete("tags")}
                   />
-                  <BucketLifecycleFeature controller={lifecycleController} />
+                  <BucketWebsiteFeature
+                    blocked={!staticWebsiteEnabled}
+                    bucketName={bucketName}
+                    controller={websiteController}
+                    onRequestDelete={() => setPendingConfigurationDelete("website")}
+                  />
+                  <BucketAccessLoggingFeature
+                    controller={accessLoggingController}
+                    onRequestDisable={() => setPendingConfigurationDelete("access-logging")}
+                  />
+                  <BucketNotificationsFeature controller={notificationsController} />
               </BucketFeatureGrid>
             ),
           },
@@ -1354,63 +1335,53 @@ function BucketDetailPageContent({
             ),
           },
           {
-            id: "advanced",
-            label: text("Advanced"),
+            id: "data-management",
+            label: text("Data management"),
             content: (
               <BucketFeatureGrid
-                title={text("Advanced bucket features")}
-                description={text("Configured integrations are highlighted; collections expose their common row actions directly.")}
+                title={text("Bucket data management")}
+                description={text("Configure lifecycle and replication rules that control how bucket data is retained and copied.")}
                 summary={text("{count} configured", { count: [
-                  websiteController.configured,
+                  lifecycleController.hasRules,
                   isCephEndpoint && replicationController.configured,
-                  accessLoggingController.configured,
-                  notificationsController.configured,
                 ].filter(Boolean).length })}
               >
-                <BucketWebsiteFeature
-                  blocked={!staticWebsiteEnabled}
-                  bucketName={bucketName}
-                  controller={websiteController}
-                  onRequestDelete={() => setPendingConfigurationDelete("website")}
-                />
-                <BucketAccessLoggingFeature
-                  controller={accessLoggingController}
-                  onRequestDisable={() => setPendingConfigurationDelete("access-logging")}
-                />
+                <BucketLifecycleFeature controller={lifecycleController} />
                 {isCephEndpoint && (
                   <BucketReplicationFeature
                     blocked={!replicationFeatureEnabled}
                     controller={replicationController}
                   />
                 )}
-                <BucketNotificationsFeature
-                  controller={notificationsController}
-                />
               </BucketFeatureGrid>
             ),
           },
           {
-            id: "usage-stats",
-            label: text("Usage stats"),
-            content: (
-              <BucketUsageStatsPanel
-                snapshot={usageStatsSnapshot}
-                loading={usageStatsLoading}
-                error={usageStatsError}
-                recalculating={usageStatsRecalculating}
-                onCancel={cancelUsageStatsRecalculation}
-                onRefresh={loadUsageStats}
-                onRecalculate={recalculateUsageStats}
-                text={text}
-              />
-            ),
-          },
-          {
-            id: "metrics",
-            label: text("Metrics"),
-            disabled: !canViewBucketMetrics,
+            id: "usage-metrics",
+            label: text("Usage & Metrics"),
             content: (
               <div className={bucketDetailSectionStackClass}>
+                {showQuotaTab && (
+                  <div className="settings-compact">
+                    <BucketQuotaFeature
+                      controller={quotaController}
+                      editable={canEditQuota}
+                      featureEnabled={quotaFeatureEnabled}
+                      loading={loadingBucket}
+                    />
+                  </div>
+                )}
+                <BucketUsageStatsPanel
+                  title={text("Inventory statistics")}
+                  snapshot={usageStatsSnapshot}
+                  loading={usageStatsLoading}
+                  error={usageStatsError}
+                  recalculating={usageStatsRecalculating}
+                  onCancel={cancelUsageStatsRecalculation}
+                  onRefresh={loadUsageStats}
+                  onRecalculate={recalculateUsageStats}
+                  text={text}
+                />
                 <MetricsCard
                   title={text("Current usage and quota")}
                   description={text("Live usage, quotas, and traffic sourced from backend metrics.")}
@@ -1441,7 +1412,7 @@ function BucketDetailPageContent({
                   <PageBanner>
                     {!isCephAdmin && managerStatsMessage
                       ? managerStatsMessage
-                      : text("Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available in the Usage stats tab.")}
+                      : text("Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available above.")}
                   </PageBanner>
                 )}
                 {canViewLiveBucketMetrics &&
@@ -1459,24 +1430,6 @@ function BucketDetailPageContent({
               </div>
             ),
           },
-          ...(showQuotaTab
-            ? [
-                {
-                  id: "ceph",
-                  label: isCephAdmin ? text("Ceph Admin") : text("Privileged Ceph"),
-                  content: (
-                    <div className="settings-compact">
-                      <BucketQuotaFeature
-                        controller={quotaController}
-                        editable={canEditQuota}
-                        featureEnabled={quotaFeatureEnabled}
-                        loading={loadingBucket}
-                      />
-                    </div>
-                  ),
-                },
-              ]
-            : []),
         ].sort((a, b) => availableTabs.indexOf(a.id as BucketDetailTabId) - availableTabs.indexOf(b.id as BucketDetailTabId))}
       />
 
