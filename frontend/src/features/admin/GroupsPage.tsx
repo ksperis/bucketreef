@@ -50,7 +50,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
-import PageHeader from "../../components/PageHeader";
+import PageHeader, { type PageBreadcrumb } from "../../components/PageHeader";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import {
@@ -96,16 +96,17 @@ import {
   readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
 import { buildAccessAuditHref } from "./accessAuditLink";
+import { useGroupsI18n, type GroupsMessageKey } from "./groupsMessage";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 type AssociationTab = "accounts" | "s3_users" | "connections";
 const MAX_VISIBLE_OPTIONS = 10;
-const groupAvatarIcons: Array<{ value: UiGroupAvatarIcon; label: string }> = [
-  { value: "users", label: "Team" },
-  { value: "building", label: "Organization" },
-  { value: "shield", label: "Security" },
-  { value: "briefcase", label: "Operations" },
-  { value: "academic", label: "Research" },
+const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
+  { value: "users", label: "team" },
+  { value: "building", label: "organization" },
+  { value: "shield", label: "security" },
+  { value: "briefcase", label: "operations" },
+  { value: "academic", label: "research" },
 ];
 function includesQuery(label: string, query: string): boolean {
   return !query || label.toLowerCase().includes(query.trim().toLowerCase());
@@ -133,8 +134,25 @@ function emptyGroupForm(): UiGroupPayload {
 export default function GroupsPage() {
   type SortField = "name" | "created_at" | "updated_at";
 
+  const { locale, text } = useGroupsI18n();
+  const errorTextRef = useRef(text);
+  errorTextRef.current = text;
+  const groupAvatarIcons = groupAvatarIconOptions.map((icon) => ({ ...icon, label: text(icon.label) }));
+  const groupBreadcrumbs = (...trailingBreadcrumbs: PageBreadcrumb[]) =>
+    adminPageBreadcrumbs("groups", ...trailingBreadcrumbs).map((breadcrumb, index) => ({
+      ...breadcrumb,
+      label: index === 0 ? text("admin") : index === 1 ? text("uiGroups") : breadcrumb.label,
+    }));
   const { generalSettings } = useGeneralSettings();
-  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
+  const stepUpLabels = useMemo(() => ({
+    title: text("verifyWithPasskey"),
+    description: text("verificationDescription"),
+    cancel: text("cancel"),
+    close: locale === "zh" ? text("close") : undefined,
+    cancelled: text("verificationCancelled"),
+    failure: (error: unknown) => extractApiError(error, text("verificationFailed")),
+  }), [locale, text]);
+  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp(stepUpLabels);
   const showPortalRole = Boolean(generalSettings.portal_enabled);
   const principalEditRequest = useMemo(
     () => readAdminPrincipalEditRequest(typeof window === "undefined" ? "" : window.location.search),
@@ -208,7 +226,7 @@ export default function GroupsPage() {
   const selectAvatarFile = (file: File | null) => {
     if (!file) return;
     if (!(["image/png", "image/jpeg"].includes(file.type)) || file.size > 1024 * 1024) {
-      setActionError("Group image must be a PNG or JPEG file of 1 MiB or less.");
+      setActionError(text("imageRequirementsError"));
       return;
     }
     setActionError(null);
@@ -261,7 +279,7 @@ export default function GroupsPage() {
       setGroups(response.items);
       setTotalGroups(response.total);
     } catch (err) {
-      setError(extractApiError(err, "Unable to load groups."));
+      setError(extractApiError(err, errorTextRef.current("loadGroupsError")));
     } finally {
       setLoading(false);
     }
@@ -281,7 +299,7 @@ export default function GroupsPage() {
       setS3Users(nextS3Users);
       setConnections(nextConnections);
     } catch (err) {
-      setActionError(extractApiError(err, "Unable to load selectable resources."));
+      setActionError(extractApiError(err, errorTextRef.current("loadResourcesError")));
     } finally {
       setAuxLoading(false);
     }
@@ -396,7 +414,11 @@ export default function GroupsPage() {
   );
   const closeGuard = useSettingsCloseGuard({
     hasUnsavedChanges,
-    description: "Your changes have not been saved.",
+    title: text("discardTitle"),
+    description: text("unsavedChanges"),
+    cancelLabel: text("keepEditing"),
+    confirmLabel: text("discardChanges"),
+    closeLabel: locale === "zh" ? text("close") : undefined,
     onClose: closeModal,
     disabled: saving,
   });
@@ -456,10 +478,10 @@ export default function GroupsPage() {
       let savedGroup: UiGroup;
       if (editingGroup) {
         savedGroup = await runWithStepUp(() => updateGroup(editingGroup.id, payload));
-        setActionMessage("Group updated");
+        setActionMessage(text("groupUpdated"));
       } else {
         savedGroup = await runWithStepUp(() => createGroup(payload));
-        setActionMessage("Group created");
+        setActionMessage(text("groupCreated"));
       }
       if (avatarFile) {
         await uploadGroupAvatar(savedGroup.id, avatarFile);
@@ -470,7 +492,7 @@ export default function GroupsPage() {
       await fetchGroups();
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setActionError(extractApiError(err, "Unable to save group."));
+        setActionError(extractApiError(err, text("saveGroupError")));
       }
     } finally {
       savingRef.current = false;
@@ -485,10 +507,10 @@ export default function GroupsPage() {
     setActionMessage(null);
     try {
       await deleteGroup(pendingDeleteGroup.id);
-      setActionMessage("Group deleted");
+      setActionMessage(text("groupDeleted"));
       await fetchGroups();
     } catch (err) {
-      setActionError(extractApiError(err, "Unable to delete group."));
+      setActionError(extractApiError(err, text("deleteGroupError")));
     } finally {
       setBusyId(null);
       setPendingDeleteGroup(null);
@@ -529,19 +551,19 @@ export default function GroupsPage() {
 
   const renderMembersTab = () => (
     <AdminAssociationLinkedTable
-      title="Members"
+      title={text("members")}
       toolbar={{
-        countLabel: `${selectedUserIds.size} linked`,
-        actionLabel: showMemberPicker ? "Close" : "Add UI users",
+        countLabel: text("linkedCount", { count: selectedUserIds.size }),
+        actionLabel: showMemberPicker ? text("close") : text("addUiUsers"),
         onAction: () => setShowMemberPicker((current) => !current),
       }}
-      headers={[{ label: "User" }, { label: "Actions", align: "right" }]}
+      headers={[{ label: text("user") }, { label: text("actions"), align: "right" }]}
       hasItems={selectedUserIds.size > 0}
-      emptyLabel="No linked users yet."
+      emptyLabel={text("noLinkedUsers")}
       rows={(form.user_ids ?? []).map((userId) => (
         <tr key={userId}>
           <td className="ui-table-primary">
-            {userLabelById.get(userId) ?? `User #${userId}`}
+            {userLabelById.get(userId) ?? text("userNumber", { id: userId })}
           </td>
           <td className="ui-table-actions-cell w-px text-right">
             <ListActionButton
@@ -554,7 +576,7 @@ export default function GroupsPage() {
                 }))
               }
             >
-              Remove
+              {text("remove")}
             </ListActionButton>
           </td>
         </tr>
@@ -562,17 +584,17 @@ export default function GroupsPage() {
       picker={
         showMemberPicker ? (
           <AdminAssociationPickerPanel
-            title="Add UI users"
-            hint="(filter by email)"
+            title={text("addUiUsers")}
+            hint={text("filterByEmail")}
             search={memberSearch}
             onSearchChange={setMemberSearch}
-            searchAriaLabel="Search group members"
+            searchAriaLabel={text("searchGroupMembers")}
             loading={auxLoading}
             availableCount={availableUsers.length}
             maxVisibleOptions={MAX_VISIBLE_OPTIONS}
             selectedCount={memberSelections.length}
-            loadingLabel="Loading users..."
-            emptyLabel="No users available."
+            loadingLabel={text("loadingUsers")}
+            emptyLabel={text("noUsersAvailable")}
             addDisabled={memberSelections.length === 0}
             onCancel={() => {
               setShowMemberPicker(false);
@@ -615,26 +637,26 @@ export default function GroupsPage() {
       tabs={[
         {
           id: "accounts",
-          label: "Accounts",
+          label: text("accounts"),
           count: selectedAccountIds.size,
-          actionLabel: showAccountPicker ? "Close" : "Add accounts",
+          actionLabel: showAccountPicker ? text("close") : text("addAccounts"),
           onAction: () => setShowAccountPicker((current) => !current),
           content: (
             <AdminAssociationLinkedTable
-              title="Linked accounts"
+              title={text("linkedAccounts")}
               headers={[
-                { label: "Account" },
-                { label: "Manager role" },
+                { label: text("account") },
+                { label: text("managerRole") },
                 ...(showAccountPortalRoleColumn
-                  ? [{ label: "Portal role" }]
+                  ? [{ label: text("portalRole") }]
                   : []),
-                { label: "Actions", align: "right" as const },
+                { label: text("actions"), align: "right" as const },
               ]}
               hasItems={selectedAccountIds.size > 0}
-              emptyLabel="No linked accounts yet."
+              emptyLabel={text("noLinkedAccounts")}
               rows={(form.account_links ?? []).map((link) => {
                 const accountId = Number(link.account_id);
-                const label = accountOptionsById.get(accountId)?.name ?? `Account #${accountId}`;
+                const label = accountOptionsById.get(accountId)?.name ?? text("accountNumber", { id: accountId });
                 const accessErrorId = `group-account-access-${accountId}-error`;
                 const invalid = !hasAccountAccessRole(link);
                 const updateAccess = (value: AccountAccessGrant) =>
@@ -698,7 +720,7 @@ export default function GroupsPage() {
                           }))
                         }
                       >
-                        Remove
+                        {text("remove")}
                       </ListActionButton>
                     </td>
                   </tr>
@@ -707,17 +729,17 @@ export default function GroupsPage() {
               picker={
                 showAccountPicker ? (
                   <AdminAssociationPickerPanel
-                    title="Add accounts"
-                    hint="(search by name)"
+                    title={text("addAccounts")}
+                    hint={text("searchByName")}
                     search={accountSearch}
                     onSearchChange={setAccountSearch}
-                    searchAriaLabel="Search group accounts"
+                    searchAriaLabel={text("searchGroupAccounts")}
                     loading={auxLoading}
                     availableCount={availableAccounts.length}
                     maxVisibleOptions={MAX_VISIBLE_OPTIONS}
                     selectedCount={accountSelections.length}
-                    loadingLabel="Loading accounts..."
-                    emptyLabel="No accounts available."
+                    loadingLabel={text("loadingAccounts")}
+                    emptyLabel={text("noAccountsAvailable")}
                     addDisabled={
                       accountSelections.length === 0 ||
                       accountSelections.some(
@@ -752,8 +774,8 @@ export default function GroupsPage() {
                     }}
                   >
                     <AdminAssociationAccessPickerTable
-                      title="Available accounts"
-                      principalLabel="Account"
+                      title={text("availableAccounts")}
+                      principalLabel={text("account")}
                       options={visibleAccounts.map((account) => ({
                         id: account.id,
                         label: account.name,
@@ -781,24 +803,24 @@ export default function GroupsPage() {
         },
         {
           id: "s3_users",
-          label: "S3 Users",
+          label: text("s3Users"),
           count: selectedS3UserIds.size,
-          actionLabel: showS3UserPicker ? "Close" : "Add RGW users",
+          actionLabel: showS3UserPicker ? text("close") : text("addRgwUsers"),
           onAction: () => setShowS3UserPicker((current) => !current),
           content: (
             <AdminAssociationLinkedTable
-              title="Linked RGW users"
-              headers={[{ label: "RGW user" }, { label: "Actions", align: "right" }]}
+              title={text("linkedRgwUsers")}
+              headers={[{ label: text("rgwUser") }, { label: text("actions"), align: "right" }]}
               hasItems={selectedS3UserIds.size > 0}
-              emptyLabel="No linked RGW users yet."
+              emptyLabel={text("noLinkedRgwUsers")}
               rows={(form.s3_user_links ?? []).map((link) => (
                 <tr key={link.s3_user_id}>
                   <td className="ui-table-primary">
-                    {s3UserLabelById.get(link.s3_user_id) ?? `RGW User #${link.s3_user_id}`}
+                    {s3UserLabelById.get(link.s3_user_id) ?? text("rgwUserNumber", { id: link.s3_user_id })}
                   </td>
                   <td className="ui-table-actions-cell w-px text-right">
                     <AdminAssociationAdvancedSettings
-                      targetLabel={s3UserLabelById.get(link.s3_user_id) ?? `RGW User #${link.s3_user_id}`}
+                      targetLabel={s3UserLabelById.get(link.s3_user_id) ?? text("rgwUserNumber", { id: link.s3_user_id })}
                       associationKind="rgw_user"
                       allowManagerBrowserDataAccess={Boolean(link.allow_manager_browser_data_access)}
                       onApply={(allowed) =>
@@ -824,7 +846,7 @@ export default function GroupsPage() {
                         }))
                       }
                     >
-                      Remove
+                      {text("remove")}
                     </ListActionButton>
                   </td>
                 </tr>
@@ -832,17 +854,17 @@ export default function GroupsPage() {
               picker={
                 showS3UserPicker ? (
                   <AdminAssociationPickerPanel
-                    title="Add RGW users"
-                    hint="(search by name)"
+                    title={text("addRgwUsers")}
+                    hint={text("searchByName")}
                     search={s3UserSearch}
                     onSearchChange={setS3UserSearch}
-                    searchAriaLabel="Search group S3 users"
+                    searchAriaLabel={text("searchGroupS3Users")}
                     loading={auxLoading}
                     availableCount={availableS3Users.length}
                     maxVisibleOptions={MAX_VISIBLE_OPTIONS}
                     selectedCount={s3UserSelections.length}
-                    loadingLabel="Loading RGW users..."
-                    emptyLabel="No RGW users available."
+                    loadingLabel={text("loadingRgwUsers")}
+                    emptyLabel={text("noRgwUsersAvailable")}
                     addDisabled={s3UserSelections.length === 0}
                     onCancel={() => {
                       setShowS3UserPicker(false);
@@ -888,21 +910,21 @@ export default function GroupsPage() {
         },
         {
           id: "connections",
-          label: "Connections",
+          label: text("connections"),
           count: selectedConnectionIds.size,
-          actionLabel: showConnectionPicker ? "Close" : "Add S3 connections",
+          actionLabel: showConnectionPicker ? text("close") : text("addS3Connections"),
           onAction: () => setShowConnectionPicker((current) => !current),
-          hint: "Shared connections only",
+          hint: text("sharedConnectionsOnly"),
           content: (
             <AdminAssociationLinkedTable
-              title="Linked shared S3 connections"
-              headers={[{ label: "S3 connection" }, { label: "Actions", align: "right" }]}
+              title={text("linkedSharedS3Connections")}
+              headers={[{ label: text("s3Connection") }, { label: text("actions"), align: "right" }]}
               hasItems={selectedConnectionIds.size > 0}
-              emptyLabel="No linked S3 connections yet."
+              emptyLabel={text("noLinkedS3Connections")}
               rows={(form.s3_connection_ids ?? []).map((connectionId) => (
                 <tr key={connectionId}>
                   <td className="ui-table-primary">
-                    {connectionLabelById.get(connectionId) ?? `Connection #${connectionId}`}
+                    {connectionLabelById.get(connectionId) ?? text("connectionNumber", { id: connectionId })}
                   </td>
                   <td className="ui-table-actions-cell w-px text-right">
                     <ListActionButton
@@ -915,7 +937,7 @@ export default function GroupsPage() {
                         }))
                       }
                     >
-                      Remove
+                      {text("remove")}
                     </ListActionButton>
                   </td>
                 </tr>
@@ -923,17 +945,17 @@ export default function GroupsPage() {
               picker={
                 showConnectionPicker ? (
                   <AdminAssociationPickerPanel
-                    title="Add S3 connections"
-                    hint="(shared only)"
+                    title={text("addS3Connections")}
+                    hint={text("sharedOnly")}
                     search={connectionSearch}
                     onSearchChange={setConnectionSearch}
-                    searchAriaLabel="Search group shared S3 connections"
+                    searchAriaLabel={text("searchGroupSharedConnections")}
                     loading={auxLoading}
                     availableCount={availableConnections.length}
                     maxVisibleOptions={MAX_VISIBLE_OPTIONS}
                     selectedCount={connectionSelections.length}
-                    loadingLabel="Loading shared S3 connections..."
-                    emptyLabel="No shared S3 connections available."
+                    loadingLabel={text("loadingSharedConnections")}
+                    emptyLabel={text("noSharedConnectionsAvailable")}
                     addDisabled={connectionSelections.length === 0}
                     onCancel={() => {
                       setShowConnectionPicker(false);
@@ -994,7 +1016,7 @@ export default function GroupsPage() {
         label:
           accountDetailsById.get(accountId)?.name ??
           accountOptionsById.get(accountId)?.name ??
-          `Account #${link.account_id}`,
+          text("accountNumber", { id: link.account_id }),
         manager_role: link.manager_role,
         portal_role: link.portal_role,
       };
@@ -1003,7 +1025,7 @@ export default function GroupsPage() {
       const s3UserId = Number(link.s3_user_id);
       return {
         id: s3UserId,
-        label: s3UserDetailsById.get(s3UserId)?.name ?? s3UserLabelById.get(s3UserId) ?? `S3 User #${s3UserId}`,
+        label: s3UserDetailsById.get(s3UserId)?.name ?? s3UserLabelById.get(s3UserId) ?? text("s3UserNumber", { id: s3UserId }),
       };
     });
     const connectionItems = (group.s3_connection_details ?? []).map((details) => {
@@ -1013,22 +1035,22 @@ export default function GroupsPage() {
         label:
           details.name ??
           connectionLabelById.get(connectionId) ??
-          `Connection #${connectionId}`,
+          text("connectionNumber", { id: connectionId }),
       };
     });
     const categories: CompactAssociationCategory[] = [
       {
         id: "accounts",
-        label: "Accounts",
-        itemLabel: "RGW account",
+        label: text("accounts"),
+        itemLabel: text("rgwAccount"),
         items: accountItems.map((account) => ({
           id: account.id,
           label: account.label,
           role_labels: accountAssociationRoleLabels(account),
         })),
       },
-      { id: "s3_users", label: "RGW users", itemLabel: "RGW user", items: s3UserItems },
-      { id: "connections", label: "S3 connections", itemLabel: "S3 connection", items: connectionItems },
+      { id: "s3_users", label: text("rgwUsers"), itemLabel: text("rgwUser"), items: s3UserItems },
+      { id: "connections", label: text("s3Connections"), itemLabel: text("s3Connection"), items: connectionItems },
     ];
     return <CompactAssociationSummary categories={categories} />;
   };
@@ -1039,7 +1061,7 @@ export default function GroupsPage() {
       return {
         id,
         kind: "user",
-        label: user.full_name || user.email || `User #${id}`,
+        label: user.full_name || user.email || text("userNumber", { id }),
         email: user.email,
         avatar: user.avatar,
         role_labels: [uiPrincipalRoleLabel(user.role)],
@@ -1050,7 +1072,7 @@ export default function GroupsPage() {
   const groupTableColumns: Array<DataTableColumn<UiGroup, SortField>> = [
     {
       id: "name",
-      label: "Name",
+      label: text("name"),
       field: "name",
       primary: true,
       cellClassName: "min-w-[14rem]",
@@ -1068,7 +1090,7 @@ export default function GroupsPage() {
     },
     {
       id: "rights",
-      label: "Rights",
+      label: text("rights"),
       cellClassName: "min-w-[12rem]",
       render: (group) => {
         const access = normalizeManagerToolAccess(group.manager_tool_access);
@@ -1079,26 +1101,26 @@ export default function GroupsPage() {
           <div className="flex flex-wrap gap-2">
             {group.can_access_ceph_admin && (
               <ListBadge tone="warning">
-                Ceph Admin
+                {text("cephAdmin")}
               </ListBadge>
             )}
             {group.can_access_storage_ops && (
               <ListBadge tone="info">
-                Storage Ops
+                {text("storageOps")}
               </ListBadge>
             )}
             {group.can_create_manual_private_connections && (
               <ListBadge tone="success">
-                Connections
+                {text("connections")}
               </ListBadge>
             )}
             {toolCount > 0 && (
               <ListBadge tone="neutral">
-                {toolCount} Manager permissions
+                {text("managerPermissionsCount", { count: toolCount })}
               </ListBadge>
             )}
             {!group.can_access_ceph_admin && !group.can_access_storage_ops && !group.can_create_manual_private_connections && toolCount === 0 && (
-              <span className="ui-caption text-slate-500 dark:text-slate-400">No workspace/tool rights</span>
+              <span className="ui-caption text-slate-500 dark:text-slate-400">{text("noWorkspaceToolRights")}</span>
             )}
           </div>
         );
@@ -1106,19 +1128,19 @@ export default function GroupsPage() {
     },
     {
       id: "members",
-      label: "Members",
+      label: text("members"),
       cellClassName: "min-w-[10rem]",
       render: (group) => renderGroupMembers(group),
     },
     {
       id: "associations",
-      label: "Storage associations",
+      label: text("storageAssociations"),
       cellClassName: "min-w-[18rem]",
       render: (group) => renderGroupAssociations(group),
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("actions"),
       align: "right",
       mobileRole: "actions",
       cellClassName: "min-w-[220px]",
@@ -1130,10 +1152,10 @@ export default function GroupsPage() {
 
             {...dataTableDefaultActionProps}
           >
-            Edit
+            {text("edit")}
           </ListActionButton>
           <ListActionLink to={buildAccessAuditHref({ groupId: group.id })}>
-            Review access
+            {text("reviewAccess")}
           </ListActionLink>
           <ListActionButton
             type="button"
@@ -1141,7 +1163,7 @@ export default function GroupsPage() {
             disabled={busyId === group.id}
              variant="danger"
           >
-            {busyId === group.id ? "Deleting..." : "Delete"}
+            {busyId === group.id ? text("deleting") : text("delete")}
           </ListActionButton>
         </ListActions>
       ),
@@ -1150,21 +1172,26 @@ export default function GroupsPage() {
 
   return (
     <div className={workflowPageHostClass(showModal)}>
-      <SettingsNavigationGuard dirty={hasUnsavedChanges} onDiscard={closeModal} />
+      <SettingsNavigationGuard dirty={hasUnsavedChanges} onDiscard={closeModal}
+        title={text("discardTitle")} description={text("unsavedChanges")}
+        confirmLabel={text("discardChanges")} cancelLabel={text("keepEditing")}
+        closeLabel={locale === "zh" ? text("close") : undefined} />
       <PageHeader actionPresentation="listing"
-        title="UI Groups"
-        description="Create reusable UI access groups for workspace, Manager tool, and execution context access."
-        breadcrumbs={adminPageBreadcrumbs("groups")}
-        actions={[{ label: "Create group", onClick: openCreateModal }]}
+        title={text("uiGroups")}
+        description={text("pageDescription")}
+        breadcrumbs={groupBreadcrumbs()}
+        actions={[{ label: text("createGroup"), onClick: openCreateModal }]}
       />
       {actionError && <PageBanner tone="error">{actionError}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       <ListPageSection
         variant="page"
-        mobileSort={<TableSortControls columns={groupTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-          title="Groups"
-          countLabel={`${totalGroups} entr${totalGroups === 1 ? "y" : "ies"}`}
+        mobileSort={<TableSortControls columns={groupTableColumns}
+          labels={{ sortBy: text("sortBy"), direction: text("direction"), ascending: text("ascending"), descending: text("descending") }}
+          sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
+          title={text("groups")}
+          countLabel={text(totalGroups === 1 ? "entryCount" : "entriesCount", { count: totalGroups })}
           search={
             <ToolbarSearchInput
               value={filter}
@@ -1172,7 +1199,7 @@ export default function GroupsPage() {
                 setFilter(value);
                 setPage(1);
               }}
-              placeholder="Search by group, member, account, user, or connection"
+              placeholder={text("searchPlaceholder")}
               className="w-full sm:w-64 md:w-80"
             />
           }
@@ -1182,9 +1209,9 @@ export default function GroupsPage() {
           rows={groups}
           rowKey={(group) => group.id}
           status={tableStatus}
-          loadingMessage="Loading groups..."
-          errorMessage="Unable to load groups."
-          emptyMessage="No groups."
+          loadingMessage={text("loadingGroups")}
+          errorMessage={text("loadGroupsError")}
+          emptyMessage={text("noGroups")}
           sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
           pagination={{
             page,
@@ -1205,10 +1232,10 @@ export default function GroupsPage() {
 
       {showModal && (
         <WorkflowPage
-          title={editingGroup ? "Edit UI group" : "Create UI group"}
-          description="Manage members, storage associations, and inherited workspace permissions for this UI group."
-          breadcrumbs={adminPageBreadcrumbs("groups", { label: editingGroup ? "Edit" : "Create" })}
-          backLabel="Back to groups"
+          title={editingGroup ? text("editUiGroup") : text("createUiGroup")}
+          description={text("editorDescription")}
+          breadcrumbs={groupBreadcrumbs({ label: editingGroup ? text("edit") : text("create") })}
+          backLabel={text("backToGroups")}
           onBack={closeGuard.requestClose}
           backDisabled={saving}
           contentClassName="settings-compact settings-form"
@@ -1220,51 +1247,55 @@ export default function GroupsPage() {
               {actionError}
             </PageBanner>
           )}
-          <SettingsForm label={editingGroup ? "Edit UI group" : "Create UI group"} busy={saving}
-            onSubmit={submitGroup} onCancel={closeGuard.requestClose} submitLabel="Save" busyLabel="Saving...">
+          <SettingsForm label={editingGroup ? text("editUiGroup") : text("createUiGroup")} busy={saving}
+            onSubmit={submitGroup} onCancel={closeGuard.requestClose} submitLabel={text("save")} busyLabel={text("saving")}
+            actions={<>
+              <SettingsButton variant="secondary" disabled={saving} onClick={closeGuard.requestClose}>{text("cancel")}</SettingsButton>
+              <SettingsButton type="submit" disabled={saving}>{saving ? text("saving") : text("save")}</SettingsButton>
+            </>}>
             <WorkflowTabs<GroupModalTab>
               panelClassName={modalTab === "members" || modalTab === "associations" ? adminAssociationPanelClass : undefined}
               activeTab={modalTab}
               onTabChange={setModalTab}
-              ariaLabel="UI group configuration sections"
+              ariaLabel={text("configurationSections")}
               idPrefix="admin-ui-group-editor"
               tabs={[
-                { id: "general", label: "General" },
-                { id: "members", label: "Members" },
-                { id: "associations", label: "Associations" },
-                { id: "access", label: "Platform access" },
+                { id: "general", label: text("general") },
+                { id: "members", label: text("members") },
+                { id: "associations", label: text("associations") },
+                { id: "access", label: text("platformAccess") },
               ]}
             >
 
             {modalTab === "general" && (
               <>
-                <SettingsSection title="Identity" presentation="compact">
+                <SettingsSection title={text("identity")} presentation="compact">
                   <div className="settings-fields">
-                    <UiInput id="admin-ui-group-name" label="Name" required
-                      value={form.name ?? ""} placeholder="Storage operators"
-                      error={attempted && !String(form.name || "").trim() ? "Group name is required." : undefined}
+                    <UiInput id="admin-ui-group-name" label={text("name")} required
+                      value={form.name ?? ""} placeholder={text("namePlaceholder")}
+                      error={attempted && !String(form.name || "").trim() ? text("nameRequired") : undefined}
                       onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
-                    <UiTextarea label="Description" rows={3} value={form.description ?? ""}
-                      placeholder="Optional notes for administrators"
+                    <UiTextarea label={text("description")} rows={3} value={form.description ?? ""}
+                      placeholder={text("descriptionPlaceholder")}
                       onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
                   </div>
                 </SettingsSection>
-                <SettingsSection title="Group pictogram" presentation="compact"
-                  description="Use initials, a predefined pictogram, or a custom PNG/JPEG image. Groups never use Gravatar or OIDC images.">
+                <SettingsSection title={text("groupPictogram")} presentation="compact"
+                  description={text("pictogramDescription")}>
                   <div className="settings-fields">
-                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Group pictogram">
-                      <GroupAvatar avatar={avatarPreview} name={String(form.name || "UI group")} size="md" />
+                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label={text("groupPictogram")}>
+                      <GroupAvatar avatar={avatarPreview} name={String(form.name || text("uiGroup"))} size="md" />
                       <SettingsButton variant={form.avatar_source === "initials" && !avatarFile ? "primary" : "secondary"}
                         aria-pressed={form.avatar_source === "initials" && !avatarFile}
                         onClick={() => {
                           setAvatarFile(null);
                           setRemoveAvatarImage(false);
                           setForm((current) => ({ ...current, avatar_source: "initials", avatar_icon: null }));
-                        }}>Initials</SettingsButton>
+                        }}>{text("initials")}</SettingsButton>
                       {groupAvatarIcons.map((icon) => (
                         <SettingsButton key={icon.value} title={icon.label}
                           variant={form.avatar_source === "preset" && form.avatar_icon === icon.value && !avatarFile ? "primary" : "secondary"}
-                          aria-label={`Use ${icon.label} pictogram`}
+                          aria-label={text("usePictogram", { label: icon.label })}
                           aria-pressed={form.avatar_source === "preset" && form.avatar_icon === icon.value && !avatarFile}
                           onClick={() => {
                             setAvatarFile(null);
@@ -1276,8 +1307,8 @@ export default function GroupsPage() {
                         </SettingsButton>
                       ))}
                     </div>
-                    <UiInput label="Upload image" type="file" accept="image/png,image/jpeg"
-                      hint="PNG or JPEG, up to 1 MiB."
+                    <UiInput label={text("uploadImage")} type="file" accept="image/png,image/jpeg"
+                      hint={text("imageRequirements")}
                       onChange={(event) => {
                         selectAvatarFile(event.target.files?.[0] ?? null);
                         event.target.value = "";
@@ -1287,7 +1318,7 @@ export default function GroupsPage() {
                       <div><SettingsButton variant="danger" onClick={() => {
                         setRemoveAvatarImage(true);
                         setForm((current) => ({ ...current, avatar_source: "initials", avatar_icon: null }));
-                      }}>Remove uploaded image</SettingsButton></div>
+                      }}>{text("removeUploadedImage")}</SettingsButton></div>
                     )}
                   </div>
                 </SettingsSection>
@@ -1303,28 +1334,28 @@ export default function GroupsPage() {
             {modalTab === "access" && (
               <>
                 <WorkspaceAccessSection
-                  description="Additional operational workspaces inherited by group members."
+                  description={text("workspaceAccessDescription")}
                   cephAdmin={{
-                    title: "Ceph Admin access",
-                    description: "Grant effective /ceph-admin access to members whose UI role is Admin or Superadmin.",
+                    title: text("cephAdminAccess"),
+                    description: text("cephAdminAccessDescription"),
                     checked: Boolean(form.can_access_ceph_admin),
                     onChange: (value) => setForm((current) => ({ ...current, can_access_ceph_admin: value })),
-                    ariaLabel: "Allow group access to /ceph-admin",
+                    ariaLabel: text("allowCephAdminAccess"),
                   }}
                   storageOps={{
-                    title: "Storage Ops access",
-                    description: "Grant effective /storage-ops access to members with User, Admin, or Superadmin roles.",
+                    title: text("storageOpsAccess"),
+                    description: text("storageOpsAccessDescription"),
                     checked: Boolean(form.can_access_storage_ops),
                     onChange: (value) => setForm((current) => ({ ...current, can_access_storage_ops: value })),
-                    ariaLabel: "Allow group access to /storage-ops",
+                    ariaLabel: text("allowStorageOpsAccess"),
                   }}
                 />
                 <ManagerToolAccessSection
-                  title="Manager"
+                  title={text("manager")}
                   additionalItems={[
                     {
-                      title: "Provision managed private connections",
-                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
+                      title: text("provisionManagedPrivateConnections"),
+                      description: text("managedProvisioningDescription"),
                       checked: Boolean(form.can_provision_managed_private_connections),
                       disabled: !generalSettings.managed_private_connection_provisioning_enabled,
                       onChange: (value) =>
@@ -1332,15 +1363,15 @@ export default function GroupsPage() {
                           ...current,
                           can_provision_managed_private_connections: value,
                         })),
-                      ariaLabel: "Allow managed private connection provisioning",
+                      ariaLabel: text("allowManagedProvisioning"),
                       badge: {
                         visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: "Disabled globally",
+                        label: text("disabledGlobally"),
                         tone: "neutral",
                       },
                     },
                   ]}
-                  description="Manager permissions inherited by group members."
+                  description={text("managerAccessDescription")}
                   tools={managerToolDefinitions}
                   access={form.manager_tool_access}
                   onChange={(key: ManagerToolKey, value) =>
@@ -1354,7 +1385,7 @@ export default function GroupsPage() {
                   }
                 />
                 <BrowserAccessSection
-                  description="Browser options inherited by group members."
+                  description={text("browserAccessDescription")}
                   checked={Boolean(form.browser_advanced_features_enabled)}
                   onChange={(value) =>
                     setForm((current) => ({
@@ -1364,19 +1395,19 @@ export default function GroupsPage() {
                   }
                 />
                 <AdminAccessToggleSection
-                  title="Connections"
-                  description="Private S3 connection permissions inherited by group members."
+                  title={text("connections")}
+                  description={text("connectionAccessDescription")}
                   items={[
                     {
-                      title: "Create manual private connections",
-                      description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
+                      title: text("createManualPrivateConnections"),
+                      description: text("manualConnectionsDescription"),
                       checked: Boolean(form.can_create_manual_private_connections),
                       onChange: (value) =>
                         setForm((current) => ({
                           ...current,
                           can_create_manual_private_connections: value,
                         })),
-                      ariaLabel: "Allow manual private connection creation",
+                      ariaLabel: text("allowManualConnections"),
                     },
                   ]}
                 />
@@ -1392,13 +1423,17 @@ export default function GroupsPage() {
 
       {pendingDeleteGroup && (
         <ConfirmActionDialog
-          title="Delete UI group"
-          description="This removes the group and stops members inheriting its UI access."
-          confirmLabel="Delete group"
-          details={[{ label: "Group", value: pendingDeleteGroup.name }]}
+          title={text("deleteUiGroup")}
+          description={text("deleteDescription")}
+          confirmLabel={text("deleteGroup")}
+          cancelLabel={text("cancel")}
+          processingLabel={text("processing")}
+          impactLabel={text("impact")}
+          closeLabel={locale === "zh" ? text("close") : undefined}
+          details={[{ label: text("group"), value: pendingDeleteGroup.name }]}
           impacts={[
-            "Members keep their direct user permissions.",
-            "Accounts, S3 users, and S3 connections remain in the platform.",
+            text("directPermissionsRemain"),
+            text("resourcesRemain"),
           ]}
           loading={busyId === pendingDeleteGroup.id}
           onCancel={() => setPendingDeleteGroup(null)}
