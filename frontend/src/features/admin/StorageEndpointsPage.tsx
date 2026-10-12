@@ -60,6 +60,7 @@ import StorageEndpointCapabilitiesFields from "./StorageEndpointCapabilitiesFiel
 import { buildStorageEndpointSubmission } from "./storageEndpointSubmission";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import StorageEndpointList, { type EndpointListFilters } from "./StorageEndpointList";
+import { useStorageEndpointI18n } from "./storageEndpointMessages";
 import {
   EndpointHttpStatusBadge,
   resolveCredentialCheckView,
@@ -83,6 +84,8 @@ function isMethodNotAllowedError(message?: string | null): boolean {
 
 export default function StorageEndpointsPage() {
   const navigate = useNavigate();
+  const { text } = useStorageEndpointI18n();
+  const extractLocalizedError = useCallback((err: unknown) => extractApiError(err, text("genericError")), [text]);
   const { endpointId: endpointIdParam } = useParams();
   const { generalSettings } = useGeneralSettings();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
@@ -142,10 +145,10 @@ export default function StorageEndpointsPage() {
       setEnvManaged(Boolean(meta.value.managed_by_env));
       setMetadataReady(true);
     }
-    if (data.status === "rejected") setError(extractApiError(data.reason, "An error occurred."));
-    else if (meta.status === "rejected") setError(`Unable to load endpoint management mode. Changes are disabled. ${extractApiError(meta.reason, "An error occurred.")}`);
+    if (data.status === "rejected") setError(extractLocalizedError(data.reason));
+    else if (meta.status === "rejected") setError(text("managementModeUnavailable", { error: extractLocalizedError(meta.reason) }));
     setLoading(false);
-  }, []);
+  }, [extractLocalizedError, text]);
 
   useEffect(() => {
     loadEndpoints();
@@ -273,19 +276,19 @@ export default function StorageEndpointsPage() {
       !detection.account &&
       isMethodNotAllowedError(detection.account_error)
     ) {
-      warnings.push("Account API is not available on this endpoint (optional capability).");
+      warnings.push(text("accountApiUnavailable"));
     }
     return warnings;
-  }, [detection, hasAdminCredentials]);
+  }, [detection, hasAdminCredentials, text]);
   const featureDetectError = useMemo(() => {
     if (endpointValidation.error) return endpointValidation.error;
     if (!detection) return null;
     const errors: string[] = [];
     if (detection.http_check?.status === "unavailable") {
-      errors.push(detection.http_check.message ?? "Endpoint is unavailable.");
+      errors.push(detection.http_check.message ?? text("endpointUnavailable"));
     }
     if (hasAdminCredentials && !detection.admin && detection.admin_error) {
-      errors.push(`Admin: ${detection.admin_error}`);
+      errors.push(text("adminError", { error: detection.admin_error }));
     }
     if (
       hasAdminCredentials &&
@@ -293,10 +296,10 @@ export default function StorageEndpointsPage() {
       detection.account_error &&
       !isMethodNotAllowedError(detection.account_error)
     ) {
-      errors.push(`Account API: ${detection.account_error}`);
+      errors.push(text("accountApiError", { error: detection.account_error }));
     }
     if (hasSupervisionCredentials && !detection.metrics && detection.metrics_error) {
-      errors.push(`Metrics: ${detection.metrics_error}`);
+      errors.push(text("metricsError", { error: detection.metrics_error }));
     }
     if (
       hasSupervisionCredentials &&
@@ -304,7 +307,7 @@ export default function StorageEndpointsPage() {
       detection.usage_error &&
       !detection.metrics
     ) {
-      errors.push(`Usage Log: ${detection.usage_error}`);
+      errors.push(text("usageLogError", { error: detection.usage_error }));
     }
     return errors.length > 0 ? errors.join(" | ") : null;
   }, [
@@ -312,6 +315,7 @@ export default function StorageEndpointsPage() {
     endpointValidation.error,
     hasAdminCredentials,
     hasSupervisionCredentials,
+    text,
   ]);
 
   useEffect(() => {
@@ -508,7 +512,7 @@ export default function StorageEndpointsPage() {
   );
   const managedProvisioningOnSave = managedProvisioningIntent && hasAdminCredentials && adminUsersWrite === true;
   const endpointSubmitLabel = managedProvisioningOnSave
-    ? editingId === null ? "Save endpoint & create managed identities" : "Save & create managed identities"
+    ? editingId === null ? text("saveAndCreateIdentities") : text("saveCreateIdentities")
     : undefined;
   const fieldErrors = validationShown && !configurationReadOnly
     ? buildStorageEndpointSubmission(form, editingId !== null, editingEndpoint?.service_identities).errors ?? {} : {};
@@ -522,10 +526,10 @@ export default function StorageEndpointsPage() {
     try {
       await deleteStorageEndpoint(deleteTarget.id);
       setDeleteTarget(null);
-      setActionMessage("Endpoint deleted.");
+      setActionMessage(text("endpointDeleted"));
       await loadEndpoints();
     } catch (err) {
-      setDeleteError(extractApiError(err, "An error occurred."));
+      setDeleteError(extractLocalizedError(err));
     } finally {
       mutationPending.current = false;
       setDeleteBusy(false);
@@ -540,10 +544,10 @@ export default function StorageEndpointsPage() {
     setDefaultBusyId(endpoint.id);
     try {
       await setDefaultStorageEndpoint(endpoint.id);
-      setActionMessage("Default endpoint updated.");
+      setActionMessage(text("defaultEndpointUpdated"));
       await loadEndpoints();
     } catch (err) {
-      setDefaultError(extractApiError(err, "An error occurred."));
+      setDefaultError(extractLocalizedError(err));
     } finally {
       mutationPending.current = false;
       setDefaultBusyId(null);
@@ -594,7 +598,7 @@ export default function StorageEndpointsPage() {
         setFormBaseline(previous => previous ? { ...previous, tags: normalizedTags } : previous);
       }
       if (savedEndpoint?.service_identities?.some(identity => identity.status === "error" || identity.status === "revocation_pending")) {
-        setFormError("Endpoint saved. Some service identities need attention; review their status and retry configuration.");
+        setFormError(text("endpointSavedIdentityAttention"));
         await loadEndpoints();
         return;
       }
@@ -617,31 +621,27 @@ export default function StorageEndpointsPage() {
           setEndpoints(previous => [...previous.filter(endpoint => endpoint.id !== reconciled.id), reconciled]);
           setForm(reconciledForm);
           setFormBaseline(reconciledForm);
-          setActionMessage(editingId === null
-            ? "Endpoint added and managed service identities created."
-            : "Endpoint updated and managed service identities created.");
+          setActionMessage(text(editingId === null ? "endpointAddedIdentitiesCreated" : "endpointUpdatedIdentitiesCreated"));
           await loadEndpoints();
           setValidationRetryKey(previous => previous + 1);
         } catch (cause) {
           if (isRecentWebAuthnVerificationCancelled(cause)) {
-            setActionMessage("Endpoint saved. Managed service identities were not created.");
+            setActionMessage(text("endpointSavedIdentitiesNotCreated"));
           } else {
-            setFormError(`Endpoint saved, but managed service identities could not be created. ${extractApiError(cause, "An error occurred.")}`);
+            setFormError(text("endpointSavedIdentitiesFailed", { error: extractLocalizedError(cause) }));
           }
           await loadEndpoints();
         }
         return;
       }
       if (awaitingManagedProvisioning) {
-        setActionMessage(editingId === null
-          ? "Endpoint added. Create the managed service identities to complete setup."
-          : "Endpoint updated. Create the managed service identities to complete setup.");
+        setActionMessage(text(editingId === null ? "endpointAddedProvisioningPending" : "endpointUpdatedProvisioningPending"));
         setActiveTab("credentials");
         await loadEndpoints();
         if (!hasEndpointRoute) navigate(`/admin/storage-endpoints/${targetId}`);
         return;
       }
-      setActionMessage(editingId === null ? "Endpoint added." : saveConfiguration ? "Endpoint updated." : "Endpoint tags updated.");
+      setActionMessage(text(editingId === null ? "endpointAdded" : saveConfiguration ? "endpointUpdated" : "endpointTagsUpdated"));
       closingEndpointId.current = routeEndpointId;
       flushSync(() => { setShowForm(false); resetForm(); });
       await loadEndpoints();
@@ -651,8 +651,8 @@ export default function StorageEndpointsPage() {
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
         setFormError(savedEndpoint
-          ? `Endpoint ${editingId === null ? "created" : "updated"}, but tags could not be saved. Your tag changes are kept; retry to save them. ${extractApiError(err, "An error occurred.")}`
-          : extractApiError(err, "An error occurred."));
+          ? text("endpointTagsSaveFailed", { status: text(editingId === null ? "statusCreated" : "statusUpdated"), error: extractLocalizedError(err) })
+          : extractLocalizedError(err));
       }
     } finally {
       mutationPending.current = false;
@@ -678,7 +678,7 @@ export default function StorageEndpointsPage() {
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.admin,
-        incompleteMessage: "Enter both the Admin Ops access key and secret key.",
+        incompleteMessage: text("enterAdminCredentials"),
       });
   const supervisionCredentialCheck = configurationReadOnly
     ? null
@@ -690,14 +690,14 @@ export default function StorageEndpointsPage() {
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.supervision,
-        incompleteMessage: "Enter both the Supervision Ops access key and secret key.",
+        incompleteMessage: text("enterSupervisionCredentials"),
       });
   const cephAdminCredentialCheck = configurationReadOnly ? null : resolveCredentialCheckView({
     accessKey: form.ceph_admin_access_key, secretKey: form.ceph_admin_secret_key,
     hasStoredSecret: form.has_ceph_admin_secret, reuseStoredCredentials: editingId != null,
     endpointReady: endpointReadyForCredentialCheck, checking: featureDetectBusy,
     check: credentialChecks.ceph_admin ?? { status: "not_configured" },
-    incompleteMessage: "Enter both the Ceph Admin access key and secret key.",
+    incompleteMessage: text("enterCephAdminCredentials"),
   });
   const runtimeCredentialCheck = configurationReadOnly
     ? null
@@ -709,7 +709,7 @@ export default function StorageEndpointsPage() {
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.runtime ?? { status: "not_configured" },
-        incompleteMessage: "Enter both the Runtime Read Ops access key and secret key.",
+        incompleteMessage: text("enterRuntimeCredentials"),
       });
   const managedSupervisionReady = Boolean(
     editingEndpoint?.service_identities?.some(identity =>
@@ -732,19 +732,19 @@ export default function StorageEndpointsPage() {
           !form.supervision_access_key.trim() && !form.supervision_secret_key.trim())
     );
   const editorTabs = [
-    { id: "general", label: "Connection" },
-    { id: "credentials", label: "Credentials" },
-    { id: "capabilities", label: "Capabilities & health" },
+    { id: "general", label: text("connectionTab") },
+    { id: "credentials", label: text("credentialsTab") },
+    { id: "capabilities", label: text("capabilitiesTab") },
   ];
   const signedProbeBlockedReason = !cephMode
-    ? "S3 signed probe is available only for Ceph endpoints."
+    ? text("signedProbeCephOnly")
     : !hasSupervisionCredentialsForSignedProbe
-    ? "S3 signed probe requires Supervision credentials (access key + secret key)."
+    ? text("signedProbeCredentialsRequired")
     : null;
-  const editorEndpointName = form.name.trim() || editingEndpoint?.name || "Endpoint";
+  const editorEndpointName = form.name.trim() || editingEndpoint?.name || text("endpointFallback");
   const editorTitle = editingId
-    ? `${configurationReadOnly ? "Storage endpoint" : "Edit storage endpoint"} · ${editorEndpointName}`
-    : "New storage endpoint";
+    ? `${text(configurationReadOnly ? "storageEndpointTitle" : "editStorageEndpoint")} · ${editorEndpointName}`
+    : text("newStorageEndpoint");
   useEffect(() => {
     if (saving || configurationReadOnly) return;
     if (externalSupervisionConfigured && (
@@ -783,41 +783,41 @@ export default function StorageEndpointsPage() {
     <div className="space-y-4 ui-caption leading-relaxed">
       {routeEndpointLoading ? (
         <WorkflowPage
-          title="Loading storage endpoint"
-          description="Retrieving endpoint configuration and access mode."
-          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: "Loading" })}
+          title={text("loadingStorageEndpoint")}
+          description={text("loadingDescription")}
+          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: text("loadingStorageEndpoint") })}
           width="narrow"
         >
-          <PageBanner tone="info">Loading endpoint configuration...</PageBanner>
+          <PageBanner tone="info">{text("loadingConfiguration")}</PageBanner>
         </WorkflowPage>
       ) : routeEndpointMissing ? (
         <WorkflowPage
-          title="Storage endpoint not found"
-          description="The requested endpoint does not exist or is no longer available."
-          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: "Not found" })}
-          backLabel="Back to endpoints"
+          title={text("notFound")}
+          description={text("notFoundDescription")}
+          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: text("notFound") })}
+          backLabel={text("backToEndpoints")}
           onBack={() => navigate("/admin/storage-endpoints")}
           width="narrow"
         >
-          <PageBanner tone="warning">Select an endpoint from the current storage endpoint list.</PageBanner>
+          <PageBanner tone="warning">{text("selectCurrentEndpoint")}</PageBanner>
         </WorkflowPage>
       ) : !showForm ? (
         <>
       <PageHeader
-        title="S3 Endpoints"
-        description="Manage the S3/Ceph endpoints used by the console."
+        title={text("s3Endpoints")}
+        description={text("pageDescription")}
         breadcrumbs={adminPageBreadcrumbs("storage-endpoints")}
-        rightContent={metadataReady && !loading && !envManaged && canEditEndpoints ? <ListActionButton variant="primary" onClick={startCreate}>New endpoint</ListActionButton> : undefined}
+        rightContent={metadataReady && !loading && !envManaged && canEditEndpoints ? <ListActionButton variant="primary" onClick={startCreate}>{text("newEndpoint")}</ListActionButton> : undefined}
       />
 
       {envManaged && (
         <PageBanner tone="info">
-          Storage endpoints are managed by environment variables (ENV_STORAGE_ENDPOINTS). Configuration changes are disabled.
+          {text("envManagedBanner")}
         </PageBanner>
       )}
       {!envManaged && !canEditEndpoints && (
         <PageBanner tone="info">
-          Endpoint editing is restricted to superadmin users. You currently have read-only access.
+          {text("readOnlyBanner")}
         </PageBanner>
       )}
       {defaultError && <PageBanner tone="error">{defaultError}</PageBanner>}
@@ -832,22 +832,22 @@ export default function StorageEndpointsPage() {
       ) : null}
 
       {showForm && (
-        <StorageEndpointEditor key={editingId ?? "create"} title={editorTitle} name={editingEndpoint?.name ?? "Endpoint"}
+        <StorageEndpointEditor key={editingId ?? "create"} title={editorTitle} name={editingEndpoint?.name ?? text("endpointFallback")}
           editing={editingId !== null} readOnly={configurationReadOnly} canEdit={canEditEndpoints}
           ready={metadataReady} dirty={hasFormChanges} busy={saving}
-          submitLabel={endpointSubmitLabel} busyLabel={managedProvisioningOnSave ? "Saving and creating identities..." : undefined}
+          submitLabel={endpointSubmitLabel} busyLabel={managedProvisioningOnSave ? text("savingAndCreatingIdentities") : undefined}
           onSubmit={handleSubmit} onClose={onCloseForm}>
           {formError && <PageBanner tone="error">{formError}</PageBanner>}
           {configurationReadOnly && <PageBanner tone="info">
-            Endpoint configuration is read-only. {!metadataReady
-              ? "Management mode is unavailable. Return to endpoints and retry before making changes."
-              : canEditEndpoints ? "You can still update the tags associated with this endpoint."
-                : "All settings and tags are available for consultation only."}
+            {text("endpointConfigurationReadOnly", { detail: !metadataReady
+              ? text("managementModeUnavailableShort")
+              : canEditEndpoints ? text("tagsCanStillUpdate")
+                : text("settingsConsultationOnly") })}
           </PageBanner>}
           {endpointTagCatalogError && <PageBanner tone="warning">{endpointTagCatalogError}</PageBanner>}
           <PageTabs tabs={editorTabs.map(tab => ({ ...tab, disabled: saving }))} activeTab={activeTab}
             onChange={tab => setActiveTab(tab as EndpointEditorTab)} variant="line"
-            ariaLabel="Endpoint configuration sections" idPrefix="endpoint-editor" />
+            ariaLabel={text("endpointConfigurationSections")} idPrefix="endpoint-editor" />
           <div id={`endpoint-editor-panel-${activeTab}`} role="tabpanel" aria-labelledby={`endpoint-editor-tab-${activeTab}`}>
             {activeTab === "general" && <StorageEndpointConnectionFields form={form} setForm={setForm}
               readOnly={configurationReadOnly} canEditTags={canEditEndpoints} busy={saving}
@@ -874,7 +874,7 @@ export default function StorageEndpointsPage() {
                   await loadEndpoints();
                   setValidationRetryKey(previous => previous + 1);
                 })
-                  .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setFormError(extractApiError(cause, "An error occurred.")); })
+                  .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setFormError(extractLocalizedError(cause)); })
                   .finally(() => { mutationPending.current = false; setSaving(false); });
               } : undefined}
               errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} detection={detection} checks={{
@@ -894,10 +894,10 @@ export default function StorageEndpointsPage() {
 
       {deleteTarget && (
         <ConfirmActionDialog
-          title="Delete endpoint"
-          description={<>Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This action cannot be undone.</>}
-          confirmLabel="Delete"
-          processingLabel="Deleting..."
+          title={text("deleteEndpoint")}
+          description={<>{text("deleteConfirm", { name: deleteTarget.name }).split(deleteTarget.name)[0]}<strong>{deleteTarget.name}</strong>{text("deleteConfirm", { name: deleteTarget.name }).split(deleteTarget.name)[1]}</>}
+          confirmLabel={text("delete")}
+          processingLabel={text("deleting")}
           loading={deleteBusy}
           error={deleteError}
           onCancel={() => setDeleteTarget(null)}
