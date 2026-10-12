@@ -4,15 +4,15 @@
  */
 import { useMemo, useState } from "react";
 import type { HealthCheckStatus } from "../../api/healthchecks";
+import type { UiLanguage } from "../../components/language";
+import { endpointStatusText, useEndpointStatusText } from "./endpointStatusMessages";
 
-export const STATUS_LABELS: Record<HealthCheckStatus, string> = {
-  unknown: "Unknown",
-  up: "Up",
-  degraded: "Degraded",
-  down: "Down",
-};
+export function formatStatusLabel(status: HealthCheckStatus, locale: UiLanguage = "en") {
+  return endpointStatusText(`status_${status}`, locale);
+}
 
 export function StatusPill({ status }: { status: HealthCheckStatus }) {
+  const { locale } = useEndpointStatusText();
   const classes =
     status === "up"
       ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100"
@@ -21,7 +21,7 @@ export function StatusPill({ status }: { status: HealthCheckStatus }) {
         : status === "down"
           ? "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-100"
           : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 ui-caption font-semibold ${classes}`}>{STATUS_LABELS[status]}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 ui-caption font-semibold ${classes}`}>{formatStatusLabel(status, locale)}</span>;
 }
 
 export function formatLatency(value?: number | null) {
@@ -29,22 +29,22 @@ export function formatLatency(value?: number | null) {
   return `${value} ms`;
 }
 
-export function formatTimestamp(value: string) {
+export function formatTimestamp(value: string, locale?: UiLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
+  return date.toLocaleString(locale === "zh" ? "zh-CN" : undefined);
 }
 
-export function formatChartTime(value: number) {
+export function formatChartTime(value: number, locale?: UiLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
-export function formatChartDay(value: number | string) {
+export function formatChartDay(value: number | string, locale?: UiLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : undefined, { day: "2-digit", month: "2-digit" }).format(date);
 }
 
 export function formatPercent(value?: number | null) {
@@ -107,23 +107,26 @@ function parseTimestampMs(value?: string | null) {
   return parsed;
 }
 
-export function formatDurationShort(durationMs: number) {
+export function formatDurationShort(durationMs: number, locale: UiLanguage = "en") {
   const minutes = Math.max(0, Math.round(durationMs / 60000));
-  if (minutes < 60) return `${minutes} min`;
+  const minuteUnit = endpointStatusText("minuteUnit", locale);
+  const hourUnit = endpointStatusText("hourUnit", locale);
+  const dayUnit = endpointStatusText("dayUnit", locale);
+  if (minutes < 60) return `${minutes} ${minuteUnit}`;
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  if (hours < 24) return remainingMinutes > 0 ? `${hours} h ${remainingMinutes} min` : `${hours} h`;
+  if (hours < 24) return remainingMinutes > 0 ? `${hours} ${hourUnit} ${remainingMinutes} ${minuteUnit}` : `${hours} ${hourUnit}`;
   const days = Math.floor(hours / 24);
   const remainingHours = hours % 24;
-  return remainingHours > 0 ? `${days} d ${remainingHours} h` : `${days} d`;
+  return remainingHours > 0 ? `${days} ${dayUnit} ${remainingHours} ${hourUnit}` : `${days} ${dayUnit}`;
 }
 
-function timelineSegmentCause(status: HealthCheckStatus, latencyMs?: number | null, reason?: string | null) {
+function timelineSegmentCause(status: HealthCheckStatus, latencyMs?: number | null, reason?: string | null, locale: UiLanguage = "en") {
   if (reason) return reason;
-  if (status === "down") return "Endpoint unavailable or check failure.";
+  if (status === "down") return endpointStatusText("endpointUnavailableCause", locale);
   if (status === "degraded") {
-    if (latencyMs != null) return `Latency elevated (${latencyMs} ms).`;
-    return "Service degraded during this period.";
+    if (latencyMs != null) return endpointStatusText("elevatedLatencyCause", locale, { latency: latencyMs });
+    return endpointStatusText("degradedCause", locale);
   }
   return null;
 }
@@ -189,12 +192,13 @@ function buildTimelineSegments(points: TimelinePoint[], rangeStart?: string | nu
 export function buildTimelineSegmentDetails(
   points: TimelinePoint[],
   rangeStart?: string | null,
-  rangeEnd?: string | null
+  rangeEnd?: string | null,
+  locale: UiLanguage = "en"
 ): TimelineSegmentDetail[] {
   const segments = buildTimelineSegments(points, rangeStart, rangeEnd);
   return segments.map((segment, index) => {
     const durationMs = Math.max(1, segment.endMs - segment.startMs);
-    const cause = timelineSegmentCause(segment.status, segment.latencyMs, segment.reason);
+    const cause = timelineSegmentCause(segment.status, segment.latencyMs, segment.reason, locale);
     return {
       ...segment,
       key: `${segment.status}-${segment.startMs}-${segment.endMs}-${index}`,
@@ -221,8 +225,9 @@ export function EndpointTimelineBar({
   selectedSegmentKey?: string | null;
   onSegmentSelect?: (segment: TimelineSegmentDetail) => void;
 }) {
+  const { text, locale } = useEndpointStatusText();
   const [hoveredSegmentKey, setHoveredSegmentKey] = useState<string | null>(null);
-  const segments = useMemo(() => buildTimelineSegmentDetails(points, rangeStart, rangeEnd), [points, rangeStart, rangeEnd]);
+  const segments = useMemo(() => buildTimelineSegmentDetails(points, rangeStart, rangeEnd, locale), [points, rangeStart, rangeEnd, locale]);
   const rangeStartMs = parseTimestampMs(rangeStart);
   const rangeEndMs = parseTimestampMs(rangeEnd);
   const hasRange = rangeStartMs != null && rangeEndMs != null && rangeEndMs > rangeStartMs;
@@ -238,12 +243,12 @@ export function EndpointTimelineBar({
         const isHovered = hoveredSegmentKey === segmentDetail.key;
         const isSelected = selectedSegmentKey === segmentDetail.key;
         const lines = [
-          `${STATUS_LABELS[segmentDetail.status]}`,
-          `Start: ${formatTimestamp(segmentDetail.startTimestamp)}`,
-          `End: ${formatTimestamp(segmentDetail.endTimestamp)}`,
-          `Duration: ${formatDurationShort(segmentDetail.durationMs)}`,
+          formatStatusLabel(segmentDetail.status, locale),
+          text("timelineStart", { timestamp: formatTimestamp(segmentDetail.startTimestamp, locale) }),
+          text("timelineEnd", { timestamp: formatTimestamp(segmentDetail.endTimestamp, locale) }),
+          text("timelineDuration", { duration: formatDurationShort(segmentDetail.durationMs, locale) }),
         ];
-        if (segmentDetail.cause) lines.push(`Cause: ${segmentDetail.cause}`);
+        if (segmentDetail.cause) lines.push(text("timelineCause", { cause: segmentDetail.cause }));
         return (
           <div
             key={segmentDetail.key}

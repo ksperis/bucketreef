@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   addAdminExternalIdentity,
@@ -26,6 +26,7 @@ import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
 import { securityDate } from "../shared/securityPresentation";
+import { useUserI18n } from "./userMessage";
 
 type PendingAction =
   | { kind: "reset-mfa" }
@@ -47,6 +48,9 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   onBusyChange?: (busy: boolean) => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
+  const { locale, text } = useUserI18n();
+  const textRef = useRef(text);
+  textRef.current = text;
   const [security, setSecurity] = useState<AdminUserSecurity | null>(null);
   const [loading, setLoading] = useState(true);
   const loadGeneration = useRef(0);
@@ -70,16 +74,24 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   const subjectRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
-  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
+  const verificationLabels = useMemo(() => ({
+    title: text("verifyWithPasskey"),
+    description: text("verificationDescription"),
+    cancel: text("cancel"),
+    close: locale === "zh" ? text("close") : undefined,
+    cancelled: text("verificationCancelled"),
+    failure: (failure: unknown) => extractApiError(failure, text("verificationFailed")),
+  }), [locale, text]);
+  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp(verificationLabels);
   const disabled = !canMutate || loading || Boolean(loadError) || !security || busy;
-  const passwordError = !password.trim() || [...password].length < 12 ? "At least 12 characters." : undefined;
-  const confirmationError = !passwordConfirmation || password !== passwordConfirmation ? "Enter the same new password in both fields." : undefined;
-  const providerError = !providerId.trim() ? "Provider ID is required." : undefined;
-  const subjectError = !subject.trim() ? "Immutable subject is required." : undefined;
+  const passwordError = !password.trim() || [...password].length < 12 ? text("passwordMinimumLength") : undefined;
+  const confirmationError = !passwordConfirmation || password !== passwordConfirmation ? text("passwordConfirmationMismatch") : undefined;
+  const providerError = !providerId.trim() ? text("providerIdRequired") : undefined;
+  const subjectError = !subject.trim() ? text("immutableSubjectRequired") : undefined;
   // Read the native email validity, including after any controlled-input update.
   const [invalidEmail, setInvalidEmail] = useState(false);
-  const emailError = invalidEmail ? "Enter a valid email address." : undefined;
-  const date = (value?: string | null) => securityDate(value, navigator.language, "Not available");
+  const emailError = invalidEmail ? text("invalidEmail") : undefined;
+  const date = (value?: string | null) => securityDate(value, locale, text("notAvailable"));
 
   useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
   const dirty = Boolean(password || passwordConfirmation || providerId || subject || identityEmail);
@@ -94,7 +106,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
       const details = await getAdminUserSecurity(userId);
       if (generation === loadGeneration.current) setSecurity(details);
     } catch (loadFailure) {
-      if (generation === loadGeneration.current) setLoadError(extractApiError(loadFailure, "Unable to load authentication details."));
+      if (generation === loadGeneration.current) setLoadError(extractApiError(loadFailure, textRef.current("loadAuthenticationError")));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);
     }
@@ -120,7 +132,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
       return true;
     } catch (actionError) {
       if (!isRecentWebAuthnVerificationCancelled(actionError)) {
-        setError(extractApiError(actionError, "Unable to update authentication settings."));
+        setError(extractApiError(actionError, text("updateAuthenticationError")));
       }
       throw actionError;
     } finally {
@@ -141,7 +153,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
       return;
     }
     try {
-      if (await runAction(() => setAdminUserPassword(userId, password), "Local password updated and user sessions revoked.")) {
+      if (await runAction(() => setAdminUserPassword(userId, password), text("passwordUpdated"))) {
         setPassword("");
         setPasswordConfirmation("");
         setPasswordAttempted(false);
@@ -170,7 +182,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
           email: identityEmail || null,
           email_verified: providerType === "oidc" && Boolean(identityEmail),
         }); },
-        "External identity linked.",
+        text("identityLinked"),
       )) {
         setProviderId("");
         setSubject("");
@@ -195,12 +207,12 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
     if (!pending || disabled || busyRef.current) return;
     try {
       const succeeded = pending.kind === "reset-mfa"
-        ? await runAction(() => resetAdminUserMfa(userId), "MFA reset completed. Sessions and API tokens were revoked.")
+        ? await runAction(() => resetAdminUserMfa(userId), text("mfaResetCompleted"))
         : pending.kind === "revoke-identity"
-          ? await runAction(() => revokeAdminExternalIdentity(userId, pending.identity.id), "External identity revoked.")
+          ? await runAction(() => revokeAdminExternalIdentity(userId, pending.identity.id), text("identityRevoked"))
           : pending.kind === "restore-identity"
-            ? await runAction(() => restoreAdminExternalIdentity(userId, pending.identity.id), "External identity restored.")
-            : await runAction(() => revokeAdminUserSession(userId, pending.session.id), "Session revoked.", false);
+            ? await runAction(() => restoreAdminExternalIdentity(userId, pending.identity.id), text("identityRestored"))
+            : await runAction(() => revokeAdminUserSession(userId, pending.session.id), text("sessionRevoked"), false);
       if (succeeded) setPending(null);
     } catch {
       // Keep the confirmation open with its error for retry.
@@ -209,93 +221,92 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
 
   return (
     <div className="settings-stack">
-      {loading && <PageBanner tone="info">Loading authentication details...</PageBanner>}
+      {loading && <PageBanner tone="info">{text("loadingAuthentication")}</PageBanner>}
       {loadError && <PageBanner tone="error">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>{loadError}</span>
-          <SettingsButton variant="secondary" disabled={loading || busy} onClick={() => void load()}>Retry</SettingsButton>
+          <SettingsButton variant="secondary" disabled={loading || busy} onClick={() => void load()}>{text("retry")}</SettingsButton>
         </div>
       </PageBanner>}
       {message && <PageBanner tone="success">{message}</PageBanner>}
       <p className="settings-description">
-        {canMutate
-          ? "Authentication changes in this tab are applied immediately; there is no separate user-form save step."
-          : "Use your personal Security page to manage your own authentication methods."}
+        {text(canMutate ? "immediateAuthenticationChanges" : "managePersonalSecurity")}
       </p>
 
       {security && <fieldset disabled={disabled} className="min-w-0">
-        <SettingsSection title="Passkeys and MFA" presentation="compact"
-          description={security.passkey_required ? "A passkey is required for this user's role." : "Passkey enrollment is optional for this user's role."}>
+        <SettingsSection title={text("passkeysAndMfa")} presentation="compact"
+          description={text(security.passkey_required ? "passkeyRequired" : "passkeyOptional")}>
           {security.passkeys.map((passkey) => <SettingsItem compact key={passkey.id} title={passkey.name}
             className="[overflow-wrap:anywhere]"
-            status={<UiBadge tone={passkey.revoked_at ? "neutral" : "success"}>{passkey.revoked_at ? "Revoked" : "Active"}</UiBadge>}
-            description={`Last used: ${date(passkey.last_used_at)}`} />)}
-          {security.passkeys.length === 0 && <p className="settings-readonly">No passkeys registered.</p>}
-          {canMutate && <div className="mt-2"><SettingsButton variant="danger" onClick={() => requestAction({ kind: "reset-mfa" })}>Reset MFA</SettingsButton></div>}
+            status={<UiBadge tone={passkey.revoked_at ? "neutral" : "success"}>{text(passkey.revoked_at ? "revoked" : "active")}</UiBadge>}
+            description={text("lastUsed", { date: date(passkey.last_used_at) })} />)}
+          {security.passkeys.length === 0 && <p className="settings-readonly">{text("noPasskeys")}</p>}
+          {canMutate && <div className="mt-2"><SettingsButton variant="danger" onClick={() => requestAction({ kind: "reset-mfa" })}>{text("resetMfa")}</SettingsButton></div>}
         </SettingsSection>
 
-        <SettingsSection title="Local password" presentation="compact"
-          description={security.has_local_password ? "A local password is configured." : "No local password is configured."}>
-          {canMutate && <fieldset aria-label="Change local password" className="settings-fields sm:grid-cols-2" onKeyDown={(event) => submitOnEnter(event, savePassword)}>
-            <UiInput ref={passwordRef} label="New password" hint="At least 12 characters." type="password" minLength={12} autoComplete="new-password"
+        <SettingsSection title={text("localPassword")} presentation="compact"
+          description={text(security.has_local_password ? "localPasswordConfigured" : "noLocalPassword")}>
+          {canMutate && <fieldset aria-label={text("changeLocalPassword")} className="settings-fields sm:grid-cols-2" onKeyDown={(event) => submitOnEnter(event, savePassword)}>
+            <UiInput ref={passwordRef} label={text("newPassword")} hint={text("passwordMinimumLength")} type="password" minLength={12} autoComplete="new-password"
               value={password} onChange={(event) => setPassword(event.target.value)} error={passwordAttempted ? passwordError : undefined} />
-            <UiInput ref={confirmationRef} label="Confirm password" type="password" minLength={12} autoComplete="new-password"
+            <UiInput ref={confirmationRef} label={text("confirmPassword")} type="password" minLength={12} autoComplete="new-password"
               value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} error={passwordAttempted ? confirmationError : undefined} />
-            <div className="sm:col-span-2"><SettingsButton onClick={() => void savePassword()}>Set password</SettingsButton></div>
+            <div className="sm:col-span-2"><SettingsButton onClick={() => void savePassword()}>{text("setPassword")}</SettingsButton></div>
             {error && errorContext === "password" && <PageBanner tone="error" className="sm:col-span-2">{error}</PageBanner>}
           </fieldset>}
         </SettingsSection>
 
-        <SettingsSection title="External identities" presentation="compact" description="Active and revoked immutable provider subjects are managed here.">
+        <SettingsSection title={text("externalIdentities")} presentation="compact" description={text("externalIdentitiesDescription")}>
           {security.external_identities.map((identity) => <SettingsItem compact key={identity.id}
             title={`${identity.provider_type}:${identity.provider_id}`} className="[overflow-wrap:anywhere]"
-            status={<UiBadge tone={identity.revoked_at ? "neutral" : "success"}>{identity.revoked_at ? "Revoked" : "Active"}</UiBadge>}
+            status={<UiBadge tone={identity.revoked_at ? "neutral" : "success"}>{text(identity.revoked_at ? "revoked" : "active")}</UiBadge>}
             description={<><code className="block break-all">{identity.subject}</code><span>{identity.link_source}</span></>}
             action={canMutate && (identity.revoked_at
-              ? <SettingsButton variant="secondary" onClick={() => requestAction({ kind: "restore-identity", identity })}>Restore</SettingsButton>
-              : <SettingsButton variant="danger" onClick={() => requestAction({ kind: "revoke-identity", identity })}>Revoke</SettingsButton>)} />)}
-          {security.external_identities.length === 0 && <p className="settings-readonly">No external identities.</p>}
-          {canMutate && <fieldset aria-label="Link external identity" className="settings-fields mt-3 border-t border-[var(--ui-border-soft)] pt-3 sm:grid-cols-2"
+              ? <SettingsButton variant="secondary" onClick={() => requestAction({ kind: "restore-identity", identity })}>{text("restore")}</SettingsButton>
+              : <SettingsButton variant="danger" onClick={() => requestAction({ kind: "revoke-identity", identity })}>{text("revoke")}</SettingsButton>)} />)}
+          {security.external_identities.length === 0 && <p className="settings-readonly">{text("noExternalIdentities")}</p>}
+          {canMutate && <fieldset aria-label={text("linkExternalIdentity")} className="settings-fields mt-3 border-t border-[var(--ui-border-soft)] pt-3 sm:grid-cols-2"
             onKeyDown={(event) => submitOnEnter(event, addIdentity)}>
-            <UiSelect label="Provider type" value={providerType} onChange={(event) => setProviderType(event.target.value as "oidc" | "ldap")}>
-              <option value="oidc">OIDC</option><option value="ldap">LDAP</option>
+            <UiSelect label={text("providerType")} value={providerType} onChange={(event) => setProviderType(event.target.value as "oidc" | "ldap")}>
+              <option value="oidc">{text("oidc")}</option><option value="ldap">{text("ldap")}</option>
             </UiSelect>
-            <UiInput ref={providerRef} label="Provider ID" value={providerId} onChange={(event) => setProviderId(event.target.value)} error={identityAttempted ? providerError : undefined} />
-            <UiInput ref={subjectRef} label="Immutable subject" value={subject} onChange={(event) => setSubject(event.target.value)} error={identityAttempted ? subjectError : undefined} />
-            <UiInput ref={emailRef} label="Claimed email (optional)" type="email" value={identityEmail} error={identityAttempted ? emailError : undefined}
+            <UiInput ref={providerRef} label={text("providerId")} value={providerId} onChange={(event) => setProviderId(event.target.value)} error={identityAttempted ? providerError : undefined} />
+            <UiInput ref={subjectRef} label={text("immutableSubject")} value={subject} onChange={(event) => setSubject(event.target.value)} error={identityAttempted ? subjectError : undefined} />
+            <UiInput ref={emailRef} label={text("claimedEmailOptional")} type="email" value={identityEmail} error={identityAttempted ? emailError : undefined}
               onChange={(event) => { setIdentityEmail(event.target.value); setInvalidEmail(!event.target.validity.valid); }} />
-            <div className="sm:col-span-2"><SettingsButton onClick={() => void addIdentity()}>Link identity</SettingsButton></div>
+            <div className="sm:col-span-2"><SettingsButton onClick={() => void addIdentity()}>{text("linkIdentity")}</SettingsButton></div>
             {error && errorContext === "identity" && <PageBanner tone="error" className="sm:col-span-2">{error}</PageBanner>}
           </fieldset>}
         </SettingsSection>
 
-        <SettingsSection title="User sessions" presentation="compact">
+        <SettingsSection title={text("userSessions")} presentation="compact">
           {security.sessions.map((session) => <SettingsItem compact key={session.id}
-            title={`${session.auth_type} · ${session.ip_address ?? "Unknown address"}`} className="[overflow-wrap:anywhere]"
-            description={`Last activity: ${date(session.last_activity_at)}`}
-            status={session.revoked_at && <UiBadge tone="neutral">Revoked</UiBadge>}
-            action={canMutate && !session.revoked_at && <SettingsButton variant="danger" onClick={() => requestAction({ kind: "revoke-session", session })}>Revoke</SettingsButton>} />)}
-          {security.sessions.length === 0 && <p className="settings-readonly">No sessions.</p>}
+            title={`${session.auth_type} · ${session.ip_address ?? text("unknownAddress")}`} className="[overflow-wrap:anywhere]"
+            description={text("lastActivity", { date: date(session.last_activity_at) })}
+            status={session.revoked_at && <UiBadge tone="neutral">{text("revoked")}</UiBadge>}
+            action={canMutate && !session.revoked_at && <SettingsButton variant="danger" onClick={() => requestAction({ kind: "revoke-session", session })}>{text("revoke")}</SettingsButton>} />)}
+          {security.sessions.length === 0 && <p className="settings-readonly">{text("noSessions")}</p>}
         </SettingsSection>
       </fieldset>}
 
       {pending && <ConfirmActionDialog
-        title={pending.kind === "reset-mfa" ? "Reset user MFA" : pending.kind === "revoke-session" ? "Revoke user session" : pending.kind === "restore-identity" ? "Restore external identity" : "Revoke external identity"}
-        description={pending.kind === "reset-mfa"
-          ? "Passkeys, recovery codes and authentication challenges will be removed. All sessions and API tokens will be revoked."
-          : pending.kind === "revoke-session" ? "Only the selected session will be revoked."
-            : "This security change revokes the user's active sessions and API tokens."}
+        title={text(pending.kind === "reset-mfa" ? "resetUserMfa" : pending.kind === "revoke-session" ? "revokeUserSession" : pending.kind === "restore-identity" ? "restoreExternalIdentity" : "revokeExternalIdentity")}
+        description={text(pending.kind === "reset-mfa" ? "resetMfaDescription" : pending.kind === "revoke-session" ? "revokeSessionDescription" : "securityChangeDescription")}
         details={[
-          { label: "User", value: security?.email ?? String(userId) },
+          { label: text("user"), value: security?.email ?? String(userId) },
           ...(pending.kind === "revoke-identity" || pending.kind === "restore-identity" ? [
-            { label: "Provider", value: `${pending.identity.provider_type}:${pending.identity.provider_id}` },
-            { label: "Subject", value: pending.identity.subject, mono: true },
+            { label: text("provider"), value: `${pending.identity.provider_type}:${pending.identity.provider_id}` },
+            { label: text("subject"), value: pending.identity.subject, mono: true },
           ] : pending.kind === "revoke-session" ? [
-            { label: "Session", value: pending.session.id, mono: true },
-            { label: "Address", value: pending.session.ip_address ?? "Unknown address" },
+            { label: text("session"), value: pending.session.id, mono: true },
+            { label: text("address"), value: pending.session.ip_address ?? text("unknownAddress") },
           ] : []),
         ]}
-        confirmLabel={pending.kind === "reset-mfa" ? "Reset MFA" : pending.kind === "restore-identity" ? "Restore identity" : "Confirm"}
+        confirmLabel={text(pending.kind === "reset-mfa" ? "resetMfa" : pending.kind === "restore-identity" ? "restoreIdentity" : "confirm")}
+        cancelLabel={text("cancel")}
+        processingLabel={text("processing")}
+        impactLabel={text("impact")}
+        closeLabel={locale === "zh" ? text("close") : undefined}
         tone={pending.kind === "restore-identity" ? "primary" : "danger"}
         error={error}
         loading={busy}
