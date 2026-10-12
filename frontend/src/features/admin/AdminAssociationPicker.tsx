@@ -20,6 +20,7 @@ import {
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
+import { useAdminAssociationI18n } from "./adminAssociationMessages";
 import "./adminAssociations.css";
 
 const adminAssociationAddPanelClass = cx(uiCardMutedClass, "space-y-2 px-3 py-2");
@@ -98,12 +99,13 @@ export function AdminAssociationTabs<T extends string>({
   onChange: (tab: T) => void;
 }) {
   const idPrefix = `admin-associations-${useId().replaceAll(":", "")}`;
+  const { text } = useAdminAssociationI18n();
   const active = tabs.find((tab) => tab.id === activeTab);
   return (
     <div className="admin-association-tabs min-w-0 space-y-3">
       <PageTabs
         variant="bar"
-        ariaLabel="Association types"
+        ariaLabel={text("associationTypes")}
         idPrefix={idPrefix}
         tabs={tabs.map(({ id, label, count }) => ({ id, label: `${label} (${count})` }))}
         activeTab={activeTab}
@@ -207,6 +209,7 @@ export function AdminAssociationAccessPickerTable({
   onAccessChange,
 }: AdminAssociationAccessPickerTableProps) {
   const prefix = "admin-association-picker-" + useId().replaceAll(":", "");
+  const { text } = useAdminAssociationI18n();
   if (options.length === 0) return null;
 
   return (
@@ -215,8 +218,8 @@ export function AdminAssociationAccessPickerTable({
         <thead>
           <tr>
             <th className="text-left">{principalLabel}</th>
-            <th className="text-left">Manager role</th>
-            <th className="text-left">Portal role</th>
+            <th className="text-left">{text("managerRole")}</th>
+            <th className="text-left">{text("portalRole")}</th>
           </tr>
         </thead>
         <tbody>
@@ -346,33 +349,36 @@ export function AdminAssociationPickerPanel({
   addDisabled,
   loadingLabel,
   searchAriaLabel,
-  emptyLabel = "No results.",
-  addLabel = "Add selected",
+  emptyLabel,
+  addLabel,
   children,
 }: AdminAssociationPickerPanelProps) {
+  const { text } = useAdminAssociationI18n();
+  const resolvedEmptyLabel = emptyLabel ?? text("noResults");
+  const resolvedAddLabel = addLabel ?? text("addSelected");
   return (
     <div className={adminAssociationAddPanelClass}>
       <ListToolbar variant="section" title={title} description={hint}
-        search={<ToolbarSearchInput label={searchAriaLabel ?? "Search"} value={search} onChange={onSearchChange} placeholder="Search..." />}
+        search={<ToolbarSearchInput label={searchAriaLabel ?? text("search")} value={search} onChange={onSearchChange} placeholder={text("searchPlaceholder")} />}
       />
       <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
         {loading ? <p className={cx("ui-caption", uiMutedTextClass)}>{loadingLabel}</p> : null}
-        {!loading && availableCount === 0 ? <p className={cx("ui-caption", uiMutedTextClass)}>{emptyLabel}</p> : null}
+        {!loading && availableCount === 0 ? <p className={cx("ui-caption", uiMutedTextClass)}>{resolvedEmptyLabel}</p> : null}
         {children}
         {availableCount > maxVisibleOptions ? (
           <p className={cx("ui-caption", uiMutedTextClass)}>
-            Showing first {maxVisibleOptions} matches. Use the search box to narrow down the list.
+            {text("showingFirstMatches", { count: maxVisibleOptions })}
           </p>
         ) : null}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className={cx("ui-caption", uiMutedTextClass)}>{selectedCount} selected</span>
+        <span className={cx("ui-caption", uiMutedTextClass)}>{text("selectedCount", { count: selectedCount })}</span>
         <div className="flex items-center gap-2">
           <UiButton variant="secondary" size="xs" onClick={onCancel}>
-            Cancel
+            {text("cancel")}
           </UiButton>
           <UiButton size="xs" disabled={addDisabled} onClick={onAdd}>
-            {addLabel}
+            {resolvedAddLabel}
           </UiButton>
         </div>
       </div>
