@@ -46,22 +46,32 @@ Compare v0.2.14 → v0.2.15: [GitHub](https://github.com/ksperis/bucketreef/comp
 
 ### Added
 
+- Add optional Manager access-key metadata and expiration controls for account/IAM and S3-user keys, enabled globally by default on fresh deployments while retaining explicit per-resource opt-ins and scheduled expiration enforcement.
+- Add French, German, and Chinese localization across the Manager workspace.
 - Complete locale-aware Browser coverage and integrate the contributor i18n foundation across authentication, errors, navigation, and responsive shell controls.
+- Add a configurable documentation base URL for workspace links and validate S3/IAM resource names consistently before creation.
 
 ### Changed
 
 - **Breaking change:** remove the retired `BUCKET_MIGRATION_WEBHOOK_*` runtime aliases. Configure webhook delivery exclusively with the canonical `WEBHOOK_*` variables; Compose and Helm defaults now use the canonical names.
-- **Breaking change:** remove the unused `endpoint_configured` and `storage_access_configured` fields from the Admin onboarding status API; clients use `complete` and journeys for setup state.
+- Remove the unused `endpoint_configured` and `storage_access_configured` fields from the Admin onboarding status API; the bundled frontend uses `complete` and journeys for setup state.
 - **Breaking change:** remove the retired `/admin/api-tokens` frontend redirect and the unused standalone API-token page mode. Superadmins manage API tokens exclusively from the shared profile API-token tab.
 - Remove the retired Browser transfer IndexedDB cleanup hook; current Browser code no longer reads, opens, or deletes the obsolete `bucketreef-browser-transfers-v1` database.
-- Reorganize Manager bucket detail navigation and simplify API error handling across Manager, Admin, and Ceph Admin surfaces.
+- Reorganize Manager bucket detail navigation, return structured conflicts for bucket deletion, and simplify API error handling across Manager, Admin, and Ceph Admin surfaces.
 - Tighten typed service boundaries for storage endpoints, endpoint identities, key rotation, migrations, account capabilities, and execution targets.
 
 ### Fixed
 
 - Avoid repeating the OIDC callback when changing locale and preserve translated shell controls on narrow screens.
+- Preserve Browser bucket and object operations for plain S3 account contexts.
 - Scope Ceph Admin account bucket metrics defensively and purge functional-test buckets through Ceph Admin cleanup paths.
 - Correct Manager functional UX/localization details, including French timezone wording.
+- Restore the scheduler runtime dependency required by maintenance jobs and rebuild Supercronic with the patched Go toolchain used by the release image.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path. Migrations `0145_manager_access_key_metadata` and `0146_manager_access_key_expiration` add the optional Manager access-key metadata/expiration state; existing account and S3-user opt-ins remain disabled until explicitly enabled.
+- Migration `0147_remove_legacy_ceph_admin_system_compat` removes the retired Ceph Admin system-user compatibility flag and marks affected legacy Ceph Admin identities as missing so they are revalidated through the current credential contract.
 
 ## 0.2.14 {#release-0-2-14}
 
