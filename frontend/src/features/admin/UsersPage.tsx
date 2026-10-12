@@ -65,7 +65,7 @@ import AdminUserIdentityFields, { userIdentityErrors, type UserIdentityErrors } 
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import UserAvatarEditor from "../shared/UserAvatarEditor";
 import { UserLanguageField, UserNotificationFields } from "../shared/UserProfilePreferenceFields";
-import { profileMessages, type ProfileText } from "../shared/profileMessages";
+import { useProfileI18n } from "../shared/profileMessages";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
@@ -89,26 +89,11 @@ import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
 import { buildAccessAuditHref } from "./accessAuditLink";
+import { useUsersI18n } from "./usersMessage";
+import { useAdminUserI18n } from "./adminUserMessage";
 
 type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
 type AuxiliaryLoadState = "idle" | "loading" | "loaded" | "error";
-
-const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
-  { id: "general", label: "General" },
-  { id: "groups", label: "Groups" },
-  { id: "associations", label: "Associations" },
-  { id: "access", label: "Platform access" },
-];
-const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
-  { id: "general", label: profileMessages.preferencesTab.en },
-  { id: "authentication", label: profileMessages.security.en },
-  ...userWorkflowTabs.filter((tab) => tab.id !== "general"),
-];
-
-const adminProfileText: ProfileText = (key) => profileMessages[key].en;
-
-const storageOpsAccessDescription =
-  "Grant direct /storage-ops access when the UI role is User, Admin, or Superadmin.";
 
 function focusIdentityError(prefix: string, errors: UserIdentityErrors) {
   const field = errors.email ? "email" : "password";
@@ -118,9 +103,47 @@ function focusIdentityError(prefix: string, errors: UserIdentityErrors) {
 export default function UsersPage() {
   type SortField = "name" | "role" | "accounts" | "last_login_at";
 
+  const { locale, text } = useUsersI18n();
+  const { text: adminUserText } = useAdminUserI18n();
+  const { text: adminProfileText } = useProfileI18n();
+  const textRef = useRef(text);
+  textRef.current = text;
+  const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
+    { id: "general", label: text("general") },
+    { id: "groups", label: text("groups") },
+    { id: "associations", label: text("associations") },
+    { id: "access", label: text("platformAccess") },
+  ];
+  const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
+    { id: "general", label: adminProfileText("preferencesTab") },
+    { id: "authentication", label: adminProfileText("security") },
+    ...userWorkflowTabs.filter((tab) => tab.id !== "general"),
+  ];
+  const storageOpsAccessDescription = text("storageOpsAccessDescription");
+  const closeLabel = locale === "zh" ? text("close") : undefined;
+  const usersBreadcrumbs = (action?: string) =>
+    adminPageBreadcrumbs("users", ...(action ? [{ label: action }] : [])).map((breadcrumb, index) => ({
+      ...breadcrumb,
+      label: index === 0 ? text("adminBreadcrumb") : index === 1 ? text("uiUsers") : breadcrumb.label,
+    }));
+  const discardLabels = {
+    title: text("discardTitle"),
+    description: text("unsavedChanges"),
+    cancelLabel: text("keepEditing"),
+    confirmLabel: text("discardChanges"),
+    closeLabel,
+  };
+  const stepUpLabels = useMemo(() => ({
+    title: text("verifyPasskey"),
+    description: text("verifyDescription"),
+    cancel: text("cancel"),
+    close: closeLabel,
+    cancelled: text("verificationCancelled"),
+    failure: (error: unknown) => extractApiError(error, text("verificationFailed")),
+  }), [closeLabel, text]);
   const MAX_VISIBLE_OPTIONS = 10;
   const { generalSettings } = useGeneralSettings();
-  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
+  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp(stepUpLabels);
   const currentUser = useMemo(() => readStoredUser(), []);
   const currentUserId = currentUser?.id != null ? Number(currentUser.id) : null;
   const currentIsAdminLike = isAdminLikeRole(currentUser?.role);
@@ -344,10 +367,10 @@ export default function UsersPage() {
   const visibleEditS3Users = limitedOptions(availableEditS3Users);
   const visibleEditS3Connections = limitedOptions(availableEditS3Connections);
   const displayUiRole = (role: UiRole) => {
-    if (role === "ui_superadmin") return "Superadmin";
-    if (role === "ui_admin") return "Admin";
-    if (role === "ui_user") return "User";
-    return "No access";
+    if (role === "ui_superadmin") return text("superadmin");
+    if (role === "ui_admin") return text("admin");
+    if (role === "ui_user") return text("user");
+    return text("noAccess");
   };
   const editRoleValue = editForm.role ?? editingUser?.role ?? "ui_user";
   const createRoleValue = form.role ?? "ui_user";
@@ -374,7 +397,7 @@ export default function UsersPage() {
     if (Number.isNaN(parsed.getTime())) {
       return value;
     }
-    return parsed.toLocaleString();
+    return parsed.toLocaleString(locale);
   };
 
   const renderAssociationSummary = (user: User) => {
@@ -384,7 +407,7 @@ export default function UsersPage() {
       : (user.account_links ?? []);
     const accountItems = displayedAccountLinks.map((link) => {
       const id = Number(link.account_id);
-      const label = accountOptionsById.get(id)?.name ?? `Account #${id}`;
+      const label = accountOptionsById.get(id)?.name ?? text("accountFallback", { id });
       const roleLabels = accountAssociationRoleLabels({
         id,
         label,
@@ -404,36 +427,36 @@ export default function UsersPage() {
       effectiveS3UserDetails.length > 0
         ? effectiveS3UserDetails.map((entry) => ({
             id: entry.id,
-            label: entry.name || `User #${entry.id}`,
+            label: entry.name || text("userFallback", { id: entry.id }),
           }))
         : (user.s3_user_details ?? []).map((entry) => ({
             id: entry.id,
-            label: entry.name || `User #${entry.id}`,
+            label: entry.name || text("userFallback", { id: entry.id }),
           }));
     const effectiveConnectionDetails = user.effective_access?.s3_connection_details ?? [];
     const connectionItems =
       effectiveConnectionDetails.length > 0
         ? effectiveConnectionDetails.map((entry) => ({
             id: entry.id,
-            label: entry.name || `Connection #${entry.id}`,
+            label: entry.name || text("connectionFallback", { id: entry.id }),
           }))
         : (user.s3_connection_details ?? []).map((entry) => ({
             id: entry.id,
-            label: entry.name || `Connection #${entry.id}`,
+            label: entry.name || text("connectionFallback", { id: entry.id }),
           }));
     const categories: CompactAssociationCategory[] = [
       {
         id: "accounts",
-        label: "Accounts",
-        itemLabel: "RGW account",
+        label: text("accounts"),
+        itemLabel: text("rgwAccount"),
         items: accountItems.map((account) => ({
           id: account.id,
           label: account.label,
           role_labels: account.role_labels,
         })),
       },
-      { id: "s3_users", label: "RGW users", itemLabel: "RGW user", items: s3UserItems },
-      { id: "connections", label: "S3 connections", itemLabel: "S3 connection", items: connectionItems },
+      { id: "s3_users", label: text("rgwUsers"), itemLabel: text("rgwUser"), items: s3UserItems },
+      { id: "connections", label: text("s3Connections"), itemLabel: text("s3Connection"), items: connectionItems },
     ];
     return <CompactAssociationSummary categories={categories} />;
   };
@@ -483,7 +506,7 @@ export default function UsersPage() {
       setUsers(response.items);
       setTotalUsers(response.total);
     } catch (err) {
-      setError(extractApiError(err, "Unable to load users."));
+      setError(extractApiError(err, textRef.current("loadError")));
     } finally {
       setLoading(false);
     }
@@ -807,14 +830,14 @@ export default function UsersPage() {
   const editDirty = showEditModal && (editCurrentSignature !== editInitialSignature || authenticationDirty || avatarDirty);
   const createCloseGuard = useSettingsCloseGuard({
     hasUnsavedChanges: createDirty,
-    description: "Your changes have not been saved.",
+    ...discardLabels,
     onClose: closeCreateModal,
     disabled: creating,
   });
 
   const editCloseGuard = useSettingsCloseGuard({
     hasUnsavedChanges: editDirty,
-    description: "Your changes have not been saved.",
+    ...discardLabels,
     onClose: closeEditModal,
     disabled: authenticationBusy || avatarBusy || (editingUser ? busyId === editingUser.id : false),
   });
@@ -822,7 +845,7 @@ export default function UsersPage() {
   const pendingEditTab = useRef<UserModalTab>("general");
   const editTabGuard = useSettingsCloseGuard({
     hasUnsavedChanges: authenticationDirty || avatarDirty,
-    description: "Your changes have not been saved.",
+    ...discardLabels,
     disabled: authenticationBusy || avatarBusy,
     onClose: () => setEditModalTab(pendingEditTab.current),
   });
@@ -832,7 +855,7 @@ export default function UsersPage() {
     if (savingRef.current) return;
     setActionError(null);
     setActionMessage(null);
-    const errors = userIdentityErrors(form, true);
+    const errors = userIdentityErrors(form, true, adminUserText);
     setCreateAttempted(true);
     if (Object.keys(errors).length) {
       setCreateModalTab("general");
@@ -894,7 +917,7 @@ export default function UsersPage() {
           await runWithStepUp(() => updateUser(created.id, associationsPayload));
         }
       }
-      setActionMessage("User created");
+      setActionMessage(text("userCreated"));
       resetCreateModalState();
       await fetchUsers();
       if (s3AccountsLoaded) {
@@ -903,7 +926,7 @@ export default function UsersPage() {
       setShowCreateModal(false);
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setActionError(extractApiError(err, "Unexpected error"));
+        setActionError(extractApiError(err, text("unexpectedError")));
       }
     } finally {
       savingRef.current = false;
@@ -913,7 +936,7 @@ export default function UsersPage() {
 
   const startEdit = (user: User) => {
     if (!currentIsSuperAdmin && (user.role === "ui_admin" || user.role === "ui_superadmin")) {
-      setActionError("Administrators can manage only standard users.");
+      setActionError(text("standardUsersOnly"));
       return;
     }
     const role = user.role;
@@ -1022,7 +1045,7 @@ export default function UsersPage() {
     if (!editingUser || savingRef.current || avatarBusy || editModalTab === "authentication") return;
     setActionError(null);
     setActionMessage(null);
-    const errors = userIdentityErrors(editForm, false);
+    const errors = userIdentityErrors(editForm, false, adminUserText);
     setEditAttempted(true);
     if (Object.keys(errors).length) {
       setEditModalTab("general");
@@ -1092,7 +1115,7 @@ export default function UsersPage() {
       if (currentUserId !== null && currentUserId === editingUser.id && typeof window !== "undefined") {
         setSessionUserCache({ ...(readStoredUser() ?? {}), ...updatedUser });
       }
-      setActionMessage("User updated");
+      setActionMessage(text("userUpdated"));
       closeEditModal();
       await fetchUsers();
       if (s3AccountsLoaded) {
@@ -1100,7 +1123,7 @@ export default function UsersPage() {
       }
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setActionError(extractApiError(err, "Unexpected error"));
+        setActionError(extractApiError(err, text("unexpectedError")));
       }
     } finally {
       savingRef.current = false;
@@ -1111,7 +1134,7 @@ export default function UsersPage() {
   const handleDeleteRequest = (user: User) => {
     const userId = user.id;
     if (currentUserId !== null && userId === currentUserId) {
-      setActionError("You cannot delete your own user.");
+      setActionError(text("cannotDeleteSelf"));
       setActionMessage(null);
       return;
     }
@@ -1126,21 +1149,21 @@ export default function UsersPage() {
     setActionMessage(null);
     try {
       await runWithStepUp(() => deleteUser(userId));
-      setActionMessage("User deleted");
+      setActionMessage(text("userDeleted"));
       await fetchUsers();
       setPendingDeleteUser(null);
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setActionError(extractApiError(err, "Unexpected error"));
+        setActionError(extractApiError(err, text("unexpectedError")));
       }
     } finally {
       setBusyId(null);
     }
   };
 
-  const usersDescription = "Create, edit, delete, and link UI users to groups, RGW accounts, S3 users, and S3 connections.";
-  const associationLabel = "Storage associations";
-  const filterPlaceholder = "Search users...";
+  const usersDescription = text("description");
+  const associationLabel = text("storageAssociations");
+  const filterPlaceholder = text("searchPlaceholder");
   const tableStatus = resolveListTableStatus({
     loading,
     error,
@@ -1149,7 +1172,7 @@ export default function UsersPage() {
   const userTableColumns: Array<DataTableColumn<User, SortField>> = [
     {
       id: "user",
-      label: "User",
+      label: text("user"),
       field: "name",
       primary: true,
       render: (user) => {
@@ -1177,7 +1200,7 @@ export default function UsersPage() {
     },
     {
       id: "role",
-      label: "Role",
+      label: text("role"),
       field: "role",
       render: (user) => (
         <div className="flex flex-wrap items-center gap-2">
@@ -1186,7 +1209,7 @@ export default function UsersPage() {
             (user.role === "ui_admin" || user.role === "ui_superadmin") &&
             user.can_access_ceph_admin && (
               <ListBadge tone="warning" className="uppercase tracking-wide">
-                Ceph Admin
+                {text("cephAdmin")}
               </ListBadge>
             )}
         </div>
@@ -1194,7 +1217,7 @@ export default function UsersPage() {
     },
     {
       id: "last_login_at",
-      label: "Last login",
+      label: text("lastLogin"),
       field: "last_login_at",
       render: (user) => formatLastLogin(user.last_login_at),
     },
@@ -1202,12 +1225,12 @@ export default function UsersPage() {
       id: "associations",
       label: associationLabel,
       field: "accounts",
-      mobileLabel: "Links",
+      mobileLabel: text("links"),
       render: (user) => renderAssociationSummary(user),
     },
     {
       id: "actions",
-      label: "Actions",
+      label: text("actions"),
       align: "right",
       field: null,
       mobileRole: "actions",
@@ -1223,19 +1246,19 @@ export default function UsersPage() {
               disabled={!canManage}
               {...dataTableDefaultActionProps}
             >
-              Edit
+              {text("edit")}
             </ListActionButton>
             <ListActionLink to={buildAccessAuditHref({ userId: user.id })}>
-              Review access
+              {text("reviewAccess")}
             </ListActionLink>
             <ListActionButton
               type="button"
               onClick={() => handleDeleteRequest(user)}
                variant="danger"
               disabled={busyId === user.id || isCurrentUser || !canManage}
-              title={isCurrentUser ? "You cannot delete your own user." : !canManage ? "Administrators can manage only standard users." : undefined}
+              title={isCurrentUser ? text("cannotDeleteSelf") : !canManage ? text("standardUsersOnly") : undefined}
             >
-              {busyId === user.id ? "Deleting..." : "Delete"}
+              {busyId === user.id ? text("deleting") : text("delete")}
             </ListActionButton>
           </ListActions>
         );
@@ -1245,17 +1268,17 @@ export default function UsersPage() {
 
   return (
     <div className={workflowPageHostClass(showCreateModal || (Boolean(editingUser) && showEditModal))}>
-      <SettingsNavigationGuard dirty={createDirty || editDirty} onDiscard={() => {
+      <SettingsNavigationGuard {...discardLabels} dirty={createDirty || editDirty} onDiscard={() => {
         if (showCreateModal) closeCreateModal();
         if (showEditModal) closeEditModal();
       }} />
       <PageHeader actionPresentation="listing"
-        title="UI Users"
+        title={text("uiUsers")}
         description={usersDescription}
-        breadcrumbs={adminPageBreadcrumbs("users")}
+        breadcrumbs={usersBreadcrumbs()}
         actions={[
           {
-            label: "Create user",
+            label: text("createUser"),
             onClick: () => {
               resetCreateModalState();
               setShowCreateModal(true);
@@ -1269,10 +1292,10 @@ export default function UsersPage() {
 
       {showCreateModal && (
         <WorkflowPage
-          title="Create user"
-          description="Configure identity, workspace access, groups, and storage associations for this UI user."
-          breadcrumbs={adminPageBreadcrumbs("users", { label: "Create" })}
-          backLabel="Back to users"
+          title={text("createUser")}
+          description={text("createDescription")}
+          breadcrumbs={usersBreadcrumbs(text("create"))}
+          backLabel={text("backToUsers")}
           onBack={createCloseGuard.requestClose}
           backDisabled={creating}
           contentClassName="settings-compact settings-form"
@@ -1289,13 +1312,17 @@ export default function UsersPage() {
               {actionMessage}
             </PageBanner>
           )}
-          <SettingsForm label="Create UI user" busy={creating} onSubmit={handleCreate}
-            onCancel={createCloseGuard.requestClose} submitLabel="Create" busyLabel="Creating...">
+          <SettingsForm label={text("createUiUser")} busy={creating} onSubmit={handleCreate}
+            onCancel={createCloseGuard.requestClose} submitLabel={text("create")} busyLabel={text("creating")}
+            actions={<>
+              <SettingsButton variant="secondary" disabled={creating} onClick={createCloseGuard.requestClose}>{text("cancel")}</SettingsButton>
+              <SettingsButton type="submit" disabled={creating}>{text(creating ? "creating" : "create")}</SettingsButton>
+            </>}>
             <WorkflowTabs<UserModalTab>
               panelClassName={createModalTab === "groups" || createModalTab === "associations" ? adminAssociationPanelClass : undefined}
               activeTab={createModalTab}
               onTabChange={setCreateModalTab}
-              ariaLabel="User creation sections"
+              ariaLabel={text("creationSections")}
               idPrefix="admin-user-create"
               tabs={userWorkflowTabs}
             >
@@ -1305,7 +1332,7 @@ export default function UsersPage() {
                 idPrefix="create-user"
                 values={{ ...form, role: createRoleValue }}
                 creating
-                errors={createAttempted ? userIdentityErrors(form, true) : {}}
+                errors={createAttempted ? userIdentityErrors(form, true, adminUserText) : {}}
                 onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
                 canAssignAdmin={currentIsSuperAdmin}
                 helpOpen={createRoleHelpOpen}
@@ -1317,11 +1344,11 @@ export default function UsersPage() {
             {createModalTab === "access" && (
               <>
                 <WorkspaceAccessSection
-                  description="Additional operational workspaces available to this UI user."
+                  description={text("operationalWorkspaces")}
                   cephAdmin={{
-                    title: "Ceph Admin access",
+                    title: text("cephAdminAccess"),
                     description:
-                      'Allow access to /ceph-admin. Grantable only by Superadmin for roles "Admin" and "Superadmin".',
+                      text("cephAdminAccessDescription"),
                     checked: createCanGrantCephAdmin && Boolean(form.can_access_ceph_admin),
                     disabled: !createCanGrantCephAdmin,
                     onChange: (value) =>
@@ -1329,10 +1356,10 @@ export default function UsersPage() {
                         ...f,
                         can_access_ceph_admin: value,
                       })),
-                    ariaLabel: "Allow access to /ceph-admin",
+                    ariaLabel: text("allowCephAdmin"),
                   }}
                   storageOps={{
-                    title: "Storage Ops access",
+                    title: text("storageOpsAccess"),
                     description: storageOpsAccessDescription,
                     checked: createCanGrantStorageOps && Boolean(form.can_access_storage_ops),
                     disabled: !createCanGrantStorageOps,
@@ -1341,21 +1368,21 @@ export default function UsersPage() {
                         ...f,
                         can_access_storage_ops: value,
                       })),
-                    ariaLabel: "Allow access to /storage-ops",
+                    ariaLabel: text("allowStorageOps"),
                   }}
                 />
                 {!createTargetSupportsManagerTools && (
                   <PageBanner tone="warning">
-                    Manager access requires the target role to be User, Admin, or Superadmin.
+                    {text("managerRoleRequirement")}
                   </PageBanner>
                 )}
 
                 <ManagerToolAccessSection
-                  title="Manager"
+                  title={text("manager")}
                   additionalItems={[
                     {
-                      title: "Provision managed private connections",
-                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
+                      title: text("provisionConnections"),
+                      description: text("provisionConnectionsDescription"),
                       checked: createTargetSupportsManagerTools && Boolean(form.can_provision_managed_private_connections),
                       disabled:
                         !createTargetSupportsManagerTools ||
@@ -1365,15 +1392,15 @@ export default function UsersPage() {
                           ...current,
                           can_provision_managed_private_connections: value,
                         })),
-                      ariaLabel: "Allow managed private connection provisioning",
+                      ariaLabel: text("allowProvisionConnections"),
                       badge: {
                         visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: "Disabled globally",
+                        label: text("disabledGlobally"),
                         tone: "neutral",
                       },
                     },
                   ]}
-                  description="Manager permissions for advanced operations."
+                  description={text("managerPermissions")}
                   tools={managerToolDefinitions}
                   access={form.manager_tool_access}
                   isToolDisabled={(tool) => !createTargetSupportsManagerTools || !tool.enabled}
@@ -1388,7 +1415,7 @@ export default function UsersPage() {
                   }
                 />
                 <BrowserAccessSection
-                  description="Browser options for this UI user. Groups can also grant these options."
+                  description={text("browserOptions")}
                   checked={Boolean(form.browser_advanced_features_enabled)}
                   onChange={(value) =>
                     setForm((current) => ({
@@ -1398,12 +1425,12 @@ export default function UsersPage() {
                   }
                 />
                 <AdminAccessToggleSection
-                  title="Connections"
-                  description="Private S3 connection permissions for this UI user. Groups can also grant this permission."
+                  title={text("connections")}
+                  description={text("privateConnectionPermissions")}
                   items={[
                     {
-                      title: "Create manual private connections",
-                      description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
+                      title: text("createManualConnections"),
+                      description: text("manualConnectionsDescription"),
                       checked: createTargetSupportsManagerTools && Boolean(form.can_create_manual_private_connections),
                       disabled: !createTargetSupportsManagerTools,
                       onChange: (value) =>
@@ -1411,7 +1438,7 @@ export default function UsersPage() {
                           ...current,
                           can_create_manual_private_connections: value,
                         })),
-                      ariaLabel: "Allow manual private connection creation",
+                      ariaLabel: text("allowManualConnections"),
                     },
                   ]}
                 />
@@ -1509,9 +1536,10 @@ export default function UsersPage() {
 
       <ListPageSection
         variant="page"
-        mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-          title="Users"
-          countLabel={`${totalUsers} entr${totalUsers === 1 ? "y" : "ies"}`}
+        mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
+          labels={{ sortBy: text("sortBy"), direction: text("direction"), ascending: text("ascending"), descending: text("descending") }} />}
+          title={text("users")}
+          countLabel={text(totalUsers === 1 ? "entryCount" : "entriesCount", { count: totalUsers })}
           search={
             <ToolbarSearchInput
               value={filter}
@@ -1526,9 +1554,9 @@ export default function UsersPage() {
           rows={users}
           rowKey={(user) => user.id}
           status={tableStatus}
-          loadingMessage="Loading users..."
-          errorMessage="Unable to load users."
-          emptyMessage={filter.trim() ? "No users match this search." : "No users."}
+          loadingMessage={text("loadingUsers")}
+          errorMessage={text("loadError")}
+          emptyMessage={filter.trim() ? text("noMatches") : text("noUsers")}
           primaryColumnId="user"
           responsiveCards
           tableClassName="ui-data-table"
@@ -1546,16 +1574,20 @@ export default function UsersPage() {
 
       {pendingDeleteUser && (
         <ConfirmActionDialog
-          title="Delete UI user"
-          description="This removes the platform user and revokes access to the UI workspaces linked to it."
-          confirmLabel="Delete user"
+          title={text("deleteUiUser")}
+          description={text("deleteDescription")}
+          confirmLabel={text("deleteUser")}
+          cancelLabel={text("cancel")}
+          processingLabel={text("processing")}
+          impactLabel={text("impact")}
+          closeLabel={closeLabel}
           details={[
-            { label: "User", value: pendingDeleteUser.email, mono: true },
-            { label: "Role", value: displayUiRole(pendingDeleteUser.role) },
+            { label: text("user"), value: pendingDeleteUser.email, mono: true },
+            { label: text("role"), value: displayUiRole(pendingDeleteUser.role) },
           ]}
           impacts={[
-            "The user loses access immediately after deletion.",
-            "Linked accounts, S3 users, and S3 connections remain in the platform but are no longer attached to this UI user.",
+            text("immediateAccessLoss"),
+            text("associationsRemain"),
           ]}
           loading={busyId === pendingDeleteUser.id}
           onCancel={() => setPendingDeleteUser(null)}
@@ -1565,16 +1597,16 @@ export default function UsersPage() {
 
       {editingUser && showEditModal && (
         <WorkflowPage
-          title="Edit user"
-          description="Manage direct access, inherited associations, workspace permissions, and Manager permissions for this UI user."
-          breadcrumbs={adminPageBreadcrumbs("users", { label: "Edit" })}
-          backLabel="Back to users"
+          title={text("editUser")}
+          description={text("editDescription")}
+          breadcrumbs={usersBreadcrumbs(text("edit"))}
+          backLabel={text("backToUsers")}
           onBack={editCloseGuard.requestClose}
           backDisabled={busyId === editingUser.id || authenticationBusy || avatarBusy}
           contentClassName="settings-compact settings-form"
           contentVariant="plain"
           width="wide"
-          metaContent={<WorkflowMetadata items={[{ label: "Identity", value: editingUser.email }]} />}
+          metaContent={<WorkflowMetadata items={[{ label: text("identity"), value: editingUser.email }]} />}
         >
           {actionError && (
             <PageBanner tone="error" className="mb-3">
@@ -1586,11 +1618,14 @@ export default function UsersPage() {
               {actionMessage}
             </PageBanner>
           )}
-          <SettingsForm label="Edit UI user" busy={busyId === editingUser.id || avatarBusy} onSubmit={submitEdit}
-            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
+          <SettingsForm label={text("editUiUser")} busy={busyId === editingUser.id || avatarBusy} onSubmit={submitEdit}
+            onCancel={editCloseGuard.requestClose} submitLabel={text("save")} busyLabel={text("saving")}
             actions={editModalTab === "authentication" ? (
-              <SettingsButton variant="secondary" disabled={authenticationBusy} onClick={editCloseGuard.requestClose}>Done</SettingsButton>
-            ) : undefined}>
+              <SettingsButton variant="secondary" disabled={authenticationBusy} onClick={editCloseGuard.requestClose}>{text("done")}</SettingsButton>
+            ) : <>
+              <SettingsButton variant="secondary" disabled={busyId === editingUser.id || avatarBusy} onClick={editCloseGuard.requestClose}>{text("cancel")}</SettingsButton>
+              <SettingsButton type="submit" disabled={busyId === editingUser.id || avatarBusy}>{text(busyId === editingUser.id || avatarBusy ? "saving" : "save")}</SettingsButton>
+            </>}>
             <WorkflowTabs<UserModalTab>
               panelClassName={editModalTab === "groups" || editModalTab === "associations" ? adminAssociationPanelClass : undefined}
               activeTab={editModalTab}
@@ -1599,7 +1634,7 @@ export default function UsersPage() {
                 pendingEditTab.current = tab;
                 editTabGuard.requestClose();
               }}
-              ariaLabel="User configuration sections"
+              ariaLabel={text("configurationSections")}
               idPrefix="admin-user-edit"
               tabs={editUserWorkflowTabs.map((tab) => ({ ...tab, disabled: authenticationBusy || avatarBusy }))}
             >
@@ -1609,7 +1644,7 @@ export default function UsersPage() {
                 <AdminUserIdentityFields
                   idPrefix="edit-user"
                   values={{ ...editForm, role: editRoleValue }}
-                  errors={editAttempted ? userIdentityErrors(editForm, false) : {}}
+                  errors={editAttempted ? userIdentityErrors(editForm, false, adminUserText) : {}}
                   onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))}
                   canAssignAdmin={currentIsSuperAdmin}
                   helpOpen={editRoleHelpOpen}
@@ -1651,11 +1686,11 @@ export default function UsersPage() {
             {editModalTab === "access" && (
               <>
                 <WorkspaceAccessSection
-                  description="Additional operational workspaces available to this UI user."
+                  description={text("operationalWorkspaces")}
                   cephAdmin={{
-                    title: "Ceph Admin access",
+                    title: text("cephAdminAccess"),
                     description:
-                      'Allow access to /ceph-admin. Grantable only by Superadmin for roles "Admin" and "Superadmin".',
+                      text("cephAdminAccessDescription"),
                     checked: editCanGrantCephAdmin && Boolean(editForm.can_access_ceph_admin),
                     disabled: !editCanGrantCephAdmin,
                     onChange: (value) =>
@@ -1663,10 +1698,10 @@ export default function UsersPage() {
                         ...f,
                         can_access_ceph_admin: value,
                       })),
-                    ariaLabel: "Allow access to /ceph-admin",
+                    ariaLabel: text("allowCephAdmin"),
                   }}
                   storageOps={{
-                    title: "Storage Ops access",
+                    title: text("storageOpsAccess"),
                     description: storageOpsAccessDescription,
                     checked: editCanGrantStorageOps && Boolean(editForm.can_access_storage_ops),
                     disabled: !editCanGrantStorageOps,
@@ -1675,21 +1710,21 @@ export default function UsersPage() {
                         ...f,
                         can_access_storage_ops: value,
                       })),
-                    ariaLabel: "Allow access to /storage-ops",
+                    ariaLabel: text("allowStorageOps"),
                   }}
                 />
                 {!editTargetSupportsManagerTools && (
                   <PageBanner tone="warning">
-                    Manager access requires the target role to be User, Admin, or Superadmin.
+                    {text("managerRoleRequirement")}
                   </PageBanner>
                 )}
 
                 <ManagerToolAccessSection
-                  title="Manager"
+                  title={text("manager")}
                   additionalItems={[
                     {
-                      title: "Provision managed private connections",
-                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
+                      title: text("provisionConnections"),
+                      description: text("provisionConnectionsDescription"),
                       checked: editTargetSupportsManagerTools && Boolean(editForm.can_provision_managed_private_connections),
                       disabled:
                         !editTargetSupportsManagerTools ||
@@ -1699,15 +1734,15 @@ export default function UsersPage() {
                           ...current,
                           can_provision_managed_private_connections: value,
                         })),
-                      ariaLabel: "Allow managed private connection provisioning",
+                      ariaLabel: text("allowProvisionConnections"),
                       badge: {
                         visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: "Disabled globally",
+                        label: text("disabledGlobally"),
                         tone: "neutral",
                       },
                     },
                   ]}
-                  description="Manager permissions for advanced operations."
+                  description={text("managerPermissions")}
                   tools={managerToolDefinitions}
                   access={editForm.manager_tool_access ?? editingUser.manager_tool_access}
                   isToolDisabled={(tool) => !editTargetSupportsManagerTools || !tool.enabled}
@@ -1722,7 +1757,7 @@ export default function UsersPage() {
                   }
                 />
                 <BrowserAccessSection
-                  description="Browser options for this UI user. Groups can also grant these options."
+                  description={text("browserOptions")}
                   checked={Boolean(editForm.browser_advanced_features_enabled ?? editingUser.browser_advanced_features_enabled)}
                   onChange={(value) =>
                     setEditForm((current) => ({
@@ -1732,12 +1767,12 @@ export default function UsersPage() {
                   }
                 />
                 <AdminAccessToggleSection
-                  title="Connections"
-                  description="Private S3 connection permissions for this UI user. Groups can also grant this permission."
+                  title={text("connections")}
+                  description={text("privateConnectionPermissions")}
                   items={[
                     {
-                      title: "Create manual private connections",
-                      description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
+                      title: text("createManualConnections"),
+                      description: text("manualConnectionsDescription"),
                       checked: editTargetSupportsManagerTools && Boolean(editForm.can_create_manual_private_connections),
                       disabled: !editTargetSupportsManagerTools,
                       onChange: (value) =>
@@ -1745,7 +1780,7 @@ export default function UsersPage() {
                           ...current,
                           can_create_manual_private_connections: value,
                         })),
-                      ariaLabel: "Allow manual private connection creation",
+                      ariaLabel: text("allowManualConnections"),
                     },
                   ]}
                 />
