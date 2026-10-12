@@ -519,6 +519,8 @@ describe("manager shell pages", () => {
     expect(within(overviewGrid).queryByText("Recent activity")).not.toBeInTheDocument();
     expect(within(activityIncidentsRow).getByText("Recent activity")).toBeInTheDocument();
     expect(within(activityIncidentsRow).getByText("Ongoing / Recent incidents")).toBeInTheDocument();
+    expect(within(overviewGrid).queryByText("View details")).not.toBeInTheDocument();
+    expect(within(activityIncidentsRow).queryByText("View all incidents")).not.toBeInTheDocument();
     expect(within(recentActivityCard).queryByText("View all")).not.toBeInTheDocument();
     expect(topBucketsCard).toHaveClass("xl:col-span-5");
     expect(recentActivityCard.parentElement).toBe(activityIncidentsRow);

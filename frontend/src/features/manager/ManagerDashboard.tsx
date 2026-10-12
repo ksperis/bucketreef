@@ -279,7 +279,7 @@ function StorageOverviewCard({
   return (
     <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       <WorkspaceDashboardStorageOverview
-        title={<span className="flex items-center gap-1.5">{text("Storage overview")}<InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /></span>}
+        title={text("Storage overview")}
         action={<WorkspaceDashboardActionLink to="/manager/metrics">{text("Usage analytics")}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
         usedLabel={text("Storage Used")}
         usedValue={storageValue}
@@ -574,10 +574,7 @@ function BackendHealthCard({
   const healthStatus = showEndpoint ? (stale ? "unknown" : endpoint.status) : "unknown";
   const content = (
     <section className={cx(uiCardClass, "ui-dashboard-panel")}>
-      <div className="flex items-center gap-1.5">
-        <h2 className="ui-dashboard-title">{text("Storage backend health")}</h2>
-        <InfoIcon className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" />
-      </div>
+      <h2 className="ui-dashboard-title">{text("Storage backend health")}</h2>
       <div className="mt-3 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5">
         {showEndpoint ? (
           <div className="ui-dashboard-panel-heading">
@@ -597,10 +594,6 @@ function BackendHealthCard({
           <HealthValue label={text("Last check")} value={showEndpoint ? formatLocalDateTime(endpoint.checked_at) : ""} />
         </div>
       </div>
-      <WorkspaceDashboardActionLink to="/manager/metrics" className="mt-2.5">
-        {text("View details")}
-        <OpenIcon className="h-3.5 w-3.5" />
-      </WorkspaceDashboardActionLink>
     </section>
   );
   return (
@@ -664,10 +657,6 @@ function IncidentStrip({
             )}
           </div>
         </div>
-        <WorkspaceDashboardActionLink to="/manager/metrics">
-          {text("View all incidents")}
-          <OpenIcon className="h-3.5 w-3.5" />
-        </WorkspaceDashboardActionLink>
       </div>
     </section>
   );
