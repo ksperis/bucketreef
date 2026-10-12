@@ -5,7 +5,7 @@ import { useI18n, type I18nMessage } from "../../i18n";
 
 const m = (en: string, zh: string): I18nMessage => ({ en, zh });
 
-export const adminAssociationMessages = {
+const adminAssociationMessages = {
   associationTypes: m("Association types", "关联类型"),
   managerRole: m("Manager role", "Manager 角色"),
   portalRole: m("Portal role", "Portal 角色"),
@@ -39,7 +39,7 @@ export const adminAssociationMessages = {
   ),
 };
 
-export type AdminAssociationMessageKey = keyof typeof adminAssociationMessages;
+type AdminAssociationMessageKey = keyof typeof adminAssociationMessages;
 
 export function useAdminAssociationI18n() {
   const { t } = useI18n();

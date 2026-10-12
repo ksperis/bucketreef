@@ -4,9 +4,9 @@ import path from "node:path";
 const DIST_DIR = path.resolve(process.cwd(), "dist");
 const MANIFEST_PATH = path.join(DIST_DIR, ".vite", "manifest.json");
 const MAX_ENTRY_JS_BYTES = 600 * 1024;
-// 0.2.15 frontend baseline: 4,615,635 bytes after Browser localization and shared UI evolution.
-// Keep entry/largest-chunk caps unchanged; allow <1% headroom over the measured total.
-const MAX_TOTAL_JS_BYTES = 4_550 * 1024;
+// Combined i18n preview baseline: 4,703,782 bytes across 258 JS chunks.
+// Keep entry/largest-chunk caps unchanged; retain about 0.58% total-size headroom.
+const MAX_TOTAL_JS_BYTES = 4_620 * 1024;
 const MAX_LARGEST_CHUNK_BYTES = 1_500 * 1024;
 
 function formatBytes(bytes) {
