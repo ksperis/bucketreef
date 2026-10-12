@@ -23,6 +23,7 @@ type ToolbarSearchInputProps = {
   leadingControl?: ReactNode;
   matchMode?: ToolbarSearchMatchMode;
   onToggleMatchMode?: () => void;
+  matchModeAriaLabel?: string;
   trailingControl?: ReactNode;
   spellCheck?: boolean;
 };
@@ -40,6 +41,7 @@ export default function ToolbarSearchInput({
   leadingControl,
   matchMode,
   onToggleMatchMode,
+  matchModeAriaLabel,
   trailingControl,
   spellCheck,
 }: ToolbarSearchInputProps) {
@@ -50,6 +52,7 @@ export default function ToolbarSearchInput({
       <ToolbarMatchModeButton
         mode={matchMode}
         onClick={onToggleMatchMode}
+        aria-label={matchModeAriaLabel}
         title={t({
           en: `Filter mode: ${matchMode === "contains" ? "contains" : "exact"}`,
           fr: `Mode de filtrage : ${matchMode === "contains" ? "contient" : "exact"}`,

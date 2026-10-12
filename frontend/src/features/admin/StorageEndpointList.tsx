@@ -49,7 +49,7 @@ export default function StorageEndpointList({
   endpoints, loading, error, envManaged, metadataReady, canEdit, defaultBusyId,
   deleteBusy, filters, onFiltersChange, onOpen, onSetDefault, onDelete, onRetry,
 }: Props) {
-  const { text } = useStorageEndpointI18n();
+  const { locale, text } = useStorageEndpointI18n();
   const providers = useMemo<Record<StorageProvider, string>>(
     () => ({ ceph: text("providerCeph"), aws: text("providerAws"), other: text("providerOther") }),
     [text],
@@ -130,7 +130,13 @@ export default function StorageEndpointList({
       </ListActions>,
     },
   ];
-  const count = new Intl.NumberFormat("en");
+  const count = useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const countLabel = activeFilters.length
+    ? text(endpoints.length === 1 ? "filteredEndpointCount" : "filteredEndpointCountPlural", {
+      visible: count.format(rows.length),
+      total: count.format(endpoints.length),
+    })
+    : text(rows.length === 1 ? "endpointCount" : "endpointCountPlural", { count: count.format(rows.length) });
   const status = resolveListTableStatus({ loading, error, rowCount: endpoints.length });
 
   return <div className="storage-endpoint-list">
@@ -138,15 +144,17 @@ export default function StorageEndpointList({
       <span>{error}</span><ListActionButton variant="secondary" disabled={loading} onClick={onRetry}>{text("retry")}</ListActionButton>
     </ListActions></PageBanner>}
     <ListPageSection variant="page" title={text("s3Endpoints")}
-      countLabel={loading && !endpoints.length ? text("loadingEndpoints") : error && !endpoints.length ? text("endpointsUnavailable") : text((activeFilters.length ? endpoints.length : rows.length) === 1 ? "endpointCount" : "endpointCountPlural", { count: `${count.format(rows.length)}${activeFilters.length ? ` of ${count.format(endpoints.length)}` : ""}` })}
+      countLabel={loading && !endpoints.length ? text("loadingEndpoints") : error && !endpoints.length ? text("endpointsUnavailable") : countLabel}
       search={<ToolbarSearchInput value={filters.query} onChange={(value) => onFiltersChange({ ...filters, query: value })}
         placeholder={text("searchPlaceholder")} className="endpoint-search w-full sm:w-80" active={Boolean(query)} matchMode={filters.mode}
+        matchModeAriaLabel={text("toggleFilterMatchMode")}
         onToggleMatchMode={() => onFiltersChange({ ...filters, mode: filters.mode === "contains" ? "exact" : "contains" })} />}
       filters={<UiSelect label={text("provider")} size="compact" value={filters.provider}
         onChange={(event) => onFiltersChange({ ...filters, provider: event.target.value as EndpointListFilters["provider"] })}>
         <option value="all">{text("all")}</option>{Object.entries(providers).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </UiSelect>}
       secondaryContent={activeFilters.length > 0 && <ActiveFiltersBar items={activeFilters}
+        label={text("activeFilters")} clearLabel={text("clearAll")}
         onClearAll={() => onFiltersChange({ query: "", mode: "contains", provider: "all" })} />}>
       <DataTableShell columns={columns} rows={rows} rowKey={(endpoint) => endpoint.id}
         status={status === "ready" && !rows.length ? "empty" : status}
