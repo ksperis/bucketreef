@@ -33,9 +33,7 @@ def test_public_validation_uses_full_history_and_runtimes_only_when_needed():
     checkout = next(step for step in steps if str(step.get('uses', '')).startswith('actions/checkout@'))
     setup_python = next(step for step in steps if str(step.get('uses', '')).startswith('actions/setup-python@'))
     setup_node = next(step for step in steps if str(step.get('uses', '')).startswith('actions/setup-node@'))
-    assert 'ci-contract' in checkout['with']['fetch-depth']
-    assert 'secret-scan' in checkout['with']['fetch-depth']
-    assert 'docs-build' in checkout['with']['fetch-depth']
+    assert checkout['with']['fetch-depth'] == '${{ contains(fromJSON(\'["ci-contract","secret-scan","docs-build"]\'), inputs.task) && \'0\' || \'1\' }}'
     assert 'backend-tests' in setup_python['if']
     assert 'frontend-quality' in setup_node['if']
     assert 'frontend-audit' in setup_node['if']
