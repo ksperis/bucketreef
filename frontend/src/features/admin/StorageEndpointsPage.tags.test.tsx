@@ -1025,7 +1025,15 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.queryByLabelText("Runtime access key")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Capabilities & health" }));
-    expect(screen.getByLabelText("SNS topics enabled")).toBeDisabled();
+    const readOnlySns = screen.getByLabelText("SNS topics enabled");
+    expect(readOnlySns).toBeDisabled();
+    expect(readOnlySns).toHaveAccessibleDescription(
+      "This endpoint is read-only; Ceph service configuration cannot be changed.",
+    );
+    expect(readOnlySns.closest("[title]"))?.toHaveAttribute(
+      "title",
+      "This endpoint is read-only; Ceph service configuration cannot be changed.",
+    );
     expect(screen.getByLabelText("Healthcheck mode")).toBeDisabled();
   });
 
@@ -1110,12 +1118,27 @@ describe("StorageEndpointsPage tags", () => {
     const accounts = screen.getByRole("switch", { name: "Accounts enabled" });
     const usage = screen.getByRole("switch", { name: "Usage Log enabled" });
     const metrics = screen.getByRole("switch", { name: "Metrics enabled" });
+    const admin = screen.getByRole("switch", { name: "Admin enabled" });
     await waitFor(() => expect(accounts).toBeEnabled());
     expect(accounts).toBeChecked();
+    expect(accounts).not.toHaveAccessibleDescription();
+    expect(accounts.closest("[title]")).toBeNull();
     expect(metrics).toBeEnabled();
     expect(metrics).toBeChecked();
+    expect(metrics).not.toHaveAccessibleDescription();
     expect(usage).toBeDisabled();
     expect(usage).not.toBeChecked();
+    expect(usage).toHaveAccessibleDescription(
+      "Usage Log is locked because usable RGW usage data was not detected. Valid Supervision Ops credentials are required.",
+    );
+    expect(usage.closest("[title]"))?.toHaveAttribute(
+      "title",
+      "Usage Log is locked because usable RGW usage data was not detected. Valid Supervision Ops credentials are required.",
+    );
+    expect(admin).toBeDisabled();
+    expect(admin).toHaveAccessibleDescription(
+      "Admin availability is detected automatically from Admin Ops credentials and cannot be changed manually.",
+    );
 
     fireEvent.click(accounts);
     fireEvent.click(metrics);
@@ -1177,6 +1200,44 @@ describe("StorageEndpointsPage tags", () => {
       await waitFor(() => expect(feature).toBeEnabled());
       expect(feature).not.toBeChecked();
     }
+  });
+
+  it("explains why unavailable Accounts and Metrics services are locked", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    const endpoint = makeEndpoint({
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: externalServiceIdentities(true),
+    });
+    listStorageEndpointsMock.mockResolvedValue([endpoint]);
+    getStorageEndpointMock.mockResolvedValue(endpoint);
+    detectStorageEndpointFeaturesMock.mockResolvedValue({
+      admin: true,
+      account: false,
+      usage: true,
+      metrics: false,
+      warnings: [],
+      credential_checks: {
+        admin: { status: "valid" },
+        supervision: { status: "valid" },
+        runtime: { status: "valid" },
+      },
+    });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Capabilities & health" }));
+
+    const accounts = screen.getByRole("switch", { name: "Accounts enabled" });
+    const metrics = screen.getByRole("switch", { name: "Metrics enabled" });
+    await waitFor(() => expect(accounts).toBeDisabled());
+    expect(accounts).toHaveAccessibleDescription(
+      "Accounts is locked because the RGW Account API was not detected as available with the current credentials.",
+    );
+    expect(metrics).toBeDisabled();
+    expect(metrics).toHaveAccessibleDescription(
+      "Metrics is locked because access to RGW bucket statistics was not detected. Valid Supervision Ops credentials are required.",
+    );
   });
 
   it("keeps tags read-only for a non-superadmin on the endpoint page", async () => {

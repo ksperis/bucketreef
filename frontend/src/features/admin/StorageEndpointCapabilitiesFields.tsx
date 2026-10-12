@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { useId } from "react";
 import type { StorageProvider } from "../../api/storageEndpoints";
 import { SettingsSection, SettingsItem, SettingsSwitch } from "../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -25,12 +26,25 @@ export default function StorageEndpointCapabilitiesFields({
   detectedCapabilities: { account: boolean; usage: boolean; metrics: boolean } | null;
 }) {
   const { text } = useStorageEndpointI18n();
+  const disabledReasonIdPrefix = useId();
   const ceph = provider === "ceph";
   const aws = provider === "aws";
-  const toggle = (key: FeatureKey, title: string, locked = false, available = true) =>
-    <SettingsItem key={key} title={title} compact action={<SettingsSwitch ariaLabel={title}
-      checked={features[key].enabled} disabled={readOnly || locked || !available}
-      onChange={enabled => updateFeatures(current => ({ ...current, [key]: { ...current[key], enabled } }))} />} />;
+  const toggle = (key: FeatureKey, title: string, locked = false, available = true, disabledReason?: string) => {
+    const disabled = readOnly || locked || !available;
+    const reason = disabled ? disabledReason : undefined;
+    const reasonId = reason ? `${disabledReasonIdPrefix}-${key}-disabled-reason` : undefined;
+    return <SettingsItem key={key} title={title} compact action={
+      <span className="inline-flex" title={reason}>
+        <SettingsSwitch ariaLabel={title} ariaDescribedBy={reasonId}
+          checked={features[key].enabled} disabled={disabled}
+          onChange={enabled => updateFeatures(current => ({ ...current, [key]: { ...current[key], enabled } }))} />
+        {reasonId && <span id={reasonId} className="sr-only">{reason}</span>}
+      </span>
+    } />;
+  };
+  const readOnlyReason = readOnly ? text("cephServiceReadOnlyReason") : undefined;
+  const unavailableReason = (key: "accountsUnavailableReason" | "usageLogUnavailableReason" | "metricsUnavailableReason") =>
+    readOnlyReason ?? (detecting ? text("featureDetectionProgress") : text(key));
   return <>
     {ceph && <SettingsSection title={text("cephServices")}
       description={text("cephServicesDescription")}
@@ -43,12 +57,15 @@ export default function StorageEndpointCapabilitiesFields({
           {text("usageLogDisabledNotice")}
         </UiInlineMessage>}
         <div>
-          {toggle("admin", text("adminEnabled"), true)}
-          {toggle("account", text("accountsEnabled"), false, detectedCapabilities?.account === true)}
-          {toggle("usage", text("usageLogEnabled"), false, detectedCapabilities?.usage === true)}
-          {toggle("metrics", text("metricsEnabled"), false, detectedCapabilities?.metrics === true)}
-          {toggle("sns", text("snsTopicsEnabled"))}
-          {toggle("replication", text("bucketReplicationEnabled"))}
+          {toggle("admin", text("adminEnabled"), true, true, readOnlyReason ?? text("adminAutoDetectedReason"))}
+          {toggle("account", text("accountsEnabled"), false, detectedCapabilities?.account === true,
+            unavailableReason("accountsUnavailableReason"))}
+          {toggle("usage", text("usageLogEnabled"), false, detectedCapabilities?.usage === true,
+            unavailableReason("usageLogUnavailableReason"))}
+          {toggle("metrics", text("metricsEnabled"), false, detectedCapabilities?.metrics === true,
+            unavailableReason("metricsUnavailableReason"))}
+          {toggle("sns", text("snsTopicsEnabled"), false, true, readOnlyReason)}
+          {toggle("replication", text("bucketReplicationEnabled"), false, true, readOnlyReason)}
         </div>
         <UiInput label={text("cephAdminEndpointOverride")} value={features.admin.endpoint} readOnly={readOnly}
           placeholder="https://rgw-admin.example.com" onChange={event => { invalidateChecks(); updateFeatures(current => ({
