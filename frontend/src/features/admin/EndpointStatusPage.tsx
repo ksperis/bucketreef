@@ -32,24 +32,26 @@ import {
   formatCheckMode,
   formatLatency,
   formatPercent,
+  formatStatusLabel,
   formatTimestamp,
   StatusPill,
 } from "./endpointStatusShared";
+import { useEndpointStatusText } from "./endpointStatusMessages";
 
-type WindowOption = { label: string; value: "day" | "week" | "month"; helper: string };
-type IncidentWindowOption = { label: string; value: "month" | "quarter" | "half_year"; helper: string };
+type WindowOption = { value: "day" | "week" | "month" };
+type IncidentWindowOption = { value: "month" | "quarter" | "half_year" };
 type IncidentRow = EndpointHealthGlobalIncident & { rowKey: string };
 
 const TIMELINE_WINDOW_OPTIONS: WindowOption[] = [
-  { label: "24h", value: "day", helper: "Last 24 hours" },
-  { label: "7d", value: "week", helper: "Last 7 days" },
-  { label: "30d", value: "month", helper: "Last 30 days" },
+  { value: "day" },
+  { value: "week" },
+  { value: "month" },
 ];
 
 const INCIDENT_WINDOW_OPTIONS: IncidentWindowOption[] = [
-  { label: "30d", value: "month", helper: "Last 30 days" },
-  { label: "90d", value: "quarter", helper: "Last 90 days" },
-  { label: "6m", value: "half_year", helper: "Last 6 months" },
+  { value: "month" },
+  { value: "quarter" },
+  { value: "half_year" },
 ];
 
 function latencyBarClass(status: HealthCheckStatus) {
@@ -82,6 +84,7 @@ function buildStatusCounts(endpoints: EndpointHealthLatencyOverviewEndpoint[]) {
 }
 
 export default function EndpointStatusPage() {
+  const { text, locale } = useEndpointStatusText();
   const navigate = useNavigate();
 
   const [latencyEndpoints, setLatencyEndpoints] = useState<EndpointHealthLatencyOverviewEndpoint[]>([]);
@@ -116,11 +119,11 @@ export default function EndpointStatusPage() {
       setLatencyUpdatedAt(payload.generated_at ?? null);
     } catch (err) {
       setLatencyEndpoints([]);
-      setLatencyError(extractApiError(err, "Unable to load latency overview."));
+      setLatencyError(extractApiError(err, text("latencyOverviewFailed")));
     } finally {
       setLatencyLoading(false);
     }
-  }, []);
+  }, [text]);
 
   const loadTimelineOverview = useCallback(async (windowValue: WindowOption["value"]) => {
     setTimelineLoading(true);
@@ -134,11 +137,11 @@ export default function EndpointStatusPage() {
       setTimelineEndpoints([]);
       setTimelineStart(null);
       setTimelineEnd(null);
-      setTimelineError(extractApiError(err, "Unable to load endpoint timelines."));
+      setTimelineError(extractApiError(err, text("timelineOverviewFailed")));
     } finally {
       setTimelineLoading(false);
     }
-  }, []);
+  }, [text]);
 
   const loadGlobalIncidents = useCallback(async (windowValue: IncidentWindowOption["value"]) => {
     setIncidentsLoading(true);
@@ -150,11 +153,11 @@ export default function EndpointStatusPage() {
     } catch (err) {
       setGlobalIncidents([]);
       setGlobalIncidentsTotal(0);
-      setIncidentsError(extractApiError(err, "Unable to load global incidents."));
+      setIncidentsError(extractApiError(err, text("globalIncidentsFailed")));
     } finally {
       setIncidentsLoading(false);
     }
-  }, []);
+  }, [text]);
 
   const loadAll = useCallback(async () => {
     await Promise.all([loadLatencyOverview(), loadTimelineOverview(timelineWindow), loadGlobalIncidents(incidentWindow)]);
@@ -167,14 +170,14 @@ export default function EndpointStatusPage() {
     setActionError(null);
     try {
       await runHealthchecks();
-      setActionMessage("Healthchecks executed.");
+      setActionMessage(text("healthchecksExecuted"));
       await loadAll();
     } catch (err) {
-      setActionError(extractApiError(err, "Unable to run healthchecks."));
+      setActionError(extractApiError(err, text("healthchecksRunFailed")));
     } finally {
       setRunLoading(false);
     }
-  }, [loadAll, runLoading]);
+  }, [loadAll, runLoading, text]);
 
   useEffect(() => {
     loadLatencyOverview();
@@ -233,19 +236,21 @@ export default function EndpointStatusPage() {
   });
   const incidentsCountLabel =
     statusFilter === "all"
-      ? `${globalIncidentsTotal} incident${globalIncidentsTotal === 1 ? "" : "s"}${
-          globalIncidentsTotal > globalIncidents.length ? ` · showing first ${globalIncidents.length}` : ""
+      ? `${text(globalIncidentsTotal === 1 ? "oneIncident" : "manyIncidents", { count: globalIncidentsTotal })}${
+          globalIncidentsTotal > globalIncidents.length ? text("showingFirstIncidents", { count: globalIncidents.length }) : ""
         }`
-      : `${incidentRows.length} of ${globalIncidents.length} loaded incident${
-          globalIncidents.length === 1 ? "" : "s"
-        } matching ${statusFilter}`;
+      : text(globalIncidents.length === 1 ? "matchingIncident" : "matchingIncidents", {
+          count: incidentRows.length,
+          total: globalIncidents.length,
+          status: formatStatusLabel(statusFilter, locale).toLowerCase(),
+        });
   const incidentsEmptyMessage =
-    statusFilter === "all" ? "No incidents for this range." : `No ${statusFilter} incidents for this range.`;
+    statusFilter === "all" ? text("noIncidents") : text("noStatusIncidents", { status: formatStatusLabel(statusFilter, locale).toLowerCase() });
   const incidentTableColumns = useMemo<Array<DataTableColumn<IncidentRow>>>(
     () => [
       {
         id: "endpoint",
-        label: "Endpoint",
+        label: text("endpoint"),
         primary: true,
         cellClassName: "min-w-[16rem]",
         render: (incident) => (
@@ -257,37 +262,42 @@ export default function EndpointStatusPage() {
       },
       {
         id: "status",
-        label: "Status",
+        label: text("status"),
         render: (incident) => <StatusPill status={incident.status} />,
       },
       {
         id: "start",
-        label: "Start",
+        label: text("start"),
         cellClassName: "whitespace-nowrap ui-caption text-slate-500 dark:text-slate-400",
-        render: (incident) => formatTimestamp(incident.start),
+        render: (incident) => formatTimestamp(incident.start, locale),
       },
       {
         id: "end",
-        label: "End",
+        label: text("end"),
         cellClassName: "whitespace-nowrap ui-caption text-slate-500 dark:text-slate-400",
-        render: (incident) => (incident.end ? formatTimestamp(incident.end) : "Ongoing"),
+        render: (incident) => (incident.end ? formatTimestamp(incident.end, locale) : text("ongoing")),
       },
       {
         id: "duration",
-        label: "Duration",
+        label: text("duration"),
         cellClassName: "whitespace-nowrap ui-caption text-slate-500 dark:text-slate-400",
-        render: (incident) => (incident.duration_minutes != null ? `${incident.duration_minutes} min` : "-"),
+        render: (incident) => (incident.duration_minutes != null ? `${incident.duration_minutes} ${text("minuteUnit")}` : "-"),
       },
       {
         id: "type",
-        label: "Type",
+        label: text("type"),
         cellClassName: "min-w-[14rem] ui-caption text-slate-500 dark:text-slate-400",
-        render: (incident) =>
-          `${(incident.check_type || "availability").toUpperCase()} · ${(incident.scope || "endpoint").toUpperCase()} · ${formatCheckMode(incident.check_mode)}`,
+        render: (incident) => {
+          const checkType = incident.check_type || "availability";
+          const scope = incident.scope || "endpoint";
+          const typeLabel = checkType === "availability" ? text("checkTypeAvailability") : checkType === "latency" ? text("checkTypeLatency") : checkType.toUpperCase();
+          const scopeLabel = scope === "endpoint" ? text("checkScopeEndpoint") : scope.toUpperCase();
+          return `${typeLabel} · ${scopeLabel} · ${formatCheckMode(incident.check_mode)}`;
+        },
       },
       {
         id: "actions",
-        label: "Actions",
+        label: text("actions"),
         align: "right",
         mobileRole: "actions",
         render: (incident) => (
@@ -296,32 +306,32 @@ export default function EndpointStatusPage() {
             onClick={() => navigate(`/admin/endpoint-status/${incident.endpoint_id}`)}
             {...dataTableDefaultActionProps}
           >
-            Open
+            {text("open")}
           </ListActionButton>
         ),
       },
     ],
-    [navigate]
+    [locale, navigate, text]
   );
 
   return (
     <PageShell actionPresentation="listing"
-      title="Endpoint Status"
-      description="Global operational view across all storage endpoints."
-      breadcrumbs={adminPageBreadcrumbs("endpoint-status")}
+      title={text("title")}
+      description={text("description")}
+      breadcrumbs={adminPageBreadcrumbs("endpoint-status").map((breadcrumb, index) => ({ ...breadcrumb, label: text(index === 0 ? "admin" : "title") }))}
       actions={[
-        { label: runLoading ? "Running..." : "Check now", onClick: handleRunNow, disabled: import.meta.env.MODE === "demo" },
-        { label: "Refresh", onClick: loadAll, variant: "ghost" },
+        { label: runLoading ? text("running") : text("checkNow"), onClick: handleRunNow, disabled: import.meta.env.MODE === "demo" },
+        { label: text("refresh"), onClick: loadAll, variant: "ghost" },
       ]}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Global endpoint status filter">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={text("globalStatusFilter")}>
           {[
-            { key: "all" as const, label: "All", value: stats.total },
-            { key: "up" as const, label: "Up", value: stats.up },
-            { key: "degraded" as const, label: "Degraded", value: stats.degraded },
-            { key: "down" as const, label: "Down", value: stats.down },
-            { key: "unknown" as const, label: "Unknown", value: stats.unknown },
+            { key: "all" as const, label: text("all"), value: stats.total },
+            { key: "up" as const, label: text("status_up"), value: stats.up },
+            { key: "degraded" as const, label: text("status_degraded"), value: stats.degraded },
+            { key: "down" as const, label: text("status_down"), value: stats.down },
+            { key: "unknown" as const, label: text("status_unknown"), value: stats.unknown },
           ].map((item) => (
             <ListActionButton key={item.key} aria-pressed={statusFilter === item.key}
               variant={item.value === 0 || latencyLoading || latencyError ? "secondary" : item.key === "down" ? "danger" : item.key === "degraded" ? "warning" : item.key === "up" ? "success" : "secondary"}
@@ -330,7 +340,7 @@ export default function EndpointStatusPage() {
             </ListActionButton>
           ))}
         </div>
-        <span className="text-xs text-[var(--ui-text-muted)]">Updated: {latencyLoading ? "Loading..." : latencyError ? "Unavailable" : latencyUpdatedAt ? formatTimestamp(latencyUpdatedAt) : "Unavailable"}</span>
+        <span className="text-xs text-[var(--ui-text-muted)]">{text("updated", { timestamp: latencyLoading ? text("loading") : latencyError ? text("unavailable") : latencyUpdatedAt ? formatTimestamp(latencyUpdatedAt, locale) : text("unavailable") })}</span>
       </div>
 
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
@@ -341,15 +351,15 @@ export default function EndpointStatusPage() {
 
       <div className="ui-surface-card">
         <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-          <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Endpoint Latency</p>
+          <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">{text("endpointLatency")}</p>
           <p className="ui-caption text-slate-500 dark:text-slate-400">
-            24h rolling min/avg/max latency (down checks excluded). Click a card for endpoint details.
+            {text("latencyDescription")}
           </p>
         </div>
         <div className="px-4 py-4 sm:px-6">
-          {latencyLoading && <p className="ui-body text-slate-500 dark:text-slate-400">Loading latency overview...</p>}
+          {latencyLoading && <p className="ui-body text-slate-500 dark:text-slate-400">{text("latencyLoading")}</p>}
           {!latencyLoading && filteredLatencyEndpoints.length === 0 && (
-            <p className="ui-body text-slate-500 dark:text-slate-400">No endpoints for the selected status filter.</p>
+            <p className="ui-body text-slate-500 dark:text-slate-400">{text("noEndpointsForFilter")}</p>
           )}
           {!latencyLoading && filteredLatencyEndpoints.length > 0 && (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -363,7 +373,7 @@ export default function EndpointStatusPage() {
                 const relativeWidth = relativePct == null ? 0 : Math.max(8, Math.min(100, relativePct));
                 const minMarkerPct = minLatency == null ? null : Math.max(0, Math.min(100, (minLatency / maxOverviewLatency) * 100));
                 const maxMarkerPct = maxLatency == null ? null : Math.max(0, Math.min(100, (maxLatency / maxOverviewLatency) * 100));
-                const relativeLabel = relativePct == null ? "No latency sample yet." : `${relativePct}% of slowest endpoint.`;
+                const relativeLabel = relativePct == null ? text("noLatencySample") : text("relativeLatency", { percent: relativePct });
 
                 return (
                   <button
@@ -377,7 +387,7 @@ export default function EndpointStatusPage() {
                       <StatusPill status={endpoint.status} />
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <p className="ui-caption text-slate-500 dark:text-slate-400">Current latency</p>
+                      <p className="ui-caption text-slate-500 dark:text-slate-400">{text("currentLatency")}</p>
                       <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">{formatLatency(currentLatency)}</p>
                     </div>
                     <div className="relative mt-1 h-2.5">
@@ -400,9 +410,9 @@ export default function EndpointStatusPage() {
                       <p className="ui-caption text-slate-500 dark:text-slate-400">{formatCheckMode(endpoint.check_mode)}</p>
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <p className="ui-caption text-slate-500 dark:text-slate-400">Min {formatLatency(minLatency)}</p>
-                      <p className="ui-caption text-slate-500 dark:text-slate-400">Avg {formatLatency(avgLatency)}</p>
-                      <p className="ui-caption text-slate-500 dark:text-slate-400">Max {formatLatency(maxLatency)}</p>
+                      <p className="ui-caption text-slate-500 dark:text-slate-400">{text("minLatency", { latency: formatLatency(minLatency) })}</p>
+                      <p className="ui-caption text-slate-500 dark:text-slate-400">{text("avgLatency", { latency: formatLatency(avgLatency) })}</p>
+                      <p className="ui-caption text-slate-500 dark:text-slate-400">{text("maxLatency", { latency: formatLatency(maxLatency) })}</p>
                     </div>
                   </button>
                 );
@@ -415,22 +425,22 @@ export default function EndpointStatusPage() {
       <div className="ui-surface-card">
         <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Endpoint Timelines</p>
+            <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">{text("endpointTimelines")}</p>
             <p className="ui-caption text-slate-500 dark:text-slate-400">
-              Availability timelines (green up, amber degraded, red down). Default view is 7 days.
+              {text("timelinesDescription")}
             </p>
           </div>
           <UiSegmentedControl
-            ariaLabel="Endpoint timeline window"
-            options={TIMELINE_WINDOW_OPTIONS}
+            ariaLabel={text("timelineWindow")}
+            options={TIMELINE_WINDOW_OPTIONS.map(({ value }) => ({ value, label: text(`windowLabel_${value}`), helper: text(`windowHelp_${value}`) }))}
             value={timelineWindow}
             onChange={setTimelineWindow}
           />
         </div>
         <div className="space-y-3 px-6 py-4">
-          {timelineLoading && <p className="ui-body text-slate-500 dark:text-slate-400">Loading timelines...</p>}
+          {timelineLoading && <p className="ui-body text-slate-500 dark:text-slate-400">{text("timelinesLoading")}</p>}
           {!timelineLoading && filteredTimelineEndpoints.length === 0 && (
-            <p className="ui-body text-slate-500 dark:text-slate-400">No timeline data for the selected status filter.</p>
+            <p className="ui-body text-slate-500 dark:text-slate-400">{text("noTimelinesForFilter")}</p>
           )}
           {!timelineLoading &&
             filteredTimelineEndpoints.map((endpoint) => (
@@ -443,7 +453,7 @@ export default function EndpointStatusPage() {
                 <div className="flex items-center justify-between gap-3">
                   <p className="ui-caption font-semibold text-slate-900 dark:text-slate-100">{endpoint.name}</p>
                   <div className="flex items-center gap-2">
-                    <span className="ui-caption text-slate-500 dark:text-slate-400">{formatPercent(endpoint.availability_pct ?? null)} availability</span>
+                    <span className="ui-caption text-slate-500 dark:text-slate-400">{text("availabilityPercent", { percent: formatPercent(endpoint.availability_pct ?? null) })}</span>
                     <span className="ui-caption text-slate-500 dark:text-slate-400">{formatCheckMode(endpoint.check_mode)}</span>
                     <StatusPill status={endpoint.status} />
                   </div>
@@ -455,14 +465,14 @@ export default function EndpointStatusPage() {
       </div>
 
       <ListPageSection
-          title="Incidents"
-          description="All incidents across endpoints. Default view is 6 months."
+          title={text("incidents")}
+          description={text("incidentsDescription")}
           variant="section"
           countLabel={incidentsCountLabel}
           filters={
             <UiSegmentedControl
-              ariaLabel="Incident history window"
-              options={INCIDENT_WINDOW_OPTIONS}
+              ariaLabel={text("incidentWindow")}
+              options={INCIDENT_WINDOW_OPTIONS.map(({ value }) => ({ value, label: text(`windowLabel_${value}`), helper: text(`windowHelp_${value}`) }))}
               value={incidentWindow}
               onChange={setIncidentWindow}
             />
@@ -473,8 +483,8 @@ export default function EndpointStatusPage() {
           rows={incidentRows}
           rowKey={(incident) => incident.rowKey}
           status={incidentsTableStatus}
-          loadingMessage="Loading incidents..."
-          errorMessage="Unable to load incidents."
+          loadingMessage={text("incidentsLoading")}
+          errorMessage={text("incidentsFailed")}
           emptyMessage={incidentsEmptyMessage}
           primaryColumnId="endpoint"
           responsiveCards
