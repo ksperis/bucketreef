@@ -5,6 +5,7 @@ import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useStorageEndpointI18n } from "./storageEndpointMessages";
 
 /** One mounted endpoint draft owns submission, dismissal and navigation. */
 export default function StorageEndpointEditor({
@@ -26,23 +27,24 @@ export default function StorageEndpointEditor({
   children: ReactNode;
 }) {
   const disabled = !ready || !canEdit || !dirty;
+  const { text } = useStorageEndpointI18n();
   const controller = useSettingsFormController({ dirty, busy, disabled, onSubmit, onClose });
-  const resolvedSubmitLabel = submitLabel ?? (editing ? (readOnly ? "Save tags" : "Update endpoint") : "Create endpoint");
-  const resolvedBusyLabel = busyLabel ?? "Saving...";
+  const resolvedSubmitLabel = submitLabel ?? (editing ? (readOnly ? text("saveTags") : text("updateEndpoint")) : text("createEndpoint"));
+  const resolvedBusyLabel = busyLabel ?? text("saving");
   return <>
     <WorkflowPage title={title}
-      description="Manage connection settings, operational credentials, capabilities, and health checks for this endpoint."
-      breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: editing ? name : "Create" })}
-      backLabel="Back to endpoints" onBack={controller.requestClose} backDisabled={controller.locked}
+      description={text("editorDescription")}
+      breadcrumbs={adminPageBreadcrumbs("storage-endpoints", { label: editing ? name : text("create") })}
+      backLabel={text("backToEndpoints")} onBack={controller.requestClose} backDisabled={controller.locked}
       contentVariant="plain" width="wide" contentClassName="settings-compact settings-form">
-      <SettingsForm label="Storage endpoint configuration" busy={controller.locked} submitDisabled={disabled}
+      <SettingsForm label={text("storageEndpointConfiguration")} busy={controller.locked} submitDisabled={disabled}
         onSubmit={controller.submit} onCancel={controller.requestClose} submitLabel={resolvedSubmitLabel} busyLabel={resolvedBusyLabel}
         actions={<>
           <SettingsButton variant="secondary" onClick={controller.requestClose} disabled={controller.locked}>
-            {canEdit ? "Cancel" : "Done"}
+            {canEdit ? text("cancel") : text("done")}
           </SettingsButton>
           {canEdit && <SettingsButton type="submit" disabled={disabled || controller.locked}
-            title={!ready ? "Management mode is unavailable." : !dirty ? "No changes to save." : undefined}>
+            title={!ready ? text("managementModeUnavailableTitle") : !dirty ? text("noChangesToSave") : undefined}>
             {controller.locked ? resolvedBusyLabel : resolvedSubmitLabel}
           </SettingsButton>}
         </>}>
