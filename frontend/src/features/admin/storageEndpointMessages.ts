@@ -23,6 +23,9 @@ export const storageEndpointMessages = {
   search: m("Search {mode}: {query}", "Recherche {mode} : {query}", "Suche {mode}: {query}", "搜索{mode}：{query}"),
   matchContains: m("contains", "contient", "enthält", "包含"),
   matchExact: m("exact", "exact", "exakt", "完全匹配"),
+  toggleFilterMatchMode: m("Toggle filter match mode", "Changer le mode de correspondance du filtre", "Filterabgleichsmodus wechseln", "切换筛选匹配模式"),
+  activeFilters: m("Active filters:", "Filtres actifs :", "Aktive Filter:", "当前筛选："),
+  clearAll: m("Clear all", "Tout effacer", "Alle löschen", "清除全部"),
   providerFilter: m("Provider: {provider}", "Fournisseur : {provider}", "Anbieter: {provider}", "提供方：{provider}"),
   endpoint: m("Endpoint", "Point de terminaison", "Endpunkt", "端点"),
   default: m("Default", "Par défaut", "Standard", "默认"),
@@ -50,6 +53,8 @@ export const storageEndpointMessages = {
   endpointsUnavailable: m("Endpoints unavailable", "Points de terminaison indisponibles", "Endpunkte nicht verfügbar", "端点不可用"),
   endpointCount: m("{count} endpoint", "{count} point de terminaison", "{count} Endpunkt", "{count} 个端点"),
   endpointCountPlural: m("{count} endpoints", "{count} points de terminaison", "{count} Endpunkte", "{count} 个端点"),
+  filteredEndpointCount: m("{visible} of {total} endpoint", "{visible} sur {total} point de terminaison", "{visible} von {total} Endpunkt", "{visible} / {total} 个端点"),
+  filteredEndpointCountPlural: m("{visible} of {total} endpoints", "{visible} sur {total} points de terminaison", "{visible} von {total} Endpunkten", "{visible} / {total} 个端点"),
   searchPlaceholder: m("Search name, URL, provider, region or tag", "Rechercher par nom, URL, fournisseur, région ou tag", "Name, URL, Anbieter, Region oder Tag suchen", "搜索名称、URL、提供方、区域或标签"),
   all: m("All", "Tous", "Alle", "全部"),
   loadingError: m("Unable to load endpoints. Use Retry to try again.", "Impossible de charger les points de terminaison. Utilisez Réessayer.", "Endpunkte konnten nicht geladen werden. Verwenden Sie Erneut versuchen.", "无法加载端点。请点击“重试”。"),
@@ -254,10 +259,10 @@ export type StorageEndpointMessageKey = keyof typeof storageEndpointMessages;
 export type StorageEndpointText = (key: StorageEndpointMessageKey, values?: Record<string, string | number>) => string;
 
 export function useStorageEndpointI18n() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const text: StorageEndpointText = useCallback(
     (key, values) => t(storageEndpointMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)),
     [t],
   );
-  return { text };
+  return { locale, text };
 }
