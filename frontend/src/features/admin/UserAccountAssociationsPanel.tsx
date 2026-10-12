@@ -18,6 +18,7 @@ import {
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
 import { AdminAssociationAccessPickerTable, AdminAssociationPickerPanel, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
+import { useUserI18n } from "./userMessage";
 
 export type AccountSelection = AccountAccessGrant & {
   id: number;
@@ -57,6 +58,7 @@ export default function UserAccountAssociationsPanel({
   maxVisibleOptions,
   showPortalRole,
 }: UserAccountAssociationsPanelProps) {
+  const { text } = useUserI18n();
   const defaultAccess = defaultAccountAccessGrant(showPortalRole);
   const hasInvalidPendingSelection = accounts.selections.some(
     (accountId) =>
@@ -70,28 +72,28 @@ export default function UserAccountAssociationsPanel({
         <table className="ui-data-table">
           <thead>
             <tr>
-              <th className="text-left">Account</th>
-              <th className="text-left">Manager role</th>
+              <th className="text-left">{text("account")}</th>
+              <th className="text-left">{text("managerRole")}</th>
               {showPortalColumn ? (
                 <th className="text-left">
-                  Portal role
+                  {text("portalRole")}
                 </th>
               ) : null}
-              <th className="w-px whitespace-nowrap text-right">Actions</th>
+              <th className="w-px whitespace-nowrap text-right">{text("actions")}</th>
             </tr>
           </thead>
           <tbody>
             {accounts.selected.length === 0 ? (
               <tr>
                 <td colSpan={3 + Number(showPortalColumn)} className="ui-table-secondary">
-                  No account linked yet.
+                  {text("noLinkedAccount")}
                 </td>
               </tr>
             ) : (
               accounts.selected.map((entry) => {
                 const label =
                   accounts.optionsById.get(Number(entry.id))?.name ??
-                  `S3Account #${entry.id}`;
+                  text("accountById", { id: entry.id });
                 const accessErrorId = `user-account-access-${entry.id}-error`;
                 const invalid = !hasAccountAccessRole(entry);
                 const updateAccess = (value: AccountAccessGrant) =>
@@ -170,7 +172,7 @@ export default function UserAccountAssociationsPanel({
                         }
                          variant="danger"
                       >
-                        Remove
+                        {text("remove")}
                       </ListActionButton>
                     </td>
                   </tr>
@@ -182,15 +184,15 @@ export default function UserAccountAssociationsPanel({
       </div>
       {accounts.showPanel ? (
         <AdminAssociationPickerPanel
-          title="Add accounts"
-          hint="(search by name)"
+          title={text("addAccounts")}
+          hint={text("searchByName")}
           search={accounts.search}
           onSearchChange={accounts.setSearch}
           loading={accounts.loading}
           availableCount={accounts.available.length}
           maxVisibleOptions={maxVisibleOptions}
           selectedCount={accounts.selections.length}
-          loadingLabel="Loading accounts..."
+          loadingLabel={text("loadingAccounts")}
           addDisabled={accounts.selections.length === 0 || hasInvalidPendingSelection}
           onCancel={() => {
             accounts.setShowPanel(false);
@@ -211,8 +213,8 @@ export default function UserAccountAssociationsPanel({
           }}
         >
           <AdminAssociationAccessPickerTable
-            title="Available accounts"
-            principalLabel="Account"
+            title={text("availableAccounts")}
+            principalLabel={text("account")}
             options={accounts.visible.map((option) => {
               const accountId = Number(option.id);
               return {

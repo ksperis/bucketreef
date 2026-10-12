@@ -11,6 +11,7 @@ import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAsso
 import UserAccountAssociationsPanel, {
   type UserAccountAssociationsState,
 } from "./UserAccountAssociationsPanel";
+import { useUserI18n } from "./userMessage";
 
 export type AssociationTab = "accounts" | "s3_users" | "connections";
 
@@ -70,14 +71,15 @@ export default function UserAssociationsTabs({
   s3Users,
   connections,
 }: UserAssociationsTabsProps) {
+  const { text } = useUserI18n();
   return (
     <AdminAssociationTabs
       tabs={[
         {
           id: "accounts",
-          label: "Accounts",
+          label: text("accounts"),
           count: accounts.selected.length,
-          actionLabel: accounts.showPanel ? "Close" : "Add accounts",
+          actionLabel: text(accounts.showPanel ? "close" : "addAccounts"),
           onAction: () => accounts.setShowPanel((current) => !current),
           content: (
             <UserAccountAssociationsPanel
@@ -89,9 +91,9 @@ export default function UserAssociationsTabs({
         },
         {
           id: "s3_users",
-          label: "S3 Users",
+          label: text("s3Users"),
           count: s3Users.selected.length,
-          actionLabel: s3Users.showPanel ? "Close" : "Add users",
+          actionLabel: text(s3Users.showPanel ? "close" : "addUsers"),
           onAction: () => s3Users.setShowPanel((current) => !current),
           content: (
             <div className="space-y-3">
@@ -99,22 +101,22 @@ export default function UserAssociationsTabs({
                 <table className="ui-data-table">
                   <thead>
                     <tr>
-                      <th className="text-left">User</th>
-                      <th className="w-px whitespace-nowrap text-right">Actions</th>
+                      <th className="text-left">{text("user")}</th>
+                      <th className="w-px whitespace-nowrap text-right">{text("actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {s3Users.selected.length === 0 ? (
                       <tr>
                         <td colSpan={2} className="ui-table-secondary">
-                          No user linked yet.
+                          {text("noLinkedUser")}
                         </td>
                       </tr>
                     ) : (
                       s3Users.selected.map((entry) => {
                         const label =
                           s3Users.labelById.get(entry.s3_user_id) ??
-                          `User #${entry.s3_user_id}`;
+                          text("userById", { id: entry.s3_user_id });
                         return (
                           <tr key={entry.s3_user_id}>
                             <td className="ui-table-primary">{label}</td>
@@ -149,7 +151,7 @@ export default function UserAssociationsTabs({
                                 }
                                  variant="danger"
                               >
-                                Remove
+                                {text("remove")}
                               </ListActionButton>
                             </td>
                           </tr>
@@ -161,15 +163,15 @@ export default function UserAssociationsTabs({
               </div>
               {s3Users.showPanel ? (
                 <AdminAssociationPickerPanel
-                  title="Add users"
-                  hint="(search by name)"
+                  title={text("addUsers")}
+                  hint={text("searchByName")}
                   search={s3Users.search}
                   onSearchChange={s3Users.setSearch}
                   loading={s3Users.loading}
                   availableCount={s3Users.available.length}
                   maxVisibleOptions={maxVisibleOptions}
                   selectedCount={s3Users.selections.length}
-                  loadingLabel="Loading users..."
+                  loadingLabel={text("loadingUsers")}
                   addDisabled={s3Users.selections.length === 0}
                   onCancel={() => {
                     s3Users.setShowPanel(false);
@@ -203,33 +205,33 @@ export default function UserAssociationsTabs({
         },
         {
           id: "connections",
-          label: "Connections",
+          label: text("connections"),
           count: connections.selected.length,
-          actionLabel: connections.showPanel ? "Close" : "Add connections",
+          actionLabel: text(connections.showPanel ? "close" : "addConnections"),
           onAction: () => connections.setShowPanel((current) => !current),
-          hint: "Shared connections only",
+          hint: text("sharedConnectionsOnly"),
           content: (
             <div className="space-y-3">
               <div className={adminAssociationTableContainerClass}>
                 <table className="ui-data-table">
                   <thead>
                     <tr>
-                      <th className="text-left">Connection</th>
-                      <th className="w-px whitespace-nowrap text-right">Actions</th>
+                      <th className="text-left">{text("connection")}</th>
+                      <th className="w-px whitespace-nowrap text-right">{text("actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {connections.selected.length === 0 ? (
                       <tr>
                         <td colSpan={2} className="ui-table-secondary">
-                          No connection linked yet.
+                          {text("noLinkedConnection")}
                         </td>
                       </tr>
                     ) : (
                       connections.selected.map((id) => (
                         <tr key={id}>
                           <td className="ui-table-primary">
-                            {connections.labelById.get(id) ?? `Connection #${id}`}
+                            {connections.labelById.get(id) ?? text("connectionById", { id })}
                           </td>
                           <td className="ui-table-actions-cell w-px text-right">
                             <ListActionButton
@@ -241,7 +243,7 @@ export default function UserAssociationsTabs({
                               }
                                variant="danger"
                             >
-                              Remove
+                              {text("remove")}
                             </ListActionButton>
                           </td>
                         </tr>
@@ -252,15 +254,15 @@ export default function UserAssociationsTabs({
               </div>
               {connections.showPanel ? (
                 <AdminAssociationPickerPanel
-                  title="Add connections"
-                  hint="(search by name)"
+                  title={text("addConnections")}
+                  hint={text("searchByName")}
                   search={connections.search}
                   onSearchChange={connections.setSearch}
                   loading={connections.loading}
                   availableCount={connections.available.length}
                   maxVisibleOptions={maxVisibleOptions}
                   selectedCount={connections.selections.length}
-                  loadingLabel="Loading connections..."
+                  loadingLabel={text("loadingConnections")}
                   addDisabled={connections.selections.length === 0}
                   onCancel={() => {
                     connections.setShowPanel(false);
