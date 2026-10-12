@@ -17,8 +17,15 @@ import UiBadge from "../../components/ui/UiBadge";
 import UiCard from "../../components/ui/UiCard";
 import UiDetails from "../../components/ui/UiDetails";
 import { cx, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
+import { useI18n, type I18nMessage } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import {
+  productionReadinessGroupDescriptions as groupDescription,
+  productionReadinessLevelLabels as levelLabel,
+  productionReadinessLevelSummaries as levelSummary,
+  productionReadinessMessages as messages,
+} from "./productionReadinessMessages";
 
 const levelTone: Record<CheckLevel, "success" | "warning" | "danger" | "info" | "neutral"> = {
   blocked: "danger",
@@ -28,37 +35,15 @@ const levelTone: Record<CheckLevel, "success" | "warning" | "danger" | "info" | 
   ok: "success",
 };
 
-const levelLabel: Record<CheckLevel, string> = {
-  blocked: "Blocked",
-  critical: "Critical",
-  warning: "Warning",
-  manual: "Manual",
-  ok: "OK",
-};
-
 const groupOrder: CheckLevel[] = ["blocked", "critical", "warning", "manual", "ok"];
 
-const groupDescription: Record<CheckLevel, string> = {
-  blocked: "Obvious security problems. In production, checks marked as startup-blocking prevent the backend from serving requests.",
-  critical: "Important production-readiness gaps that should be corrected before publication, without preventing application startup.",
-  warning: "Configuration choices that can be valid but deserve explicit operator review.",
-  manual: "Operational properties that cannot be proven safely from this backend instance and require human verification.",
-  ok: "Automated checks that currently satisfy their expected configuration.",
-};
-
-const levelSummary: Record<CheckLevel, string> = {
-  blocked: "Can prevent startup in production.",
-  critical: "Correct before production publication.",
-  warning: "Review against your deployment context.",
-  manual: "Requires explicit operator verification.",
-  ok: "Automated checks currently satisfied.",
-};
-
 function ReadinessLevelOverview({ report }: { report: ProductionReadinessResponse }) {
+  const { t } = useI18n();
+
   return (
     <div>
       <dl
-        aria-label="Readiness levels"
+        aria-label={t(messages.readinessLevels)}
         className="grid gap-px overflow-hidden rounded-lg border border-[color:var(--ui-border-soft)] bg-[var(--ui-border-soft)] sm:grid-cols-2 lg:grid-cols-5"
       >
         {groupOrder.map((level) => (
@@ -67,25 +52,27 @@ function ReadinessLevelOverview({ report }: { report: ProductionReadinessRespons
             className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 bg-[var(--ui-surface-muted)] px-3 py-3"
           >
             <dt>
-              <UiBadge tone={levelTone[level]}>{levelLabel[level]}</UiBadge>
+              <UiBadge tone={levelTone[level]}>{t(levelLabel[level])}</UiBadge>
             </dt>
             <dd className={cx("text-[18px] font-semibold leading-5", uiTitleTextClass)}>
               {report.counts[level]}
             </dd>
             <dd className={cx("col-span-2 mt-2 ui-caption leading-4", uiMutedTextClass)}>
-              {levelSummary[level]}
+              {t(levelSummary[level])}
             </dd>
           </div>
         ))}
       </dl>
       <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>
-        All five levels remain visible, including levels with no current findings.
+        {t(messages.allLevelsVisible)}
       </p>
     </div>
   );
 }
 
 function FindingRows({ findings }: { findings: ProductionReadinessResponse["findings"] }) {
+  const { t } = useI18n();
+
   return (
     <div className="divide-y divide-[color:var(--ui-border-soft)] border-t border-[color:var(--ui-border-soft)]">
       {findings.map((finding) => (
@@ -95,7 +82,7 @@ function FindingRows({ findings }: { findings: ProductionReadinessResponse["find
             <p className={cx("ui-caption leading-5", uiMutedTextClass)}>{finding.message}</p>
             {finding.blocks_startup ? (
               <p className="mt-1 ui-caption font-medium text-[color:var(--ui-danger)]">
-                Blocks application startup in the current runtime.
+                {t(messages.blocksStartup)}
               </p>
             ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -106,12 +93,12 @@ function FindingRows({ findings }: { findings: ProductionReadinessResponse["find
                 rel="noreferrer"
                 className="ui-caption font-medium text-primary hover:underline dark:text-primary-200"
               >
-                Documentation
+                {t(messages.documentation)}
               </a>
             </div>
           </div>
           <UiBadge tone={levelTone[finding.level]} className="shrink-0">
-            {levelLabel[finding.level]}
+            {t(levelLabel[finding.level])}
           </UiBadge>
         </div>
       ))}
@@ -125,14 +112,12 @@ function statusBannerTone(status: ReadinessStatus): "success" | "warning" | "err
   return "error";
 }
 
-function statusLabel(status: ReadinessStatus): string {
-  if (status === "blocked") return "Blocked";
-  if (status === "critical") return "Critical";
-  if (status === "warning") return "Warning";
-  return "OK";
+function statusLabel(status: ReadinessStatus): I18nMessage {
+  return levelLabel[status];
 }
 
 export default function ProductionReadinessPage() {
+  const { t } = useI18n();
   const [report, setReport] = useState<ProductionReadinessResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +130,7 @@ export default function ProductionReadinessPage() {
       setReport(next);
     } catch (err) {
       if (signal?.aborted) return;
-      setError(extractApiError(err, "Unable to evaluate production readiness."));
+      setError(extractApiError(err, ""));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -159,41 +144,42 @@ export default function ProductionReadinessPage() {
 
   return (
     <PageShell
-      title="Production readiness"
-      description="Security, deployment and operational checks for this backend runtime."
-      breadcrumbs={adminPageBreadcrumbs("production-readiness")}
+      title={t(messages.title)}
+      description={t(messages.description)}
+      breadcrumbs={adminPageBreadcrumbs("production-readiness").map((breadcrumb) => ({
+        ...breadcrumb,
+        label: t(breadcrumb.to === "/admin" ? messages.adminWorkspace : messages.title),
+      }))}
       actions={[
         {
-          label: loading ? "Refreshing…" : "Refresh",
+          label: t(loading ? messages.refreshing : messages.refresh),
           onClick: () => void load(),
           variant: "secondary",
           disabled: loading,
         },
       ]}
       inlineContent={
-        report ? <UiBadge tone={levelTone[report.status]}>{statusLabel(report.status)}</UiBadge> : undefined
+        report ? <UiBadge tone={levelTone[report.status]}>{t(statusLabel(report.status))}</UiBadge> : undefined
       }
     >
-      {error ? <PageBanner tone="error">{error}</PageBanner> : null}
-      {!report && loading ? <PageBanner tone="info">Evaluating this backend runtime…</PageBanner> : null}
+      {error !== null ? <PageBanner tone="error">{error || t(messages.evaluationError)}</PageBanner> : null}
+      {!report && loading ? <PageBanner tone="info">{t(messages.evaluating)}</PageBanner> : null}
 
       {report ? (
         <>
           <PageBanner tone={statusBannerTone(report.status)}>
-            This report evaluates the production target for this backend instance. Findings marked as startup-blocking
-            can prevent backend startup; critical findings remain operational so they can be corrected before
-            publication.
+            {t(messages.reportDescription)}
           </PageBanner>
 
           <UiCard
-            title="Readiness overview"
-            description="The five readiness levels used by startup diagnostics, the CLI and this page."
+            title={t(messages.overview)}
+            description={t(messages.overviewDescription)}
           >
             <InlineSummary
               items={[
-                { label: "Environment", value: report.environment },
-                { label: "Profile", value: report.profile },
-                { label: "Overall", value: statusLabel(report.status) },
+                { label: t(messages.environment), value: report.environment },
+                { label: t(messages.profile), value: report.profile },
+                { label: t(messages.overall), value: t(statusLabel(report.status)) },
               ]}
             />
             <div className="mt-3">
@@ -202,8 +188,8 @@ export default function ProductionReadinessPage() {
           </UiCard>
 
           <UiCard
-            title="Deployment checks"
-            description="Findings are grouped by readiness level. Successful checks stay collapsed by default."
+            title={t(messages.deploymentChecks)}
+            description={t(messages.deploymentChecksDescription)}
             bodyClassName="p-0"
           >
             <div className="divide-y divide-[color:var(--ui-border-soft)]">
@@ -216,17 +202,18 @@ export default function ProductionReadinessPage() {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
                       <h3 id={sectionId}>
                         <UiBadge tone={levelTone[level]}>
-                          {levelLabel[level]} · {findings.length}
+                          {t(levelLabel[level])} · {findings.length}
                         </UiBadge>
                       </h3>
                       <p className={cx("ui-caption leading-5", uiMutedTextClass)}>
-                        {groupDescription[level]}
+                        {t(groupDescription[level])}
                       </p>
                     </div>
                     {level === "ok" ? (
                       <UiDetails className="border-t border-[color:var(--ui-border-soft)]">
                         <summary className="ui-list-control mx-4 my-2 w-fit cursor-pointer rounded-md px-2 py-1 ui-caption font-medium text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-focus-ring)] dark:text-primary-200">
-                          Show {findings.length} successful check{findings.length === 1 ? "" : "s"}
+                          {t(findings.length === 1 ? messages.showSuccessfulCheck : messages.showSuccessfulChecks)
+                            .replace("{count}", String(findings.length))}
                         </summary>
                         <FindingRows findings={findings} />
                       </UiDetails>
