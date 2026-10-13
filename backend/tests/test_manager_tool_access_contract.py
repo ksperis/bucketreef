@@ -118,6 +118,7 @@ def test_effective_tools_preserve_direct_and_group_provenance(db_session, tool):
     inherited = service.user_to_out(user)
     assert inherited.manager_tool_access == _access(())
     assert inherited.effective_access.manager_tool_access == _access((tool,))
+    assert inherited.effective_access.group_manager_tool_access == _access((tool,))
 
     # Matching an inherited grant still changes the user's persisted direct access.
     grant = UserUpdate(manager_tool_access=_access((tool,)))
@@ -129,6 +130,7 @@ def test_effective_tools_preserve_direct_and_group_provenance(db_session, tool):
     direct = service.user_to_out(user)
     assert direct.manager_tool_access == _access((tool,))
     assert direct.effective_access.manager_tool_access == _access((tool,))
+    assert direct.effective_access.group_manager_tool_access == _access(())
     service.update_user(user.id, UserUpdate(manager_tool_access={}))
     assert service.user_to_out(user).effective_access.manager_tool_access == _access(())
 

@@ -32,7 +32,7 @@ describe("additive Manager grants", () => {
     expect(screen.getByText("Role required")).toBeVisible();
   });
 
-  it("replaces a blocked direct grant switch with the saved grant state", () => {
+  it("keeps a blocked direct grant visible as a disabled switch", () => {
     const blockedTools = [{ ...tools[0], enabled: false, platformDefault: false }];
     render(<ManagerToolAccessSection
       title="Tools"
@@ -42,8 +42,11 @@ describe("additive Manager grants", () => {
       onChange={vi.fn()}
     />);
     expect(screen.getByText("Unavailable")).toBeVisible();
-    expect(screen.getByText("Platform disabled")).toBeVisible();
-    expect(screen.getByText("Saved grant: On")).toBeVisible();
-    expect(screen.queryByRole("switch", { name: "Bucket compare" })).not.toBeInTheDocument();
+    expect(screen.getByText("Platform")).toBeVisible();
+    expect(screen.queryByText("Platform disabled")).not.toBeInTheDocument();
+    expect(screen.queryByText("Saved grant: On")).not.toBeInTheDocument();
+    const grant = screen.getByRole("switch", { name: "Bucket compare" });
+    expect(grant).toBeChecked();
+    expect(grant).toBeDisabled();
   });
 });

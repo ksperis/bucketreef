@@ -1717,7 +1717,7 @@ export default function UsersPage() {
 
                 <ManagerToolAccessSection
                   eligible={editTargetSupportsManagerTools}
-                  inheritedAccess={editingUser.effective_access?.manager_tool_access}
+                  inheritedAccess={editingUser.effective_access?.group_manager_tool_access}
                   title={text("manager")}
                   additionalItems={[
                     {
@@ -1725,7 +1725,7 @@ export default function UsersPage() {
                       description: text("provisionConnectionsDescription"),
                       checked: editTargetSupportsManagerTools && Boolean(editForm.can_provision_managed_private_connections),
                       platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
-                      inherited: Boolean(editingUser.effective_access?.can_provision_managed_private_connections),
+                      inherited: Boolean(editingUser.effective_access?.group_can_provision_managed_private_connections),
                       blocked: !generalSettings.managed_private_connection_provisioning_enabled,
                       disabled: !editTargetSupportsManagerTools,
                       onChange: (value) =>

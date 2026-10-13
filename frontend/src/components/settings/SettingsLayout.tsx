@@ -299,7 +299,12 @@ export const SettingsSwitch = ({
     />
     <span
       aria-hidden="true"
-      className="pointer-events-none relative h-5 w-9 shrink-0 rounded-full bg-[var(--ui-text-muted)] transition-colors peer-checked:bg-primary dark:peer-checked:bg-primary-400 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-700 dark:peer-focus-visible:outline-primary-200 peer-checked:[&>span]:translate-x-4"
+      className={cx(
+        "pointer-events-none relative h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-700 dark:peer-focus-visible:outline-primary-200 peer-checked:[&>span]:translate-x-4",
+        disabled
+          ? "bg-[var(--ui-text-muted)] peer-checked:bg-[var(--ui-text-muted)]"
+          : "bg-[var(--ui-text-muted)] peer-checked:bg-primary dark:peer-checked:bg-primary-400",
+      )}
     >
       <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform motion-reduce:transition-none" />
     </span>
@@ -317,6 +322,11 @@ export const SettingsTriStateSwitch = <T extends string,>({
 }: SettingsTriStateSwitchProps<T>) => {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const currentIndex = Math.max(0, options.findIndex((option) => option.value === value));
+  const selectedOptionDisabled = Boolean(disabled || options[currentIndex]?.disabled);
+  const fallbackFocusIndex = options.findIndex((option) => !option.disabled);
+  const focusableIndex = !disabled && selectedOptionDisabled && fallbackFocusIndex >= 0
+    ? fallbackFocusIndex
+    : currentIndex;
 
   const moveSelection = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
@@ -355,7 +365,7 @@ export const SettingsTriStateSwitch = <T extends string,>({
       aria-disabled={disabled || undefined}
       className={cx(
         "settings-tristate-switch inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-0.5",
-        disabled && "opacity-60",
+        disabled && "settings-tristate-switch-disabled opacity-60",
       )}
     >
       {options.map((option, index) => {
@@ -370,7 +380,7 @@ export const SettingsTriStateSwitch = <T extends string,>({
             aria-checked={selected}
             aria-label={option.label}
             title={option.label}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={index === focusableIndex ? 0 : -1}
             disabled={optionDisabled}
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => moveSelection(event, index)}

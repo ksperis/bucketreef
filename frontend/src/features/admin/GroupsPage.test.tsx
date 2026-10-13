@@ -565,11 +565,13 @@ describe("GroupsPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
 
     const featureRow = screen.getByText("Provision managed private connections").closest(".settings-item-compact") as HTMLElement;
-    expect(within(featureRow).queryByRole("switch", {
+    const provisioningGrant = within(featureRow).getByRole("switch", {
       name: "Allow managed private connection provisioning",
-    })).not.toBeInTheDocument();
-    expect(within(featureRow).getByText("Platform disabled")).toBeInTheDocument();
-    expect(within(featureRow).getByText("Saved grant: On")).toBeInTheDocument();
+    });
+    expect(provisioningGrant).toBeChecked();
+    expect(provisioningGrant).toBeDisabled();
+    expect(within(featureRow).queryByText("Platform disabled")).not.toBeInTheDocument();
+    expect(within(featureRow).queryByText("Saved grant: On")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => {

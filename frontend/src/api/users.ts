@@ -67,8 +67,10 @@ export type EffectiveUserAccess = {
   can_access_storage_ops: boolean;
   can_create_manual_private_connections: boolean;
   can_provision_managed_private_connections: boolean;
+  group_can_provision_managed_private_connections?: boolean;
   has_owned_private_connections: boolean;
   manager_tool_access: ManagerToolAccess;
+  group_manager_tool_access?: ManagerToolAccess;
   browser_advanced_features_enabled: boolean;
   account_links: EffectiveAccountMembership[];
   s3_user_details: { id: number; name: string }[];

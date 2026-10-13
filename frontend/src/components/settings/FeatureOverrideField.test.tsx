@@ -19,6 +19,8 @@ describe("resource feature inheritance", () => {
     expect(inherited).toHaveAttribute("aria-checked", "true");
     expect(inherited).toHaveClass("settings-tristate-option-inherit-ghost-selected");
     expect(inherited).toHaveTextContent("✓");
+    expect(screen.queryByText("Explicit override")).not.toBeInTheDocument();
+    expect(screen.queryByText("Override")).not.toBeInTheDocument();
 
     await user.click(within(group).getByRole("radio", { name: "Disabled" }));
     expect(within(group).getByRole("radio", { name: "Disabled" }))
@@ -27,12 +29,26 @@ describe("resource feature inheritance", () => {
       .toHaveClass("settings-tristate-option-disabled-selected");
   });
 
-  it("shows a platform prohibition as a static unavailable state", () => {
+  it("renders an inherited disabled value with the danger ghost treatment", () => {
+    render(<FeatureOverrideField title="Metadata" value={null} policy="targeted" onChange={() => undefined} triState />);
+
+    const inherited = screen.getByRole("radio", { name: "Inherited platform value — Disabled" });
+    expect(inherited).toHaveAttribute("aria-checked", "true");
+    expect(inherited).toHaveClass("settings-tristate-option-inherit-disabled-selected");
+    expect(inherited).toHaveTextContent("×");
+  });
+
+  it("keeps an inherited platform-disabled value visible in a disabled tri-state control", () => {
     render(<FeatureOverrideField title="Keys" value={null} policy="disabled" onChange={() => undefined} triState />);
 
-    expect(screen.getByText("Unavailable")).toBeVisible();
     expect(screen.getByText("Platform disabled")).toBeVisible();
-    expect(screen.queryByRole("radiogroup", { name: "Keys" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    expect(screen.queryByText("Override")).not.toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", { name: "Keys" });
+    expect(group).toHaveAttribute("aria-disabled", "true");
+    const inherited = within(group).getByRole("radio", { name: "Inherited platform value — Disabled" });
+    expect(inherited).toHaveAttribute("aria-checked", "true");
+    expect(inherited).toBeDisabled();
   });
 
   it("keeps an explicit opt-out distinct from the platform value", async () => {
@@ -50,19 +66,55 @@ describe("resource feature inheritance", () => {
     expect(select).toHaveDisplayValue("Platform value — Enabled");
   });
 
-  it("shows a platform prohibition and preserves the stored choice without an active control", async () => {
+  it("shows a stored platform-disabled choice in a disabled tri-state control", async () => {
     const user = userEvent.setup();
     function Editor() {
       const [value, setValue] = useState<boolean | null>(true);
-      return <FeatureOverrideField title="Keys" value={value} policy="disabled" onChange={setValue} help="Requires a compatible endpoint." />;
+      return <FeatureOverrideField title="Keys" value={value} policy="disabled" onChange={setValue} help="Requires a compatible endpoint." triState />;
     }
     render(<Editor />);
     expect(screen.getByText("Platform disabled")).toBeVisible();
-    expect(screen.getByText("Stored override: Enabled")).toBeVisible();
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByText("Stored override: Enabled")).not.toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", { name: "Keys" });
+    const enabled = within(group).getByRole("radio", { name: "Enabled" });
+    expect(enabled).toHaveAttribute("aria-checked", "true");
+    expect(enabled).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Keys: information" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("compatible endpoint");
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("shows an endpoint constraint as a badge while keeping safe override choices editable", async () => {
+    const user = userEvent.setup();
+    function Editor() {
+      const [value, setValue] = useState<boolean | null>(null);
+      return <FeatureOverrideField title="Quota" value={value} policy="default_on" onChange={setValue}
+        unavailable="Endpoint permission required" triState />;
+    }
+    render(<Editor />);
+
+    expect(screen.getByText("Endpoint permission required")).toBeVisible();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    expect(screen.queryByText("Explicit override")).not.toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", { name: "Quota" });
+    expect(group).not.toHaveAttribute("aria-disabled");
+    expect(within(group).getByRole("radio", { name: "Enabled" })).toBeDisabled();
+    expect(within(group).getByRole("radio", { name: "Inherited platform value — Enabled" })).not.toBeDisabled();
+    const disabled = within(group).getByRole("radio", { name: "Disabled" });
+    expect(disabled).not.toBeDisabled();
+    await user.click(disabled);
+    expect(disabled).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("renders a stored enabled override as unavailable when its endpoint prerequisite is missing", () => {
+    render(<FeatureOverrideField title="Quota" value policy="default_on" onChange={() => undefined}
+      unavailable="Endpoint permission required" triState />);
+
+    const group = screen.getByRole("radiogroup", { name: "Quota" });
+    const enabled = within(group).getByRole("radio", { name: "Enabled" });
+    expect(enabled).toHaveAttribute("aria-checked", "true");
+    expect(enabled).toBeDisabled();
+    expect(enabled).toHaveClass("settings-tristate-option-unavailable-selected");
   });
 });
