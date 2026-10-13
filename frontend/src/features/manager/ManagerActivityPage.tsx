@@ -45,6 +45,7 @@ export default function ManagerActivityPage() {
   const { text, intlLocale } = useManagerI18n();
   const {
     accountIdForApi,
+    contextsLoaded,
     hasS3AccountContext,
     managerFeatureStates,
   } = useS3AccountContext();
@@ -58,7 +59,7 @@ export default function ManagerActivityPage() {
   const [hasMore, setHasMore] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const featureStateLoading = hasS3AccountContext && managerFeatureStates == null;
+  const featureStateLoading = !contextsLoaded || (hasS3AccountContext && managerFeatureStates == null);
   const activityEnabled = managerFeatureStates?.activity_history?.enabled === true;
 
   useEffect(() => {
@@ -168,7 +169,7 @@ export default function ManagerActivityPage() {
     },
   ], [intlLocale, text]);
 
-  if (!hasS3AccountContext) return <Navigate to="/manager" replace />;
+  if (contextsLoaded && !hasS3AccountContext) return <Navigate to="/manager" replace />;
   if (!featureStateLoading && !activityEnabled) return <Navigate to="/manager" replace />;
 
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: entries.length });

@@ -15,6 +15,7 @@ import type { NamingValidationProfile } from "../../utils/resourceNames";
 type S3AccountContextType = {
   namingValidationProfile: NamingValidationProfile | null;
   accounts: ExecutionContext[];
+  contextsLoaded: boolean;
   selectedS3AccountId: string | null;
   requiresS3AccountSelection: boolean;
   hasS3AccountContext: boolean;
@@ -40,6 +41,7 @@ type S3AccountContextType = {
 const S3AccountContext = createContext<S3AccountContextType>({
   namingValidationProfile: null,
   accounts: [],
+  contextsLoaded: false,
   selectedS3AccountId: null,
   requiresS3AccountSelection: true,
   hasS3AccountContext: false,
@@ -86,6 +88,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     : CLIENT_STORAGE_KEYS.selectedManagerExecutionContext;
   const {
     contexts: accounts,
+    contextsLoaded,
     selectedContextId: selectedS3AccountId,
     selectedContext: selectedS3Account,
     requiresSelection: requiresS3AccountSelection,
@@ -192,6 +195,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
       value={{
         namingValidationProfile,
         accounts,
+        contextsLoaded,
         selectedS3AccountId,
         requiresS3AccountSelection,
         hasS3AccountContext,
