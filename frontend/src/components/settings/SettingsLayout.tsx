@@ -343,7 +343,7 @@ export const SettingsTriStateSwitch = <T extends string,>({
       aria-describedby={ariaDescribedBy}
       aria-disabled={disabled || undefined}
       className={cx(
-        "settings-tristate-switch inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-0.5",
+        "settings-tristate-switch inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-0.5",
         disabled && "opacity-60",
       )}
     >
@@ -364,7 +364,7 @@ export const SettingsTriStateSwitch = <T extends string,>({
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => moveSelection(event, index)}
             className={cx(
-              "settings-tristate-option inline-flex items-center justify-center rounded-full font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 dark:focus-visible:outline-primary-200 disabled:cursor-not-allowed",
+              "settings-tristate-option inline-flex items-center justify-center rounded-md font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 dark:focus-visible:outline-primary-200 disabled:cursor-not-allowed",
               option.className,
               selected
                 ? option.selectedClassName ?? "bg-primary text-white shadow-sm dark:bg-primary-400 dark:text-slate-950"
