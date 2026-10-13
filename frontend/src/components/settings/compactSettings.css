@@ -7,6 +7,7 @@
   --settings-row-height: 40px;
   --settings-row-padding: 6px;
   --settings-control-height: 44px;
+  --settings-tristate-option-size: 28px;
   --settings-control-padding: 4px;
   --settings-field-gap: 12px;
   --settings-title-size: 14px;
@@ -151,6 +152,7 @@
 @media (any-pointer: coarse) {
   :root {
     --settings-control-height: 44px;
+    --settings-tristate-option-size: 44px;
   }
 }
 .settings-preferences > .settings-section-compact:first-child {
@@ -256,9 +258,9 @@
 .settings-info-tooltip { max-width: min(380px, calc(100vw - 24px)); padding: 12px; font-size: var(--settings-description-font-size, 12px); line-height: 1.5; }
 .settings-policy-select { width: 14rem; max-width: 100%; }
 .settings-tristate-option {
-  width: var(--settings-control-height);
-  min-width: var(--settings-control-height);
-  min-height: calc(var(--settings-control-height) - 4px);
+  width: var(--settings-tristate-option-size);
+  min-width: var(--settings-tristate-option-size);
+  min-height: calc(var(--settings-tristate-option-size) - 4px);
   padding: 0;
   font-size: 13px;
   line-height: 1;
@@ -274,10 +276,10 @@
   position: absolute;
   inset: 4px;
   border: 1px dashed rgb(var(--ui-primary-300-rgb) / 0.85);
-  border-radius: 999px;
+  border-radius: 4px;
   pointer-events: none;
 }
-@media (max-width: 1023px), (any-pointer: coarse) {
-  .settings-tristate-option { min-height: var(--settings-control-height); }
+@media (any-pointer: coarse) {
+  .settings-tristate-option { min-height: var(--settings-tristate-option-size); }
 }
 @media (max-width: 1023px), (pointer: coarse) { .settings-info-trigger { min-width: 44px; min-height: 44px; } }
