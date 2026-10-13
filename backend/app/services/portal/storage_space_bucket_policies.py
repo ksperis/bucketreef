@@ -136,10 +136,13 @@ class PortalStorageSpaceBucketPoliciesMixin:
         allowed_user_ids = self._portal_storage_space_allowed_user_ids(account, metadata)
         user_principals = self._portal_policy_principals_for_user_ids(account, allowed_user_ids)
         external_principals = self._portal_policy_principals_for_external_credentials(account, metadata)
-        if not user_principals and not external_principals:
-            return []
         principals = {*user_principals, *external_principals}
-        if self._metadata_visibility(metadata) == "shared":
+        visibility = self._metadata_visibility(metadata)
+        if visibility == "private":
+            principals.add(f"arn:aws:iam::{account.rgw_account_id}:root")
+        elif not principals:
+            return []
+        else:
             principals.update(self._portal_storage_space_technical_principal_arns(account))
         return sorted(principals)
 

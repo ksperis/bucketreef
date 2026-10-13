@@ -2330,7 +2330,7 @@ def test_storage_space_bucket_policy_preserves_external_statements_and_private_o
     assert "arn:aws:iam::rgw-policy-account:user/owner-iam" in allowed_principals
     assert "arn:aws:iam:::user/manager-iam" in allowed_principals
     assert "arn:aws:iam::rgw-policy-account:user/manager-iam" in allowed_principals
-    assert "arn:aws:iam::rgw-policy-account:root" not in allowed_principals
+    assert "arn:aws:iam::rgw-policy-account:root" in allowed_principals
     assert {
         "s3:GetBucketVersioning",
         "s3:ListBucketVersions",
