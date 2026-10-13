@@ -32,6 +32,19 @@ const makeTag = (id: number, label: string, color_key = "neutral", scope = "stan
   scope,
 });
 
+function featureOverrideGroup(name: string) {
+  return screen.getByRole("radiogroup", { name });
+}
+
+function selectFeatureOverride(name: string, value: "Disabled" | "Enabled") {
+  fireEvent.click(within(featureOverrideGroup(name)).getByRole("radio", { name: value }));
+}
+
+function expectInheritedFeatureOverride(name: string) {
+  expect(within(featureOverrideGroup(name)).getByRole("radio", { name: /^Inherited platform value —/ }))
+    .toHaveAttribute("aria-checked", "true");
+}
+
 const makePortalAccountSettings = (overrides?: Record<string, unknown>) => ({
   effective: {
     browser_access_enabled: false,
@@ -655,14 +668,13 @@ describe("AccountsPage modal tabs", () => {
 
     const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
     const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
-    expect(within(extensionsSection).getByRole("combobox", { name: "Access-key names and notes" })).toBeInTheDocument();
-    expect(within(extensionsSection).getByRole("combobox", { name: "Access-key expiration" })).toBeInTheDocument();
-    expect(within(extensionsSection).queryByRole("combobox", { name: "Bucket quota management" })).not.toBeInTheDocument();
-    expect(within(privilegedSection).getByRole("combobox", { name: "Bucket quota management" })).toBeInTheDocument();
-    expect(within(privilegedSection).queryByRole("combobox", { name: "Access-key names and notes" })).not.toBeInTheDocument();
-    const quotaCheckbox = screen.getByRole("combobox", { name: /Bucket quota management/ });
-    expect(quotaCheckbox).toHaveValue("inherit");
-    fireEvent.change(quotaCheckbox, { target: { value: "enabled" } });
+    expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key names and notes" })).toBeInTheDocument();
+    expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key expiration" })).toBeInTheDocument();
+    expect(within(extensionsSection).queryByRole("radiogroup", { name: "Bucket quota management" })).not.toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("radiogroup", { name: "Bucket quota management" })).toBeInTheDocument();
+    expect(within(privilegedSection).queryByRole("radiogroup", { name: "Access-key names and notes" })).not.toBeInTheDocument();
+    expectInheritedFeatureOverride("Bucket quota management");
+    selectFeatureOverride("Bucket quota management", "Enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -686,9 +698,8 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
-    const quotaCheckbox = screen.getByRole("combobox", { name: /Bucket quota management/ });
-    expect(quotaCheckbox).toHaveValue("inherit");
-    fireEvent.change(quotaCheckbox, { target: { value: "enabled" } });
+    expectInheritedFeatureOverride("Bucket quota management");
+    selectFeatureOverride("Bucket quota management", "Enabled");
 
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -721,7 +732,7 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
     expect(await screen.findByText("Endpoint permission required")).toBeVisible();
-    expect(within(screen.getByRole("combobox", { name: /Bucket quota management/ })).getByRole("option", { name: "Enabled", exact: true })).toBeDisabled();
+    expect(within(featureOverrideGroup("Bucket quota management")).getByRole("radio", { name: "Enabled" })).toBeDisabled();
   });
 
   it("shows portal overrides tab when the portal feature is enabled", async () => {
@@ -1124,13 +1135,14 @@ describe("AccountsPage modal tabs", () => {
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Bucket quota management" }), { target: { value: "enabled" } });
+    selectFeatureOverride("Bucket quota management", "Enabled");
     fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
     fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await screen.findByText("Project settings saved.");
     fireEvent.click(screen.getByRole("tab", { name: "Manager features" }));
-    expect(screen.getByRole("combobox", { name: "Bucket quota management" })).toHaveValue("enabled");
+    expect(within(featureOverrideGroup("Bucket quota management")).getByRole("radio", { name: "Enabled" }))
+      .toHaveAttribute("aria-checked", "true");
     expect(updateS3AccountMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
     expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
@@ -1145,7 +1157,7 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
     fireEvent.click(screen.getByRole("tab", { name: "Manager features" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Bucket quota management" }), { target: { value: "enabled" } });
+    selectFeatureOverride("Bucket quota management", "Enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(screen.getByRole("tab", { name: "Portal settings" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
@@ -1169,7 +1181,7 @@ describe("AccountsPage modal tabs", () => {
     const first = renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Bucket quota management" }), { target: { value: "enabled" } });
+    selectFeatureOverride("Bucket quota management", "Enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
     first.unmount();

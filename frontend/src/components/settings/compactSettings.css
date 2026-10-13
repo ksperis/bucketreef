@@ -263,6 +263,20 @@
   font-size: 13px;
   line-height: 1;
 }
+.settings-tristate-option-inherit-ghost-selected {
+  position: relative;
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+  box-shadow: inset 0 0 0 1.5px var(--ui-primary);
+}
+.settings-tristate-option-inherit-ghost-selected::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed rgb(var(--ui-primary-300-rgb) / 0.85);
+  border-radius: 999px;
+  pointer-events: none;
+}
 @media (max-width: 1023px), (any-pointer: coarse) {
   .settings-tristate-option { min-height: var(--settings-control-height); }
 }

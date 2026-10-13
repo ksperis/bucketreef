@@ -64,6 +64,8 @@ export type SettingsTriStateOption<T extends string> = {
   label: string;
   symbol: ReactNode;
   disabled?: boolean;
+  className?: string;
+  selectedClassName?: string;
 };
 
 type SettingsTriStateSwitchProps<T extends string> = {
@@ -363,8 +365,9 @@ export const SettingsTriStateSwitch = <T extends string,>({
             onKeyDown={(event) => moveSelection(event, index)}
             className={cx(
               "settings-tristate-option inline-flex items-center justify-center rounded-full font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 dark:focus-visible:outline-primary-200 disabled:cursor-not-allowed",
+              option.className,
               selected
-                ? "bg-primary text-white shadow-sm dark:bg-primary-400 dark:text-slate-950"
+                ? option.selectedClassName ?? "bg-primary text-white shadow-sm dark:bg-primary-400 dark:text-slate-950"
                 : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-hover)] hover:text-[var(--ui-text)]",
             )}
           >
