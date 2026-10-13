@@ -19,6 +19,7 @@ vi.mock("./S3AccountContext", () => ({
 function accountContext(overrides?: Record<string, unknown>) {
   return {
     accountIdForApi: "account-1",
+    contextsLoaded: true,
     hasS3AccountContext: true,
     selectedS3AccountType: "tenant",
     managerFeatureStates: {
@@ -140,6 +141,43 @@ describe("ManagerActivityPage", () => {
     );
     expect(await screen.findByText("Manager dashboard destination")).toBeInTheDocument();
     expect(listManagerActivityMock).not.toHaveBeenCalled();
+  });
+
+  it("waits for the execution-context catalogue before deciding that no context is available", async () => {
+    useS3AccountContextMock.mockReturnValue(accountContext({
+      accountIdForApi: null,
+      contextsLoaded: false,
+      hasS3AccountContext: false,
+      managerFeatureStates: null,
+    }));
+    const view = render(
+      <MemoryRouter initialEntries={["/manager/activity"]}>
+        <Routes>
+          <Route path="/manager" element={<div>Manager dashboard destination</div>} />
+          <Route path="/manager/activity" element={<ManagerActivityPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Loading activity history...")).toBeInTheDocument();
+    expect(screen.queryByText("Manager dashboard destination")).not.toBeInTheDocument();
+
+    useS3AccountContextMock.mockReturnValue(accountContext());
+    view.rerender(
+      <MemoryRouter initialEntries={["/manager/activity"]}>
+        <Routes>
+          <Route path="/manager" element={<div>Manager dashboard destination</div>} />
+          <Route path="/manager/activity" element={<ManagerActivityPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Activity history" })).toBeInTheDocument();
+    await waitFor(() => expect(listManagerActivityMock).toHaveBeenCalledWith("account-1", {
+      limit: 20,
+      search: "",
+      status: undefined,
+    }));
   });
 
   it("shows empty and error states without exposing additional audit fields", async () => {
