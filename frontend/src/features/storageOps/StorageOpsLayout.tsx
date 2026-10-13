@@ -12,7 +12,6 @@ import {
 
 const navSections: SidebarSection[] = [
   {
-    label: "Overview",
     links: [{ ...workspacePageLink(STORAGE_OPS_PAGE_CONTRACTS.dashboard), end: true }],
   },
   {

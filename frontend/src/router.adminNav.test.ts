@@ -23,7 +23,7 @@ describe("buildAdminNav", () => {
     expect(productionReadinessLink?.to).toBe("/admin/production-readiness");
     expect(
       superadminNav
-        .find((section) => section.label === "Overview")
+        .find((section) => section.label == null)
         ?.links.find((link) => link.label === "Production readiness"),
     ).toBeUndefined();
     expect(adminNav.find((section) => section.label === "Settings")).toBeUndefined();
@@ -186,11 +186,14 @@ describe("buildAdminNav", () => {
 
   it("groups metrics after managed tenant links and billing with audit reporting", () => {
     const adminNav = buildAdminNav(true, true, true, true, false, true);
-    const overview = adminNav.find((section) => section.label === "Overview");
+    const dashboard = adminNav[0];
+    const setup = adminNav.find((section) => section.label === "Setup");
     const managedTenants = adminNav.find((section) => section.label === "Managed Tenants");
     const auditReporting = adminNav.find((section) => section.label === "Audit & Reporting");
 
-    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard", "Getting started"]);
+    expect(dashboard?.label).toBeUndefined();
+    expect(dashboard?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(setup?.links.map((link) => link.label)).toEqual(["Getting started"]);
     expect(managedTenants?.links.map((link) => link.label)).toEqual([
       "RGW Accounts",
       "RGW Users",
@@ -203,13 +206,14 @@ describe("buildAdminNav", () => {
       "Access audit",
       "Audit trail",
     ]);
-    expect(overview?.links.find((link) => link.label === "Getting started")?.iconName).toBe("tools");
+    expect(setup?.links.find((link) => link.label === "Getting started")?.iconName).toBe("tools");
   });
 
   it("hides Getting started after onboarding is complete or dismissed", () => {
     const adminNav = buildAdminNav(true, true, false, false, false, true, false, null, false);
-    const overview = adminNav.find((section) => section.label === "Overview");
 
-    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(adminNav[0]?.label).toBeUndefined();
+    expect(adminNav[0]?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(adminNav.find((section) => section.label === "Setup")).toBeUndefined();
   });
 });

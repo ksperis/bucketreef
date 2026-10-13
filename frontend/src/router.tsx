@@ -185,19 +185,21 @@ export const buildAdminNav = (
 
   return [
     {
-      label: "Overview",
-      links: [
-        { ...workspacePageLink(ADMIN_PAGE_CONTRACTS.dashboard), end: true },
-        ...(showOnboarding
-          ? [
+      links: [{ ...workspacePageLink(ADMIN_PAGE_CONTRACTS.dashboard), end: true }],
+    },
+    ...(showOnboarding
+      ? [
+          {
+            label: "Setup",
+            links: [
               {
                 ...workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding),
                 iconName: "tools" as const,
               },
-            ]
-          : []),
-      ],
-    },
+            ],
+          },
+        ]
+      : []),
     {
       label: "Identity & Access",
       links: [

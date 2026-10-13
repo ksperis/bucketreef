@@ -427,6 +427,7 @@ const MANAGER_FR_OVERRIDES: Record<string, string> = {
   "No usage stats snapshot yet.": "Aucun instantané de statistiques d’utilisation pour le moment.",
   "Not set": "Non configuré",
   "Objects quota usage": "Utilisation du quota d’objets",
+  "Monitoring": "Supervision",
   "Overview": "Aperçu",
   "Overview of {account} storage account and resources.": "Vue d’ensemble du compte de stockage {account} et de ses ressources.",
   "Policies": "Politiques",

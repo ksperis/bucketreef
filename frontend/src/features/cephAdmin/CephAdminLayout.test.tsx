@@ -112,6 +112,26 @@ describe("CephAdminLayout", () => {
     useGeneralSettingsMock.mockReset();
   });
 
+  it("keeps Dashboard ungrouped and places Monitoring before Ceph administration", () => {
+    useCephAdminEndpointMock.mockReturnValue(buildEndpointContext());
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(
+      <MemoryRouter initialEntries={["/ceph-admin"]}>
+        <CephAdminLayout />
+      </MemoryRouter>
+    );
+
+    expect(capturedNavSections.map((section) => section.label)).toEqual([
+      undefined,
+      "Monitoring",
+      "CEPH S3",
+      "Data",
+    ]);
+    expect(capturedNavSections[0]?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(capturedNavSections[1]?.links.map((link) => link.label)).toEqual(["Usage & Metrics"]);
+  });
+
   it("uses endpoint-selection hint when no endpoint is selected", () => {
     useCephAdminEndpointMock.mockReturnValue(
       buildEndpointContext({

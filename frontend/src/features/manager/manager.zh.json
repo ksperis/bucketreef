@@ -536,6 +536,7 @@
   "Origins that may issue cross-origin requests. Use * only when intentionally allowing any origin.": "可能发出跨域请求的源。仅在有意允许任何源时使用 *。",
   "Other S3 events": "其他 S3 事件",
   "Out": "出",
+  "Monitoring": "监控",
   "Overview": "概览",
   "Owner:": "所有者：",
   "Paste JSON for object/array values; remove a row to clear an attribute.": "粘贴 JSON 以设置对象/数组值；删除行以清除属性。",
