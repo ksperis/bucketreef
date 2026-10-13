@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   fetchAdminDashboardStorage: vi.fn(),
   fetchAdminDashboardTraffic: vi.fn(),
   fetchHealthOverview: vi.fn(),
-  fetchHealthSummary: vi.fn(),
   fetchHealthWorkspaceOverview: vi.fn(),
   fetchOnboardingStatus: vi.fn(),
   generalSettings: {} as GeneralSettings,
@@ -27,7 +26,6 @@ vi.mock("../../api/audit", () => ({
 
 vi.mock("../../api/healthchecks", () => ({
   fetchHealthOverview: mocks.fetchHealthOverview,
-  fetchHealthSummary: mocks.fetchHealthSummary,
   fetchHealthWorkspaceOverview: mocks.fetchHealthWorkspaceOverview,
 }));
 
@@ -175,20 +173,6 @@ describe("AdminDashboard feature summary", () => {
     mocks.fetchOnboardingStatus.mockResolvedValue({
       dismissed: true,
       complete: true,
-    });
-    mocks.fetchHealthSummary.mockResolvedValue({
-      generated_at: "2026-05-25T00:00:00Z",
-      endpoints: [
-        {
-          endpoint_id: 1,
-          name: "INRAE-eprod-debug",
-          endpoint_url: "https://s3.example.test",
-          status: "up",
-          checked_at: new Date().toISOString(),
-          latency_ms: 76,
-          check_mode: "http",
-        },
-      ],
     });
     mocks.fetchHealthOverview.mockResolvedValue({
       generated_at: "2026-06-05T11:16:46Z",
@@ -645,7 +629,16 @@ describe("AdminDashboard feature summary", () => {
   });
 
   it("keeps operational information ahead of administration and the visible map", async () => {
-    mocks.fetchHealthSummary.mockResolvedValue({ endpoints: [{ checked_at: "2000-01-01T00:00:00Z" }] });
+    const workspaceHealth = await mocks.fetchHealthWorkspaceOverview();
+    mocks.fetchHealthWorkspaceOverview.mockResolvedValue({
+      ...workspaceHealth,
+      stale_after_seconds: 600,
+      up_count: 7,
+      unknown_count: 1,
+      endpoints: workspaceHealth.endpoints.map((endpoint: { endpoint_id: number }) =>
+        endpoint.endpoint_id === 1 ? { ...endpoint, is_stale: true } : endpoint,
+      ),
+    });
     mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
     await renderDashboard();
     const dashboard = screen.getByTestId("admin-dashboard");
@@ -653,8 +646,12 @@ describe("AdminDashboard feature summary", () => {
       "Endpoint Health", "Ongoing / Recent Incidents", "Storage & traffic", "Administration", "Recent activity", "Infrastructure map", "Enabled features",
     ]);
     const endpointRegion = screen.getByRole("region", { name: "Endpoint Health", exact: true });
-    expect(await within(endpointRegion).findByText(/Dashboard statuses may not reflect current availability/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Dashboard statuses may not reflect current availability/)).toHaveLength(1);
+    expect(await within(endpointRegion).findByText(/1\/9 endpoint\(s\) have stale healthcheck data after 10m/)).toBeInTheDocument();
+    const staleEndpointRow = within(endpointRegion).getByText("INRAE-eprod-debug").closest("li");
+    expect(staleEndpointRow).not.toBeNull();
+    expect(staleEndpointRow).toHaveTextContent("Unknown");
+    expect(staleEndpointRow).toHaveTextContent("Stale");
+    expect(staleEndpointRow).not.toHaveTextContent(/\bUp\b/);
     expect(within(endpointRegion).queryByRole("img", { name: "Infrastructure endpoint map" })).not.toBeInTheDocument();
   });
 
