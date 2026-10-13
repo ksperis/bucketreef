@@ -145,6 +145,7 @@ describe("PortalLayout", () => {
     expect(nav).not.toHaveTextContent("Browser");
     expect(nav).not.toHaveTextContent("Buckets");
     expect(nav).not.toHaveTextContent("Billing");
+    expect(nav).not.toHaveTextContent("Workspace");
 
     const desktopSidebar = container.querySelector(
       '[data-sidebar-variant="desktop"]',
@@ -203,11 +204,13 @@ describe("PortalLayout", () => {
       "Spaces",
       "Collaborators",
       "External tools",
-      "History",
       "Storage health",
+      "History",
       "Requests",
       "Settings",
     ]);
+    expect(within(nav).getByText("Management")).toBeInTheDocument();
+    expect(nav).not.toHaveTextContent("Workspace");
   });
 
   it("searches projects locally when the selector exceeds the shared threshold", async () => {
@@ -252,6 +255,7 @@ describe("PortalLayout", () => {
 
   it("renders portal navigation in French when the session language is French", async () => {
     const user = userEvent.setup();
+    mocks.selectedPortalRole = "portal_manager";
     mocks.portalAccounts.splice(
       0,
       mocks.portalAccounts.length,
@@ -297,7 +301,12 @@ describe("PortalLayout", () => {
       "Collaborateurs",
       "Outils externes",
       "État du stockage",
+      "Historique",
+      "Demandes",
+      "Paramètres",
     ]);
+    expect(within(nav).getByText("Gestion")).toBeInTheDocument();
+    expect(nav).not.toHaveTextContent("Espace de travail");
     expect(
       await screen.findByRole("button", { name: "Changer d’espace de travail" }),
     ).toBeInTheDocument();

@@ -56,7 +56,7 @@ function SidebarLinkBadge({
 }
 
 export type SidebarSection = {
-  label: string;
+  label?: string;
   links: SidebarLink[];
   collapsed?: boolean;
   collapsible?: boolean;
@@ -83,6 +83,7 @@ type SidebarProps = {
 };
 
 function isSectionCollapsible(section: SidebarSection) {
+  if (!section.label) return false;
   return section.collapsible ?? section.label.trim().toLowerCase() === "settings";
 }
 
@@ -110,7 +111,9 @@ export default function Sidebar({
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     effectiveSections.forEach((section) => {
-      initial[section.label] = isSectionCollapsible(section) ? section.collapsed ?? false : false;
+      if (section.label) {
+        initial[section.label] = isSectionCollapsible(section) ? section.collapsed ?? false : false;
+      }
     });
     return initial;
   });
@@ -122,6 +125,7 @@ export default function Sidebar({
     setCollapsedSections((previous) => {
       const next: Record<string, boolean> = {};
       effectiveSections.forEach((section) => {
+        if (!section.label) return;
         const collapsible = isSectionCollapsible(section);
         if (!collapsible) {
           next[section.label] = false;
@@ -240,19 +244,19 @@ export default function Sidebar({
             {!compact && headerAction ? <div className="pb-1">{headerAction}</div> : null}
             {effectiveSections.map((section, index) => {
               const collapsible = isSectionCollapsible(section);
-              const isCollapsed = compact ? false : collapsedSections[section.label];
+              const isCollapsed = compact || !section.label ? false : collapsedSections[section.label];
               const showSeparator = index < effectiveSections.length - 1;
               return (
                 <section
-                  key={section.label}
+                  key={section.label ?? `untitled-${index}`}
                   className={`${showSeparator && !compact ? "border-b border-[color:var(--shell-border-soft)] pb-3" : ""} ${compact ? "shell-sidebar-compact-rail" : ""} space-y-1.5`}
                 >
                   {compact ? (
                     <div className="mx-auto my-1 h-px w-5 rounded-full bg-[var(--shell-border)]" />
-                  ) : collapsible ? (
+                  ) : !section.label ? null : collapsible ? (
                     <button
                       type="button"
-                      onClick={() => toggleSection(section.label, collapsible)}
+                      onClick={() => toggleSection(section.label!, collapsible)}
                       className="shell-section-label flex h-5 w-full items-center justify-between rounded-md px-2 text-[10px] font-semibold uppercase transition hover:bg-[var(--shell-hover)] hover:text-[var(--shell-text)]"
                     >
                       <span>{section.label}</span>
