@@ -1,3 +1,4 @@
+import { createAppSettings } from "./settings/settingsTestFixtures";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,69 +18,10 @@ vi.mock("../../api/appSettings", async (importOriginal) => ({
 }));
 
 function buildSettings(): AppSettings {
-  return {
-    general: {
-      rgw_account_id_prefix: "80",
-      documentation_base_url: "https://docs.bucketreef.ksperis.com",
-      manager_enabled: true,
-      ceph_admin_enabled: false,
-      storage_ops_enabled: false,
-      browser_enabled: true,
-      browser_root_enabled: true,
-      browser_manager_enabled: false,
-      browser_portal_enabled: true,
-      browser_ceph_admin_enabled: true,
-      portal_enabled: true,
-      billing_enabled: false,
-      endpoint_status_enabled: false,
-      quota_alerts_enabled: false,
-      usage_history_enabled: false,
-      bucket_migration_enabled: true,
-      bucket_purge_enabled: false,
-      bucket_compare_enabled: true,
-      bucket_integrity_check_enabled: false,
-      bucket_usage_stats_enabled: true,
-      bucket_quota_management_enabled: true,
-      manager_ceph_s3_user_keys_enabled: false,
-      managed_private_connection_provisioning_enabled: false,
-      allow_login_access_keys: false,
-      allow_login_endpoint_list: false,
-      allow_login_custom_endpoint: false,
-    },
-    manager: {
-      manager_rgw_usage_metrics_enabled: true,
-      bucket_migration_parallelism_default: 8,
-      bucket_migration_parallelism_max: 16,
-      bucket_migration_max_active_per_endpoint: 2,
-    },
-    quota_notifications: {
-      threshold_percent: 85,
-      include_subject_contact_email: false,
-      smtp_host: null,
-      smtp_port: 587,
-      smtp_username: null,
-      smtp_from_email: null,
-      smtp_from_name: null,
-      smtp_starttls: true,
-      smtp_timeout_seconds: 15,
-    },
-    browser: {
-      allow_proxy_transfers: true,
-      direct_upload_parallelism: 5,
-      proxy_upload_parallelism: 2,
-      direct_download_parallelism: 5,
-      proxy_download_parallelism: 2,
-      other_operations_parallelism: 3,
-      streaming_zip_threshold_mb: 200,
-    },
-    onboarding: {
-      dismissed: false,
-    },
-    branding: {
-      primary_color: "#0569f8",
-      login_logo_url: null,
-    },
-  };
+  const settings = createAppSettings();
+  settings.manager.feature_policies.ceph_s3_user_keys = "disabled";
+  settings.manager.feature_policies.bucket_integrity_check = "disabled";
+  return settings;
 }
 
 describe("ManagerSettingsPage", () => {
@@ -94,11 +36,11 @@ describe("ManagerSettingsPage", () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Ceph S3 User access-key management")) as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = (await screen.findByLabelText("Ceph S3 User access-key management")) as HTMLSelectElement;
+    expect(toggle.value).toBe("disabled");
 
-    await user.click(toggle);
-    expect(toggle.checked).toBe(true);
+    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
+    expect(toggle.value).toBe("targeted");
 
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -106,24 +48,24 @@ describe("ManagerSettingsPage", () => {
       expect(updateAppSettingsMock).toHaveBeenCalledTimes(1);
     });
     const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
-    expect(payload.general.manager_ceph_s3_user_keys_enabled).toBe(true);
+    expect(payload.manager.feature_policies.ceph_s3_user_keys).toBe("targeted");
   });
 
   it("saves managed private connection provisioning from an experimental default-off toggle", async () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Provision managed private connections")) as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = (await screen.findByLabelText("Provision managed private connections")) as HTMLSelectElement;
+    expect(toggle.value).toBe("disabled");
 
-    await user.click(toggle);
+    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
       expect(updateAppSettingsMock).toHaveBeenCalledTimes(1);
     });
     const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
-    expect(payload.general.managed_private_connection_provisioning_enabled).toBe(true);
+    expect(payload.manager.feature_policies.managed_private_connection_provisioning).toBe("targeted");
     expect(screen.getAllByText("Experimental")).toHaveLength(2);
   });
 
@@ -151,33 +93,30 @@ describe("ManagerSettingsPage", () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    expect(
-      await screen.findByText(
-        /require buckets=write/
-      )
-    ).toBeInTheDocument();
-    const toggle = (await screen.findByLabelText("Bucket quota management")) as HTMLInputElement;
-    expect(toggle.checked).toBe(true);
+    await user.click(await screen.findByRole("button", { name: "Bucket quota management: information" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("buckets=write");
+    const toggle = (await screen.findByLabelText("Bucket quota management")) as HTMLSelectElement;
+    expect(toggle.value).toBe("targeted");
 
-    await user.click(toggle);
+    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
       expect(updateAppSettingsMock).toHaveBeenCalledTimes(1);
     });
     const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
-    expect(payload.general.bucket_quota_management_enabled).toBe(false);
+    expect(payload.manager.feature_policies.bucket_quota_management).toBe("disabled");
   });
 
   it("renders bucket integrity toggle and sends it in save payload", async () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Bucket integrity check tool")) as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = (await screen.findByLabelText("Bucket integrity check tool")) as HTMLSelectElement;
+    expect(toggle.value).toBe("disabled");
 
-    await user.click(toggle);
-    expect(toggle.checked).toBe(true);
+    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
+    expect(toggle.value).toBe("targeted");
 
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -185,18 +124,18 @@ describe("ManagerSettingsPage", () => {
       expect(updateAppSettingsMock).toHaveBeenCalledTimes(1);
     });
     const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
-    expect(payload.general.bucket_integrity_check_enabled).toBe(true);
+    expect(payload.manager.feature_policies.bucket_integrity_check).toBe("targeted");
   });
 
   it("renders bucket purge toggle and sends it in save payload", async () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Bucket purge tool")) as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = (await screen.findByLabelText("Bucket purge tool")) as HTMLSelectElement;
+    expect(toggle.value).toBe("disabled");
 
-    await user.click(toggle);
-    expect(toggle.checked).toBe(true);
+    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
+    expect(toggle.value).toBe("targeted");
 
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -204,44 +143,44 @@ describe("ManagerSettingsPage", () => {
       expect(updateAppSettingsMock).toHaveBeenCalledTimes(1);
     });
     const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
-    expect(payload.general.bucket_purge_enabled).toBe(true);
+    expect(payload.manager.feature_policies.bucket_purge).toBe("targeted");
   });
 
   it("resets Ceph access-key management from defaults", async () => {
     const user = userEvent.setup();
     const defaults = buildSettings();
-    defaults.general.manager_ceph_s3_user_keys_enabled = true;
+    defaults.manager.feature_policies.ceph_s3_user_keys = "targeted";
     fetchDefaultAppSettingsMock.mockResolvedValue(defaults);
 
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Ceph S3 User access-key management")) as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = (await screen.findByLabelText("Ceph S3 User access-key management")) as HTMLSelectElement;
+    expect(toggle.value).toBe("disabled");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(toggle.checked).toBe(true);
+      expect(toggle.value).toBe("targeted");
     });
   });
 
   it("resets managed private connection provisioning from defaults", async () => {
     const user = userEvent.setup();
     const current = buildSettings();
-    current.general.managed_private_connection_provisioning_enabled = true;
+    current.manager.feature_policies.managed_private_connection_provisioning = "targeted";
     fetchAppSettingsMock.mockResolvedValue(current);
 
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Provision managed private connections")) as HTMLInputElement;
-    expect(toggle.checked).toBe(true);
+    const toggle = (await screen.findByLabelText("Provision managed private connections")) as HTMLSelectElement;
+    expect(toggle.value).toBe("targeted");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(toggle.checked).toBe(false);
+      expect(toggle.value).toBe("disabled");
     });
   });
 
@@ -275,38 +214,38 @@ describe("ManagerSettingsPage", () => {
   it("resets bucket integrity toggle from defaults", async () => {
     const user = userEvent.setup();
     const defaults = buildSettings();
-    defaults.general.bucket_integrity_check_enabled = true;
+    defaults.manager.feature_policies.bucket_integrity_check = "targeted";
     fetchDefaultAppSettingsMock.mockResolvedValue(defaults);
 
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Bucket integrity check tool")) as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = (await screen.findByLabelText("Bucket integrity check tool")) as HTMLSelectElement;
+    expect(toggle.value).toBe("disabled");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(toggle.checked).toBe(true);
+      expect(toggle.value).toBe("targeted");
     });
   });
 
   it("resets bucket purge toggle from defaults", async () => {
     const user = userEvent.setup();
     const defaults = buildSettings();
-    defaults.general.bucket_purge_enabled = true;
+    defaults.manager.feature_policies.bucket_purge = "targeted";
     fetchDefaultAppSettingsMock.mockResolvedValue(defaults);
 
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Bucket purge tool")) as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = (await screen.findByLabelText("Bucket purge tool")) as HTMLSelectElement;
+    expect(toggle.value).toBe("disabled");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(toggle.checked).toBe(true);
+      expect(toggle.value).toBe("targeted");
     });
   });
 
@@ -324,21 +263,12 @@ describe("ManagerSettingsPage", () => {
     await screen.findByLabelText("Bucket composition statistics");
     expect(screen.getByText("Usage and metrics")).toBeInTheDocument();
     expect(screen.getByText("Manager tools")).toBeInTheDocument();
-    expect(screen.getByText("Optional administrative and operational tools available in Manager.")).toBeInTheDocument();
+    expect(screen.queryByText("Optional administrative and operational tools available in Manager.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Workspace access/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/non-admin/i)).not.toBeInTheDocument();
-    expect(screen.getAllByRole("switch").map((toggle) => toggle.getAttribute("aria-label"))).toEqual([
-      "Bucket composition statistics",
-      "RGW traffic and usage metrics",
-      "Bucket quota management",
-      "Ceph S3 User access-key management",
-      "Access-key names and notes",
-      "Access-key expiration",
-      "Provision managed private connections",
-      "Bucket migration tool",
-      "Bucket compare tool",
-      "Bucket integrity check tool",
-      "Bucket purge tool",
+    expect(screen.getAllByRole("switch").map(toggle => toggle.getAttribute("aria-label"))).toEqual([
+      "Bucket composition statistics", "RGW traffic and usage metrics",
     ]);
+    expect(screen.getAllByRole("combobox")).toHaveLength(10);
   });
 });

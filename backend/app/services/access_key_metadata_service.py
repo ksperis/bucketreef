@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 from typing import Iterable, Optional
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.db.enums import StorageProvider
+from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
 from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
 from app.models.iam import AccessKey
 from app.models.s3_user import S3UserAccessKey, S3UserGeneratedKey
@@ -25,30 +27,34 @@ class AccessKeyMetadataService:
         self.db = db
 
     def metadata_enabled_for_context(self, context: S3ExecutionContext) -> bool:
-        if not load_app_settings_for_db_readonly(self.db).general.manager_access_key_metadata_enabled:
+        policy = load_app_settings_for_db_readonly(self.db).manager.feature_policies.access_key_metadata
+        if policy == FeaturePolicy.DISABLED:
             return False
         if context.context_kind == "account" and context.id is not None:
             resource = self.db.query(S3Account).filter(S3Account.id == context.id).first()
-            return bool(resource and resource.allow_access_key_metadata)
+            return bool(resource and resolve_feature_policy(policy, resource.allow_access_key_metadata).enabled)
         if context.context_kind == "s3_user" and context.s3_user_id is not None:
             resource = self.db.query(S3User).filter(S3User.id == context.s3_user_id).first()
-            return bool(resource and resource.allow_access_key_metadata)
+            return bool(resource and resolve_feature_policy(policy, resource.allow_access_key_metadata).enabled)
         return False
 
     def expiration_enabled_for_context(self, context: S3ExecutionContext) -> bool:
         if not get_settings().scheduled_jobs_enabled:
             return False
-        if not load_app_settings_for_db_readonly(self.db).general.manager_access_key_expiration_enabled:
+        policies = load_app_settings_for_db_readonly(self.db).manager.feature_policies
+        policy = policies.access_key_expiration
+        if policy == FeaturePolicy.DISABLED:
             return False
         endpoint = context.storage_endpoint
         if endpoint is None or endpoint.provider != StorageProvider.CEPH.value:
             return False
         if context.context_kind == "account" and context.id is not None:
             resource = self.db.query(S3Account).filter(S3Account.id == context.id).first()
-            return bool(resource and resource.allow_access_key_expiration)
+            return bool(resource and resolve_feature_policy(policy, resource.allow_access_key_expiration).enabled)
         if context.context_kind == "s3_user" and context.s3_user_id is not None:
             resource = self.db.query(S3User).filter(S3User.id == context.s3_user_id).first()
-            return bool(resource and resource.allow_access_key_management and resource.allow_access_key_expiration)
+            return bool(resource and resolve_feature_policy(policies.ceph_s3_user_keys, resource.allow_access_key_management).enabled
+                        and resolve_feature_policy(policy, resource.allow_access_key_expiration).enabled)
         return False
 
     @staticmethod

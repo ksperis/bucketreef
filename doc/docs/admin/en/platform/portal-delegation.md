@@ -7,6 +7,13 @@ Portal delegation is separate from Manager workspace access. A
 `portal_manager` remains a Portal role even when additional project actions are
 delegated.
 
+Project settings also share the single Account override managed by Admin.
+Delegating its editing allows Portal Managers to choose **Platform value**,
+**Enabled** or **Disabled** for applicable options. A **Disabled** platform policy
+always wins; neither direct editing nor approval of a request can enable that
+feature while the prohibition is active. Existing overrides are retained so a
+temporary platform prohibition does not erase the project's choices.
+
 ## Delegation controls
 
 From the account's Portal settings, configure the independent delegation

@@ -1,6 +1,9 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
+
+from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS
 
 import json
 import logging
@@ -104,6 +107,11 @@ class PortalRequestsService:
         if isinstance(payload, PortalSettingChangeRequestCreate):
             if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
                 raise ValueError("Portal manager rights required for project setting requests")
+            feature = PORTAL_FEATURE_FIELDS.get(payload.setting)
+            if feature and payload.mode != "inherit" and payload.value is True:
+                policy = PortalService(self.db).get_effective_portal_settings(access.account).feature_policies
+                if getattr(policy, feature) == FeaturePolicy.DISABLED:
+                    raise ValueError("This feature is disabled by the platform")
             if access.account.portal_settings_delegated:
                 raise ValueError("Portal settings are already delegated to Portal managers")
         row = PortalAdminRequest(
@@ -645,6 +653,10 @@ class PortalRequestsService:
         )
         portal_service = PortalService(self.db)
         account_settings = portal_service.get_portal_account_settings(row.account)
+        feature = PORTAL_FEATURE_FIELDS.get(payload.setting)
+        if (feature and payload.mode != "inherit" and payload.value is True
+                and getattr(account_settings.effective.feature_policies, feature) == FeaturePolicy.DISABLED):
+            raise ValueError("This feature is disabled by the platform")
         override_payload = account_settings.admin_override.model_dump(
             mode="json",
             exclude_unset=True,

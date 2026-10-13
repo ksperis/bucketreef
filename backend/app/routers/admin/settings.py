@@ -67,8 +67,8 @@ def _authentication_settings_changed(current: AppSettings, requested: AppSetting
 
 def _portal_server_access_logging_changed(current: AppSettings, requested: AppSettings) -> bool:
     return (
-        current.portal.server_access_logging_enabled
-        != requested.portal.server_access_logging_enabled
+        current.portal.feature_policies.server_access_logging
+        != requested.portal.feature_policies.server_access_logging
     )
 
 
@@ -114,6 +114,9 @@ def update_settings(
         entity_id="global",
         metadata={
             "sections": sorted(saved.model_dump().keys()),
+            "feature_policies": {section: {"before": getattr(current_settings, section).feature_policies.model_dump(mode="json"),
+                                          "after": getattr(saved, section).feature_policies.model_dump(mode="json")}
+                                 for section in ("manager", "portal")},
             "portal_server_access_logging": server_access_logging_summary,
         },
     )

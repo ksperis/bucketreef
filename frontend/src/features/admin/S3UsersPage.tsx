@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -66,7 +67,6 @@ import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinit
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
-import { AdminAccessToggleSection } from "./AdminAccessSections";
 import AdminQuotaFields from "./AdminQuotaFields";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
@@ -151,11 +151,11 @@ export default function S3UsersPage() {
     quota_max_size_gb: "",
     quota_max_size_unit: "GiB",
     quota_max_objects: "",
-    allow_bucket_quota_management: false,
-    allow_access_key_management: false,
-    allow_access_key_metadata: false,
-    allow_access_key_expiration: false,
-    allow_managed_private_connection_provisioning: false,
+    allow_bucket_quota_management: null as boolean | null,
+    allow_access_key_management: null as boolean | null,
+    allow_access_key_metadata: null as boolean | null,
+    allow_access_key_expiration: null as boolean | null,
+    allow_managed_private_connection_provisioning: null as boolean | null,
   });
   const [editInitialSignature, setEditInitialSignature] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
@@ -507,13 +507,11 @@ export default function S3UsersPage() {
       quota_max_size_gb: quota.value,
       quota_max_size_unit: quota.unit,
       quota_max_objects: user.quota_max_objects != null ? String(user.quota_max_objects) : "",
-      allow_bucket_quota_management: Boolean(user.allow_bucket_quota_management),
-      allow_access_key_management: Boolean(user.allow_access_key_management),
-      allow_access_key_metadata: Boolean(user.allow_access_key_metadata),
-      allow_access_key_expiration: Boolean(user.allow_access_key_expiration),
-      allow_managed_private_connection_provisioning: Boolean(
-        user.allow_managed_private_connection_provisioning
-      ),
+      allow_bucket_quota_management: user.allow_bucket_quota_management ?? null,
+      allow_access_key_management: user.allow_access_key_management ?? null,
+      allow_access_key_metadata: user.allow_access_key_metadata ?? null,
+      allow_access_key_expiration: user.allow_access_key_expiration ?? null,
+      allow_managed_private_connection_provisioning: user.allow_managed_private_connection_provisioning ?? null,
     };
     setEditingUser(user);
     setEditForm(nextEditForm);
@@ -1331,82 +1329,26 @@ export default function S3UsersPage() {
 
             {showEditManagerTab && (
               <div className="settings-stack">
-                <AdminAccessToggleSection
-                  title="Access-key extensions"
-                  description="Optional features for managing access keys."
-                  items={[
-                    {
-                      title: "Access-key names and notes",
-                      description: generalSettings.manager_access_key_metadata_enabled
-                        ? "Allow Manager to store and edit BucketReef metadata for this RGW User's access keys."
-                        : "Enable Access-key names and notes in Manager settings before granting it to this RGW User.",
-                      ariaLabel: "Access-key names and notes",
-                      checked: editForm.allow_access_key_metadata,
-                      disabled: !editForm.allow_access_key_metadata && !generalSettings.manager_access_key_metadata_enabled,
-                      onChange: (checked) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          allow_access_key_metadata: checked,
-                        })),
-                    },
-                    {
-                      title: "Access-key expiration",
-                      description: generalSettings.manager_access_key_expiration_enabled
-                        ? "Allow Manager to schedule provider-side disabling for this RGW User's access keys."
-                        : "Enable Access-key expiration in Manager settings before granting it to this RGW User.",
-                      ariaLabel: "Access-key expiration",
-                      checked: editForm.allow_access_key_expiration,
-                      disabled: !editForm.allow_access_key_expiration && !generalSettings.manager_access_key_expiration_enabled,
-                      onChange: (checked) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          allow_access_key_expiration: checked,
-                        })),
-                    },
-                  ]}
-                />
-                <AdminAccessToggleSection
-                  title="Privileged Ceph operations"
-                  description="Manager operations that require delegated Ceph/RGW administrative capabilities."
-                  items={[
-                    {
-                      title: "Bucket quota management",
-                      description: editingEndpointCanWriteBuckets
-                        ? "Allow Ceph bucket quota updates for this RGW User in Manager."
-                        : "Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.",
-                      ariaLabel: "Bucket quota management",
-                      checked: editForm.allow_bucket_quota_management,
-                      disabled: !editForm.allow_bucket_quota_management && !editingEndpointCanWriteBuckets,
-                      onChange: (checked) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          allow_bucket_quota_management: checked,
-                        })),
-                    },
-                    {
-                      title: "Ceph S3 User keys",
-                      description: "Allow access to Manager > Ceph > Access keys.",
-                      ariaLabel: "Ceph S3 User keys",
-                      checked: editForm.allow_access_key_management,
-                      onChange: (checked) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          allow_access_key_management: checked,
-                        })),
-                    },
-                    {
-                      title: "Managed private connection provisioning",
-                      description: "Allow Manager to provision a dedicated private Browser connection for this RGW User.",
-                      ariaLabel: "Managed private connection provisioning",
-                      checked: editForm.allow_managed_private_connection_provisioning,
-                      onChange: (checked) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          allow_managed_private_connection_provisioning: checked,
-                        })),
-                    },
-                  ]}
-                />
+                <SettingsSection presentation="compact" title="Access-key extensions">
+                  <FeatureOverrideField title="Access-key names and notes" value={editForm.allow_access_key_metadata}
+                    policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={editBusy}
+                    help="Name and notes are stored in BucketReef." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_metadata: value }))} />
+                  <FeatureOverrideField title="Access-key expiration" value={editForm.allow_access_key_expiration}
+                    policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={editBusy}
+                    help="Requires Ceph, key management and scheduled jobs. Existing expirations remain scheduled." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_expiration: value }))} />
+                </SettingsSection>
+                <SettingsSection presentation="compact" title="Privileged Ceph operations">
+                  <FeatureOverrideField title="Bucket quota management" value={editForm.allow_bucket_quota_management}
+                    policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={editBusy}
+                    unavailable={!editingEndpointCanWriteBuckets ? "Endpoint permission required" : undefined}
+                    help="Requires buckets=write on the endpoint Admin Ops identity." onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_quota_management: value }))} />
+                  <FeatureOverrideField title="Ceph S3 User keys" value={editForm.allow_access_key_management}
+                    policy={generalSettings.manager_feature_policies.ceph_s3_user_keys} disabled={editBusy}
+                    help="Manages RGW User keys in Manager; storage and endpoint permissions remain required." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_management: value }))} />
+                  <FeatureOverrideField title="Managed private connection provisioning" value={editForm.allow_managed_private_connection_provisioning}
+                    policy={generalSettings.manager_feature_policies.managed_private_connection_provisioning} disabled={editBusy}
+                    help="Requires an eligible UI user and compatible endpoint. Generated secrets remain managed by BucketReef." onChange={value => setEditForm(prev => ({ ...prev, allow_managed_private_connection_provisioning: value }))} />
+                </SettingsSection>
               </div>
             )}
               </SettingsForm>

@@ -90,6 +90,7 @@ function RightsCell({ row }: { row: AccessAuditRow }) {
 }
 
 function sourceLabel(source: AccessAuditRow["rights"][number]["sources"][number]) {
+  if (source.kind === "platform") return "Platform";
   if (source.kind === "direct") return "Direct";
   return source.group_name ? `UI Group: ${source.group_name}` : `UI Group #${source.group_id}`;
 }

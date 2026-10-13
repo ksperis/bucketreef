@@ -49,9 +49,9 @@ class S3Account(Base):
         nullable=False,
         server_default="0",
     )
-    allow_bucket_quota_management = Column(Boolean, default=False, nullable=False, server_default="0")
-    allow_access_key_metadata = Column(Boolean, default=False, nullable=False, server_default="0")
-    allow_access_key_expiration = Column(Boolean, default=False, nullable=False, server_default="0")
+    allow_bucket_quota_management = Column(Boolean, default=None, nullable=True)
+    allow_access_key_metadata = Column(Boolean, default=None, nullable=True)
+    allow_access_key_expiration = Column(Boolean, default=None, nullable=True)
 
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
 

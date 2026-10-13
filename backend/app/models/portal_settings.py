@@ -3,12 +3,15 @@
 
 """Portal account and project settings API contracts."""
 
-from app.models.app_settings import PortalSettings, PortalSettingsOverride
+from app.models.app_settings import PortalEffectiveSettings, PortalSettingsOverride
 from app.models.base import ApiModel
+from app.models.feature_policy import FeatureState
+from pydantic import Field
 
 
 class PortalAccountSettings(ApiModel):
-    effective: PortalSettings
+    effective: PortalEffectiveSettings
+    feature_states: dict[str, FeatureState] = Field(default_factory=dict)
     admin_override: PortalSettingsOverride
     delegated_to_portal_managers: bool = False
     portal_collaborator_role_management_delegated: bool = False
@@ -16,7 +19,8 @@ class PortalAccountSettings(ApiModel):
 
 
 class PortalProjectSettings(ApiModel):
-    effective: PortalSettings
+    effective: PortalEffectiveSettings
+    feature_states: dict[str, FeatureState] = Field(default_factory=dict)
     project_override: PortalSettingsOverride
     delegated_to_portal_managers: bool = False
     portal_collaborator_role_management_delegated: bool = False

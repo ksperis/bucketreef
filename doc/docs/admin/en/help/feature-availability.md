@@ -15,6 +15,41 @@ BucketReef evaluates several independent layers:
 
 A visible UI action does not override the storage-side decision.
 
+## Feature policies
+
+Admin **Settings > Manager** and **Settings > Portal** use one selector for
+features that support targeted activation:
+
+| Policy | Effect |
+|---|---|
+| Disabled | Blocks the feature in its stated scope, including local activations. |
+| Targeted activation | Requires an explicit Account/RGW User/project choice or a UI User/Group grant. |
+| Enabled by default | Enables eligible targets that follow the platform value. It does not grant access to additional storage resources. |
+
+Account, RGW User and project editors distinguish **Platform value**, **Enabled**
+and **Disabled**. Changing the platform default preserves explicit choices.
+Existing resource choices remain explicit after upgrade; select **Platform value**
+to adopt inheritance. New resources follow the platform value.
+
+UI User and Group Tool grants are additive. Removing a direct grant does not
+remove a Group or platform grant. The effective access audit identifies these
+sources. A platform default still requires an eligible UI role and the existing
+storage-context and execution permissions.
+
+Scope matters: disabling purge also blocks Ceph Admin and Storage Ops purge.
+The Portal external-sharing policy controls Portal Users who own a Storage Space;
+Portal Managers retain their project-wide capabilities. Delegation cannot lift
+a platform prohibition, including through a setting-change request.
+
+Only additional explanations move into the information tooltips. Applied values,
+prohibitions and validation errors remain visible. Tooltips support keyboard focus,
+click/touch and Escape.
+
+Statistics and metrics remain independent global switches. Numeric limits and
+new-space defaults retain their own controls. Creation defaults affect new spaces;
+logging changes reconcile existing Portal logging; disabling key-expiration
+configuration does not cancel expirations already recorded.
+
 ## Administrator checks
 
 | Area | Main controls to verify |

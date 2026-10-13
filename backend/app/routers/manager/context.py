@@ -1,5 +1,8 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.services.feature_policy_service import manager_resource_states
+from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.db import S3Account, S3User
 from dataclasses import dataclass
 from typing import Annotated, Optional
 
@@ -281,7 +284,21 @@ def get_manager_context(
         include_limits=include_limits,
     )
 
+    resource = None
+    if account.context_kind == "account" and isinstance(account.id, int):
+        resource = db.get(S3Account, account.id)
+    elif account.context_kind == "s3_user" and account.s3_user_id is not None:
+        resource = db.get(S3User, account.s3_user_id)
+    provisioning_sources = resolved_access.feature_sources.get("managed_private_connection_provision", ()) if resolved_access else ()
+    feature_states = manager_resource_states(
+        load_app_settings_for_db_readonly(db).manager.feature_policies, resource,
+        {"bucket_quota_management": manager_bucket_quota_enabled, "ceph_s3_user_keys": manager_ceph_keys_enabled,
+         "access_key_metadata": manager_access_key_metadata_enabled, "access_key_expiration": manager_access_key_expiration_enabled,
+         "managed_private_connection_provisioning": manager_private_access_enabled},
+        provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
+    )
     return ManagerContext(
+        feature_states=feature_states,
         naming_validation_profile=naming_validation_profile(account),
         access_mode=access_mode,
         context_kind=("connection" if access_mode == "connection" else "account"),

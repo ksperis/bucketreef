@@ -7,7 +7,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.runtime_surfaces import runtime_surface_enabled
 from app.models.access_context import ManagerActor
-from app.models.app_settings import BrandingSettings, GeneralSettings, LoginSettings
+from app.models.app_settings import BrandingSettings, GeneralSettingsView, LoginSettings
 from app.models.runtime_surfaces import RuntimeSurfaces
 from app.models.storage_endpoint import StorageEndpointPublic
 from app.routers.dependencies import get_current_actor
@@ -30,9 +30,9 @@ def get_runtime_surfaces() -> RuntimeSurfaces:
     )
 
 
-@router.get("/general", response_model=GeneralSettings)
-def get_general_settings(_: ManagerActor = Depends(get_current_actor)) -> GeneralSettings:
-    return load_app_settings().general
+@router.get("/general", response_model=GeneralSettingsView)
+def get_general_settings(_: ManagerActor = Depends(get_current_actor)) -> GeneralSettingsView:
+    return GeneralSettingsView.from_settings(load_app_settings())
 
 
 @router.get("/login", response_model=LoginSettings)

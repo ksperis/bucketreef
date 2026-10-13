@@ -1378,12 +1378,14 @@ export default function UsersPage() {
                 )}
 
                 <ManagerToolAccessSection
+                  eligible={createTargetSupportsManagerTools}
                   title={text("manager")}
                   additionalItems={[
                     {
                       title: text("provisionConnections"),
                       description: text("provisionConnectionsDescription"),
                       checked: createTargetSupportsManagerTools && Boolean(form.can_provision_managed_private_connections),
+                      platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
                       disabled:
                         !createTargetSupportsManagerTools ||
                         !generalSettings.managed_private_connection_provisioning_enabled,
@@ -1720,12 +1722,16 @@ export default function UsersPage() {
                 )}
 
                 <ManagerToolAccessSection
+                  eligible={editTargetSupportsManagerTools}
+                  inheritedAccess={editingUser.effective_access?.manager_tool_access}
                   title={text("manager")}
                   additionalItems={[
                     {
                       title: text("provisionConnections"),
                       description: text("provisionConnectionsDescription"),
                       checked: editTargetSupportsManagerTools && Boolean(editForm.can_provision_managed_private_connections),
+                      platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
+                      inherited: Boolean(editingUser.effective_access?.can_provision_managed_private_connections),
                       disabled:
                         !editTargetSupportsManagerTools ||
                         !generalSettings.managed_private_connection_provisioning_enabled,

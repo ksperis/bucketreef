@@ -1,5 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.services.portal.exceptions import PortalForbiddenError
+from app.utils.http_errors import raise_http_exception_from_exception
 
 """Portal workspace context and project-settings endpoints."""
 
@@ -79,6 +81,8 @@ def portal_state(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="; ".join(reasons) or "Portal not available")
     try:
         return service.get_state(access)
+    except PortalForbiddenError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -114,6 +118,8 @@ def update_portal_project_settings(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal settings delegation is disabled")
     try:
         updated = service.update_admin_portal_settings_override(access.account, payload)
+    except PortalForbiddenError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
     audit_service.record_action(

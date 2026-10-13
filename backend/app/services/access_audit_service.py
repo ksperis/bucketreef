@@ -388,7 +388,7 @@ class AccessAuditService:
 
     @staticmethod
     def _source_label(source: AccessAuditGrantSource) -> str:
-        return "Direct" if source.kind == "direct" else f"UI Group: {source.group_name or source.group_id}"
+        return "Platform" if source.kind == "platform" else "Direct" if source.kind == "direct" else f"UI Group: {source.group_name or source.group_id}"
 
     def export_csv(self, filters: AccessAuditFilters) -> tuple[str, str]:
         rows = self.list_rows(filters)

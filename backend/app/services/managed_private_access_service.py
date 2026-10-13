@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from app.models.feature_policy import FeaturePolicy
+
 import json
 from typing import Callable
 from sqlalchemy.exc import IntegrityError
@@ -371,7 +373,7 @@ class ManagedPrivateAccessService:
     ) -> bool:
         if not (
             app_settings_service.load_app_settings()
-            .general.managed_private_connection_provisioning_enabled
+            .manager.feature_policies.managed_private_connection_provisioning != FeaturePolicy.DISABLED
         ):
             return False
         effective = resolved or self.access.resolve_user(user)

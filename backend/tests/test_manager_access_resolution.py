@@ -46,10 +46,11 @@ _TOOL_GATES = [
 
 @pytest.fixture
 def principal(db_session, monkeypatch):
-    settings = AppSettings()
+    from tests.feature_policy_fixtures import enable_manager_features
+    settings = enable_manager_features(db_session)
     for tool, _ in _TOOL_GATES:
         if tool != "feature_rules":
-            setattr(settings.general, f"{tool}_enabled", True)
+            setattr(settings.manager.feature_policies, tool, "targeted")
     monkeypatch.setattr(feature_gates.app_settings_service, "load_app_settings", lambda: settings)
     user = User(email="scope@example.test", hashed_password="x", is_active=True, role=UserRole.UI_USER.value)
     group = UiGroup(name="Migration operators", can_access_manager_bucket_migration=True)
@@ -109,7 +110,7 @@ def test_tool_gates_reject_unassigned_role_before_resolving_access(db_session, p
 @pytest.mark.parametrize("tool,gate", [entry for entry in _TOOL_GATES if entry[0] != "feature_rules"])
 def test_tool_gates_reject_disabled_feature_before_resolving_access(db_session, principal, tool, gate):
     user, _, _ = principal
-    setattr(feature_gates.app_settings_service.load_app_settings().general, f"{tool}_enabled", False)
+    setattr(feature_gates.app_settings_service.load_app_settings().manager.feature_policies, tool, "disabled")
 
     with patch.object(EffectiveAccessService, "resolve_user") as resolve:
         with pytest.raises(HTTPException) as exc:

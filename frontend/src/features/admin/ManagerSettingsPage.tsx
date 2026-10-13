@@ -10,7 +10,7 @@ import {
 } from "../../components/settings/SettingsControls";
 import SettingsDraftDialog from "../../components/settings/SettingsDraftDialog";
 import AdminSettingsFrame from "./settings/AdminSettingsFrame";
-import { AppSettingsToggle } from "./settings/AppSettingsFields";
+import { AppSettingsToggle, AppSettingsPolicy } from "./settings/AppSettingsFields";
 import { useAppSettingsDraft } from "./settings/useAppSettingsDraft";
 import {
   validateInteger,
@@ -39,15 +39,16 @@ const migrationFields = [
 const paths = [
   "general.bucket_usage_stats_enabled",
   "manager.manager_rgw_usage_metrics_enabled",
-  "general.bucket_quota_management_enabled",
-  "general.manager_ceph_s3_user_keys_enabled",
-  "general.manager_access_key_metadata_enabled",
-  "general.manager_access_key_expiration_enabled",
-  "general.managed_private_connection_provisioning_enabled",
-  "general.bucket_migration_enabled",
-  "general.bucket_compare_enabled",
-  "general.bucket_integrity_check_enabled",
-  "general.bucket_purge_enabled",
+  "manager.feature_policies.bucket_quota_management",
+  "manager.feature_policies.ceph_s3_user_keys",
+  "manager.feature_policies.access_key_metadata",
+  "manager.feature_policies.access_key_expiration",
+  "manager.feature_policies.managed_private_connection_provisioning",
+  "manager.feature_policies.bucket_migration",
+  "manager.feature_policies.bucket_compare",
+  "manager.feature_policies.bucket_integrity_check",
+  "manager.feature_policies.bucket_purge",
+  "manager.feature_policies.feature_rules",
   ...migrationFields.map((field) => field.path),
 ] as const satisfies readonly SettingsPath[];
 
@@ -134,7 +135,6 @@ export default function ManagerSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Usage and metrics"
-        description="Composition scans and RGW measurements remain independent."
       >
         <AppSettingsToggle
           form={form}
@@ -152,35 +152,34 @@ export default function ManagerSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Administration and access"
-        description="Enable tools without changing storage-side permissions."
       >
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.bucket_quota_management_enabled"
+          field="manager.feature_policies.bucket_quota_management"
           title="Bucket quota management"
           description="Ceph account and RGW user contexts require buckets=write on the endpoint Admin Ops identity."
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.manager_ceph_s3_user_keys_enabled"
+          field="manager.feature_policies.ceph_s3_user_keys"
           title="Ceph S3 User access-key management"
           description="RGW key management for eligible S3 User contexts."
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.manager_access_key_metadata_enabled"
+          field="manager.feature_policies.access_key_metadata"
           title="Access-key names and notes"
           description="Allow selected RGW Accounts and Users to add BucketReef-managed labels and notes to access keys."
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.manager_access_key_expiration_enabled"
+          field="manager.feature_policies.access_key_expiration"
           title="Access-key expiration"
           description="Allow selected RGW Accounts and Users to schedule provider-side access-key disabling. Requires scheduled jobs."
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.managed_private_connection_provisioning_enabled"
+          field="manager.feature_policies.managed_private_connection_provisioning"
           title="Provision managed private connections"
           description="Provision credentials for eligible users without revealing generated secrets."
           experimental
@@ -189,11 +188,10 @@ export default function ManagerSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Manager tools"
-        description="Optional administrative and operational tools available in Manager."
       >
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.bucket_migration_enabled"
+          field="manager.feature_policies.bucket_migration"
           title="Bucket migration tool"
           experimental
         />
@@ -210,22 +208,23 @@ export default function ManagerSettingsPage() {
             </SettingsButton>
           }
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.bucket_compare_enabled"
+          field="manager.feature_policies.bucket_compare"
           title="Bucket compare tool"
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.bucket_integrity_check_enabled"
+          field="manager.feature_policies.bucket_integrity_check"
           title="Bucket integrity check tool"
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.bucket_purge_enabled"
+          field="manager.feature_policies.bucket_purge"
           title="Bucket purge tool"
           description="Also controls purge actions in Ceph Admin and Storage Ops."
         />
+        <AppSettingsPolicy form={form} field="manager.feature_policies.feature_rules" title="Feature rule inventory" description="Access to the Manager feature-rule inventory. Requires an eligible Manager role and storage context." />
       </SettingsSection>
     </AdminSettingsFrame>
   );

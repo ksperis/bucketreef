@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import json
@@ -9,6 +10,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from tests.feature_policy_fixtures import enable_manager_features
 from app.db import (
     ManagerAccountRole, PortalAccountRole,
     S3Account,
@@ -474,3 +476,9 @@ def test_effective_ceph_admin_requires_user_admin_role(client: TestClient, db_se
         assert exc.status_code == 403
     else:
         raise AssertionError("plain UI user should not inherit effective Ceph Admin access")
+
+
+
+@pytest.fixture(autouse=True)
+def _available_manager_features(db_session):
+    enable_manager_features(db_session)

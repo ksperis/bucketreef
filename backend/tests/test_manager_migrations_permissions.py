@@ -6,6 +6,8 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
+from tests.feature_policy_fixtures import enable_manager_features
+from tests.feature_policy_fixtures import manager_settings_fixture
 from app.db import BucketMigration, BucketMigrationItem, User, UserRole
 from app.main import app
 from app.models.access_context import BucketMigrationAccessScope
@@ -29,11 +31,9 @@ def _user(db_session, role: str, *, bucket_migration: bool = False) -> User:
 
 
 def _settings(*, enabled: bool):
-    return SimpleNamespace(
-        general=SimpleNamespace(
+    return manager_settings_fixture(
             bucket_migration_enabled=enabled,
         )
-    )
 
 
 def test_bucket_migration_allowed_for_admin_with_user_tool_access(db_session, monkeypatch):
@@ -250,3 +250,9 @@ def test_bucket_migration_scope_resolves_access_once_per_request(db_session, mon
     assert scope.allowed_context_ids == set()
     assert scope.admin_account_context_ids == set()
     assert resolve.call_count == 1
+
+
+
+@pytest.fixture(autouse=True)
+def _available_features(db_session):
+    enable_manager_features(db_session)

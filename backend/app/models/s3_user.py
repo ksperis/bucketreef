@@ -48,11 +48,11 @@ class S3User(ApiModel):
     storage_endpoint_name: str
     storage_endpoint_url: str
     bucket_count: Optional[int] = None
-    allow_bucket_quota_management: bool = False
-    allow_access_key_management: bool = False
-    allow_access_key_metadata: bool = False
-    allow_access_key_expiration: bool = False
-    allow_managed_private_connection_provisioning: bool = False
+    allow_bucket_quota_management: Optional[bool] = None
+    allow_access_key_management: Optional[bool] = None
+    allow_access_key_metadata: Optional[bool] = None
+    allow_access_key_expiration: Optional[bool] = None
+    allow_managed_private_connection_provisioning: Optional[bool] = None
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
 class S3UserCreate(ApiModel):
@@ -136,11 +136,11 @@ class S3UserSummary(ApiModel):
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str
-    allow_bucket_quota_management: bool = False
-    allow_access_key_management: bool = False
-    allow_access_key_metadata: bool = False
-    allow_access_key_expiration: bool = False
-    allow_managed_private_connection_provisioning: bool = False
+    allow_bucket_quota_management: Optional[bool] = None
+    allow_access_key_management: Optional[bool] = None
+    allow_access_key_metadata: Optional[bool] = None
+    allow_access_key_expiration: Optional[bool] = None
+    allow_managed_private_connection_provisioning: Optional[bool] = None
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
 

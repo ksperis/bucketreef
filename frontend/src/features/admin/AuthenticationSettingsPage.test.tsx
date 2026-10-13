@@ -1,3 +1,4 @@
+import { createAppSettings } from "./settings/settingsTestFixtures";
 import { transferableAbortController } from "node:util";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import AuthProviderPage from "./settings/AuthProviderPage";
@@ -85,74 +86,7 @@ function recentWebAuthnRequiredError() {
   });
 }
 
-function buildSettings(): AppSettings {
-  return {
-    general: {
-      rgw_account_id_prefix: "80",
-      documentation_base_url: "https://docs.bucketreef.ksperis.com",
-      manager_enabled: true,
-      ceph_admin_enabled: false,
-      storage_ops_enabled: false,
-      browser_enabled: true,
-      browser_root_enabled: true,
-      browser_manager_enabled: false,
-      browser_portal_enabled: true,
-      browser_ceph_admin_enabled: true,
-      portal_enabled: true,
-      billing_enabled: false,
-      endpoint_status_enabled: false,
-      quota_alerts_enabled: false,
-      usage_history_enabled: false,
-      bucket_migration_enabled: true,
-      bucket_purge_enabled: false,
-      bucket_compare_enabled: true,
-      bucket_integrity_check_enabled: false,
-      bucket_usage_stats_enabled: true,
-      bucket_quota_management_enabled: true,
-      manager_ceph_s3_user_keys_enabled: false,
-      allow_login_access_keys: false,
-      allow_login_endpoint_list: false,
-      allow_login_custom_endpoint: false,
-      require_passkey_for_admins: true,
-      require_passkey_for_users: false,
-      allow_user_profile_name_edit: false,
-      allow_user_external_identity_unlink: false,
-    },
-    manager: {
-      manager_rgw_usage_metrics_enabled: true,
-      bucket_migration_parallelism_default: 8,
-      bucket_migration_parallelism_max: 16,
-      bucket_migration_max_active_per_endpoint: 2,
-    },
-    quota_notifications: {
-      threshold_percent: 85,
-      include_subject_contact_email: false,
-      smtp_host: null,
-      smtp_port: 587,
-      smtp_username: null,
-      smtp_from_email: null,
-      smtp_from_name: null,
-      smtp_starttls: true,
-      smtp_timeout_seconds: 15,
-    },
-    browser: {
-      allow_proxy_transfers: true,
-      direct_upload_parallelism: 5,
-      proxy_upload_parallelism: 2,
-      direct_download_parallelism: 5,
-      proxy_download_parallelism: 2,
-      other_operations_parallelism: 3,
-      streaming_zip_threshold_mb: 200,
-    },
-    onboarding: {
-      dismissed: false,
-    },
-    branding: {
-      primary_color: "#0569f8",
-      login_logo_url: null,
-    },
-  };
-}
+function buildSettings(): AppSettings { return createAppSettings({ require_passkey_for_admins: true }); }
 
 function buildOidcProvider(overrides: Partial<OidcProviderAdminItem> = {}): OidcProviderAdminItem {
   return {
@@ -372,7 +306,7 @@ describe("AuthenticationSettingsPage", () => {
     const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
     expect(payload.general.allow_login_access_keys).toBe(true);
     expect(payload.general).not.toHaveProperty("allow_user_private_connections");
-    expect(setGeneralSettingsMock).toHaveBeenLastCalledWith(payload.general);
+    expect(setGeneralSettingsMock).toHaveBeenLastCalledWith(expect.objectContaining(payload.general));
   });
 
   it("preserves the settings draft and retries the save once after step-up", async () => {

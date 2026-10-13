@@ -18,6 +18,8 @@ type WorkspaceAccessToggle = {
   description: string;
   ariaLabel: string;
   onChange: (value: boolean) => void;
+  platformDefault?: boolean;
+  inherited?: boolean;
   badge?: {
     visible?: boolean;
     label: string;
@@ -42,7 +44,7 @@ export function AdminAccessToggleSection({
           <SettingsItem
             key={item.ariaLabel}
             title={item.title}
-            description={item.description}
+            help={item.description}
             compact
             action={
               <SettingsToggleAction
@@ -110,6 +112,8 @@ export function ManagerToolAccessSection({
   onChange,
   isToolDisabled,
   additionalItems = [],
+  eligible = true,
+  inheritedAccess,
 }: {
   title: string;
   description: string;
@@ -118,20 +122,27 @@ export function ManagerToolAccessSection({
   onChange: (key: ManagerToolKey, value: boolean) => void;
   isToolDisabled?: (tool: ManagerToolDefinition) => boolean;
   additionalItems?: WorkspaceAccessToggle[];
+  eligible?: boolean;
+  inheritedAccess?: ManagerToolAccess | null;
 }) {
   const normalizedAccess = normalizeManagerToolAccess(access);
   return (
     <AdminAccessToggleSection
       title={title}
       description={description}
-      items={[...additionalItems, ...tools.map<WorkspaceAccessToggle>((tool) => ({
+      items={[...additionalItems.map(item => ({ ...item,
+        description: `${item.description} Direct grants add to Group and platform grants; removing this grant does not revoke another source.`,
+        badge: eligible && item.platformDefault ? { visible: true, label: "Enabled by platform", tone: "neutral" as const }
+          : eligible && item.inherited && !item.checked ? { visible: true, label: "Enabled by group", tone: "neutral" as const } : item.badge,
+      })), ...tools.map<WorkspaceAccessToggle>((tool) => ({
         title: tool.title,
-        description: tool.description,
-        checked: Boolean(normalizedAccess[tool.key]),
-        disabled: isToolDisabled ? isToolDisabled(tool) : !tool.enabled,
+        description: `${tool.description} Direct grants add to Group and platform grants; removing this grant does not revoke another source. Eligible UI roles and storage access are still required.`,
+        checked: eligible && Boolean(normalizedAccess[tool.key]),
+        disabled: !eligible || (isToolDisabled ? isToolDisabled(tool) : !tool.enabled),
         onChange: (value) => onChange(tool.key, value),
         ariaLabel: tool.title,
-        badge: { visible: !tool.enabled, label: "Disabled globally", tone: "neutral" },
+        badge: { visible: !tool.enabled || eligible && (tool.platformDefault || Boolean(inheritedAccess?.[tool.key]) && !normalizedAccess[tool.key]),
+          label: !tool.enabled ? "Disabled globally" : tool.platformDefault ? "Enabled by platform" : "Enabled by group", tone: "neutral" },
       }))]}
     />
   );

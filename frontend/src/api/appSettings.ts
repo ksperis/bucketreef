@@ -3,8 +3,18 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client, { timeoutForRequestProfile } from "./client";
+import type { ManagerFeaturePolicies, PortalFeaturePolicies } from "./featurePolicies";
+export type { FeaturePolicy, FeatureState, ManagerFeaturePolicies, PortalFeaturePolicies } from "./featurePolicies";
 
-export type PortalSettings = {
+
+export type PortalConfiguration = {
+  feature_policies: PortalFeaturePolicies;
+  server_access_log_retention_days: number;
+  max_portal_user_access_keys: number;
+  bucket_defaults: PortalBucketDefaults;
+};
+
+export type PortalSettings = PortalConfiguration & {
   browser_access_enabled: boolean;
   allow_private_storage_space_create: boolean;
   allow_portal_named_bucket_create: boolean;
@@ -50,7 +60,7 @@ export type PortalSettingsAdminUpdate = PortalSettingsOverride & {
   portal_collaborator_addition_delegated?: boolean | null;
 };
 
-export type GeneralSettings = {
+export type GeneralConfiguration = {
   rgw_account_id_prefix: string;
   documentation_base_url: string;
   manager_enabled: boolean;
@@ -66,16 +76,7 @@ export type GeneralSettings = {
   endpoint_status_enabled: boolean;
   quota_alerts_enabled: boolean;
   usage_history_enabled: boolean;
-  bucket_migration_enabled: boolean;
-  bucket_purge_enabled: boolean;
-  bucket_compare_enabled: boolean;
-  bucket_integrity_check_enabled: boolean;
   bucket_usage_stats_enabled: boolean;
-  bucket_quota_management_enabled: boolean;
-  manager_ceph_s3_user_keys_enabled: boolean;
-  manager_access_key_metadata_enabled: boolean;
-  manager_access_key_expiration_enabled: boolean;
-  managed_private_connection_provisioning_enabled: boolean;
   allow_login_access_keys: boolean;
   allow_login_endpoint_list: boolean;
   allow_login_custom_endpoint: boolean;
@@ -83,6 +84,19 @@ export type GeneralSettings = {
   require_passkey_for_users: boolean;
   allow_user_profile_name_edit: boolean;
   allow_user_external_identity_unlink: boolean;
+};
+
+export type GeneralSettings = GeneralConfiguration & {
+  manager_feature_policies: ManagerFeaturePolicies;
+  bucket_compare_enabled: boolean;
+  bucket_integrity_check_enabled: boolean;
+  bucket_migration_enabled: boolean;
+  bucket_purge_enabled: boolean;
+  bucket_quota_management_enabled: boolean;
+  manager_ceph_s3_user_keys_enabled: boolean;
+  manager_access_key_metadata_enabled: boolean;
+  manager_access_key_expiration_enabled: boolean;
+  managed_private_connection_provisioning_enabled: boolean;
 };
 
 export type RuntimeSurfaces = {
@@ -125,6 +139,7 @@ export type BrandingSettings = {
 };
 
 export type ManagerSettings = {
+  feature_policies: ManagerFeaturePolicies;
   manager_rgw_usage_metrics_enabled: boolean;
   bucket_migration_parallelism_default: number;
   bucket_migration_parallelism_max: number;
@@ -158,8 +173,8 @@ export type OnboardingSettings = {
 };
 
 export type AppSettings = {
-  general: GeneralSettings;
-  portal: PortalSettings;
+  general: GeneralConfiguration;
+  portal: PortalConfiguration;
   manager: ManagerSettings;
   quota_notifications: QuotaNotificationSettings;
   browser: BrowserSettings;

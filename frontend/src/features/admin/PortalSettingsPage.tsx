@@ -10,6 +10,7 @@ import UiTextarea from "../../components/ui/UiTextarea";
 import AdminSettingsFrame from "./settings/AdminSettingsFrame";
 import {
   AppSettingsNumber,
+  AppSettingsPolicy,
   AppSettingsToggle,
 } from "./settings/AppSettingsFields";
 import { useAppSettingsDraft } from "./settings/useAppSettingsDraft";
@@ -21,14 +22,14 @@ import {
 } from "./settings/appSettingsDraft";
 
 const paths = [
-  "portal.browser_access_enabled",
-  "portal.allow_private_storage_space_create",
-  "portal.allow_portal_named_bucket_create",
-  "portal.allow_portal_user_access_key_create",
-  "portal.allow_portal_user_external_sharing",
-  "portal.server_access_logging_enabled",
+  "portal.feature_policies.browser_access",
+  "portal.feature_policies.private_storage_space_create",
+  "portal.feature_policies.named_bucket_create",
+  "portal.feature_policies.user_access_key_create",
+  "portal.feature_policies.user_external_sharing",
+  "portal.feature_policies.server_access_logging",
   "portal.server_access_log_retention_days",
-  "portal.storage_space_version_cleanup_enabled",
+  "portal.feature_policies.storage_space_version_cleanup",
   "portal.max_portal_user_access_keys",
   "portal.bucket_defaults.versioning",
   "portal.bucket_defaults.enable_cors",
@@ -107,24 +108,23 @@ export default function PortalSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Access and creation"
-        description="Projects can personalize delegated options."
       >
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="portal.browser_access_enabled"
+          field="portal.feature_policies.browser_access"
           title="Browser workspace access"
           ariaLabel="Portal Browser workspace access"
           description="Show Portal projects in standalone Browser. File browsing inside Portal remains independent."
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="portal.allow_private_storage_space_create"
+          field="portal.feature_policies.private_storage_space_create"
           title="Private Storage Space creation"
           description="Team Storage Spaces remain manager-only."
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="portal.allow_portal_named_bucket_create"
+          field="portal.feature_policies.named_bucket_create"
           title="Named storage creation"
           description="Allow a backing storage name based on the name supplied during creation."
         />
@@ -132,11 +132,10 @@ export default function PortalSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Personal access keys"
-        description="Keys managed by Portal users."
       >
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="portal.allow_portal_user_access_key_create"
+          field="portal.feature_policies.user_access_key_create"
           title="Access key management"
         />
         <AppSettingsNumber
@@ -148,11 +147,10 @@ export default function PortalSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="External sharing"
-        description="Controls whether Portal users may expose data outside Portal."
       >
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="portal.allow_portal_user_external_sharing"
+          field="portal.feature_policies.user_external_sharing"
           title="External sharing by Portal users"
           description="Allow Portal users to create public links and external S3 tool access only for Storage Spaces they own. Portal managers keep their existing project-wide capabilities."
         />
@@ -160,11 +158,10 @@ export default function PortalSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Logging and history"
-        description="Audit and cleanup capabilities."
       >
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="portal.server_access_logging_enabled"
+          field="portal.feature_policies.server_access_logging"
           title="Server access logging"
           description="Object-level audit. Without it, there is no exhaustive object history. Changing this reconciles existing Portal logging."
         />
@@ -174,9 +171,9 @@ export default function PortalSettingsPage() {
           title="Server access log retention"
           description="Days; applies to newly created technical log buckets."
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="portal.storage_space_version_cleanup_enabled"
+          field="portal.feature_policies.storage_space_version_cleanup"
           title="Storage Space history cleanup"
           description="Expose cleanup actions; storage permissions still determine who can execute them."
         />
@@ -184,7 +181,7 @@ export default function PortalSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="New Storage Space defaults"
-        description="Applied during provisioning. Existing buckets are unchanged."
+        description="Applied at creation."
       >
         <AppSettingsToggle
           form={form}

@@ -251,3 +251,8 @@
   padding-top: var(--settings-row-padding);
   padding-bottom: var(--settings-row-padding);
 }
+
+.settings-info-trigger { min-width: 28px; min-height: 28px; padding: 4px; }
+.settings-info-tooltip { max-width: min(380px, calc(100vw - 24px)); padding: 12px; font-size: var(--settings-description-font-size, 12px); line-height: 1.5; }
+.settings-policy-select { width: 14rem; max-width: 100%; }
+@media (max-width: 1023px), (pointer: coarse) { .settings-info-trigger { min-width: 44px; min-height: 44px; } }

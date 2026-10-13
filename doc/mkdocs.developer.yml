@@ -24,6 +24,7 @@ nav:
       - Identity and execution: architecture/identity-and-execution.md
       - Audit boundary: architecture/audit-boundary.md
       - Workspace surfaces: architecture/workspace-surfaces.md
+      - Feature policies: architecture/feature-policies.md
       - Principles: architecture/principles.md
   - Frontend:
       - Product design: frontend/product-design.md

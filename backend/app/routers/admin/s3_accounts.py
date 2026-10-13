@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.services.portal.exceptions import PortalForbiddenError
 import logging
 from typing import Optional
 
@@ -176,6 +177,8 @@ def update_account_portal_settings(
             ),
             portal_collaborator_addition_delegated=payload.portal_collaborator_addition_delegated,
         )
+    except PortalForbiddenError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     audit_service.record_action(

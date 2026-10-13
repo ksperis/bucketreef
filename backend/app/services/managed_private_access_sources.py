@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+from app.models.feature_policy import resolve_feature_policy
+from app.services.app_settings_service import load_app_settings_for_db_readonly
+
 from dataclasses import dataclass
 from typing import Literal
 
@@ -160,7 +163,10 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessError("RGW User not found")
         endpoint = s3_user.storage_endpoint
         if (
-            not s3_user.allow_managed_private_connection_provisioning
+            not resolve_feature_policy(
+                load_app_settings_for_db_readonly(self.db).manager.feature_policies.managed_private_connection_provisioning,
+                s3_user.allow_managed_private_connection_provisioning,
+            ).enabled
             or endpoint is None
             or endpoint.provider != StorageProvider.CEPH.value
             or not resolve_feature_flags(endpoint).admin_enabled

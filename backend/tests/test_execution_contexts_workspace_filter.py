@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import json
@@ -484,7 +485,7 @@ def test_browser_workspace_applies_effective_project_override(
             browser_portal_enabled=True,
         )
     )
-    settings.portal.browser_access_enabled = global_enabled
+    settings.portal.feature_policies.browser_access = "default_on" if global_enabled else "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
     monkeypatch.setattr(portal_settings_module, "load_app_settings", lambda: settings)
 

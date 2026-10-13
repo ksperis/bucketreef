@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 from typing import Optional
@@ -54,9 +55,9 @@ def s3_account_from_db(
         storage_endpoint_url=storage_endpoint.endpoint_url,
         storage_endpoint_is_default=bool(storage_endpoint.is_default),
         storage_endpoint_capabilities=storage_endpoint_capabilities,
-        allow_bucket_quota_management=bool(account.allow_bucket_quota_management),
-        allow_access_key_metadata=bool(account.allow_access_key_metadata),
-        allow_access_key_expiration=bool(account.allow_access_key_expiration),
+        allow_bucket_quota_management=account.allow_bucket_quota_management,
+        allow_access_key_metadata=account.allow_access_key_metadata,
+        allow_access_key_expiration=account.allow_access_key_expiration,
         tags=tags or [],
     )
 
@@ -81,8 +82,8 @@ def s3_account_summary_from_db(
         storage_endpoint_url=storage_endpoint.endpoint_url,
         storage_endpoint_is_default=bool(storage_endpoint.is_default),
         storage_endpoint_capabilities=storage_endpoint_capabilities,
-        allow_bucket_quota_management=bool(account.allow_bucket_quota_management),
-        allow_access_key_metadata=bool(account.allow_access_key_metadata),
-        allow_access_key_expiration=bool(account.allow_access_key_expiration),
+        allow_bucket_quota_management=account.allow_bucket_quota_management,
+        allow_access_key_metadata=account.allow_access_key_metadata,
+        allow_access_key_expiration=account.allow_access_key_expiration,
         tags=tags or [],
     )

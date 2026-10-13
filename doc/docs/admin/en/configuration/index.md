@@ -2,6 +2,12 @@
 
 Configuration is split between backend environment variables and UI settings.
 
+Manager and Portal capabilities that support local activation use
+[feature policies](../help/feature-availability.md#feature-policies). Select
+**Disabled**, **Targeted activation** or **Enabled by default** rather than editing
+separate availability and default switches. Endpoint capabilities, native storage
+permissions, workspace activation and numeric limits remain independent.
+
 ## Configuration checklist
 
 | Priority | Configure | Why |

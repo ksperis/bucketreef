@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import pytest
@@ -17,7 +18,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 @pytest.fixture(autouse=True)
 def _enable_manager_bucket_quota(monkeypatch):
     settings = AppSettings()
-    settings.general.bucket_quota_management_enabled = True
+    settings.manager.feature_policies.bucket_quota_management = "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
 

@@ -1,5 +1,7 @@
+import pytest
 from fastapi.testclient import TestClient
 
+from tests.feature_policy_fixtures import enable_manager_features
 from app.db import S3User, StorageEndpoint, StorageProvider, User, UserRole
 from app.main import app
 from app.routers import dependencies
@@ -124,3 +126,9 @@ def test_ui_admin_can_update_s3_user_without_changing_privileged_targets(client:
     assert s3_user.name == "regular-user-renamed"
     assert s3_user.allow_bucket_quota_management is False
     assert s3_user.allow_access_key_management is False
+
+
+
+@pytest.fixture(autouse=True)
+def _available_manager_features(db_session):
+    enable_manager_features(db_session)

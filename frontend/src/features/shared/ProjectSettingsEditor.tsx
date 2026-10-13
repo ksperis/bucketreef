@@ -228,20 +228,23 @@ export default function ProjectSettingsEditor({
     title: string,
     value: boolean,
     description?: string,
-  ) => (
+  ) => {
+    const featureKeys = {
+      browserAccess: "browser_access", bucketCreate: "private_storage_space_create", namedBucketCreate: "named_bucket_create",
+      accessKeyCreate: "user_access_key_create", externalSharing: "user_external_sharing", serverAccessLogging: "server_access_logging",
+      versionCleanup: "storage_space_version_cleanup",
+    } as const;
+    const feature = featureKeys[key as keyof typeof featureKeys];
+    const policy = feature ? settings?.effective.feature_policies?.[feature] : undefined;
+    const blocked = policy === "disabled";
+    const platformValue = policy ? enabled(policy === "default_on") : undefined;
+    return (
     <SettingsItem
       key={key}
       compact
       title={title}
-      description={
-        <>
-          {description && <>{description} </>}
-          {effective(enabled(value))}
-        </>
-      }
-      status={
-        <UiBadge tone="neutral">{source(baseline[key] !== "inherit")}</UiBadge>
-      }
+      help={description}
+      status={blocked ? <UiBadge tone="warning">{t({ en: "Platform disabled", fr: "Désactivée par la plateforme", de: "Plattformweit deaktiviert", zh: "平台已禁用" })}</UiBadge> : undefined}
       action={
         editable ? (
           <UiSelect
@@ -259,9 +262,9 @@ export default function ProjectSettingsEditor({
                 fr: "Valeur de la plateforme",
                 de: "Plattformwert",
                 zh: "平台值",
-              })}
+              })}{platformValue ? ` — ${platformValue}` : ""}
             </option>
-            <option value="enabled">{enabled(true)}</option>
+            <option value="enabled" disabled={blocked}>{enabled(true)}</option>
             <option value="disabled">{enabled(false)}</option>
           </UiSelect>
         ) : (
@@ -270,6 +273,7 @@ export default function ProjectSettingsEditor({
       }
     />
   );
+  };
   const fieldLabels: Record<string, string> = {
     browser_access_enabled: t({ en: "Browser workspace access", fr: "Accès à l’espace Browser", de: "Browser-Arbeitsbereich", zh: "对象浏览工作区访问" }),
     allow_private_storage_space_create: t({ en: "Private Storage Space creation", fr: "Création d’espaces privés", de: "Private Speicherbereiche erstellen", zh: "创建私有存储空间" }),

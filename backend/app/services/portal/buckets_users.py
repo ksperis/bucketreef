@@ -1,11 +1,12 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
 
 from app.db import AccountIAMUser, PortalAccountRole, S3Account, User
-from app.models.app_settings import PortalSettings
+from app.models.app_settings import PortalEffectiveSettings
 from app.models.bucket import Bucket
 from app.services import s3_bucket_access, s3_bucket_metadata, s3_client, s3_deletion
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
@@ -26,7 +27,7 @@ class PortalBucketsUsersMixin:
         access: "AccountAccess",
         bucket_name: str,
         versioning: Optional[bool] = None,
-        portal_settings: Optional[PortalSettings] = None,
+        portal_settings: Optional[PortalEffectiveSettings] = None,
     ) -> Bucket:
         account = access.account
         portal_defaults = portal_settings or self.get_effective_portal_settings(account)

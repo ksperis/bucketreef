@@ -1,3 +1,4 @@
+import { resolvePortalSettings } from "../api/featurePolicies";
 import type { PortalAdminRequest } from "../api/portalRequests";
 import type { PortalStorageSpaceShare } from "../api/portalSharing";
 import { bucketView, newBucket, settings, type DemoSpace } from "./state";
@@ -80,7 +81,7 @@ export function portal(c: DemoRequest): Response | undefined {
   if (path === "/portal/state" && method === "GET") return json({ portal_role: manager ? "portal_manager" : "portal_user", can_manage_buckets: manager, can_create_private_storage_spaces: true, can_create_team_storage_spaces: manager, can_create_external_sharing: false, can_manage_portal_users: manager, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false, allow_named_bucket_create: true, storage_space_version_cleanup_enabled: false, server_access_logging_enabled: true });
   if (path === "/portal/settings") {
     if (method !== "GET") throw new DemoError(403, "Project settings are read-only in this demo");
-    return json({ effective: settings.portal, project_override: {}, delegated_to_portal_managers: false, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false, can_update: false });
+    return json({ effective: resolvePortalSettings(settings.portal), project_override: {}, delegated_to_portal_managers: false, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false, can_update: false });
   }
   if (path === "/portal/collaborators" && method === "GET") return json({ summary: { collaborator_count: candidates.length, external_access_key_count: 0 }, collaborators: candidates });
   if (path === "/portal/share-candidates" && method === "GET") return json(candidates);

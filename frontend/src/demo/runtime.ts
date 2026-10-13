@@ -1,3 +1,4 @@
+import { projectGeneralSettings } from "../api/featurePolicies";
 import { favorites } from "./favorites";
 import { currentUser, DemoError, done, json, type DemoRequest } from "./http";
 import { loadState, resetState, saveState } from "./persistence";
@@ -72,7 +73,7 @@ export async function initializeDemo(): Promise<boolean> {
   }
   if (!state) { showRecovery("This demo uses a newer data format. Your saved data has been kept. Reset explicitly to start the new scenario.", true); return false; }
   const active = { state };
-  localStorage.setItem("settings:general:v1", JSON.stringify(settings.general));
+  localStorage.setItem("settings:general:v2", JSON.stringify(projectGeneralSettings(settings)));
   const nativeFetch = window.fetch.bind(window);
   let queue: Promise<unknown> = Promise.resolve();
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {

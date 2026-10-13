@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
@@ -7,6 +8,7 @@ from typing import Optional
 
 import pytest
 
+from tests.feature_policy_fixtures import enable_manager_features
 from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
 from app.db import (
     BillingAssignment,
@@ -507,8 +509,8 @@ def test_update_user_persists_privileged_target_grants(db_session, monkeypatch):
 
     created = service.create_user(S3UserCreate(name="Privileged", uid="privileged-target", storage_endpoint_id=endpoint.id))
     record = db_session.query(S3User).filter_by(id=created.id).one()
-    assert record.allow_bucket_quota_management is False
-    assert record.allow_access_key_management is False
+    assert record.allow_bucket_quota_management is None
+    assert record.allow_access_key_management is None
 
     updated = service.update_user(
         created.id,
@@ -859,3 +861,9 @@ def test_paginate_users_name_and_non_name_sorts_are_stable(db_session):
     assert same_desc_ids == sorted([same_1.id, same_2.id], reverse=True)
     assert created_desc_items[0].name == "time-bravo"
     assert created_desc_ids.index(tie_2.id) < created_desc_ids.index(tie_1.id)
+
+
+
+@pytest.fixture(autouse=True)
+def _available_manager_features(db_session):
+    enable_manager_features(db_session)

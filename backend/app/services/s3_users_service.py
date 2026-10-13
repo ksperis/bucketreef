@@ -1,5 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.services.feature_policy_service import manager_override_values, validate_manager_overrides
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 import logging
 from typing import Any, Optional
 
@@ -344,6 +346,7 @@ class S3UsersService:
         )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
+        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies)
         uid = (payload.uid or "").strip() or managed_s3_user_uid()
         existing = (
             self.db.query(S3UserModel)
@@ -384,6 +387,7 @@ class S3UsersService:
             rgw_access_key=access_key,
             rgw_secret_key=secret_key,
             storage_endpoint_id=endpoint.id,
+            **manager_override_values(payload),
         )
         self.db.add(s3_user)
         self.db.flush()
@@ -469,6 +473,7 @@ class S3UsersService:
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
         s3_user = self._get_s3_user(user_id)
+        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies, s3_user)
         if payload.name is not None:
             s3_user.name = payload.name
         if payload.email is not None:
@@ -480,18 +485,16 @@ class S3UsersService:
         )
         if payload.tags is not None:
             self.tags.replace_s3_user_tags(s3_user, payload.tags)
-        if payload.allow_bucket_quota_management is not None:
-            s3_user.allow_bucket_quota_management = bool(payload.allow_bucket_quota_management)
-        if payload.allow_access_key_management is not None:
-            s3_user.allow_access_key_management = bool(payload.allow_access_key_management)
-        if payload.allow_access_key_metadata is not None:
-            s3_user.allow_access_key_metadata = bool(payload.allow_access_key_metadata)
-        if payload.allow_access_key_expiration is not None:
-            s3_user.allow_access_key_expiration = bool(payload.allow_access_key_expiration)
-        if payload.allow_managed_private_connection_provisioning is not None:
-            s3_user.allow_managed_private_connection_provisioning = bool(
-                payload.allow_managed_private_connection_provisioning
-            )
+        if "allow_bucket_quota_management" in payload.model_fields_set:
+            s3_user.allow_bucket_quota_management = payload.allow_bucket_quota_management
+        if "allow_access_key_management" in payload.model_fields_set:
+            s3_user.allow_access_key_management = payload.allow_access_key_management
+        if "allow_access_key_metadata" in payload.model_fields_set:
+            s3_user.allow_access_key_metadata = payload.allow_access_key_metadata
+        if "allow_access_key_expiration" in payload.model_fields_set:
+            s3_user.allow_access_key_expiration = payload.allow_access_key_expiration
+        if "allow_managed_private_connection_provisioning" in payload.model_fields_set:
+            s3_user.allow_managed_private_connection_provisioning = payload.allow_managed_private_connection_provisioning
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             self._apply_user_quota(

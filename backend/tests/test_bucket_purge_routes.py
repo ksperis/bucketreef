@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -66,7 +67,7 @@ def _manager_tool_user(*, bucket_purge: bool = True) -> User:
 
 def test_require_bucket_purge_enabled_blocks_when_feature_disabled(db_session, monkeypatch):
     settings = AppSettings()
-    settings.general.bucket_purge_enabled = False
+    settings.manager.feature_policies.bucket_purge = "disabled"
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
     with pytest.raises(HTTPException) as exc:
@@ -78,7 +79,7 @@ def test_require_bucket_purge_enabled_blocks_when_feature_disabled(db_session, m
 
 def test_require_bucket_purge_enabled_blocks_without_user_tool_access(db_session, monkeypatch):
     settings = AppSettings()
-    settings.general.bucket_purge_enabled = True
+    settings.manager.feature_policies.bucket_purge = "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
     with pytest.raises(HTTPException) as exc:

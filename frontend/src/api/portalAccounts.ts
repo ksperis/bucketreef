@@ -5,7 +5,7 @@
 import type { PortalAccountRole } from "./accountAccess";
 import type { S3AccountSelector } from "./accountParams";
 import { withS3AccountParam } from "./accountParams";
-import type { PortalSettings, PortalSettingsOverride } from "./appSettings";
+import type { FeatureState, PortalSettings, PortalSettingsOverride } from "./appSettings";
 import client, { timeoutForRequestProfile } from "./client";
 
 export type PortalAccount = {
@@ -35,6 +35,7 @@ export type PortalState = {
 
 export type PortalAccountSettings = {
   effective: PortalSettings;
+  feature_states?: Record<string, FeatureState>;
   admin_override: PortalSettingsOverride;
   delegated_to_portal_managers: boolean;
   portal_collaborator_role_management_delegated: boolean;
@@ -43,6 +44,7 @@ export type PortalAccountSettings = {
 
 export type PortalProjectSettings = {
   effective: PortalSettings;
+  feature_states?: Record<string, FeatureState>;
   project_override: PortalSettingsOverride;
   delegated_to_portal_managers: boolean;
   portal_collaborator_role_management_delegated: boolean;

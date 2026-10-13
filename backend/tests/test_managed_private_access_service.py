@@ -104,9 +104,10 @@ class FakeIAM:
 
 
 @pytest.fixture(autouse=True)
-def _enable_managed_private_connection_provisioning(monkeypatch):
-    settings = AppSettings()
-    settings.general.managed_private_connection_provisioning_enabled = True
+def _enable_managed_private_connection_provisioning(monkeypatch, db_session):
+    from tests.feature_policy_fixtures import enable_manager_features
+    settings = enable_manager_features(db_session)
+    settings.manager.feature_policies.managed_private_connection_provisioning = "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
 

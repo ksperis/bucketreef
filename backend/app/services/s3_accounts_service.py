@@ -1,5 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.services.feature_policy_service import manager_override_values, validate_manager_overrides
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from dataclasses import dataclass
 import logging
 import re
@@ -647,6 +649,7 @@ class S3AccountsService:
             rgw_user_uid=root_uid,
             email=payload.email,
             storage_endpoint_id=endpoint.id,
+            **manager_override_values(payload),
         )
         self.db.add(account)
         self.db.flush()
@@ -667,6 +670,7 @@ class S3AccountsService:
         Account and root creation stay on the same RGW client/session. A retry
         reconciles whichever remote resources were already created.
         """
+        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies)
         existing = self.db.query(S3Account).filter(S3Account.rgw_account_id == rgw_account_id).first()
         if existing:
             if existing.storage_endpoint_id != payload.storage_endpoint_id or existing.name != payload.name:
@@ -714,6 +718,7 @@ class S3AccountsService:
         return self.get_account_detail(account.id, include_usage=False)
 
     def create_account_with_manager(self, payload: S3AccountCreate) -> S3AccountSchema:
+        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies)
         existing = self.db.query(S3Account).filter(S3Account.name == payload.name).first()
         if existing:
             raise ValueError("S3Account already exists")
@@ -782,6 +787,7 @@ class S3AccountsService:
             account_ids=[account.id],
         )
 
+        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies, account)
         if payload.name:
             account.name = payload.name
         if payload.email is not None:
@@ -791,12 +797,12 @@ class S3AccountsService:
             account.storage_endpoint_id = endpoint.id
         if payload.tags is not None:
             self.tags.replace_account_tags(account, payload.tags)
-        if payload.allow_bucket_quota_management is not None:
-            account.allow_bucket_quota_management = bool(payload.allow_bucket_quota_management)
-        if payload.allow_access_key_metadata is not None:
-            account.allow_access_key_metadata = bool(payload.allow_access_key_metadata)
-        if payload.allow_access_key_expiration is not None:
-            account.allow_access_key_expiration = bool(payload.allow_access_key_expiration)
+        if "allow_bucket_quota_management" in payload.model_fields_set:
+            account.allow_bucket_quota_management = payload.allow_bucket_quota_management
+        if "allow_access_key_metadata" in payload.model_fields_set:
+            account.allow_access_key_metadata = payload.allow_access_key_metadata
+        if "allow_access_key_expiration" in payload.model_fields_set:
+            account.allow_access_key_expiration = payload.allow_access_key_expiration
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None

@@ -5,6 +5,7 @@ from typing import Optional, Literal
 from pydantic import Field
 
 from app.models.base import ApiModel
+from app.models.feature_policy import FeatureState
 from app.models.tagging import TagDefinitionSummary
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
@@ -35,6 +36,7 @@ class ExecutionContext(ApiModel):
 
 
 class ManagerContext(ApiModel):
+    feature_states: dict[str, FeatureState] = Field(default_factory=dict)
     naming_validation_profile: Literal["ceph", "standard"] = "standard"
     access_mode: str
     context_kind: str = "account"

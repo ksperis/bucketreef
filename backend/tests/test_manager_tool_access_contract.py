@@ -3,6 +3,7 @@
 
 import pytest
 
+from tests.feature_policy_fixtures import enable_manager_features
 from app.db import UiGroup, User, UserRole
 from app.models.ui_group import UiGroupCreate, UiGroupUpdate
 from app.models.user import ManagerToolAccess, UserCreate, UserUpdate
@@ -146,3 +147,9 @@ def test_each_tool_change_requires_step_up_but_identical_payload_does_not(db_ses
     assert admin_user_update_requires_step_up(user, UserUpdate(manager_tool_access=None)) is False
     assert admin_user_update_requires_step_up(user, UserUpdate(manager_tool_access=same)) is False
     assert admin_user_update_requires_step_up(user, UserUpdate(manager_tool_access=changed)) is True
+
+
+
+@pytest.fixture(autouse=True)
+def _available_manager_features(db_session):
+    enable_manager_features(db_session)

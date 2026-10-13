@@ -103,7 +103,7 @@ def test_admin_put_account_portal_settings_replaces_override_and_audits(client, 
 
 def test_account_browser_override_can_disable_enabled_global_default(client, db_session, monkeypatch):
     settings = AppSettings()
-    settings.portal.browser_access_enabled = True
+    settings.portal.feature_policies.browser_access = "default_on"
     monkeypatch.setattr(portal_settings_module, "load_app_settings", lambda: settings)
     account = _seed_account(
         db_session,

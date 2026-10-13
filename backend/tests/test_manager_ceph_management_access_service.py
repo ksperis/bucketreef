@@ -57,12 +57,12 @@ def _admin_ops_permissions(*, buckets_write: bool = True) -> StorageEndpointAdmi
 
 def _settings_with_manager_bucket_quota() -> AppSettings:
     settings = AppSettings()
-    settings.general.bucket_quota_management_enabled = True
+    settings.manager.feature_policies.bucket_quota_management = "targeted"
     return settings
 
 
 def test_bucket_quota_management_is_disabled_by_default():
-    assert AppSettings().general.bucket_quota_management_enabled is False
+    assert AppSettings().manager.feature_policies.bucket_quota_management == "disabled"
 
 
 def test_quota_policy_revalidates_direct_manager_access_after_revocation(db_session, monkeypatch):
@@ -180,13 +180,13 @@ def test_key_policy_accepts_group_access_and_revalidates_revocation(db_session, 
 @pytest.mark.parametrize(
     ("operation", "setting_name"),
     [
-        ("bucket_quota", "bucket_quota_management_enabled"),
-        ("rgw_access_keys", "manager_ceph_s3_user_keys_enabled"),
+        ("bucket_quota", "bucket_quota_management"),
+        ("rgw_access_keys", "ceph_s3_user_keys"),
     ],
 )
 def test_policy_applies_global_kill_switches(db_session, monkeypatch, operation, setting_name):
     settings = AppSettings()
-    setattr(settings.general, setting_name, False)
+    setattr(settings.manager.feature_policies, setting_name, "disabled")
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
     user = _user(db_session, f"{operation}@example.test")
     decision = ManagerCephManagementAccessService(db_session).evaluate(
