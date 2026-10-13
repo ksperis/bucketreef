@@ -1,5 +1,5 @@
 import { createAppSettings } from "./settings/settingsTestFixtures";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +24,14 @@ function buildSettings(): AppSettings {
   return settings;
 }
 
+async function policyGroup(label: string) {
+  return screen.findByRole("radiogroup", { name: label });
+}
+
+function expectPolicy(group: HTMLElement, label: "Disabled" | "Targeted activation" | "Enabled by default") {
+  expect(within(group).getByRole("radio", { name: label })).toHaveAttribute("aria-checked", "true");
+}
+
 describe("ManagerSettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -36,11 +44,10 @@ describe("ManagerSettingsPage", () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Ceph S3 User access-key management")) as HTMLSelectElement;
-    expect(toggle.value).toBe("disabled");
-
-    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
-    expect(toggle.value).toBe("targeted");
+    const toggle = await policyGroup("Ceph S3 User access-key management");
+    expectPolicy(toggle, "Disabled");
+    await user.click(within(toggle).getByRole("radio", { name: "Targeted activation" }));
+    expectPolicy(toggle, "Targeted activation");
 
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -55,10 +62,9 @@ describe("ManagerSettingsPage", () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Provision managed private connections")) as HTMLSelectElement;
-    expect(toggle.value).toBe("disabled");
-
-    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
+    const toggle = await policyGroup("Provision managed private connections");
+    expectPolicy(toggle, "Disabled");
+    await user.click(within(toggle).getByRole("radio", { name: "Targeted activation" }));
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
@@ -95,10 +101,9 @@ describe("ManagerSettingsPage", () => {
 
     await user.click(await screen.findByRole("button", { name: "Bucket quota management: information" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("buckets=write");
-    const toggle = (await screen.findByLabelText("Bucket quota management")) as HTMLSelectElement;
-    expect(toggle.value).toBe("targeted");
-
-    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
+    const toggle = await policyGroup("Bucket quota management");
+    expectPolicy(toggle, "Targeted activation");
+    await user.click(within(toggle).getByRole("radio", { name: "Disabled" }));
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
@@ -112,11 +117,10 @@ describe("ManagerSettingsPage", () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Bucket integrity check tool")) as HTMLSelectElement;
-    expect(toggle.value).toBe("disabled");
-
-    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
-    expect(toggle.value).toBe("targeted");
+    const toggle = await policyGroup("Bucket integrity check tool");
+    expectPolicy(toggle, "Disabled");
+    await user.click(within(toggle).getByRole("radio", { name: "Targeted activation" }));
+    expectPolicy(toggle, "Targeted activation");
 
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -131,11 +135,10 @@ describe("ManagerSettingsPage", () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Bucket purge tool")) as HTMLSelectElement;
-    expect(toggle.value).toBe("disabled");
-
-    await user.selectOptions(toggle, toggle.value === "disabled" ? "targeted" : "disabled");
-    expect(toggle.value).toBe("targeted");
+    const toggle = await policyGroup("Bucket purge tool");
+    expectPolicy(toggle, "Disabled");
+    await user.click(within(toggle).getByRole("radio", { name: "Targeted activation" }));
+    expectPolicy(toggle, "Targeted activation");
 
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -154,14 +157,14 @@ describe("ManagerSettingsPage", () => {
 
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Ceph S3 User access-key management")) as HTMLSelectElement;
-    expect(toggle.value).toBe("disabled");
+    const toggle = await policyGroup("Ceph S3 User access-key management");
+    expectPolicy(toggle, "Disabled");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(toggle.value).toBe("targeted");
+      expectPolicy(toggle, "Targeted activation");
     });
   });
 
@@ -173,14 +176,14 @@ describe("ManagerSettingsPage", () => {
 
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Provision managed private connections")) as HTMLSelectElement;
-    expect(toggle.value).toBe("targeted");
+    const toggle = await policyGroup("Provision managed private connections");
+    expectPolicy(toggle, "Targeted activation");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(toggle.value).toBe("disabled");
+      expectPolicy(toggle, "Disabled");
     });
   });
 
@@ -219,14 +222,14 @@ describe("ManagerSettingsPage", () => {
 
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Bucket integrity check tool")) as HTMLSelectElement;
-    expect(toggle.value).toBe("disabled");
+    const toggle = await policyGroup("Bucket integrity check tool");
+    expectPolicy(toggle, "Disabled");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(toggle.value).toBe("targeted");
+      expectPolicy(toggle, "Targeted activation");
     });
   });
 
@@ -238,14 +241,14 @@ describe("ManagerSettingsPage", () => {
 
     render(<ManagerSettingsPage />);
 
-    const toggle = (await screen.findByLabelText("Bucket purge tool")) as HTMLSelectElement;
-    expect(toggle.value).toBe("disabled");
+    const toggle = await policyGroup("Bucket purge tool");
+    expectPolicy(toggle, "Disabled");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(toggle.value).toBe("targeted");
+      expectPolicy(toggle, "Targeted activation");
     });
   });
 
@@ -253,8 +256,10 @@ describe("ManagerSettingsPage", () => {
   it("shows Experimental badge on bucket migration tool toggle", async () => {
     render(<ManagerSettingsPage />);
 
-    await screen.findByLabelText("Bucket migration tool");
-    expect(screen.getAllByText("Experimental")).toHaveLength(2);
+    await policyGroup("Bucket migration tool");
+    const badges = screen.getAllByText("Experimental");
+    expect(badges).toHaveLength(2);
+    badges.forEach((badge) => expect(badge).toHaveClass("ui-badge-base"));
   });
 
   it("groups global usage and Manager tools without workspace policy wording", async () => {
@@ -269,6 +274,6 @@ describe("ManagerSettingsPage", () => {
     expect(screen.getAllByRole("switch").map(toggle => toggle.getAttribute("aria-label"))).toEqual([
       "Bucket composition statistics", "RGW traffic and usage metrics",
     ]);
-    expect(screen.getAllByRole("combobox")).toHaveLength(10);
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(10);
   });
 });

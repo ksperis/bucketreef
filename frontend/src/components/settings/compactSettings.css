@@ -255,4 +255,15 @@
 .settings-info-trigger { min-width: 28px; min-height: 28px; padding: 4px; }
 .settings-info-tooltip { max-width: min(380px, calc(100vw - 24px)); padding: 12px; font-size: var(--settings-description-font-size, 12px); line-height: 1.5; }
 .settings-policy-select { width: 14rem; max-width: 100%; }
+.settings-tristate-option {
+  width: var(--settings-control-height);
+  min-width: var(--settings-control-height);
+  min-height: calc(var(--settings-control-height) - 4px);
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+}
+@media (max-width: 1023px), (any-pointer: coarse) {
+  .settings-tristate-option { min-height: var(--settings-control-height); }
+}
 @media (max-width: 1023px), (pointer: coarse) { .settings-info-trigger { min-width: 44px; min-height: 44px; } }

@@ -356,7 +356,7 @@ for (const theme of ["light", "dark"] as const) {
         ).toBeLessThanOrEqual(2);
         if (width === 390) {
           const heights = await page
-            .locator("main .settings-control, main input[role=switch]")
+            .locator("main .settings-control, main input[role=switch], main .settings-tristate-option")
             .evaluateAll((elements) =>
               elements
                 .filter((element) => element.getBoundingClientRect().width > 0)
