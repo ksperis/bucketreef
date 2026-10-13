@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState } from "react";
 import { listAuditLogs, type AuditLogEntry } from "../../api/audit";
 import {
   fetchHealthOverview,
-  fetchHealthSummary,
   fetchHealthWorkspaceOverview,
   type EndpointHealthOverviewResponse,
   type HealthCheckStatus,
@@ -64,8 +63,6 @@ import { useI18n } from "../../i18n";
 import { onboardingCopy } from "./onboardingCopy";
 import { useOnboardingStatus } from "./useOnboardingStatus";
 
-const ENDPOINT_STATUS_MAX_AGE_HOURS = 24;
-const ENDPOINT_STATUS_MAX_AGE_MS = ENDPOINT_STATUS_MAX_AGE_HOURS * 60 * 60 * 1000;
 const ADMIN_INCIDENT_HISTORY_MINUTES = 7 * 24 * 60;
 const MAX_ENDPOINT_ROWS = 8;
 
@@ -91,20 +88,22 @@ function formatRelativeTime(value?: string | null, now = Date.now()): string {
   return `${days}d ago`;
 }
 
-function isEndpointCheckStale(value?: string | null, now = Date.now()): boolean {
-  const parsed = parseBackendIsoDate(value);
-  return !parsed || now - parsed.getTime() > ENDPOINT_STATUS_MAX_AGE_MS;
+function formatStaleThreshold(seconds?: number): string | null {
+  if (!seconds || seconds <= 0) return null;
+  if (seconds % 3600 === 0) return `${seconds / 3600}h`;
+  if (seconds % 60 === 0) return `${seconds / 60}m`;
+  return `${seconds}s`;
 }
 
-function formatEndpointFreshnessWarning(noChecksCount: number, staleCount: number, totalCount: number): string {
-  const issueCount = noChecksCount + staleCount;
-  const details = [
-    noChecksCount > 0 ? `${noChecksCount} without checks` : null,
-    staleCount > 0 ? `${staleCount} older than ${ENDPOINT_STATUS_MAX_AGE_HOURS}h` : null,
-  ].filter(Boolean);
-  return `Endpoint Status uses stored healthcheck samples; ${issueCount}/${totalCount} endpoint(s) need fresh checks (${details.join(
-    ", "
-  )}). Dashboard statuses may not reflect current availability.`;
+function formatEndpointFreshnessWarning(data: WorkspaceEndpointHealthOverviewResponse): string | null {
+  if (data.endpoint_count === 0) {
+    return "Endpoint Status is enabled, but no endpoint healthcheck data is available.";
+  }
+  const staleCount = data.endpoints.filter((endpoint) => endpoint.is_stale === true).length;
+  if (staleCount === 0) return null;
+  const threshold = formatStaleThreshold(data.stale_after_seconds);
+  const thresholdDetail = threshold ? ` after ${threshold}` : "";
+  return `${staleCount}/${data.endpoint_count} endpoint(s) have stale healthcheck data${thresholdDetail}. Stale endpoints are shown as Unknown until a fresh check is stored.`;
 }
 
 function formatLatency(value?: number | null): string {
@@ -221,12 +220,15 @@ function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarn
 }
 
 function EndpointRow({ endpoint }: { endpoint: WorkspaceEndpointHealthEntry }) {
-  const stale = isEndpointCheckStale(endpoint.checked_at);
-  const checkedAtLabel = endpoint.checked_at ? `Checked ${formatRelativeTime(endpoint.checked_at)}` : "No healthcheck yet";
+  const stale = endpoint.is_stale === true;
+  const effectiveStatus = stale ? "unknown" : endpoint.status;
+  const checkedAtLabel = endpoint.checked_at
+    ? `Checked ${formatRelativeTime(endpoint.checked_at)}${stale ? " · Stale" : ""}`
+    : "No healthcheck yet";
   return (
     <li className="ui-dashboard-endpoint-row">
       <span className="ui-dashboard-endpoint-name">
-        <WorkspaceStatusDot status={endpoint.status} className="shrink-0" />
+        <WorkspaceStatusDot status={effectiveStatus} className="shrink-0" />
         <span title={endpoint.name}>{endpoint.name}</span>
       </span>
       <span className="ui-dashboard-endpoint-measurements">
@@ -234,8 +236,8 @@ function EndpointRow({ endpoint }: { endpoint: WorkspaceEndpointHealthEntry }) {
         <span className="ui-dashboard-note">{formatCheckMode(endpoint.check_mode)}</span>
       </span>
       <span className="ui-dashboard-endpoint-check" data-stale={stale} title={formatLocalDateTime(endpoint.checked_at)}>{checkedAtLabel}</span>
-      <UiBadge tone={endpoint.status === "up" ? "success" : endpoint.status === "degraded" ? "warning" : endpoint.status === "down" ? "danger" : "neutral"} className="ui-dashboard-badge ui-dashboard-endpoint-state">
-        {endpoint.status === "up" ? "Up" : endpoint.status === "degraded" ? "Degraded" : endpoint.status === "down" ? "Down" : "Unknown"}
+      <UiBadge tone={effectiveStatus === "up" ? "success" : effectiveStatus === "degraded" ? "warning" : effectiveStatus === "down" ? "danger" : "neutral"} className="ui-dashboard-badge ui-dashboard-endpoint-state">
+        {effectiveStatus === "up" ? "Up" : effectiveStatus === "degraded" ? "Degraded" : effectiveStatus === "down" ? "Down" : "Unknown"}
       </UiBadge>
     </li>
   );
@@ -385,7 +387,6 @@ export default function AdminDashboard() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [onboardingActionError, setOnboardingActionError] = useState<string | null>(null);
-  const [endpointFreshnessWarning, setEndpointFreshnessWarning] = useState<string | null>(null);
   const [workspaceHealth, setWorkspaceHealth] = useState<WorkspaceEndpointHealthOverviewResponse | null>(null);
   const [workspaceHealthLoading, setWorkspaceHealthLoading] = useState(false);
   const [workspaceHealthError, setWorkspaceHealthError] = useState<string | null>(null);
@@ -523,7 +524,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!generalSettings.endpoint_status_enabled) {
-      setEndpointFreshnessWarning(null);
       setWorkspaceHealth(null);
       setWorkspaceHealthError(null);
       setWorkspaceHealthLoading(false);
@@ -532,48 +532,6 @@ export default function AdminDashboard() {
       setHealthOverviewLoading(false);
       return;
     }
-    let cancelled = false;
-    const verifyEndpointStatusFreshness = async () => {
-      try {
-        const data = await fetchHealthSummary();
-        if (cancelled) return;
-        const endpoints = data.endpoints ?? [];
-        if (endpoints.length === 0) {
-          setEndpointFreshnessWarning("Endpoint Status is enabled, but no endpoint healthcheck data is available.");
-          return;
-        }
-        const now = Date.now();
-        let noChecksCount = 0;
-        let staleCount = 0;
-        for (const endpoint of endpoints) {
-          if ((endpoint.error_message ?? "").toLowerCase().includes("no checks yet")) {
-            noChecksCount += 1;
-            continue;
-          }
-          const checkedAt = parseBackendIsoDate(endpoint.checked_at);
-          if (!checkedAt || now - checkedAt.getTime() > ENDPOINT_STATUS_MAX_AGE_MS) {
-            staleCount += 1;
-          }
-        }
-        if (noChecksCount > 0 || staleCount > 0) {
-          setEndpointFreshnessWarning(formatEndpointFreshnessWarning(noChecksCount, staleCount, endpoints.length));
-          return;
-        }
-        setEndpointFreshnessWarning(null);
-      } catch {
-        if (!cancelled) {
-          setEndpointFreshnessWarning("Endpoint Status is enabled, but freshness could not be verified.");
-        }
-      }
-    };
-    verifyEndpointStatusFreshness();
-    return () => {
-      cancelled = true;
-    };
-  }, [generalSettings.endpoint_status_enabled, refreshNonce]);
-
-  useEffect(() => {
-    if (!generalSettings.endpoint_status_enabled) return;
     let cancelled = false;
     setWorkspaceHealthLoading(true);
     setWorkspaceHealthError(null);
@@ -597,6 +555,11 @@ export default function AdminDashboard() {
       cancelled = true;
     };
   }, [generalSettings.endpoint_status_enabled, refreshNonce]);
+
+  const endpointFreshnessWarning = useMemo(
+    () => (workspaceHealth ? formatEndpointFreshnessWarning(workspaceHealth) : null),
+    [workspaceHealth],
+  );
 
   useEffect(() => {
     if (!generalSettings.endpoint_status_enabled) {
