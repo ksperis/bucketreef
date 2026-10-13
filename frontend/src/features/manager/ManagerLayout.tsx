@@ -182,16 +182,7 @@ function ManagerShell() {
 
   const navSections: SidebarSection[] = [
     {
-      label: text("Overview"),
-      links: [
-        { ...localizedPageLink(MANAGER_PAGE_CONTRACTS.dashboard), end: true },
-        ...(canViewActivityHistory ? [localizedPageLink(MANAGER_PAGE_CONTRACTS.activity)] : []),
-        {
-          ...localizedPageLink(MANAGER_PAGE_CONTRACTS.metrics),
-          disabled: !canViewMetricsMenu,
-          disabledHint: !canViewMetricsMenu ? managerMetricsDisabledHint : undefined,
-        },
-      ],
+      links: [{ ...localizedPageLink(MANAGER_PAGE_CONTRACTS.dashboard), end: true }],
     },
   ];
 
@@ -256,6 +247,18 @@ function ManagerShell() {
       });
     }
   }
+
+  navSections.push({
+    label: text("Monitoring"),
+    links: [
+      ...(canViewActivityHistory ? [localizedPageLink(MANAGER_PAGE_CONTRACTS.activity)] : []),
+      {
+        ...localizedPageLink(MANAGER_PAGE_CONTRACTS.metrics),
+        disabled: !canViewMetricsMenu,
+        disabledHint: !canViewMetricsMenu ? managerMetricsDisabledHint : undefined,
+      },
+    ],
+  });
 
   return (
     <Layout

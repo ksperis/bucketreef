@@ -536,6 +536,7 @@
   "Origins that may issue cross-origin requests. Use * only when intentionally allowing any origin.": "Origins, die Cross-Origin-Anfragen auslösen können. Verwenden Sie * nur, wenn Sie absichtlich alle Origins zulassen.",
   "Other S3 events": "Andere S3-Ereignisse",
   "Out": "Aus",
+  "Monitoring": "Überwachung",
   "Overview": "Überblick",
   "Owner:": "Eigentümer:",
   "Paste JSON for object/array values; remove a row to clear an attribute.": "JSON für Objekt-/Array-Werte einfügen; eine Zeile entfernen, um ein Attribut zu löschen.",

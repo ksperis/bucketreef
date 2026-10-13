@@ -180,6 +180,21 @@ describe("ManagerLayout", () => {
     expect(capturedNavSections.flatMap((section) => section.links).map((link) => link.label)).not.toContain("Browser");
   });
 
+  it("keeps Dashboard ungrouped and places Monitoring after operational sections", () => {
+    setStoredManagerUser();
+    useS3AccountContextMock.mockReturnValue(buildContext({
+      managerFeatureStates: { activity_history: { enabled: true, source: "platform" } },
+    }));
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(<MemoryRouter initialEntries={["/manager"]}><ManagerLayout /></MemoryRouter>);
+
+    expect(capturedNavSections[0]?.label).toBeUndefined();
+    expect(capturedNavSections[0]?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(capturedNavSections.at(-1)?.label).toBe("Monitoring");
+    expect(capturedNavSections.at(-1)?.links.map((link) => link.label)).toEqual(["Activity", "Usage & Metrics"]);
+  });
+
   it("shows Activity when the selected execution context has effective activity history enabled", () => {
     useS3AccountContextMock.mockReturnValue(buildContext({
       accounts: [{ id: "account-1", display_name: "Account", storage_endpoint_capabilities: {} }],
@@ -192,7 +207,7 @@ describe("ManagerLayout", () => {
 
     render(<MemoryRouter initialEntries={["/manager"]}><ManagerLayout /></MemoryRouter>);
 
-    expect(capturedNavSections.find((section) => section.label === "Overview")?.links.map((link) => link.label)).toContain("Activity");
+    expect(capturedNavSections.find((section) => section.label === "Monitoring")?.links.map((link) => link.label)).toContain("Activity");
   });
 
   it("shows Activity for RGW User contexts when effective activity history is enabled", () => {
@@ -203,7 +218,7 @@ describe("ManagerLayout", () => {
 
     render(<MemoryRouter initialEntries={["/manager"]}><ManagerLayout /></MemoryRouter>);
 
-    expect(capturedNavSections.find((section) => section.label === "Overview")?.links.map((link) => link.label)).toContain("Activity");
+    expect(capturedNavSections.find((section) => section.label === "Monitoring")?.links.map((link) => link.label)).toContain("Activity");
   });
 
   it("shows Ceph section above Tools when manager_ceph_keys_enabled is true", () => {
@@ -476,7 +491,7 @@ describe("ManagerLayout", () => {
     );
 
     const metricsLink = capturedNavSections
-      .find((section) => section.label === "Overview")
+      .find((section) => section.label === "Monitoring")
       ?.links.find((link) => link.label === "Usage & Metrics");
     expect(metricsLink?.disabled).toBe(false);
     expect(metricsLink?.disabledHint).toBeUndefined();
@@ -500,7 +515,7 @@ describe("ManagerLayout", () => {
     );
 
     const metricsLink = capturedNavSections
-      .find((section) => section.label === "Overview")
+      .find((section) => section.label === "Monitoring")
       ?.links.find((link) => link.label === "Usage & Metrics");
     expect(metricsLink?.disabled).toBe(true);
     expect(metricsLink?.disabledHint).toBe("Manager metrics are temporarily blocked for this account.");
@@ -519,7 +534,7 @@ describe("ManagerLayout", () => {
     );
 
     const metricsLink = capturedNavSections
-      .find((section) => section.label === "Overview")
+      .find((section) => section.label === "Monitoring")
       ?.links.find((link) => link.label === "Usage & Metrics");
     expect(metricsLink?.disabled).toBe(true);
     expect(metricsLink?.disabledHint).toBe("Metrics are disabled for this context.");
@@ -549,7 +564,7 @@ describe("ManagerLayout", () => {
     );
 
     const metricsLink = capturedNavSections
-      .find((section) => section.label === "Overview")
+      .find((section) => section.label === "Monitoring")
       ?.links.find((link) => link.label === "Usage & Metrics");
     expect(metricsLink?.disabled).toBe(true);
     expect(metricsLink?.disabledHint).toBe("Metrics are unavailable for this endpoint capabilities.");
