@@ -47,7 +47,6 @@ export default function ManagerActivityPage() {
     accountIdForApi,
     hasS3AccountContext,
     managerFeatureStates,
-    selectedS3AccountType,
   } = useS3AccountContext();
   const [entries, setEntries] = useState<ManagerActivityEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -59,12 +58,11 @@ export default function ManagerActivityPage() {
   const [hasMore, setHasMore] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const isRgwAccount = selectedS3AccountType === "tenant" || selectedS3AccountType === "account";
-  const featureStateLoading = isRgwAccount && managerFeatureStates == null;
+  const featureStateLoading = hasS3AccountContext && managerFeatureStates == null;
   const activityEnabled = managerFeatureStates?.activity_history?.enabled === true;
 
   useEffect(() => {
-    if (!hasS3AccountContext || !isRgwAccount || !activityEnabled) {
+    if (!hasS3AccountContext || !activityEnabled) {
       setEntries([]);
       setError(null);
       setLoadMoreError(null);
@@ -101,7 +99,7 @@ export default function ManagerActivityPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [accountIdForApi, activityEnabled, hasS3AccountContext, isRgwAccount, refreshNonce, search, status, text]);
+  }, [accountIdForApi, activityEnabled, hasS3AccountContext, refreshNonce, search, status, text]);
 
   const loadOlder = useCallback(async () => {
     const cursor = entries.at(-1)?.id;
@@ -170,7 +168,7 @@ export default function ManagerActivityPage() {
     },
   ], [intlLocale, text]);
 
-  if (!hasS3AccountContext || !isRgwAccount) return <Navigate to="/manager" replace />;
+  if (!hasS3AccountContext) return <Navigate to="/manager" replace />;
   if (!featureStateLoading && !activityEnabled) return <Navigate to="/manager" replace />;
 
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: entries.length });
@@ -180,7 +178,7 @@ export default function ManagerActivityPage() {
     <div className="space-y-4" data-testid="manager-activity-page">
       <PageHeader
         title={text("Activity history")}
-        description={text("Review Manager control and configuration actions for this RGW Account. S3 object access logs are not included.")}
+        description={text("Review Manager control and configuration actions for this execution context. S3 object access logs are not included.")}
         breadcrumbs={managerPageBreadcrumbs(text, "activity")}
       />
 
@@ -235,7 +233,7 @@ export default function ManagerActivityPage() {
             status={tableStatus}
             loadingMessage={text("Loading activity history...")}
             errorMessage={error ?? text("Unable to load activity history.")}
-            emptyMessage={text(filtered ? "No activity matches these filters." : "No Manager activity has been recorded for this account yet.")}
+            emptyMessage={text(filtered ? "No activity matches these filters." : "No Manager activity has been recorded for this context yet.")}
             responsiveCards
             tableLayout="fixed"
             tableClassName="w-full min-w-[820px]"

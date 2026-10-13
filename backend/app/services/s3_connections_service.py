@@ -23,6 +23,8 @@ from app.services.s3_connection_associations_service import (
 )
 from app.services.s3_connection_capabilities_service import refresh_connection_detected_capabilities
 from app.services.s3_connection_endpoint_planner import S3ConnectionEndpointPlanner
+from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.feature_policy_service import validate_manager_overrides
 from app.services.tags_service import TagsService
 from app.utils.s3_connection_capabilities import (
     parse_s3_connection_capabilities,
@@ -142,6 +144,11 @@ class S3ConnectionsService:
         row: DBS3Connection,
         payload: S3ConnectionAdminUpdate,
     ) -> DBS3Connection:
+        validate_manager_overrides(
+            payload,
+            load_app_settings_for_db_readonly(self.db).manager.feature_policies,
+            row,
+        )
         update_credentials = payload.credentials is not None
         endpoint_plan, group_ids, user_ids = self._prepare_admin_shared_update(
             row,
@@ -165,6 +172,8 @@ class S3ConnectionsService:
             row.credential_owner_type = payload.credential_owner_type
         if "credential_owner_identifier" in payload_data:
             row.credential_owner_identifier = payload.credential_owner_identifier
+        if "allow_activity_history" in payload_data:
+            row.allow_activity_history = payload.allow_activity_history
         if "tags" in payload_data:
             self.tags.replace_connection_tags(row, payload.tags)
         self.associations.replace_links(

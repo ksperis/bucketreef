@@ -44,6 +44,7 @@ class S3ConnectionAdminItem(ApiModel):
     region: Optional[str] = None
     force_path_style: bool = False
     verify_tls: bool = True
+    allow_activity_history: Optional[bool] = None
     capabilities: dict[str, Any] = Field(default_factory=dict)
     created_by_user_id: int
     created_by_email: Optional[str] = None
@@ -95,6 +96,7 @@ class S3ConnectionAdminUpdate(ApiModel):
     region: Optional[str] = None
     force_path_style: Optional[bool] = None
     verify_tls: Optional[bool] = None
+    allow_activity_history: Optional[bool] = None
     tags: OptionalTagDefinitionList = None
     credentials: Optional[S3ConnectionCredentialsUpdate] = None
 

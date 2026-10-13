@@ -119,4 +119,4 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
     if operation in {"purge", "delete"}:
         assert len(audit_calls) == 2
         assert all(call["metadata"]["context_id"] == account.context_id for call in audit_calls)
-        assert all(call["account"] is account for call in audit_calls)
+        assert all(call["execution_context"] is account for call in audit_calls)

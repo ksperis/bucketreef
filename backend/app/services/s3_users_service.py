@@ -493,6 +493,8 @@ class S3UsersService:
             s3_user.allow_access_key_metadata = payload.allow_access_key_metadata
         if "allow_access_key_expiration" in payload.model_fields_set:
             s3_user.allow_access_key_expiration = payload.allow_access_key_expiration
+        if "allow_activity_history" in payload.model_fields_set:
+            s3_user.allow_activity_history = payload.allow_activity_history
         if "allow_managed_private_connection_provisioning" in payload.model_fields_set:
             s3_user.allow_managed_private_connection_provisioning = payload.allow_managed_private_connection_provisioning
 

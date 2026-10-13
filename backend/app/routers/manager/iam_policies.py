@@ -69,7 +69,7 @@ def create_policy(
             action="create_managed_policy",
             entity_type="iam_policy",
             entity_id=result.arn,
-            account=account,
+            execution_context=account,
             metadata={"name": payload.name},
         )
         return result
@@ -95,7 +95,7 @@ def delete_policy(
             action="delete_managed_policy",
             entity_type="iam_policy",
             entity_id=policy_arn,
-            account=account,
+            execution_context=account,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc

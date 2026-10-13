@@ -11,9 +11,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitize_audit_metadata
-from app.db import AuditLog, User
+from app.db import AuditLog, S3Account, User
 from app.models.access_context import ManagerActor
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.audit_policy import should_persist_audit_action
 from app.services.webhook_service import WebhookEventPublisher
 
@@ -59,7 +59,7 @@ class AuditService:
 
     @staticmethod
     def _resolve_account_reference(
-        account: Optional[S3ExecutionTarget],
+        account: Optional[S3Account],
         account_id: Optional[int],
         account_name: Optional[str],
     ) -> tuple[Optional[int], Optional[str]]:
@@ -73,6 +73,18 @@ class AuditService:
             return raw_account_id, resolved_account_name
         return None, resolved_account_name
 
+    @staticmethod
+    def _resolve_execution_context(
+        execution_context: Optional[S3ExecutionContext],
+    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        if execution_context is None:
+            return None, None, None
+        return (
+            execution_context.context_kind,
+            execution_context.context_id,
+            execution_context.name or None,
+        )
+
     def record_action(
         self,
         *,
@@ -81,7 +93,8 @@ class AuditService:
         action: str,
         entity_type: Optional[str] = None,
         entity_id: Optional[str] = None,
-        account: Optional[S3ExecutionTarget] = None,
+        execution_context: Optional[S3ExecutionContext] = None,
+        account: Optional[S3Account] = None,
         account_id: Optional[int] = None,
         account_name: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
@@ -101,6 +114,12 @@ class AuditService:
             account_id,
             account_name,
         )
+        context_kind, context_id, context_name = self._resolve_execution_context(execution_context)
+        if execution_context is not None and execution_context.context_kind in {"account", "portal_account"}:
+            if resolved_account_id is None and isinstance(execution_context.id, int) and execution_context.id > 0:
+                resolved_account_id = execution_context.id
+            if resolved_account_name is None:
+                resolved_account_name = execution_context.name or None
         resolved_user_email = user.email if user else (user_email or "unknown")
         resolved_user_role = user.role if user else (user_role or "unknown")
         resolved_user_id = user.id if isinstance(user, User) else None
@@ -113,6 +132,9 @@ class AuditService:
             action=action,
             entity_type=entity_type,
             entity_id=str(entity_id) if entity_id is not None else None,
+            context_kind=context_kind,
+            context_id=context_id,
+            context_name=context_name,
             account_id=resolved_account_id,
             account_name=resolved_account_name,
             status=status,
@@ -157,6 +179,8 @@ class AuditService:
         scope: Optional[str] = None,
         role: Optional[str] = None,
         account_id: Optional[int] = None,
+        context_kind: Optional[str] = None,
+        context_id: Optional[str] = None,
         cursor: Optional[int] = None,
         search: Optional[str] = None,
         status: Optional[str] = None,
@@ -169,6 +193,10 @@ class AuditService:
             query = query.filter(AuditLog.user_role == role)
         if account_id is not None:
             query = query.filter(AuditLog.account_id == account_id)
+        if context_kind is not None:
+            query = query.filter(AuditLog.context_kind == context_kind)
+        if context_id is not None:
+            query = query.filter(AuditLog.context_id == context_id)
         if cursor:
             query = query.filter(AuditLog.id < cursor)
         if status:
@@ -184,7 +212,7 @@ class AuditService:
                             AuditLog.action.ilike(pattern),
                             AuditLog.entity_type.ilike(pattern),
                             AuditLog.entity_id.ilike(pattern),
-                            AuditLog.account_name.ilike(pattern),
+                            AuditLog.context_name.ilike(pattern),
                         )
                     )
                 else:
@@ -196,6 +224,9 @@ class AuditService:
                             AuditLog.action.ilike(pattern),
                             AuditLog.entity_type.ilike(pattern),
                             AuditLog.entity_id.ilike(pattern),
+                            AuditLog.context_kind.ilike(pattern),
+                            AuditLog.context_id.ilike(pattern),
+                            AuditLog.context_name.ilike(pattern),
                             AuditLog.account_name.ilike(pattern),
                             cast(AuditLog.account_id, String).ilike(pattern),
                             AuditLog.status.ilike(pattern),
@@ -220,6 +251,9 @@ class AuditService:
             "action": log.action,
             "entity_type": log.entity_type,
             "entity_id": log.entity_id,
+            "context_kind": log.context_kind,
+            "context_id": log.context_id,
+            "context_name": log.context_name,
             "account_id": log.account_id,
             "account_name": log.account_name,
             "status": log.status,

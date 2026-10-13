@@ -204,7 +204,7 @@ flows unless the pathway is explicit, authorized, and audited.
   to keys, quotas, or permissions.
 - Emit application audit logs only for control-plane, security, configuration,
   and workflow-control changes, with at least actor, scope or surface, action,
-  target entity, and account context. Never add object data-plane or operational
+  target entity, and the explicit execution context when one exists. Never add object data-plane or operational
   telemetry actions to `audit_logs`; follow
   [Audit boundary](../architecture/audit-boundary.md).
 - Include executor or workflow identifiers in audit metadata when available.

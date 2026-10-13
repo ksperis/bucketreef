@@ -69,7 +69,7 @@ def test_browser_bucket_config_update_runs_action_before_cache_and_audit():
         "action": "update_bucket_policy",
         "entity_type": "bucket",
         "entity_id": "demo",
-        "account": account,
+        "execution_context": account,
         "metadata": {"changed": True},
     }
 

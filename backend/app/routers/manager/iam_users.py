@@ -85,7 +85,7 @@ def create_user(
             action="create_iam_user",
             entity_type="iam_user",
             entity_id=payload.name,
-            account=account,
+            execution_context=account,
             metadata={
                 "create_key": payload.create_key,
                 "groups": payload.groups or [],
@@ -126,7 +126,7 @@ def delete_user(
             action="delete_iam_user",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
         )
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
@@ -204,7 +204,7 @@ def create_access_key(
             action="create_access_key",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
             metadata={"access_key_id": key.access_key_id},
         )
         return key
@@ -242,7 +242,7 @@ def update_access_key_metadata(
             action="update_access_key_metadata",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
             metadata={
                 "access_key_id": access_key_id,
                 "has_name": bool(row and row.name),
@@ -294,7 +294,7 @@ def update_access_key_status(
             action="update_access_key_status",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
             metadata={"access_key_id": access_key_id, "active": payload.active},
         )
         if updated:
@@ -330,7 +330,7 @@ def delete_access_key(
             action="delete_access_key",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
             metadata={"access_key_id": access_key_id},
         )
     except RuntimeError as exc:
@@ -381,7 +381,7 @@ def put_user_inline_policy(
             action="put_user_inline_policy",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_name": policy_name},
         )
         return saved
@@ -406,7 +406,7 @@ def delete_user_inline_policy(
             action="delete_user_inline_policy",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_name": policy_name},
         )
     except RuntimeError as exc:
@@ -443,7 +443,7 @@ def attach_user_policy(
             action="attach_user_policy",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_arn": payload.arn},
         )
         return resolve_attached_policy(payload, get_policy_fn=service.get_policy)
@@ -468,7 +468,7 @@ def detach_user_policy(
             action="detach_user_policy",
             entity_type="iam_user",
             entity_id=user_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_arn": policy_arn},
         )
     except RuntimeError as exc:

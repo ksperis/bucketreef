@@ -50,7 +50,7 @@ describe("ManagerActivityPage", () => {
     listManagerActivityMock.mockResolvedValue([]);
   });
 
-  it("renders account-scoped activity with readable and technical actions", async () => {
+  it("renders context-scoped activity with readable and technical actions", async () => {
     listManagerActivityMock.mockResolvedValue([activity(42)]);
 
     render(<MemoryRouter><ManagerActivityPage /></MemoryRouter>);
@@ -103,9 +103,34 @@ describe("ManagerActivityPage", () => {
     expect(await screen.findByText("bucket-80")).toBeInTheDocument();
   });
 
-  it("redirects non-account and disabled contexts to the Manager dashboard", async () => {
-    useS3AccountContextMock.mockReturnValue(accountContext({ selectedS3AccountType: "s3_user" }));
-    const { rerender } = render(
+  it("loads activity for an enabled RGW User context", async () => {
+    useS3AccountContextMock.mockReturnValue(accountContext({
+      accountIdForApi: "s3u-8",
+      selectedS3AccountType: "s3_user",
+    }));
+    listManagerActivityMock.mockResolvedValue([activity(8, {
+      context_kind: "s3_user",
+      context_id: "s3u-8",
+      context_name: "Standalone user",
+      account_id: null,
+      account_name: null,
+    })]);
+    render(<MemoryRouter><ManagerActivityPage /></MemoryRouter>);
+
+    expect(await screen.findByText("Bucket created")).toBeInTheDocument();
+    await waitFor(() => expect(listManagerActivityMock).toHaveBeenCalledWith("s3u-8", {
+      limit: 20,
+      search: "",
+      status: undefined,
+    }));
+  });
+
+  it("redirects disabled contexts to the Manager dashboard", async () => {
+    useS3AccountContextMock.mockReturnValue(accountContext({
+      selectedS3AccountType: "s3_user",
+      managerFeatureStates: { activity_history: { enabled: false, source: "resource" } },
+    }));
+    render(
       <MemoryRouter initialEntries={["/manager/activity"]}>
         <Routes>
           <Route path="/manager" element={<div>Manager dashboard destination</div>} />
@@ -115,24 +140,11 @@ describe("ManagerActivityPage", () => {
     );
     expect(await screen.findByText("Manager dashboard destination")).toBeInTheDocument();
     expect(listManagerActivityMock).not.toHaveBeenCalled();
-
-    useS3AccountContextMock.mockReturnValue(accountContext({
-      managerFeatureStates: { activity_history: { enabled: false, source: "resource" } },
-    }));
-    rerender(
-      <MemoryRouter initialEntries={["/manager/activity"]}>
-        <Routes>
-          <Route path="/manager" element={<div>Manager dashboard destination</div>} />
-          <Route path="/manager/activity" element={<ManagerActivityPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-    expect(await screen.findByText("Manager dashboard destination")).toBeInTheDocument();
   });
 
   it("shows empty and error states without exposing additional audit fields", async () => {
     const { rerender } = render(<MemoryRouter><ManagerActivityPage /></MemoryRouter>);
-    expect(await screen.findByText("No Manager activity has been recorded for this account yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No Manager activity has been recorded for this context yet.")).toBeInTheDocument();
 
     listManagerActivityMock.mockRejectedValue(new Error("audit backend unavailable"));
     rerender(<MemoryRouter><ManagerActivityPage /></MemoryRouter>);

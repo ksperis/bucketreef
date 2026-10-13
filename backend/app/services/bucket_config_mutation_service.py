@@ -45,7 +45,7 @@ class BucketConfigMutationService:
             action=audit_action,
             entity_type="bucket",
             entity_id=bucket_name,
-            account=account,
+            execution_context=account,
             metadata=metadata,
         )
 

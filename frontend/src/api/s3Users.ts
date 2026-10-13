@@ -27,6 +27,7 @@ export type S3User = {
   allow_access_key_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;
   allow_access_key_expiration?: boolean | null;
+  allow_activity_history?: boolean | null;
   allow_managed_private_connection_provisioning?: boolean | null;
 };
 
@@ -57,6 +58,7 @@ export type S3UserSummary = {
   allow_access_key_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;
   allow_access_key_expiration?: boolean | null;
+  allow_activity_history?: boolean | null;
   allow_managed_private_connection_provisioning?: boolean | null;
 };
 
@@ -73,6 +75,7 @@ type CreateS3UserPayload = {
   allow_access_key_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;
   allow_access_key_expiration?: boolean | null;
+  allow_activity_history?: boolean | null;
   allow_managed_private_connection_provisioning?: boolean | null;
 };
 
@@ -96,6 +99,7 @@ export type UpdateS3UserPayload = {
   allow_access_key_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;
   allow_access_key_expiration?: boolean | null;
+  allow_activity_history?: boolean | null;
   allow_managed_private_connection_provisioning?: boolean | null;
 };
 

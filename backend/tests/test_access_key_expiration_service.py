@@ -13,11 +13,13 @@ from app.utils.time import utcnow
 
 
 class _FakeAuditService:
+    calls: list[dict] = []
+
     def __init__(self, _db) -> None:
         pass
 
-    def record_action(self, **_kwargs) -> None:
-        pass
+    def record_action(self, **kwargs) -> None:
+        type(self).calls.append(kwargs)
 
 
 class _FakeS3UsersService:
@@ -106,6 +108,7 @@ def _due_s3_user_row(db_session, s3_user: S3User, access_key_id: str = "AK-SECON
 
 
 def _patch_audit(monkeypatch) -> None:
+    _FakeAuditService.calls.clear()
     monkeypatch.setattr(access_key_expiration_service, "AuditService", _FakeAuditService)
 
 
@@ -127,6 +130,9 @@ def test_due_rgw_user_key_is_disabled_even_after_resource_opt_out(db_session, mo
         ("list", s3_user.id),
         ("set", s3_user.id, "AK-SECONDARY", False),
     ]
+    audit_context = _FakeAuditService.calls[0]["execution_context"]
+    assert audit_context.context_kind == "s3_user"
+    assert audit_context.context_id == f"s3u-{s3_user.id}"
 
 
 def test_already_inactive_key_is_idempotently_enforced(db_session, monkeypatch):

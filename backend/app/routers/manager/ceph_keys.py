@@ -101,7 +101,7 @@ def create_ceph_access_key(
             action="create_s3_user_access_key",
             entity_type="s3_user",
             entity_id=str(s3_user_id),
-            account=account,
+            execution_context=account,
             metadata={"access_key_id": key.access_key_id},
         )
         return key
@@ -144,7 +144,7 @@ def update_ceph_access_key_metadata(
             action="update_s3_user_access_key_metadata",
             entity_type="s3_user",
             entity_id=str(s3_user_id),
-            account=account,
+            execution_context=account,
             metadata={
                 "access_key_id": access_key,
                 "has_name": bool(row and row.name),
@@ -189,7 +189,7 @@ def update_ceph_access_key_status(
             action="update_s3_user_access_key_status",
             entity_type="s3_user",
             entity_id=str(s3_user_id),
-            account=account,
+            execution_context=account,
             metadata={"access_key_id": access_key, "active": payload.active},
         )
         return updated
@@ -226,7 +226,7 @@ def delete_ceph_access_key(
             action="delete_s3_user_access_key",
             entity_type="s3_user",
             entity_id=str(s3_user_id),
-            account=account,
+            execution_context=account,
             metadata={"access_key_id": access_key},
         )
     except ValueError as exc:

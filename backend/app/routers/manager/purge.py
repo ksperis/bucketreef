@@ -75,7 +75,7 @@ def stream_manager_bucket_purge(
             user_email=str(tool_user.email),
             user_role=str(tool_user.role),
             scope="manager",
-            account=account,
+            execution_context=account,
         ),
         base_metadata=base_metadata,
     )

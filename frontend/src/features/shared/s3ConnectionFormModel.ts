@@ -59,6 +59,7 @@ export type EditAdminS3ConnectionForm = {
   region: string;
   force_path_style: boolean;
   verify_tls: boolean;
+  allow_activity_history: boolean | null;
 };
 
 export type PrivateConnectionDraft = {
@@ -467,6 +468,7 @@ export function prepareUpdateAdminS3ConnectionPayload({
       credential_owner_type: form.credential_owner_type || null,
       credential_owner_identifier:
         form.credential_owner_identifier.trim() || null,
+      allow_activity_history: form.allow_activity_history,
       credentials:
         accessKeyId && secretAccessKey
           ? {

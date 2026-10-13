@@ -134,7 +134,7 @@ def update_quota(
         action="update_bucket_quota",
         entity_type="bucket",
         entity_id=bucket_name,
-        account=account,
+        execution_context=account,
         metadata=audit_metadata,
     )
     return response
@@ -208,7 +208,7 @@ def run_compare_bucket_action(
         action="bucket_compare_remediation",
         entity_type="bucket",
         entity_id=payload.target_bucket,
-        account=source_account,
+        execution_context=source_account,
         metadata=outcome.audit_metadata,
     )
     return outcome.result
@@ -236,7 +236,7 @@ def create_bucket(
         action="create_bucket",
         entity_type="bucket",
         entity_id=payload.name,
-        account=account,
+        execution_context=account,
         metadata=audit_metadata,
     )
     return response
@@ -262,7 +262,7 @@ def delete_bucket(
         action="delete_bucket",
         entity_type="bucket",
         entity_id=bucket_name,
-        account=account,
+        execution_context=account,
     )
     endpoint_id = int(account.storage_endpoint_id or 0)
     if endpoint_id > 0:
@@ -352,7 +352,7 @@ def stream_delete_bucket_with_purge(
             scope="manager",
             entity_type="bucket",
             entity_id=bucket_name,
-            account=account,
+            execution_context=account,
         ),
         base_metadata=base_metadata,
         start_action="start_bucket_delete_with_purge",

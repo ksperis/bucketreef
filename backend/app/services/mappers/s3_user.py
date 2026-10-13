@@ -43,6 +43,7 @@ def s3_user_from_db(
         allow_access_key_management=s3_user.allow_access_key_management,
         allow_access_key_metadata=s3_user.allow_access_key_metadata,
         allow_access_key_expiration=s3_user.allow_access_key_expiration,
+        allow_activity_history=s3_user.allow_activity_history,
         allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
         tags=tags or [],
     )
@@ -65,6 +66,7 @@ def s3_user_summary_from_db(
         allow_access_key_management=s3_user.allow_access_key_management,
         allow_access_key_metadata=s3_user.allow_access_key_metadata,
         allow_access_key_expiration=s3_user.allow_access_key_expiration,
+        allow_activity_history=s3_user.allow_activity_history,
         allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
         tags=tags or [],
     )

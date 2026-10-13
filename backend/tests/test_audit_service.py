@@ -58,7 +58,7 @@ def test_record_action_keeps_persisted_account_fk(db_session) -> None:
     assert log.account_name == "persisted-account"
 
 
-def test_record_action_omits_fk_for_synthetic_account_context(db_session) -> None:
+def test_record_action_persists_generic_execution_context_without_account_fk(db_session) -> None:
     user = _create_user(db_session)
     synthetic_account = S3ExecutionContext(
         context_id="conn-1",
@@ -76,13 +76,40 @@ def test_record_action_omits_fk_for_synthetic_account_context(db_session) -> Non
         action="update_bucket_versioning",
         entity_type="bucket",
         entity_id="bucket-b",
-        account=synthetic_account,
+        execution_context=synthetic_account,
     )
 
     log = db_session.query(AuditLog).one()
     assert log.user_id == user.id
     assert log.account_id is None
-    assert log.account_name == "synthetic-connection-context"
+    assert log.account_name is None
+    assert log.context_kind == "connection"
+    assert log.context_id == "conn-1"
+    assert log.context_name == "synthetic-connection-context"
+
+
+def test_record_action_derives_legacy_account_reference_from_account_execution_context(db_session) -> None:
+    user = _create_user(db_session)
+    account = make_s3_account(db_session, name="manager-account-context")
+    db_session.add(account)
+    db_session.commit()
+    db_session.refresh(account)
+
+    AuditService(db_session).record_action(
+        user=user,
+        scope="manager",
+        action="update_bucket_versioning",
+        entity_type="bucket",
+        entity_id="bucket-c",
+        execution_context=S3ExecutionContext.from_account(account),
+    )
+
+    log = db_session.query(AuditLog).one()
+    assert log.context_kind == "account"
+    assert log.context_id == str(account.id)
+    assert log.context_name == account.name
+    assert log.account_id == account.id
+    assert log.account_name == account.name
 
 
 def test_record_action_accepts_manager_session_actor(db_session) -> None:

@@ -2,7 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from app.db import AuditLog, S3Account
+import pytest
+
+from app.db import AuditLog, S3Account, S3Connection, S3User, User, UserRole
 from app.main import app
 from app.routers.manager import activity as manager_activity_router
 from app.services.s3_execution_context import S3ExecutionContext
@@ -13,18 +15,66 @@ def _account(name: str, db_session=None) -> S3Account:
     values = {"name": name, "rgw_access_key": "AK", "rgw_secret_key": "SK"}
     if db_session is None:
         return S3Account(**values)
-    return make_s3_account(db_session, **values)
+    account = make_s3_account(db_session, **values)
+    db_session.add(account)
+    db_session.commit()
+    db_session.refresh(account)
+    return account
+
+
+def _s3_user(name: str, db_session) -> S3User:
+    endpoint_seed = make_s3_account(db_session, name=f"{name}-endpoint")
+    user = S3User(
+        name=name,
+        rgw_user_uid=name,
+        rgw_access_key="AK-S3U",
+        rgw_secret_key="SK-S3U",
+        storage_endpoint_id=endpoint_seed.storage_endpoint_id,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+def _connection(name: str, db_session, *, shared: bool = True) -> S3Connection:
+    endpoint_seed = make_s3_account(db_session, name=f"{name}-endpoint")
+    owner = User(
+        email=f"{name}@example.test",
+        full_name=name,
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+        is_active=True,
+    )
+    db_session.add(owner)
+    db_session.flush()
+    connection = S3Connection(
+        created_by_user_id=owner.id,
+        name=name,
+        is_shared=shared,
+        is_active=True,
+        access_manager=True,
+        access_browser=False,
+        storage_endpoint_id=endpoint_seed.storage_endpoint_id,
+        access_key_id="AK-CONNECTION",
+        secret_access_key="SK-CONNECTION",
+    )
+    db_session.add(connection)
+    db_session.commit()
+    db_session.refresh(connection)
+    return connection
 
 
 def _audit_log(
     *,
-    account: S3Account,
+    context: S3ExecutionContext,
     action: str,
     scope: str = "manager",
     entity_type: str = "bucket",
     entity_id: str = "research-data",
     status: str = "success",
 ) -> AuditLog:
+    account_id = context.id if context.context_kind == "account" and isinstance(context.id, int) else None
     return AuditLog(
         user_email="manager@example.com",
         user_role="ui_user",
@@ -32,8 +82,11 @@ def _audit_log(
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,
-        account_id=account.id,
-        account_name=account.name,
+        context_kind=context.context_kind,
+        context_id=context.context_id,
+        context_name=context.name,
+        account_id=account_id,
+        account_name=context.name if account_id is not None else None,
         status=status,
         metadata_json='{"secret":"hidden"}',
         request_id="req-hidden",
@@ -42,23 +95,27 @@ def _audit_log(
     )
 
 
-def _context(account: S3Account) -> S3ExecutionContext:
-    return S3ExecutionContext.from_account(account)
+def _context(resource: S3Account | S3User | S3Connection) -> S3ExecutionContext:
+    if isinstance(resource, S3Account):
+        return S3ExecutionContext.from_account(resource)
+    if isinstance(resource, S3User):
+        return S3ExecutionContext.from_s3_user(resource)
+    return S3ExecutionContext.from_connection(resource)
 
 
-def test_manager_activity_filters_audit_logs_to_current_account(client, db_session):
+def test_manager_activity_filters_audit_logs_to_exact_execution_context(client, db_session):
     account = _account("account-a", db_session)
     other_account = _account("account-b", db_session)
-    db_session.add_all([account, other_account])
+    context = _context(account)
+    other_context = _context(other_account)
+
+    expected = _audit_log(context=context, action="create_bucket", entity_id="bucket-a")
+    other_scope = _audit_log(context=context, action="auth.login", scope="admin", entity_id="admin-event")
+    other = _audit_log(context=other_context, action="create_bucket", entity_id="bucket-b")
+    db_session.add_all([expected, other_scope, other])
     db_session.commit()
 
-    expected = _audit_log(account=account, action="create_bucket", entity_id="bucket-a")
-    other_scope = _audit_log(account=account, action="auth.login", scope="admin", entity_id="admin-event")
-    other_context = _audit_log(account=other_account, action="create_bucket", entity_id="bucket-b")
-    db_session.add_all([expected, other_scope, other_context])
-    db_session.commit()
-
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(account)
+    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
 
     response = client.get("/api/manager/activity")
 
@@ -70,20 +127,46 @@ def test_manager_activity_filters_audit_logs_to_current_account(client, db_sessi
     assert entry["action"] == "create_bucket"
     assert entry["entity_type"] == "bucket"
     assert entry["entity_id"] == "bucket-a"
+    assert entry["context_kind"] == "account"
+    assert entry["context_id"] == str(account.id)
+    assert entry["context_name"] == "account-a"
     assert entry["account_id"] == account.id
     assert entry["account_name"] == "account-a"
     assert entry["status"] == "success"
     assert entry["user_email"] == "manager@example.com"
 
 
-def test_manager_activity_does_not_expose_sensitive_audit_fields(client, db_session):
-    account = _account("account-a", db_session)
-    db_session.add(account)
+@pytest.mark.parametrize("resource_kind", ["s3_user", "connection"])
+def test_manager_activity_supports_non_account_manager_contexts(client, db_session, resource_kind):
+    resource = (
+        _s3_user("activity-user", db_session)
+        if resource_kind == "s3_user"
+        else _connection("activity-shared", db_session)
+    )
+    context = _context(resource)
+    expected = _audit_log(context=context, action="update_bucket_versioning")
+    account = _account(f"other-{resource_kind}", db_session)
+    other = _audit_log(context=_context(account), action="delete_bucket")
+    db_session.add_all([expected, other])
     db_session.commit()
-    log = _audit_log(account=account, action="put_bucket_policy")
+    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
+
+    response = client.get("/api/manager/activity")
+
+    assert response.status_code == 200, response.text
+    assert [entry["id"] for entry in response.json()] == [expected.id]
+    assert response.json()[0]["context_kind"] == resource_kind
+    assert response.json()[0]["context_id"] == context.context_id
+    assert response.json()[0]["account_id"] is None
+
+
+def test_manager_activity_does_not_expose_sensitive_audit_fields(client, db_session):
+    account = _account("account-sensitive", db_session)
+    context = _context(account)
+    log = _audit_log(context=context, action="put_bucket_policy")
     db_session.add(log)
     db_session.commit()
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(account)
+    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
 
     response = client.get("/api/manager/activity")
 
@@ -96,9 +179,7 @@ def test_manager_activity_does_not_expose_sensitive_audit_fields(client, db_sess
 
 
 def test_manager_activity_rejects_limits_above_twenty(client, db_session):
-    account = _account("account-a", db_session)
-    db_session.add(account)
-    db_session.commit()
+    account = _account("account-limit", db_session)
     app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(account)
 
     response = client.get("/api/manager/activity?limit=21")
@@ -115,44 +196,43 @@ def test_manager_activity_rejects_unsaved_account_context(client):
     assert response.status_code == 404, response.text
 
 
-def test_manager_activity_is_unavailable_for_non_account_context(client):
-    context = S3ExecutionContext(
-        context_id="s3u-1",
-        context_kind="s3_user",
-        name="managed-user",
-        access_key="AK",
-        secret_key="SK",
-    )
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
+def test_manager_activity_is_unavailable_for_private_connection(client, db_session):
+    connection = _connection("private-connection", db_session, shared=False)
+    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(connection)
 
     response = client.get("/api/manager/activity")
 
     assert response.status_code == 404, response.text
 
 
-def test_manager_activity_respects_account_override(client, db_session):
-    account = _account("activity-disabled", db_session)
-    account.allow_activity_history = False
-    db_session.add(account)
+@pytest.mark.parametrize("resource_kind", ["account", "s3_user", "connection"])
+def test_manager_activity_respects_resource_override(client, db_session, resource_kind):
+    if resource_kind == "account":
+        resource = _account("activity-disabled-account", db_session)
+    elif resource_kind == "s3_user":
+        resource = _s3_user("activity-disabled-user", db_session)
+    else:
+        resource = _connection("activity-disabled-connection", db_session)
+    resource.allow_activity_history = False
+    db_session.add(resource)
     db_session.commit()
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(account)
+    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(resource)
 
     response = client.get("/api/manager/activity")
 
     assert response.status_code == 403, response.text
-    assert response.json()["detail"] == "Activity history is disabled for this RGW Account"
+    assert response.json()["detail"] == "Activity history is disabled for this Manager context"
 
 
 def test_manager_activity_supports_cursor_search_and_status_without_hidden_field_search(client, db_session):
     account = _account("account-search", db_session)
-    db_session.add(account)
-    db_session.commit()
-    first = _audit_log(account=account, action="create_bucket", entity_id="archive", status="success")
-    second = _audit_log(account=account, action="put_bucket_policy", entity_id="research-data", status="failure")
-    third = _audit_log(account=account, action="delete_bucket", entity_id="temporary", status="success")
+    context = _context(account)
+    first = _audit_log(context=context, action="create_bucket", entity_id="archive", status="success")
+    second = _audit_log(context=context, action="put_bucket_policy", entity_id="research-data", status="failure")
+    third = _audit_log(context=context, action="delete_bucket", entity_id="temporary", status="success")
     db_session.add_all([first, second, third])
     db_session.commit()
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(account)
+    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
 
     response = client.get("/api/manager/activity?search=research&status=failure")
     assert response.status_code == 200, response.text

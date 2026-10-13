@@ -21,6 +21,8 @@ def list_audit_logs(
     role: Optional[str] = Query(None, description="Filter by user role"),
     scope: Optional[str] = Query(None, description="Filter by admin/manager scope"),
     account_id: Optional[int] = Query(None, description="Filter by account id"),
+    context_kind: Optional[str] = Query(None, description="Filter by execution-context kind"),
+    context_id: Optional[str] = Query(None, description="Filter by execution-context id"),
     search: Optional[str] = Query(None, description="Search by actor, action, or target"),
     _: User = Depends(get_current_super_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -31,6 +33,8 @@ def list_audit_logs(
         scope=scope,
         role=role,
         account_id=account_id,
+        context_kind=context_kind,
+        context_id=context_id,
         cursor=cursor,
         search=search,
     )

@@ -46,7 +46,9 @@ import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textM
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
+import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import S3ConnectionIdentityFields from "../shared/S3ConnectionIdentityFields";
 import { useS3ConnectionFormValidation } from "../shared/useS3ConnectionFormValidation";
 import S3ConnectionEndpointFields from "../shared/S3ConnectionEndpointFields";
@@ -89,6 +91,7 @@ function getConnectionSearchCandidates(connection: S3ConnectionAdminItem): Array
 }
 
 export default function S3ConnectionsPage() {
+  const { generalSettings } = useGeneralSettings();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const [items, setItems] = useState<S3ConnectionAdminItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +130,7 @@ export default function S3ConnectionsPage() {
     region: "",
     force_path_style: false,
     verify_tls: true,
+    allow_activity_history: null,
   });
   const [editCredentials, setEditCredentials] = useState({
     access_key_id: "",
@@ -599,6 +603,7 @@ export default function S3ConnectionsPage() {
       region: conn.region || "",
       force_path_style: Boolean(conn.force_path_style),
       verify_tls: conn.verify_tls !== false,
+      allow_activity_history: conn.allow_activity_history ?? null,
     };
     const nextLinkedUserIds = normalizeS3ConnectionLinkedIds(conn.user_details?.map((user) => user.id));
     const nextLinkedGroupIds = normalizeS3ConnectionLinkedIds(conn.group_details?.map((group) => group.id));
@@ -1207,6 +1212,16 @@ export default function S3ConnectionsPage() {
                     />
                     </div>
                   </div>
+                </SettingsSection>
+                <SettingsSection title="Activity history" presentation="compact">
+                  <FeatureOverrideField
+                    title="Manager activity history"
+                    value={editForm.allow_activity_history}
+                    policy={generalSettings.manager_feature_policies.activity_history}
+                    disabled={editBusy}
+                    help="Shows control and configuration actions performed through this shared Manager connection. It does not include S3 object access logs."
+                    onChange={(value) => setEditForm((current) => ({ ...current, allow_activity_history: value }))}
+                  />
                 </SettingsSection>
               </>
             )}

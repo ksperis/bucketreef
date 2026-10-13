@@ -155,6 +155,7 @@ export default function S3UsersPage() {
     allow_access_key_management: null as boolean | null,
     allow_access_key_metadata: null as boolean | null,
     allow_access_key_expiration: null as boolean | null,
+    allow_activity_history: null as boolean | null,
     allow_managed_private_connection_provisioning: null as boolean | null,
   });
   const [editInitialSignature, setEditInitialSignature] = useState("");
@@ -511,6 +512,7 @@ export default function S3UsersPage() {
       allow_access_key_management: user.allow_access_key_management ?? null,
       allow_access_key_metadata: user.allow_access_key_metadata ?? null,
       allow_access_key_expiration: user.allow_access_key_expiration ?? null,
+      allow_activity_history: user.allow_activity_history ?? null,
       allow_managed_private_connection_provisioning: user.allow_managed_private_connection_provisioning ?? null,
     };
     setEditingUser(user);
@@ -547,6 +549,7 @@ export default function S3UsersPage() {
         payload.allow_access_key_management = editForm.allow_access_key_management;
         payload.allow_access_key_metadata = editForm.allow_access_key_metadata;
         payload.allow_access_key_expiration = editForm.allow_access_key_expiration;
+        payload.allow_activity_history = editForm.allow_activity_history;
         payload.allow_managed_private_connection_provisioning =
           editForm.allow_managed_private_connection_provisioning;
       }
@@ -1336,6 +1339,12 @@ export default function S3UsersPage() {
                   <FeatureOverrideField title="Access-key expiration" value={editForm.allow_access_key_expiration}
                     policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={editBusy}
                     help="Requires Ceph, key management and scheduled jobs. Existing expirations remain scheduled." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_expiration: value }))} />
+                </SettingsSection>
+                <SettingsSection presentation="compact" title="Activity history">
+                  <FeatureOverrideField title="Manager activity history" value={editForm.allow_activity_history}
+                    policy={generalSettings.manager_feature_policies.activity_history} disabled={editBusy}
+                    help="Shows RGW User Manager control and configuration actions. It does not include S3 object access logs."
+                    onChange={value => setEditForm(prev => ({ ...prev, allow_activity_history: value }))} />
                 </SettingsSection>
                 <SettingsSection presentation="compact" title="Privileged Ceph operations">
                   <FeatureOverrideField title="Bucket quota management" value={editForm.allow_bucket_quota_management}
