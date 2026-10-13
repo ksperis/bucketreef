@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { AppSettings } from "../../../api/appSettings";
 import { equalSettings } from "../../../components/settings/useSettingsDraft";
+import { appSettingsSource, type AppSettingsText } from "./appSettingsMessage";
 
 type LeafPaths<T> = {
   [K in keyof T & string]: T[K] extends unknown[]
@@ -50,9 +51,7 @@ export function selectSettings(
 
 export class SettingsConflict extends Error {
   constructor(public fields: SettingsPath[]) {
-    super(
-      "These settings changed on the server. Cancel to load their current values, or review your changes before trying again.",
-    );
+    super(appSettingsSource("settingsConflict"));
   }
 }
 
@@ -92,6 +91,7 @@ export function validateInteger(
   label: string,
   min: number,
   max?: number,
+  text: AppSettingsText = appSettingsSource,
 ): string | undefined {
   const number = Number(value);
   if (
@@ -101,5 +101,7 @@ export function validateInteger(
     number < min ||
     (max !== undefined && number > max)
   )
-    return `${label} must be a whole number ${max === undefined ? `of at least ${min}` : `between ${min} and ${max}`}.`;
+    return max === undefined
+      ? text("integerMinimum", { label, min })
+      : text("integerRange", { label, min, max });
 }

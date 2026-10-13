@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchAppSettings,
   fetchDefaultAppSettings,
@@ -22,6 +22,12 @@ import {
   type FieldErrors,
   type SettingsPath,
 } from "./appSettingsDraft";
+import { appSettingsSource, useAppSettingsI18n } from "./appSettingsMessage";
+
+type SettingsError =
+  | { key: "settingsConflict" }
+  | { cause: unknown; fallback: "loadError" | "saveError" | "defaultsError" };
+type SettingsFieldErrors = Partial<Record<SettingsPath, string | { key: "fieldConflict" }>>;
 
 export function useAppSettingsDraft(
   paths: readonly SettingsPath[],
@@ -32,16 +38,25 @@ export function useAppSettingsDraft(
     current: AppSettingsValues,
   ) => AppSettingsValues,
 ) {
+  const { text } = useAppSettingsI18n();
   const { setGeneralSettings } = useGeneralSettings();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const form = useSettingsDraft<AppSettingsValues>({});
-  const [error, setError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<SettingsError | null>(null);
+  const [errors, setErrors] = useState<SettingsFieldErrors>({});
+  const [message, setMessage] = useState<"saved" | null>(null);
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const conflict = useRef<AppSettings | null>(null);
-  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
+  const verificationLabels = useMemo(() => ({
+    title: text("verifyPasskey"),
+    description: text("verificationDescription"),
+    cancel: text("cancel"),
+    close: text("close"),
+    cancelled: text("verificationCancelled"),
+    failure: (err: unknown) => extractApiError(err, text("verificationFailed")),
+  }), [text]);
+  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp(verificationLabels);
   const { accept, setDraft } = form;
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +69,7 @@ export function useAppSettingsDraft(
       })
       .catch((err) => {
         if (!cancelled)
-          setError(extractApiError(err, "Unable to load settings."));
+          setError({ cause: err, fallback: "loadError" });
       });
     return () => {
       cancelled = true;
@@ -63,7 +78,7 @@ export function useAppSettingsDraft(
   const setValue = useCallback(
     (path: SettingsPath, value: DraftValue) => {
       if (!paths.includes(path))
-        throw new Error("Setting is outside this page's scope.");
+        throw new Error(appSettingsSource("scopeError"));
       setDraft((current) => ({ ...current, [path]: value }));
       setErrors((current) => ({ ...current, [path]: undefined }));
       setMessage(null);
@@ -107,7 +122,7 @@ export function useAppSettingsDraft(
             Object.fromEntries(
               err.fields.map((path) => [
                 path,
-                "Changed on the server. Cancel to load the current value.",
+                { key: "fieldConflict" },
               ]),
             ),
           );
@@ -123,13 +138,13 @@ export function useAppSettingsDraft(
       conflict.current = null;
       setGeneralSettings(saved.general);
       onSaved?.(saved);
-      setMessage("Settings saved.");
+      setMessage("saved");
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err))
         setError(
           err instanceof SettingsConflict
-            ? err.message
-            : extractApiError(err, "Unable to save settings."),
+            ? { key: "settingsConflict" }
+            : { cause: err, fallback: "saveError" },
         );
     } finally {
       pending.current = false;
@@ -151,7 +166,7 @@ export function useAppSettingsDraft(
       );
       setErrors({});
     } catch (err) {
-      setError(extractApiError(err, "Unable to load default settings."));
+      setError({ cause: err, fallback: "defaultsError" });
     } finally {
       pending.current = false;
       setBusy(false);
@@ -171,9 +186,11 @@ export function useAppSettingsDraft(
     ...form,
     settings,
     setValue,
-    error,
-    errors,
-    message,
+    error: error && ("key" in error ? text(error.key) : extractApiError(error.cause, text(error.fallback))),
+    errors: Object.fromEntries(
+      Object.entries(errors).map(([path, value]) => [path, typeof value === "object" ? text(value.key) : value]),
+    ) as FieldErrors,
+    message: message && text(message),
     busy,
     save,
     cancel,
