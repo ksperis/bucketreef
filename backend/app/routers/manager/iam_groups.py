@@ -60,7 +60,7 @@ def create_group(
             action="create_iam_group",
             entity_type="iam_group",
             entity_id=payload.name,
-            account=account,
+            execution_context=account,
             metadata={"inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else []},
         )
         return result
@@ -84,7 +84,7 @@ def delete_group(
             action="delete_iam_group",
             entity_type="iam_group",
             entity_id=group_name,
-            account=account,
+            execution_context=account,
         )
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
@@ -120,7 +120,7 @@ def add_user_to_group(
             action="add_user_to_group",
             entity_type="iam_group",
             entity_id=group_name,
-            account=account,
+            execution_context=account,
             metadata={"user": payload.name},
         )
         return IAMUser(name=payload.name)
@@ -145,7 +145,7 @@ def remove_user_from_group(
             action="remove_user_from_group",
             entity_type="iam_group",
             entity_id=group_name,
-            account=account,
+            execution_context=account,
             metadata={"user": user_name},
         )
     except RuntimeError as exc:
@@ -196,7 +196,7 @@ def put_group_inline_policy(
             action="put_group_inline_policy",
             entity_type="iam_group",
             entity_id=group_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_name": policy_name},
         )
         return saved
@@ -221,7 +221,7 @@ def delete_group_inline_policy(
             action="delete_group_inline_policy",
             entity_type="iam_group",
             entity_id=group_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_name": policy_name},
         )
     except RuntimeError as exc:
@@ -258,7 +258,7 @@ def attach_group_policy(
             action="attach_group_policy",
             entity_type="iam_group",
             entity_id=group_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_arn": payload.arn},
         )
         return resolve_attached_policy(payload, get_policy_fn=service.get_policy)
@@ -283,7 +283,7 @@ def detach_group_policy(
             action="detach_group_policy",
             entity_type="iam_group",
             entity_id=group_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_arn": policy_arn},
         )
     except RuntimeError as exc:

@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from app.db import AppSetting, S3User, User
+from app.db import AppSetting, S3Connection, S3User, User
 from app.db.enums import UserRole
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
@@ -170,7 +170,7 @@ def test_activity_history_policy_is_account_scoped(
     assert state.blocked_reason == blocked_reason
 
 
-def test_activity_history_is_unsupported_for_rgw_users(db_session):
+def test_activity_history_is_supported_for_rgw_users(db_session):
     settings = AppSettings()
     s3_user = S3User(
         name="activity-user",
@@ -186,8 +186,34 @@ def test_activity_history_is_unsupported_for_rgw_users(db_session):
         _manager_availability(),
     )["activity_history"]
 
+    assert state.enabled is True
+    assert state.source == "platform"
+    assert state.blocked_reason is None
+
+
+def test_activity_history_is_supported_for_shared_connections():
+    settings = AppSettings()
+    connection = S3Connection(
+        created_by_user_id=1,
+        name="shared-activity",
+        is_shared=True,
+        access_manager=True,
+        access_browser=False,
+        access_key_id="AK",
+        secret_access_key="SK",
+        allow_activity_history=False,
+    )
+
+    state = manager_resource_states(
+        settings.manager.feature_policies,
+        None,
+        _manager_availability(),
+        activity_resource=connection,
+    )["activity_history"]
+
     assert state.enabled is False
-    assert state.blocked_reason == "unsupported_context"
+    assert state.source == "resource"
+    assert state.blocked_reason == "resource_disabled"
 
 
 def test_activity_history_override_explicit_null_restores_inheritance(client, db_session):

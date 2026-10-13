@@ -136,7 +136,7 @@ def create_bucket(
             action="create_bucket",
             entity_type="bucket",
             entity_id=bucket_name,
-            account=account,
+            execution_context=account,
             metadata={"versioning": bool(payload.versioning)},
         )
         return {
@@ -256,7 +256,7 @@ def ensure_bucket_cors(
             action="ensure_bucket_cors",
             entity_type="bucket",
             entity_id=bucket_name,
-            account=account,
+            execution_context=account,
             metadata={"origin": payload.origin},
         )
         return status_result

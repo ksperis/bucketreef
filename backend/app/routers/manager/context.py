@@ -1,6 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.feature_policy_service import manager_resource_states
+from app.services.feature_policy_service import manager_activity_resource, manager_resource_states
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.db import S3Account, S3User
 from dataclasses import dataclass
@@ -296,6 +296,7 @@ def get_manager_context(
          "access_key_metadata": manager_access_key_metadata_enabled, "access_key_expiration": manager_access_key_expiration_enabled,
          "managed_private_connection_provisioning": manager_private_access_enabled},
         provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
+        activity_resource=manager_activity_resource(db, account),
     )
     return ManagerContext(
         feature_states=feature_states,

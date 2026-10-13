@@ -13,6 +13,9 @@ export type AuditLogEntry = {
   action: string;
   entity_type?: string | null;
   entity_id?: string | null;
+  context_kind?: string | null;
+  context_id?: string | null;
+  context_name?: string | null;
   account_id?: number | null;
   account_name?: string | null;
   status: string;
@@ -31,6 +34,8 @@ type AuditLogQuery = {
   role?: string;
   scope?: string;
   account_id?: number;
+  context_kind?: string;
+  context_id?: string;
   search?: string;
 };
 

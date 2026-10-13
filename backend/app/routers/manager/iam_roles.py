@@ -80,7 +80,7 @@ def create_role(
             action="create_iam_role",
             entity_type="iam_role",
             entity_id=payload.name,
-            account=account,
+            execution_context=account,
             metadata={"inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else []},
         )
         return result
@@ -120,7 +120,7 @@ def delete_role(
             action="delete_iam_role",
             entity_type="iam_role",
             entity_id=role_name,
-            account=account,
+            execution_context=account,
         )
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
@@ -166,7 +166,7 @@ def update_role(
                 action="update_iam_role",
                 entity_type="iam_role",
                 entity_id=role_name,
-                account=account,
+                execution_context=account,
                 metadata={"assume_role_policy_updated": True},
             )
         except RuntimeError as exc:
@@ -219,7 +219,7 @@ def put_role_inline_policy(
             action="put_role_inline_policy",
             entity_type="iam_role",
             entity_id=role_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_name": policy_name},
         )
         return saved
@@ -244,7 +244,7 @@ def delete_role_inline_policy(
             action="delete_role_inline_policy",
             entity_type="iam_role",
             entity_id=role_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_name": policy_name},
         )
     except RuntimeError as exc:
@@ -281,7 +281,7 @@ def attach_role_policy(
             action="attach_role_policy",
             entity_type="iam_role",
             entity_id=role_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_arn": payload.arn},
         )
         return resolve_attached_policy(payload, get_policy_fn=service.get_policy)
@@ -306,7 +306,7 @@ def detach_role_policy(
             action="detach_role_policy",
             entity_type="iam_role",
             entity_id=role_name,
-            account=account,
+            execution_context=account,
             metadata={"policy_arn": policy_arn},
         )
     except RuntimeError as exc:

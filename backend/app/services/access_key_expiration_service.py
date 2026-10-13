@@ -107,7 +107,12 @@ class AccessKeyExpirationService:
                 return self._remove_missing(row)
             if str(remote.status or "Active").strip().lower() not in {"inactive", "disabled", "suspended"}:
                 raise RuntimeError("Provider did not confirm the IAM access key as inactive")
-        self._mark_enforced(row, entity_type="iam_user", entity_id=row.principal_name, account=account)
+        self._mark_enforced(
+            row,
+            entity_type="iam_user",
+            entity_id=row.principal_name,
+            execution_context=context,
+        )
         return "enforced"
 
     def _process_s3_user(self, row: ManagerAccessKeyMetadata) -> str:
@@ -129,7 +134,12 @@ class AccessKeyExpirationService:
             remote = service.set_key_status(s3_user.id, row.access_key_id, False)
             if remote.is_active:
                 raise RuntimeError("Provider did not confirm the RGW access key as inactive")
-        self._mark_enforced(row, entity_type="s3_user", entity_id=str(s3_user.id), account_name=s3_user.name)
+        self._mark_enforced(
+            row,
+            entity_type="s3_user",
+            entity_id=str(s3_user.id),
+            execution_context=S3ExecutionContext.from_s3_user(s3_user),
+        )
         return "enforced"
 
     def _mark_enforced(
@@ -138,8 +148,7 @@ class AccessKeyExpirationService:
         *,
         entity_type: str,
         entity_id: str,
-        account: S3Account | None = None,
-        account_name: str | None = None,
+        execution_context: S3ExecutionContext,
     ) -> None:
         row.expiration_state = "enforced"
         row.expiration_enforced_at = utcnow()
@@ -151,8 +160,7 @@ class AccessKeyExpirationService:
             action="enforce_access_key_expiration",
             entity_type=entity_type,
             entity_id=entity_id,
-            account_id=account.id if account is not None else None,
-            account_name=account.name if account is not None else account_name,
+            execution_context=execution_context,
             metadata={"access_key_id": row.access_key_id, "workflow": "scheduler"},
             user_email="scheduler@bucketreef.internal",
             user_role="system",

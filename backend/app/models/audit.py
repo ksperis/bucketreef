@@ -17,6 +17,9 @@ class AuditLogEntry(ApiModel):
     action: str
     entity_type: Optional[str] = None
     entity_id: Optional[str] = None
+    context_kind: Optional[str] = None
+    context_id: Optional[str] = None
+    context_name: Optional[str] = None
     account_id: Optional[int] = None
     account_name: Optional[str] = None
     status: str

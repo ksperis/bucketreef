@@ -163,6 +163,7 @@ def _to_admin_item(
         region=details.region,
         force_path_style=details.force_path_style,
         verify_tls=details.verify_tls,
+        allow_activity_history=conn.allow_activity_history,
         created_by_user_id=conn.created_by_user_id,
         created_by_email=created_by_email,
         created_by_full_name=created_by_user.full_name if created_by_user else None,

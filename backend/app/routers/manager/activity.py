@@ -6,13 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import S3Account
-from app.models.feature_policy import resolve_feature_policy
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.manager_activity import ManagerActivityEntry
 from app.routers.dependencies import get_account_context, get_audit_service
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.audit_service import AuditService
+from app.services.feature_policy_service import manager_activity_resource, manager_activity_state
 
 router = APIRouter(prefix="/manager/activity", tags=["manager-activity"])
 
@@ -27,24 +26,19 @@ def list_manager_activity(
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> list[ManagerActivityEntry]:
-    if account.context_kind != "account":
-        raise HTTPException(status_code=404, detail="Activity history is available only for RGW Account contexts")
-    account_id = account.id if isinstance(account.id, int) and account.id > 0 else None
-    if account_id is None:
-        raise HTTPException(status_code=404, detail="Activity history is unavailable for this Manager context")
-
-    resource = db.get(S3Account, account_id)
+    resource = manager_activity_resource(db, account)
     if resource is None:
-        raise HTTPException(status_code=404, detail="RGW Account not found")
+        raise HTTPException(status_code=404, detail="Activity history is unavailable for this Manager context")
     settings = load_app_settings_for_db_readonly(db)
-    state = resolve_feature_policy(settings.manager.feature_policies.activity_history, resource.allow_activity_history)
+    state = manager_activity_state(settings.manager.feature_policies, resource)
     if not state.enabled:
-        raise HTTPException(status_code=403, detail="Activity history is disabled for this RGW Account")
+        raise HTTPException(status_code=403, detail="Activity history is disabled for this Manager context")
 
     logs = audit_service.list_logs(
         limit=limit,
         scope="manager",
-        account_id=account_id,
+        context_kind=account.context_kind,
+        context_id=account.context_id,
         cursor=cursor,
         search=search,
         status=status,
@@ -57,6 +51,9 @@ def list_manager_activity(
             action=log.action,
             entity_type=log.entity_type,
             entity_id=log.entity_id,
+            context_kind=log.context_kind,
+            context_id=log.context_id,
+            context_name=log.context_name,
             account_id=log.account_id,
             account_name=log.account_name,
             status=log.status,

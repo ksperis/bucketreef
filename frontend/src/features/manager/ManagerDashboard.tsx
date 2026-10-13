@@ -687,8 +687,7 @@ export default function ManagerDashboard() {
   const usageFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.metrics !== false : true);
   const trafficFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.usage !== false : true);
   const isS3User = selectedS3AccountType === "s3_user";
-  const isRgwAccount = selectedS3AccountType === "tenant" || selectedS3AccountType === "account";
-  const activityHistoryEnabled = isRgwAccount && managerFeatureStates?.activity_history?.enabled === true;
+  const activityHistoryEnabled = hasContext && managerFeatureStates?.activity_history?.enabled === true;
   const canManageIam = !isS3User && contextCanManageIam && iamFeatureEnabled;
   const canLoadUsageStatsDataTypes =
     hasContext &&

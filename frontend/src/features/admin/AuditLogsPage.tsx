@@ -84,6 +84,15 @@ function formatAuditDate(value: string) {
   return parsed.toLocaleString();
 }
 
+function executionContextKindLabel(kind?: string | null): string {
+  if (kind === "account" || kind === "portal_account") return "RGW Account";
+  if (kind === "s3_user") return "RGW User";
+  if (kind === "connection") return "S3 Connection";
+  if (kind === "ceph_admin") return "Ceph Admin";
+  if (kind === "session") return "Manager session";
+  return kind || "Execution context";
+}
+
 function MetadataPreview({ metadata }: { metadata?: Record<string, unknown> | null }) {
   if (!metadata || Object.keys(metadata).length === 0) {
     return <span className="ui-caption text-slate-500 dark:text-slate-400">-</span>;
@@ -315,17 +324,23 @@ export default function AuditLogsPage() {
         ),
       },
       {
-        id: "account",
-        label: "S3 Account/User",
+        id: "context",
+        label: "Execution context",
         cellClassName: "min-w-[10rem]",
-        render: (log) =>
-          log.account_name ? (
-            <div className="font-medium text-slate-900 dark:text-white">{log.account_name}</div>
-          ) : log.account_id ? (
-            <div className="text-slate-600 dark:text-slate-300">S3Account #{log.account_id}</div>
-          ) : (
-            <span className="text-slate-500 dark:text-slate-400">-</span>
-          ),
+        render: (log) => {
+          const name = log.context_name || log.account_name;
+          const id = log.context_id || (log.account_id ? String(log.account_id) : null);
+          const kind = log.context_kind || (log.account_id ? "account" : null);
+          if (!name && !id) return <span className="text-slate-500 dark:text-slate-400">-</span>;
+          return (
+            <div className="min-w-0">
+              <div className="font-medium text-slate-900 dark:text-white">{name || id}</div>
+              <div className="ui-caption text-slate-500 dark:text-slate-400">
+                {executionContextKindLabel(kind)}{name && id ? ` · ${id}` : ""}
+              </div>
+            </div>
+          );
+        },
       },
       {
         id: "details",
@@ -355,7 +370,7 @@ export default function AuditLogsPage() {
             type="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by actor, action, target, or message"
+            placeholder="Search actor, action, target, context, or message"
             fieldClassName="min-w-[220px] flex-1"
             size="compact"
           />

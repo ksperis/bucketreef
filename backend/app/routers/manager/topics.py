@@ -54,7 +54,7 @@ def create_topic(
             action="create_topic",
             entity_type="sns_topic",
             entity_id=topic.arn,
-            account=account,
+            execution_context=account,
             metadata={
                 "name": payload.name,
                 "configuration_keys": sorted((payload.configuration or {}).keys()),
@@ -84,7 +84,7 @@ def delete_topic(
             action="delete_topic",
             entity_type="sns_topic",
             entity_id=topic_arn,
-            account=account,
+            execution_context=account,
         )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -123,7 +123,7 @@ def put_topic_policy(
             action="update_topic_policy",
             entity_type="sns_topic",
             entity_id=topic_arn,
-            account=account,
+            execution_context=account,
             metadata={"policy_length": len(payload.policy or {})},
         )
         return TopicPolicy(policy=updated)
@@ -166,7 +166,7 @@ def put_topic_configuration(
             action="update_topic_configuration",
             entity_type="sns_topic",
             entity_id=topic_arn,
-            account=account,
+            execution_context=account,
             metadata={"configuration_keys": sorted(updated.keys())},
         )
         return TopicConfiguration(configuration=updated)

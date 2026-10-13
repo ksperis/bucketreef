@@ -29,6 +29,7 @@ export type S3ConnectionAdminItem = {
   region?: string | null;
   force_path_style?: boolean | null;
   verify_tls?: boolean | null;
+  allow_activity_history?: boolean | null;
   created_by_user_id: number;
   created_by_email?: string | null;
   created_by_full_name?: string | null;
@@ -88,6 +89,7 @@ export type UpdateAdminS3ConnectionPayload = {
   region?: string | null;
   force_path_style?: boolean | null;
   verify_tls?: boolean | null;
+  allow_activity_history?: boolean | null;
   tags?: TagDefinitionInput[] | null;
   credentials?: {
     access_key_id: string;

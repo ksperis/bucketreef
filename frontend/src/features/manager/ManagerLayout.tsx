@@ -74,8 +74,7 @@ function ManagerShell() {
     can_view_traffic: contextCapabilities?.can_view_traffic ?? userCapabilities?.can_view_traffic ?? true,
   };
   const isS3User = selectedS3AccountType === "s3_user";
-  const isRgwAccount = selectedS3AccountType === "tenant" || selectedS3AccountType === "account";
-  const canViewActivityHistory = isRgwAccount && managerFeatureStates?.activity_history?.enabled === true;
+  const canViewActivityHistory = managerFeatureStates?.activity_history?.enabled === true;
   const canManageBuckets = capabilities.can_manage_buckets !== false;
   const canAccessBucketCompare =
     canManageBuckets && Boolean(generalSettings.bucket_compare_enabled) && Boolean(requiresS3AccountSelection);

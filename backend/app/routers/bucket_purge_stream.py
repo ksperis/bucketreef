@@ -24,7 +24,7 @@ from app.routers.sse_worker import (
 )
 from app.services.audit_service import AuditService
 from app.services.bucket_purge_service import BucketPurgeCancelled
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 def record_bucket_purge_audit(
@@ -37,7 +37,7 @@ def record_bucket_purge_audit(
     action: str,
     entity_type: str = "bucket_purge",
     entity_id: str | None = None,
-    account: S3ExecutionTarget | None = None,
+    execution_context: S3ExecutionContext | None = None,
     account_name: str | None = None,
     status: str = "success",
     message: str | None = None,
@@ -53,7 +53,7 @@ def record_bucket_purge_audit(
             action=action,
             entity_type=entity_type,
             entity_id=entity_id or request_id,
-            account=account,
+            execution_context=execution_context,
             account_name=account_name,
             status=status,
             message=message,

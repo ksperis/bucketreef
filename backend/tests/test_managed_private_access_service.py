@@ -224,6 +224,9 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     assert audits
     assert all("NEVER-IN-RESPONSE" not in (audit.metadata_json or "") for audit in audits)
     assert all("AK-MANAGED" not in (audit.metadata_json or "") for audit in audits)
+    assert all(audit.context_kind == "account" for audit in audits)
+    assert all(audit.context_id == str(account.id) for audit in audits)
+    assert all(audit.context_name == account.name for audit in audits)
 
     repeated = service.provision_iam(user=user, account=account, payload=_payload())
     assert repeated.connection.id == result.connection.id
@@ -303,6 +306,11 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
     assert created.access_key_id == "AK-MANAGED"
     assert created.access_key_id != source.access_key_id
     assert json.loads(created.custom_endpoint_config) == json.loads(source.custom_endpoint_config)
+    audits = db_session.query(AuditLog).filter(AuditLog.action.like("managed_private_access.%")).all()
+    assert audits
+    assert all(audit.context_kind == "connection" for audit in audits)
+    assert all(audit.context_id == f"conn-{source.id}" for audit in audits)
+    assert all(audit.context_name == source.name for audit in audits)
 
 
 @pytest.mark.parametrize(
@@ -646,6 +654,11 @@ def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkey
     assert created.credential_owner_type == "s3_user"
     assert created.credential_owner_identifier == s3_user.rgw_user_uid
     assert "PERSONAL-SK" not in result.model_dump_json()
+    audits = db_session.query(AuditLog).filter(AuditLog.action.like("managed_private_access.%")).all()
+    assert audits
+    assert all(audit.context_kind == "s3_user" for audit in audits)
+    assert all(audit.context_id == f"s3u-{s3_user.id}" for audit in audits)
+    assert all(audit.context_name == s3_user.name for audit in audits)
 
 
 def test_rgw_user_provisioning_requires_managed_connection_permission(db_session):

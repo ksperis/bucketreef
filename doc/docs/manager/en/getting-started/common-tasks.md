@@ -10,7 +10,7 @@ Select the intended Manager execution context before starting any task.
 | Manage IAM users, groups, roles, and policies | [IAM](../iam/index.md) | IAM capability is available. |
 | Manage delegated Ceph RGW user keys | [Access keys](../iam/access-keys.md) | The selected S3 user is eligible and key management is enabled. |
 | Manage SNS topics | [Topics](../topics.md) | SNS capability is available. |
-| Review Manager configuration changes | [Activity history](../activity.md) | An RGW Account context is selected and Activity history is enabled. |
+| Review Manager configuration changes | [Activity history](../activity.md) | A supported RGW Account, RGW User, or shared S3 Connection context is selected and Activity history is enabled. |
 | Work with objects from Manager | [Embedded Browser](../browser/object-operations.md) | Data access is enabled for this Manager context. |
 | Compare buckets | [Bucket compare](../tools/bucket-compare.md) | Tool access is enabled. |
 | Verify bucket integrity | [Bucket integrity](../tools/bucket-integrity.md) | Tool access is enabled. |
