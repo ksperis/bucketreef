@@ -369,10 +369,15 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
     assert out.effective_access.browser_advanced_features_enabled is True
     assert out.effective_access.can_create_manual_private_connections is True
     assert out.effective_access.can_provision_managed_private_connections is True
+    assert out.effective_access.group_can_provision_managed_private_connections is True
     assert out.effective_access.manager_tool_access.bucket_compare is True
     assert out.effective_access.manager_tool_access.bucket_migration is True
     assert out.effective_access.manager_tool_access.bucket_purge is True
     assert out.effective_access.manager_tool_access.feature_rules is True
+    assert out.effective_access.group_manager_tool_access.bucket_compare is True
+    assert out.effective_access.group_manager_tool_access.bucket_migration is True
+    assert out.effective_access.group_manager_tool_access.bucket_purge is True
+    assert out.effective_access.group_manager_tool_access.feature_rules is True
     assert "bucket_quota" not in out.effective_access.manager_tool_access.model_dump()
     assert "ceph_s3_user_keys" not in out.effective_access.manager_tool_access.model_dump()
     effective_payload = out.effective_access.model_dump()

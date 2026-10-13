@@ -190,8 +190,10 @@ class EffectiveUserAccess(ApiModel):
     can_access_storage_ops: bool = False
     can_create_manual_private_connections: bool = False
     can_provision_managed_private_connections: bool = False
+    group_can_provision_managed_private_connections: bool = False
     has_owned_private_connections: bool = False
     manager_tool_access: ManagerToolAccess = Field(default_factory=ManagerToolAccess)
+    group_manager_tool_access: ManagerToolAccess = Field(default_factory=ManagerToolAccess)
     browser_advanced_features_enabled: bool = False
     account_links: list[EffectiveAccountMembership] = Field(default_factory=list)
     s3_user_details: list[LinkedS3User] = Field(default_factory=list)

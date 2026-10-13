@@ -113,7 +113,7 @@ describe("Portal project settings", () => {
     },
   );
 
-  it("shows a platform-disabled Portal feature as static while preserving its saved override", async () => {
+  it("keeps a platform-disabled Portal feature visible as a disabled tri-state control", async () => {
     mocks.fetch.mockResolvedValue({
       ...project,
       project_override: { browser_access_enabled: true },
@@ -129,11 +129,15 @@ describe("Portal project settings", () => {
 
     const row = (await screen.findByText("Browser workspace access"))
       .closest(".settings-item-compact") as HTMLElement;
-    expect(within(row).getByText("Unavailable")).toBeVisible();
     expect(within(row).getByText("Platform disabled")).toBeVisible();
-    expect(within(row).getByText("Saved: Enabled")).toBeVisible();
-    expect(within(row).queryByRole("radiogroup", { name: "Browser workspace access" }))
-      .not.toBeInTheDocument();
+    expect(within(row).queryByText("Unavailable")).not.toBeInTheDocument();
+    expect(within(row).queryByText("Override")).not.toBeInTheDocument();
+    expect(within(row).queryByText("Saved: Enabled")).not.toBeInTheDocument();
+    const group = within(row).getByRole("radiogroup", { name: "Browser workspace access" });
+    expect(group).toHaveAttribute("aria-disabled", "true");
+    const enabled = within(group).getByRole("radio", { name: "Enabled" });
+    expect(enabled).toHaveAttribute("aria-checked", "true");
+    expect(enabled).toBeDisabled();
   });
 
   it("keeps a draft when delegation is revoked and reloads current values on confirmed cancellation", async () => {
@@ -196,6 +200,36 @@ describe("Portal project settings", () => {
       }),
     );
   });
+
+  it("uses tri-state controls for new Storage Space boolean defaults", async () => {
+    render(<PortalSettingsPage />);
+
+    const versioning = await screen.findByRole("radiogroup", { name: "Versioning" });
+    expect(within(versioning).getByRole("radio", { name: "Platform value — Enabled" }))
+      .toHaveAttribute("aria-checked", "true");
+    const lifecycle = screen.getByRole("radiogroup", { name: "Lifecycle" });
+    expect(within(lifecycle).getByRole("radio", { name: "Platform value — Enabled" }))
+      .toHaveAttribute("aria-checked", "true");
+    const cors = screen.getByRole("radiogroup", { name: "CORS" });
+    expect(within(cors).getByRole("radio", { name: "Platform value — Disabled" }))
+      .toHaveAttribute("aria-checked", "true");
+
+    await selectPortalFeature("Versioning", "disabled");
+    await selectPortalFeature("Lifecycle", "disabled");
+    await selectPortalFeature("CORS", "enabled");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(mocks.save).toHaveBeenCalledWith("101", {
+        bucket_defaults: {
+          versioning: false,
+          enable_lifecycle: false,
+          enable_cors: true,
+        },
+      }),
+    );
+  });
+
   it("cancels drafts and validates an empty customized number without clamping it", async () => {
     render(<PortalSettingsPage />);
     fireEvent.click(

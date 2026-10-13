@@ -843,8 +843,27 @@ class EffectiveAccessService:
             can_access_storage_ops=resolved.can_access_storage_ops,
             can_create_manual_private_connections=resolved.can_create_manual_private_connections,
             can_provision_managed_private_connections=resolved.can_provision_managed_private_connections,
+            group_can_provision_managed_private_connections=any(
+                source.kind == "group"
+                for source in resolved.feature_sources.get(
+                    "managed_private_connection_provision",
+                    (),
+                )
+            ),
             has_owned_private_connections=resolved.has_owned_private_connections,
             manager_tool_access=resolved.manager_tool_access,
+            group_manager_tool_access=ManagerToolAccess(
+                **{
+                    tool: any(
+                        source.kind == "group"
+                        for source in resolved.feature_sources.get(
+                            f"manager_{tool}",
+                            (),
+                        )
+                    )
+                    for tool in MANAGER_TOOL_COLUMNS
+                }
+            ),
             browser_advanced_features_enabled=resolved.browser_advanced_features_enabled,
             account_links=[
                 EffectiveAccountMembership(

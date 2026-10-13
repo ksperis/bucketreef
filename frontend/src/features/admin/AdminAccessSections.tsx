@@ -50,7 +50,7 @@ export function AdminAccessToggleSection({
   return (
     <SettingsSection title={title} description={description} presentation="compact">
       {items.map((item) => {
-        const disabled = Boolean(item.disabled);
+        const disabled = Boolean(item.disabled || item.blocked);
         return (
           <SettingsItem
             key={item.ariaLabel}
@@ -174,8 +174,6 @@ export function ManagerToolAccessSection({
         stateLabel: "Unavailable",
         sourceLabel: "Platform",
         localLabel: "Direct grant",
-        constraintLabel: "Platform disabled",
-        savedLabel: direct ? "Saved grant: On" : undefined,
       };
     }
     if (!eligible) {

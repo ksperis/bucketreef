@@ -5,10 +5,10 @@ import type { PortalProjectSettings } from "../../api/portalAccounts";
 import type { PortalSettingsAdminUpdate } from "../../api/appSettings";
 import PageBanner from "../../components/PageBanner";
 import {
-  SettingsEffectiveAction,
   SettingsItem,
   SettingsSection,
   SettingsSwitch,
+  SettingsTriStateAction,
   SettingsTriStateSwitch,
   type SettingsTriStateOption,
 } from "../../components/settings/SettingsLayout";
@@ -23,7 +23,6 @@ import SettingsDraftDialog from "../../components/settings/SettingsDraftDialog";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import UiBadge from "../../components/ui/UiBadge";
-import UiSelect from "../../components/ui/UiSelect";
 import UiTextarea from "../../components/ui/UiTextarea";
 import { translate, type I18nMessage } from "../../i18n";
 import {
@@ -247,22 +246,12 @@ export default function ProjectSettingsEditor({
     if (feature) {
       const featureState = settings?.feature_states?.[feature.state];
       const blocked = featureState?.blocked_reason === "platform_disabled" || policy === "disabled";
-      const currentEnabled = featureState?.enabled ?? value;
-      const persistedSelection = baseline[key];
-      const effectiveSource = featureState?.source === "resource" || (!featureState && persistedSelection !== "inherit")
-        ? source(true)
-        : source(false);
-      const unavailableLabel = t({ en: "Unavailable", fr: "Indisponible", de: "Nicht verfügbar", zh: "不可用" });
       const platformDisabledLabel = t({
         en: "Platform disabled",
         fr: "Désactivée par la plateforme",
         de: "Plattformweit deaktiviert",
         zh: "平台已禁用",
       });
-      const overrideLabel = t({ en: "Override", fr: "Surcharge", de: "Überschreibung", zh: "覆盖" });
-      const savedLabel = blocked && draft[key] !== "inherit"
-        ? `${t({ en: "Saved", fr: "Enregistré", de: "Gespeichert", zh: "已保存" })}: ${enabled(draft[key] === "enabled")}`
-        : undefined;
       const triStateOptions = [
         {
           value: "disabled",
@@ -275,7 +264,9 @@ export default function ProjectSettingsEditor({
           label: `${t({ en: "Platform value", fr: "Valeur de la plateforme", de: "Plattformwert", zh: "平台值" })} — ${platformValue ?? enabled(false)}`,
           symbol: policy === "default_on" ? "✓" : "×",
           className: "settings-tristate-option-inherit-ghost",
-          selectedClassName: "settings-tristate-option-inherit-ghost-selected",
+          selectedClassName: policy === "default_on"
+            ? "settings-tristate-option-inherit-ghost-selected"
+            : "settings-tristate-option-inherit-disabled-selected",
         },
         { value: "enabled", label: enabled(true), symbol: "✓" },
       ] satisfies readonly [
@@ -290,34 +281,54 @@ export default function ProjectSettingsEditor({
           className="settings-effective-row"
           title={title}
           help={description}
-          action={
-            <SettingsEffectiveAction
-              state={blocked ? "unavailable" : currentEnabled ? "enabled" : "disabled"}
-              stateLabel={blocked ? unavailableLabel : enabled(currentEnabled)}
-              sourceLabel={blocked ? source(false) : effectiveSource}
-              localLabel={overrideLabel}
-              constraintLabel={blocked ? platformDisabledLabel : undefined}
-              savedLabel={savedLabel}
-            >
-              {editable ? (
-                <SettingsTriStateSwitch
-                  ariaLabel={title}
-                  value={draft[key]}
-                  options={triStateOptions}
-                  onChange={(next) => update(key, next)}
-                />
-              ) : (
-                <span className="settings-readonly">
-                  {draft[key] === "inherit"
-                    ? t({ en: "Platform value", fr: "Valeur de la plateforme", de: "Plattformwert", zh: "平台值" })
-                    : enabled(draft[key] === "enabled")}
-                </span>
-              )}
-            </SettingsEffectiveAction>
-          }
+          action={editable ? (
+            <SettingsTriStateAction
+              ariaLabel={title}
+              value={draft[key]}
+              options={triStateOptions}
+              disabled={blocked}
+              badge={blocked ? { visible: true, label: platformDisabledLabel, tone: "warning" } : undefined}
+              onChange={(next) => update(key, next)}
+            />
+          ) : (
+            <span className="settings-readonly">
+              {draft[key] === "inherit"
+                ? t({ en: "Platform value", fr: "Valeur de la plateforme", de: "Plattformwert", zh: "平台值" })
+                : enabled(draft[key] === "enabled")}
+            </span>
+          )}
         />
       );
     }
+    const inheritedValue = baseline[key] === "inherit" ? value : undefined;
+    const inheritedLabel = t({
+      en: "Platform value",
+      fr: "Valeur de la plateforme",
+      de: "Plattformwert",
+      zh: "平台值",
+    });
+    const triStateOptions = [
+      {
+        value: "disabled",
+        label: enabled(false),
+        symbol: "×",
+        selectedClassName: "settings-tristate-option-disabled-selected",
+      },
+      {
+        value: "inherit",
+        label: `${inheritedLabel}${inheritedValue == null ? "" : ` — ${enabled(inheritedValue)}`}`,
+        symbol: inheritedValue == null ? "◎" : inheritedValue ? "✓" : "×",
+        className: "settings-tristate-option-inherit-ghost",
+        selectedClassName: inheritedValue === false
+          ? "settings-tristate-option-inherit-disabled-selected"
+          : "settings-tristate-option-inherit-ghost-selected",
+      },
+      { value: "enabled", label: enabled(true), symbol: "✓" },
+    ] satisfies readonly [
+      SettingsTriStateOption<"disabled" | "inherit" | "enabled">,
+      SettingsTriStateOption<"disabled" | "inherit" | "enabled">,
+      SettingsTriStateOption<"disabled" | "inherit" | "enabled">,
+    ];
     return (
     <SettingsItem
       key={key}
@@ -326,26 +337,12 @@ export default function ProjectSettingsEditor({
       help={description}
       action={
         editable ? (
-          <UiSelect
-            className="settings-control"
-            size="compact"
-            aria-label={title}
+          <SettingsTriStateSwitch
+            ariaLabel={title}
             value={draft[key]}
-            onChange={(event) =>
-              update(key, event.target.value as ProjectSettingsForm[FlagField])
-            }
-          >
-            <option value="inherit">
-              {t({
-                en: "Platform value",
-                fr: "Valeur de la plateforme",
-                de: "Plattformwert",
-                zh: "平台值",
-              })}{platformValue ? ` — ${platformValue}` : ""}
-            </option>
-            <option value="enabled">{enabled(true)}</option>
-            <option value="disabled">{enabled(false)}</option>
-          </UiSelect>
+            options={triStateOptions}
+            onChange={(next) => update(key, next)}
+          />
         ) : (
           <span className="settings-readonly">{enabled(value)}</span>
         )

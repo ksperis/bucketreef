@@ -86,10 +86,35 @@ describe("shared settings draft flows", () => {
       const toggle = await screen.findByLabelText(label);
       await waitFor(() => expect(toggle).toBeEnabled());
       const isSelect = toggle instanceof HTMLSelectElement;
-      const initial = isSelect ? toggle.value : (toggle as HTMLInputElement).checked;
-      const changed = isSelect ? (initial === "disabled" ? "default_on" : "disabled") : !initial;
-      const change = () => isSelect ? fireEvent.change(toggle, { target: { value: changed } }) : fireEvent.click(toggle);
-      const value = () => isSelect ? toggle.value : (toggle as HTMLInputElement).checked;
+      const isTriState = toggle.getAttribute("role") === "radiogroup";
+      const selectedRadio = () => within(toggle).getAllByRole("radio")
+        .find((option) => option.getAttribute("aria-checked") === "true");
+      const initial = isSelect
+        ? toggle.value
+        : isTriState
+          ? selectedRadio()?.getAttribute("aria-label")
+          : (toggle as HTMLInputElement).checked;
+      const changed = isSelect
+        ? (initial === "disabled" ? "default_on" : "disabled")
+        : isTriState
+          ? within(toggle).getAllByRole("radio").find((option) => (
+              option.getAttribute("aria-checked") !== "true" && !(option as HTMLButtonElement).disabled
+            ))?.getAttribute("aria-label")
+          : !initial;
+      const change = () => {
+        if (isSelect) fireEvent.change(toggle, { target: { value: changed } });
+        else if (isTriState) {
+          const next = within(toggle).getAllByRole("radio")
+            .find((option) => option.getAttribute("aria-label") === changed);
+          if (!next) throw new Error(`No alternate tri-state option for ${label}`);
+          fireEvent.click(next);
+        } else fireEvent.click(toggle);
+      };
+      const value = () => isSelect
+        ? toggle.value
+        : isTriState
+          ? selectedRadio()?.getAttribute("aria-label")
+          : (toggle as HTMLInputElement).checked;
       expect(
         screen.queryByRole("button", { name: "Save changes" }),
       ).not.toBeInTheDocument();

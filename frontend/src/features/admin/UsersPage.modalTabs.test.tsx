@@ -943,8 +943,10 @@ describe("UsersPage modal tabs", () => {
     const compareToggle = screen.getByRole("switch", { name: /Bucket compare/i });
     expect(compareToggle).not.toBeChecked();
     const migrationRow = screen.getByText("Bucket migration").closest(".settings-item-compact") as HTMLElement;
-    expect(within(migrationRow).queryByRole("switch", { name: /Bucket migration/i })).not.toBeInTheDocument();
-    expect(within(migrationRow).getByText("Platform disabled")).toBeInTheDocument();
+    const migrationToggle = within(migrationRow).getByRole("switch", { name: /Bucket migration/i });
+    expect(migrationToggle).toBeChecked();
+    expect(migrationToggle).toBeDisabled();
+    expect(within(migrationRow).queryByText("Platform disabled")).not.toBeInTheDocument();
 
     fireEvent.click(compareToggle);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -966,6 +968,59 @@ describe("UsersPage modal tabs", () => {
         },
       })
     );
+  });
+
+  it("does not treat a persisted direct Manager grant as a group grant while editing", async () => {
+    listUsersMock.mockResolvedValue({
+      items: [
+        {
+          id: 10,
+          email: "direct.tools@example.com",
+          role: "ui_user",
+          manager_tool_access: {
+            bucket_compare: true,
+            bucket_integrity_check: false,
+            bucket_migration: false,
+            bucket_purge: false,
+            feature_rules: false,
+          },
+          effective_access: {
+            manager_tool_access: {
+              bucket_compare: true,
+              bucket_integrity_check: false,
+              bucket_migration: false,
+              bucket_purge: false,
+              feature_rules: false,
+            },
+            group_manager_tool_access: {
+              bucket_compare: false,
+              bucket_integrity_check: false,
+              bucket_migration: false,
+              bucket_purge: false,
+              feature_rules: false,
+            },
+          },
+          account_links: [],
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
+
+    const compareRow = screen.getByText("Bucket compare").closest(".settings-item-compact") as HTMLElement;
+    expect(within(compareRow).getByText("Direct")).toBeInTheDocument();
+
+    fireEvent.click(within(compareRow).getByRole("switch", { name: "Bucket compare" }));
+
+    expect(within(compareRow).getByText("Disabled")).toBeInTheDocument();
+    expect(within(compareRow).getByText("No grant")).toBeInTheDocument();
+    expect(within(compareRow).queryByText("Group")).not.toBeInTheDocument();
   });
 
   it("preserves a managed private provisioning grant while the feature is disabled globally", async () => {
@@ -991,11 +1046,13 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
 
     const featureRow = screen.getByText("Provision managed private connections").closest(".settings-item-compact") as HTMLElement;
-    expect(within(featureRow).queryByRole("switch", {
+    const provisioningGrant = within(featureRow).getByRole("switch", {
       name: "Allow managed private connection provisioning",
-    })).not.toBeInTheDocument();
-    expect(within(featureRow).getByText("Platform disabled")).toBeInTheDocument();
-    expect(within(featureRow).getByText("Saved grant: On")).toBeInTheDocument();
+    });
+    expect(provisioningGrant).toBeChecked();
+    expect(provisioningGrant).toBeDisabled();
+    expect(within(featureRow).queryByText("Platform disabled")).not.toBeInTheDocument();
+    expect(within(featureRow).queryByText("Saved grant: On")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateUserMock).toHaveBeenCalledTimes(1));

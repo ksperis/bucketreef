@@ -50,4 +50,25 @@ describe("SettingsTriStateSwitch", () => {
     expect(within(group).getByRole("radio", { name: "Enabled by default" })).toHaveAttribute("aria-checked", "true");
     expect(within(group).getByRole("radio", { name: "Enabled by default" })).toHaveFocus();
   });
+
+  it("keeps an enabled fallback tabbable when the selected option is disabled", () => {
+    const constrainedOptions = [
+      options[0],
+      options[1],
+      { ...options[2], disabled: true },
+    ] satisfies readonly [
+      SettingsTriStateOption<Policy>,
+      SettingsTriStateOption<Policy>,
+      SettingsTriStateOption<Policy>,
+    ];
+    render(<SettingsTriStateSwitch ariaLabel="Constrained feature" value="default_on"
+      options={constrainedOptions} onChange={() => undefined} />);
+
+    const group = screen.getByRole("radiogroup", { name: "Constrained feature" });
+    const selected = within(group).getByRole("radio", { name: "Enabled by default" });
+    expect(selected).toHaveAttribute("aria-checked", "true");
+    expect(selected).toBeDisabled();
+    expect(selected).toHaveAttribute("tabindex", "-1");
+    expect(within(group).getByRole("radio", { name: "Disabled" })).toHaveAttribute("tabindex", "0");
+  });
 });
