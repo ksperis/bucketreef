@@ -482,7 +482,7 @@ describe("AdminDashboard feature summary", () => {
     expect(screen.getByText("12.4M")).toBeInTheDocument();
     expect(within(platformSummary!).getByText("98%")).toBeInTheDocument();
     expect(screen.getByText("User admin@example.com logged in")).toBeInTheDocument();
-    expect(mocks.listAuditLogs).toHaveBeenCalledWith({ limit: 3 });
+    expect(mocks.listAuditLogs).toHaveBeenCalledWith({ limit: 5 });
     expect(mocks.fetchAdminDashboardTraffic).toHaveBeenCalledWith();
     expect(mocks.fetchHealthOverview).toHaveBeenCalledWith("week");
     expect(mocks.fetchHealthWorkspaceOverview).toHaveBeenCalledWith(undefined, 10080);
