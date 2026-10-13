@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
@@ -195,6 +196,18 @@ class ResourceTracker:
         self.users.clear()
 
         for account_id, delete_rgw, rgw_account_id in reversed(self.accounts):
+            if delete_rgw and rgw_account_id:
+                try:
+                    self._cleanup_rgw_account_buckets(
+                        account_id,
+                        rgw_account_id,
+                        log=log,
+                    )
+                except BackendAPIError as exc:
+                    errors.append(
+                        f"account {account_id} bucket discovery cleanup failed "
+                        f"({rgw_account_id}): {exc}"
+                    )
             try:
                 self.admin_session.delete(
                     f"/admin/accounts/{account_id}",
@@ -279,6 +292,70 @@ class ResourceTracker:
         self.ceph_admin_buckets.clear()
 
         return errors
+
+    def _cleanup_rgw_account_buckets(
+        self,
+        account_id: int,
+        rgw_account_id: str,
+        *,
+        log: Callable[[str], None] | None = None,
+    ) -> None:
+        """Purge buckets still owned by a tracked test account before RGW deletion."""
+
+        account = self.admin_session.get(f"/admin/accounts/{account_id}")
+        endpoint_id = int(account["storage_endpoint_id"])
+        advanced_filter = json.dumps(
+            {
+                "match": "all",
+                "rules": [
+                    {
+                        "field": "owner",
+                        "op": "eq",
+                        "value": rgw_account_id,
+                    }
+                ],
+            }
+        )
+        page = 1
+        page_size = 200
+        bucket_names: list[str] = []
+
+        while True:
+            payload = self.admin_session.get(
+                f"/ceph-admin/endpoints/{endpoint_id}/buckets",
+                params={
+                    "page": page,
+                    "page_size": page_size,
+                    "advanced_filter": advanced_filter,
+                    "with_stats": "false",
+                },
+            )
+            items = payload.get("items", []) if isinstance(payload, dict) else []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                bucket_name = str(item.get("name") or item.get("bucket") or "").strip()
+                if bucket_name:
+                    bucket_names.append(bucket_name)
+            if len(items) < page_size:
+                break
+            page += 1
+
+        for bucket_name in dict.fromkeys(bucket_names):
+            self.admin_session.delete(
+                f"/ceph-admin/endpoints/{endpoint_id}/buckets/{bucket_name}",
+                json={
+                    "confirmation": f"PURGE AND DELETE BUCKET {bucket_name}",
+                    "purge_objects": True,
+                    "bypass_gc": False,
+                },
+                expected_status=(200, 404),
+            )
+            if log:
+                log(
+                    f"Deleted discovered bucket {bucket_name} "
+                    f"(account {account_id}, RGW {rgw_account_id})"
+                )
 
     def _cleanup_rgw_account_users(self, account_id: str, log: Callable[[str], None] | None = None) -> None:
         """Best-effort removal of users still bound to an RGW account before account deletion."""

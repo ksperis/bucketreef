@@ -208,6 +208,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
         provisioned_account.account_name,
     )
     bucket_name: str | None = None
+    storage_space_id: str | None = None
     external_access_key_id: str | None = None
     personal_access_key_id: str | None = None
 
@@ -231,6 +232,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             },
             expected_status=201,
         )
+        storage_space_id = str(storage_space["id"])
         bucket_name = str(storage_space.get("internal_bucket_name") or storage_space["id"])
         resource_tracker.track_bucket(account_id, bucket_name)
         resource_tracker.track_bucket(account_id, log_bucket)
@@ -412,6 +414,15 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
                 pass
         if bucket_name:
             _delete_test_bucket(manager_session, resource_tracker, account_id, bucket_name)
+        if storage_space_id:
+            try:
+                manager_session.delete(
+                    f"/portal/storage-spaces/{storage_space_id}",
+                    params=_account_params(account_id),
+                    expected_status=(204, 404),
+                )
+            except BackendAPIError:
+                pass
         _delete_test_bucket(manager_session, resource_tracker, account_id, log_bucket)
         account_cleaned = _cleanup_account_before_user(
             super_admin_session,
