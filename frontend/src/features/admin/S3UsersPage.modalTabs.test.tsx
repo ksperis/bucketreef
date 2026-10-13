@@ -27,6 +27,19 @@ const makeTag = (id: number, label: string, color_key = "neutral", scope = "stan
   scope,
 });
 
+function featureOverrideGroup(name: string) {
+  return screen.getByRole("radiogroup", { name });
+}
+
+function selectFeatureOverride(name: string, value: "Disabled" | "Enabled") {
+  fireEvent.click(within(featureOverrideGroup(name)).getByRole("radio", { name: value }));
+}
+
+function expectInheritedFeatureOverride(name: string) {
+  expect(within(featureOverrideGroup(name)).getByRole("radio", { name: /^Inherited platform value —/ }))
+    .toHaveAttribute("aria-checked", "true");
+}
+
 vi.mock("./useAdminS3UserStats", () => ({
   useAdminS3UserStats: (...args: unknown[]) => adminS3UserStatsMock(...args),
 }));
@@ -435,24 +448,21 @@ describe("S3UsersPage modal tabs", () => {
 
     const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
     const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
-    expect(within(extensionsSection).getByRole("combobox", { name: "Access-key names and notes" })).toBeInTheDocument();
-    expect(within(extensionsSection).getByRole("combobox", { name: "Access-key expiration" })).toBeInTheDocument();
-    expect(within(extensionsSection).queryByRole("combobox", { name: "Bucket quota management" })).not.toBeInTheDocument();
-    expect(within(privilegedSection).getByRole("combobox", { name: "Bucket quota management" })).toBeInTheDocument();
-    expect(within(privilegedSection).getByRole("combobox", { name: "Ceph S3 User keys" })).toBeInTheDocument();
-    expect(within(privilegedSection).getByRole("combobox", { name: "Managed private connection provisioning" })).toBeInTheDocument();
-    expect(within(privilegedSection).queryByRole("combobox", { name: "Access-key names and notes" })).not.toBeInTheDocument();
+    expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key names and notes" })).toBeInTheDocument();
+    expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key expiration" })).toBeInTheDocument();
+    expect(within(extensionsSection).queryByRole("radiogroup", { name: "Bucket quota management" })).not.toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("radiogroup", { name: "Bucket quota management" })).toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("radiogroup", { name: "Ceph S3 User keys" })).toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("radiogroup", { name: "Managed private connection provisioning" })).toBeInTheDocument();
+    expect(within(privilegedSection).queryByRole("radiogroup", { name: "Access-key names and notes" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Ceph S3 User keys: information" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("storage and endpoint permissions");
-    const quotaCheckbox = screen.getByRole("combobox", { name: /Bucket quota management/ });
-    const keysCheckbox = screen.getByRole("combobox", { name: /Ceph S3 User keys/ });
-    const privateCheckbox = screen.getByRole("combobox", { name: /Managed private connection provisioning/ });
-    expect(quotaCheckbox).toHaveValue("inherit");
-    expect(keysCheckbox).toHaveValue("inherit");
-    expect(privateCheckbox).toHaveValue("inherit");
-    fireEvent.change(quotaCheckbox, { target: { value: "enabled" } });
-    fireEvent.change(keysCheckbox, { target: { value: "enabled" } });
-    fireEvent.change(privateCheckbox, { target: { value: "enabled" } });
+    expectInheritedFeatureOverride("Bucket quota management");
+    expectInheritedFeatureOverride("Ceph S3 User keys");
+    expectInheritedFeatureOverride("Managed private connection provisioning");
+    selectFeatureOverride("Bucket quota management", "Enabled");
+    selectFeatureOverride("Ceph S3 User keys", "Enabled");
+    selectFeatureOverride("Managed private connection provisioning", "Enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -475,7 +485,7 @@ describe("S3UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
     for (const name of ["Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning"])
-      expect(screen.getByRole("combobox", { name })).toHaveValue("inherit");
+      expectInheritedFeatureOverride(name);
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Display name", exact: true }), { target: { value: "renamed-user" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -499,12 +509,10 @@ describe("S3UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
-    const quotaCheckbox = screen.getByRole("combobox", { name: /Bucket quota management/ });
-    const keysCheckbox = screen.getByRole("combobox", { name: /Ceph S3 User keys/ });
-    expect(quotaCheckbox).toHaveValue("inherit");
-    expect(keysCheckbox).toHaveValue("inherit");
-    fireEvent.change(quotaCheckbox, { target: { value: "enabled" } });
-    fireEvent.change(keysCheckbox, { target: { value: "enabled" } });
+    expectInheritedFeatureOverride("Bucket quota management");
+    expectInheritedFeatureOverride("Ceph S3 User keys");
+    selectFeatureOverride("Bucket quota management", "Enabled");
+    selectFeatureOverride("Ceph S3 User keys", "Enabled");
 
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 

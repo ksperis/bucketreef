@@ -206,21 +206,25 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
               <SettingsSection presentation="compact" title="Access-key extensions">
                 <FeatureOverrideField title="Access-key names and notes" value={form.draft.allow_access_key_metadata}
                   policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={controller.locked}
+                  triState
                   help="Optional. Name and notes are stored in BucketReef." onChange={value => update("allow_access_key_metadata", value)} />
                 <FeatureOverrideField title="Access-key expiration" value={form.draft.allow_access_key_expiration}
                   policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={controller.locked}
+                  triState
                   help="Schedules provider-side key disabling. Requires scheduled jobs; recorded expirations remain scheduled after opt-out."
                   onChange={value => update("allow_access_key_expiration", value)} />
               </SettingsSection>
               <SettingsSection presentation="compact" title="Activity history">
                 <FeatureOverrideField title="Manager activity history" value={form.draft.allow_activity_history}
                   policy={generalSettings.manager_feature_policies.activity_history} disabled={controller.locked}
+                  triState
                   help="Shows account-scoped Manager control and configuration actions. It does not include S3 object access logs."
                   onChange={value => update("allow_activity_history", value)} />
               </SettingsSection>
               <SettingsSection presentation="compact" title="Privileged Ceph operations">
                 <FeatureOverrideField title="Bucket quota management" value={form.draft.allow_bucket_quota_management}
                   policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={controller.locked}
+                  triState
                   unavailable={!allowBucketQuotas ? "Endpoint permission required" : undefined}
                   help="Requires buckets=write on the endpoint Admin Ops identity. Storage authorization remains required."
                   onChange={value => update("allow_bucket_quota_management", value)} />

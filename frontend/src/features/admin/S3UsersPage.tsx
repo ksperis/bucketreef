@@ -1335,27 +1335,33 @@ export default function S3UsersPage() {
                 <SettingsSection presentation="compact" title="Access-key extensions">
                   <FeatureOverrideField title="Access-key names and notes" value={editForm.allow_access_key_metadata}
                     policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={editBusy}
+                    triState
                     help="Name and notes are stored in BucketReef." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_metadata: value }))} />
                   <FeatureOverrideField title="Access-key expiration" value={editForm.allow_access_key_expiration}
                     policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={editBusy}
+                    triState
                     help="Requires Ceph, key management and scheduled jobs. Existing expirations remain scheduled." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_expiration: value }))} />
                 </SettingsSection>
                 <SettingsSection presentation="compact" title="Activity history">
                   <FeatureOverrideField title="Manager activity history" value={editForm.allow_activity_history}
                     policy={generalSettings.manager_feature_policies.activity_history} disabled={editBusy}
+                    triState
                     help="Shows RGW User Manager control and configuration actions. It does not include S3 object access logs."
                     onChange={value => setEditForm(prev => ({ ...prev, allow_activity_history: value }))} />
                 </SettingsSection>
                 <SettingsSection presentation="compact" title="Privileged Ceph operations">
                   <FeatureOverrideField title="Bucket quota management" value={editForm.allow_bucket_quota_management}
                     policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={editBusy}
+                    triState
                     unavailable={!editingEndpointCanWriteBuckets ? "Endpoint permission required" : undefined}
                     help="Requires buckets=write on the endpoint Admin Ops identity." onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_quota_management: value }))} />
                   <FeatureOverrideField title="Ceph S3 User keys" value={editForm.allow_access_key_management}
                     policy={generalSettings.manager_feature_policies.ceph_s3_user_keys} disabled={editBusy}
+                    triState
                     help="Manages RGW User keys in Manager; storage and endpoint permissions remain required." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_management: value }))} />
                   <FeatureOverrideField title="Managed private connection provisioning" value={editForm.allow_managed_private_connection_provisioning}
                     policy={generalSettings.manager_feature_policies.managed_private_connection_provisioning} disabled={editBusy}
+                    triState
                     help="Requires an eligible UI user and compatible endpoint. Generated secrets remain managed by BucketReef." onChange={value => setEditForm(prev => ({ ...prev, allow_managed_private_connection_provisioning: value }))} />
                 </SettingsSection>
               </div>
