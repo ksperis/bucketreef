@@ -3,12 +3,14 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
+import type { FeatureState } from "./featurePolicies";
 import type { NamingValidationProfile } from "../utils/resourceNames";
 import { S3AccountSelector, withS3AccountParam } from "./accountParams";
 
 export type ManagerAccessMode = "admin" | "session" | "s3_user" | "connection";
 
 export type ManagerContext = {
+  feature_states?: Record<string, FeatureState>;
   naming_validation_profile?: NamingValidationProfile;
   access_mode: ManagerAccessMode;
   iam_identity?: string | null;

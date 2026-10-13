@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -246,7 +247,7 @@ def test_settings_reconcile_portal_logging_when_toggle_changes(
     _allow_superadmin(client, db_session)
     current = AppSettings()
     requested = current.model_copy(deep=True)
-    requested.portal.server_access_logging_enabled = not current.portal.server_access_logging_enabled
+    requested.portal.feature_policies.server_access_logging = "disabled"
     calls = []
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
     monkeypatch.setattr(admin_settings, "save_app_settings", lambda payload: requested)
@@ -255,7 +256,7 @@ def test_settings_reconcile_portal_logging_when_toggle_changes(
         "get_portal_service",
         lambda db: SimpleNamespace(
             reconcile_all_portal_server_access_logging=lambda settings: calls.append(
-                settings.server_access_logging_enabled
+                settings.feature_policies.server_access_logging
             ) or {"accounts": 1, "enabled": 0, "disabled": 1, "skipped": 0},
         ),
     )
@@ -263,7 +264,7 @@ def test_settings_reconcile_portal_logging_when_toggle_changes(
     response = client.put("/api/admin/settings", json=requested.model_dump(mode="json"))
 
     assert response.status_code == 200, response.text
-    assert calls == [requested.portal.server_access_logging_enabled]
+    assert calls == [requested.portal.feature_policies.server_access_logging]
 
 
 def test_settings_portal_logging_reconcile_maps_endpoint_failure_to_service_unavailable(
@@ -272,7 +273,7 @@ def test_settings_portal_logging_reconcile_maps_endpoint_failure_to_service_unav
     _allow_superadmin(client, db_session)
     current = AppSettings()
     requested = current.model_copy(deep=True)
-    requested.portal.server_access_logging_enabled = not current.portal.server_access_logging_enabled
+    requested.portal.feature_policies.server_access_logging = "disabled"
     failure = RuntimeError("Unable to reconcile Portal Server Access Logging for 1 account: demo")
     failure.__cause__ = EndpointConnectionError(endpoint_url="https://storage.invalid")
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)

@@ -23,11 +23,11 @@ export type S3User = {
   storage_endpoint_name: string;
   storage_endpoint_url: string;
   bucket_count?: number | null;
-  allow_bucket_quota_management?: boolean;
-  allow_access_key_management?: boolean;
-  allow_access_key_metadata?: boolean;
-  allow_access_key_expiration?: boolean;
-  allow_managed_private_connection_provisioning?: boolean;
+  allow_bucket_quota_management?: boolean | null;
+  allow_access_key_management?: boolean | null;
+  allow_access_key_metadata?: boolean | null;
+  allow_access_key_expiration?: boolean | null;
+  allow_managed_private_connection_provisioning?: boolean | null;
 };
 
 export type S3UserUserLink = {
@@ -53,11 +53,11 @@ export type S3UserSummary = {
   storage_endpoint_id: number;
   storage_endpoint_name: string;
   storage_endpoint_url: string;
-  allow_bucket_quota_management?: boolean;
-  allow_access_key_management?: boolean;
-  allow_access_key_metadata?: boolean;
-  allow_access_key_expiration?: boolean;
-  allow_managed_private_connection_provisioning?: boolean;
+  allow_bucket_quota_management?: boolean | null;
+  allow_access_key_management?: boolean | null;
+  allow_access_key_metadata?: boolean | null;
+  allow_access_key_expiration?: boolean | null;
+  allow_managed_private_connection_provisioning?: boolean | null;
 };
 
 type CreateS3UserPayload = {

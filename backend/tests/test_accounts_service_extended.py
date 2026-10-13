@@ -1,9 +1,11 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import pytest
 
+from tests.feature_policy_fixtures import enable_manager_features
 from app.db import ManagerAccountRole, PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
 from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.models.s3_account import AccountUserLink, S3AccountUpdate
@@ -313,7 +315,7 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
 def test_update_account_persists_privileged_bucket_quota_grant(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="ceph-target-grant", is_default=True)
     account = _seed_account(db_session, endpoint.id, name="target-grant-acc", rgw_account_id="RGW-TARGET-GRANT")
-    assert account.allow_bucket_quota_management is False
+    assert account.allow_bucket_quota_management is None
 
     service, _ = _service(db_session)
     monkeypatch.setattr(service, "get_account_quota", lambda *args, **kwargs: (None, None))
@@ -546,3 +548,9 @@ def test_list_accounts_and_minimal_are_sorted_case_insensitive(db_session):
 
     assert [entry.name for entry in listed] == ["alpha", "Beta", "Same", "same", "Zulu"]
     assert [entry.name for entry in minimal] == ["alpha", "Beta", "Same", "same", "Zulu"]
+
+
+
+@pytest.fixture(autouse=True)
+def _available_manager_features(db_session):
+    enable_manager_features(db_session)

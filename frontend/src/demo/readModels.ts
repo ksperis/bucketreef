@@ -1,3 +1,4 @@
+import { projectGeneralSettings, resolvePortalSettings } from "../api/featurePolicies";
 import type { CurrentSessionResponse } from "../api/auth";
 import type { ExecutionContext, WorkspaceAccess } from "../api/executionContexts";
 import type { ManagerTrafficStats, ManagerUsageTrendBaseline } from "../api/stats";
@@ -57,12 +58,12 @@ export function readModels(c: DemoRequest): Response | undefined {
     auth_session: { id: `demo-${user.id}`, auth_type: "password", mfa_verified_at: null,
       idle_expires_at: "2099-01-01T00:00:00Z", absolute_expires_at: "2099-01-01T00:00:00Z" } } satisfies CurrentSessionResponse);
   if (path === "/users/me") return json(user);
-  if (path === "/settings/general") return json(settings.general);
+  if (path === "/settings/general") return json(projectGeneralSettings(settings));
   if (path === "/settings/branding") return json(settings.branding);
   if (path === "/settings/runtime-surfaces") return json({ admin: true, manager: true, browser: true, portal: true, ceph_admin: true, storage_ops: false });
   if (path === "/admin/settings" || path === "/admin/settings/defaults") return json(settings);
   if (path === "/admin/settings/general-feature-locks") return json(Object.fromEntries(["manager_enabled", "ceph_admin_enabled", "storage_ops_enabled", "browser_enabled", "portal_enabled", "billing_enabled", "endpoint_status_enabled"].map(k => [k, { forced: true, source: "Static demo" }])));
-  if (/^\/admin\/accounts\/\d+\/portal-settings$/.test(path)) return json({ effective: settings.portal, admin_override: {}, delegated_to_portal_managers: false, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false });
+  if (/^\/admin\/accounts\/\d+\/portal-settings$/.test(path)) return json({ effective: resolvePortalSettings(settings.portal), admin_override: {}, delegated_to_portal_managers: false, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false });
   if (path === "/settings/login") return json({ ...settings.general, endpoints: state.endpoints, login_logo_url: null });
   if (path === "/browser/settings") return json(settings.browser);
   if (["/auth/security/webauthn/credentials", "/auth/security/external-identities", "/auth/sessions", "/auth/api-tokens", "/admin/identity/sessions", "/admin/identity/link-requests", "/admin/settings/ldap/providers", "/admin/settings/oidc/providers", "/auth/oidc/providers", "/auth/ldap/providers"].includes(path)) return json([]);

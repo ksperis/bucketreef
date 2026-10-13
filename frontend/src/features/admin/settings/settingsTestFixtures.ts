@@ -1,3 +1,4 @@
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES } from "../../../api/featurePolicies";
 import type { AppSettings } from "../../../api/appSettings";
 export function createAppSettings(
   overrides: Partial<AppSettings["general"]> = {},
@@ -6,7 +7,6 @@ export function createAppSettings(
     general: {
       rgw_account_id_prefix: "80",
       documentation_base_url: "https://docs.bucketreef.ksperis.com",
-      managed_private_connection_provisioning_enabled: false,
       require_passkey_for_admins: false,
       require_passkey_for_users: false,
       allow_user_profile_name_edit: false,
@@ -24,29 +24,15 @@ export function createAppSettings(
       endpoint_status_enabled: false,
       quota_alerts_enabled: false,
       usage_history_enabled: false,
-      bucket_migration_enabled: true,
-      bucket_purge_enabled: false,
-      bucket_compare_enabled: true,
-      bucket_integrity_check_enabled: true,
       bucket_usage_stats_enabled: true,
-      bucket_quota_management_enabled: true,
-      manager_ceph_s3_user_keys_enabled: true,
-      manager_access_key_metadata_enabled: false,
-      manager_access_key_expiration_enabled: false,
       allow_login_access_keys: false,
       allow_login_endpoint_list: false,
       allow_login_custom_endpoint: false,
       ...overrides,
     },
     portal: {
-      browser_access_enabled: false,
-      allow_private_storage_space_create: true,
-      allow_portal_named_bucket_create: false,
-      allow_portal_user_access_key_create: true,
-      allow_portal_user_external_sharing: false,
-      server_access_logging_enabled: true,
+      feature_policies: { ...DEFAULT_PORTAL_FEATURE_POLICIES, browser_access: "targeted", private_storage_space_create: "default_on", named_bucket_create: "targeted", user_access_key_create: "default_on", user_external_sharing: "targeted", server_access_logging: "default_on", storage_space_version_cleanup: "default_on" },
       server_access_log_retention_days: 30,
-      storage_space_version_cleanup_enabled: true,
       max_portal_user_access_keys: 2,
       bucket_defaults: {
         versioning: false,
@@ -57,6 +43,7 @@ export function createAppSettings(
       },
     },
     manager: {
+      feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_compare: "targeted", bucket_integrity_check: "targeted", bucket_migration: "targeted", bucket_purge: "disabled", bucket_quota_management: "targeted", ceph_s3_user_keys: "targeted", access_key_metadata: "disabled", access_key_expiration: "disabled", managed_private_connection_provisioning: "disabled" },
       manager_rgw_usage_metrics_enabled: true,
       bucket_migration_parallelism_default: 8,
       bucket_migration_parallelism_max: 16,

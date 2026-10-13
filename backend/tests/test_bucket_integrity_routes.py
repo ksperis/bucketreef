@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import asyncio
@@ -68,7 +69,7 @@ def _manager_tool_user(*, bucket_integrity_check: bool = True) -> User:
 
 def test_require_bucket_integrity_enabled_blocks_when_feature_disabled(db_session, monkeypatch):
     settings = AppSettings()
-    settings.general.bucket_integrity_check_enabled = False
+    settings.manager.feature_policies.bucket_integrity_check = "disabled"
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
     with pytest.raises(HTTPException) as exc:
@@ -80,7 +81,7 @@ def test_require_bucket_integrity_enabled_blocks_when_feature_disabled(db_sessio
 
 def test_require_bucket_integrity_enabled_blocks_without_user_tool_access(db_session, monkeypatch):
     settings = AppSettings()
-    settings.general.bucket_integrity_check_enabled = True
+    settings.manager.feature_policies.bucket_integrity_check = "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
     user = _manager_tool_user(bucket_integrity_check=False)
     db_session.add(user)
@@ -145,7 +146,7 @@ def test_manager_integrity_route_streams_progress_and_result(monkeypatch):
 
 def test_manager_integrity_route_returns_403_when_flag_disabled(monkeypatch):
     settings = AppSettings()
-    settings.general.bucket_integrity_check_enabled = False
+    settings.manager.feature_policies.bucket_integrity_check = "disabled"
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
     previous_overrides = app.dependency_overrides.copy()

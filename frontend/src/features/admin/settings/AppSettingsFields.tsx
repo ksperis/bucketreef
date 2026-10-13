@@ -4,6 +4,7 @@ import {
   SettingsItem,
   SettingsToggleAction,
 } from "../../../components/settings/SettingsLayout";
+import { SettingsSelect } from "../../../components/settings/SettingsControls";
 import { SettingsField } from "../../../components/settings/SettingsControls";
 import type { useAppSettingsDraft } from "./useAppSettingsDraft";
 import type { SettingsPath } from "./appSettingsDraft";
@@ -94,4 +95,19 @@ export function AppSettingsNumber({
       }
     />
   );
+}
+
+export function AppSettingsPolicy({ form, field, title, description, ariaLabel, disabled, experimental }: Props & { experimental?: boolean }) {
+  return <SettingsItem compact title={title} help={<>
+      <p>Disabled blocks local activation. Targeted activation uses explicit resource or User/Group grants. Enabled by default applies to eligible targets; storage permissions remain required.</p>
+      {description && <p className="mt-2">{description}</p>}
+    </>}
+    status={experimental ? <span className="settings-description">Experimental</span> : undefined}
+    action={<SettingsSelect className="settings-policy-select" aria-label={ariaLabel ?? title}
+      value={String(form.draft[field] ?? "disabled")} disabled={disabled || form.busy}
+      error={form.errors[field]} onChange={event => form.setValue(field, event.target.value)}>
+      <option value="disabled">Disabled</option>
+      <option value="targeted">Targeted activation</option>
+      <option value="default_on">Enabled by default</option>
+    </SettingsSelect>} />;
 }

@@ -23,6 +23,12 @@ from tests.s3_account_factory import make_s3_account
 
 
 def _seed_access_graph(db_session):
+    from app.models.app_settings import AppSettings
+    from app.db import AppSetting
+    settings = AppSettings()
+    settings.manager.feature_policies.bucket_migration = "targeted"
+    db_session.add(AppSetting(key="default", payload_json=settings.model_dump_json()))
+
     user = User(
         email="alice@example.test",
         full_name="Alice Example",

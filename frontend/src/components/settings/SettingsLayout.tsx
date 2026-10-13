@@ -4,6 +4,7 @@
  */
 import { ReactNode, useId } from "react";
 import UiBadge from "../ui/UiBadge";
+import UiInfoTooltip from "../ui/UiInfoTooltip";
 import {
   cx,
   uiCheckboxClass,
@@ -26,6 +27,7 @@ type SettingsSectionProps = {
 
 type SettingsItemProps = {
   title: string;
+  help?: ReactNode;
   ariaLabel?: string;
   description?: ReactNode;
   icon?: ReactNode;
@@ -122,6 +124,7 @@ export const SettingsSection = ({
 
 export const SettingsItem = ({
   title,
+  help,
   ariaLabel,
   description,
   action,
@@ -147,6 +150,7 @@ export const SettingsItem = ({
             <h3 className="settings-label">
               {title}
             </h3>
+            {help && <UiInfoTooltip label={`${title}: information`} triggerClassName="settings-info-trigger" tooltipClassName="settings-info-tooltip">{help}</UiInfoTooltip>}
             {status}
           </div>
           {description && (

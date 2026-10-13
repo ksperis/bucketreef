@@ -36,3 +36,5 @@ See [Audit boundary](audit-boundary.md).
 ## Documentation contract
 
 When a route or feature changes, update the matching user, ops, or developer page and then update [Docs maintenance](../documentation/maintenance.md). The route tree in `frontend/src/router.tsx` is the fastest way to check whether user-facing coverage is still current.
+
+- [Feature policies](feature-policies.md): platform defaults, resource inheritance and effective-state contracts.

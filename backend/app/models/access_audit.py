@@ -13,7 +13,7 @@ from app.models.pagination import PaginatedResponse
 from app.models.user import UiRole
 
 AccessAuditScope = Literal["platform", "rgw_account", "rgw_user", "s3_connection"]
-AccessAuditSourceKind = Literal["direct", "group"]
+AccessAuditSourceKind = Literal["direct", "group", "platform"]
 AccessAuditRightCode = Literal[
     "ceph_admin",
     "storage_ops",

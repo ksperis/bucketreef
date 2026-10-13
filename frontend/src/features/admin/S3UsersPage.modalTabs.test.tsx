@@ -1,3 +1,4 @@
+import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -434,29 +435,24 @@ describe("S3UsersPage modal tabs", () => {
 
     const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
     const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
-    expect(within(extensionsSection).getByRole("switch", { name: "Access-key names and notes" })).toBeInTheDocument();
-    expect(within(extensionsSection).getByRole("switch", { name: "Access-key expiration" })).toBeInTheDocument();
-    expect(within(extensionsSection).queryByRole("switch", { name: "Bucket quota management" })).not.toBeInTheDocument();
-    expect(within(privilegedSection).getByRole("switch", { name: "Bucket quota management" })).toBeInTheDocument();
-    expect(within(privilegedSection).getByRole("switch", { name: "Ceph S3 User keys" })).toBeInTheDocument();
-    expect(within(privilegedSection).getByRole("switch", { name: "Managed private connection provisioning" })).toBeInTheDocument();
-    expect(within(privilegedSection).queryByRole("switch", { name: "Access-key names and notes" })).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Manager operations that require delegated Ceph/RGW administrative capabilities.")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Allow Ceph bucket quota updates for this RGW User in Manager.")
-    ).toBeInTheDocument();
-    expect(screen.getByText("Allow access to Manager > Ceph > Access keys.")).toBeInTheDocument();
-    const quotaCheckbox = screen.getByRole("switch", { name: /Bucket quota management/ });
-    const keysCheckbox = screen.getByRole("switch", { name: /Ceph S3 User keys/ });
-    const privateCheckbox = screen.getByRole("switch", { name: /Managed private connection provisioning/ });
-    expect(quotaCheckbox).not.toBeChecked();
-    expect(keysCheckbox).not.toBeChecked();
-    expect(privateCheckbox).not.toBeChecked();
-    fireEvent.click(quotaCheckbox);
-    fireEvent.click(keysCheckbox);
-    fireEvent.click(privateCheckbox);
+    expect(within(extensionsSection).getByRole("combobox", { name: "Access-key names and notes" })).toBeInTheDocument();
+    expect(within(extensionsSection).getByRole("combobox", { name: "Access-key expiration" })).toBeInTheDocument();
+    expect(within(extensionsSection).queryByRole("combobox", { name: "Bucket quota management" })).not.toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("combobox", { name: "Bucket quota management" })).toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("combobox", { name: "Ceph S3 User keys" })).toBeInTheDocument();
+    expect(within(privilegedSection).getByRole("combobox", { name: "Managed private connection provisioning" })).toBeInTheDocument();
+    expect(within(privilegedSection).queryByRole("combobox", { name: "Access-key names and notes" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ceph S3 User keys: information" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("storage and endpoint permissions");
+    const quotaCheckbox = screen.getByRole("combobox", { name: /Bucket quota management/ });
+    const keysCheckbox = screen.getByRole("combobox", { name: /Ceph S3 User keys/ });
+    const privateCheckbox = screen.getByRole("combobox", { name: /Managed private connection provisioning/ });
+    expect(quotaCheckbox).toHaveValue("inherit");
+    expect(keysCheckbox).toHaveValue("inherit");
+    expect(privateCheckbox).toHaveValue("inherit");
+    fireEvent.change(quotaCheckbox, { target: { value: "enabled" } });
+    fireEvent.change(keysCheckbox, { target: { value: "enabled" } });
+    fireEvent.change(privateCheckbox, { target: { value: "enabled" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -473,6 +469,23 @@ describe("S3UsersPage modal tabs", () => {
     );
   });
 
+  it("preserves inherited Manager feature choices when saving an unrelated identity change", async () => {
+    render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
+    await screen.findByText("rgw-user-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
+    for (const name of ["Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning"])
+      expect(screen.getByRole("combobox", { name })).toHaveValue("inherit");
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Display name", exact: true }), { target: { value: "renamed-user" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updateS3UserMock).toHaveBeenCalled());
+    expect(updateS3UserMock.mock.calls.at(-1)?.[1]).toEqual(expect.objectContaining({
+      allow_bucket_quota_management: null, allow_access_key_management: null, allow_access_key_metadata: null,
+      allow_access_key_expiration: null, allow_managed_private_connection_provisioning: null,
+    }));
+  });
+
   it("lets ui_admin submit Manager feature grants from S3 user edits", async () => {
     setSessionUserCache({ id: 2, role: "ui_admin" });
 
@@ -486,12 +499,12 @@ describe("S3UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
-    const quotaCheckbox = screen.getByRole("switch", { name: /Bucket quota management/ });
-    const keysCheckbox = screen.getByRole("switch", { name: /Ceph S3 User keys/ });
-    expect(quotaCheckbox).not.toBeChecked();
-    expect(keysCheckbox).not.toBeChecked();
-    fireEvent.click(quotaCheckbox);
-    fireEvent.click(keysCheckbox);
+    const quotaCheckbox = screen.getByRole("combobox", { name: /Bucket quota management/ });
+    const keysCheckbox = screen.getByRole("combobox", { name: /Ceph S3 User keys/ });
+    expect(quotaCheckbox).toHaveValue("inherit");
+    expect(keysCheckbox).toHaveValue("inherit");
+    fireEvent.change(quotaCheckbox, { target: { value: "enabled" } });
+    fireEvent.change(keysCheckbox, { target: { value: "enabled" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -759,4 +772,10 @@ describe("S3UsersPage modal tabs", () => {
     expect(importS3UsersMock).not.toHaveBeenCalled();
   });
 
+});
+
+vi.mock("../../components/GeneralSettingsContext", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../components/GeneralSettingsContext")>();
+    return { ...actual, useGeneralSettings: () => ({ generalSettings: { ...actual.DEFAULT_GENERAL_SETTINGS,
+      manager_feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_quota_management: "targeted", managed_private_connection_provisioning: "targeted" } } }) };
 });

@@ -1,3 +1,4 @@
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES } from "../api/featurePolicies";
 import type { BrowserFavorite } from "../api/browserFavorites";
 import type { User } from "../api/users";
 import type { S3Account } from "../api/accounts";
@@ -14,7 +15,6 @@ import type { CephAdminRgwUserDetail } from "../api/cephAdminUsers";
 import type { IAMGroup } from "../api/managerIamGroups";
 import type { IAMRole } from "../api/managerIamRoles";
 import type { IamPolicy, InlinePolicy } from "../api/managerIamPolicies";
-import { disabledFlags } from "./registry";
 import type { S3Connection } from "../api/connections";
 import type { S3ConnectionAdminItem } from "../api/s3ConnectionsAdmin";
 import type { UserNotification } from "../api/userNotifications";
@@ -53,24 +53,19 @@ export const settings: AppSettings = {
     browser_enabled: true, browser_root_enabled: true, browser_manager_enabled: true,
     browser_portal_enabled: true, browser_ceph_admin_enabled: true, portal_enabled: true,
     billing_enabled: true, endpoint_status_enabled: true, quota_alerts_enabled: true,
-    usage_history_enabled: true, bucket_compare_enabled: true, bucket_usage_stats_enabled: true,
-    bucket_quota_management_enabled: true, manager_ceph_s3_user_keys_enabled: true,
-    manager_access_key_metadata_enabled: false,
-    manager_access_key_expiration_enabled: false,
+    usage_history_enabled: true, bucket_usage_stats_enabled: true,
     allow_login_access_keys: false, allow_login_endpoint_list: false, allow_login_custom_endpoint: false,
     require_passkey_for_admins: false, require_passkey_for_users: false,
-    allow_user_profile_name_edit: true, allow_user_external_identity_unlink: false, ...disabledFlags,
+    allow_user_profile_name_edit: true, allow_user_external_identity_unlink: false,
   },
   portal: {
-    browser_access_enabled: true, allow_private_storage_space_create: true,
-    allow_portal_named_bucket_create: true, allow_portal_user_access_key_create: true,
-    allow_portal_user_external_sharing: false, server_access_logging_enabled: true,
-    server_access_log_retention_days: 90, storage_space_version_cleanup_enabled: false,
-    max_portal_user_access_keys: 3,
+      feature_policies: { ...DEFAULT_PORTAL_FEATURE_POLICIES, browser_access: "default_on", private_storage_space_create: "default_on", named_bucket_create: "default_on", user_access_key_create: "default_on", user_external_sharing: "targeted", server_access_logging: "default_on", storage_space_version_cleanup: "targeted" },
+    server_access_log_retention_days: 90, max_portal_user_access_keys: 3,
     bucket_defaults: { versioning: true, enable_cors: true, enable_lifecycle: true,
       noncurrent_version_expiration_days: 90, cors_allowed_origins: [] },
   },
-  manager: { manager_rgw_usage_metrics_enabled: true, bucket_migration_parallelism_default: 1, bucket_migration_parallelism_max: 1, bucket_migration_max_active_per_endpoint: 1 },
+  manager: {
+      feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_integrity_check: "disabled", bucket_compare: "targeted", bucket_quota_management: "targeted", ceph_s3_user_keys: "targeted", access_key_metadata: "disabled", access_key_expiration: "disabled" }, manager_rgw_usage_metrics_enabled: true, bucket_migration_parallelism_default: 1, bucket_migration_parallelism_max: 1, bucket_migration_max_active_per_endpoint: 1 },
   browser: { allow_proxy_transfers: true, direct_upload_parallelism: 2, proxy_upload_parallelism: 2,
     direct_download_parallelism: 2, proxy_download_parallelism: 2, other_operations_parallelism: 2, streaming_zip_threshold_mb: 200 },
   onboarding: { dismissed: true }, branding: { primary_color: "#0569f8", login_logo_url: null },

@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import json
@@ -868,3 +869,29 @@ def test_reject_and_conflict_on_final_request(db_session):
     assert rejected.messages[0].message == "Missing information"
     with pytest.raises(PortalRequestConflict):
         service.approve_request(created.id, admin)
+
+
+def test_platform_prohibition_rejects_new_and_previously_pending_activation_requests(db_session, monkeypatch):
+    from app.models.app_settings import AppSettings
+    from app.models.feature_policy import FeaturePolicy
+    from app.services.portal_requests_service import PortalRequestExecutionError
+    settings = AppSettings()
+    settings.portal.feature_policies.user_external_sharing = FeaturePolicy.TARGETED
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings", lambda: settings)
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="policy-manager@example.test")
+    admin = _seed_user(db_session, email="policy-admin@example.test", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    access = _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value)
+    payload = PortalSettingChangeRequestCreate(request_type="portal_setting_change",
+        setting="allow_portal_user_external_sharing", mode="override", value=True)
+    created = service.create_request(requester, access, payload)
+    settings.portal.feature_policies.user_external_sharing = FeaturePolicy.DISABLED
+    with pytest.raises(ValueError, match="disabled by the platform"):
+        service.create_request(requester, access, payload)
+    with pytest.raises(PortalRequestExecutionError, match="disabled by the platform"):
+        service.approve_request(created.id, admin)
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row.status == "failed"
+    db_session.refresh(account)
+    assert account.portal_settings_override is None

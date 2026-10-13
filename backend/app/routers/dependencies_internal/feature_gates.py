@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
+from app.models.feature_policy import FeaturePolicy
 from app.models.access_context import BucketMigrationAccessScope, ManagerActor
 from app.models.session import ManagerSessionPrincipal
 from app.routers.manager.access import require_manager_capabilities
@@ -32,11 +34,12 @@ ManagerToolKey = Literal[
     "bucket_purge",
 ]
 
-_MANAGER_TOOL_GLOBAL_FIELDS: dict[ManagerToolKey, tuple[str, str]] = {
-    "bucket_compare": ("bucket_compare_enabled", "Bucket compare feature is disabled"),
-    "bucket_integrity_check": ("bucket_integrity_check_enabled", "Bucket integrity check feature is disabled"),
-    "bucket_migration": ("bucket_migration_enabled", "Bucket migration feature is disabled"),
-    "bucket_purge": ("bucket_purge_enabled", "Bucket purge feature is disabled"),
+_MANAGER_TOOL_DISABLED_MESSAGES: dict[ManagerToolKey, str] = {
+    "bucket_compare": "Bucket compare feature is disabled",
+    "bucket_integrity_check": "Bucket integrity check feature is disabled",
+    "bucket_migration": "Bucket migration feature is disabled",
+    "bucket_purge": "Bucket purge feature is disabled",
+    "feature_rules": "Feature rules are disabled",
 }
 
 
@@ -145,11 +148,8 @@ def require_metrics_capable_manager(
 
 def _manager_tool_global_state(tool: ManagerToolKey) -> tuple[bool, str]:
     app_settings = app_settings_service.load_app_settings()
-    global_state = _MANAGER_TOOL_GLOBAL_FIELDS.get(tool)
-    if global_state is None:
-        return True, ""
-    global_field, disabled_detail = global_state
-    return bool(getattr(app_settings.general, global_field)), disabled_detail
+    disabled_detail = _MANAGER_TOOL_DISABLED_MESSAGES[tool]
+    return getattr(app_settings.manager.feature_policies, tool) != FeaturePolicy.DISABLED, disabled_detail
 
 
 def ensure_manager_tool_allowed(user: User, tool: ManagerToolKey, db: Session) -> ResolvedUserAccess:
@@ -189,7 +189,7 @@ def require_bucket_purge_enabled(user: User = Depends(get_current_user), db: Ses
 
 def require_bucket_purge_global_enabled() -> None:
     app_settings = app_settings_service.load_app_settings()
-    if not bool(app_settings.general.bucket_purge_enabled):
+    if app_settings.manager.feature_policies.bucket_purge == FeaturePolicy.DISABLED:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bucket purge feature is disabled")
 
 

@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import json
@@ -10,8 +11,11 @@ from app.models.app_settings import (
     PortalBucketDefaults,
     PortalBucketDefaultsOverride,
     PortalSettings,
+    PortalEffectiveSettings,
     PortalSettingsOverride,
 )
+from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS, resolve_feature_policy
+from app.services.portal.exceptions import PortalForbiddenError
 from app.models.portal_settings import PortalAccountSettings, PortalProjectSettings
 from app.services.app_settings_service import load_app_settings
 
@@ -81,23 +85,12 @@ class PortalSettingsMixin:
 
     def _apply_override(
         self,
-        portal_settings: PortalSettings,
+        portal_settings: PortalEffectiveSettings,
         override: PortalSettingsOverride,
     ) -> None:
-        if override.browser_access_enabled is not None:
-            portal_settings.browser_access_enabled = override.browser_access_enabled
-        if override.allow_private_storage_space_create is not None:
-            portal_settings.allow_private_storage_space_create = override.allow_private_storage_space_create
-        if override.allow_portal_named_bucket_create is not None:
-            portal_settings.allow_portal_named_bucket_create = override.allow_portal_named_bucket_create
-        if override.allow_portal_user_access_key_create is not None:
-            portal_settings.allow_portal_user_access_key_create = override.allow_portal_user_access_key_create
-        if override.allow_portal_user_external_sharing is not None:
-            portal_settings.allow_portal_user_external_sharing = override.allow_portal_user_external_sharing
-        if override.server_access_logging_enabled is not None:
-            portal_settings.server_access_logging_enabled = override.server_access_logging_enabled
-        if override.storage_space_version_cleanup_enabled is not None:
-            portal_settings.storage_space_version_cleanup_enabled = override.storage_space_version_cleanup_enabled
+        for field, feature in PORTAL_FEATURE_FIELDS.items():
+            state = resolve_feature_policy(getattr(portal_settings.feature_policies, feature), getattr(override, field))
+            setattr(portal_settings, field, state.enabled)
         if override.bucket_defaults:
             self._apply_bucket_defaults_override(
                 portal_settings.bucket_defaults,
@@ -109,20 +102,22 @@ class PortalSettingsMixin:
         account: S3Account,
         *,
         base_settings: Optional[PortalSettings] = None,
-    ) -> PortalSettings:
+    ) -> PortalEffectiveSettings:
         base = base_settings or self._portal_settings()
         override = self._load_portal_settings_override(account)
-        effective = base.model_copy(deep=True)
+        effective = PortalEffectiveSettings(**base.model_dump())
         self._apply_override(effective, override)
         return effective
 
     def get_portal_account_settings(self, account: S3Account) -> PortalAccountSettings:
         base = self._portal_settings()
         admin_override = self._load_portal_settings_override(account)
-        effective = base.model_copy(deep=True)
+        effective = PortalEffectiveSettings(**base.model_dump())
         self._apply_override(effective, admin_override)
         return PortalAccountSettings(
             effective=effective,
+            feature_states={field: resolve_feature_policy(getattr(base.feature_policies, feature), getattr(admin_override, field))
+                            for field, feature in PORTAL_FEATURE_FIELDS.items()},
             admin_override=admin_override,
             delegated_to_portal_managers=bool(account.portal_settings_delegated),
             portal_collaborator_role_management_delegated=bool(
@@ -142,6 +137,7 @@ class PortalSettingsMixin:
         account_settings = self.get_portal_account_settings(account)
         return PortalProjectSettings(
             effective=account_settings.effective,
+            feature_states=account_settings.feature_states,
             project_override=account_settings.admin_override,
             delegated_to_portal_managers=account_settings.delegated_to_portal_managers,
             portal_collaborator_role_management_delegated=(
@@ -162,7 +158,13 @@ class PortalSettingsMixin:
         portal_collaborator_role_management_delegated: Optional[bool] = None,
         portal_collaborator_addition_delegated: Optional[bool] = None,
     ) -> PortalAccountSettings:
-        effective = self._portal_settings().model_copy(deep=True)
+        base = self._portal_settings()
+        previous = self._load_portal_settings_override(account)
+        for field, feature in PORTAL_FEATURE_FIELDS.items():
+            if (getattr(base.feature_policies, feature) == FeaturePolicy.DISABLED
+                    and getattr(override, field) is True and getattr(previous, field) is not True):
+                raise PortalForbiddenError("This feature is disabled by the platform")
+        effective = PortalEffectiveSettings(**base.model_dump())
         self._apply_override(effective, override)
         self.reconcile_portal_server_access_logging(account, portal_settings=effective)
         self._persist_portal_settings_override(

@@ -6,7 +6,7 @@ import client from "./client";
 import type { PaginatedResponse } from "./types";
 
 export type AccessAuditScope = "platform" | "rgw_account" | "rgw_user" | "s3_connection";
-export type AccessAuditSourceKind = "direct" | "group";
+export type AccessAuditSourceKind = "direct" | "group" | "platform";
 export type AccessAuditRightCode =
   | "ceph_admin"
   | "storage_ops"

@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
+
 from dataclasses import dataclass
 from typing import Literal
 
@@ -78,10 +80,10 @@ class ManagerCephManagementAccessService:
         if actor is None or actor.role not in MANAGER_TOOL_ROLES:
             return self._deny("Not authorized")
 
-        settings = app_settings_service.load_app_settings().general
-        if operation == "bucket_quota" and not settings.bucket_quota_management_enabled:
+        policies = app_settings_service.load_app_settings().manager.feature_policies
+        if operation == "bucket_quota" and policies.bucket_quota_management == FeaturePolicy.DISABLED:
             return self._deny("Bucket quota management feature is disabled")
-        if operation == "rgw_access_keys" and not settings.manager_ceph_s3_user_keys_enabled:
+        if operation == "rgw_access_keys" and policies.ceph_s3_user_keys == FeaturePolicy.DISABLED:
             return self._deny("Ceph access key management feature is disabled")
         if account is None:
             return self._deny(f"{label} is not available for this context")
@@ -98,7 +100,7 @@ class ManagerCephManagementAccessService:
             if link is None or not EffectiveAccessService.manager_account_allowed(link):
                 return self._deny("Not authorized for this Manager context")
             resource = self.db.query(S3Account).filter(S3Account.id == account_id).first()
-            if resource is None or not resource.allow_bucket_quota_management:
+            if resource is None or not resolve_feature_policy(policies.bucket_quota_management, resource.allow_bucket_quota_management).enabled:
                 return self._deny("Bucket quota management is not enabled for this resource")
         elif context_kind == "s3_user":
             if not isinstance(account, S3ExecutionContext):
@@ -111,9 +113,9 @@ class ManagerCephManagementAccessService:
             resource = self.db.query(S3User).filter(S3User.id == s3_user_id).first()
             if resource is None:
                 return self._deny(f"{label} is not available for this context")
-            if operation == "bucket_quota" and not resource.allow_bucket_quota_management:
+            if operation == "bucket_quota" and not resolve_feature_policy(policies.bucket_quota_management, resource.allow_bucket_quota_management).enabled:
                 return self._deny("Bucket quota management is not enabled for this resource")
-            if operation == "rgw_access_keys" and not resource.allow_access_key_management:
+            if operation == "rgw_access_keys" and not resolve_feature_policy(policies.ceph_s3_user_keys, resource.allow_access_key_management).enabled:
                 return self._deny("Ceph access key management is not enabled for this resource")
         else:
             return self._deny(f"{label} is not available for this context")

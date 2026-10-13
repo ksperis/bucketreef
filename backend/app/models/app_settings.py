@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
+from app.models.feature_policy import ManagerFeaturePolicies, PortalFeaturePolicies, FeaturePolicy, MANAGER_LEGACY_FIELDS
 from app.core.config import get_settings
 from app.models.storage_endpoint import StorageEndpointPublic
 
@@ -75,16 +76,7 @@ class GeneralSettings(ApiModel):
     endpoint_status_enabled: bool = True
     quota_alerts_enabled: bool = False
     usage_history_enabled: bool = True
-    bucket_migration_enabled: bool = False
-    bucket_compare_enabled: bool = True
-    bucket_integrity_check_enabled: bool = True
     bucket_usage_stats_enabled: bool = True
-    bucket_purge_enabled: bool = False
-    bucket_quota_management_enabled: bool = False
-    manager_ceph_s3_user_keys_enabled: bool = True
-    manager_access_key_metadata_enabled: bool = True
-    manager_access_key_expiration_enabled: bool = True
-    managed_private_connection_provisioning_enabled: bool = False
     allow_login_access_keys: bool = False
     allow_login_endpoint_list: bool = False
     allow_login_custom_endpoint: bool = False
@@ -118,6 +110,29 @@ class GeneralSettings(ApiModel):
         ):
             return normalized.rstrip("/")
         raise ValueError("documentation_base_url must be an http(s) or root-relative URL")
+
+
+class GeneralSettingsView(GeneralSettings):
+    """Read-only availability projection for the existing workspace consumers."""
+    manager_feature_policies: ManagerFeaturePolicies = Field(default_factory=ManagerFeaturePolicies)
+    bucket_compare_enabled: bool = True
+    bucket_integrity_check_enabled: bool = True
+    bucket_migration_enabled: bool = False
+    bucket_purge_enabled: bool = False
+    bucket_quota_management_enabled: bool = False
+    manager_ceph_s3_user_keys_enabled: bool = True
+    manager_access_key_metadata_enabled: bool = True
+    manager_access_key_expiration_enabled: bool = True
+    managed_private_connection_provisioning_enabled: bool = False
+
+    @classmethod
+    def from_settings(cls, settings: "AppSettings") -> "GeneralSettingsView":
+        policies = settings.manager.feature_policies
+        return cls(
+            **settings.general.model_dump(),
+            manager_feature_policies=policies,
+            **{field: getattr(policies, key) != FeaturePolicy.DISABLED for field, key in MANAGER_LEGACY_FIELDS.items()},
+        )
 
 
 class GeneralFeatureLock(ApiModel):
@@ -184,19 +199,24 @@ class LoginSettings(ApiModel):
 
 
 class PortalSettings(ApiModel):
+    feature_policies: PortalFeaturePolicies = Field(default_factory=PortalFeaturePolicies)
+    server_access_log_retention_days: int = Field(default=30, ge=1)
+    max_portal_user_access_keys: int = Field(default=2, ge=1)
+    bucket_defaults: PortalBucketDefaults = Field(default_factory=PortalBucketDefaults)
+
+
+class PortalEffectiveSettings(PortalSettings):
     browser_access_enabled: bool = True
     allow_private_storage_space_create: bool = True
     allow_portal_named_bucket_create: bool = False
     allow_portal_user_access_key_create: bool = True
     allow_portal_user_external_sharing: bool = False
     server_access_logging_enabled: bool = True
-    server_access_log_retention_days: int = Field(default=30, ge=1)
     storage_space_version_cleanup_enabled: bool = True
-    max_portal_user_access_keys: int = Field(default=2, ge=1)
-    bucket_defaults: PortalBucketDefaults = Field(default_factory=PortalBucketDefaults)
 
 
 class ManagerSettings(ApiModel):
+    feature_policies: ManagerFeaturePolicies = Field(default_factory=ManagerFeaturePolicies)
     manager_rgw_usage_metrics_enabled: bool = True
     bucket_migration_parallelism_default: int = Field(
         default_factory=_default_bucket_migration_parallelism_max,

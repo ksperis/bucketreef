@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { projectGeneralSettings } from "../../../api/featurePolicies";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   fetchAppSettings,
@@ -12,6 +13,7 @@ import {
 } from "../../../auth/useRecentWebAuthnStepUp";
 import { useSettingsDraft } from "../../../components/settings/useSettingsDraft";
 import { extractApiError } from "../../../utils/apiError";
+import { useSession } from "../../../auth/SessionProvider";
 import { useGeneralSettings } from "../../../components/GeneralSettingsContext";
 import {
   mergeSettingsChanges,
@@ -33,6 +35,7 @@ export function useAppSettingsDraft(
   ) => AppSettingsValues,
 ) {
   const { setGeneralSettings } = useGeneralSettings();
+  const { refresh: refreshSession } = useSession();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const form = useSettingsDraft<AppSettingsValues>({});
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +124,8 @@ export function useAppSettingsDraft(
       setSettings(saved);
       accept(selectSettings(saved, paths));
       conflict.current = null;
-      setGeneralSettings(saved.general);
+      setGeneralSettings(projectGeneralSettings(saved));
+      void refreshSession?.();
       onSaved?.(saved);
       setMessage("Settings saved.");
     } catch (err) {
@@ -165,7 +169,7 @@ export function useAppSettingsDraft(
     setSettings(latest);
     accept(next);
     setDraft({ ...next, ...pendingChanges });
-    setGeneralSettings(latest.general);
+    setGeneralSettings(projectGeneralSettings(latest));
   };
   return {
     ...form,

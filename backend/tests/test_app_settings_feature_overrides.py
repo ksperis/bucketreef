@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import json
@@ -9,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
+from app.models.feature_policy import MANAGER_LEGACY_FIELDS
 from app.db import AppSetting
 from app.models import app_settings as app_settings_models
 from app.models.app_settings import AppSettings, BrandingSettings, PortalSettingsOverride
@@ -241,7 +243,7 @@ def test_branding_settings_reject_invalid_logo_url():
 
 def test_manager_ceph_s3_user_keys_flag_default_enabled():
     settings = AppSettings()
-    assert settings.general.manager_ceph_s3_user_keys_enabled is True
+    assert settings.manager.feature_policies.ceph_s3_user_keys == "targeted"
 
 
 def test_fresh_settings_enable_access_key_extensions_and_preserve_disabled_choices(monkeypatch, tmp_path, db_session):
@@ -252,20 +254,20 @@ def test_fresh_settings_enable_access_key_extensions_and_preserve_disabled_choic
     settings = app_settings_service.load_app_settings()
     fields = ("manager_access_key_metadata_enabled", "manager_access_key_expiration_enabled")
     for field in fields:
-        assert getattr(settings.general, field) is True
-        assert _raw_db_settings(db_session)["general"][field] is True
-        setattr(settings.general, field, False)
+        assert getattr(settings.manager.feature_policies, MANAGER_LEGACY_FIELDS[field]) == "targeted"
+        assert _raw_db_settings(db_session)["manager"]["feature_policies"][MANAGER_LEGACY_FIELDS[field]] == "targeted"
+        setattr(settings.manager.feature_policies, MANAGER_LEGACY_FIELDS[field], "disabled")
 
     app_settings_service.save_app_settings(settings)
     reloaded = app_settings_service.load_app_settings()
     for field in fields:
-        assert getattr(reloaded.general, field) is False
-        assert _raw_db_settings(db_session)["general"][field] is False
+        assert getattr(reloaded.manager.feature_policies, MANAGER_LEGACY_FIELDS[field]) == "disabled"
+        assert _raw_db_settings(db_session)["manager"]["feature_policies"][MANAGER_LEGACY_FIELDS[field]] == "disabled"
 
 
 def test_managed_private_connection_provisioning_flag_default_disabled():
     settings = AppSettings()
-    assert settings.general.managed_private_connection_provisioning_enabled is False
+    assert settings.manager.feature_policies.managed_private_connection_provisioning == "disabled"
 
 
 def test_fresh_app_settings_defaults_admin_passkeys_to_optional():
@@ -341,17 +343,17 @@ def test_removed_portal_key_setting_is_rejected():
 
 def test_bucket_integrity_check_flag_default_enabled():
     settings = AppSettings()
-    assert settings.general.bucket_integrity_check_enabled is True
+    assert settings.manager.feature_policies.bucket_integrity_check == "targeted"
 
 
 def test_bucket_purge_flag_default_disabled():
     settings = AppSettings()
-    assert settings.general.bucket_purge_enabled is False
+    assert settings.manager.feature_policies.bucket_purge == "disabled"
 
 
 def test_portal_storage_space_version_cleanup_default_enabled():
     settings = AppSettings()
-    assert settings.portal.storage_space_version_cleanup_enabled is True
+    assert settings.portal.feature_policies.storage_space_version_cleanup == "default_on"
 
 
 def test_portal_server_access_log_retention_default_days():
@@ -369,7 +371,7 @@ def test_portal_noncurrent_version_expiration_days_are_positive():
 
 def test_bucket_compare_flag_default_enabled():
     settings = AppSettings()
-    assert settings.general.bucket_compare_enabled is True
+    assert settings.manager.feature_policies.bucket_compare == "targeted"
 
 
 def test_endpoint_status_and_usage_history_default_enabled():
@@ -381,7 +383,7 @@ def test_endpoint_status_and_usage_history_default_enabled():
 def test_portal_browser_flag_default_enabled():
     settings = AppSettings()
     assert settings.general.browser_portal_enabled is True
-    assert settings.portal.browser_access_enabled is True
+    assert settings.portal.feature_policies.browser_access == "default_on"
 
 
 def test_manager_ceph_s3_user_keys_flag_persists(monkeypatch, tmp_path, db_session):
@@ -395,14 +397,14 @@ def test_manager_ceph_s3_user_keys_flag_persists(monkeypatch, tmp_path, db_sessi
     )
 
     payload = AppSettings()
-    payload.general.manager_ceph_s3_user_keys_enabled = True
+    payload.manager.feature_policies.ceph_s3_user_keys = "targeted"
     saved = app_settings_service.save_app_settings(payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
-    assert saved.general.manager_ceph_s3_user_keys_enabled is True
-    assert loaded.general.manager_ceph_s3_user_keys_enabled is True
-    assert raw["general"]["manager_ceph_s3_user_keys_enabled"] is True
+    assert saved.manager.feature_policies.ceph_s3_user_keys == "targeted"
+    assert loaded.manager.feature_policies.ceph_s3_user_keys == "targeted"
+    assert raw["manager"]["feature_policies"]["ceph_s3_user_keys"] == "targeted"
 
 
 def test_managed_private_connection_provisioning_flag_persists(monkeypatch, tmp_path, db_session):
@@ -416,14 +418,14 @@ def test_managed_private_connection_provisioning_flag_persists(monkeypatch, tmp_
     )
 
     payload = AppSettings()
-    payload.general.managed_private_connection_provisioning_enabled = True
+    payload.manager.feature_policies.managed_private_connection_provisioning = "targeted"
     saved = app_settings_service.save_app_settings(payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
-    assert saved.general.managed_private_connection_provisioning_enabled is True
-    assert loaded.general.managed_private_connection_provisioning_enabled is True
-    assert raw["general"]["managed_private_connection_provisioning_enabled"] is True
+    assert saved.manager.feature_policies.managed_private_connection_provisioning == "targeted"
+    assert loaded.manager.feature_policies.managed_private_connection_provisioning == "targeted"
+    assert raw["manager"]["feature_policies"]["managed_private_connection_provisioning"] == "targeted"
 
 
 def test_manager_rgw_usage_metrics_flag_persists(monkeypatch, tmp_path, db_session):
@@ -458,14 +460,14 @@ def test_bucket_integrity_check_flag_persists(monkeypatch, tmp_path, db_session)
     )
 
     payload = AppSettings()
-    payload.general.bucket_integrity_check_enabled = True
+    payload.manager.feature_policies.bucket_integrity_check = "targeted"
     saved = app_settings_service.save_app_settings(payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
-    assert saved.general.bucket_integrity_check_enabled is True
-    assert loaded.general.bucket_integrity_check_enabled is True
-    assert raw["general"]["bucket_integrity_check_enabled"] is True
+    assert saved.manager.feature_policies.bucket_integrity_check == "targeted"
+    assert loaded.manager.feature_policies.bucket_integrity_check == "targeted"
+    assert raw["manager"]["feature_policies"]["bucket_integrity_check"] == "targeted"
 
 
 def test_bucket_purge_flag_persists(monkeypatch, tmp_path, db_session):
@@ -479,11 +481,11 @@ def test_bucket_purge_flag_persists(monkeypatch, tmp_path, db_session):
     )
 
     payload = AppSettings()
-    payload.general.bucket_purge_enabled = True
+    payload.manager.feature_policies.bucket_purge = "targeted"
     saved = app_settings_service.save_app_settings(payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
-    assert saved.general.bucket_purge_enabled is True
-    assert loaded.general.bucket_purge_enabled is True
-    assert raw["general"]["bucket_purge_enabled"] is True
+    assert saved.manager.feature_policies.bucket_purge == "targeted"
+    assert loaded.manager.feature_policies.bucket_purge == "targeted"
+    assert raw["manager"]["feature_policies"]["bucket_purge"] == "targeted"

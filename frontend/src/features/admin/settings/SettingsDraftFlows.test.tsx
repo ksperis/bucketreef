@@ -83,13 +83,17 @@ describe("shared settings draft flows", () => {
     "%s: cancel, failure retention, retry, route and unload protection",
     async (_name, Page, label) => {
       const router = mount(Page);
-      const toggle = await screen.findByRole("switch", { name: label });
+      const toggle = await screen.findByLabelText(label);
       await waitFor(() => expect(toggle).toBeEnabled());
-      const initial = (toggle as HTMLInputElement).checked;
+      const isSelect = toggle instanceof HTMLSelectElement;
+      const initial = isSelect ? toggle.value : (toggle as HTMLInputElement).checked;
+      const changed = isSelect ? (initial === "disabled" ? "default_on" : "disabled") : !initial;
+      const change = () => isSelect ? fireEvent.change(toggle, { target: { value: changed } }) : fireEvent.click(toggle);
+      const value = () => isSelect ? toggle.value : (toggle as HTMLInputElement).checked;
       expect(
         screen.queryByRole("button", { name: "Save changes" }),
       ).not.toBeInTheDocument();
-      fireEvent.click(toggle);
+      change();
       const unload = new Event("beforeunload", { cancelable: true });
       window.dispatchEvent(unload);
       expect(unload.defaultPrevented).toBe(true);
@@ -101,15 +105,15 @@ describe("shared settings draft flows", () => {
       expect(router.state.location.pathname).toBe("/settings");
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-      expect((toggle as HTMLInputElement).checked).toBe(initial);
+      expect(value()).toBe(initial);
       expect(mocks.save).not.toHaveBeenCalled();
-      fireEvent.click(toggle);
+      change();
       mocks.save.mockRejectedValueOnce(new Error("Network Error"));
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
       expect(
         await screen.findByText("Unable to save settings."),
       ).toBeInTheDocument();
-      expect((toggle as HTMLInputElement).checked).toBe(!initial);
+      expect(value()).toBe(changed);
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
       await screen.findByText("Settings saved.");
       expect(mocks.save).toHaveBeenCalledTimes(2);

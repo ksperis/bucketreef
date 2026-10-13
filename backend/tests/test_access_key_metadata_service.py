@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
+from tests.feature_policy_fixtures import manager_settings_fixture
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint, StorageProvider
 from app.models.access_key_metadata import AccessKeyMetadataInput
 from app.models.iam import AccessKey
@@ -17,12 +18,10 @@ from app.utils.time import utcnow
 
 
 def _set_global_feature(monkeypatch, enabled: bool) -> None:
-    settings = SimpleNamespace(
-        general=SimpleNamespace(
+    settings = manager_settings_fixture(
             manager_access_key_metadata_enabled=enabled,
             manager_access_key_expiration_enabled=False,
         )
-    )
     monkeypatch.setattr(
         access_key_metadata_service,
         "load_app_settings_for_db_readonly",
@@ -241,12 +240,10 @@ def test_expiration_requires_global_resource_and_scheduler_opt_in(db_session, mo
     monkeypatch.setattr(
         access_key_metadata_service,
         "load_app_settings_for_db_readonly",
-        lambda _db: SimpleNamespace(
-            general=SimpleNamespace(
+        lambda _db: manager_settings_fixture(
                 manager_access_key_metadata_enabled=True,
                 manager_access_key_expiration_enabled=True,
-            )
-        ),
+            ),
     )
     assert service.expiration_enabled_for_context(account_context) is True
     assert service.expiration_enabled_for_context(user_context) is True

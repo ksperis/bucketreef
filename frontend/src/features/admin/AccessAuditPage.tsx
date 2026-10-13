@@ -178,6 +178,7 @@ export default function AccessAuditPage() {
           <UiSelect label="Source" aria-label="Filter by source" size="compact" value={source}
             onChange={(event) => updateFilter(() => setSource(event.target.value as AllOr<AccessAuditSourceKind>))}>
             <option value="all">All sources</option>
+            <option value="platform">Platform</option>
             <option value="direct">Direct</option>
             <option value="group">UI Group</option>
           </UiSelect>

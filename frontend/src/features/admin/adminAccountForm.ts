@@ -10,9 +10,9 @@ export function adminAccountForm(account: S3Account) {
     quota_max_size_gb: quota.value,
     quota_max_size_unit: quota.unit as string,
     quota_max_objects: account.quota_max_objects == null ? "" : String(account.quota_max_objects),
-    allow_bucket_quota_management: Boolean(account.allow_bucket_quota_management),
-    allow_access_key_metadata: Boolean(account.allow_access_key_metadata),
-    allow_access_key_expiration: Boolean(account.allow_access_key_expiration),
+    allow_bucket_quota_management: account.allow_bucket_quota_management ?? null,
+    allow_access_key_metadata: account.allow_access_key_metadata ?? null,
+    allow_access_key_expiration: account.allow_access_key_expiration ?? null,
     user_links: account.user_links.map<AccountUserLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
     group_links: account.group_links.map<AccountGroupLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
   };

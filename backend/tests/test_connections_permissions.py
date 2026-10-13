@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from tests.feature_policy_fixtures import enable_manager_features
 from app.db import S3Connection, StorageEndpoint, UiGroup, User, UserRole, UserUiGroup
 from app.main import app
 from app.routers import dependencies
@@ -342,3 +343,9 @@ def test_manual_connection_creation_supports_direct_free_url_and_group_registere
     assert registered.json()["storage_endpoint_id"] == endpoint.id
     assert registered.json()["endpoint_url"] == endpoint.endpoint_url
     assert "REGISTERED-SK" not in registered.text
+
+
+
+@pytest.fixture(autouse=True)
+def _available_manager_features(db_session):
+    enable_manager_features(db_session)

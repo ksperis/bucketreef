@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 from app.db import S3User as DBS3User
@@ -38,15 +39,11 @@ def s3_user_from_db(
         storage_endpoint_name=storage_endpoint.name,
         storage_endpoint_url=storage_endpoint.endpoint_url,
         bucket_count=bucket_count,
-        allow_bucket_quota_management=bool(
-            s3_user.allow_bucket_quota_management
-        ),
-        allow_access_key_management=bool(s3_user.allow_access_key_management),
-        allow_access_key_metadata=bool(s3_user.allow_access_key_metadata),
-        allow_access_key_expiration=bool(s3_user.allow_access_key_expiration),
-        allow_managed_private_connection_provisioning=bool(
-            s3_user.allow_managed_private_connection_provisioning
-        ),
+        allow_bucket_quota_management=s3_user.allow_bucket_quota_management,
+        allow_access_key_management=s3_user.allow_access_key_management,
+        allow_access_key_metadata=s3_user.allow_access_key_metadata,
+        allow_access_key_expiration=s3_user.allow_access_key_expiration,
+        allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
         tags=tags or [],
     )
 
@@ -64,14 +61,10 @@ def s3_user_summary_from_db(
         storage_endpoint_id=storage_endpoint.id,
         storage_endpoint_name=storage_endpoint.name,
         storage_endpoint_url=storage_endpoint.endpoint_url,
-        allow_bucket_quota_management=bool(
-            s3_user.allow_bucket_quota_management
-        ),
-        allow_access_key_management=bool(s3_user.allow_access_key_management),
-        allow_access_key_metadata=bool(s3_user.allow_access_key_metadata),
-        allow_access_key_expiration=bool(s3_user.allow_access_key_expiration),
-        allow_managed_private_connection_provisioning=bool(
-            s3_user.allow_managed_private_connection_provisioning
-        ),
+        allow_bucket_quota_management=s3_user.allow_bucket_quota_management,
+        allow_access_key_management=s3_user.allow_access_key_management,
+        allow_access_key_metadata=s3_user.allow_access_key_metadata,
+        allow_access_key_expiration=s3_user.allow_access_key_expiration,
+        allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
         tags=tags or [],
     )

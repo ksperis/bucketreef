@@ -146,7 +146,7 @@ describe("GeneralSettingsProvider fallbacks", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save locally" }));
 
     expect(screen.getByTestId("migration").textContent).toBe("true");
-    expect(JSON.parse(window.localStorage.getItem("settings:general:v1") ?? "{}")).toEqual(
+    expect(JSON.parse(window.localStorage.getItem("settings:general:v2") ?? "{}")).toEqual(
       expect.objectContaining({ bucket_migration_enabled: true })
     );
   });

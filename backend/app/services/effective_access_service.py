@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+from app.models.feature_policy import FeaturePolicy, ManagerFeaturePolicies, resolve_feature_policy
+from app.services.app_settings_service import load_app_settings_for_db_readonly
+
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -140,7 +143,7 @@ class _ResolvedFeatureAccess:
 class EffectiveAccessSource:
     """Origin of an effective UI grant used for read-only access auditing."""
 
-    kind: Literal["direct", "group"]
+    kind: Literal["direct", "group", "platform"]
     group_id: int | None = None
     group_name: str | None = None
 
@@ -405,10 +408,11 @@ class EffectiveAccessService:
             .all()
         }
 
+        policies = load_app_settings_for_db_readonly(self.db).manager.feature_policies
         resolved_by_user: dict[int, ResolvedUserAccess] = {}
         for user_id, user in user_by_id.items():
             groups = groups_by_user[user_id]
-            features = self._resolve_feature_access(user, groups)
+            features = self._resolve_feature_access(user, groups, policies)
             feature_sources: dict[str, tuple[EffectiveAccessSource, ...]] = {}
             feature_fields = {
                 "ceph_admin": (features.can_access_ceph_admin, "can_access_ceph_admin"),
@@ -429,9 +433,13 @@ class EffectiveAccessService:
             for right_code, (enabled, field_name) in feature_fields.items():
                 if enabled:
                     feature_sources[right_code] = self._flag_sources(user, groups, field_name)
+                    if right_code == "managed_private_connection_provision" and policies.managed_private_connection_provisioning == FeaturePolicy.DEFAULT_ON:
+                        feature_sources[right_code] = (EffectiveAccessSource(kind="platform"), *feature_sources[right_code])
             for tool, field_name in MANAGER_TOOL_COLUMNS.items():
                 if bool(getattr(features.manager_tool_access, tool)):
                     feature_sources[f"manager_{tool}"] = self._flag_sources(user, groups, field_name)
+                    if getattr(policies, tool) == FeaturePolicy.DEFAULT_ON:
+                        feature_sources[f"manager_{tool}"] = (EffectiveAccessSource(kind="platform"), *feature_sources[f"manager_{tool}"])
 
             account_links = sorted(
                 (accumulator.build() for accumulator in account_accumulators[user_id].values()),
@@ -596,6 +604,7 @@ class EffectiveAccessService:
         self,
         user: User,
         groups: list[UiGroup],
+        policies: ManagerFeaturePolicies,
     ) -> _ResolvedFeatureAccess:
         role_supports_tools = user.role in MANAGER_TOOL_ROLES
         can_access_ceph_admin = (
@@ -607,7 +616,8 @@ class EffectiveAccessService:
         manager_tool_access = ManagerToolAccess(
             **{
                 output_name: role_supports_tools
-                and self._user_or_group_flag(user, groups, user_field)
+                and resolve_feature_policy(getattr(policies, output_name),
+                    True if self._user_or_group_flag(user, groups, user_field) else None).enabled
                 for output_name, user_field in MANAGER_TOOL_COLUMNS.items()
             }
         )
@@ -624,11 +634,10 @@ class EffectiveAccessService:
             )
         )
         can_provision_managed_private_connections = role_supports_tools and (
-            self._user_or_group_flag(
-                user,
-                groups,
-                "can_provision_managed_private_connections",
-            )
+            resolve_feature_policy(
+                policies.managed_private_connection_provisioning,
+                True if self._user_or_group_flag(user, groups, "can_provision_managed_private_connections") else None,
+            ).enabled
         )
         return _ResolvedFeatureAccess(
             can_access_ceph_admin=can_access_ceph_admin,

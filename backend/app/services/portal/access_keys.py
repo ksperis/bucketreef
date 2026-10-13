@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+
 from __future__ import annotations
 
 import logging
@@ -8,7 +9,7 @@ import secrets
 from typing import Optional, TYPE_CHECKING
 
 from app.db import PortalAccountRole, PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
-from app.models.app_settings import PortalSettings
+from app.models.app_settings import PortalEffectiveSettings
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
 from app.models.portal_storage_spaces import PortalStorageSpaceRole
 from app.models.portal_access_keys import (
@@ -155,7 +156,7 @@ class PortalAccessKeysMixin:
             .first()
         )
 
-    def _ensure_access_key_management_allowed(self, access: "AccountAccess") -> PortalSettings:
+    def _ensure_access_key_management_allowed(self, access: "AccountAccess") -> PortalEffectiveSettings:
         portal_settings = self.get_effective_portal_settings(access.account)
         if not portal_settings.allow_portal_user_access_key_create:
             raise PortalAccessKeyManagementDisabled("Portal access-key management is disabled for this account.")
@@ -164,7 +165,7 @@ class PortalAccessKeysMixin:
     def _ensure_personal_iam_user_access_key_limit(
         self,
         *,
-        portal_settings: PortalSettings,
+        portal_settings: PortalEffectiveSettings,
         personal_key_count: int,
     ) -> None:
         if personal_key_count >= portal_settings.max_portal_user_access_keys:

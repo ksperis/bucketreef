@@ -45,9 +45,9 @@ export type S3Account = {
   storage_endpoint_url: string;
   storage_endpoint_is_default: boolean;
   storage_endpoint_capabilities: Record<string, boolean>;
-  allow_bucket_quota_management?: boolean;
-  allow_access_key_metadata?: boolean;
-  allow_access_key_expiration?: boolean;
+  allow_bucket_quota_management?: boolean | null;
+  allow_access_key_metadata?: boolean | null;
+  allow_access_key_expiration?: boolean | null;
 };
 
 export type S3AccountSummary = {
@@ -62,9 +62,9 @@ export type S3AccountSummary = {
   storage_endpoint_url: string;
   storage_endpoint_is_default: boolean;
   storage_endpoint_capabilities: Record<string, boolean>;
-  allow_bucket_quota_management?: boolean;
-  allow_access_key_metadata?: boolean;
-  allow_access_key_expiration?: boolean;
+  allow_bucket_quota_management?: boolean | null;
+  allow_access_key_metadata?: boolean | null;
+  allow_access_key_expiration?: boolean | null;
 };
 
 type PaginatedS3AccountsResponse = PaginatedResponse<S3Account>;

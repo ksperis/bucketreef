@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { getS3Account, updateS3Account, fetchAccountPortalSettings, updateAccountPortalSettings, type S3Account, type S3AccountSummary } from "../../api/accounts";
 import { hasAccountAccessRole, getAccountAccessRequiredMessage } from "../../api/accountAccess";
@@ -23,7 +24,7 @@ import { formatBytes, formatCompactNumber } from "../../utils/format";
 import ProjectSettingsEditor, { type ProjectSettingsAdapter } from "../shared/ProjectSettingsEditor";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminAccountStats } from "./useAdminAccountStats";
-import { AdminAccessToggleSection } from "./AdminAccessSections";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminQuotaFields from "./AdminQuotaFields";
 import { adminQuotaErrors } from "./useAdminRgwFormValidation";
@@ -63,7 +64,7 @@ export default function AdminAccountEditor(props: Props) {
   </WorkflowPage>;
 }
 
-function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled, accessKeyExpirationEnabled, canManageManagerFeatures, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
+function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
   const form = useSettingsDraft(() => adminAccountForm(account));
   const [tab, setTab] = useState<EditTab>("general");
   const [portalDirty, setPortalDirty] = useState(false);
@@ -79,6 +80,7 @@ function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled,
   const loadPermissions = useCallback(() => getStorageEndpoint(account.storage_endpoint_id, { include_admin_ops_permissions: true }), [account.storage_endpoint_id]);
   const permissions = useSettingsRemoteDraft<StorageEndpoint | null>(() => null, loadPermissions, "Unable to check endpoint permissions.");
   const allowQuotaUpdates = Boolean(account.storage_endpoint_capabilities?.admin && account.rgw_account_id && permissions.draft?.admin_ops_permissions?.accounts_write);
+  const { generalSettings } = useGeneralSettings();
   const allowBucketQuotas = Boolean(permissions.draft?.admin_ops_permissions?.buckets_write);
   const usageEnabled = Boolean(account.storage_endpoint_capabilities?.usage && account.rgw_account_id);
   const usage = useAdminAccountStats(account.id, usageEnabled);
@@ -201,23 +203,22 @@ function LoadedAccountEditor({ account, portalEnabled, accessKeyMetadataEnabled,
                 portalEnabled={portalEnabled} disabled={controller.locked} onPendingChange={setGroupPending} />
             </div>
             {canManageManagerFeatures && <div hidden={tab !== "manager"}><div className="settings-stack">
-              <AdminAccessToggleSection title="Access-key extensions" description="Optional features for managing access keys."
-                items={[{ title: "Access-key names and notes", ariaLabel: "Access-key names and notes", checked: form.draft.allow_access_key_metadata,
-                    disabled: !form.draft.allow_access_key_metadata && !accessKeyMetadataEnabled,
-                    description: accessKeyMetadataEnabled ? "Allow Manager to store and edit BucketReef metadata for this account's IAM access keys."
-                      : "Enable Access-key names and notes in Manager settings before granting it to this account.",
-                    onChange: value => update("allow_access_key_metadata", value) },
-                  { title: "Access-key expiration", ariaLabel: "Access-key expiration", checked: form.draft.allow_access_key_expiration,
-                    disabled: !form.draft.allow_access_key_expiration && !accessKeyExpirationEnabled,
-                    description: accessKeyExpirationEnabled ? "Allow Manager to schedule provider-side disabling for this account's IAM access keys."
-                      : "Enable Access-key expiration in Manager settings before granting it to this account.",
-                    onChange: value => update("allow_access_key_expiration", value) }]} />
-              <AdminAccessToggleSection title="Privileged Ceph operations" description="Manager operations that require delegated Ceph/RGW administrative capabilities."
-                items={[{ title: "Bucket quota management", ariaLabel: "Bucket quota management", checked: form.draft.allow_bucket_quota_management,
-                  disabled: !form.draft.allow_bucket_quota_management && !allowBucketQuotas,
-                  description: allowBucketQuotas ? "Allow Ceph bucket quota updates for this S3 Account in Manager."
-                    : "Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.",
-                  onChange: value => update("allow_bucket_quota_management", value) }]} />
+              <SettingsSection presentation="compact" title="Access-key extensions">
+                <FeatureOverrideField title="Access-key names and notes" value={form.draft.allow_access_key_metadata}
+                  policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={controller.locked}
+                  help="Optional. Name and notes are stored in BucketReef." onChange={value => update("allow_access_key_metadata", value)} />
+                <FeatureOverrideField title="Access-key expiration" value={form.draft.allow_access_key_expiration}
+                  policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={controller.locked}
+                  help="Schedules provider-side key disabling. Requires scheduled jobs; recorded expirations remain scheduled after opt-out."
+                  onChange={value => update("allow_access_key_expiration", value)} />
+              </SettingsSection>
+              <SettingsSection presentation="compact" title="Privileged Ceph operations">
+                <FeatureOverrideField title="Bucket quota management" value={form.draft.allow_bucket_quota_management}
+                  policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={controller.locked}
+                  unavailable={!allowBucketQuotas ? "Endpoint permission required" : undefined}
+                  help="Requires buckets=write on the endpoint Admin Ops identity. Storage authorization remains required."
+                  onChange={value => update("allow_bucket_quota_management", value)} />
+              </SettingsSection>
             </div></div>}
           </SettingsForm>
         </div>

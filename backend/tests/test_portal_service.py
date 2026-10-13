@@ -17,6 +17,7 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.response import StreamingBody
 from fastapi import HTTPException
 
+from tests.feature_policy_fixtures import portal_settings_fixture
 from app.db import (
     AuditLog,
     AccountIAMUser,
@@ -428,7 +429,7 @@ def test_portal_bucket_creation_uses_backend_credentials_without_legacy_policy(m
 
     monkeypatch.setattr(s3_bucket_access, "put_bucket_policy", fail_bucket_policy)
 
-    portal_settings = PortalSettings()
+    portal_settings = portal_settings_fixture()
     portal_settings.bucket_defaults.cors_allowed_origins = ["https://ui.example.test"]
     portal_settings.bucket_defaults.noncurrent_version_expiration_days = 45
 
@@ -510,7 +511,7 @@ def test_portal_user_bucket_creation_applies_defaults_with_account_credentials(m
         lambda *args, **kwargs: cors_calls.append((args, kwargs)),
     )
 
-    portal_settings = PortalSettings()
+    portal_settings = portal_settings_fixture()
     portal_settings.bucket_defaults.cors_allowed_origins = ["https://ui.example.test"]
 
     bucket = service.create_bucket(
@@ -846,7 +847,7 @@ def test_portal_bucket_creation_rejects_unauthorized_role_before_s3_calls(monkey
             user,
             access,
             "denied-bucket",
-            portal_settings=PortalSettings(allow_private_storage_space_create=False),
+            portal_settings=portal_settings_fixture(allow_private_storage_space_create=False),
         )
 
 
@@ -1093,7 +1094,7 @@ def test_get_state_does_not_load_portal_identity_metadata(monkeypatch, db_sessio
     )
     service = PortalService(db_session)
 
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: PortalSettings())
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: portal_settings_fixture())
     monkeypatch.setattr(service, "_get_iam_service", lambda acc: pytest.fail("PortalState must not initialize IAM"))
 
     state = service.get_state(access)
@@ -1145,7 +1146,7 @@ def test_access_keys_state_hides_portal_key_and_exposes_policy(monkeypatch, db_s
     monkeypatch.setattr(
         service,
         "get_effective_portal_settings",
-        lambda acc: PortalSettings(allow_portal_user_access_key_create=True, max_portal_user_access_keys=3),
+        lambda acc: portal_settings_fixture(allow_portal_user_access_key_create=True, max_portal_user_access_keys=3),
     )
 
     state = service.get_access_keys_state(user, _portal_access(account, user))
@@ -1267,7 +1268,7 @@ def test_get_state_disables_storage_space_creation_for_portal_user_when_setting_
 
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False)
     service = PortalService(db_session)
-    portal_settings = PortalSettings(allow_private_storage_space_create=False)
+    portal_settings = portal_settings_fixture(allow_private_storage_space_create=False)
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
 
     state = service.get_state(access)
@@ -1292,7 +1293,7 @@ def test_get_state_exposes_external_sharing_capability_by_portal_role(monkeypatc
     monkeypatch.setattr(
         service,
         "get_effective_portal_settings",
-        lambda _account: PortalSettings(allow_portal_user_external_sharing=True),
+        lambda _account: portal_settings_fixture(allow_portal_user_external_sharing=True),
     )
 
     portal_user_state = service.get_state(
@@ -1314,7 +1315,7 @@ def test_get_state_exposes_effective_server_access_logging_setting(monkeypatch, 
 
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False)
     service = PortalService(db_session)
-    portal_settings = PortalSettings(server_access_logging_enabled=False)
+    portal_settings = portal_settings_fixture(server_access_logging_enabled=False)
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
 
     state = service.get_state(access)
@@ -2596,7 +2597,7 @@ def test_create_storage_space_generic_uses_managed_uuid_bucket_and_editable_name
     monkeypatch.setattr(service, "sync_storage_space_server_access_logging", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(service, "_sync_storage_space_access_projection", lambda *_args, **_kwargs: None)
     created_buckets = []
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings(allow_private_storage_space_create=True))
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture(allow_private_storage_space_create=True))
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(
         service,
@@ -2646,7 +2647,7 @@ def test_create_storage_space_configures_server_access_logging(monkeypatch, db_s
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
     service = PortalService(db_session)
     monkeypatch.setattr(service, "_sync_storage_space_access_projection", lambda *_args, **_kwargs: None)
-    portal_settings = PortalSettings(server_access_logging_enabled=True)
+    portal_settings = portal_settings_fixture(server_access_logging_enabled=True)
     logging_calls = []
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [])
@@ -2758,7 +2759,7 @@ def test_prepare_storage_space_version_cleanup_requires_effective_setting(monkey
     monkeypatch.setattr(
         service,
         "get_effective_portal_settings",
-        lambda _account: PortalSettings(storage_space_version_cleanup_enabled=False),
+        lambda _account: portal_settings_fixture(storage_space_version_cleanup_enabled=False),
     )
 
     with pytest.raises(RuntimeError, match="not allowed"):
@@ -2817,7 +2818,7 @@ def test_portal_user_can_create_storage_space_when_setting_is_enabled(monkeypatc
     service = PortalService(db_session)
     monkeypatch.setattr(service, "sync_storage_space_server_access_logging", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(service, "_sync_storage_space_access_projection", lambda *_args, **_kwargs: None)
-    portal_settings = PortalSettings(allow_private_storage_space_create=True)
+    portal_settings = portal_settings_fixture(allow_private_storage_space_create=True)
     created_buckets = []
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [])
@@ -2864,7 +2865,7 @@ def test_portal_user_cannot_create_shared_storage_space(monkeypatch, db_session)
 
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False)
     service = PortalService(db_session)
-    portal_settings = PortalSettings(allow_private_storage_space_create=True)
+    portal_settings = portal_settings_fixture(allow_private_storage_space_create=True)
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
     monkeypatch.setattr(
         service,
@@ -2884,7 +2885,7 @@ def test_portal_user_cannot_create_storage_space_when_setting_is_disabled(monkey
 
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False)
     service = PortalService(db_session)
-    portal_settings = PortalSettings(allow_private_storage_space_create=False)
+    portal_settings = portal_settings_fixture(allow_private_storage_space_create=False)
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
 
     with pytest.raises(RuntimeError, match="Storage Space creation not allowed"):
@@ -2900,7 +2901,7 @@ def test_portal_manager_needs_private_create_setting_but_can_always_create_team_
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
     service = PortalService(db_session)
     monkeypatch.setattr(service, "sync_storage_space_server_access_logging", lambda *_args, **_kwargs: None)
-    portal_settings = PortalSettings(allow_private_storage_space_create=False)
+    portal_settings = portal_settings_fixture(allow_private_storage_space_create=False)
     created_buckets: list[str] = []
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
     monkeypatch.setattr(service, "_unique_uuid_storage_space_bucket_name", lambda existing: f"bucket-{len(existing) + 1}")
@@ -2942,7 +2943,7 @@ def test_create_restricted_storage_space_persists_initial_shares_atomically(monk
     access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
     service = PortalService(db_session)
     monkeypatch.setattr(service, "sync_storage_space_server_access_logging", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings(allow_private_storage_space_create=True))
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture(allow_private_storage_space_create=True))
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(service, "_unique_uuid_storage_space_bucket_name", lambda _existing: "restricted-bucket")
     monkeypatch.setattr(service, "create_bucket", lambda *_args, **_kwargs: None)
@@ -3000,7 +3001,7 @@ def test_create_restricted_storage_space_rejects_invalid_initial_shares_before_b
 
     access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
     service = PortalService(db_session)
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings())
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture())
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(
         service,
@@ -3036,7 +3037,7 @@ def test_create_restricted_storage_space_rolls_back_bucket_and_grants_when_sync_
     monkeypatch.setattr(service, "sync_storage_space_server_access_logging", lambda *_args, **_kwargs: None)
     created_buckets: list[str] = []
     deleted_buckets: list[str] = []
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings())
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture())
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(service, "_unique_uuid_storage_space_bucket_name", lambda _existing: "rollback-bucket")
     monkeypatch.setattr(service, "create_bucket", lambda _user, _access, bucket_name, **_kwargs: created_buckets.append(bucket_name))
@@ -3069,7 +3070,7 @@ def test_create_storage_space_named_bucket_preserves_exact_name_and_locks_name(m
     db_session.add_all([account, user])
     db_session.commit()
 
-    portal_settings = PortalSettings()
+    portal_settings = portal_settings_fixture()
     portal_settings.allow_private_storage_space_create = True
     portal_settings.allow_portal_named_bucket_create = True
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
@@ -3132,7 +3133,7 @@ def test_create_named_space_rejects_invalid_or_duplicate_name_without_mutation(n
     db_session.commit()
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
     service = PortalService(db_session)
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings(
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture(
         allow_private_storage_space_create=True, allow_portal_named_bucket_create=True,
     ))
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [
@@ -3152,7 +3153,7 @@ def test_create_storage_space_named_bucket_requires_effective_setting(monkeypatc
 
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
     service = PortalService(db_session)
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings(allow_private_storage_space_create=True))
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture(allow_private_storage_space_create=True))
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(
         service,
@@ -3176,7 +3177,7 @@ def test_import_storage_space_uses_existing_bucket_name_and_locks_name(monkeypat
     projection_calls = []
     monkeypatch.setattr(s3_client, "list_buckets", lambda **_kwargs: [{"name": "existing-bucket"}])
     monkeypatch.setattr(service, "_get_iam_service", lambda _account: object())
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings(allow_private_storage_space_create=True))
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture(allow_private_storage_space_create=True))
     monkeypatch.setattr(service, "_ensure_portal_user", lambda *_args, **_kwargs: (link, IAMUser(name="portal-iam"), False))
     monkeypatch.setattr(service, "_sync_user_group_membership", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(service, "_ensure_active_key", lambda *_args, **_kwargs: None)
@@ -3229,7 +3230,7 @@ def test_import_restricted_storage_space_persists_initial_shares(monkeypatch, db
     link = AccountIAMUser(user_id=owner.id, account_id=account.id, iam_user_id="iam-uid", iam_username="portal-iam")
     monkeypatch.setattr(s3_client, "list_buckets", lambda **_kwargs: [{"name": "existing-restricted"}])
     monkeypatch.setattr(service, "_get_iam_service", lambda _account: object())
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings())
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture())
     monkeypatch.setattr(service, "_ensure_portal_user", lambda *_args, **_kwargs: (link, IAMUser(name="portal-iam"), False))
     monkeypatch.setattr(service, "_sync_user_group_membership", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(service, "_ensure_active_key", lambda *_args, **_kwargs: None)
@@ -3417,7 +3418,7 @@ def test_portal_account_override_uses_canonical_payload(monkeypatch, db_session)
     db_session.add(account)
     db_session.commit()
 
-    base = PortalSettings()
+    base = portal_settings_fixture()
     service = PortalService(db_session)
     monkeypatch.setattr(service, "_portal_settings", lambda: base)
     monkeypatch.setattr(
@@ -3594,7 +3595,7 @@ def test_portal_server_access_log_bucket_creation_sets_retention_lifecycle(monke
 
     log_bucket = service._ensure_portal_server_access_log_bucket(
         account,
-        portal_settings=PortalSettings(server_access_log_retention_days=retention_days),
+        portal_settings=portal_settings_fixture(server_access_log_retention_days=retention_days),
     )
 
     assert log_bucket == service._portal_server_access_log_bucket_name(account)
@@ -3664,7 +3665,7 @@ def test_portal_server_access_log_existing_bucket_keeps_retention_unchanged(monk
 
     log_bucket = service._ensure_portal_server_access_log_bucket(
         account,
-        portal_settings=PortalSettings(server_access_log_retention_days=45),
+        portal_settings=portal_settings_fixture(server_access_log_retention_days=45),
     )
 
     assert log_bucket == service._portal_server_access_log_bucket_name(account)
@@ -3930,11 +3931,11 @@ def test_reconcile_portal_server_access_logging_enables_and_disables_managed_buc
 
     enabled = service.reconcile_portal_server_access_logging(
         account,
-        portal_settings=PortalSettings(server_access_logging_enabled=True),
+        portal_settings=portal_settings_fixture(server_access_logging_enabled=True),
     )
     disabled = service.reconcile_portal_server_access_logging(
         account,
-        portal_settings=PortalSettings(server_access_logging_enabled=False),
+        portal_settings=portal_settings_fixture(server_access_logging_enabled=False),
     )
 
     assert enabled == {"enabled": 2, "disabled": 0, "skipped": 0}
@@ -3995,7 +3996,7 @@ def test_reconcile_all_portal_server_access_logging_compacts_failures_and_preser
     )
 
     with pytest.raises(RuntimeError) as raised:
-        service.reconcile_all_portal_server_access_logging(PortalSettings())
+        service.reconcile_all_portal_server_access_logging(portal_settings_fixture())
 
     assert str(raised.value) == (
         "Unable to reconcile Portal Server Access Logging for 1 account: offline-project. "
@@ -4134,7 +4135,7 @@ def test_storage_space_role_matrix_for_files_shares_and_portal_settings(monkeypa
 
     iam_service = FakeIAMService()
     monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: PortalSettings())
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings_fixture())
     monkeypatch.setattr(
         service,
         "_ensure_portal_user",
@@ -5634,7 +5635,7 @@ def test_portal_user_owner_can_create_private_public_link_when_external_sharing_
             )
         ],
     )
-    settings = PortalSettings(allow_portal_user_external_sharing=False)
+    settings = portal_settings_fixture(allow_portal_user_external_sharing=False)
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: settings)
     access = _portal_access(
         account,
@@ -6887,7 +6888,7 @@ def test_create_access_key_rejects_when_management_disabled(monkeypatch, db_sess
     db_session.commit()
 
     service = PortalService(db_session)
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: PortalSettings(allow_portal_user_access_key_create=False))
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: portal_settings_fixture(allow_portal_user_access_key_create=False))
     monkeypatch.setattr(service, "_ensure_portal_user", lambda *args, **kwargs: pytest.fail("portal user should not be provisioned"))
 
     with pytest.raises(PortalAccessKeyManagementDisabled):
@@ -6911,7 +6912,7 @@ def test_access_key_mutations_reject_portal_key(monkeypatch, db_session):
     )
     fake_iam_user = IAMUser(name="portal-iam", arn="arn:aws:iam:::user/portal-iam")
 
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: PortalSettings(allow_portal_user_access_key_create=True))
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: portal_settings_fixture(allow_portal_user_access_key_create=True))
     monkeypatch.setattr(service, "_get_iam_service", lambda acc: object())
     monkeypatch.setattr(service, "_ensure_portal_user", lambda *args, **kwargs: (link, fake_iam_user, False))
     monkeypatch.setattr(service, "_sync_user_group_membership", lambda *args, **kwargs: None)
@@ -6963,7 +6964,7 @@ def test_create_access_key_rejects_when_limit_reached(monkeypatch, db_session):
     iam_service = _FakeIAMService()
     monkeypatch.setattr(service, "_get_iam_service", lambda acc: iam_service)
     monkeypatch.setattr(service, "_ensure_portal_user", lambda *args, **kwargs: (link, fake_iam_user, False))
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: PortalSettings(max_portal_user_access_keys=2))
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: portal_settings_fixture(max_portal_user_access_keys=2))
     monkeypatch.setattr(service, "_sync_user_group_membership", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         service,
@@ -7021,7 +7022,7 @@ def test_create_access_key_allows_when_below_limit(monkeypatch, db_session):
     iam_service = _FakeIAMService()
     monkeypatch.setattr(service, "_get_iam_service", lambda acc: iam_service)
     monkeypatch.setattr(service, "_ensure_portal_user", lambda *args, **kwargs: (link, fake_iam_user, False))
-    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: PortalSettings(max_portal_user_access_keys=2))
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda acc: portal_settings_fixture(max_portal_user_access_keys=2))
     monkeypatch.setattr(service, "_sync_user_group_membership", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         service,
@@ -7116,7 +7117,7 @@ def test_create_external_access_key_scopes_policy_to_storage_space(
     monkeypatch.setattr(
         service,
         "get_effective_portal_settings",
-        lambda acc: PortalSettings(
+        lambda acc: portal_settings_fixture(
             allow_portal_user_access_key_create=False,
             max_portal_user_access_keys=1,
             allow_portal_user_external_sharing=True,
@@ -7182,7 +7183,7 @@ def test_portal_user_external_access_requires_external_sharing_setting(monkeypat
     monkeypatch.setattr(
         service,
         "get_effective_portal_settings",
-        lambda _account: PortalSettings(
+        lambda _account: portal_settings_fixture(
             allow_portal_user_access_key_create=True,
             allow_portal_user_external_sharing=False,
         ),
@@ -7229,7 +7230,7 @@ def test_portal_manager_external_access_does_not_use_portal_user_external_sharin
     monkeypatch.setattr(
         service,
         "get_effective_portal_settings",
-        lambda _account: PortalSettings(
+        lambda _account: portal_settings_fixture(
             allow_portal_user_access_key_create=False,
             allow_portal_user_external_sharing=False,
         ),
@@ -7281,7 +7282,7 @@ def test_create_external_access_key_requires_content_owner(monkeypatch, db_sessi
     monkeypatch.setattr(
         service,
         "get_effective_portal_settings",
-        lambda acc: PortalSettings(
+        lambda acc: portal_settings_fixture(
             allow_portal_user_access_key_create=False,
             allow_portal_user_external_sharing=False,
             max_portal_user_access_keys=4,
@@ -7353,7 +7354,7 @@ def test_external_access_key_status_and_delete_resync_policy(monkeypatch, db_ses
     monkeypatch.setattr(
         service,
         "get_effective_portal_settings",
-        lambda acc: PortalSettings(
+        lambda acc: portal_settings_fixture(
             allow_portal_user_access_key_create=False,
             allow_portal_user_external_sharing=False,
             max_portal_user_access_keys=4,

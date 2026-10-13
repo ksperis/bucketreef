@@ -1357,6 +1357,7 @@ export default function GroupsPage() {
                       title: text("provisionManagedPrivateConnections"),
                       description: text("managedProvisioningDescription"),
                       checked: Boolean(form.can_provision_managed_private_connections),
+                      platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
                       disabled: !generalSettings.managed_private_connection_provisioning_enabled,
                       onChange: (value) =>
                         setForm((current) => ({
