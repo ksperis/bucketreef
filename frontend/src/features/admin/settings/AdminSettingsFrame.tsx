@@ -9,10 +9,19 @@ import {
   useSettingsCloseGuard,
 } from "../../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../../components/settings/SettingsNavigationGuard";
+import { settingsLabels } from "../../../components/settings/settingsLabels";
 import { adminPageBreadcrumbs } from "../adminBreadcrumbs";
+import { useAdminSettingsI18n, type AdminSettingsMessageKey } from "./adminSettingsMessage";
 import type { useAppSettingsDraft } from "./useAppSettingsDraft";
 
 const isDemo = import.meta.env.MODE === "demo";
+const breadcrumbMessageKeys: Partial<Record<Parameters<typeof adminPageBreadcrumbs>[0], AdminSettingsMessageKey>> = {
+  "general-settings": "general",
+  "authentication-settings": "authentication",
+  "manager-settings": "manager",
+  "browser-settings": "browser",
+  "portal-settings": "portal",
+};
 
 export default function AdminSettingsFrame({
   title,
@@ -35,18 +44,33 @@ export default function AdminSettingsFrame({
   additionalContent?: ReactNode;
   dialogDirty?: boolean;
 }) {
+  const { locale, t, text } = useAdminSettingsI18n();
+  const labels = settingsLabels(t);
+  const closeLabel = locale === "en" ? undefined : labels.close;
+  const guardLabels = {
+    title: labels.discardTitle,
+    description: labels.discardDescription,
+    confirmLabel: labels.discard,
+    cancelLabel: labels.keepEditing,
+    closeLabel,
+  };
+  const pageBreadcrumbKey = breadcrumbMessageKeys[page];
+  const breadcrumbs = adminPageBreadcrumbs(page).map((breadcrumb, index) => ({
+    ...breadcrumb,
+    label: index === 0 ? text("admin") : pageBreadcrumbKey ? text(pageBreadcrumbKey) : breadcrumb.label,
+  }));
   const [reset, setReset] = useState(false);
   const cancelGuard = useSettingsCloseGuard({
     hasUnsavedChanges: form.dirty,
     disabled: form.busy,
     onClose: form.cancel,
-    description: "Your changes have not been saved.",
+    ...guardLabels,
   });
   return (
     <PageShell
       title={title}
       description={description}
-      breadcrumbs={adminPageBreadcrumbs(page)}
+      breadcrumbs={breadcrumbs}
       rightContent={
         <div>
           <SettingsButton
@@ -54,13 +78,13 @@ export default function AdminSettingsFrame({
             disabled={isDemo || !form.settings || form.busy}
             onClick={() => setReset(true)}
           >
-            Reset to defaults
+            {text("resetToDefaults")}
           </SettingsButton>
         </div>
       }
     >
       <div className="settings-compact">
-        {isDemo && <UiInlineMessage tone="info">Read-only demo settings. Feature execution and external integrations are disabled.</UiInlineMessage>}
+        {isDemo && <UiInlineMessage tone="info">{text("demoReadOnly")}</UiInlineMessage>}
         {form.error && (
           <div className="mb-4" role="alert">
             <UiInlineMessage tone="error">{form.error}</UiInlineMessage>
@@ -73,7 +97,7 @@ export default function AdminSettingsFrame({
         )}
         {!form.settings ? (
           <p role="status">
-            {form.error ? "Settings are unavailable." : "Loading settings..."}
+            {text(form.error ? "settingsUnavailable" : "loadingSettings")}
           </p>
         ) : (
           <form
@@ -95,19 +119,26 @@ export default function AdminSettingsFrame({
           busy={form.busy}
           onSave={() => void form.save()}
           onCancel={cancelGuard.requestClose}
+          saveLabel={text("saveChanges")}
+          cancelLabel={labels.cancel}
+          savingLabel={text("saving")}
         />
       </div>
-      <SettingsNavigationGuard dirty={form.dirty || dialogDirty} />
+      <SettingsNavigationGuard dirty={form.dirty || dialogDirty} {...guardLabels} />
       {cancelGuard.confirmationDialog}
       {form.verificationDialog}
       {dialogs}
       {reset && (
         <ConfirmActionDialog
           title={resetTitle}
-          description="Replace this page's draft with application defaults."
-          confirmLabel="Load defaults"
+          description={text("resetDescription")}
+          confirmLabel={text("loadDefaults")}
+          cancelLabel={labels.cancel}
+          processingLabel={text("processing")}
+          impactLabel={text("impact")}
+          closeLabel={closeLabel}
           tone="primary"
-          warning="Defaults are loaded into this form only. Review them, then use Save changes to apply them."
+          warning={text("defaultsDraftWarning")}
           onCancel={() => setReset(false)}
           onConfirm={async () => {
             await form.loadDefaults();
