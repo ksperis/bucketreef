@@ -6,6 +6,7 @@ import { ListActionButton } from "./list/ListControls";
 import { useId } from "react";
 import UiSelect from "./ui/UiSelect";
 import { cx, uiDividerClass, uiLabelClass, uiMutedTextClass } from "./ui/styles";
+import { usePaginationControlsI18n } from "./paginationControlsMessage";
 
 type PaginationControlsProps = {
   page: number;
@@ -26,6 +27,7 @@ export default function PaginationControls({
   pageSizeOptions = [10, 25, 50, 100],
   disabled = false,
 }: PaginationControlsProps) {
+  const { text } = usePaginationControlsI18n();
   const pageSizeId = useId();
   const totalPages = Math.max(1, Math.ceil(total / (pageSize || 1)));
   const safePage = Math.min(Math.max(page, 1), totalPages);
@@ -40,22 +42,22 @@ export default function PaginationControls({
           onClick={() => onPageChange(safePage - 1)}
           disabled={!canPrev || disabled}
         >
-          Previous
+          {text("previous")}
         </ListActionButton>
         <ListActionButton
           type="button"
           onClick={() => onPageChange(safePage + 1)}
           disabled={!canNext || disabled}
         >
-          Next
+          {text("next")}
         </ListActionButton>
         <span className={cx("ui-caption", uiMutedTextClass)}>
-          Page {safePage} of {totalPages} · {total} result{total === 1 ? "" : "s"}
+          {text(total === 1 ? "pageResult" : "pageResults", { page: safePage, pages: totalPages, total })}
         </span>
       </div>
       {onPageSizeChange && (
         <div className="flex items-center gap-2">
-          <label htmlFor={pageSizeId} className={uiLabelClass}>Page size</label>
+          <label htmlFor={pageSizeId} className={uiLabelClass}>{text("pageSize")}</label>
           <UiSelect
             id={pageSizeId}
             size="compact"

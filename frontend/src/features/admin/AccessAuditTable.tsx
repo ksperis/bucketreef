@@ -4,7 +4,6 @@
  */
 import type {
   AccessAuditRow,
-  AccessAuditScope,
   AccessAuditSortBy,
   AccessAuditSortDir,
 } from "../../api/accessAudit";
@@ -13,13 +12,7 @@ import type { ListTableStatus } from "../../components/list/listTableStatus";
 import UiBadge from "../../components/ui/UiBadge";
 import type { UiTone } from "../../components/ui/styles";
 import { AssociationRoleTooltip } from "./AssociationSummary";
-
-const scopeLabels: Record<AccessAuditScope, string> = {
-  platform: "Platform",
-  rgw_account: "RGW Account",
-  rgw_user: "RGW User",
-  s3_connection: "S3 Connection",
-};
+import { useAccessAuditI18n, type AccessAuditText } from "./accessAuditMessage";
 
 const rightTones: Record<AccessAuditRow["rights"][number]["code"], UiTone> = {
   ceph_admin: "warning",
@@ -41,21 +34,24 @@ const rightTones: Record<AccessAuditRow["rights"][number]["code"], UiTone> = {
 };
 
 function PrincipalCell({ row }: { row: AccessAuditRow }) {
+  const { text } = useAccessAuditI18n();
   return (
     <div className="min-w-0">
       <div className="truncate font-medium text-[var(--ui-text)]">{row.principal.full_name || row.principal.email}</div>
       {row.principal.full_name ? (
         <div className="truncate ui-caption text-[var(--ui-text-muted)]">{row.principal.email}</div>
       ) : null}
-      {!row.principal.is_active ? <UiBadge className="mt-1">Inactive</UiBadge> : null}
+      {!row.principal.is_active ? <UiBadge className="mt-1">{text("inactive")}</UiBadge> : null}
     </div>
   );
 }
 
 function TargetCell({ row }: { row: AccessAuditRow }) {
+  const { text } = useAccessAuditI18n();
+  const name = row.scope === "platform" && row.target.name === "Platform" ? text("platform") : row.target.name;
   return (
     <div className="min-w-0">
-      <div className="truncate font-medium text-[var(--ui-text)]" title={row.target.name}>{row.target.name}</div>
+      <div className="truncate font-medium text-[var(--ui-text)]" title={name}>{name}</div>
       {row.target.identifier ? (
         <div className="truncate ui-caption text-[var(--ui-text-muted)]" title={row.target.identifier}>{row.target.identifier}</div>
       ) : null}
@@ -64,24 +60,25 @@ function TargetCell({ row }: { row: AccessAuditRow }) {
 }
 
 function RightsCell({ row }: { row: AccessAuditRow }) {
+  const { text, rightLabel } = useAccessAuditI18n();
   const visible = row.rights.slice(0, 3);
   const entries = row.rights.map((right) => ({
     key: right.code,
-    identity: right.label,
-    roles: right.sources.map(sourceLabel),
+    identity: rightLabel(right.code, right.label),
+    roles: right.sources.map((source) => sourceLabel(source, text)),
   }));
   return (
     <AssociationRoleTooltip
-      label="Effective rights"
+      label={text("effectiveRights")}
       entries={entries}
-      ariaLabel={`${row.rights.length} effective right${row.rights.length === 1 ? "" : "s"}`}
+      ariaLabel={text(row.rights.length === 1 ? "effectiveRightCount" : "effectiveRightsCount", { count: row.rights.length })}
       focusable
-      detailLabel="Sources"
+      detailLabel={text("sources")}
       detailTone="neutral"
     >
       <span className="inline-flex max-w-full flex-wrap gap-1">
         {visible.map((right) => (
-          <UiBadge key={right.code} tone={rightTones[right.code]}>{right.label}</UiBadge>
+          <UiBadge key={right.code} tone={rightTones[right.code]}>{rightLabel(right.code, right.label)}</UiBadge>
         ))}
         {row.rights.length > visible.length ? <UiBadge>+{row.rights.length - visible.length}</UiBadge> : null}
       </span>
@@ -89,9 +86,11 @@ function RightsCell({ row }: { row: AccessAuditRow }) {
   );
 }
 
-function sourceLabel(source: AccessAuditRow["rights"][number]["sources"][number]) {
-  if (source.kind === "direct") return "Direct";
-  return source.group_name ? `UI Group: ${source.group_name}` : `UI Group #${source.group_id}`;
+function sourceLabel(source: AccessAuditRow["rights"][number]["sources"][number], text: AccessAuditText) {
+  if (source.kind === "direct") return text("direct");
+  return source.group_name
+    ? text("uiGroupContext", { name: source.group_name })
+    : text("uiGroupNumber", { id: String(source.group_id) });
 }
 
 type Props = {
@@ -122,33 +121,34 @@ export default function AccessAuditTable({
   onSort,
   pagination,
 }: Props) {
+  const { text, scopeLabel } = useAccessAuditI18n();
   const columns: Array<DataTableColumn<AccessAuditRow, AccessAuditSortBy>> = [
     ...(showUserColumn ? [{
       id: "user",
-      label: "UI User",
+      label: text("uiUser"),
       field: "user" as const,
       primary: true,
       render: (row: AccessAuditRow) => <PrincipalCell row={row} />,
     }] : []),
     {
       id: "scope",
-      label: "Scope",
+      label: text("scope"),
       field: "scope",
       headerClassName: "w-px whitespace-nowrap",
       cellClassName: "w-px whitespace-nowrap",
-      render: (row) => <UiBadge>{scopeLabels[row.scope]}</UiBadge>,
+      render: (row) => <UiBadge>{scopeLabel(row.scope)}</UiBadge>,
     },
     {
       id: "target",
-      label: "Target",
+      label: text("target"),
       field: "target",
       primary: !showUserColumn,
       render: (row) => <TargetCell row={row} />,
     },
     {
       id: "rights",
-      label: "Effective rights",
-      header: "Effective rights",
+      label: text("effectiveRights"),
+      header: text("effectiveRights"),
       cellClassName: "w-full",
       render: (row) => <RightsCell row={row} />,
     },
@@ -160,8 +160,8 @@ export default function AccessAuditTable({
       rows={rows}
       rowKey={(row) => row.key}
       status={status}
-      loadingMessage="Loading effective access..."
-      errorMessage="Unable to load effective access."
+      loadingMessage={text("loadingAccess")}
+      errorMessage={text("loadAccessError")}
       emptyMessage={emptyMessage}
       primaryColumnId={showUserColumn ? "user" : "target"}
       responsiveCards
