@@ -564,12 +564,12 @@ describe("GroupsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
 
-    const toggle = screen.getByRole("switch", {
+    const featureRow = screen.getByText("Provision managed private connections").closest(".settings-item-compact") as HTMLElement;
+    expect(within(featureRow).queryByRole("switch", {
       name: "Allow managed private connection provisioning",
-    });
-    expect(toggle).toBeChecked();
-    expect(toggle).toBeDisabled();
-    expect(within(toggle.parentElement?.parentElement as HTMLElement).getByText("Disabled globally")).toBeInTheDocument();
+    })).not.toBeInTheDocument();
+    expect(within(featureRow).getByText("Platform disabled")).toBeInTheDocument();
+    expect(within(featureRow).getByText("Saved grant: On")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => {

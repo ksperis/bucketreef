@@ -1358,18 +1358,13 @@ export default function GroupsPage() {
                       description: text("managedProvisioningDescription"),
                       checked: Boolean(form.can_provision_managed_private_connections),
                       platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
-                      disabled: !generalSettings.managed_private_connection_provisioning_enabled,
+                      blocked: !generalSettings.managed_private_connection_provisioning_enabled,
                       onChange: (value) =>
                         setForm((current) => ({
                           ...current,
                           can_provision_managed_private_connections: value,
                         })),
                       ariaLabel: text("allowManagedProvisioning"),
-                      badge: {
-                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: text("disabledGlobally"),
-                        tone: "neutral",
-                      },
                     },
                   ]}
                   description={text("managerAccessDescription")}

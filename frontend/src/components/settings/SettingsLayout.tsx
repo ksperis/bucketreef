@@ -87,6 +87,17 @@ type SettingsTriStateActionProps<T extends string> = SettingsTriStateSwitchProps
   className?: string;
 };
 
+type SettingsEffectiveActionProps = {
+  state: "enabled" | "disabled" | "unavailable";
+  stateLabel: ReactNode;
+  sourceLabel?: ReactNode;
+  localLabel?: ReactNode;
+  constraintLabel?: ReactNode;
+  savedLabel?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+};
+
 type SettingsChoiceRowProps = {
   title: string;
   type?: "checkbox" | "radio";
@@ -420,6 +431,49 @@ export const SettingsToggleAction = ({
       ariaDescribedBy={ariaDescribedBy}
       onChange={onChange}
     />
+  </div>
+);
+
+export const SettingsEffectiveAction = ({
+  state,
+  stateLabel,
+  sourceLabel,
+  localLabel,
+  constraintLabel,
+  savedLabel,
+  children,
+  className,
+}: SettingsEffectiveActionProps) => (
+  <div className={cx("settings-effective-action", className)}>
+    <div className="settings-effective-summary">
+      <span
+        aria-hidden="true"
+        className={cx(
+          "settings-effective-dot",
+          `settings-effective-dot-${state}`,
+        )}
+      />
+      <span className="settings-effective-copy">
+        <span className="settings-effective-value">{stateLabel}</span>
+        {sourceLabel ? (
+          <span className="settings-effective-source">
+            <span aria-hidden="true"> · </span>
+            <span>{sourceLabel}</span>
+          </span>
+        ) : null}
+      </span>
+    </div>
+    <div className="settings-effective-local">
+      {localLabel ? (
+        <span className="settings-effective-local-label">{localLabel}</span>
+      ) : null}
+      {constraintLabel ? (
+        <UiBadge tone="warning">{constraintLabel}</UiBadge>
+      ) : children}
+      {savedLabel ? (
+        <span className="settings-effective-saved">{savedLabel}</span>
+      ) : null}
+    </div>
   </div>
 );
 

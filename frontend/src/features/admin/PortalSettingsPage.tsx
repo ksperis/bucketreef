@@ -12,6 +12,7 @@ import {
   AppSettingsNumber,
   AppSettingsPolicy,
   AppSettingsToggle,
+  FEATURE_POLICY_SECTION_DESCRIPTION,
 } from "./settings/AppSettingsFields";
 import { useAppSettingsDraft } from "./settings/useAppSettingsDraft";
 import {
@@ -108,6 +109,7 @@ export default function PortalSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Access and creation"
+        description={FEATURE_POLICY_SECTION_DESCRIPTION}
       >
         <AppSettingsPolicy
           form={form}

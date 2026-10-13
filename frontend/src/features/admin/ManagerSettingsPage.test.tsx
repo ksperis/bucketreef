@@ -139,6 +139,15 @@ describe("ManagerSettingsPage", () => {
     expect(payload.manager.feature_policies.bucket_integrity_check).toBe("targeted");
   });
 
+  it("keeps shared feature-policy guidance at section level and only shows option-specific help", async () => {
+    render(<ManagerSettingsPage />);
+
+    await policyGroup("Bucket compare tool");
+    expect(screen.getAllByText(/Choose whether features are blocked/)).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Bucket compare tool: information" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bucket quota management: information" })).toBeInTheDocument();
+  });
+
   it("renders bucket purge toggle and sends it in save payload", async () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);

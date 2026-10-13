@@ -1,8 +1,8 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { ReactNode } from "react";
 import type { FeaturePolicy } from "../../api/appSettings";
-import UiBadge from "../ui/UiBadge";
 import {
+  SettingsEffectiveAction,
   SettingsItem,
   SettingsTriStateSwitch,
   type SettingsTriStateOption,
@@ -26,7 +26,12 @@ export default function FeatureOverrideField({ title, value, policy, onChange, h
   const selection: FeatureOverrideValue = value == null ? "inherit" : value ? "enabled" : "disabled";
   const inheritedState = platformEnabled ? "Enabled" : "Disabled";
   const triStateOptions = [
-    { value: "disabled", label: "Disabled", symbol: "×" },
+    {
+      value: "disabled",
+      label: "Disabled",
+      symbol: "×",
+      selectedClassName: "settings-tristate-option-disabled-selected",
+    },
     {
       value: "inherit",
       label: `Inherited platform value — ${inheritedState}`,
@@ -46,16 +51,40 @@ export default function FeatureOverrideField({ title, value, policy, onChange, h
     SettingsTriStateOption<FeatureOverrideValue>,
   ];
   const setSelection = (next: FeatureOverrideValue) => onChange(next === "inherit" ? null : next === "enabled");
-  return <SettingsItem compact title={title} help={help}
-    status={blocked || unavailable ? <UiBadge tone="warning">{blocked ? "Platform disabled" : unavailable}</UiBadge> : undefined}
-    action={triState
-      ? <SettingsTriStateSwitch ariaLabel={title} value={selection} options={triStateOptions}
-          disabled={disabled} onChange={setSelection} />
-      : <SettingsSelect aria-label={title} className="settings-policy-select" disabled={disabled}
-          value={selection}
-          onChange={event => setSelection(event.target.value as FeatureOverrideValue)}>
-          <option value="inherit">Platform value — {inheritedState}</option>
-          <option value="enabled" disabled={blocked || Boolean(unavailable)}>Enabled</option>
-          <option value="disabled">Disabled</option>
-        </SettingsSelect>} />;
+  const unavailableReason = unavailable || undefined;
+  const effectiveUnavailable = blocked || Boolean(unavailableReason);
+  const effectiveEnabled = !effectiveUnavailable && (value ?? platformEnabled);
+  const effectiveState = effectiveUnavailable ? "unavailable" : effectiveEnabled ? "enabled" : "disabled";
+  const effectiveLabel = effectiveUnavailable ? "Unavailable" : effectiveEnabled ? "Enabled" : "Disabled";
+  const sourceLabel = blocked
+    ? "Platform"
+    : unavailableReason
+      ? unavailableReason
+      : value == null
+        ? "Platform"
+        : "Explicit override";
+  const savedLabel = blocked && value != null
+    ? `Stored override: ${value ? "Enabled" : "Disabled"}`
+    : undefined;
+  const control = triState
+    ? <SettingsTriStateSwitch ariaLabel={title} value={selection} options={triStateOptions}
+        disabled={disabled} onChange={setSelection} />
+    : <SettingsSelect aria-label={title} className="settings-policy-select" disabled={disabled}
+        value={selection}
+        onChange={event => setSelection(event.target.value as FeatureOverrideValue)}>
+        <option value="inherit">Platform value — {inheritedState}</option>
+        <option value="enabled" disabled={Boolean(unavailableReason)}>Enabled</option>
+        <option value="disabled">Disabled</option>
+      </SettingsSelect>;
+  return <SettingsItem compact className="settings-effective-row" title={title} help={help}
+    action={<SettingsEffectiveAction
+      state={effectiveState}
+      stateLabel={effectiveLabel}
+      sourceLabel={sourceLabel}
+      localLabel="Override"
+      constraintLabel={blocked ? "Platform disabled" : undefined}
+      savedLabel={savedLabel}
+    >
+      {control}
+    </SettingsEffectiveAction>} />;
 }

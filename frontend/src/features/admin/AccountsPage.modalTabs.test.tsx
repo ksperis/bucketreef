@@ -45,6 +45,22 @@ function expectInheritedFeatureOverride(name: string) {
     .toHaveAttribute("aria-checked", "true");
 }
 
+type PortalFeatureSelection = "inherit" | "enabled" | "disabled";
+
+const portalFeatureLabel = (value: PortalFeatureSelection) =>
+  value === "inherit" ? /^Platform value/ : value === "enabled" ? /^Enabled$/ : /^Disabled$/;
+
+async function selectPortalFeature(name: string, value: PortalFeatureSelection) {
+  const group = await screen.findByRole("radiogroup", { name });
+  fireEvent.click(within(group).getByRole("radio", { name: portalFeatureLabel(value) }));
+}
+
+function expectPortalFeature(name: string, value: PortalFeatureSelection) {
+  const group = screen.getByRole("radiogroup", { name });
+  expect(within(group).getByRole("radio", { name: portalFeatureLabel(value) }))
+    .toHaveAttribute("aria-checked", "true");
+}
+
 const makePortalAccountSettings = (overrides?: Record<string, unknown>) => ({
   effective: {
     browser_access_enabled: false,
@@ -779,15 +795,13 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     await screen.findByText("Private Storage Space creation");
 
-    fireEvent.change(screen.getByLabelText("Browser workspace access"), {
-      target: { value: "enabled" },
-    });
+    await selectPortalFeature("Browser workspace access", "enabled");
     fireEvent.click(screen.getByLabelText("Delegate Portal overrides to Portal managers"));
     fireEvent.click(screen.getByLabelText("Delegate collaborator addition to Portal managers"));
     fireEvent.click(screen.getByLabelText("Delegate collaborator role management to Portal managers"));
-    fireEvent.change(screen.getByLabelText("Private Storage Space creation"), { target: { value: "disabled" } });
-    fireEvent.change(screen.getByLabelText("Named bucket creation"), { target: { value: "enabled" } });
-    fireEvent.change(screen.getByLabelText("Storage Space history cleanup"), { target: { value: "disabled" } });
+    await selectPortalFeature("Private Storage Space creation", "disabled");
+    await selectPortalFeature("Named bucket creation", "enabled");
+    await selectPortalFeature("Storage Space history cleanup", "disabled");
     fireEvent.click(screen.getByLabelText("Customize — Version history retention"));
     fireEvent.change(screen.getByLabelText("Version history retention"), {
       target: { value: "45" },
@@ -838,13 +852,13 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     await screen.findByText("Private Storage Space creation");
 
-    fireEvent.change(screen.getByLabelText("Browser workspace access"), { target: { value: "disabled" } });
+    await selectPortalFeature("Browser workspace access", "disabled");
     fireEvent.click(screen.getByRole("button", { name: "Restore platform values" }));
     expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
     const resetDialog = screen.getByRole("dialog", { name: "Restore platform values?" });
     fireEvent.click(within(resetDialog).getByRole("button", { name: "Apply" }));
     expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("inherit");
+    expectPortalFeature("Browser workspace access", "inherit");
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
   });
 
@@ -1050,7 +1064,7 @@ describe("AccountsPage modal tabs", () => {
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
-    await screen.findByLabelText("Browser workspace access");
+    await screen.findByRole("radiogroup", { name: "Browser workspace access" });
     fireEvent.click(screen.getByRole("button", { name: "Restore platform values" }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Apply" }));
     expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
@@ -1071,10 +1085,10 @@ describe("AccountsPage modal tabs", () => {
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
-    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
+    await selectPortalFeature("Browser workspace access", "enabled");
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("enabled");
+    expectPortalFeature("Browser workspace access", "enabled");
     fetchAccountPortalSettingsMock.mockResolvedValue(makePortalAccountSettings({ admin_override: { allow_private_storage_space_create: false }, delegated_to_portal_managers: true }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(updateAccountPortalSettingsMock).toHaveBeenCalledWith(1, {
@@ -1093,20 +1107,20 @@ describe("AccountsPage modal tabs", () => {
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
-    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
+    await selectPortalFeature("Browser workspace access", "enabled");
     fetchAccountPortalSettingsMock.mockResolvedValue(makePortalAccountSettings({ admin_override: { browser_access_enabled: false } }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/A setting you edited has changed on the server/)).toBeInTheDocument();
     expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("enabled");
+    expectPortalFeature("Browser workspace access", "enabled");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("disabled");
-    fireEvent.change(screen.getByLabelText("Browser workspace access"), { target: { value: "inherit" } });
+    expectPortalFeature("Browser workspace access", "disabled");
+    await selectPortalFeature("Browser workspace access", "inherit");
     updateAccountPortalSettingsMock.mockRejectedValueOnce(new Error("Unavailable"));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/Unable to save project settings/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("inherit");
+    expectPortalFeature("Browser workspace access", "inherit");
   });
 
   it("keeps CORS edits inside the dialog until Apply and protects editor closure", async () => {
@@ -1137,7 +1151,7 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
     selectFeatureOverride("Bucket quota management", "Enabled");
     fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
-    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
+    await selectPortalFeature("Browser workspace access", "enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await screen.findByText("Project settings saved.");
     fireEvent.click(screen.getByRole("tab", { name: "Manager features" }));
@@ -1155,7 +1169,7 @@ describe("AccountsPage modal tabs", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
-    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
+    await selectPortalFeature("Browser workspace access", "enabled");
     fireEvent.click(screen.getByRole("tab", { name: "Manager features" }));
     selectFeatureOverride("Bucket quota management", "Enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -1165,7 +1179,7 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.getByRole("tab", { name: "Manager features" })).toHaveAttribute("aria-selected", "true");
     await act(async () => finishSave());
     fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("enabled");
+    expectPortalFeature("Browser workspace access", "enabled");
     expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await screen.findByText("Project settings saved.");
@@ -1188,9 +1202,9 @@ describe("AccountsPage modal tabs", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
-    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
+    await selectPortalFeature("Browser workspace access", "enabled");
     await act(async () => finishSave());
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("enabled");
+    expectPortalFeature("Browser workspace access", "enabled");
     expect(screen.queryByText("S3Account updated")).not.toBeInTheDocument();
   });
 
@@ -1482,17 +1496,18 @@ describe("AccountsPage modal tabs", () => {
     await waitFor(() => expect(quota).toBeEnabled());
     fireEvent.change(quota, { target: { value: "24" } });
     fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
-    const browserAccess = await screen.findByLabelText("Browser workspace access");
-    fireEvent.change(browserAccess, { target: { value: "enabled" } });
+    const browserAccess = await screen.findByRole("radiogroup", { name: "Browser workspace access" });
+    fireEvent.click(within(browserAccess).getByRole("radio", { name: /^Enabled$/ }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(updateAccountPortalSettingsMock).toHaveBeenCalledOnce());
-    expect(browserAccess).toBeDisabled();
+    within(browserAccess).getAllByRole("radio").forEach((radio) => expect(radio).toBeDisabled());
     expect(quota).toBeDisabled();
     expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
     expect(screen.getByRole("tab", { name: "General" })).toBeDisabled();
     await act(async () => reject(new Error("Portal write failed")));
     expect(await screen.findByText(/Unable to save project settings/)).toBeInTheDocument();
-    expect(browserAccess).toHaveValue("enabled");
+    expect(within(browserAccess).getByRole("radio", { name: /^Enabled$/ }))
+      .toHaveAttribute("aria-checked", "true");
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     expect(quota).toHaveValue(24);
     expect(updateS3AccountMock).not.toHaveBeenCalled();
