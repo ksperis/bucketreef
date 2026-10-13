@@ -29,7 +29,7 @@ import PageHeader from "../../components/PageHeader";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import SettingsForm from "../../components/settings/SettingsForm";
-import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
+import { SettingsButton, SettingsDialog, SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import AdminRgwEndpointField from "./AdminRgwEndpointField";
 import AdminRgwCreateFields from "./AdminRgwCreateFields";
@@ -558,9 +558,37 @@ export default function S3UsersPage() {
         payload.quota_max_size_unit = editForm.quota_max_size_gb !== "" ? editForm.quota_max_size_unit : null;
         payload.quota_max_objects = editForm.quota_max_objects !== "" ? Number(editForm.quota_max_objects) : null;
       }
-      await updateS3User(editingUser.id, payload);
+      const updatedUser = await updateS3User(editingUser.id, payload);
+      const savedQuota = buildAdminQuotaSizeEditorValue(updatedUser.quota_max_size_gb);
+      const savedForm = {
+        ...editForm,
+        name: updatedUser.name,
+        email: updatedUser.email ?? "",
+        tags: normalizeUiTags(updatedUser.tags),
+        user_links: (updatedUser.user_links ?? editForm.user_links ?? []).map((link) => ({
+          ...link,
+          allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+        })),
+        group_links: (updatedUser.group_links ?? editForm.group_links ?? []).map((link) => ({
+          ...link,
+          allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+        })),
+        quota_max_size_gb: updatedUser.quota_max_size_gb != null ? savedQuota.value : editForm.quota_max_size_gb,
+        quota_max_size_unit: updatedUser.quota_max_size_gb != null ? savedQuota.unit : editForm.quota_max_size_unit,
+        quota_max_objects: updatedUser.quota_max_objects != null ? String(updatedUser.quota_max_objects) : editForm.quota_max_objects,
+        allow_bucket_quota_management: updatedUser.allow_bucket_quota_management ?? editForm.allow_bucket_quota_management,
+        allow_access_key_management: updatedUser.allow_access_key_management ?? editForm.allow_access_key_management,
+        allow_access_key_metadata: updatedUser.allow_access_key_metadata ?? editForm.allow_access_key_metadata,
+        allow_access_key_expiration: updatedUser.allow_access_key_expiration ?? editForm.allow_access_key_expiration,
+        allow_activity_history: updatedUser.allow_activity_history ?? editForm.allow_activity_history,
+        allow_managed_private_connection_provisioning: updatedUser.allow_managed_private_connection_provisioning ?? editForm.allow_managed_private_connection_provisioning,
+      };
+      setEditingUser(updatedUser);
+      setEditForm(savedForm);
+      setEditPortalUserSelections([]);
+      setEditGroupSelections([]);
+      setEditInitialSignature(stableSignature({ editForm: { ...savedForm, tags: normalizeUiTags(savedForm.tags) } }));
       await fetchUsers();
-      closeEditModal();
       setActionMessage("User updated.");
     } catch (err) {
       setEditError(extractApiError(err, "Unexpected error"));
@@ -714,8 +742,9 @@ export default function S3UsersPage() {
     () => stableSignature({ editForm: { ...editForm, tags: normalizeUiTags(editForm.tags) } }),
     [editForm]
   );
+  const editDirty = Boolean(editingUser && editInitialSignature && editCurrentSignature !== editInitialSignature);
   const editCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: Boolean(editingUser && editInitialSignature && editCurrentSignature !== editInitialSignature),
+    hasUnsavedChanges: editDirty,
     disabled: editBusy,
     onClose: closeEditModal,
   });
@@ -979,6 +1008,7 @@ export default function S3UsersPage() {
             />
           }
         >
+          {actionMessage && <PageBanner tone="success" className="mb-3">{actionMessage}</PageBanner>}
           <WorkflowTabs<EditTab>
               panelClassName="mt-3 min-w-0"
               activeTab={editTab}
@@ -1008,6 +1038,8 @@ export default function S3UsersPage() {
                 onCancel={editCloseGuard.requestClose}
                 submitLabel="Save changes"
                 busyLabel="Saving..."
+                actions={<SettingsPersistentEditActions dirty={editDirty} busy={editBusy}
+                  onCancel={editCloseGuard.requestClose} saveLabel="Save changes" savingLabel="Saving..." />}
               >
                 {editError && <UiInlineMessage tone="error" role="alert">{editError}</UiInlineMessage>}
                 {showEditGeneralTab && (

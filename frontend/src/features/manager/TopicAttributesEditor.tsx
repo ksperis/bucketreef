@@ -182,7 +182,7 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
     description={text("Configure notification delivery and provider-specific SNS attributes.")}
     breadcrumbs={managerPageBreadcrumbs(text, "topics", { label: text("Attributes") })} backLabel={text("Back to topics")}
     dirty={dirty && !loading && !loadError} busy={saving} loading={loading} disabled={Boolean(loadError)}
-    error={loadError || error} submitLabel={text("Save attributes")} onSubmit={save} onClose={onClose}>
+    error={loadError || error} persistentEdit submitLabel={text("Save attributes")} onSubmit={save} onClose={onClose}>
     {loading && <p role="status" className="settings-description">{text("Loading topic attributes...")}</p>}
     {loadError && <div><SettingsButton variant="secondary" onClick={retry}>{text("Retry loading")}</SettingsButton></div>}
     {status && <UiInlineMessage tone="success" role="status">{status}</UiInlineMessage>}

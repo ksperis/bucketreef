@@ -354,7 +354,8 @@ describe("TopicsPage", () => {
     await user.click(await screen.findByRole("button", { name: action, exact: true }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Read unavailable");
     expect(screen.getByRole("textbox", { name: field })).toBeDisabled();
-    expect(screen.getByRole("button", { name: submit })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: submit })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry loading" }));
     await waitFor(() => expect(screen.getByRole("textbox", { name: field })).toHaveValue(value));
     fireEvent.change(screen.getByRole("textbox", { name: field }), { target: { value: "unsaved draft" } });

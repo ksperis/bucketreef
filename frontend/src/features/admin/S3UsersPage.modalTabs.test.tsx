@@ -205,8 +205,8 @@ describe("S3UsersPage modal tabs", () => {
     expect(within(generalPanel).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Object quota")).toHaveClass("ui-control");
     expect(within(generalPanel).queryByLabelText("Ceph endpoint (locked)")).not.toBeInTheDocument();
-    expect(within(generalPanel).getByRole("button", { name: "Save changes" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+    expect(within(generalPanel).getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(screen.getAllByText("UID").some((node) => node.tagName === "DT")).toBe(true);
   });
 

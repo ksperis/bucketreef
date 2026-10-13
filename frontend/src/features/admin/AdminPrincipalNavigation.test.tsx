@@ -152,7 +152,9 @@ describe("Admin principal editor navigation", () => {
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
       expect(unloadBlocked()).toBe(true);
       fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
-      await waitFor(() => expect(screen.queryByRole("form", { name: editor.form })).not.toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+      expect(screen.getByRole("form", { name: editor.form })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Save", exact: true })).not.toBeInTheDocument();
       expect(editor.update).toHaveBeenCalledTimes(2);
       expect(editor.update.mock.calls[1]).toEqual(editor.update.mock.calls[0]);
       expect(unloadBlocked()).toBe(false);

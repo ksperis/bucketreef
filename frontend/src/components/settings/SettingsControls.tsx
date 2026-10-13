@@ -101,6 +101,44 @@ export function SettingsActions({
   );
 }
 
+export function SettingsPersistentEditActions({
+  dirty,
+  busy,
+  disabled,
+  onCancel,
+  saveLabel = "Save changes",
+  cancelLabel = "Cancel",
+  doneLabel = "Done",
+  savingLabel = "Saving...",
+  saveAriaLabel,
+}: {
+  dirty: boolean;
+  busy?: boolean;
+  disabled?: boolean;
+  onCancel: () => void;
+  saveLabel?: string;
+  cancelLabel?: string;
+  doneLabel?: string;
+  savingLabel?: string;
+  saveAriaLabel?: string;
+}) {
+  if (!dirty) {
+    return (
+      <SettingsButton variant="secondary" disabled={busy} onClick={onCancel}>
+        {doneLabel}
+      </SettingsButton>
+    );
+  }
+  return <>
+    <SettingsButton variant="secondary" disabled={busy} onClick={onCancel}>
+      {cancelLabel}
+    </SettingsButton>
+    <SettingsButton type="submit" disabled={busy || disabled} aria-label={saveAriaLabel} loading={busy}>
+      {busy ? savingLabel : saveLabel}
+    </SettingsButton>
+  </>;
+}
+
 export function SettingsActionBar({ children }: { children: ReactNode }) {
   return <div className="settings-actions ui-page-sticky-actions">{children}</div>;
 }

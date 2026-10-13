@@ -2,7 +2,7 @@
 import type { ComponentProps, FormEvent, ReactNode } from "react";
 import WorkflowPage from "../WorkflowPage";
 import UiInlineMessage from "../ui/UiInlineMessage";
-import { SettingsButton } from "./SettingsControls";
+import { SettingsButton, SettingsPersistentEditActions } from "./SettingsControls";
 import SettingsForm from "./SettingsForm";
 import { useSettingsFormController } from "./useSettingsFormController";
 
@@ -10,7 +10,7 @@ import { useSettingsFormController } from "./useSettingsFormController";
 export default function SettingsWorkflowForm({
   title, description, breadcrumbs, backLabel, contentVariant, width = "standard", formLabel = title,
   dirty, busy = false, loading = false, disabled = false, readOnly = false, completed = false, error, submitLabel,
-  busyLabel = submitLabel, onSubmit, onClose, children,
+  busyLabel = submitLabel, persistentEdit = false, onSubmit, onClose, children,
 }: Pick<ComponentProps<typeof WorkflowPage>, "title" | "description" | "breadcrumbs" | "backLabel" | "contentVariant" | "width"> & {
   formLabel?: string;
   dirty: boolean;
@@ -19,6 +19,7 @@ export default function SettingsWorkflowForm({
   disabled?: boolean;
   readOnly?: boolean;
   completed?: boolean;
+  persistentEdit?: boolean;
   error?: string | null;
   submitLabel: string;
   busyLabel?: string;
@@ -35,9 +36,15 @@ export default function SettingsWorkflowForm({
       contentVariant={contentVariant} contentClassName="settings-compact settings-form">
       <SettingsForm label={formLabel} onSubmit={submit} busy={locked || loading}
         submitDisabled={disabled || readOnly} onCancel={requestClose} submitLabel={submitLabel} busyLabel={submitLabel}
-        actions={<>
-          <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>{readOnly ? labels.close : labels.cancel}</SettingsButton>
-          {!readOnly && <SettingsButton type="submit" disabled={locked || loading || disabled} loading={locked}>{locked ? busyLabel : submitLabel}</SettingsButton>}
+        actions={readOnly ? (
+          <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>{labels.close}</SettingsButton>
+        ) : persistentEdit ? (
+          <SettingsPersistentEditActions dirty={dirty} busy={locked} disabled={loading || disabled}
+            onCancel={requestClose} saveLabel={submitLabel} savingLabel={busyLabel}
+            cancelLabel={labels.cancel} doneLabel={labels.done} />
+        ) : <>
+          <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>{labels.cancel}</SettingsButton>
+          <SettingsButton type="submit" disabled={locked || loading || disabled} loading={locked}>{locked ? busyLabel : submitLabel}</SettingsButton>
         </>}>
         <div className="settings-stack">
           {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}

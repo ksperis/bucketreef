@@ -282,8 +282,8 @@ describe("AccountsPage modal tabs", () => {
     expect(within(generalPanel).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Object quota")).toHaveClass("ui-control");
-    expect(within(generalPanel).getByRole("button", { name: "Save changes" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+    expect(within(generalPanel).getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(screen.getAllByText("RGW ID").some((node) => node.tagName === "DT")).toBe(true);
   });
 
@@ -1391,7 +1391,9 @@ describe("AccountsPage modal tabs", () => {
     expect(quota).toHaveValue(42);
     expect(quota).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(screen.queryByRole("form", { name: "Edit RGW account" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeVisible());
+    expect(screen.getByRole("form", { name: "Edit RGW account" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(updateS3AccountMock.mock.calls[1]).toEqual(updateS3AccountMock.mock.calls[0]);
     expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
     await act(async () => { await router.navigate(-1); });

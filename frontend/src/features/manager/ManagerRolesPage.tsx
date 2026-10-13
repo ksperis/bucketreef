@@ -445,7 +445,6 @@ export default function ManagerRolesPage() {
       {editingRoleName && <ManagerRoleEditor
         key={`${accountIdForApi}:${editingRoleName}`} accountId={accountIdForApi} roleName={editingRoleName}
         onClose={() => setEditingRoleName(null)} onSaved={() => {
-          setEditingRoleName(null);
           setActionMessage(text("Role updated"));
           void load(accountIdForApi);
         }} />}

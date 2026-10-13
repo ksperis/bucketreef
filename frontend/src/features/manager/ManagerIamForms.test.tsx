@@ -209,7 +209,9 @@ describe("IAM role configuration", () => {
     expect(await within(form.closest(".workflow-page")!).findByText("Temporary update failure")).toBeInTheDocument();
     expect(document).toHaveValue(JSON.stringify(trust));
     fireEvent.submit(form);
-    await waitFor(() => expect(form).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+    expect(form).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(api.updateRole.mock.calls[1]).toEqual(api.updateRole.mock.calls[0]);
     expect(api.updateRole).toHaveBeenCalledWith("acc-7", role.name, { assume_role_policy_document: trust });
   });
@@ -221,7 +223,8 @@ describe("IAM role configuration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
     await screen.findByText("Role details unavailable");
     expect(screen.getByRole("textbox", { name: "Assume role policy (JSON)" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(api.updateRole).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Retry loading" }));
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Assume role policy (JSON)" })).toBeEnabled());
@@ -253,7 +256,7 @@ const navigationCases = [
   { kind: "edit-role", Page: ManagerRolesPage, mutate: api.updateRole, action: "Edit", formName: "Edit IAM role", fieldName: "Assume role policy (JSON)", draft: '{"Version":"2012-10-17","Statement":[]}' },
 ];
 
-it.each(navigationCases)("protects the $kind form through context navigation, pending work and error retry", async ({ Page, mutate, action, formName, fieldName, draft }) => {
+it.each(navigationCases)("protects the $kind form through context navigation, pending work and error retry", async ({ kind, Page, mutate, action, formName, fieldName, draft }) => {
   const user = userEvent.setup();
   setSessionUserCache({ role: "ui_user", authType: "password" });
   let reject!: (error: Error) => void;
@@ -286,7 +289,13 @@ it.each(navigationCases)("protects the $kind form through context navigation, pe
   expect(await screen.findByRole("alert")).toHaveTextContent("Temporary IAM failure");
   expect(field).toHaveValue(draft);
   fireEvent.submit(form);
-  await waitFor(() => expect(form).not.toBeInTheDocument());
+  if (kind === "edit-role") {
+    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+    expect(form).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+  } else {
+    await waitFor(() => expect(form).not.toBeInTheDocument());
+  }
   expect(mutate.mock.calls[0]).toEqual(mutate.mock.calls[1]);
   expect(mutate.mock.calls[1][0]).toBe("acc-7");
   const saved = new Event("beforeunload", { cancelable: true });
