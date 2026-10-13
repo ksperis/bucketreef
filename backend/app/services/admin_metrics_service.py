@@ -352,16 +352,31 @@ class AdminMetricsService:
                         failures.append(sanitized_error_log_detail(exc))
                 buckets = list(unique_buckets.values())
 
+        def dashboard_usage(bucket: dict) -> tuple[int | None, int | None]:
+            usage = bucket.get("usage")
+            # RGW represents a successfully measured empty bucket as an empty
+            # usage map. Keep missing/incomplete payloads unknown, but count an
+            # explicit empty map as a real zero measurement.
+            if usage == {}:
+                return 0, 0
+            return extract_usage_stats(usage)
+
         totals = _BucketUsageIndex.build(buckets).totals
         fields = {
             "bucket_count": totals.total_buckets if successful_listings else None,
             "used_bytes": totals.used_bytes if totals.has_bytes else (0 if not buckets and successful_listings else None),
             "object_count": totals.object_count if totals.has_objects else (0 if not buckets and successful_listings else None),
         }
+        if successful_listings:
+            measured = [dashboard_usage(bucket) for bucket in buckets]
+            if buckets and not totals.has_bytes and all(used_bytes == 0 for used_bytes, _ in measured):
+                fields["used_bytes"] = 0
+            if buckets and not totals.has_objects and all(object_count == 0 for _, object_count in measured):
+                fields["object_count"] = 0
         complete = {
             "bucket_count": bool(successful_listings) and not failures,
-            "used_bytes": bool(successful_listings) and not failures and all(extract_usage_stats(b.get("usage"))[0] is not None for b in buckets),
-            "object_count": bool(successful_listings) and not failures and all(extract_usage_stats(b.get("usage"))[1] is not None for b in buckets),
+            "used_bytes": bool(successful_listings) and not failures and all(dashboard_usage(b)[0] is not None for b in buckets),
+            "object_count": bool(successful_listings) and not failures and all(dashboard_usage(b)[1] is not None for b in buckets),
         }
         missing = [key for key, value in complete.items() if not value]
         reason = "; ".join(dict.fromkeys(failures))
