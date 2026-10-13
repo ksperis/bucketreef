@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,10 +19,16 @@ class _OperationResult:
 class _AdminSession:
     def __init__(self) -> None:
         self.deleted: list[tuple[str, dict[str, Any], dict[str, Any], Any]] = []
+        self.bucket_items: list[dict[str, Any]] = []
+        self.get_calls: list[tuple[str, dict[str, Any]]] = []
 
-    def get(self, path: str):
-        assert path == "/admin/accounts/7"
-        return {"storage_endpoint_id": 3}
+    def get(self, path: str, *, params=None):
+        self.get_calls.append((path, params or {}))
+        if path == "/admin/accounts/7":
+            return {"storage_endpoint_id": 3}
+        if path == "/ceph-admin/endpoints/3/buckets":
+            return {"items": list(self.bucket_items)}
+        raise AssertionError(f"unexpected GET {path}")
 
     def delete(self, path: str, *, params=None, json=None, expected_status=(200,)):
         self.deleted.append((path, params or {}, json or {}, expected_status))
@@ -58,3 +65,51 @@ def test_cleanup_purges_tracked_bucket_through_ceph_admin() -> None:
             (200, 404),
         )
     ]
+
+
+def test_cleanup_discovers_and_purges_buckets_owned_by_tracked_rgw_account() -> None:
+    admin = _AdminSession()
+    admin.bucket_items = [
+        {"name": "derived-portal-bucket", "owner": "RGW00000000000000007"},
+    ]
+    tracker = ResourceTracker(admin_session=admin)
+    tracker.track_account(
+        7,
+        delete_rgw=True,
+        rgw_account_id="RGW00000000000000007",
+    )
+
+    assert tracker.cleanup() == []
+
+    listing_call = next(
+        call
+        for call in admin.get_calls
+        if call[0] == "/ceph-admin/endpoints/3/buckets"
+    )
+    advanced_filter = json.loads(listing_call[1]["advanced_filter"])
+    assert advanced_filter == {
+        "match": "all",
+        "rules": [
+            {
+                "field": "owner",
+                "op": "eq",
+                "value": "RGW00000000000000007",
+            }
+        ],
+    }
+    assert (
+        "/ceph-admin/endpoints/3/buckets/derived-portal-bucket",
+        {},
+        {
+            "confirmation": "PURGE AND DELETE BUCKET derived-portal-bucket",
+            "purge_objects": True,
+            "bypass_gc": False,
+        },
+        (200, 404),
+    ) in admin.deleted
+    assert (
+        "/admin/accounts/7",
+        {"delete_rgw": "true"},
+        {},
+        (204,),
+    ) in admin.deleted
