@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -301,6 +301,30 @@ describe("Sidebar", () => {
     expect(screen.queryByText("Workspace")).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "MANAGER navigation" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Switch workspace" })).not.toBeInTheDocument();
+  });
+
+  it("renders untitled navigation sections without inventing a section heading", () => {
+    render(
+      <MemoryRouter>
+        <Sidebar
+          title="PORTAL"
+          sections={[
+            {
+              links: [{ to: "/portal", label: "Dashboard", end: true }],
+            },
+            {
+              label: "Management",
+              links: [{ to: "/portal/settings", label: "Settings" }],
+            },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    const nav = screen.getByRole("navigation", { name: "PORTAL navigation" });
+    expect(within(nav).getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(within(nav).getByText("Management")).toBeInTheDocument();
+    expect(within(nav).queryByText("Navigation")).not.toBeInTheDocument();
   });
 
   it("keeps compact links titled and labeled for assistive tech", () => {

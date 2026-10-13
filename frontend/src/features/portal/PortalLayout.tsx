@@ -33,12 +33,6 @@ function usePortalNavSections(): SidebarSection[] {
   return useMemo(
     () => [
       {
-        label: t({
-          en: "Workspace",
-          fr: "Espace de travail",
-          de: "Arbeitsbereich",
-          zh: "工作区",
-        }),
         links: [
           {
             to: "/portal",
@@ -76,15 +70,6 @@ function usePortalNavSections(): SidebarSection[] {
             }),
             icon: <KeyIcon />,
           },
-          ...(isPortalManager
-            ? [
-                {
-                  to: "/portal/history",
-                  label: t({ en: "History", fr: "Historique", de: "Verlauf", zh: "历史记录" }),
-                  icon: <ActivityIcon />,
-                },
-              ]
-            : []),
           {
             to: "/portal/usage",
             label: t({
@@ -95,8 +80,18 @@ function usePortalNavSections(): SidebarSection[] {
             }),
             icon: <ChartIcon />,
           },
-          ...(isPortalManager
-            ? [
+        ],
+      },
+      ...(isPortalManager
+        ? [
+            {
+              label: t({ en: "Management", fr: "Gestion", de: "Verwaltung", zh: "管理" }),
+              links: [
+                {
+                  to: "/portal/history",
+                  label: t({ en: "History", fr: "Historique", de: "Verlauf", zh: "历史记录" }),
+                  icon: <ActivityIcon />,
+                },
                 {
                   to: "/portal/requests",
                   label: t({
@@ -112,10 +107,10 @@ function usePortalNavSections(): SidebarSection[] {
                   label: t({ en: "Settings", fr: "Paramètres", de: "Einstellungen", zh: "设置" }),
                   icon: <SettingsIcon />,
                 },
-              ]
-            : []),
-        ],
-      },
+              ],
+            },
+          ]
+        : []),
     ],
     [isPortalManager, t],
   );
