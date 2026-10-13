@@ -21,6 +21,7 @@ import {
   UsageStatsEmptyChart,
   usageStatsChartColor,
 } from "./BucketUsageStatsCharts";
+import { useBucketUsageStatsI18n, type BucketUsageStatsTextOverride } from "./bucketUsageStatsMessage";
 
 type BucketUsageStatsVisualSource = Pick<
   BucketUsageStatsSnapshot,
@@ -66,6 +67,7 @@ type BucketUsageStatsCompositionVisualsProps = {
   currentVsNoncurrentEmptyMessage?: string;
   showVersionListingWarning?: boolean;
   labels?: BucketUsageStatsCompositionLabels;
+  text?: BucketUsageStatsTextOverride;
 };
 
 type BucketUsageStatsDataTypesCardProps = {
@@ -94,10 +96,12 @@ function topEntries(entries: BucketUsageStatsDistributionEntry[], limit = 5): Bu
 export function BucketUsageStatsCompositionVisuals({
   stats,
   finalMetric,
-  currentVsNoncurrentEmptyMessage = "Unavailable for fallback current-only scans.",
+  currentVsNoncurrentEmptyMessage,
   showVersionListingWarning,
   labels,
+  text: translateText,
 }: BucketUsageStatsCompositionVisualsProps) {
+  const { text } = useBucketUsageStatsI18n(translateText);
   const dataTypes = nonEmptyUsageStatsEntries(stats.data_type_distribution);
   const storageClasses = nonEmptyUsageStatsEntries(stats.storage_class_distribution);
   const sizeDistribution = stats.size_distribution ?? [];
@@ -109,48 +113,48 @@ export function BucketUsageStatsCompositionVisuals({
     <div className="space-y-5">
       <div className="grid gap-3 md:grid-cols-4">
         <SummaryMetricCard
-          label={labels?.logicalBytes ?? "Logical bytes"}
+          label={labels?.logicalBytes ?? text("logicalBytes")}
           value={formatBytes(stats.total_bytes)}
-          hint={`${formatCompactNumber(stats.object_version_count)} ${labels?.versionsUnit ?? "version(s)"}`}
+          hint={`${formatCompactNumber(stats.object_version_count)} ${labels?.versionsUnit ?? text("versionsUnit")}`}
         />
         <SummaryMetricCard
-          label={labels?.currentBytes ?? "Current bytes"}
+          label={labels?.currentBytes ?? text("currentBytes")}
           value={formatBytes(stats.current_bytes)}
-          hint={usageStatsRatio(stats.current_bytes, versionBytes, labels?.unavailable ?? "Unavailable")}
+          hint={usageStatsRatio(stats.current_bytes, versionBytes, labels?.unavailable ?? text("unavailable"))}
         />
         <SummaryMetricCard
-          label={labels?.noncurrentBytes ?? "Non-current bytes"}
+          label={labels?.noncurrentBytes ?? text("noncurrentBytes")}
           value={formatBytes(stats.noncurrent_bytes)}
-          hint={usageStatsRatio(stats.noncurrent_bytes, versionBytes, labels?.unavailable ?? "Unavailable")}
+          hint={usageStatsRatio(stats.noncurrent_bytes, versionBytes, labels?.unavailable ?? text("unavailable"))}
         />
         <SummaryMetricCard {...finalMetric} />
       </div>
 
       {showVersionListingWarning && (
         <PageBanner tone="warning">
-          {labels?.versionListingWarning ?? "Version listing was unavailable. Current/non-current space distribution cannot be calculated from the fallback listing."}
+          {labels?.versionListingWarning ?? text("versionListingWarning")}
         </PageBanner>
       )}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <UsageStatsChartShell title={labels?.dataTypesTitle ?? "Data types"} subtitle={labels?.dataTypesSubtitle ?? "Logical bytes by inferred object type"}>
-          <UsageStatsDataTypeDonut entries={dataTypes} />
+        <UsageStatsChartShell title={labels?.dataTypesTitle ?? text("dataTypesTitle")} subtitle={labels?.dataTypesSubtitle ?? text("dataTypesSubtitle")}>
+          <UsageStatsDataTypeDonut entries={dataTypes} distributionKind="dataType" text={translateText} />
         </UsageStatsChartShell>
-        <UsageStatsChartShell title={labels?.currentVsNoncurrentTitle ?? "Current vs non-current"} subtitle={labels?.currentVsNoncurrentSubtitle ?? "Stored object-version bytes"}>
+        <UsageStatsChartShell title={labels?.currentVsNoncurrentTitle ?? text("currentVsNoncurrentTitle")} subtitle={labels?.currentVsNoncurrentSubtitle ?? text("currentVsNoncurrentSubtitle")}>
           {currentVsNoncurrent.length > 0 ? (
-            <UsageStatsDataTypeDonut entries={currentVsNoncurrent} />
+            <UsageStatsDataTypeDonut entries={currentVsNoncurrent} distributionKind="currentVersion" text={translateText} />
           ) : (
-            <UsageStatsEmptyChart message={currentVsNoncurrentEmptyMessage} />
+            <UsageStatsEmptyChart message={currentVsNoncurrentEmptyMessage ?? text("fallbackScanUnavailable")} />
           )}
         </UsageStatsChartShell>
-        <UsageStatsChartShell title={labels?.storageClassesTitle ?? "Storage classes"} subtitle={labels?.storageClassesSubtitle ?? "Logical bytes by storage class"}>
-          <UsageStatsDistributionBars entries={storageClasses} />
+        <UsageStatsChartShell title={labels?.storageClassesTitle ?? text("storageClassesTitle")} subtitle={labels?.storageClassesSubtitle ?? text("storageClassesSubtitle")}>
+          <UsageStatsDistributionBars entries={storageClasses} distributionKind="storageClass" text={translateText} />
         </UsageStatsChartShell>
-        <UsageStatsChartShell title={labels?.objectSizesTitle ?? "Object sizes"} subtitle={labels?.objectSizesSubtitle ?? "Version count by object size"}>
-          <UsageStatsDistributionBars entries={sizeDistribution} bytesAxis={false} />
+        <UsageStatsChartShell title={labels?.objectSizesTitle ?? text("objectSizesTitle")} subtitle={labels?.objectSizesSubtitle ?? text("objectSizesSubtitle")}>
+          <UsageStatsDistributionBars entries={sizeDistribution} distributionKind="size" bytesAxis={false} text={translateText} />
         </UsageStatsChartShell>
-        <UsageStatsChartShell title={labels?.objectAgeTitle ?? "Object age"} subtitle={labels?.objectAgeSubtitle ?? "Version count by last modified date"}>
-          <UsageStatsDistributionBars entries={ageDistribution} bytesAxis={false} />
+        <UsageStatsChartShell title={labels?.objectAgeTitle ?? text("objectAgeTitle")} subtitle={labels?.objectAgeSubtitle ?? text("objectAgeSubtitle")}>
+          <UsageStatsDistributionBars entries={ageDistribution} distributionKind="age" bytesAxis={false} text={translateText} />
         </UsageStatsChartShell>
       </div>
     </div>
@@ -167,19 +171,13 @@ export function BucketUsageStatsDataTypesCard({
   locale,
   "data-testid": dataTestId,
 }: BucketUsageStatsDataTypesCardProps) {
-  const text = (message: string, values?: Record<string, string | number>) => {
-    if (translateText) return translateText(message, values);
-    if (!values) return message;
-    return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-      Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-    );
-  };
+  const { text, distributionLabel } = useBucketUsageStatsI18n(translateText);
   const rawEntries = nonEmptyUsageStatsEntries(aggregate?.data_type_distribution);
   const entries = topEntries(rawEntries, rawEntries.length);
   const topDataTypes = entries.slice(0, 4);
   const hasSnapshot = Boolean(aggregate && aggregate.buckets_with_snapshot > 0);
   const coverage = aggregate
-    ? text("{covered} / {total} buckets covered", {
+    ? text("bucketCoverageCount", {
         covered: aggregate.buckets_with_snapshot,
         total: aggregate.bucket_count,
       })
@@ -190,9 +188,9 @@ export function BucketUsageStatsDataTypesCard({
     <section className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-panel ui-dashboard-data-types" : "h-full p-4", className)} data-testid={dataTestId}>
       <div>
         <div className="min-w-0">
-          <h2 className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{text("Data types")}</h2>
+          <h2 className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{text("dataTypesTitle")}</h2>
           <div className={cx("mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 ui-caption", uiMutedTextClass)}>
-            <span>{latest ? text("Latest {date}", { date: latest }) : text("Latest bucket snapshots")}</span>
+            <span>{latest ? text("latestDate", { date: latest }) : text("latestBucketSnapshots")}</span>
             {aggregate && <span>{coverage}</span>}
           </div>
         </div>
@@ -205,11 +203,11 @@ export function BucketUsageStatsDataTypesCard({
       ) : loading && !aggregate ? (
         <div className="mt-3 h-36 animate-pulse rounded-md bg-[var(--ui-surface-muted)]" />
       ) : !hasSnapshot ? (
-        <MetricsEmptyState className="mt-3 py-6 ui-caption">{text("No usage stats snapshot yet.")}</MetricsEmptyState>
+        <MetricsEmptyState className="mt-3 py-6 ui-caption">{text("noSnapshot")}</MetricsEmptyState>
       ) : (
         <div className="mt-3 grid gap-3 sm:grid-cols-[128px_minmax(0,1fr)] xl:grid-cols-1 2xl:grid-cols-[128px_minmax(0,1fr)]">
           <div className="h-32 min-w-0">
-            <UsageStatsDataTypeDonut entries={entries} height={128} legendWidth={0} />
+            <UsageStatsDataTypeDonut entries={entries} height={128} legendWidth={0} text={translateText} />
           </div>
           <div className="min-w-0 divide-y divide-[color:var(--ui-border-soft)]">
             {topDataTypes.map((entry, index) => (
@@ -220,8 +218,8 @@ export function BucketUsageStatsDataTypesCard({
                     data-testid={`manager-dashboard-data-type-color-${entry.key}`}
                     style={{ backgroundColor: usageStatsChartColor(index) }}
                   />
-                  <span className={presentation === "compact" ? "ui-dashboard-label ui-dashboard-data-type-label" : "truncate ui-caption font-semibold text-[var(--ui-text)]"} title={text(entry.label)}>
-                    {text(entry.label)}
+                  <span className={presentation === "compact" ? "ui-dashboard-label ui-dashboard-data-type-label" : "truncate ui-caption font-semibold text-[var(--ui-text)]"} title={distributionLabel(entry, "dataType")}>
+                    {distributionLabel(entry, "dataType")}
                   </span>
                 </span>
                 <span className={cx("shrink-0 ui-caption font-semibold", uiMutedTextClass)}>
