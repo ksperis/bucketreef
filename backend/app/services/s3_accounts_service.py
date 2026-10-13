@@ -803,6 +803,8 @@ class S3AccountsService:
             account.allow_access_key_metadata = payload.allow_access_key_metadata
         if "allow_access_key_expiration" in payload.model_fields_set:
             account.allow_access_key_expiration = payload.allow_access_key_expiration
+        if "allow_activity_history" in payload.model_fields_set:
+            account.allow_activity_history = payload.allow_activity_history
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None

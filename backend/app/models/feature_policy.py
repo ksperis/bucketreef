@@ -18,6 +18,7 @@ class FeaturePolicies(ApiModel):
 
 
 class ManagerFeaturePolicies(FeaturePolicies):
+    activity_history: FeaturePolicy = FeaturePolicy.DEFAULT_ON
     bucket_compare: FeaturePolicy = FeaturePolicy.TARGETED
     bucket_integrity_check: FeaturePolicy = FeaturePolicy.TARGETED
     bucket_migration: FeaturePolicy = FeaturePolicy.DISABLED

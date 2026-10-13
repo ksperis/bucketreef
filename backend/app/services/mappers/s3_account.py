@@ -58,6 +58,7 @@ def s3_account_from_db(
         allow_bucket_quota_management=account.allow_bucket_quota_management,
         allow_access_key_metadata=account.allow_access_key_metadata,
         allow_access_key_expiration=account.allow_access_key_expiration,
+        allow_activity_history=account.allow_activity_history,
         tags=tags or [],
     )
 
@@ -85,5 +86,6 @@ def s3_account_summary_from_db(
         allow_bucket_quota_management=account.allow_bucket_quota_management,
         allow_access_key_metadata=account.allow_access_key_metadata,
         allow_access_key_expiration=account.allow_access_key_expiration,
+        allow_activity_history=account.allow_activity_history,
         tags=tags or [],
     )

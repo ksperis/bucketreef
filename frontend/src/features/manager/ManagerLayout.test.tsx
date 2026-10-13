@@ -109,6 +109,7 @@ function buildContext(overrides?: Record<string, unknown>) {
     managerStatsMessage: null,
     managerBrowserEnabled: true,
     managerCephKeysEnabled: true,
+    managerFeatureStates: {},
     ...overrides,
   };
 }
@@ -177,6 +178,32 @@ describe("ManagerLayout", () => {
     );
 
     expect(capturedNavSections.flatMap((section) => section.links).map((link) => link.label)).not.toContain("Browser");
+  });
+
+  it("shows Activity only for an RGW Account with effective activity history enabled", () => {
+    useS3AccountContextMock.mockReturnValue(buildContext({
+      accounts: [{ id: "account-1", display_name: "Account", storage_endpoint_capabilities: {} }],
+      selectedS3AccountId: "account-1",
+      selectedS3AccountType: "tenant",
+      accessMode: "admin",
+      managerFeatureStates: { activity_history: { enabled: true, source: "platform" } },
+    }));
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(<MemoryRouter initialEntries={["/manager"]}><ManagerLayout /></MemoryRouter>);
+
+    expect(capturedNavSections.find((section) => section.label === "Overview")?.links.map((link) => link.label)).toContain("Activity");
+  });
+
+  it("hides Activity for RGW User contexts even if a feature state is present", () => {
+    useS3AccountContextMock.mockReturnValue(buildContext({
+      managerFeatureStates: { activity_history: { enabled: true, source: "platform" } },
+    }));
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(<MemoryRouter initialEntries={["/manager"]}><ManagerLayout /></MemoryRouter>);
+
+    expect(capturedNavSections.find((section) => section.label === "Overview")?.links.map((link) => link.label)).not.toContain("Activity");
   });
 
   it("shows Ceph section above Tools when manager_ceph_keys_enabled is true", () => {

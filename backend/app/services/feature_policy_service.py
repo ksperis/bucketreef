@@ -15,14 +15,23 @@ MANAGER_RESOURCE_FIELDS = {
     "allow_managed_private_connection_provisioning": "managed_private_connection_provisioning",
 }
 
+MANAGER_ACCOUNT_RESOURCE_FIELDS = {
+    "allow_activity_history": "activity_history",
+}
+
+MANAGER_OVERRIDE_FEATURES = {
+    **MANAGER_RESOURCE_FIELDS,
+    **MANAGER_ACCOUNT_RESOURCE_FIELDS,
+}
+
 
 def manager_override_values(payload: ApiModel) -> dict[str, bool | None]:
-    return {field: getattr(payload, field) for field in MANAGER_RESOURCE_FIELDS if field in payload.model_fields_set}
+    return {field: getattr(payload, field) for field in MANAGER_OVERRIDE_FEATURES if field in payload.model_fields_set}
 
 
 def validate_manager_overrides(payload: ApiModel, policies: ManagerFeaturePolicies, current: S3Account | S3User | None = None) -> None:
     for field, value in manager_override_values(payload).items():
-        if (value is True and getattr(policies, MANAGER_RESOURCE_FIELDS[field]) == FeaturePolicy.DISABLED
+        if (value is True and getattr(policies, MANAGER_OVERRIDE_FEATURES[field]) == FeaturePolicy.DISABLED
                 and (current is None or getattr(current, field) is not True)):
             raise ValueError("This feature is disabled by the platform")
 
@@ -45,4 +54,15 @@ def manager_resource_states(policies: ManagerFeaturePolicies, resource: S3Accoun
             state.enabled = False
             state.blocked_reason = "unsupported_context" if resource is None else "prerequisite_or_permission_required"
         states[feature] = state
+    if isinstance(resource, S3Account):
+        states["activity_history"] = resolve_feature_policy(
+            policies.activity_history,
+            resource.allow_activity_history,
+        )
+    else:
+        states["activity_history"] = FeatureState(
+            enabled=False,
+            source="platform",
+            blocked_reason="unsupported_context",
+        )
     return states

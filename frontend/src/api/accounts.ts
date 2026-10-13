@@ -48,6 +48,7 @@ export type S3Account = {
   allow_bucket_quota_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;
   allow_access_key_expiration?: boolean | null;
+  allow_activity_history?: boolean | null;
 };
 
 export type S3AccountSummary = {
@@ -65,6 +66,7 @@ export type S3AccountSummary = {
   allow_bucket_quota_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;
   allow_access_key_expiration?: boolean | null;
+  allow_activity_history?: boolean | null;
 };
 
 type PaginatedS3AccountsResponse = PaginatedResponse<S3Account>;
@@ -127,6 +129,7 @@ type UpdateS3AccountPayload = {
   allow_bucket_quota_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;
   allow_access_key_expiration?: boolean | null;
+  allow_activity_history?: boolean | null;
 };
 
 export async function updateS3Account(accountId: number, payload: UpdateS3AccountPayload): Promise<S3Account> {

@@ -28,6 +28,7 @@ nav:
       - Overview: iam/index.md
       - Access keys: iam/access-keys.md
   - Topics: topics.md
+  - Activity history: activity.md
   - Browser in Manager:
       - Object operations: browser/object-operations.md
       - Versions: browser/versions.md

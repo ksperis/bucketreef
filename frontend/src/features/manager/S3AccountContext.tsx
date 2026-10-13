@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { S3AccountSelector } from "../../api/accountParams";
 import { ExecutionContext } from "../../api/executionContexts";
 import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerContext";
+import type { FeatureState } from "../../api/featurePolicies";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
@@ -33,6 +34,7 @@ type S3AccountContextType = {
   managerAccessKeyMetadataEnabled: boolean | null;
   managerAccessKeyExpirationEnabled: boolean | null;
   managerPrivateAccessEnabled: boolean | null;
+  managerFeatureStates: Record<string, FeatureState> | null;
 };
 
 const S3AccountContext = createContext<S3AccountContextType>({
@@ -57,6 +59,7 @@ const S3AccountContext = createContext<S3AccountContextType>({
   managerAccessKeyMetadataEnabled: null,
   managerAccessKeyExpirationEnabled: null,
   managerPrivateAccessEnabled: null,
+  managerFeatureStates: null,
 });
 
 type S3AccountProviderScope = "manager" | "browser";
@@ -110,6 +113,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const [managerAccessKeyMetadataEnabled, setManagerAccessKeyMetadataEnabled] = useState<boolean | null>(null);
   const [managerAccessKeyExpirationEnabled, setManagerAccessKeyExpirationEnabled] = useState<boolean | null>(null);
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
+  const [managerFeatureStates, setManagerFeatureStates] = useState<Record<string, FeatureState> | null>(null);
   const hasS3AccountContext = requiresS3AccountSelection ? selectedS3Account !== null : true;
   const accountIdForApi: S3AccountSelector = requiresS3AccountSelection ? selectedS3AccountId : null;
   const selectedS3AccountName = selectedS3Account?.display_name ?? sessionAccountName;
@@ -132,6 +136,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
       setManagerAccessKeyMetadataEnabled(null);
       setManagerAccessKeyExpirationEnabled(null);
       setManagerPrivateAccessEnabled(null);
+      setManagerFeatureStates(null);
       return;
     }
     let isMounted = true;
@@ -144,6 +149,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     setManagerAccessKeyMetadataEnabled(null);
     setManagerAccessKeyExpirationEnabled(null);
     setManagerPrivateAccessEnabled(null);
+    setManagerFeatureStates(null);
     fetchManagerContext(accountIdForApi)
       .then((data) => {
         if (!isMounted) return;
@@ -159,6 +165,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         setManagerAccessKeyMetadataEnabled(Boolean(data.manager_access_key_metadata_enabled));
         setManagerAccessKeyExpirationEnabled(Boolean(data.manager_access_key_expiration_enabled));
         setManagerPrivateAccessEnabled(Boolean(data.manager_private_access_enabled));
+        setManagerFeatureStates(data.feature_states ?? {});
       })
       .catch(() => {
         if (!isMounted) return;
@@ -173,6 +180,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         setManagerAccessKeyMetadataEnabled(null);
         setManagerAccessKeyExpirationEnabled(null);
         setManagerPrivateAccessEnabled(null);
+        setManagerFeatureStates({});
       });
     return () => {
       isMounted = false;
@@ -203,6 +211,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         managerAccessKeyMetadataEnabled,
         managerAccessKeyExpirationEnabled,
         managerPrivateAccessEnabled,
+        managerFeatureStates,
       }}
     >
       {children}

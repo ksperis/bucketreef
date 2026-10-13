@@ -40,6 +40,7 @@ const paths = [
   "general.bucket_usage_stats_enabled",
   "manager.manager_rgw_usage_metrics_enabled",
   "manager.feature_policies.bucket_quota_management",
+  "manager.feature_policies.activity_history",
   "manager.feature_policies.ceph_s3_user_keys",
   "manager.feature_policies.access_key_metadata",
   "manager.feature_policies.access_key_expiration",
@@ -153,6 +154,12 @@ export default function ManagerSettingsPage() {
         presentation="compact"
         title="Administration and access"
       >
+        <AppSettingsPolicy
+          form={form}
+          field="manager.feature_policies.activity_history"
+          title="Manager activity history"
+          description="Account-scoped control and configuration history in Manager. Enabled by default; each RGW Account can inherit, enable, or disable it."
+        />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.bucket_quota_management"

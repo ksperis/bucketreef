@@ -58,6 +58,14 @@ describe("ManagerSettingsPage", () => {
     expect(payload.manager.feature_policies.ceph_s3_user_keys).toBe("targeted");
   });
 
+  it("renders Manager activity history as enabled by default", async () => {
+    render(<ManagerSettingsPage />);
+
+    const toggle = await policyGroup("Manager activity history");
+
+    expectPolicy(toggle, "Enabled by default");
+  });
+
   it("saves managed private connection provisioning from an experimental default-off toggle", async () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
@@ -274,6 +282,6 @@ describe("ManagerSettingsPage", () => {
     expect(screen.getAllByRole("switch").map(toggle => toggle.getAttribute("aria-label"))).toEqual([
       "Bucket composition statistics", "RGW traffic and usage metrics",
     ]);
-    expect(screen.getAllByRole("radiogroup")).toHaveLength(10);
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(11);
   });
 });
