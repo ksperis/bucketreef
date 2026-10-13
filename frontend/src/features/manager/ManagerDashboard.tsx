@@ -80,6 +80,7 @@ import { useIamOverview } from "./useIamOverview";
 import { useManagerStats } from "./useManagerStats";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
+import { managerActivityPresentation, managerActivityTarget } from "./managerActivityPresentation";
 import { useManagerI18n } from "./managerI18n";
 
 type BucketRankingRow = {
@@ -156,73 +157,17 @@ function formatStatus(status: HealthCheckStatus): string {
   return "Unknown";
 }
 
-function normalizeActionLabel(action: string): string {
-  return action
-    .replace(/[._-]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ")
-    .replace(/^./, (char) => char.toUpperCase());
-}
-
 function activityPresentation(log: ManagerActivityEntry): { label: string; tone: DashboardTone; icon: ReactNode } {
-  const action = log.action.toLowerCase();
-  const entityType = (log.entity_type ?? "").toLowerCase();
-  if (entityType === "bucket" || action.includes("bucket")) {
-    return { label: bucketActionLabel(action), tone: "emerald", icon: <BucketIcon className="h-4 w-4" /> };
-  }
-  if (entityType.includes("user") || action.includes("iam_user") || action.includes("access_key")) {
-    return { label: iamActionLabel(action, "IAM user"), tone: "blue", icon: <UserIcon className="h-4 w-4" /> };
-  }
-  if (entityType.includes("group") || action.includes("iam_group")) {
-    return { label: iamActionLabel(action, "IAM group"), tone: "emerald", icon: <GroupIcon className="h-4 w-4" /> };
-  }
-  if (entityType.includes("role") || action.includes("iam_role")) {
-    return { label: iamActionLabel(action, "IAM role"), tone: "amber", icon: <ShieldIcon className="h-4 w-4" /> };
-  }
-  if (entityType.includes("policy") || action.includes("policy")) {
-    return { label: iamActionLabel(action, "Policy"), tone: "violet", icon: <FileIcon className="h-4 w-4" /> };
-  }
-  if (entityType.includes("topic") || action.includes("topic")) {
-    return { label: genericEntityActionLabel(action, "Topic"), tone: "emerald", icon: <BellIcon className="h-4 w-4" /> };
-  }
-  if (action.includes("migration")) {
-    return { label: genericEntityActionLabel(action, "Migration"), tone: "violet", icon: <HistoryIcon className="h-4 w-4" /> };
-  }
-  if (entityType.includes("object") || action.includes("object")) {
-    return { label: genericEntityActionLabel(action, "Object"), tone: "amber", icon: <UploadIcon className="h-4 w-4" /> };
-  }
-  return { label: normalizeActionLabel(log.action), tone: "blue", icon: <InfoIcon className="h-4 w-4" /> };
-}
-
-function bucketActionLabel(action: string): string {
-  if (action.includes("create")) return "Bucket created";
-  if (action.includes("delete")) return "Bucket deleted";
-  if (action.includes("lifecycle")) return "Lifecycle updated";
-  if (action.includes("versioning")) return "Versioning updated";
-  if (action.includes("notification")) return "Notifications updated";
-  if (action.includes("replication")) return "Replication updated";
-  if (action.includes("policy")) return "Bucket policy updated";
-  if (action.includes("tag")) return "Bucket tags updated";
-  if (action.includes("quota")) return "Bucket quota updated";
-  if (action.includes("compare")) return "Bucket compare updated";
-  return "Bucket updated";
-}
-
-function iamActionLabel(action: string, entityLabel: string): string {
-  if (action.includes("create")) return `${entityLabel} created`;
-  if (action.includes("delete")) return `${entityLabel} deleted`;
-  if (action.includes("attach")) return `${entityLabel} policy attached`;
-  if (action.includes("detach")) return `${entityLabel} policy detached`;
-  if (action.includes("status")) return `${entityLabel} status updated`;
-  if (action.includes("key")) return `${entityLabel} key updated`;
-  if (action.includes("policy")) return `${entityLabel} policy updated`;
-  return `${entityLabel} updated`;
-}
-
-function genericEntityActionLabel(action: string, entityLabel: string): string {
-  if (action.includes("create")) return `${entityLabel} created`;
-  if (action.includes("delete")) return `${entityLabel} deleted`;
-  return `${entityLabel} updated`;
+  const presentation = managerActivityPresentation(log);
+  if (presentation.category === "bucket") return { label: presentation.label, tone: "emerald", icon: <BucketIcon className="h-4 w-4" /> };
+  if (presentation.category === "user") return { label: presentation.label, tone: "blue", icon: <UserIcon className="h-4 w-4" /> };
+  if (presentation.category === "group") return { label: presentation.label, tone: "emerald", icon: <GroupIcon className="h-4 w-4" /> };
+  if (presentation.category === "role") return { label: presentation.label, tone: "amber", icon: <ShieldIcon className="h-4 w-4" /> };
+  if (presentation.category === "policy") return { label: presentation.label, tone: "violet", icon: <FileIcon className="h-4 w-4" /> };
+  if (presentation.category === "topic") return { label: presentation.label, tone: "emerald", icon: <BellIcon className="h-4 w-4" /> };
+  if (presentation.category === "migration") return { label: presentation.label, tone: "violet", icon: <HistoryIcon className="h-4 w-4" /> };
+  if (presentation.category === "object") return { label: presentation.label, tone: "amber", icon: <UploadIcon className="h-4 w-4" /> };
+  return { label: presentation.label, tone: "blue", icon: <InfoIcon className="h-4 w-4" /> };
 }
 
 function buildActivityRows(logs: ManagerActivityEntry[], text: ManagerTextFunction): ActivityRow[] {
@@ -232,7 +177,7 @@ function buildActivityRows(logs: ManagerActivityEntry[], text: ManagerTextFuncti
       id: log.id,
       ...presentation,
       label: text(presentation.label),
-      detail: log.entity_id || log.account_name || log.user_email,
+      detail: managerActivityTarget(log),
       time: formatRelativeTime(log.created_at, text),
     };
   });
@@ -367,6 +312,10 @@ function RecentActivityCard({
     <section className={cx(uiCardClass, "ui-dashboard-panel")}>
       <div className="ui-dashboard-panel-heading">
         <h2 className="ui-dashboard-title">{text("Recent activity")}</h2>
+        <WorkspaceDashboardActionLink to="/manager/activity">
+          {text("View all")}
+          <OpenIcon className="h-3.5 w-3.5" />
+        </WorkspaceDashboardActionLink>
       </div>
       <div className="mt-3 space-y-2">
         {loading ? (
@@ -704,6 +653,7 @@ export default function ManagerDashboard() {
     accessMode,
     managerStatsEnabled,
     managerStatsMessage,
+    managerFeatureStates,
   } = useS3AccountContext();
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
@@ -737,6 +687,8 @@ export default function ManagerDashboard() {
   const usageFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.metrics !== false : true);
   const trafficFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.usage !== false : true);
   const isS3User = selectedS3AccountType === "s3_user";
+  const isRgwAccount = selectedS3AccountType === "tenant" || selectedS3AccountType === "account";
+  const activityHistoryEnabled = isRgwAccount && managerFeatureStates?.activity_history?.enabled === true;
   const canManageIam = !isS3User && contextCanManageIam && iamFeatureEnabled;
   const canLoadUsageStatsDataTypes =
     hasContext &&
@@ -837,7 +789,7 @@ export default function ManagerDashboard() {
   }, [accountIdForApi, hasContext, refreshNonce, text]);
 
   useEffect(() => {
-    if (!hasContext) {
+    if (!hasContext || !activityHistoryEnabled) {
       setActivityLogs([]);
       setActivityError(null);
       setActivityLoading(false);
@@ -862,7 +814,7 @@ export default function ManagerDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, hasContext, refreshNonce, text]);
+  }, [accountIdForApi, activityHistoryEnabled, hasContext, refreshNonce, text]);
 
   useEffect(() => {
     if (!hasContext || !trafficFeatureEnabled) {
@@ -981,7 +933,7 @@ export default function ManagerDashboard() {
         (!workspaceHealthLoading && workspaceHealth && workspaceHealth.endpoint_count === 0
           ? text("Endpoint Status has no endpoint data yet.")
           : null));
-  const activityUnavailableReason = noContextReason || activityError;
+  const activityUnavailableReason = activityError;
   const trafficUnavailableReason = noContextReason || (!trafficFeatureEnabled ? text("Traffic usage is not available for this context.") : trafficError);
   const storageUsedBytes = metricsUnavailableReason ? null : stats?.total_bytes ?? null;
   const storageQuotaSizeGb = managerLimits?.quota_max_size_gb ?? null;
@@ -1169,10 +1121,10 @@ export default function ManagerDashboard() {
         <BackendHealthCard endpoint={healthEndpoint} unavailableReason={endpointUnavailableReason} />
       </div>
 
-      <div className="grid ui-dashboard-equal-row gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" data-testid="manager-dashboard-activity-incidents-row">
-        <div className="ui-dashboard-equal-cell" data-testid="manager-dashboard-recent-activity-card">
+      <div className={cx("grid ui-dashboard-equal-row gap-3", activityHistoryEnabled && "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")} data-testid="manager-dashboard-activity-incidents-row">
+        {activityHistoryEnabled && <div className="ui-dashboard-equal-cell" data-testid="manager-dashboard-recent-activity-card">
           <RecentActivityCard rows={activityRows} loading={activityLoading} unavailableReason={activityUnavailableReason} />
-        </div>
+        </div>}
         <IncidentStrip
           incidents={workspaceHealth?.incidents ?? []}
           unavailableReason={endpointUnavailableReason}

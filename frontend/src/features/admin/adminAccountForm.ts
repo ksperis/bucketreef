@@ -13,6 +13,7 @@ export function adminAccountForm(account: S3Account) {
     allow_bucket_quota_management: account.allow_bucket_quota_management ?? null,
     allow_access_key_metadata: account.allow_access_key_metadata ?? null,
     allow_access_key_expiration: account.allow_access_key_expiration ?? null,
+    allow_activity_history: account.allow_activity_history ?? null,
     user_links: account.user_links.map<AccountUserLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
     group_links: account.group_links.map<AccountGroupLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
   };
@@ -36,6 +37,7 @@ export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAcco
       allow_bucket_quota_management: draft.allow_bucket_quota_management,
       allow_access_key_metadata: draft.allow_access_key_metadata,
       allow_access_key_expiration: draft.allow_access_key_expiration,
+      allow_activity_history: draft.allow_activity_history,
     } : {}),
     ...(allowQuotaUpdates && accountQuotaChanged(draft, baseline) ? {
       quota_max_size_gb: draft.quota_max_size_gb !== "" ? Number(draft.quota_max_size_gb) : null,

@@ -26,6 +26,7 @@ const listExecutionContextsMock = vi.fn();
 let bucketUsageStatsEnabled = false;
 let bucketPurgeEnabled = false;
 const MANAGER_BUCKET_COLUMNS_SESSION_STORAGE_KEY = "manager.bucket_list.columns.session.v1";
+const ACTIVITY_FEATURE_STATES = { activity_history: { enabled: true, source: "platform" } };
 
 vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => useS3AccountContextMock(),
@@ -283,6 +284,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: false,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
     useManagerStatsMock.mockReturnValue({
       stats: null,
@@ -325,7 +327,7 @@ describe("manager shell pages", () => {
 
     expect(screen.getByRole("heading", { name: "Manager dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Top buckets by storage")).toBeInTheDocument();
-    expect(screen.getByText("Recent activity")).toBeInTheDocument();
+    expect(screen.queryByText("Recent activity")).not.toBeInTheDocument();
     expect(screen.getByText("Transfer")).toBeInTheDocument();
     expect(screen.queryByText("Active transfers")).not.toBeInTheDocument();
     expect(screen.queryByText("Select an account to display live values.")).not.toBeInTheDocument();
@@ -404,6 +406,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: false,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
     useIamOverviewMock.mockReturnValue({
       overview: { iam_users: 1, iam_groups: 0, iam_roles: 0, iam_policies: 0 },
@@ -492,6 +495,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: true,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(
@@ -521,7 +525,7 @@ describe("manager shell pages", () => {
     expect(within(activityIncidentsRow).getByText("Ongoing / Recent incidents")).toBeInTheDocument();
     expect(within(overviewGrid).queryByText("View details")).not.toBeInTheDocument();
     expect(within(activityIncidentsRow).queryByText("View all incidents")).not.toBeInTheDocument();
-    expect(within(recentActivityCard).queryByText("View all")).not.toBeInTheDocument();
+    expect(within(recentActivityCard).getByRole("link", { name: /View all/ })).toHaveAttribute("href", "/manager/activity");
     expect(topBucketsCard).toHaveClass("xl:col-span-5");
     expect(recentActivityCard.parentElement).toBe(activityIncidentsRow);
     expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledWith("account-1");
@@ -550,6 +554,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: true,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(
@@ -588,6 +593,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: true,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(
@@ -626,6 +632,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: true,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(
@@ -683,6 +690,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: true,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(
@@ -857,6 +865,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: false,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(
@@ -916,6 +925,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: false,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(
@@ -953,6 +963,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: false,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(
@@ -986,6 +997,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: false,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
+      managerFeatureStates: ACTIVITY_FEATURE_STATES,
     });
 
     render(

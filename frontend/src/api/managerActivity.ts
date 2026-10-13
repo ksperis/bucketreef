@@ -19,10 +19,15 @@ export type ManagerActivityEntry = {
 
 export async function listManagerActivity(
   accountId: S3AccountSelector,
-  options?: { limit?: number }
+  options?: { limit?: number; cursor?: number; search?: string; status?: string }
 ): Promise<ManagerActivityEntry[]> {
   const { data } = await client.get<ManagerActivityEntry[]>("/manager/activity", {
-    params: withS3AccountParam({ limit: options?.limit ?? 5 }, accountId),
+    params: withS3AccountParam({
+      limit: options?.limit ?? 5,
+      ...(options?.cursor ? { cursor: options.cursor } : {}),
+      ...(options?.search?.trim() ? { search: options.search.trim() } : {}),
+      ...(options?.status ? { status: options.status } : {}),
+    }, accountId),
   });
   return data;
 }

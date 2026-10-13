@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from sqlalchemy import String, cast, or_
 from sqlalchemy.exc import SQLAlchemyError
@@ -159,6 +159,8 @@ class AuditService:
         account_id: Optional[int] = None,
         cursor: Optional[int] = None,
         search: Optional[str] = None,
+        status: Optional[str] = None,
+        search_mode: Literal["all", "manager_activity"] = "all",
     ) -> list[AuditLog]:
         query = self.db.query(AuditLog)
         if scope:
@@ -169,25 +171,38 @@ class AuditService:
             query = query.filter(AuditLog.account_id == account_id)
         if cursor:
             query = query.filter(AuditLog.id < cursor)
+        if status:
+            query = query.filter(AuditLog.status == status)
         if search:
             trimmed = search.strip()
             if trimmed:
                 pattern = f"%{trimmed}%"
-                query = query.filter(
-                    or_(
-                        AuditLog.user_email.ilike(pattern),
-                        AuditLog.user_role.ilike(pattern),
-                        AuditLog.scope.ilike(pattern),
-                        AuditLog.action.ilike(pattern),
-                        AuditLog.entity_type.ilike(pattern),
-                        AuditLog.entity_id.ilike(pattern),
-                        AuditLog.account_name.ilike(pattern),
-                        cast(AuditLog.account_id, String).ilike(pattern),
-                        AuditLog.status.ilike(pattern),
-                        AuditLog.message.ilike(pattern),
-                        AuditLog.metadata_json.ilike(pattern),
+                if search_mode == "manager_activity":
+                    query = query.filter(
+                        or_(
+                            AuditLog.user_email.ilike(pattern),
+                            AuditLog.action.ilike(pattern),
+                            AuditLog.entity_type.ilike(pattern),
+                            AuditLog.entity_id.ilike(pattern),
+                            AuditLog.account_name.ilike(pattern),
+                        )
                     )
-                )
+                else:
+                    query = query.filter(
+                        or_(
+                            AuditLog.user_email.ilike(pattern),
+                            AuditLog.user_role.ilike(pattern),
+                            AuditLog.scope.ilike(pattern),
+                            AuditLog.action.ilike(pattern),
+                            AuditLog.entity_type.ilike(pattern),
+                            AuditLog.entity_id.ilike(pattern),
+                            AuditLog.account_name.ilike(pattern),
+                            cast(AuditLog.account_id, String).ilike(pattern),
+                            AuditLog.status.ilike(pattern),
+                            AuditLog.message.ilike(pattern),
+                            AuditLog.metadata_json.ilike(pattern),
+                        )
+                    )
         sliced_limit = min(max(limit, 1), 500)
         return (
             query.order_by(AuditLog.id.desc())

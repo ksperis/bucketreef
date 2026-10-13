@@ -58,6 +58,7 @@ class S3Account(ApiModel):
     allow_bucket_quota_management: Optional[bool] = None
     allow_access_key_metadata: Optional[bool] = None
     allow_access_key_expiration: Optional[bool] = None
+    allow_activity_history: Optional[bool] = None
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
 
@@ -104,6 +105,7 @@ class S3AccountUpdate(ApiModel):
     allow_bucket_quota_management: Optional[bool] = None
     allow_access_key_metadata: Optional[bool] = None
     allow_access_key_expiration: Optional[bool] = None
+    allow_activity_history: Optional[bool] = None
 
     @field_validator("storage_endpoint_id", mode="before")
     @classmethod
@@ -134,6 +136,7 @@ class S3AccountSummary(ApiModel):
     allow_bucket_quota_management: Optional[bool] = None
     allow_access_key_metadata: Optional[bool] = None
     allow_access_key_expiration: Optional[bool] = None
+    allow_activity_history: Optional[bool] = None
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
 

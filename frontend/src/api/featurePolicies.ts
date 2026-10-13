@@ -4,6 +4,7 @@ import type { AppSettings, GeneralSettings, PortalConfiguration, PortalSettings,
 export type FeaturePolicy = "disabled" | "targeted" | "default_on";
 export type FeatureState = { enabled: boolean; source: "platform" | "resource" | "direct" | "group"; blocked_reason?: string | null };
 export type ManagerFeaturePolicies = {
+  activity_history: FeaturePolicy;
   bucket_compare: FeaturePolicy;
   bucket_integrity_check: FeaturePolicy;
   bucket_migration: FeaturePolicy;
@@ -16,6 +17,7 @@ export type ManagerFeaturePolicies = {
   managed_private_connection_provisioning: FeaturePolicy;
 };
 export const DEFAULT_MANAGER_FEATURE_POLICIES: ManagerFeaturePolicies = {
+  activity_history: "default_on",
   bucket_compare: "targeted",
   bucket_integrity_check: "targeted",
   bucket_migration: "disabled",

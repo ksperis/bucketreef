@@ -77,6 +77,7 @@ const AuthProviderPage = lazy(() => import("./features/admin/settings/AuthProvid
 const KeyRotationPage = lazy(() => import("./features/admin/KeyRotationPage"));
 const BucketsPage = lazy(() => import("./features/manager/BucketsPage"));
 const ManagerDashboard = lazy(() => import("./features/manager/ManagerDashboard"));
+const ManagerActivityPage = lazy(() => import("./features/manager/ManagerActivityPage"));
 const PoliciesPage = lazy(() => import("./features/manager/PoliciesPage"));
 const ManagerLayout = lazy(() => import("./features/manager/ManagerLayout"));
 const StorageEndpointsPage = lazy(() => import("./features/admin/StorageEndpointsPage"));
@@ -423,6 +424,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                 <Route path="/manager" element={<ManagerLayout />}>
                   <Route element={<Outlet />} errorElement={<RouteErrorPage />}>
                     <Route index element={<ManagerDashboard />} />
+                    <Route path="activity" element={<ManagerActivityPage />} />
                     <Route path="profile" element={<AccountProfilePage />} />
                     <Route path="buckets" element={<BucketsPage />} />
                     <Route path="buckets/:bucketName" element={<BucketDetailPage />} />

@@ -64,6 +64,7 @@ const ROUTE_TARGETS: Array<{ prefix: string; target: DocumentationTarget }> = [
   { prefix: "/storage-ops", target: { guide: "admin", page: "storage/storage-ops" } },
 
   { prefix: "/manager/browser", target: { guide: "manager", page: "browser/object-operations" } },
+  { prefix: "/manager/activity", target: { guide: "manager", page: "activity" } },
   { prefix: "/manager/buckets", target: { guide: "manager", page: "buckets" } },
   { prefix: "/manager/metrics", target: { guide: "manager", page: "buckets/usage" } },
   { prefix: "/manager/users", target: { guide: "manager", page: "iam" } },

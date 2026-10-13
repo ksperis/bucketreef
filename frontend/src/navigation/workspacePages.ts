@@ -75,6 +75,7 @@ export const ADMIN_PAGE_CONTRACTS = {
 
 export const MANAGER_PAGE_CONTRACTS = {
   dashboard: { label: "Dashboard", path: "/manager" },
+  activity: { label: "Activity", path: "/manager/activity" },
   metrics: { label: "Usage & Metrics", path: "/manager/metrics" },
   buckets: { label: "Buckets", path: "/manager/buckets" },
   browser: { label: "Browser", path: "/manager/browser" },

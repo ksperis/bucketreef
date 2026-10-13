@@ -212,6 +212,12 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                   help="Schedules provider-side key disabling. Requires scheduled jobs; recorded expirations remain scheduled after opt-out."
                   onChange={value => update("allow_access_key_expiration", value)} />
               </SettingsSection>
+              <SettingsSection presentation="compact" title="Activity history">
+                <FeatureOverrideField title="Manager activity history" value={form.draft.allow_activity_history}
+                  policy={generalSettings.manager_feature_policies.activity_history} disabled={controller.locked}
+                  help="Shows account-scoped Manager control and configuration actions. It does not include S3 object access logs."
+                  onChange={value => update("allow_activity_history", value)} />
+              </SettingsSection>
               <SettingsSection presentation="compact" title="Privileged Ceph operations">
                 <FeatureOverrideField title="Bucket quota management" value={form.draft.allow_bucket_quota_management}
                   policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={controller.locked}

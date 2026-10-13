@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from app.db import AppSetting, User
+from app.db import AppSetting, S3User, User
 from app.db.enums import UserRole
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
@@ -126,3 +126,78 @@ def test_account_provisioning_state_uses_ui_grant_without_inventing_resource_opt
     assert state.enabled is True
     assert state.source == "group"
     assert state.blocked_reason is None
+
+
+def _manager_availability() -> dict[str, bool]:
+    return {
+        "bucket_quota_management": True,
+        "ceph_s3_user_keys": True,
+        "access_key_metadata": True,
+        "access_key_expiration": True,
+        "managed_private_connection_provisioning": True,
+    }
+
+
+@pytest.mark.parametrize(
+    "policy,override,enabled,source,blocked_reason",
+    [
+        (FeaturePolicy.DEFAULT_ON, None, True, "platform", None),
+        (FeaturePolicy.DEFAULT_ON, False, False, "resource", "resource_disabled"),
+        (FeaturePolicy.TARGETED, True, True, "resource", None),
+        (FeaturePolicy.DISABLED, True, False, "platform", "platform_disabled"),
+    ],
+)
+def test_activity_history_policy_is_account_scoped(
+    db_session,
+    policy,
+    override,
+    enabled,
+    source,
+    blocked_reason,
+):
+    settings = AppSettings()
+    settings.manager.feature_policies.activity_history = policy
+    account = make_s3_account(db_session, name=f"Activity {policy.value} {override}", allow_activity_history=override)
+
+    state = manager_resource_states(
+        settings.manager.feature_policies,
+        account,
+        _manager_availability(),
+    )["activity_history"]
+
+    assert state.enabled is enabled
+    assert state.source == source
+    assert state.blocked_reason == blocked_reason
+
+
+def test_activity_history_is_unsupported_for_rgw_users(db_session):
+    settings = AppSettings()
+    s3_user = S3User(
+        name="activity-user",
+        rgw_user_uid="activity-user",
+        rgw_access_key="AK",
+        rgw_secret_key="SK",
+        storage_endpoint_id=1,
+    )
+
+    state = manager_resource_states(
+        settings.manager.feature_policies,
+        s3_user,
+        _manager_availability(),
+    )["activity_history"]
+
+    assert state.enabled is False
+    assert state.blocked_reason == "unsupported_context"
+
+
+def test_activity_history_override_explicit_null_restores_inheritance(client, db_session):
+    account = make_s3_account(db_session, name="Activity inherited", allow_activity_history=False)
+    db_session.add(account)
+    db_session.commit()
+
+    response = client.put(f"/api/admin/accounts/{account.id}", json={"allow_activity_history": None})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["allow_activity_history"] is None
+    db_session.refresh(account)
+    assert account.allow_activity_history is None
