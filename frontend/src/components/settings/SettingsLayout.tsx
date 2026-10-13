@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ReactNode, useId } from "react";
+import { ReactNode, useId, useRef, type KeyboardEvent } from "react";
 import UiBadge from "../ui/UiBadge";
 import UiInfoTooltip from "../ui/UiInfoTooltip";
 import {
@@ -55,6 +55,32 @@ type SettingsConditionalBadgeProps = {
 };
 
 type SettingsToggleActionProps = SettingsSwitchProps & {
+  badge?: SettingsConditionalBadgeProps;
+  className?: string;
+};
+
+export type SettingsTriStateOption<T extends string> = {
+  value: T;
+  label: string;
+  symbol: ReactNode;
+  disabled?: boolean;
+};
+
+type SettingsTriStateSwitchProps<T extends string> = {
+  value: T;
+  options: readonly [
+    SettingsTriStateOption<T>,
+    SettingsTriStateOption<T>,
+    SettingsTriStateOption<T>,
+  ];
+  disabled?: boolean;
+  ariaLabel: string;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
+  onChange: (value: T) => void;
+};
+
+type SettingsTriStateActionProps<T extends string> = SettingsTriStateSwitchProps<T> & {
   badge?: SettingsConditionalBadgeProps;
   className?: string;
 };
@@ -267,6 +293,89 @@ export const SettingsSwitch = ({
   </label>
 );
 
+export const SettingsTriStateSwitch = <T extends string,>({
+  value,
+  options,
+  disabled,
+  ariaLabel,
+  ariaInvalid,
+  ariaDescribedBy,
+  onChange,
+}: SettingsTriStateSwitchProps<T>) => {
+  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const currentIndex = Math.max(0, options.findIndex((option) => option.value === value));
+
+  const moveSelection = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
+    const backward = event.key === "ArrowLeft" || event.key === "ArrowUp";
+    const first = event.key === "Home";
+    const last = event.key === "End";
+    if (!forward && !backward && !first && !last) return;
+    event.preventDefault();
+
+    const enabledIndexes = options
+      .map((option, optionIndex) => (!option.disabled ? optionIndex : -1))
+      .filter((optionIndex) => optionIndex >= 0);
+    if (enabledIndexes.length === 0) return;
+
+    let nextIndex = index;
+    if (first) {
+      nextIndex = enabledIndexes[0];
+    } else if (last) {
+      nextIndex = enabledIndexes[enabledIndexes.length - 1];
+    } else {
+      const currentEnabledIndex = enabledIndexes.indexOf(index);
+      const offset = forward ? 1 : -1;
+      const start = currentEnabledIndex >= 0 ? currentEnabledIndex : 0;
+      nextIndex = enabledIndexes[(start + offset + enabledIndexes.length) % enabledIndexes.length];
+    }
+    onChange(options[nextIndex].value);
+    buttonRefs.current[nextIndex]?.focus();
+  };
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      aria-invalid={ariaInvalid}
+      aria-describedby={ariaDescribedBy}
+      aria-disabled={disabled || undefined}
+      className={cx(
+        "settings-tristate-switch inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-0.5",
+        disabled && "opacity-60",
+      )}
+    >
+      {options.map((option, index) => {
+        const selected = currentIndex === index;
+        const optionDisabled = disabled || option.disabled;
+        return (
+          <button
+            key={option.value}
+            ref={(node) => { buttonRefs.current[index] = node; }}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={option.label}
+            title={option.label}
+            tabIndex={selected ? 0 : -1}
+            disabled={optionDisabled}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(event) => moveSelection(event, index)}
+            className={cx(
+              "settings-tristate-option inline-flex items-center justify-center rounded-full font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 dark:focus-visible:outline-primary-200 disabled:cursor-not-allowed",
+              selected
+                ? "bg-primary text-white shadow-sm dark:bg-primary-400 dark:text-slate-950"
+                : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-hover)] hover:text-[var(--ui-text)]",
+            )}
+          >
+            <span aria-hidden="true">{option.symbol}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 export const SettingsConditionalBadge = ({
   visible = false,
   label,
@@ -302,6 +411,38 @@ export const SettingsToggleAction = ({
     )}
     <SettingsSwitch
       checked={checked}
+      disabled={disabled}
+      ariaLabel={ariaLabel}
+      ariaInvalid={ariaInvalid}
+      ariaDescribedBy={ariaDescribedBy}
+      onChange={onChange}
+    />
+  </div>
+);
+
+export const SettingsTriStateAction = <T extends string,>({
+  value,
+  options,
+  disabled,
+  ariaLabel,
+  ariaInvalid,
+  ariaDescribedBy,
+  onChange,
+  badge,
+  className,
+}: SettingsTriStateActionProps<T>) => (
+  <div className={cx("inline-flex items-center gap-2", className)}>
+    {badge && (
+      <SettingsConditionalBadge
+        visible={badge.visible}
+        label={badge.label}
+        tone={badge.tone}
+        className={badge.className}
+      />
+    )}
+    <SettingsTriStateSwitch
+      value={value}
+      options={options}
       disabled={disabled}
       ariaLabel={ariaLabel}
       ariaInvalid={ariaInvalid}

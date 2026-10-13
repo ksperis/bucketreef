@@ -1,5 +1,5 @@
 import { createAppSettings } from "./settings/settingsTestFixtures";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppSettings } from "../../api/appSettings";
@@ -22,6 +22,14 @@ function buildSettings(): AppSettings {
   settings.portal.bucket_defaults.versioning = true;
   settings.portal.bucket_defaults.enable_lifecycle = true;
   return settings;
+}
+
+async function policyGroup(label: string) {
+  return screen.findByRole("radiogroup", { name: label });
+}
+
+function expectPolicy(group: HTMLElement, label: "Disabled" | "Targeted activation" | "Enabled by default") {
+  expect(within(group).getByRole("radio", { name: label })).toHaveAttribute("aria-checked", "true");
 }
 
 describe("PortalSettingsPage", () => {
@@ -53,9 +61,9 @@ describe("PortalSettingsPage", () => {
   it("saves standalone Browser workspace access enabled by default", async () => {
     render(<PortalSettingsPage />);
 
-    const toggle = await screen.findByLabelText("Portal Browser workspace access");
-    expect(toggle).toHaveValue("default_on");
-    fireEvent.change(toggle, { target: { value: "disabled" } });
+    const toggle = await policyGroup("Portal Browser workspace access");
+    expectPolicy(toggle, "Enabled by default");
+    fireEvent.click(within(toggle).getByRole("radio", { name: "Disabled" }));
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
@@ -65,9 +73,9 @@ describe("PortalSettingsPage", () => {
   it("keeps Portal-user external sharing disabled by default and saves an explicit opt-in", async () => {
     render(<PortalSettingsPage />);
 
-    const toggle = await screen.findByLabelText("External sharing by Portal users");
-    expect(toggle).toHaveValue("targeted");
-    fireEvent.change(toggle, { target: { value: "default_on" } });
+    const toggle = await policyGroup("External sharing by Portal users");
+    expectPolicy(toggle, "Targeted activation");
+    fireEvent.click(within(toggle).getByRole("radio", { name: "Enabled by default" }));
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
@@ -120,9 +128,9 @@ describe("PortalSettingsPage", () => {
   it("saves named storage creation setting without override policy controls", async () => {
     render(<PortalSettingsPage />);
 
-    fireEvent.change(await screen.findByLabelText("Named storage creation"), { target: { value: "default_on" } });
-    fireEvent.change(screen.getByLabelText("Server access logging"), { target: { value: "disabled" } });
-    fireEvent.change(screen.getByLabelText("Storage Space history cleanup"), { target: { value: "targeted" } });
+    fireEvent.click(within(await policyGroup("Named storage creation")).getByRole("radio", { name: "Enabled by default" }));
+    fireEvent.click(within(await policyGroup("Server access logging")).getByRole("radio", { name: "Disabled" }));
+    fireEvent.click(within(await policyGroup("Storage Space history cleanup")).getByRole("radio", { name: "Targeted activation" }));
     expect(screen.queryByRole("checkbox", { name: "Allow override" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -144,6 +152,6 @@ describe("PortalSettingsPage", () => {
     expect(screen.queryByText("Bucket management")).not.toBeInTheDocument();
     expect(screen.queryByText("Policy bucket access")).not.toBeInTheDocument();
     expect(screen.queryByText("Storage Space access policy")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Private Storage Space creation")).toBeInTheDocument();
+    expect(await policyGroup("Private Storage Space creation")).toBeInTheDocument();
   });
 });
