@@ -15,73 +15,81 @@ import UiBadge from "../../components/ui/UiBadge";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
+import { useAuditLogsI18n, type AuditLogsText } from "./auditLogsMessage";
 
 type RoleFilter = "all" | "ui_superadmin" | "ui_admin" | "ui_user" | "ui_none";
 type ScopeFilter = "all" | "admin" | "manager" | "portal";
 
-const roleLabels: Record<RoleFilter, string> = {
-  all: "All actors",
-  ui_superadmin: "Superadmin",
-  ui_admin: "Admin",
-  ui_user: "User",
-  ui_none: "No access",
-};
+const roleLabelKeys = {
+  all: "allActors",
+  ui_superadmin: "superadmin",
+  ui_admin: "admin",
+  ui_user: "user",
+  ui_none: "noAccess",
+} as const;
 
-const scopeLabels: Record<ScopeFilter, string> = {
-  all: "All scopes",
-  admin: "Admin area",
-  manager: "Manager area",
-  portal: "Portal area",
-};
+const scopeLabelKeys = {
+  all: "allScopes",
+  admin: "adminArea",
+  manager: "managerArea",
+  portal: "portalArea",
+} as const;
 
-function RoleBadge({ role }: { role: string }) {
+function RoleBadge({ role, text }: { role: string; text: AuditLogsText }) {
   const base = "inline-flex items-center rounded-full px-2 py-0.5 ui-caption font-semibold";
   if (role === "ui_superadmin") {
     return (
       <span className={`${base} bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200`}>
-        Superadmin
+        {text("superadmin")}
       </span>
     );
   }
   if (role === "ui_admin") {
-    return <span className={`${base} bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200`}>Admin</span>;
+    return <span className={`${base} bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200`}>{text("admin")}</span>;
   }
   if (role === "ui_user") {
     return (
-      <span className={`${base} bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100`}>User</span>
+      <span className={`${base} bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100`}>{text("user")}</span>
     );
   }
   if (role === "ui_none") {
     return (
-      <span className={`${base} bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200`}>No access</span>
+      <span className={`${base} bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200`}>{text("noAccess")}</span>
     );
   }
   return <span className={`${base} bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200`}>{role}</span>;
 }
 
-function ScopeBadge({ scope }: { scope: string }) {
+function ScopeBadge({ scope, text }: { scope: string; text: AuditLogsText }) {
   const base = "inline-flex items-center rounded-full px-2 py-0.5 ui-caption font-semibold";
   let styles = "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100";
-  let label = "Manager UI";
+  let label = text("managerUi");
   if (scope === "admin") {
     styles = "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200";
-    label = "Admin UI";
+    label = text("adminUi");
   } else if (scope === "portal") {
     styles = "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-100";
-    label = "Portal UI";
+    label = text("portalUi");
   }
   return <span className={`${base} ${styles}`}>{label}</span>;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const tone = status === "success" ? "success" : status === "failure" || status === "failed" ? "danger" : "neutral";
-  return <UiBadge tone={tone}>{status.charAt(0).toUpperCase() + status.slice(1)}</UiBadge>;
+function formatAuditStatus(status: string, text: AuditLogsText) {
+  if (status === "success" || status === "failure" || status === "failed" || status === "error") {
+    return text(status);
+  }
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-function formatAuditDate(value: string) {
+function StatusBadge({ status, text }: { status: string; text: AuditLogsText }) {
+  const tone = status === "success" ? "success" : status === "failure" || status === "failed" ? "danger" : "neutral";
+  return <UiBadge tone={tone}>{formatAuditStatus(status, text)}</UiBadge>;
+}
+
+function formatAuditDate(value: string, locale: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString();
+  return parsed.toLocaleString(locale);
 }
 
 function MetadataPreview({ metadata }: { metadata?: Record<string, unknown> | null }) {
@@ -96,9 +104,14 @@ function MetadataPreview({ metadata }: { metadata?: Record<string, unknown> | nu
 }
 
 export default function AuditLogsPage() {
+  const { locale, text } = useAuditLogsI18n();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    fallback: "loadError" | "refreshError" | "olderError";
+  } | null>(null);
+  const errorMessage = error ? error.message || text(error.fallback) : null;
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -137,7 +150,7 @@ export default function AuditLogsPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          setError(extractApiError(err, "Unable to load audit logs."));
+          setError({ message: extractApiError(err, ""), fallback: "loadError" });
         }
       } finally {
         if (!cancelled) {
@@ -157,7 +170,7 @@ export default function AuditLogsPage() {
       await fetchLogs({ append: false });
     } catch (err) {
       console.error(err);
-      setError(extractApiError(err, "Unable to refresh audit logs."));
+      setError({ message: extractApiError(err, ""), fallback: "refreshError" });
     } finally {
       setLoading(false);
     }
@@ -170,7 +183,7 @@ export default function AuditLogsPage() {
       await fetchLogs({ append: true, cursor: nextCursor });
     } catch (err) {
       console.error(err);
-      setError(extractApiError(err, "Unable to load older logs."));
+      setError({ message: extractApiError(err, ""), fallback: "olderError" });
     } finally {
       setLoadingMore(false);
     }
@@ -196,7 +209,7 @@ export default function AuditLogsPage() {
   }, [actionFilter, logs, statusFilter]);
   const tableStatus = resolveListTableStatus({
     loading,
-    error,
+    error: errorMessage,
     rowCount: filteredLogs.length,
   });
   const hasActiveFilters =
@@ -210,13 +223,13 @@ export default function AuditLogsPage() {
     () => (
       <>
         <UiSelect
-          label="Action"
-          aria-label="Filter by action"
+          label={text("action")}
+          aria-label={text("filterByAction")}
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
           size="compact"
         >
-          <option value="all">All actions</option>
+          <option value="all">{text("allActions")}</option>
           {actionOptions.map((action) => (
             <option key={action} value={action}>
               {action}
@@ -224,88 +237,88 @@ export default function AuditLogsPage() {
           ))}
         </UiSelect>
         <UiSelect
-          label="Status"
-          aria-label="Filter by status"
+          label={text("status")}
+          aria-label={text("filterByStatus")}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           size="compact"
         >
-          <option value="all">All statuses</option>
+          <option value="all">{text("allStatuses")}</option>
           {statusOptions.map((status) => (
             <option key={status} value={status}>
-              {status.charAt(0).toUpperCase() + status.slice(1)}
+              {formatAuditStatus(status, text)}
             </option>
           ))}
         </UiSelect>
         <UiSelect
-          label="Role"
-          aria-label="Filter by actor role"
+          label={text("role")}
+          aria-label={text("filterByRole")}
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
           size="compact"
         >
-          {Object.entries(roleLabels).map(([value, label]) => (
+          {Object.entries(roleLabelKeys).map(([value, key]) => (
             <option key={value} value={value}>
-              {label}
+              {text(key)}
             </option>
           ))}
         </UiSelect>
         <UiSelect
-          label="Workspace"
-          aria-label="Filter by workspace scope"
+          label={text("workspace")}
+          aria-label={text("filterByScope")}
           value={scopeFilter}
           onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
           size="compact"
         >
-          {Object.entries(scopeLabels).map(([value, label]) => (
+          {Object.entries(scopeLabelKeys).map(([value, key]) => (
             <option key={value} value={value}>
-              {label}
+              {text(key)}
             </option>
           ))}
         </UiSelect>
       </>
     ),
-    [actionFilter, actionOptions, roleFilter, scopeFilter, statusFilter, statusOptions]
+    [actionFilter, actionOptions, roleFilter, scopeFilter, statusFilter, statusOptions, text]
   );
   const auditTableColumns = useMemo<Array<DataTableColumn<AuditLogEntry>>>(
     () => [
       {
         id: "time",
-        label: "Time",
+        label: text("time"),
         cellClassName: "whitespace-nowrap ui-caption text-slate-500 dark:text-slate-400",
-        render: (log) => formatAuditDate(log.created_at),
+        render: (log) => formatAuditDate(log.created_at, locale),
       },
       {
         id: "actor",
-        label: "Actor",
+        label: text("actor"),
         cellClassName: "min-w-[12rem]",
         render: (log) => (
           <div className="flex flex-col gap-1">
             <span className="font-semibold text-slate-900 dark:text-slate-100">{log.user_email}</span>
-            <RoleBadge role={log.user_role} />
+            <RoleBadge role={log.user_role} text={text} />
           </div>
         ),
       },
       {
         id: "scope",
-        label: "Scope",
-        render: (log) => <ScopeBadge scope={log.scope} />,
+        label: text("scope"),
+        render: (log) => <ScopeBadge scope={log.scope} text={text} />,
       },
       {
         id: "action",
-        label: "Action",
+        label: text("action"),
         primary: true,
         cellClassName: "font-mono ui-caption",
         render: (log) => log.action,
       },
       {
         id: "status",
-        label: "Status",
-        render: (log) => <StatusBadge status={log.status} />,
+        label: text("status"),
+        render: (log) => <StatusBadge status={log.status} text={text} />,
       },
       {
         id: "target",
-        label: "Target",
+        label: text("target"),
         cellClassName: "min-w-[8rem]",
         render: (log) => (
           <>
@@ -316,53 +329,56 @@ export default function AuditLogsPage() {
       },
       {
         id: "account",
-        label: "S3 Account/User",
+        label: text("account"),
         cellClassName: "min-w-[10rem]",
         render: (log) =>
           log.account_name ? (
             <div className="font-medium text-slate-900 dark:text-white">{log.account_name}</div>
           ) : log.account_id ? (
-            <div className="text-slate-600 dark:text-slate-300">S3Account #{log.account_id}</div>
+            <div className="text-slate-600 dark:text-slate-300">{text("accountFallback", { id: log.account_id })}</div>
           ) : (
             <span className="text-slate-500 dark:text-slate-400">-</span>
           ),
       },
       {
         id: "details",
-        label: "Details",
+        label: text("details"),
         cellClassName: "min-w-[18rem] max-w-[28rem]",
         render: (log) => <MetadataPreview metadata={log.metadata as Record<string, unknown> | undefined} />,
       },
     ],
-    []
+    [locale, text]
   );
 
   return (
     <PageShell actionPresentation="listing"
-      title="Audit trail"
-      description="Control-plane and security events. Object operations belong in provider S3 access logs."
-      breadcrumbs={adminPageBreadcrumbs("audit")}
+      title={text("title")}
+      description={text("description")}
+      breadcrumbs={adminPageBreadcrumbs("audit").map((breadcrumb, index) => ({
+        ...breadcrumb,
+        label: index === 0 ? text("adminBreadcrumb") : text("title"),
+      }))}
     >
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {errorMessage && <PageBanner tone="error">{errorMessage}</PageBanner>}
 
       <ListPageSection variant="page"
         className="bg-white/95 dark:bg-slate-900/60"
-        title="Audit trail"
-        countLabel={`${filteredLogs.length} of ${logs.length} loaded entries`}
+        title={text("title")}
+        countLabel={text("loadedCount", { filtered: filteredLogs.length, total: logs.length })}
         search={
           <UiInput
-            aria-label="Search audit logs"
+            aria-label={text("search")}
             type="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by actor, action, target, or message"
+            placeholder={text("searchPlaceholder")}
             fieldClassName="min-w-[220px] flex-1"
             size="compact"
           />
         }
         filters={filters}
-        actions={<ListActionButton onClick={handleRefresh} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</ListActionButton>}
-        secondaryContent={<p className="text-[var(--ui-text-muted)]">Action and status filters apply to loaded entries. Load older entries to extend the results.</p>}
+        actions={<ListActionButton onClick={handleRefresh} disabled={loading}>{text(loading ? "refreshing" : "refresh")}</ListActionButton>}
+        secondaryContent={<p className="text-[var(--ui-text-muted)]">{text("filterHelp")}</p>}
       >
 
         <DataTableShell
@@ -370,10 +386,10 @@ export default function AuditLogsPage() {
           rows={filteredLogs}
           rowKey={(log) => log.id}
           status={tableStatus}
-          loadingMessage="Loading audit data..."
-          errorMessage="Unable to load audit logs."
+          loadingMessage={text("loadingAudit")}
+          errorMessage={text("loadError")}
           emptyMessage={
-            logs.length === 0 && !hasActiveFilters ? "No audit entries." : "No audit entries match the current filters."
+            text(logs.length === 0 && !hasActiveFilters ? "noEntries" : "noMatches")
           }
           primaryColumnId="action"
           responsiveCards
@@ -387,7 +403,7 @@ export default function AuditLogsPage() {
             onClick={handleLoadMore}
             disabled={!hasMore || loadingMore}
           >
-            {loadingMore ? "Loading…" : hasMore ? "Load older" : "No more"}
+            {text(loadingMore ? "loading" : hasMore ? "loadOlder" : "noMore")}
           </ListActionButton>
         </div>
       </ListPageSection>
