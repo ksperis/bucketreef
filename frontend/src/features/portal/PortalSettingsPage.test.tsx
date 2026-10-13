@@ -57,6 +57,23 @@ const project: PortalProjectSettings = {
   portal_collaborator_addition_delegated: false,
   can_update: true,
 };
+
+type PortalFeatureSelection = "inherit" | "enabled" | "disabled";
+
+const portalFeatureLabel = (value: PortalFeatureSelection) =>
+  value === "inherit" ? /^Platform value/ : value === "enabled" ? /^Enabled$/ : /^Disabled$/;
+
+async function selectPortalFeature(name: string, value: PortalFeatureSelection) {
+  const group = await screen.findByRole("radiogroup", { name });
+  fireEvent.click(within(group).getByRole("radio", { name: portalFeatureLabel(value) }));
+}
+
+function expectPortalFeature(name: string, value: PortalFeatureSelection) {
+  const group = screen.getByRole("radiogroup", { name });
+  expect(within(group).getByRole("radio", { name: portalFeatureLabel(value) }))
+    .toHaveAttribute("aria-checked", "true");
+}
+
 describe("Portal project settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,9 +112,33 @@ describe("Portal project settings", () => {
       expect(screen.queryByText("Storage used")).not.toBeInTheDocument();
     },
   );
+
+  it("shows a platform-disabled Portal feature as static while preserving its saved override", async () => {
+    mocks.fetch.mockResolvedValue({
+      ...project,
+      project_override: { browser_access_enabled: true },
+      feature_states: {
+        browser_access_enabled: {
+          enabled: false,
+          source: "platform",
+          blocked_reason: "platform_disabled",
+        },
+      },
+    });
+    render(<PortalSettingsPage />);
+
+    const row = (await screen.findByText("Browser workspace access"))
+      .closest(".settings-item-compact") as HTMLElement;
+    expect(within(row).getByText("Unavailable")).toBeVisible();
+    expect(within(row).getByText("Platform disabled")).toBeVisible();
+    expect(within(row).getByText("Saved: Enabled")).toBeVisible();
+    expect(within(row).queryByRole("radiogroup", { name: "Browser workspace access" }))
+      .not.toBeInTheDocument();
+  });
+
   it("keeps a draft when delegation is revoked and reloads current values on confirmed cancellation", async () => {
     render(<PortalSettingsPage />);
-    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "disabled" } });
+    await selectPortalFeature("Browser workspace access", "disabled");
     mocks.fetch.mockResolvedValue({ ...project, can_update: false, delegated_to_portal_managers: false });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await screen.findByText(/Your settings access has changed/);
@@ -117,9 +158,7 @@ describe("Portal project settings", () => {
     };
     mocks.fetch.mockResolvedValue(initial);
     render(<PortalSettingsPage />);
-    fireEvent.change(await screen.findByLabelText("Browser workspace access"), {
-      target: { value: "disabled" },
-    });
+    await selectPortalFeature("Browser workspace access", "disabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() =>
       expect(mocks.save).toHaveBeenCalledWith("101", {
@@ -138,9 +177,7 @@ describe("Portal project settings", () => {
       within(screen.getByRole("dialog")).getByRole("button", { name: "Apply" }),
     );
     expect(mocks.save).toHaveBeenCalledTimes(1);
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue(
-      "inherit",
-    );
+    expectPortalFeature("Browser workspace access", "inherit");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(mocks.save).toHaveBeenLastCalledWith("101", {}));
   });
@@ -148,9 +185,9 @@ describe("Portal project settings", () => {
   it("lets a delegated manager opt Portal users into external sharing", async () => {
     render(<PortalSettingsPage />);
 
-    const control = await screen.findByLabelText("External sharing by Portal users");
-    expect(control).toHaveValue("inherit");
-    fireEvent.change(control, { target: { value: "enabled" } });
+    await screen.findByRole("radiogroup", { name: "External sharing by Portal users" });
+    expectPortalFeature("External sharing by Portal users", "inherit");
+    await selectPortalFeature("External sharing by Portal users", "enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
@@ -262,18 +299,15 @@ describe("Portal project settings", () => {
     const { rerender } = render(<PortalSettingsPage />);
     mocks.context.selectedAccountId = "202";
     rerender(<PortalSettingsPage />);
-    expect(
-      await screen.findByLabelText("Browser workspace access"),
-    ).toHaveValue("inherit");
+    await screen.findByRole("radiogroup", { name: "Browser workspace access" });
+    expectPortalFeature("Browser workspace access", "inherit");
     await act(async () =>
       resolve({
         ...project,
         project_override: { browser_access_enabled: false },
       }),
     );
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue(
-      "inherit",
-    );
+    expectPortalFeature("Browser workspace access", "inherit");
   });
   it.each([
     [

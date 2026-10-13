@@ -941,10 +941,10 @@ describe("UsersPage modal tabs", () => {
     expect(within(managerSection).getByText("Bucket migration")).toBeInTheDocument();
 
     const compareToggle = screen.getByRole("switch", { name: /Bucket compare/i });
-    const migrationToggle = screen.getByRole("switch", { name: /Bucket migration/i });
     expect(compareToggle).not.toBeChecked();
-    expect(migrationToggle).toBeDisabled();
-    expect(screen.getAllByText("Disabled globally").length).toBeGreaterThanOrEqual(1);
+    const migrationRow = screen.getByText("Bucket migration").closest(".settings-item-compact") as HTMLElement;
+    expect(within(migrationRow).queryByRole("switch", { name: /Bucket migration/i })).not.toBeInTheDocument();
+    expect(within(migrationRow).getByText("Platform disabled")).toBeInTheDocument();
 
     fireEvent.click(compareToggle);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -990,12 +990,12 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
 
-    const toggle = screen.getByRole("switch", {
+    const featureRow = screen.getByText("Provision managed private connections").closest(".settings-item-compact") as HTMLElement;
+    expect(within(featureRow).queryByRole("switch", {
       name: "Allow managed private connection provisioning",
-    });
-    expect(toggle).toBeChecked();
-    expect(toggle).toBeDisabled();
-    expect(within(toggle.parentElement?.parentElement as HTMLElement).getByText("Disabled globally")).toBeInTheDocument();
+    })).not.toBeInTheDocument();
+    expect(within(featureRow).getByText("Platform disabled")).toBeInTheDocument();
+    expect(within(featureRow).getByText("Saved grant: On")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateUserMock).toHaveBeenCalledTimes(1));

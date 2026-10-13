@@ -5,9 +5,12 @@ import type { PortalProjectSettings } from "../../api/portalAccounts";
 import type { PortalSettingsAdminUpdate } from "../../api/appSettings";
 import PageBanner from "../../components/PageBanner";
 import {
+  SettingsEffectiveAction,
   SettingsItem,
   SettingsSection,
   SettingsSwitch,
+  SettingsTriStateSwitch,
+  type SettingsTriStateOption,
 } from "../../components/settings/SettingsLayout";
 import {
   SettingsActions,
@@ -230,21 +233,97 @@ export default function ProjectSettingsEditor({
     description?: string,
   ) => {
     const featureKeys = {
-      browserAccess: "browser_access", bucketCreate: "private_storage_space_create", namedBucketCreate: "named_bucket_create",
-      accessKeyCreate: "user_access_key_create", externalSharing: "user_external_sharing", serverAccessLogging: "server_access_logging",
-      versionCleanup: "storage_space_version_cleanup",
+      browserAccess: { policy: "browser_access", state: "browser_access_enabled" },
+      bucketCreate: { policy: "private_storage_space_create", state: "allow_private_storage_space_create" },
+      namedBucketCreate: { policy: "named_bucket_create", state: "allow_portal_named_bucket_create" },
+      accessKeyCreate: { policy: "user_access_key_create", state: "allow_portal_user_access_key_create" },
+      externalSharing: { policy: "user_external_sharing", state: "allow_portal_user_external_sharing" },
+      serverAccessLogging: { policy: "server_access_logging", state: "server_access_logging_enabled" },
+      versionCleanup: { policy: "storage_space_version_cleanup", state: "storage_space_version_cleanup_enabled" },
     } as const;
     const feature = featureKeys[key as keyof typeof featureKeys];
-    const policy = feature ? settings?.effective.feature_policies?.[feature] : undefined;
-    const blocked = policy === "disabled";
+    const policy = feature ? settings?.effective.feature_policies?.[feature.policy] : undefined;
     const platformValue = policy ? enabled(policy === "default_on") : undefined;
+    if (feature) {
+      const featureState = settings?.feature_states?.[feature.state];
+      const blocked = featureState?.blocked_reason === "platform_disabled" || policy === "disabled";
+      const currentEnabled = featureState?.enabled ?? value;
+      const persistedSelection = baseline[key];
+      const effectiveSource = featureState?.source === "resource" || (!featureState && persistedSelection !== "inherit")
+        ? source(true)
+        : source(false);
+      const unavailableLabel = t({ en: "Unavailable", fr: "Indisponible", de: "Nicht verfügbar", zh: "不可用" });
+      const platformDisabledLabel = t({
+        en: "Platform disabled",
+        fr: "Désactivée par la plateforme",
+        de: "Plattformweit deaktiviert",
+        zh: "平台已禁用",
+      });
+      const overrideLabel = t({ en: "Override", fr: "Surcharge", de: "Überschreibung", zh: "覆盖" });
+      const savedLabel = blocked && draft[key] !== "inherit"
+        ? `${t({ en: "Saved", fr: "Enregistré", de: "Gespeichert", zh: "已保存" })}: ${enabled(draft[key] === "enabled")}`
+        : undefined;
+      const triStateOptions = [
+        {
+          value: "disabled",
+          label: enabled(false),
+          symbol: "×",
+          selectedClassName: "settings-tristate-option-disabled-selected",
+        },
+        {
+          value: "inherit",
+          label: `${t({ en: "Platform value", fr: "Valeur de la plateforme", de: "Plattformwert", zh: "平台值" })} — ${platformValue ?? enabled(false)}`,
+          symbol: policy === "default_on" ? "✓" : "×",
+          className: "settings-tristate-option-inherit-ghost",
+          selectedClassName: "settings-tristate-option-inherit-ghost-selected",
+        },
+        { value: "enabled", label: enabled(true), symbol: "✓" },
+      ] satisfies readonly [
+        SettingsTriStateOption<"disabled" | "inherit" | "enabled">,
+        SettingsTriStateOption<"disabled" | "inherit" | "enabled">,
+        SettingsTriStateOption<"disabled" | "inherit" | "enabled">,
+      ];
+      return (
+        <SettingsItem
+          key={key}
+          compact
+          className="settings-effective-row"
+          title={title}
+          help={description}
+          action={
+            <SettingsEffectiveAction
+              state={blocked ? "unavailable" : currentEnabled ? "enabled" : "disabled"}
+              stateLabel={blocked ? unavailableLabel : enabled(currentEnabled)}
+              sourceLabel={blocked ? source(false) : effectiveSource}
+              localLabel={overrideLabel}
+              constraintLabel={blocked ? platformDisabledLabel : undefined}
+              savedLabel={savedLabel}
+            >
+              {editable ? (
+                <SettingsTriStateSwitch
+                  ariaLabel={title}
+                  value={draft[key]}
+                  options={triStateOptions}
+                  onChange={(next) => update(key, next)}
+                />
+              ) : (
+                <span className="settings-readonly">
+                  {draft[key] === "inherit"
+                    ? t({ en: "Platform value", fr: "Valeur de la plateforme", de: "Plattformwert", zh: "平台值" })
+                    : enabled(draft[key] === "enabled")}
+                </span>
+              )}
+            </SettingsEffectiveAction>
+          }
+        />
+      );
+    }
     return (
     <SettingsItem
       key={key}
       compact
       title={title}
       help={description}
-      status={blocked ? <UiBadge tone="warning">{t({ en: "Platform disabled", fr: "Désactivée par la plateforme", de: "Plattformweit deaktiviert", zh: "平台已禁用" })}</UiBadge> : undefined}
       action={
         editable ? (
           <UiSelect
@@ -264,7 +343,7 @@ export default function ProjectSettingsEditor({
                 zh: "平台值",
               })}{platformValue ? ` — ${platformValue}` : ""}
             </option>
-            <option value="enabled" disabled={blocked}>{enabled(true)}</option>
+            <option value="enabled">{enabled(true)}</option>
             <option value="disabled">{enabled(false)}</option>
           </UiSelect>
         ) : (

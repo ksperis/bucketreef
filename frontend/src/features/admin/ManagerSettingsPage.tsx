@@ -10,7 +10,11 @@ import {
 } from "../../components/settings/SettingsControls";
 import SettingsDraftDialog from "../../components/settings/SettingsDraftDialog";
 import AdminSettingsFrame from "./settings/AdminSettingsFrame";
-import { AppSettingsToggle, AppSettingsPolicy } from "./settings/AppSettingsFields";
+import {
+  AppSettingsToggle,
+  AppSettingsPolicy,
+  FEATURE_POLICY_SECTION_DESCRIPTION,
+} from "./settings/AppSettingsFields";
 import { useAppSettingsDraft } from "./settings/useAppSettingsDraft";
 import {
   validateInteger,
@@ -153,6 +157,7 @@ export default function ManagerSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Administration and access"
+        description={FEATURE_POLICY_SECTION_DESCRIPTION}
       >
         <AppSettingsPolicy
           form={form}
@@ -195,6 +200,7 @@ export default function ManagerSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Manager tools"
+        description={FEATURE_POLICY_SECTION_DESCRIPTION}
       >
         <AppSettingsPolicy
           form={form}

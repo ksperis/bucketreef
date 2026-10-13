@@ -30,6 +30,9 @@ const featurePolicyOptions = [
   SettingsTriStateOption<FeaturePolicy>,
 ];
 
+export const FEATURE_POLICY_SECTION_DESCRIPTION =
+  "Choose whether features are blocked, explicitly granted, or enabled by default. Storage permissions still apply.";
+
 export function AppSettingsToggle({
   form,
   field,
@@ -111,10 +114,7 @@ export function AppSettingsNumber({
 
 export function AppSettingsPolicy({ form, field, title, description, ariaLabel, disabled, experimental }: Props & { experimental?: boolean }) {
   const errorId = useId();
-  return <SettingsItem compact title={title} help={<>
-      <p>Disabled blocks local activation. Targeted activation uses explicit resource or User/Group grants. Enabled by default applies to eligible targets; storage permissions remain required.</p>
-      {description && <p className="mt-2">{description}</p>}
-    </>}
+  return <SettingsItem compact title={title} help={description}
     description={form.errors[field] ? <span id={errorId} role="alert" className="text-rose-700 dark:text-rose-300">{form.errors[field]}</span> : undefined}
     action={<SettingsTriStateAction
       ariaLabel={ariaLabel ?? title}

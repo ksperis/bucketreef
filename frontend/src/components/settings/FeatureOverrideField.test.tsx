@@ -21,17 +21,18 @@ describe("resource feature inheritance", () => {
     expect(inherited).toHaveTextContent("✓");
 
     await user.click(within(group).getByRole("radio", { name: "Disabled" }));
-    expect(within(group).getByRole("radio", { name: "Disabled" })).toHaveAttribute("aria-checked", "true");
+    expect(within(group).getByRole("radio", { name: "Disabled" }))
+      .toHaveAttribute("aria-checked", "true");
+    expect(within(group).getByRole("radio", { name: "Disabled" }))
+      .toHaveClass("settings-tristate-option-disabled-selected");
   });
 
-  it("shows the inherited effective disabled value and blocks explicit enablement", () => {
+  it("shows a platform prohibition as a static unavailable state", () => {
     render(<FeatureOverrideField title="Keys" value={null} policy="disabled" onChange={() => undefined} triState />);
 
-    const group = screen.getByRole("radiogroup", { name: "Keys" });
-    const inherited = within(group).getByRole("radio", { name: "Inherited platform value — Disabled" });
-    expect(inherited).toHaveAttribute("aria-checked", "true");
-    expect(inherited).toHaveTextContent("×");
-    expect(within(group).getByRole("radio", { name: "Enabled" })).toBeDisabled();
+    expect(screen.getByText("Unavailable")).toBeVisible();
+    expect(screen.getByText("Platform disabled")).toBeVisible();
+    expect(screen.queryByRole("radiogroup", { name: "Keys" })).not.toBeInTheDocument();
   });
 
   it("keeps an explicit opt-out distinct from the platform value", async () => {
@@ -49,7 +50,7 @@ describe("resource feature inheritance", () => {
     expect(select).toHaveDisplayValue("Platform value — Enabled");
   });
 
-  it("shows a platform prohibition, preserves the stored choice and allows inheritance reset", async () => {
+  it("shows a platform prohibition and preserves the stored choice without an active control", async () => {
     const user = userEvent.setup();
     function Editor() {
       const [value, setValue] = useState<boolean | null>(true);
@@ -57,9 +58,8 @@ describe("resource feature inheritance", () => {
     }
     render(<Editor />);
     expect(screen.getByText("Platform disabled")).toBeVisible();
-    expect(screen.getByRole("option", { name: "Enabled", exact: true })).toBeDisabled();
-    await user.selectOptions(screen.getByRole("combobox"), "inherit");
-    expect(screen.getByRole("combobox")).toHaveValue("inherit");
+    expect(screen.getByText("Stored override: Enabled")).toBeVisible();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Keys: information" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("compatible endpoint");
     await user.keyboard("{Escape}");

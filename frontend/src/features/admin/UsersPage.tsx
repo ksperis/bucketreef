@@ -1386,20 +1386,14 @@ export default function UsersPage() {
                       description: text("provisionConnectionsDescription"),
                       checked: createTargetSupportsManagerTools && Boolean(form.can_provision_managed_private_connections),
                       platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
-                      disabled:
-                        !createTargetSupportsManagerTools ||
-                        !generalSettings.managed_private_connection_provisioning_enabled,
+                      blocked: !generalSettings.managed_private_connection_provisioning_enabled,
+                      disabled: !createTargetSupportsManagerTools,
                       onChange: (value) =>
                         setForm((current) => ({
                           ...current,
                           can_provision_managed_private_connections: value,
                         })),
                       ariaLabel: text("allowProvisionConnections"),
-                      badge: {
-                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: text("disabledGlobally"),
-                        tone: "neutral",
-                      },
                     },
                   ]}
                   description={text("managerPermissions")}
@@ -1732,20 +1726,14 @@ export default function UsersPage() {
                       checked: editTargetSupportsManagerTools && Boolean(editForm.can_provision_managed_private_connections),
                       platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
                       inherited: Boolean(editingUser.effective_access?.can_provision_managed_private_connections),
-                      disabled:
-                        !editTargetSupportsManagerTools ||
-                        !generalSettings.managed_private_connection_provisioning_enabled,
+                      blocked: !generalSettings.managed_private_connection_provisioning_enabled,
+                      disabled: !editTargetSupportsManagerTools,
                       onChange: (value) =>
                         setEditForm((current) => ({
                           ...current,
                           can_provision_managed_private_connections: value,
                         })),
                       ariaLabel: text("allowProvisionConnections"),
-                      badge: {
-                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: text("disabledGlobally"),
-                        tone: "neutral",
-                      },
                     },
                   ]}
                   description={text("managerPermissions")}

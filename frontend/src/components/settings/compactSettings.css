@@ -279,6 +279,85 @@
   border-radius: 4px;
   pointer-events: none;
 }
+.settings-tristate-option-disabled-selected {
+  background: var(--ui-danger);
+  color: white;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+}
+.settings-effective-action {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, auto) auto;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: min(20rem, 100%);
+}
+.settings-effective-row .settings-item-action {
+  max-width: 32rem;
+}
+.settings-effective-summary,
+.settings-effective-local {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.settings-effective-summary {
+  gap: 6px;
+  justify-content: flex-end;
+}
+.settings-effective-local {
+  gap: 7px;
+  justify-content: flex-end;
+}
+.settings-effective-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+.settings-effective-dot-enabled { background: var(--ui-success); }
+.settings-effective-dot-disabled { background: var(--ui-danger); }
+.settings-effective-dot-unavailable { background: var(--ui-warning); }
+.settings-effective-copy {
+  min-width: 0;
+  white-space: nowrap;
+  font-size: var(--settings-caption-size);
+  line-height: var(--settings-caption-line);
+}
+.settings-effective-value {
+  color: var(--ui-text);
+  font-weight: 600;
+}
+.settings-effective-source {
+  color: var(--ui-text-muted);
+  font-weight: 400;
+}
+.settings-effective-local-label {
+  color: var(--ui-text-muted);
+  font-size: var(--settings-caption-size);
+  line-height: var(--settings-caption-line);
+  font-weight: var(--settings-label-weight);
+  white-space: nowrap;
+}
+.settings-effective-saved {
+  padding: 3px 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-muted);
+  font-size: var(--settings-caption-size);
+  line-height: var(--settings-caption-line);
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .settings-effective-action {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+  .settings-effective-summary,
+  .settings-effective-local {
+    justify-content: flex-start;
+  }
+}
 @media (any-pointer: coarse) {
   .settings-tristate-option { min-height: var(--settings-tristate-option-size); }
 }
