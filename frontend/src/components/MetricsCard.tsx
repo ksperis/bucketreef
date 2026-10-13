@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
+import { useMetricsI18n } from "./metricsMessage";
 
 import {
   cx,
@@ -64,6 +65,7 @@ export function MetricsCard({
   children,
   className,
 }: MetricsCardProps) {
+  const { text } = useMetricsI18n();
   const hasHeader = Boolean(title || eyebrow || description || updatedAt || actions);
   return (
     <section className={cx(uiCardClass, "space-y-5 p-5", className)}>
@@ -73,7 +75,7 @@ export function MetricsCard({
             {eyebrow && <p className="ui-caption font-semibold uppercase tracking-wide text-primary">{eyebrow}</p>}
             <h2 className={cx("ui-section", uiTitleTextClass)}>{title}</h2>
             {description && <p className={cx("ui-body", uiMutedTextClass)}>{description}</p>}
-            {updatedAt && <p className={cx("ui-caption", uiMutedTextClass)}>Updated:&nbsp;{new Date(updatedAt).toLocaleString()}</p>}
+            {updatedAt && <p className={cx("ui-caption", uiMutedTextClass)}>{text("updated")}&nbsp;{new Date(updatedAt).toLocaleString()}</p>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </header>
@@ -84,22 +86,24 @@ export function MetricsCard({
 }
 
 export function MetricsTile({ label, value, hint, loading, className }: MetricsTileProps) {
+  const { text } = useMetricsI18n();
   return (
     <div className={cx("rounded-lg bg-[var(--ui-surface-muted)] px-4 py-3", className)}>
       <p className={uiLabelClass}>{label}</p>
-      <p className={cx("mt-2 ui-subtitle", uiTitleTextClass)}>{loading ? "..." : value}</p>
+      <p className={cx("mt-2 ui-subtitle", uiTitleTextClass)}>{loading ? text("loadingValue") : value}</p>
       {hint && <p className={cx("ui-caption", uiMutedTextClass)}>{hint}</p>}
     </div>
   );
 }
 
 export function MetricsEmptyState({
-  children = "No usable metrics yet.",
+  children,
   className,
 }: {
   children?: ReactNode;
   className?: string;
 }) {
+  const { text } = useMetricsI18n();
   return (
     <div
       className={cx(
@@ -108,7 +112,7 @@ export function MetricsEmptyState({
         className
       )}
     >
-      {children}
+      {children === undefined ? text("emptyMetrics") : children}
     </div>
   );
 }
@@ -119,9 +123,10 @@ export function MetricsChartPanel({
   children,
   loading,
   hasData = true,
-  emptyMessage = "No usable metrics for this period yet.",
+  emptyMessage,
   className,
 }: MetricsChartPanelProps) {
+  const { text } = useMetricsI18n();
   return (
     <div className={cx("rounded-lg bg-[var(--ui-surface-muted)] p-4", className)}>
       <p className={cx("ui-body", uiTitleTextClass)}>{title}</p>
@@ -131,7 +136,7 @@ export function MetricsChartPanel({
       ) : hasData ? (
         <div className="mt-4">{children}</div>
       ) : (
-        <MetricsEmptyState className="mt-4">{emptyMessage}</MetricsEmptyState>
+        <MetricsEmptyState className="mt-4">{emptyMessage ?? text("emptyPeriod")}</MetricsEmptyState>
       )}
     </div>
   );

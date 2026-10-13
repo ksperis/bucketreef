@@ -28,6 +28,12 @@ import {
   STORAGE_OPS_PAGE_CONTRACTS,
   buildWorkspacePageBreadcrumbs,
 } from "../../navigation/workspacePages";
+import {
+  bucketUsageStatsErrorMessage,
+  bucketUsageStatsMessage,
+  useBucketUsageStatsI18n,
+  type BucketUsageStatsMessageKey,
+} from "./bucketUsageStatsMessage";
 
 type CommonProps = {
   targets: BucketOperationUiTarget[];
@@ -45,24 +51,37 @@ type BucketUsageStatsRunModalProps =
       mode: "storage-ops";
     });
 
-function statusLabel(status: BucketUsageStatsResult["status"]): string {
-  if (status === "completed") return "Completed";
-  if (status === "completed_with_warnings") return "Completed with warnings";
-  if (status === "canceled") return "Canceled";
-  return "Failed";
-}
+const statusKeys: Record<BucketUsageStatsResult["status"], BucketUsageStatsMessageKey> = {
+  completed: "statusCompleted",
+  completed_with_warnings: "statusCompletedWithWarnings",
+  canceled: "statusCanceled",
+  failed: "statusFailed",
+};
+const calculationMessageKeys: Record<BucketUsageStatsResult["status"], BucketUsageStatsMessageKey> = {
+  completed: "calculationCompleted",
+  completed_with_warnings: "calculationCompletedWithWarnings",
+  canceled: "calculationCanceled",
+  failed: "calculationFailed",
+};
+const stageKeys: Record<BucketUsageStatsProgress["stage"], BucketUsageStatsMessageKey> = {
+  prepare: "stagePrepare",
+  list: "stageList",
+  persist: "stagePersist",
+  completed: "stageCompleted",
+};
 
 export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModalProps) {
+  const { locale, text } = useBucketUsageStatsI18n();
   const [parallelism, setParallelism] = useState(8);
   const [progress, setProgress] = useState<BucketUsageStatsProgress | null>(null);
   const [result, setResult] = useState<BucketUsageStatsResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<BucketUsageStatsMessageKey | null>(null);
   const [running, setRunning] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const targetCount = props.targets.length;
-  const targetLabel = `${targetCount} bucket${targetCount > 1 ? "s" : ""}`;
+  const targetLabel = text(targetCount > 1 ? "targetBuckets" : "targetBucket", { count: targetCount });
   const progressPercent = useMemo(() => {
     if (!progress || progress.total_buckets <= 0) return null;
     return Math.max(0, Math.min(100, Math.round((progress.completed_buckets / progress.total_buckets) * 100)));
@@ -91,7 +110,7 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
     try {
       payload = buildPayload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid options.");
+      setError(err instanceof Error ? err.message : bucketUsageStatsMessage.invalidOptions.en);
       return;
     }
 
@@ -108,15 +127,15 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
           ? await streamCephAdminBucketUsageStats(props.endpointId, payload, streamOptions)
           : await streamStorageOpsBucketUsageStats(payload, streamOptions);
       setResult(nextResult);
-      setMessage(`Calculation ${statusLabel(nextResult.status).toLowerCase()}.`);
+      setMessage(calculationMessageKeys[nextResult.status]);
       if (nextResult.status !== "failed") {
         props.onCompleted?.();
       }
     } catch (err) {
       if (isCancelledError(err)) {
-        setMessage("Calculation canceled.");
+        setMessage("calculationCanceled");
       } else {
-        setError(extractApiError(err, "Bucket usage stats calculation failed."));
+        setError(extractApiError(err, bucketUsageStatsMessage.calculationError.en));
       }
     } finally {
       setRunning(false);
@@ -133,31 +152,37 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
     props.onClose();
   };
 
-  const breadcrumbs =
+  const breadcrumbs = (
     props.mode === "ceph-admin"
-      ? buildWorkspacePageBreadcrumbs("ceph-admin", CEPH_ADMIN_PAGE_CONTRACTS.buckets, { label: "Usage stats" })
-      : buildWorkspacePageBreadcrumbs("storage-ops", STORAGE_OPS_PAGE_CONTRACTS.buckets, { label: "Usage stats" });
+      ? buildWorkspacePageBreadcrumbs("ceph-admin", CEPH_ADMIN_PAGE_CONTRACTS.buckets, { label: text("usageStats") })
+      : buildWorkspacePageBreadcrumbs("storage-ops", STORAGE_OPS_PAGE_CONTRACTS.buckets, { label: text("usageStats") })
+  ).map((breadcrumb, index) => ({
+    ...breadcrumb,
+    label: index === 0
+      ? text(props.mode === "ceph-admin" ? "cephAdmin" : "storageOps")
+      : index === 1 ? text("bucketsBreadcrumb") : breadcrumb.label,
+  }));
 
   return (
     <WorkflowPage
-      title="Calculate bucket usage stats"
-      description="Run the calculation as a page-level task and keep progress and per-bucket results visible."
+      title={text("calculateTitle")}
+      description={text("calculateDescription")}
       breadcrumbs={breadcrumbs}
       onBack={closeModal}
-      backLabel={running ? "Stop and return" : "Back to buckets"}
+      backLabel={text(running ? "stopAndReturn" : "backToBuckets")}
       contentClassName="min-w-0"
     >
       <div className="space-y-4">
-        {error && <PageBanner tone="error">{error}</PageBanner>}
-        {message && <PageBanner tone={result?.status === "completed" ? "success" : result?.status === "failed" ? "error" : "warning"}>{message}</PageBanner>}
+        {error && <PageBanner tone="error">{bucketUsageStatsErrorMessage(error, locale)}</PageBanner>}
+        {message && <PageBanner tone={result?.status === "completed" ? "success" : result?.status === "failed" ? "error" : "warning"}>{text(message)}</PageBanner>}
 
         <BucketOperationSetup
           targetLabel={targetLabel}
-          contextLabel={props.mode === "ceph-admin" ? props.endpointName || `Endpoint ${props.endpointId}` : "Storage Ops"}
+          contextLabel={props.mode === "ceph-admin" ? props.endpointName || text("endpoint", { id: props.endpointId }) : text("storageOps")}
           actions={
             <>
               <UiInput
-                label="Parallelism"
+                label={text("parallelism")}
                 type="number"
                 min={1}
                 max={32}
@@ -174,7 +199,7 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
                   variant="danger"
                   size="sm"
                 >
-                  Cancel
+                  {text("cancel")}
                 </UiButton>
               ) : (
                 <UiButton
@@ -184,7 +209,7 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
                   variant="primary"
                   size="sm"
                 >
-                  Run calculation
+                  {text("runCalculation")}
                 </UiButton>
               )}
             </>
@@ -193,40 +218,43 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
 
         {progress && (
           <BucketOperationProgress
-            label="Bucket usage stats progress"
+            label={text("progressLabel")}
             value={progressPercent}
-            stage={progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
-            metrics={<>{formatCompactNumber(progress.listed_versions)} version(s) - {formatBytes(progress.total_bytes)}</>}
+            stage={progress.bucket_name ? `${progress.bucket_name} - ${text(stageKeys[progress.stage])}` : text(stageKeys[progress.stage])}
+            metrics={text("progressMetric", { versions: formatCompactNumber(progress.listed_versions), bytes: formatBytes(progress.total_bytes) })}
           >
-            {formatCompactNumber(progress.completed_buckets)} / {formatCompactNumber(progress.total_buckets)} buckets completed
-            {progress.listed_delete_markers > 0 ? ` - ${formatCompactNumber(progress.listed_delete_markers)} delete markers` : ""}
+            {text(progress.listed_delete_markers > 0 ? "bucketsCompletedWithMarkers" : "bucketsCompleted", {
+              completed: formatCompactNumber(progress.completed_buckets),
+              total: formatCompactNumber(progress.total_buckets),
+              markers: formatCompactNumber(progress.listed_delete_markers),
+            })}
           </BucketOperationProgress>
         )}
 
         {result && (
           <div className="space-y-3">
             <div className="grid gap-2 sm:grid-cols-4">
-              <BucketOperationSummaryStat label="Versions listed" value={formatCompactNumber(result.listed_versions)} />
-              <BucketOperationSummaryStat label="Logical bytes" value={formatBytes(result.total_bytes)} />
-              <BucketOperationSummaryStat label="Delete markers" value={formatCompactNumber(result.listed_delete_markers)} />
-              <BucketOperationSummaryStat label="Failed buckets" value={formatCompactNumber(result.failed_buckets)} />
+              <BucketOperationSummaryStat label={text("versionsListed")} value={formatCompactNumber(result.listed_versions)} />
+              <BucketOperationSummaryStat label={text("logicalBytes")} value={formatBytes(result.total_bytes)} />
+              <BucketOperationSummaryStat label={text("deleteMarkers")} value={formatCompactNumber(result.listed_delete_markers)} />
+              <BucketOperationSummaryStat label={text("failedBuckets")} value={formatCompactNumber(result.failed_buckets)} />
             </div>
             <div className={bucketOperationTableContainerClass}>
               <table className="ui-data-table">
                 <thead>
                   <tr>
-                    <th className="text-left">Bucket</th>
-                    <th className="text-left">Status</th>
-                    <th className="text-right">Bytes</th>
-                    <th className="text-right">Versions</th>
-                    <th className="text-left">Notes</th>
+                    <th className="text-left">{text("bucket")}</th>
+                    <th className="text-left">{text("status")}</th>
+                    <th className="text-right">{text("bytes")}</th>
+                    <th className="text-right">{text("versions")}</th>
+                    <th className="text-left">{text("notes")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.buckets.map((bucket) => (
                     <tr key={`${bucket.context_id ?? ""}:${bucket.bucket_name}`}>
                       <td className="ui-table-primary">{bucket.bucket_name}</td>
-                      <td className="ui-table-secondary">{bucket.status.replace(/_/g, " ")}</td>
+                      <td className="ui-table-secondary">{text(statusKeys[bucket.status])}</td>
                       <td className="text-right ui-table-secondary">{formatBytes(bucket.snapshot?.total_bytes ?? 0)}</td>
                       <td className="text-right ui-table-secondary">{formatCompactNumber(bucket.snapshot?.object_version_count ?? 0)}</td>
                       <td className="ui-table-secondary">{bucket.message || bucket.snapshot?.warnings?.[0] || "-"}</td>
@@ -240,9 +268,9 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
 
         {!result && !progress && (
           <div className={cx(uiCardMutedClass, "px-4 py-3")}>
-            <p className={cx("ui-body font-semibold", uiTitleTextClass)}>Ready to calculate</p>
+            <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{text("readyTitle")}</p>
             <p className={cx("ui-caption", uiMutedTextClass)}>
-              The calculation lists object versions first. If an endpoint does not support version listing, it falls back to current objects only.
+              {text("readyDescription")}
             </p>
           </div>
         )}
