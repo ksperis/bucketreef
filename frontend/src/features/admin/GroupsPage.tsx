@@ -78,7 +78,7 @@ import {
 } from "./adminAccessConfig";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
-import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import { SettingsButton, SettingsPersistentEditActions, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
@@ -484,11 +484,48 @@ export default function GroupsPage() {
         setActionMessage(text("groupCreated"));
       }
       if (avatarFile) {
-        await uploadGroupAvatar(savedGroup.id, avatarFile);
+        savedGroup = await uploadGroupAvatar(savedGroup.id, avatarFile);
       } else if (editingGroup && removeAvatarImage) {
-        await deleteGroupAvatar(savedGroup.id);
+        savedGroup = await deleteGroupAvatar(savedGroup.id);
       }
-      closeModal();
+      if (editingGroup) {
+        const savedDraft: UiGroupPayload = {
+          name: savedGroup.name,
+          description: savedGroup.description ?? "",
+          avatar_source: savedGroup.avatar?.source ?? "initials",
+          avatar_icon: savedGroup.avatar?.icon ?? null,
+          can_access_ceph_admin: Boolean(savedGroup.can_access_ceph_admin),
+          can_access_storage_ops: Boolean(savedGroup.can_access_storage_ops),
+          can_create_manual_private_connections: Boolean(savedGroup.can_create_manual_private_connections),
+          can_provision_managed_private_connections: Boolean(savedGroup.can_provision_managed_private_connections),
+          browser_advanced_features_enabled: Boolean(savedGroup.browser_advanced_features_enabled),
+          manager_tool_access: normalizeManagerToolAccess(savedGroup.manager_tool_access),
+          user_ids: (savedGroup.user_details ?? []).map((user) => Number(user.id)),
+          account_links: savedGroup.account_links?.map((link) => ({
+            account_id: Number(link.account_id),
+            manager_role: link.manager_role,
+            portal_role: link.portal_role,
+            allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+          })) ?? [],
+          s3_user_links: (savedGroup.s3_user_links ?? []).map((link) => ({
+            s3_user_id: Number(link.s3_user_id),
+            allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+          })),
+          s3_connection_ids: (savedGroup.s3_connection_details ?? []).map((connection) => Number(connection.id)),
+        };
+        setEditingGroup(savedGroup);
+        setForm(savedDraft);
+        setInitialFormSignature(stableSignature(savedDraft));
+        setAvatarFile(null);
+        setRemoveAvatarImage(false);
+        setMemberSelections([]);
+        setAccountSelections([]);
+        setS3UserSelections([]);
+        setConnectionSelections([]);
+        setAccountAccessChoice({});
+      } else {
+        closeModal();
+      }
       await fetchGroups();
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
@@ -1249,7 +1286,10 @@ export default function GroupsPage() {
           )}
           <SettingsForm label={editingGroup ? text("editUiGroup") : text("createUiGroup")} busy={saving}
             onSubmit={submitGroup} onCancel={closeGuard.requestClose} submitLabel={text("save")} busyLabel={text("saving")}
-            actions={<>
+            actions={editingGroup ? (
+              <SettingsPersistentEditActions dirty={hasUnsavedChanges} busy={saving} onCancel={closeGuard.requestClose}
+                saveLabel={text("save")} savingLabel={text("saving")} cancelLabel={text("cancel")} doneLabel={text("done")} />
+            ) : <>
               <SettingsButton variant="secondary" disabled={saving} onClick={closeGuard.requestClose}>{text("cancel")}</SettingsButton>
               <SettingsButton type="submit" disabled={saving}>{saving ? text("saving") : text("save")}</SettingsButton>
             </>}>

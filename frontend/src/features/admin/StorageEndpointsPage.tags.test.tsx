@@ -236,7 +236,8 @@ describe("StorageEndpointsPage tags", () => {
     expect(updateStorageEndpointTagsMock).not.toHaveBeenCalled();
     fireEvent.submit(form);
     await waitFor(() => expect(updateStorageEndpointMock).toHaveBeenCalledTimes(2));
-    await screen.findByRole("heading", { name: "S3 Endpoints" });
+    expect(await screen.findByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Update endpoint" })).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -315,7 +316,8 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
     expect(await screen.findByText(/Endpoint updated, but tags could not be saved/)).toBeVisible();
     fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
-    await screen.findByRole("heading", { name: "S3 Endpoints" });
+    expect(await screen.findByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save tags" })).not.toBeInTheDocument();
     expect(updateStorageEndpointMock).toHaveBeenCalledOnce();
     expect(updateStorageEndpointTagsMock).toHaveBeenCalledTimes(2);
   });
@@ -327,7 +329,8 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.focus(await screen.findByRole("textbox", { name: "Add a tag for this endpoint" }));
     fireEvent.click(await screen.findByRole("button", { name: "Add tag rgw-a" }));
     fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
-    await screen.findByRole("heading", { name: "S3 Endpoints" });
+    expect(await screen.findByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save tags" })).not.toBeInTheDocument();
     expect(updateStorageEndpointMock).not.toHaveBeenCalled();
     expect(updateStorageEndpointTagsMock).toHaveBeenCalledOnce();
   });
@@ -1013,7 +1016,8 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByLabelText("Endpoint name")).toHaveAttribute("readonly");
     expect(screen.getByLabelText("Endpoint name")).toBeEnabled();
     expect(screen.getByRole("textbox", { name: "Add a tag for this endpoint" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Save tags" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save tags" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     expect(screen.getByLabelText("Admin access key")).toHaveAttribute("readonly");
@@ -1666,7 +1670,8 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByRole("button", { name: "Set as default" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "View" }));
     await screen.findByRole("heading", { name: "Storage endpoint · Ceph Endpoint" });
-    expect(screen.getByRole("button", { name: "Save tags" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save tags" })).not.toBeInTheDocument();
     expect(screen.getByText(/Management mode is unavailable. Return to endpoints/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "Back to endpoints" })[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));

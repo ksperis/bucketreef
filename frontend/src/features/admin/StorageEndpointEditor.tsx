@@ -2,7 +2,7 @@
 import type { FormEvent, ReactNode } from "react";
 import WorkflowPage from "../../components/WorkflowPage";
 import SettingsForm from "../../components/settings/SettingsForm";
-import { SettingsButton } from "../../components/settings/SettingsControls";
+import { SettingsButton, SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useStorageEndpointI18n } from "./storageEndpointMessages";
@@ -39,14 +39,22 @@ export default function StorageEndpointEditor({
       contentVariant="plain" width="wide" contentClassName="settings-compact settings-form">
       <SettingsForm label={text("storageEndpointConfiguration")} busy={controller.locked} submitDisabled={disabled}
         onSubmit={controller.submit} onCancel={controller.requestClose} submitLabel={resolvedSubmitLabel} busyLabel={resolvedBusyLabel}
-        actions={<>
+        actions={!canEdit ? (
           <SettingsButton variant="secondary" onClick={controller.requestClose} disabled={controller.locked}>
-            {canEdit ? text("cancel") : text("done")}
+            {text("done")}
           </SettingsButton>
-          {canEdit && <SettingsButton type="submit" disabled={disabled || controller.locked}
+        ) : editing ? (
+          <SettingsPersistentEditActions dirty={dirty} busy={controller.locked} disabled={disabled}
+            onCancel={controller.requestClose} saveLabel={resolvedSubmitLabel} savingLabel={resolvedBusyLabel}
+            cancelLabel={text("cancel")} doneLabel={text("done")} />
+        ) : <>
+          <SettingsButton variant="secondary" onClick={controller.requestClose} disabled={controller.locked}>
+            {text("cancel")}
+          </SettingsButton>
+          <SettingsButton type="submit" disabled={disabled || controller.locked}
             title={!ready ? text("managementModeUnavailableTitle") : !dirty ? text("noChangesToSave") : undefined}>
             {controller.locked ? resolvedBusyLabel : resolvedSubmitLabel}
-          </SettingsButton>}
+          </SettingsButton>
         </>}>
         <div className="settings-stack">{children}</div>
       </SettingsForm>

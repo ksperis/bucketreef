@@ -10,7 +10,7 @@ import WorkflowTabs from "../../components/WorkflowTabs";
 import InlineSummary from "../../components/InlineSummary";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import SettingsForm from "../../components/settings/SettingsForm";
-import { SettingsButton } from "../../components/settings/SettingsControls";
+import { SettingsButton, SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
 import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
@@ -120,13 +120,13 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
       form.accept(snapshot);
       setSaved(true);
       await onSaved();
-      if (active.current && !portalDirty) onClose();
     } catch (cause) {
       if (active.current) setError(extractApiError(cause, "Unable to save account configuration."));
     }
   };
   const dirty = form.dirty || portalDirty || userPending || groupPending;
-  const controller = useSettingsFormController({ dirty, busy: portalBusy, disabled: !form.dirty && !userPending && !groupPending, onSubmit: save, onClose });
+  const saveableDirty = form.dirty || userPending || groupPending;
+  const controller = useSettingsFormController({ dirty, busy: portalBusy, disabled: !saveableDirty, onSubmit: save, onClose });
   useEffect(() => {
     onStateChange({ dirty, busy: controller.locked });
     return () => onStateChange({ dirty: false, busy: false });
@@ -145,9 +145,12 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
           .map(item => ({ ...item, id: item.id as EditTab, disabled: controller.locked }))}>
         <div hidden={tab === "portal"}>
           <SettingsForm label="Edit RGW account" formRef={formRef} onSubmit={controller.submit} busy={controller.locked}
-            submitDisabled={!form.dirty && !userPending && !groupPending} onCancel={controller.requestClose} submitLabel="Save changes" busyLabel="Saving...">
+            submitDisabled={!saveableDirty} onCancel={controller.requestClose} submitLabel="Save changes" busyLabel="Saving..."
+            actions={<SettingsPersistentEditActions dirty={dirty} busy={controller.locked} disabled={!saveableDirty}
+              onCancel={controller.requestClose} saveLabel="Save changes" savingLabel="Saving..."
+              cancelLabel={controller.labels.cancel} doneLabel={controller.labels.done} />}>
             {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
-            {saved && <UiInlineMessage tone="success" role="status">Account settings saved. Portal changes remain unsaved.</UiInlineMessage>}
+            {saved && <UiInlineMessage tone="success" role="status">Account settings saved.{portalDirty ? " Portal changes remain unsaved." : ""}</UiInlineMessage>}
             <div hidden={tab !== "general"}><div className="settings-stack">
               <SettingsSection title="Account details" description="Use administrative tags to make this account easier to find and organize." presentation="compact">
                 {tags.error && <UiInlineMessage tone="warning">{tags.error}</UiInlineMessage>}

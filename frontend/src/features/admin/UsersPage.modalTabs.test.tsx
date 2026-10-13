@@ -436,6 +436,8 @@ describe("UsersPage modal tabs", () => {
       screen.queryByRole("combobox", { name: "Portal role for acc-1" }),
     ).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("tab", { name: "Profile and preferences" }));
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "assoc.updated@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -1054,6 +1056,7 @@ describe("UsersPage modal tabs", () => {
     expect(within(featureRow).queryByText("Platform disabled")).not.toBeInTheDocument();
     expect(within(featureRow).queryByText("Saved grant: On")).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("switch", { name: "Bucket compare" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateUserMock).toHaveBeenCalledTimes(1));
     expect(updateUserMock).toHaveBeenCalledWith(
@@ -1251,7 +1254,13 @@ describe("UsersPage modal tabs", () => {
     expect(within(form).getByLabelText("Email")).toHaveValue("retained@example.com");
     expect(within(form).getByLabelText("Email")).toBeEnabled();
     fireEvent.submit(form);
-    await waitFor(() => expect(form).not.toBeInTheDocument());
+    if (editing) {
+      await waitFor(() => expect(within(form).getByRole("button", { name: "Done" })).toBeVisible());
+      expect(form).toBeInTheDocument();
+      expect(within(form).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    } else {
+      await waitFor(() => expect(form).not.toBeInTheDocument());
+    }
     expect(save.mock.calls[1]).toEqual(payload);
   });
 

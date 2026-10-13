@@ -31,7 +31,7 @@ export default function SettingsFormDialog({
 }) {
   const [baseline] = useState(draftKey);
   const initialFocus = useRef<HTMLElement | null>(null);
-  const { t, labels, locked, requestClose, submit, confirmationDialog, navigationGuard } = useSettingsFormController({
+  const { labels, locked, requestClose, submit, confirmationDialog, navigationGuard } = useSettingsFormController({
     dirty: baseline !== draftKey, busy, disabled, completed, onSubmit, onClose,
   });
 
@@ -49,7 +49,7 @@ export default function SettingsFormDialog({
         }}
         actions={<>
           <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>
-            {completed ? t({ en: "Done", fr: "Terminer", de: "Fertig", zh: "完成" }) : labels.cancel}
+            {completed ? labels.done : labels.cancel}
           </SettingsButton>
           {!completed && <SettingsButton type="submit" variant={danger ? "danger" : "primary"}
             disabled={locked || disabled || submitDisabled} loading={locked}>{submitLabel}</SettingsButton>}

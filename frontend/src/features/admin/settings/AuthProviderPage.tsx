@@ -50,7 +50,7 @@ type Adapter<T extends { provider_id: string }, P extends Metadata> = {
   empty: () => T;
   load: () => Promise<P[]>;
   toForm: (provider: P) => T;
-  save: (value: T, provider: P | null) => Promise<unknown>;
+  save: (value: T, provider: P | null) => Promise<P>;
   validate: (value: T) => Partial<Record<keyof T, string>>;
   render: (props: {
     form: T;
@@ -130,6 +130,7 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
   const [provider, setProvider] = useState<P | null>(null);
   const [loading, setLoading] = useState(Boolean(providerId));
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
   const [loadFailure, setLoadFailure] = useState<unknown>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -189,14 +190,21 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
       return;
     }
     setError(null);
+    setSuccess(null);
     try {
-      await runWithStepUp(() => adapter.save(form.draft, provider));
+      const saved = await runWithStepUp(() => adapter.save(form.draft, provider));
       if (!active.current) return;
-      // Remove the saved form and its pending navigation guard before redirecting.
-      flushSync(() => { form.accept(adapter.empty()); setCompleted(true); });
-      navigate(backPath, {
-        state: { providerSaved: `${adapter.kind} provider saved.` },
-      });
+      if (providerId) {
+        setProvider(saved);
+        form.accept(adapter.toForm(saved));
+        setSuccess(`${adapter.kind} provider saved.`);
+      } else {
+        // Remove the saved form and its pending navigation guard before redirecting.
+        flushSync(() => { form.accept(adapter.empty()); setCompleted(true); });
+        navigate(backPath, {
+          state: { providerSaved: `${adapter.kind} provider saved.` },
+        });
+      }
     } catch (err) {
       if (active.current && !isRecentWebAuthnVerificationCancelled(err))
         setError(extractApiError(err, "Unable to save provider."));
@@ -217,6 +225,7 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
       contentVariant="plain" width="wide" backLabel="Back to authentication"
       dirty={form.dirty} loading={loading} readOnly={readOnly || Boolean(providerId && !provider && !loading)}
       disabled={!form.dirty || Boolean(providerId && !provider)} error={error}
+      persistentEdit={Boolean(providerId)}
       submitLabel={`Save ${adapter.kind} provider`} busyLabel="Saving..." onSubmit={save} onClose={close}
       breadcrumbs={[
         ...adminPageBreadcrumbs("authentication-settings").map(
@@ -231,6 +240,7 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
         ) : (
           (!providerId || provider) && (
             <>
+              {success && <UiInlineMessage tone="success" role="status">{success}</UiInlineMessage>}
               {readOnly && (
                 <UiInlineMessage tone="info">
                   This provider is managed by environment variables and cannot

@@ -95,6 +95,7 @@ export default function StorageEndpointsPage() {
   const [envManaged, setEnvManaged] = useState(false);
   const [metadataReady, setMetadataReady] = useState(false);
   const mutationPending = useRef(false);
+  const createdEndpointAwaitingTagRetry = useRef(false);
   const detectedFeatureDefaultsApplied = useRef({ account: false, usage: false, metrics: false });
   const closingEndpointId = useRef<number | null>(null);
   const [listFilters, setListFilters] = useState<EndpointListFilters>({ query: "", mode: "contains", provider: "all" });
@@ -125,6 +126,7 @@ export default function StorageEndpointsPage() {
   const invalidateCredentialChecks = useCallback(() => undefined, []);
 
   const resetForm = useCallback(() => {
+    createdEndpointAwaitingTagRetry.current = false;
     detectedFeatureDefaultsApplied.current = { account: false, usage: false, metrics: false };
     setForm(createEmptyForm());
     setActiveTab("general");
@@ -429,11 +431,13 @@ export default function StorageEndpointsPage() {
     setFormError(null);
     setValidationShown(false);
     setEditingId(null);
+    createdEndpointAwaitingTagRetry.current = false;
     setShowForm(true);
   };
 
   const openEndpointPage = useCallback((endpoint: StorageEndpoint) => {
     closingEndpointId.current = null;
+    createdEndpointAwaitingTagRetry.current = false;
     detectedFeatureDefaultsApplied.current = { account: true, usage: true, metrics: true };
     const nextForm = createFormFromEndpoint(endpoint);
     setEditingId(endpoint.id);
@@ -571,6 +575,7 @@ export default function StorageEndpointsPage() {
     mutationPending.current = true;
     setSaving(true);
     let savedEndpoint: StorageEndpoint | null = null;
+    const creatingEndpoint = editingId === null;
     try {
       const normalizedTags = normalizeUiTags(form.tags);
       let targetId = editingId;
@@ -642,6 +647,11 @@ export default function StorageEndpointsPage() {
         return;
       }
       setActionMessage(text(editingId === null ? "endpointAdded" : saveConfiguration ? "endpointUpdated" : "endpointTagsUpdated"));
+      if (editingId !== null && !createdEndpointAwaitingTagRetry.current) {
+        await loadEndpoints();
+        setValidationRetryKey(previous => previous + 1);
+        return;
+      }
       closingEndpointId.current = routeEndpointId;
       flushSync(() => { setShowForm(false); resetForm(); });
       await loadEndpoints();
@@ -649,6 +659,7 @@ export default function StorageEndpointsPage() {
         navigate("/admin/storage-endpoints");
       }
     } catch (err) {
+      if (savedEndpoint && creatingEndpoint) createdEndpointAwaitingTagRetry.current = true;
       if (!isRecentWebAuthnVerificationCancelled(err)) {
         setFormError(savedEndpoint
           ? text("endpointTagsSaveFailed", { status: text(editingId === null ? "statusCreated" : "statusUpdated"), error: extractLocalizedError(err) })
@@ -837,6 +848,7 @@ export default function StorageEndpointsPage() {
           ready={metadataReady} dirty={hasFormChanges} busy={saving}
           submitLabel={endpointSubmitLabel} busyLabel={managedProvisioningOnSave ? text("savingAndCreatingIdentities") : undefined}
           onSubmit={handleSubmit} onClose={onCloseForm}>
+          {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
           {formError && <PageBanner tone="error">{formError}</PageBanner>}
           {configurationReadOnly && <PageBanner tone="info">
             {text("endpointConfigurationReadOnly", { detail: !metadataReady

@@ -5,6 +5,7 @@ import { getIamRole, updateIamRole } from "../../api/managerIamRoles";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
@@ -34,12 +35,13 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
     const role = await getIamRole(accountId, roleName);
     return { path: role.path ?? DEFAULT_ROLE_PATH, policy: formatPolicy(role.assume_role_policy_document) };
   }, [accountId, roleName]);
-  const { draft, setDraft, dirty, loading, loadError, retry } = useSettingsRemoteDraft(
+  const { draft, setDraft, accept, dirty, loading, loadError, retry } = useSettingsRemoteDraft(
     () => ({ path: DEFAULT_ROLE_PATH, policy: DEFAULT_ASSUME_ROLE_DOCUMENT }), load, "Unable to load role details.",
   );
   const [saving, setSaving] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const parsed = parseIamRolePolicy(draft.policy);
   const save = async (event: FormEvent<HTMLFormElement>) => {
     if (loading || loadError || saving) return;
@@ -50,8 +52,11 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
     }
     setSaving(true);
     setError(null);
+    setSaved(false);
     try {
-      await updateIamRole(accountId, roleName, { assume_role_policy_document: parsed.document });
+      const role = await updateIamRole(accountId, roleName, { assume_role_policy_document: parsed.document });
+      accept({ path: role.path ?? DEFAULT_ROLE_PATH, policy: formatPolicy(role.assume_role_policy_document) });
+      setSaved(true);
       onSaved();
     } catch (error) {
       setError(extractApiError(error, text("Unable to update role.")));
@@ -62,8 +67,9 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
     breadcrumbs={managerPageBreadcrumbs(text, "roles", { label: text("Edit") })} backLabel={text("Back to roles")}
     contentVariant="plain" dirty={dirty && !loading && !loadError} busy={saving} loading={loading}
     disabled={Boolean(loadError)} error={loadError || error} onSubmit={save} onClose={onClose}
-    submitLabel={text("Save changes")} busyLabel={text("Saving...")}>
+    persistentEdit submitLabel={text("Save changes")} busyLabel={text("Saving...")}>
     {loading && <p role="status" className="settings-description">{text("Loading role details...")}</p>}
+    {saved && <UiInlineMessage tone="success" role="status">{text("Role updated")}</UiInlineMessage>}
     {loadError && <div><SettingsButton variant="secondary" onClick={retry}>{text("Retry loading")}</SettingsButton></div>}
     <fieldset disabled={Boolean(loadError)} className="min-w-0">
       <ManagerRoleFormFields editing name={roleName} path={draft.path} policy={draft.policy}

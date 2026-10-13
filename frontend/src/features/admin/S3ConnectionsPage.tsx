@@ -46,6 +46,7 @@ import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textM
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
 import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
@@ -583,7 +584,7 @@ export default function S3ConnectionsPage() {
     [loadAllSelectableFilteredIds]
   );
 
-  const openEdit = (conn: S3ConnectionAdminItem) => {
+  const openEdit = (conn: S3ConnectionAdminItem, initialTab: EditTab = "general") => {
     editFormValidation.reset();
     const presetMatch =
       conn.storage_endpoint_id != null
@@ -611,7 +612,7 @@ export default function S3ConnectionsPage() {
     setEditEndpointMode(nextEndpointMode);
     setEditEndpointPresetId(nextEndpointPresetId);
     setEditForm(nextForm);
-    setEditTab("general");
+    setEditTab(initialTab);
     setEditLinkedUserIds(nextLinkedUserIds);
     setEditLinkedGroupIds(nextLinkedGroupIds);
     setEditUserSearch("");
@@ -667,11 +668,10 @@ export default function S3ConnectionsPage() {
     setEditBusy(true);
     setEditError(null);
     try {
-      await runWithStepUp(() => updateAdminS3Connection(editing.id, prepared.payload));
-      setEditCredentials({ access_key_id: "", secret_access_key: "" });
+      const updated = await runWithStepUp(() => updateAdminS3Connection(editing.id, prepared.payload));
+      openEdit(updated, editTab);
       setActionMessage("Connection updated.");
       await fetchItems();
-      closeEditModal();
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
         setEditError(extractApiError(err, "Unexpected error"));
@@ -1141,8 +1141,11 @@ export default function S3ConnectionsPage() {
               {editError}
             </UiInlineMessage>
           )}
+          {actionMessage && <UiInlineMessage tone="success" role="status" className="mb-3">{actionMessage}</UiInlineMessage>}
           <SettingsForm label="Edit shared S3 connection" onSubmit={submitEdit} busy={editBusy}
-            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving...">
+            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
+            actions={<SettingsPersistentEditActions dirty={Boolean(editInitialSignature && editCurrentSignature !== editInitialSignature)}
+              busy={editBusy} onCancel={editCloseGuard.requestClose} saveLabel="Save" savingLabel="Saving..." />}>
             <WorkflowTabs<EditTab>
               panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
               activeTab={editTab}

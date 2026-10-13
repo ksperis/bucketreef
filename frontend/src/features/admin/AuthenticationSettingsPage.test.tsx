@@ -709,7 +709,10 @@ describe("AuthenticationSettingsPage", () => {
     expect(screen.getByLabelText(secret)).toHaveValue("replacement-fixture");
     expect(nameField).toBeEnabled();
     await user.click(screen.getByRole("button", { name: `Save ${kind.toUpperCase()} provider` }));
-    await screen.findByRole("heading", { name: "Authentication settings" });
+    expect(await screen.findByText(`${kind.toUpperCase()} provider saved.`)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: `Save ${kind.toUpperCase()} provider` })).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(path);
     expect(saveMock).toHaveBeenCalledTimes(2);
     expect(saveMock.mock.calls[1][0]).toBe(id);
     expect(updateAppSettingsMock).not.toHaveBeenCalled();
@@ -745,7 +748,8 @@ describe("AuthenticationSettingsPage", () => {
     expect(screen.queryByRole("button", { name: "Save LDAP provider" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByLabelText("LDAP Display name")).toHaveValue("Corporate LDAP");
-    expect(screen.getByRole("button", { name: "Save LDAP provider" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save LDAP provider" })).not.toBeInTheDocument();
     expect(fetchLdapAdminProvidersMock).toHaveBeenCalledTimes(2);
   });
 
@@ -769,7 +773,9 @@ describe("AuthenticationSettingsPage", () => {
     fireEvent.submit(screen.getByRole("form", { name: "OIDC provider configuration" }));
     expect(updateOidcAdminProviderMock).toHaveBeenCalledOnce();
     await act(async () => finish({ mfa_verified_at: "2026-09-21T20:00:00Z" }));
-    await screen.findByRole("heading", { name: "Authentication settings" });
+    expect(await screen.findByText("OIDC provider saved.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save OIDC provider" })).not.toBeInTheDocument();
     expect(updateOidcAdminProviderMock).toHaveBeenCalledTimes(2);
     expect(updateOidcAdminProviderMock.mock.calls[1]).toEqual(updateOidcAdminProviderMock.mock.calls[0]);
     expect(updateAppSettingsMock).not.toHaveBeenCalled();

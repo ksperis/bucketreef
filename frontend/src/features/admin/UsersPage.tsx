@@ -60,7 +60,7 @@ import {
 import PageBanner from "../../components/PageBanner";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
-import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import { SettingsButton, SettingsPersistentEditActions, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import AdminUserIdentityFields, { userIdentityErrors, type UserIdentityErrors } from "./AdminUserIdentityFields";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import UserAvatarEditor from "../shared/UserAvatarEditor";
@@ -827,7 +827,8 @@ export default function UsersPage() {
   };
 
   const createDirty = showCreateModal && createCurrentSignature !== createInitialSignature;
-  const editDirty = showEditModal && (editCurrentSignature !== editInitialSignature || authenticationDirty || avatarDirty);
+  const editMainDirty = showEditModal && editCurrentSignature !== editInitialSignature;
+  const editDirty = showEditModal && (editMainDirty || authenticationDirty || avatarDirty);
   const createCloseGuard = useSettingsCloseGuard({
     hasUnsavedChanges: createDirty,
     ...discardLabels,
@@ -1115,8 +1116,41 @@ export default function UsersPage() {
       if (currentUserId !== null && currentUserId === editingUser.id && typeof window !== "undefined") {
         setSessionUserCache({ ...(readStoredUser() ?? {}), ...updatedUser });
       }
+      const savedForm: UpdateUserPayload = {
+        ...editForm,
+        email: updatedUser.email,
+        full_name: updatedUser.full_name ?? "",
+        ui_language: updatedUser.ui_language ?? null,
+        quota_alerts_enabled: updatedUser.quota_alerts_enabled !== false,
+        quota_alerts_global_watch: Boolean(updatedUser.quota_alerts_global_watch),
+        role: updatedUser.role,
+        can_access_ceph_admin: Boolean(updatedUser.can_access_ceph_admin),
+        can_access_storage_ops: Boolean(updatedUser.can_access_storage_ops),
+        can_create_manual_private_connections: Boolean(updatedUser.can_create_manual_private_connections),
+        can_provision_managed_private_connections: Boolean(updatedUser.can_provision_managed_private_connections),
+        manager_tool_access: normalizeManagerToolAccess(updatedUser.manager_tool_access),
+        browser_advanced_features_enabled: Boolean(updatedUser.browser_advanced_features_enabled),
+      };
+      setEditingUser(updatedUser);
+      setEditForm(savedForm);
+      setEditAccountSelections([]);
+      setEditS3UserSelections([]);
+      setEditConnectionSelections([]);
+      setEditGroupSelections([]);
+      setEditAccountAccessChoice({});
+      setEditInitialSignature(stableSignature({
+        form: savedForm,
+        selectedAccounts: editSelectedS3Accounts,
+        selectedS3Users: editSelectedS3Users,
+        selectedS3Connections: editSelectedS3Connections,
+        selectedGroups: editSelectedGroups,
+        pendingAccountSelections: [],
+        pendingS3UserSelections: [],
+        pendingConnectionSelections: [],
+        pendingGroupSelections: [],
+        accountAccessChoice: {},
+      }));
       setActionMessage(text("userUpdated"));
-      closeEditModal();
       await fetchUsers();
       if (s3AccountsLoaded) {
         await fetchS3Accounts();
@@ -1618,10 +1652,9 @@ export default function UsersPage() {
             onCancel={editCloseGuard.requestClose} submitLabel={text("save")} busyLabel={text("saving")}
             actions={editModalTab === "authentication" ? (
               <SettingsButton variant="secondary" disabled={authenticationBusy} onClick={editCloseGuard.requestClose}>{text("done")}</SettingsButton>
-            ) : <>
-              <SettingsButton variant="secondary" disabled={busyId === editingUser.id || avatarBusy} onClick={editCloseGuard.requestClose}>{text("cancel")}</SettingsButton>
-              <SettingsButton type="submit" disabled={busyId === editingUser.id || avatarBusy}>{text(busyId === editingUser.id || avatarBusy ? "saving" : "save")}</SettingsButton>
-            </>}>
+            ) : <SettingsPersistentEditActions dirty={editDirty} busy={busyId === editingUser.id || avatarBusy}
+              disabled={!editMainDirty} onCancel={editCloseGuard.requestClose} saveLabel={text("save")}
+              savingLabel={text("saving")} cancelLabel={text("cancel")} doneLabel={text("done")} />}>
             <WorkflowTabs<UserModalTab>
               panelClassName={editModalTab === "groups" || editModalTab === "associations" ? adminAssociationPanelClass : undefined}
               activeTab={editModalTab}

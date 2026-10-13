@@ -77,6 +77,54 @@ it("keeps the form interactive when local validation rejects synchronously", () 
   expect(save).toHaveBeenCalledTimes(2);
 });
 
+it("uses Done for a clean persistent editor and rebases back to Done after save", async () => {
+  const user = userEvent.setup();
+  const close = vi.fn();
+  const save = vi.fn();
+  function Page() {
+    const [value, setValue] = useState("Stored");
+    const [baseline, setBaseline] = useState("Stored");
+    return <SettingsWorkflowForm title="Edit endpoint" persistentEdit dirty={value !== baseline}
+      onClose={close} onSubmit={() => { save(value); setBaseline(value); }} submitLabel="Save changes">
+      <UiInput label="Name" value={value} onChange={event => setValue(event.target.value)} />
+    </SettingsWorkflowForm>;
+  }
+  render(<Page />);
+
+  expect(screen.getByRole("button", { name: "Done" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("textbox", { name: "Name" }));
+  await user.keyboard(" updated");
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(save).toHaveBeenCalledWith("Stored updated");
+  expect(screen.getByRole("button", { name: "Done" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Done" }));
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("keeps persistent editor actions locked while a save is pending", async () => {
+  const user = userEvent.setup();
+  let resolve!: () => void;
+  const save = vi.fn(() => new Promise<void>(done => { resolve = done; }));
+  render(<SettingsWorkflowForm title="Edit endpoint" persistentEdit dirty onClose={vi.fn()} onSubmit={save}
+    submitLabel="Save changes" busyLabel="Saving...">
+    <UiInput label="Name" value="Changed" onChange={() => undefined} />
+  </SettingsWorkflowForm>);
+
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
+  expect(screen.getByRole("textbox", { name: "Name" })).toBeDisabled();
+  await act(async () => resolve());
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+});
+
 it("keeps consultation non-submittable and closes without a draft confirmation", async () => {
   const user = userEvent.setup();
   const save = vi.fn();

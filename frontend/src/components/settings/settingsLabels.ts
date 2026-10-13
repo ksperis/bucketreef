@@ -6,6 +6,7 @@ export function settingsLabels(t: (message: I18nMessage) => string = translate) 
     apply: t({ en: "Apply", fr: "Appliquer", de: "Übernehmen", zh: "应用" }),
     cancel: t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" }),
     close: t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" }),
+    done: t({ en: "Done", fr: "Terminer", de: "Fertig", zh: "完成" }),
     discardTitle: t({
       en: "Discard changes?",
       fr: "Abandonner les modifications ?",

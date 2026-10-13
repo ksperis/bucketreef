@@ -140,6 +140,7 @@ export const groupsMessage = {
   resourcesRemain: m("Accounts, S3 users, and S3 connections remain in the platform.", "账户、S3 用户和 S3 连接将保留在平台中。"),
   admin: m("Admin", "管理员"),
   cancel: m("Cancel", "取消"),
+  done: m("Done", "完成"),
   processing: m("Processing...", "正在处理…"),
   impact: m("Impact", "影响"),
   discardTitle: m("Discard changes?", "放弃更改？"),

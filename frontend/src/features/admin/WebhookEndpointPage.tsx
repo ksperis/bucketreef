@@ -406,6 +406,7 @@ export default function WebhookEndpointPage() {
         width="wide"
         backLabel="Back to webhooks"
         dirty={form.dirty}
+        persistentEdit={!isCreate}
         busy={saving}
         completed={completed}
         loading={loading}

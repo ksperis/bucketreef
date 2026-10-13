@@ -346,6 +346,8 @@ describe("GroupsPage", () => {
       screen.queryByRole("combobox", { name: "Portal role for Account #99" }),
     ).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Updated description" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -573,6 +575,7 @@ describe("GroupsPage", () => {
     expect(within(featureRow).queryByText("Platform disabled")).not.toBeInTheDocument();
     expect(within(featureRow).queryByText("Saved grant: On")).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("switch", { name: "Bucket compare" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => {
       expect(updateGroupMock).toHaveBeenCalledWith(
@@ -682,7 +685,13 @@ describe("GroupsPage", () => {
     expect(within(form).getByLabelText("Name")).toHaveValue("retained-group");
     expect(within(form).getByLabelText("Name")).toBeEnabled();
     fireEvent.submit(form);
-    await waitFor(() => expect(form).not.toBeInTheDocument());
+    if (editing) {
+      await waitFor(() => expect(within(form).getByRole("button", { name: "Done" })).toBeVisible());
+      expect(form).toBeInTheDocument();
+      expect(within(form).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    } else {
+      await waitFor(() => expect(form).not.toBeInTheDocument());
+    }
     expect(save.mock.calls[1]).toEqual(payload);
   });
 
@@ -715,7 +724,8 @@ describe("GroupsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use Security pictogram" }));
     expect(screen.getByRole("button", { name: "Use Security pictogram" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
-    await waitFor(() => expect(screen.queryByRole("form")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeVisible());
+    expect(screen.getByRole("form", { name: "Edit UI group" })).toBeInTheDocument();
     expect(updateGroupMock).toHaveBeenCalledWith(50, expect.objectContaining({ avatar_source: "preset", avatar_icon: "shield" }));
     expect(deleteGroupAvatarMock).not.toHaveBeenCalled();
   });

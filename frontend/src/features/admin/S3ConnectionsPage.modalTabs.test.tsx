@@ -155,7 +155,9 @@ describe("S3ConnectionsPage modal tabs", () => {
     fireEvent.submit(form);
     await waitFor(() => expect(updateAdminS3ConnectionMock).toHaveBeenCalledTimes(2));
     expect(updateAdminS3ConnectionMock.mock.calls[1]).toEqual(updateAdminS3ConnectionMock.mock.calls[0]);
-    await waitFor(() => expect(screen.queryByRole("form", { name: "Edit shared S3 connection" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("form", { name: "Edit shared S3 connection" })).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
   it("renders direct UI users and UI groups in the combined listing column", async () => {
@@ -358,6 +360,9 @@ describe("S3ConnectionsPage modal tabs", () => {
     expect(screen.queryByLabelText("Private (owner only)")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Public (visible to all)")).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "connection-1 updated" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Linked UI users" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -381,7 +386,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     await within(getWorkflowPage("Edit connection · connection-1")).findByText("Endpoint");
