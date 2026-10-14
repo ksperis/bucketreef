@@ -330,6 +330,27 @@ def test_update_account_persists_privileged_bucket_quota_grant(db_session, monke
     assert account.allow_bucket_quota_management is True
 
 
+def test_update_account_persists_project_usage_feature_overrides(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session, name="ceph-usage-overrides", is_default=True)
+    account = _seed_account(db_session, endpoint.id, name="usage-overrides", rgw_account_id="RGW-USAGE-OVERRIDES")
+    service, _ = _service(db_session)
+    monkeypatch.setattr(service, "get_account_quota", lambda *args, **kwargs: (None, None))
+
+    updated = service.update_account(
+        account.id,
+        S3AccountUpdate(
+            allow_rgw_usage_metrics=False,
+            allow_bucket_usage_stats=True,
+        ),
+    )
+
+    assert updated.allow_rgw_usage_metrics is False
+    assert updated.allow_bucket_usage_stats is True
+    db_session.refresh(account)
+    assert account.allow_rgw_usage_metrics is False
+    assert account.allow_bucket_usage_stats is True
+
+
 def test_delete_account_guardrails_and_success(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="ceph-delete", is_default=True)
     account = _seed_account(db_session, endpoint.id, name="delete-acc", rgw_account_id="RGW-DEL-1")

@@ -1,8 +1,13 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.feature_policy_service import manager_activity_resource, manager_resource_states
+from app.services.feature_policy_service import (
+    bucket_usage_stats_state,
+    manager_activity_resource,
+    manager_resource_states,
+    manager_rgw_usage_metrics_state,
+    project_account_resource,
+)
 from app.services.app_settings_service import load_app_settings_for_db_readonly
-from app.db import S3Account, S3User
 from dataclasses import dataclass
 from typing import Annotated, Optional
 
@@ -53,9 +58,15 @@ class _ManagerLimits:
 
 
 def _manager_stats_state(
-    account: S3ExecutionContext, actor: ManagerActor,
+    account: S3ExecutionContext,
+    actor: ManagerActor,
+    db: Session,
 ) -> tuple[bool, Optional[str], Optional[str]]:
-    rgw_usage_metrics_enabled = bool(load_app_settings().manager.manager_rgw_usage_metrics_enabled)
+    settings = load_app_settings_for_db_readonly(db)
+    rgw_usage_metrics_enabled = manager_rgw_usage_metrics_state(
+        settings.manager.feature_policies,
+        project_account_resource(db, account),
+    ).enabled
     if account.context_kind == "connection":
         if not account.manager_capabilities.can_manage_buckets:
             return False, "Metrics are not available for this connection.", None
@@ -243,7 +254,7 @@ def get_manager_context(
     include_limits: Annotated[bool, Query()] = False,
 ) -> ManagerContext:
     access_mode = _manager_access_mode(account)
-    manager_stats_enabled, manager_stats_message, connection_iam_identity = _manager_stats_state(account, actor)
+    manager_stats_enabled, manager_stats_message, connection_iam_identity = _manager_stats_state(account, actor, db)
     access_service = EffectiveAccessService(db) if isinstance(actor, User) else None
     resolved_access = access_service.resolve_user(actor) if access_service else None
     browser_state = _manager_browser_state(
@@ -290,13 +301,23 @@ def get_manager_context(
     elif account.context_kind == "s3_user" and account.s3_user_id is not None:
         resource = db.get(S3User, account.s3_user_id)
     provisioning_sources = resolved_access.feature_sources.get("managed_private_connection_provision", ()) if resolved_access else ()
+    app_settings = load_app_settings_for_db_readonly(db)
     feature_states = manager_resource_states(
-        load_app_settings_for_db_readonly(db).manager.feature_policies, resource,
+        app_settings.manager.feature_policies, resource,
         {"bucket_quota_management": manager_bucket_quota_enabled, "ceph_s3_user_keys": manager_ceph_keys_enabled,
          "access_key_metadata": manager_access_key_metadata_enabled, "access_key_expiration": manager_access_key_expiration_enabled,
          "managed_private_connection_provisioning": manager_private_access_enabled},
         provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
         activity_resource=manager_activity_resource(db, account),
+    )
+    project_resource = project_account_resource(db, account)
+    feature_states["rgw_usage_metrics"] = manager_rgw_usage_metrics_state(
+        app_settings.manager.feature_policies,
+        project_resource,
+    )
+    feature_states["bucket_usage_stats"] = bucket_usage_stats_state(
+        app_settings.general.project_feature_policies,
+        project_resource,
     )
     return ManagerContext(
         feature_states=feature_states,

@@ -301,7 +301,8 @@ def test_persisted_admin_passkey_policy_preserves_explicit_value(required):
 
 def test_manager_rgw_usage_metrics_flag_default_enabled():
     settings = AppSettings()
-    assert settings.manager.manager_rgw_usage_metrics_enabled is True
+    assert settings.manager.feature_policies.rgw_usage_metrics == "default_on"
+    assert settings.general.project_feature_policies.bucket_usage_stats == "default_on"
 
 
 def test_app_settings_defaults_are_built_from_current_runtime_config(monkeypatch):
@@ -439,14 +440,15 @@ def test_manager_rgw_usage_metrics_flag_persists(monkeypatch, tmp_path, db_sessi
     )
 
     payload = AppSettings()
-    payload.manager.manager_rgw_usage_metrics_enabled = False
+    payload.manager.feature_policies.rgw_usage_metrics = "disabled"
     saved = app_settings_service.save_app_settings(payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
-    assert saved.manager.manager_rgw_usage_metrics_enabled is False
-    assert loaded.manager.manager_rgw_usage_metrics_enabled is False
-    assert raw["manager"]["manager_rgw_usage_metrics_enabled"] is False
+    assert saved.manager.feature_policies.rgw_usage_metrics == "disabled"
+    assert loaded.manager.feature_policies.rgw_usage_metrics == "disabled"
+    assert raw["manager"]["feature_policies"]["rgw_usage_metrics"] == "disabled"
+    assert "manager_rgw_usage_metrics_enabled" not in raw["manager"]
 
 
 def test_bucket_integrity_check_flag_persists(monkeypatch, tmp_path, db_session):

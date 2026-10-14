@@ -14,6 +14,8 @@ from app.models.portal_usage import (
 )
 from app.services.rgw_admin import RGWAdminError
 from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError
+from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.feature_policy_service import bucket_usage_stats_state
 from app.utils.usage_stats import extract_usage_stats
 
 if TYPE_CHECKING:
@@ -103,6 +105,10 @@ class PortalStateUsageMixin:
             allow_named_bucket_create=portal_settings.allow_portal_named_bucket_create,
             server_access_logging_enabled=portal_settings.server_access_logging_enabled,
             storage_space_version_cleanup_enabled=portal_settings.storage_space_version_cleanup_enabled,
+            bucket_usage_stats_enabled=bucket_usage_stats_state(
+                load_app_settings_for_db_readonly(self.db).general.project_feature_policies,
+                account,
+            ).enabled,
         )
 
     def get_usage(self, user: User, access: "AccountAccess") -> PortalUsage:

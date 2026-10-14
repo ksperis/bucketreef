@@ -199,7 +199,7 @@ def _usage_history_settings(enabled: bool) -> AppSettings:
 
 def _bucket_usage_settings(enabled: bool) -> AppSettings:
     settings = AppSettings()
-    settings.general.bucket_usage_stats_enabled = enabled
+    settings.general.project_feature_policies.bucket_usage_stats = "default_on" if enabled else "disabled"
     return settings
 
 
@@ -889,6 +889,7 @@ def test_get_state_without_bootstrap_is_read_only(monkeypatch, db_session):
             "portal_collaborator_role_management_delegated",
             "portal_collaborator_addition_delegated",
             "allow_named_bucket_create",
+        "bucket_usage_stats_enabled",
         "server_access_logging_enabled",
         "storage_space_version_cleanup_enabled",
     }

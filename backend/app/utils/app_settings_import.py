@@ -9,8 +9,19 @@ from app.models.feature_policy import MANAGER_LEGACY_FIELDS, PORTAL_FEATURE_FIEL
 def normalize_settings_import(payload: dict) -> dict:
     result = deepcopy(payload)
     general = result.setdefault("general", {})
+    project_policies = general.setdefault("project_feature_policies", {})
+    if "bucket_usage_stats_enabled" in general:
+        value = general.pop("bucket_usage_stats_enabled")
+        if not isinstance(value, bool):
+            raise ValueError("Legacy setting bucket_usage_stats_enabled must be a boolean")
+        project_policies.setdefault("bucket_usage_stats", "default_on" if value else "disabled")
     manager = result.setdefault("manager", {})
     policies = manager.setdefault("feature_policies", {})
+    if "manager_rgw_usage_metrics_enabled" in manager:
+        value = manager.pop("manager_rgw_usage_metrics_enabled")
+        if not isinstance(value, bool):
+            raise ValueError("Legacy setting manager_rgw_usage_metrics_enabled must be a boolean")
+        policies.setdefault("rgw_usage_metrics", "default_on" if value else "disabled")
     for field, feature in MANAGER_LEGACY_FIELDS.items():
         if field in general:
             value = general.pop(field)

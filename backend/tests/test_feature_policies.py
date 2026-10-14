@@ -10,7 +10,11 @@ from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.portal_service import PortalService
-from app.services.feature_policy_service import manager_resource_states
+from app.services.feature_policy_service import (
+    bucket_usage_stats_state,
+    manager_resource_states,
+    manager_rgw_usage_metrics_state,
+)
 from app.models.app_settings import PortalSettingsOverride
 from app.services.portal.exceptions import PortalForbiddenError
 from app.utils.app_settings_import import normalize_settings_import
@@ -30,6 +34,38 @@ def test_policy_precedence(policy, override, enabled, source):
     assert state.enabled is enabled
     assert state.source == source
     assert state.blocked_reason == ("platform_disabled" if policy == "disabled" else "resource_disabled" if override is False else "activation_required" if policy == "targeted" and override is None else None)
+
+
+@pytest.mark.parametrize(
+    "policy,override,enabled,source",
+    [
+        (FeaturePolicy.DEFAULT_ON, None, True, "platform"),
+        (FeaturePolicy.DEFAULT_ON, False, False, "resource"),
+        (FeaturePolicy.TARGETED, None, False, "platform"),
+        (FeaturePolicy.TARGETED, True, True, "resource"),
+        (FeaturePolicy.DISABLED, True, False, "platform"),
+    ],
+)
+def test_project_usage_capabilities_share_account_override_precedence(
+    db_session, policy, override, enabled, source,
+):
+    settings = AppSettings()
+    settings.manager.feature_policies.rgw_usage_metrics = policy
+    settings.general.project_feature_policies.bucket_usage_stats = policy
+    account = make_s3_account(
+        db_session,
+        name=f"Usage policies {policy.value} {override}",
+        allow_rgw_usage_metrics=override,
+        allow_bucket_usage_stats=override,
+    )
+
+    metrics = manager_rgw_usage_metrics_state(settings.manager.feature_policies, account)
+    composition = bucket_usage_stats_state(settings.general.project_feature_policies, account)
+
+    assert metrics.enabled is enabled
+    assert metrics.source == source
+    assert composition.enabled is enabled
+    assert composition.source == source
 
 
 def test_import_preserves_availability_and_portal_exceptions():

@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.models.base import ApiModel
 from app.db import S3Account, S3Connection, S3User
-from app.models.feature_policy import FeaturePolicy, FeatureState, ManagerFeaturePolicies, resolve_feature_policy
+from app.models.feature_policy import (
+    FeaturePolicy,
+    FeatureState,
+    ManagerFeaturePolicies,
+    ProjectFeaturePolicies,
+    resolve_feature_policy,
+)
 from app.services.s3_execution_context import S3ExecutionContext
 
 MANAGER_RESOURCE_FIELDS = {
@@ -22,9 +28,18 @@ MANAGER_ACTIVITY_RESOURCE_FIELDS = {
     "allow_activity_history": "activity_history",
 }
 
+MANAGER_ACCOUNT_POLICY_FIELDS = {
+    "allow_rgw_usage_metrics": "rgw_usage_metrics",
+}
+
+PROJECT_RESOURCE_FIELDS = {
+    "allow_bucket_usage_stats": "bucket_usage_stats",
+}
+
 MANAGER_OVERRIDE_FEATURES = {
     **MANAGER_RESOURCE_FIELDS,
     **MANAGER_ACTIVITY_RESOURCE_FIELDS,
+    **MANAGER_ACCOUNT_POLICY_FIELDS,
 }
 
 ManagerActivityResource = S3Account | S3User | S3Connection
@@ -43,6 +58,54 @@ def validate_manager_overrides(
         if (value is True and getattr(policies, MANAGER_OVERRIDE_FEATURES[field]) == FeaturePolicy.DISABLED
                 and (current is None or getattr(current, field) is not True)):
             raise ValueError("This feature is disabled by the platform")
+
+
+def validate_project_overrides(
+    payload: ApiModel,
+    policies: ProjectFeaturePolicies,
+    current: S3Account | None = None,
+) -> None:
+    for field, feature in PROJECT_RESOURCE_FIELDS.items():
+        if field not in payload.model_fields_set:
+            continue
+        value = getattr(payload, field)
+        if (
+            value is True
+            and getattr(policies, feature) == FeaturePolicy.DISABLED
+            and (current is None or getattr(current, field) is not True)
+        ):
+            raise ValueError("This feature is disabled by the platform")
+
+
+def project_account_resource(db: Session, context: S3ExecutionContext) -> S3Account | None:
+    if context.context_kind in {"account", "portal_account", "session"}:
+        if isinstance(context.id, int):
+            account = db.get(S3Account, context.id)
+            if account is not None:
+                return account
+        if context.rgw_account_id:
+            return db.query(S3Account).filter(S3Account.rgw_account_id == context.rgw_account_id).first()
+    return None
+
+
+def manager_rgw_usage_metrics_state(
+    policies: ManagerFeaturePolicies,
+    resource: S3Account | None,
+) -> FeatureState:
+    return resolve_feature_policy(
+        policies.rgw_usage_metrics,
+        resource.allow_rgw_usage_metrics if resource is not None else None,
+    )
+
+
+def bucket_usage_stats_state(
+    policies: ProjectFeaturePolicies,
+    resource: S3Account | None,
+) -> FeatureState:
+    return resolve_feature_policy(
+        policies.bucket_usage_stats,
+        resource.allow_bucket_usage_stats if resource is not None else None,
+    )
 
 
 def manager_activity_resource(

@@ -27,6 +27,7 @@ from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
     BucketUsageStatsService,
 )
+from app.services.feature_policy_service import bucket_usage_stats_state
 from app.services.portal_service import PortalService
 from app.services.usage_history_service import UsageHistoryService
 from app.services.usage_trends_service import account_usage_trend_filters, build_account_usage_trends
@@ -37,8 +38,12 @@ from app.utils.time import utcnow
 router = APIRouter()
 
 
-def _ensure_portal_bucket_usage_stats_enabled() -> None:
-    if not bool(load_app_settings().general.bucket_usage_stats_enabled):
+def _ensure_portal_bucket_usage_stats_enabled(account) -> None:
+    settings = load_app_settings()
+    if not bucket_usage_stats_state(
+        settings.general.project_feature_policies,
+        account,
+    ).enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bucket usage stats feature is disabled")
 
 
@@ -84,7 +89,7 @@ def portal_usage_stats_latest(
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
-    _ensure_portal_bucket_usage_stats_enabled()
+    _ensure_portal_bucket_usage_stats_enabled(access.account)
     try:
         spaces = portal_service.list_storage_spaces(actor, access)
     except RuntimeError as exc:
@@ -142,7 +147,7 @@ def portal_storage_space_usage_stats(
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
-    _ensure_portal_bucket_usage_stats_enabled()
+    _ensure_portal_bucket_usage_stats_enabled(access.account)
     try:
         spaces = portal_service.list_storage_spaces(actor, access, include_archived=True)
     except RuntimeError as exc:

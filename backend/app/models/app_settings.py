@@ -7,7 +7,13 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
-from app.models.feature_policy import ManagerFeaturePolicies, PortalFeaturePolicies, FeaturePolicy, MANAGER_LEGACY_FIELDS
+from app.models.feature_policy import (
+    MANAGER_LEGACY_FIELDS,
+    FeaturePolicy,
+    ManagerFeaturePolicies,
+    PortalFeaturePolicies,
+    ProjectFeaturePolicies,
+)
 from app.core.config import get_settings
 from app.models.storage_endpoint import StorageEndpointPublic
 
@@ -61,6 +67,7 @@ class PortalBucketDefaults(ApiModel):
 
 
 class GeneralSettings(ApiModel):
+    project_feature_policies: ProjectFeaturePolicies = Field(default_factory=ProjectFeaturePolicies)
     rgw_account_id_prefix: str = Field(default="80", pattern=r"^\d{1,3}$")
     documentation_base_url: str = DEFAULT_DOCUMENTATION_BASE_URL
     manager_enabled: bool = True
@@ -76,7 +83,6 @@ class GeneralSettings(ApiModel):
     endpoint_status_enabled: bool = True
     quota_alerts_enabled: bool = False
     usage_history_enabled: bool = True
-    bucket_usage_stats_enabled: bool = True
     allow_login_access_keys: bool = False
     allow_login_endpoint_list: bool = False
     allow_login_custom_endpoint: bool = False
@@ -84,6 +90,21 @@ class GeneralSettings(ApiModel):
     require_passkey_for_users: bool = False
     allow_user_profile_name_edit: bool = False
     allow_user_external_identity_unlink: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_bucket_usage_stats_flag(cls, value):
+        if not isinstance(value, dict) or "bucket_usage_stats_enabled" not in value:
+            return value
+        data = dict(value)
+        legacy = data.pop("bucket_usage_stats_enabled")
+        if not isinstance(legacy, bool):
+            raise ValueError("Legacy setting bucket_usage_stats_enabled must be a boolean")
+        policies = dict(data.get("project_feature_policies") or {})
+        policies.setdefault("bucket_usage_stats", "default_on" if legacy else "disabled")
+        data["project_feature_policies"] = policies
+        return data
+
 
     @field_validator("documentation_base_url", mode="before")
     @classmethod
@@ -115,6 +136,7 @@ class GeneralSettings(ApiModel):
 class GeneralSettingsView(GeneralSettings):
     """Read-only availability projection for the existing workspace consumers."""
     manager_feature_policies: ManagerFeaturePolicies = Field(default_factory=ManagerFeaturePolicies)
+    bucket_usage_stats_enabled: bool = True
     bucket_compare_enabled: bool = True
     bucket_integrity_check_enabled: bool = True
     bucket_migration_enabled: bool = False
@@ -131,6 +153,9 @@ class GeneralSettingsView(GeneralSettings):
         return cls(
             **settings.general.model_dump(),
             manager_feature_policies=policies,
+            bucket_usage_stats_enabled=(
+                settings.general.project_feature_policies.bucket_usage_stats != FeaturePolicy.DISABLED
+            ),
             **{field: getattr(policies, key) != FeaturePolicy.DISABLED for field, key in MANAGER_LEGACY_FIELDS.items()},
         )
 
@@ -217,7 +242,6 @@ class PortalEffectiveSettings(PortalSettings):
 
 class ManagerSettings(ApiModel):
     feature_policies: ManagerFeaturePolicies = Field(default_factory=ManagerFeaturePolicies)
-    manager_rgw_usage_metrics_enabled: bool = True
     bucket_migration_parallelism_default: int = Field(
         default_factory=_default_bucket_migration_parallelism_max,
         ge=1,
@@ -233,6 +257,21 @@ class ManagerSettings(ApiModel):
         ge=1,
         le=64,
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_rgw_usage_metrics_flag(cls, value):
+        if not isinstance(value, dict) or "manager_rgw_usage_metrics_enabled" not in value:
+            return value
+        data = dict(value)
+        legacy = data.pop("manager_rgw_usage_metrics_enabled")
+        if not isinstance(legacy, bool):
+            raise ValueError("Legacy setting manager_rgw_usage_metrics_enabled must be a boolean")
+        policies = dict(data.get("feature_policies") or {})
+        policies.setdefault("rgw_usage_metrics", "default_on" if legacy else "disabled")
+        data["feature_policies"] = policies
+        return data
+
 
     @model_validator(mode="after")
     def validate_bucket_migration_limits(self):

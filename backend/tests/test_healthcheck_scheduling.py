@@ -231,7 +231,7 @@ def test_settings_skip_portal_logging_reconcile_when_toggle_is_unchanged(
     _allow_superadmin(client, db_session)
     current = AppSettings()
     requested = current.model_copy(deep=True)
-    requested.general.bucket_usage_stats_enabled = not current.general.bucket_usage_stats_enabled
+    requested.general.project_feature_policies.bucket_usage_stats = "disabled"
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
     monkeypatch.setattr(admin_settings, "save_app_settings", lambda payload: requested)
     monkeypatch.setattr(admin_settings, "get_portal_service", _forbid_call)
