@@ -132,6 +132,20 @@ Pending-load markers are released on success or failure. Account payload
 loading uses the internal client's explicit `list_accounts(include_details=False)`
 contract and never retries a `TypeError` through a different call signature.
 
+RGW account creation treats an upstream `409 Conflict` as a failed creation,
+even when an account with the requested ID can be read afterward. The returned
+account ID must match the requested ID before any follow-up quota mutation or
+local account provisioning. Account updates likewise stop on conflicts. Raw
+RGW `extra_params` cannot override account identity, names, format or fields
+already exposed through dedicated inputs. Account-root reconciliation rejects
+contradictory top-level and nested account IDs.
+
+Ceph Admin bucket linking requires the resolved target's RGW account ID or
+user UID and tenant to match the selected target; missing or contradictory
+identifiers block the mutation. Endpoint-managed Runtime and Supervision user
+creation passes its explicitly generated S3 credential pair through a dedicated
+internal client contract, while arbitrary user `extra_params` cannot set keys.
+
 Browser STS sessions reuse that execution fingerprint, together with the
 resolved STS endpoint and the caller's cache partition. Exported credentials
 remain isolated by authenticated UI session. The cache requests 900-second

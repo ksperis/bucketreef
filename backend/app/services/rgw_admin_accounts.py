@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from app.services.rgw_admin_transport import RGWAdminError, RGWAdminOperationResponse
 from app.utils.quota_stats import extract_quota_limits
+from app.utils.rgw_account_extra_params import validate_rgw_account_extra_params
 
 
 class RGWAdminAccountOperations:
@@ -16,8 +17,11 @@ class RGWAdminAccountOperations:
         if not user:
             return None
         details = user.get("user") if isinstance(user.get("user"), dict) else user
-        account_value = str(user.get("account_id") or details.get("account_id") or "").strip()
-        if not account_id or account_value != account_id:
+        account_values = {
+            str(value).strip() for value in (user.get("account_id"), details.get("account_id"))
+            if value is not None and str(value).strip()
+        }
+        if not account_id or account_values != {account_id}:
             return None
         return user
 
@@ -51,6 +55,7 @@ class RGWAdminAccountOperations:
             params["max_groups"] = int(max_groups)
         if max_access_keys is not None:
             params["max_access_keys"] = int(max_access_keys)
+        validate_rgw_account_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         result = self._request(
             "POST",
@@ -63,10 +68,6 @@ class RGWAdminAccountOperations:
         if result.get("not_found"):
             raise RGWAdminError("RGW account API not available or account endpoint returned 404.")
         self._mark_account_api_support(True)
-        if result.get("conflict") and account_id:
-            existing = self.get_account(account_id, allow_not_found=True)
-            if existing and not existing.get("not_found"):
-                return existing
         return result
 
     def update_account(
@@ -100,6 +101,7 @@ class RGWAdminAccountOperations:
             params["max_groups"] = int(max_groups)
         if max_access_keys is not None:
             params["max_access_keys"] = int(max_access_keys)
+        validate_rgw_account_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         result = self._request(
             "POST",
@@ -114,10 +116,6 @@ class RGWAdminAccountOperations:
             self._mark_account_api_support(False)
             return result
         self._mark_account_api_support(True)
-        if isinstance(result, dict) and result.get("conflict"):
-            existing = self.get_account(account_id, allow_not_found=True)
-            if existing and not existing.get("not_found"):
-                return existing
         return result
 
     def delete_account(self, account_id: str) -> Dict[str, Any]:

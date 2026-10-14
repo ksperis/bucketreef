@@ -159,6 +159,85 @@ def test_create_rgw_account_generates_configured_id_when_omitted(monkeypatch):
     assert fake_rgw.create_account_calls[0]["account_id"] == "RGW80000000000000042"
 
 
+@pytest.mark.parametrize("model,fields", [
+    (CephAdminRgwAccountCreate, {"account_name": "A"}),
+    (CephAdminRgwAccountConfigUpdate, {}),
+])
+@pytest.mark.parametrize("key", ["id", "account_id", "NAME", "email", "format", "max_users"])
+def test_account_model_rejects_extra_params_overriding_dedicated_fields(model, fields, key):
+    with pytest.raises(ValidationError, match="cannot be overridden"):
+        model(**fields, extra_params={key: "foreign"})
+
+
+def test_create_rgw_account_conflict_never_updates_existing_quotas():
+    class ConflictingAdmin(FakeAccountsAdmin):
+        def create_account(self, **kwargs):
+            self.create_account_calls.append(kwargs)
+            return {"conflict": True, "status_code": 409}
+
+    admin = ConflictingAdmin()
+    with pytest.raises(HTTPException) as raised:
+        account_profiles_router.create_rgw_account(
+            CephAdminRgwAccountCreate(account_id="RGW12345678901234567", account_name="Duplicate",
+                                      quota_enabled=True, quota_max_objects=200),
+            ctx=_ctx(901, admin),
+        )
+    assert raised.value.status_code == 409
+    assert admin.set_account_quota_calls == []
+
+
+@pytest.mark.parametrize("returned", [
+    {"id": "RGW99999999999999999"},
+    {"id": "RGW12345678901234567", "account": {"id": "RGW99999999999999999"}},
+    {},
+])
+def test_create_rgw_account_requires_confirmed_identity_before_quotas(returned):
+    class WrongAdmin(FakeAccountsAdmin):
+        def create_account(self, **kwargs):
+            return returned
+
+    admin = WrongAdmin()
+    with pytest.raises(HTTPException) as raised:
+        account_profiles_router.create_rgw_account(
+            CephAdminRgwAccountCreate(account_id="RGW12345678901234567", account_name="A",
+                                      quota_enabled=True), ctx=_ctx(901, admin),
+        )
+    assert raised.value.status_code == 502
+    assert admin.set_account_quota_calls == []
+
+
+def test_update_rgw_account_conflict_blocks_followup_quotas():
+    class ConflictingAdmin(FakeAccountsAdmin):
+        def update_account(self, *args, **kwargs):
+            return {"conflict": True, "status_code": 409}
+
+    admin = ConflictingAdmin()
+    with pytest.raises(HTTPException) as raised:
+        account_profiles_router.update_rgw_account_config(
+            "RGW12345678901234567",
+            CephAdminRgwAccountConfigUpdate(account_name="Other", quota_max_objects=100),
+            ctx=_ctx(901, admin),
+        )
+    assert raised.value.status_code == 409
+    assert admin.set_account_quota_calls == []
+
+
+def test_update_rgw_account_rejects_wrong_identity_before_quotas():
+    class WrongAdmin(FakeAccountsAdmin):
+        def update_account(self, *args, **kwargs):
+            return {"id": "RGW99999999999999999"}
+
+    admin = WrongAdmin()
+    with pytest.raises(HTTPException) as raised:
+        account_profiles_router.update_rgw_account_config(
+            "RGW12345678901234567",
+            CephAdminRgwAccountConfigUpdate(email="owner@example.test", quota_enabled=True),
+            ctx=_ctx(901, admin),
+        )
+    assert raised.value.status_code == 502
+    assert admin.set_account_quota_calls == []
+
+
 @pytest.mark.parametrize("account_name", ["invalid:name", "invalid$name", "   ", "invalid\ud800"])
 def test_create_rgw_account_model_rejects_invalid_name(account_name: str):
     with pytest.raises(ValidationError):

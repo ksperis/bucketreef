@@ -15,6 +15,7 @@ from app.models.bucket_listing import BucketListingSummary
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import TagDefinitionSummary
 from app.utils.rgw_identifiers import validate_rgw_account_name, validate_rgw_tenant, validate_rgw_user_uid
+from app.utils.rgw_account_extra_params import validate_rgw_account_extra_params
 
 
 def _safe_rgw_user_extra_params(value: dict[str, Any]) -> dict[str, Any]:
@@ -291,6 +292,12 @@ class CephAdminRgwAccountCreate(ApiModel):
     bucket_quota_max_objects: Optional[int] = Field(default=None, ge=0)
     extra_params: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("extra_params")
+    @classmethod
+    def validate_extra_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        validate_rgw_account_extra_params(value)
+        return value
+
     @model_validator(mode="after")
     def validate_name(self):
         validate_rgw_account_name(self.account_name)
@@ -366,6 +373,12 @@ class CephAdminRgwAccountConfigUpdate(ApiModel):
     bucket_quota_max_size_bytes: Optional[int] = Field(default=None, ge=0)
     bucket_quota_max_objects: Optional[int] = Field(default=None, ge=0)
     extra_params: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("extra_params")
+    @classmethod
+    def validate_extra_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        validate_rgw_account_extra_params(value)
+        return value
 
 
 class CephAdminRgwUserConfigUpdate(ApiModel):
