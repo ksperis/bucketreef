@@ -11,7 +11,6 @@ import logging
 import re
 from typing import Any, Optional
 
-from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFoundError
@@ -44,7 +43,6 @@ from app.services.portal_role_sync import (
     sync_portal_role_promotions,
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
-from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_topics_resolver import (
     RgwAccountTopicsResolver,
@@ -55,7 +53,7 @@ from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.tags_service import TagsService
-from app.utils.s3_endpoint import resolve_iam_client_options, resolve_s3_client_kwargs
+from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
@@ -173,49 +171,20 @@ class S3AccountsService:
             raise ValueError("RGW account quota update is not supported on this cluster.")
 
     def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
-        root_bucket_count: Optional[int] = None
-        if account.rgw_tenant:
-            access_key, secret_key = account.effective_rgw_credentials()
-            if not access_key or not secret_key:
-                return None, None, None
-            try:
-                root_buckets = s3_client.get_s3_client(
-                    access_key,
-                    secret_key,
-                    request_profile="interactive",
-                    **resolve_s3_client_kwargs(account),
-                ).list_buckets()
-            except (BotoCoreError, ClientError, RuntimeError) as exc:
-                logger.warning(
-                    "Unable to verify buckets through the root identity for tenant account %s: %s",
-                    account.rgw_account_id,
-                    sanitized_error_log_detail(exc),
-                )
-                return None, None, None
-            root_bucket_count = len(root_buckets.get("Buckets") or [])
-
         admin = self._runtime_for_account(account, allow_missing=True)
         if not admin:
-            return None, None, root_bucket_count
+            return None, None, None
         try:
-            uid = account.rgw_account_id or account.rgw_user_uid
+            uid = account.rgw_user_uid
             if not uid:
                 return None, None, None
             payload = admin.get_all_buckets(uid=uid, with_stats=True, **({"tenant": account.rgw_tenant} if account.rgw_tenant else {}))
         except RGWAdminError as exc:
             logger.warning("Unable to list buckets for account %s: %s", account.rgw_account_id, exc)
-            return None, None, root_bucket_count
+            return None, None, None
         used_bytes, used_objects, bucket_count = aggregate_bucket_usage(
             extract_bucket_list(payload)
         )
-        if root_bucket_count is None:
-            return used_bytes, used_objects, bucket_count
-        if root_bucket_count != bucket_count:
-            # Some RGW versions return an empty Admin Ops account listing for
-            # explicit tenants. Preserve an exact bucket count from the scoped
-            # root identity and keep aggregate usage unknown rather than
-            # presenting incomplete byte/object totals as authoritative.
-            return None, None, root_bucket_count
         return used_bytes, used_objects, bucket_count
 
     def get_account_quota(

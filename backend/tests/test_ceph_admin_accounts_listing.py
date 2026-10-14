@@ -45,10 +45,14 @@ class FakeRGWAdmin:
             return {"not_found": True} if allow_not_found else None
         return payload
 
-    def get_all_buckets(self, account_id: str | None = None, uid: str | None = None, with_stats: bool = False):  # noqa: ARG002
+    def get_all_buckets(self, uid: str | None = None, with_stats: bool = False):  # noqa: ARG002
         self.get_all_buckets_calls += 1
-        assert account_id is not None
-        return list(self._bucket_payloads.get(account_id, []))
+        assert uid is None
+        return [
+            {**entry, "owner": entry.get("owner") or account_id}
+            for account_id, entries in self._bucket_payloads.items()
+            for entry in entries
+        ]
 
 
 class FakeRGWAdminMetadataIds(FakeRGWAdmin):

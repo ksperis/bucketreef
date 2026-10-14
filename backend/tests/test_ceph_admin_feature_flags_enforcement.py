@@ -178,7 +178,7 @@ def test_ceph_admin_account_metrics_use_ceph_admin_when_monitoring_is_disabled()
 def test_ceph_admin_account_metrics_reject_foreign_buckets_when_rgw_ignores_account_filter():
     class MixedAccountBucketsAdmin(FakeRGWAdmin):
         def get_all_buckets(self, uid=None, with_stats: bool = True, **_: object):
-            assert uid == "RGW0001-admin"
+            assert uid is None
             self.with_stats_calls.append(bool(with_stats))
             return {
                 "buckets": [

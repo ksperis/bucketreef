@@ -65,6 +65,12 @@ def enrich_accounts(
 ) -> list[CephAdminRgwAccountSummary]:
     if not accounts or not requested:
         return accounts
+    buckets_payload: Any | None = None
+    if "usage" in requested:
+        try:
+            buckets_payload = ctx.rgw_admin.get_all_buckets(with_stats=True)
+        except RGWAdminError as exc:
+            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     enriched: list[CephAdminRgwAccountSummary] = []
     total = len(accounts)
     for index, item in enumerate(accounts, start=1):
@@ -78,7 +84,12 @@ def enrich_accounts(
         except RGWAdminError as exc:
             raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
         if payload and not payload.get("not_found"):
-            _apply_account_detail_payload(account, payload, requested, ctx)
+            _apply_account_detail_payload(
+                account,
+                payload,
+                requested,
+                buckets_payload=buckets_payload,
+            )
         enriched.append(account)
         if progress is not None:
             progress.emit(
@@ -101,7 +112,8 @@ def _apply_account_detail_payload(
     account: CephAdminRgwAccountSummary,
     payload: dict[str, Any],
     requested: set[str],
-    ctx: CephAdminContext,
+    *,
+    buckets_payload: Any | None = None,
 ) -> None:
     if "profile" in requested:
         if not account.account_name:
@@ -136,13 +148,6 @@ def _apply_account_detail_payload(
         account.bucket_count = extract_bucket_count(payload)
         account.user_count = extract_user_count(payload)
     if "usage" in requested:
-        try:
-            buckets_payload = ctx.rgw_admin.get_all_buckets(
-                account_id=account.account_id,
-                with_stats=True,
-            )
-        except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
         _usage, total_bytes, total_objects, _count = summarize_bucket_usage(
             extract_account_bucket_list(buckets_payload, account.account_id)
         )

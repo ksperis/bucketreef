@@ -273,12 +273,13 @@ def test_bucket_link_validates_target_and_forwards_fresh_bucket_id(
 
     assert _body(response)["success"] is True
     call = next(details for name, details in admin.calls if name == "link_bucket")
-    assert call == {
+    expected = {
         "bucket": "bucket-a",
         "tenant": "tenant-a",
-        "uid": target_id,
         "bucket_id": "bucket-instance-1",
     }
+    expected["account_id" if target_type == "account" else "uid"] = target_id
+    assert call == expected
     assert audit.calls[-1]["metadata"]["old_owner"] == "tenant-a$owner"
     assert audit.calls[-1]["metadata"]["new_owner"] == target_id
 
@@ -353,6 +354,29 @@ def test_bucket_unlink_derives_current_owner(monkeypatch):
     assert _body(response)["success"] is True
     call = next(details for name, details in admin.calls if name == "unlink_bucket")
     assert call["uid"] == "tenant-a$owner"
+
+
+def test_bucket_unlink_uses_account_id_for_account_owner(monkeypatch):
+    admin = FakeAdmin()
+    admin.bucket_info = {
+        "bucket": "bucket-a",
+        "id": "bucket-instance-1",
+        "owner": "RGW12345678901234567",
+    }
+    ctx, _ = _context(admin)
+    monkeypatch.setattr(bucket_admin_ops, "invalidate_all_admin_ops_caches", lambda endpoint_id: None)
+
+    response = bucket_admin_ops.unlink_bucket(
+        "bucket-a",
+        CephAdminAdminOpsConfirmation(confirmation="UNLINK BUCKET tenant-a/bucket-a"),
+        tenant="tenant-a",
+        ctx=ctx,
+    )
+
+    assert _body(response)["success"] is True
+    call = next(details for name, details in admin.calls if name == "unlink_bucket")
+    assert call["account_id"] == "RGW12345678901234567"
+    assert "uid" not in call
 
 
 def test_index_check_is_simple_without_fix_and_requires_phrase_with_fix(monkeypatch):

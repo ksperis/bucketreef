@@ -156,7 +156,7 @@ def test_account_bucket_object_flow(
         tenant = provisioned_account.rgw_account_id
         try:
             assert ceph_verifier.bucket_exists(tenant, bucket_name)
-            stats = ceph_verifier.account_stats(tenant)
+            stats = ceph_verifier.account_info(tenant)
         except BackendAPIError:
             stats = {}
         if stats:

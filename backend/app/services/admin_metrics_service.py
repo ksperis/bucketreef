@@ -404,33 +404,15 @@ class AdminMetricsService:
         self,
         account: S3Account,
     ) -> tuple[int | None, int | None, int | None]:
+        if not account.rgw_user_uid:
+            return None, None, None
         used_bytes, used_objects, bucket_count = self._collect_bucket_usage(
-            account_id=account.rgw_account_id,
             uid=rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account)),
             context=f"account:{account.id}",
         )
         if used_bytes is not None or used_objects is not None:
             return used_bytes, used_objects, bucket_count
-
-        try:
-            stats = self.rgw_admin.get_account_stats(account.rgw_account_id, sync=False) or {}
-        except RGWAdminError as exc:
-            logger.warning(
-                "Unable to fetch account stats for %s (%s): %s",
-                account.id,
-                account.rgw_account_id,
-                exc,
-            )
-            return None, None, bucket_count
-        if isinstance(stats, dict) and stats.get("not_found"):
-            return None, None, bucket_count
-        usage_payload = None
-        if isinstance(stats, dict):
-            usage_payload = stats.get("stats") or stats.get("usage") or stats.get("total") or stats
-            if isinstance(usage_payload, dict) and "usage" in usage_payload:
-                usage_payload = usage_payload.get("usage")
-        used_bytes, used_objects = extract_usage_stats(usage_payload)
-        return used_bytes, used_objects, bucket_count
+        return None, None, bucket_count
 
     def _storage_snapshot_from_account_fallback(
         self,
@@ -459,7 +441,6 @@ class AdminMetricsService:
         s3_user_usage: list[dict] = []
         for user in s3_users:
             used_bytes, used_objects, bucket_count = self._collect_bucket_usage(
-                account_id=None,
                 uid=rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)),
                 context=f"s3_user:{user.id}",
             )
@@ -654,15 +635,13 @@ class AdminMetricsService:
     def _collect_bucket_usage(
         self,
         *,
-        account_id: Optional[str],
         uid: Optional[str],
         context: str,
     ) -> Tuple[Optional[int], Optional[int], Optional[int]]:
-        resolved_uid = uid or account_id
-        if not resolved_uid:
+        if not uid:
             return None, None, None
         try:
-            payload = self.rgw_admin.get_all_buckets(uid=resolved_uid, with_stats=True)
+            payload = self.rgw_admin.get_all_buckets(uid=uid, with_stats=True)
         except RGWAdminError as exc:
             logger.warning("%s unable to list buckets for admin overview: %s", context, exc)
             return None, None, None

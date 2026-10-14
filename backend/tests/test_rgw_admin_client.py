@@ -290,34 +290,6 @@ def test_set_account_quota_uses_id_only(monkeypatch):
     assert "account-id" not in params
 
 
-def test_get_account_stats_uses_id_filter(monkeypatch):
-    client = RGWAdminClient(
-        access_key="AKIA-TEST",
-        secret_key="SECRET-TEST",
-        endpoint="https://rgw-admin.example.test",
-        region="us-east-1",
-    )
-
-    captured: dict[str, object] = {}
-
-    def fake_request(method: str, path: str, **kwargs):
-        captured["method"] = method
-        captured["path"] = path
-        captured["params"] = kwargs.get("params")
-        return {}
-
-    monkeypatch.setattr(client, "_request", fake_request)
-
-    client.get_account_stats("RGW-03")
-
-    params = captured["params"]
-    assert captured["method"] == "GET"
-    assert captured["path"] == "/admin/account"
-    assert isinstance(params, dict)
-    assert params["id"] == "RGW-03"
-    assert params["sync-stats"] == "true"
-    assert "account-id" not in params
-
 
 def test_update_user_uses_snake_case_max_buckets_only(monkeypatch):
     client = RGWAdminClient(

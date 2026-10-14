@@ -325,6 +325,11 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     )
     assert ceph_admin_account_metrics["bucket_count"] == 1
     assert [item["name"] for item in ceph_admin_account_metrics["bucket_usage"]] == [account_bucket]
+    ceph_admin_account_metrics_without_root = super_admin_session.get(
+        f"/ceph-admin/endpoints/{storage_endpoint_id}/accounts/{rgw_account_id}/metrics",
+    )
+    assert ceph_admin_account_metrics_without_root["bucket_count"] == 1
+    assert [item["name"] for item in ceph_admin_account_metrics_without_root["bucket_usage"]] == [account_bucket]
 
     user_context = actor.get(
         "/manager/context",

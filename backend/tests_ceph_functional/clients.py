@@ -271,26 +271,26 @@ class CephVerifier:
     def bucket_exists(self, tenant: str, bucket_name: str) -> bool:
         try:
             account_id, resolved_tenant = resolve_account_scope(tenant)
-            scope_kwargs: dict = {}
             if account_id:
-                scope_kwargs["account_id"] = account_id
-            elif resolved_tenant:
-                scope_kwargs["tenant"] = resolved_tenant
-            info = self.client.get_bucket_info(bucket_name, allow_not_found=True, **scope_kwargs)
+                account = self.client.get_account(account_id, allow_not_found=True) or {}
+                if account.get("not_found"):
+                    return False
+                resolved_tenant = str(account.get("tenant") or "").strip() or None
+            info = self.client.get_bucket_info(
+                bucket_name,
+                tenant=resolved_tenant,
+                allow_not_found=True,
+            )
         except RGWAdminError as exc:
             raise BackendAPIError(f"RGW bucket lookup failed: {exc}")
         return bool(info)
 
-    def account_stats(self, tenant: str) -> dict[str, Any]:
+    def account_info(self, account_id: str) -> dict[str, Any]:
         try:
-            stats = self.client.get_account_stats(tenant)
+            account = self.client.get_account(account_id, allow_not_found=True) or {}
         except RGWAdminError as exc:
-            message = str(exc).lower()
-            logger.warning("Skipping RGW account stats for %s: %s", tenant, exc)
-            if "requires --account-id" in message:
-                return {}
-            raise BackendAPIError(f"RGW account stats failed: {exc}")
-        return stats
+            raise BackendAPIError(f"RGW account lookup failed: {exc}")
+        return {} if account.get("not_found") else account
 
 
 __all__ = [

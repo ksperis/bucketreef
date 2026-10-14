@@ -19,17 +19,8 @@ from app.services.admin_metrics_service import AdminMetricsService
 from app.services.rgw_admin import RGWAdminError
 
 
-class _FallbackRGWAdmin:
-    def __init__(self) -> None:
-        self.account_stats_calls: list[tuple[str, bool]] = []
-
-    def get_account_stats(self, account_id: str, *, sync: bool) -> dict:
-        self.account_stats_calls.append((account_id, sync))
-        return {"stats": {"total_bytes": 50, "total_objects": 5}}
-
-
 def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_user_buckets(monkeypatch):
-    rgw_admin = _FallbackRGWAdmin()
+    rgw_admin = SimpleNamespace()
     service = AdminMetricsService(db=SimpleNamespace(), rgw_admin=rgw_admin, endpoint_id=7)
     accounts = [
         SimpleNamespace(rgw_tenant="", id=1, rgw_account_id="account-1", rgw_user_uid="root-1", name="Account 1"),
@@ -49,12 +40,12 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
 
     monkeypatch.setattr(service, "_fetch_all_buckets", fail_consolidated_listing)
 
-    def collect_bucket_usage(*, account_id, uid, context):
+    def collect_bucket_usage(*, uid, context):
         if context == "account:1":
             return 100, 10, 2
         if context == "account:2":
             return None, None, None
-        assert (account_id, uid, context) == (None, "user-3", "s3_user:3")
+        assert (uid, context) == ("user-3", "s3_user:3")
         return 25, 3, 1
 
     monkeypatch.setattr(service, "_collect_bucket_usage", collect_bucket_usage)
@@ -64,12 +55,12 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
     assert snapshot["endpoint_id"] == 7
     assert snapshot["total_buckets"] == 2
     assert snapshot["storage_totals"] == {
-        "used_bytes": 150,
-        "object_count": 15,
+        "used_bytes": 100,
+        "object_count": 10,
         "bucket_count": 2,
-        "accounts_with_usage": 2,
+        "accounts_with_usage": 1,
     }
-    assert [entry["account_id"] for entry in snapshot["account_usage"]] == ["account-1", "account-2"]
+    assert [entry["account_id"] for entry in snapshot["account_usage"]] == ["account-1"]
     assert snapshot["s3_user_usage"] == [
         {
             "user_id": 3,
@@ -79,7 +70,6 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
             "object_count": 3,
         }
     ]
-    assert rgw_admin.account_stats_calls == [("account-2", False)]
 
 
 def test_consolidated_storage_snapshot_indexes_owner_usage_and_keeps_unmapped_totals():
