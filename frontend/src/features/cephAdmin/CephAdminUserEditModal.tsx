@@ -55,6 +55,7 @@ type Props = {
   endpointUrl?: string | null;
   uid: string;
   tenant?: string | null;
+  expectedAccountId?: string | null;
   canViewMetrics?: boolean;
   onClose: () => void;
   onSaved?: (detail: CephAdminRgwUserDetail) => void;
@@ -81,6 +82,7 @@ export default function CephAdminUserEditModal({
   endpointUrl,
   uid,
   tenant,
+  expectedAccountId,
   canViewMetrics = true,
   onClose,
   onSaved,
@@ -169,7 +171,7 @@ export default function CephAdminUserEditModal({
     setKeysLoading(true);
     setKeysError(null);
     try {
-      const payload = await listCephAdminUserKeys(endpointId, uid, tenant);
+      const payload = await listCephAdminUserKeys(endpointId, uid, tenant, expectedAccountId ?? detail?.account_id);
       setKeys(payload);
     } catch (err) {
       setKeysError(extractApiError(err, "Unexpected error"));
@@ -184,8 +186,11 @@ export default function CephAdminUserEditModal({
       setDetailLoading(true);
       setDetailError(null);
       try {
-        const payload = await getCephAdminUserDetail(endpointId, uid, tenant);
+        const payload = await getCephAdminUserDetail(endpointId, uid, tenant, expectedAccountId);
         if (cancelled) return;
+        if (expectedAccountId !== undefined && (payload.account_id ?? null) !== expectedAccountId) {
+          throw new Error("RGW user account has changed; refresh the user list");
+        }
         setDetail(payload);
         setKeys(payload.keys ?? []);
         setDisplayName(payload.display_name ?? "");
@@ -242,7 +247,7 @@ export default function CephAdminUserEditModal({
     return () => {
       cancelled = true;
     };
-  }, [endpointId, uid, tenant]);
+  }, [endpointId, uid, tenant, expectedAccountId]);
 
   useEffect(() => {
     if (!canViewMetrics || activeTab !== "metrics") return;
@@ -291,7 +296,6 @@ export default function CephAdminUserEditModal({
       focusFirstInvalidField(event.currentTarget);
       return;
     }
-    const accountRootEnabled = Boolean(detail.account_id);
     const parsedMaxBuckets = parseOptionalNonNegativeInteger(maxBuckets);
     const parsedQuotaBytes = quotaEnabled ? parseQuotaBytes(quotaSize, quotaUnit) : null;
     const parsedQuotaObjects = quotaEnabled ? parseOptionalNonNegativeInteger(quotaObjects) : null;
@@ -308,7 +312,6 @@ export default function CephAdminUserEditModal({
           suspended,
           max_buckets: parsedMaxBuckets,
           op_mask: opMask.trim() || null,
-          account_root: accountRootEnabled ? true : undefined,
           caps: {
             mode: capsMode,
             values: parseCephAdminUserCaps(capsText),
@@ -335,7 +338,8 @@ export default function CephAdminUserEditModal({
           endpointId,
           uid,
           payload,
-          tenant
+          tenant,
+          expectedAccountId ?? detail.account_id
         );
         setDetail(updated);
         setKeys(updated.keys ?? []);
@@ -372,7 +376,7 @@ export default function CephAdminUserEditModal({
     setCreatedKey(null);
     setKeysBusy("create");
     try {
-      const created = await createCephAdminUserKey(endpointId, uid, tenant);
+      const created = await createCephAdminUserKey(endpointId, uid, tenant, expectedAccountId ?? detail?.account_id);
       setCreatedKey(created);
       await refreshKeys();
       setKeysStatus("Access key created.");
@@ -390,7 +394,7 @@ export default function CephAdminUserEditModal({
     setKeysError(null);
     setKeysStatus(null);
     try {
-      await updateCephAdminUserKeyStatus(endpointId, uid, key.access_key, nextActive, tenant);
+      await updateCephAdminUserKeyStatus(endpointId, uid, key.access_key, nextActive, tenant, expectedAccountId ?? detail?.account_id);
       await refreshKeys();
       setKeysStatus(nextActive ? "Access key enabled." : "Access key disabled.");
     } catch (err) {
@@ -407,7 +411,7 @@ export default function CephAdminUserEditModal({
     setKeysError(null);
     setKeysStatus(null);
     try {
-      await deleteCephAdminUserKey(endpointId, uid, key.access_key, tenant);
+      await deleteCephAdminUserKey(endpointId, uid, key.access_key, tenant, expectedAccountId ?? detail?.account_id);
       await refreshKeys();
       setKeysStatus("Access key deleted.");
     } catch (err) {

@@ -31,11 +31,12 @@ export async function deleteCephAdminUser(
   endpointId: number,
   uid: string,
   payload: { confirmation: string; purge_data: boolean },
-  tenant?: string | null
+  tenant?: string | null,
+  expectedAccountId?: string | null,
 ): Promise<CephAdminAdminOpsResult> {
   const { data } = await client.delete<CephAdminAdminOpsResult>(
     `/ceph-admin/endpoints/${endpointId}/users/${encodeURIComponent(uid)}`,
-    { params: tenantParams(tenant), data: payload }
+    { params: { ...tenantParams(tenant), ...(expectedAccountId ? { expected_account_id: expectedAccountId } : {}) }, data: payload }
   );
   return data;
 }

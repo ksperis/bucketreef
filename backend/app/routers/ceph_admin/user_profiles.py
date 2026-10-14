@@ -26,6 +26,7 @@ from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsu
 from app.routers.ceph_admin.user_common import (
     coerce_bool,
     load_user_payload,
+    require_user_scope,
     optional_account_lookup_enabled,
     parse_suspended,
     serialize_access_keys,
@@ -226,6 +227,8 @@ def _apply_user_update(
         result = ctx.rgw_admin.update_user(uid, tenant=tenant, **params)
     except RGWAdminError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    if isinstance(result, dict) and result.get("conflict"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW user update conflicted")
     raise_if_unsupported(result, "RGW user update is not supported on this cluster")
 
 
@@ -331,6 +334,14 @@ def create_rgw_user(
             detail="tenant cannot be combined with account_id",
         )
 
+    # A manual create must never reuse another principal (even within the same account).
+    try:
+        existing = ctx.rgw_admin.get_user(uid, tenant=tenant, allow_not_found=True)
+    except RGWAdminError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    if existing and not existing.get("not_found"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW user UID already exists")
+
     try:
         if account_id:
             create_result = ctx.rgw_admin.create_user_with_account_id(
@@ -359,6 +370,10 @@ def create_rgw_user(
     if isinstance(create_result, dict) and create_result.get("conflict"):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW user already exists")
     raise_if_unsupported(create_result, "RGW user creation is not supported on this cluster")
+
+    # RGW can resolve the bare UID to another account. Verify the fresh record
+    # before any profile, quota, or capability updates and before exposing a key.
+    require_user_scope(uid, lookup_tenant, account_id, ctx)
 
     field_set = fields_set(payload)
     if USER_UPDATE_FIELD_SET & field_set:
@@ -413,8 +428,11 @@ def get_rgw_user(
 def get_rgw_user_detail(
     user_id: str,
     tenant: Optional[str] = None,
+    expected_account_id: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwUserDetail:
+    if expected_account_id is not None:
+        require_user_scope(user_id.strip(), tenant, expected_account_id, ctx)
     return _load_user_detail(user_id.strip(), tenant, ctx)
 
 
@@ -423,11 +441,13 @@ def update_rgw_user_config(
     user_id: str,
     update: CephAdminRgwUserConfigUpdate,
     tenant: Optional[str] = None,
+    expected_account_id: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwUserDetail:
     uid = user_id.strip()
     if not uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="uid is required")
+    require_user_scope(uid, tenant, expected_account_id, ctx)
     field_set = fields_set(update)
     if USER_UPDATE_FIELD_SET & field_set or update.extra_params:
         params = _user_update_params(update, field_set, clear_nulls=True)

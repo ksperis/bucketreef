@@ -38,11 +38,12 @@ describe("RGW user configuration form", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Caps", exact: true }), { target: { value: "users=read,usage=read\nusers=read" } });
     fireEvent.submit(form);
     await waitFor(() => expect(updateConfig).toHaveBeenCalledWith(7, "alice", expect.objectContaining({
-      display_name: "Alice Ops", account_root: true,
+      display_name: "Alice Ops",
       caps: { mode: "add", values: ["users=read", "usage=read"] },
       extra_params: { "default-placement": "", "default-storage-class": "STANDARD" },
-    }), "tenant-a"));
+    }), "tenant-a", "RGW12345678901234567"));
     const payload = updateConfig.mock.calls[0][2];
+    expect(payload).not.toHaveProperty("account_root");
     for (const field of ["admin", "system"]) expect(payload).not.toHaveProperty(field);
     for (const field of ["quota_enabled", "quota_max_size_bytes", "quota_max_objects"]) expect(payload).not.toHaveProperty(field);
   });
@@ -69,7 +70,7 @@ describe("RGW user configuration form", () => {
     fireEvent.submit(form);
     await waitFor(() => expect(updateConfig).toHaveBeenCalledWith(7, "alice", expect.objectContaining({
       max_buckets: null, quota_max_size_bytes: null, quota_max_objects: null, caps: { mode: "replace", values: [] },
-    }), "tenant-a"));
+    }), "tenant-a", "RGW12345678901234567"));
   });
 
   it.each([0, 1537, 1024 ** 3 + 1])("preserves an unchanged %d-byte quota on a profile save", async (bytes) => {
@@ -139,6 +140,21 @@ describe("RGW user configuration form", () => {
     expect(screen.getByLabelText("Display name")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save configuration" })).toBeDisabled();
     fireEvent.submit(screen.getByRole("form", { name: "RGW user configuration" }));
+    expect(updateConfig).not.toHaveBeenCalled();
+  });
+
+  it("blocks a stale selected account instead of editing the identity returned by RGW", async () => {
+    render(
+      <CephAdminUserEditModal
+        endpointId={7} uid="alice" tenant="tenant-a"
+        expectedAccountId="RGW88888888888888888"
+        canViewMetrics={false} onClose={vi.fn()}
+      />
+    );
+    expect(await screen.findByText(/RGW user account has changed/)).toBeInTheDocument();
+    expect(getDetail).toHaveBeenCalledWith(7, "alice", "tenant-a", "RGW88888888888888888");
+    fireEvent.click(screen.getByRole("tab", { name: "Ceph Admin" }));
+    expect(screen.getByRole("button", { name: "Save configuration" })).toBeDisabled();
     expect(updateConfig).not.toHaveBeenCalled();
   });
 });

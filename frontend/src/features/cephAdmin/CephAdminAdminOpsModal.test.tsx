@@ -109,7 +109,8 @@ describe("CephAdminAdminOpsModal", () => {
         7,
         "alice",
         { confirmation: "PURGE USER tenant-a$alice", purge_data: true },
-        "tenant-a"
+        "tenant-a",
+        undefined
       )
     );
   });

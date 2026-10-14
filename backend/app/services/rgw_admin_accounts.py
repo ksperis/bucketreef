@@ -15,8 +15,9 @@ class RGWAdminAccountOperations:
         user = self.get_user(uid, tenant=None, allow_not_found=allow_not_found)
         if not user:
             return None
-        account_value = str(user.get("account_id") or "").strip()
-        if account_value and account_id and account_value != account_id:
+        details = user.get("user") if isinstance(user.get("user"), dict) else user
+        account_value = str(user.get("account_id") or details.get("account_id") or "").strip()
+        if not account_id or account_value != account_id:
             return None
         return user
 
@@ -335,22 +336,11 @@ class RGWAdminAccountOperations:
             params["email"] = email
         if account_root:
             params["account-root"] = "true"
+        self._validate_user_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
-        result = self._request(
+        return self._request(
             "PUT",
             "/admin/user",
             params=params,
             allow_conflict=True,
         )
-        if isinstance(result, dict) and result.get("conflict"):
-            existing = self.get_user(uid, tenant=None, allow_not_found=True)
-            if existing and not existing.get("not_found"):
-                return existing
-            account_existing = self.get_account_user(
-                account_id,
-                uid,
-                allow_not_found=True,
-            )
-            if account_existing and not account_existing.get("not_found"):
-                return account_existing
-        return result

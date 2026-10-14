@@ -500,7 +500,11 @@ class FakeRGWAdminImport:
     def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
         self.calls.append(("get_user", tenant))
         if tenant == "RGW12345678901234567" or tenant is None:
-            return {"keys": [{"access_key": "IMPORTED", "secret_key": "SECRET"}]}
+            return {
+                "uid": uid,
+                "account_id": "RGW12345678901234567",
+                "keys": [{"access_key": "IMPORTED", "secret_key": "SECRET"}],
+            }
         return None
 
     def create_user_with_account_id(self, *args, **kwargs):
@@ -597,7 +601,11 @@ class FakeRGWAdminImportSplitKeys(FakeRGWAdminImportCreatesRoot):
         self.created_keys: list[tuple[str, Optional[str], Optional[str]]] = []
 
     def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
-        return {"keys": [{"access_key": "ACCESS-ONLY"}, {"secret_key": "SECRET-ONLY"}]}
+        return {
+            "uid": uid,
+            "account_id": "RGW11111111111111111",
+            "keys": [{"access_key": "ACCESS-ONLY"}, {"secret_key": "SECRET-ONLY"}],
+        }
 
     def create_access_key(self, uid: str, tenant: Optional[str] = None, key_name: Optional[str] = None):
         self.created_keys.append((uid, tenant, key_name))

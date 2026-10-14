@@ -155,10 +155,11 @@ export async function getCephAdminUserDetail(
   endpointId: number,
   uid: string,
   tenant?: string | null,
+  expectedAccountId?: string | null,
 ): Promise<CephAdminRgwUserDetail> {
   const { data } = await client.get<CephAdminRgwUserDetail>(
     `/ceph-admin/endpoints/${endpointId}/users/${encodeURIComponent(uid)}/detail`,
-    { params: tenant ? { tenant } : undefined },
+    { params: { ...(tenant ? { tenant } : {}), ...(expectedAccountId ? { expected_account_id: expectedAccountId } : {}) } },
   );
   return data;
 }
@@ -168,11 +169,12 @@ export async function updateCephAdminUserConfig(
   uid: string,
   payload: UpdateCephAdminUserPayload,
   tenant?: string | null,
+  expectedAccountId?: string | null,
 ): Promise<CephAdminRgwUserDetail> {
   const { data } = await client.put<CephAdminRgwUserDetail>(
     `/ceph-admin/endpoints/${endpointId}/users/${encodeURIComponent(uid)}/config`,
     payload,
-    { params: tenant ? { tenant } : undefined },
+    { params: { ...(tenant ? { tenant } : {}), ...(expectedAccountId ? { expected_account_id: expectedAccountId } : {}) } },
   );
   return data;
 }

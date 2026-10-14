@@ -11,6 +11,18 @@ from app.utils.quota_stats import extract_quota_limits
 
 class RGWAdminUserOperations:
     @staticmethod
+    def _validate_user_extra_params(extra_params: Optional[Dict[str, Any]]) -> None:
+        protected = {
+            "uid", "tenant", "account-id", "account-root", "format",
+            "generate-key", "access-key", "secret-key", "key", "key-type",
+        }
+        if isinstance(extra_params, dict) and any(
+            str(key).strip().lower().replace("_", "-") in protected
+            for key in extra_params
+        ):
+            raise ValueError("RGW user identity parameters cannot be overridden")
+
+    @staticmethod
     def _sanitize_uid(name: str) -> str:
         return re.sub(r"[^a-z0-9_.-]", "-", name.lower())
 
@@ -38,6 +50,7 @@ class RGWAdminUserOperations:
             params["tenant"] = tenant
         if caps:
             params["caps"] = caps
+        self._validate_user_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         result = self._request(
             "PUT",
@@ -45,10 +58,6 @@ class RGWAdminUserOperations:
             params=params,
             allow_conflict=True,
         )
-        if isinstance(result, dict) and result.get("conflict"):
-            existing = self.get_user(uid, tenant=tenant, allow_not_found=True)
-            if existing and not existing.get("not_found"):
-                return existing
         return result
 
     def get_user(
@@ -301,6 +310,7 @@ class RGWAdminUserOperations:
             params["system"] = self._to_rgw_bool(bool(system))
         if account_root is not None:
             params["account-root"] = self._to_rgw_bool(bool(account_root))
+        self._validate_user_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         result = self._request(
             "POST",
@@ -311,10 +321,6 @@ class RGWAdminUserOperations:
             allow_not_found=True,
             allow_not_implemented=True,
         )
-        if isinstance(result, dict) and result.get("conflict"):
-            existing = self.get_user(uid, tenant=tenant, allow_not_found=True)
-            if existing and not existing.get("not_found"):
-                return existing
         return result
 
     def list_user_keys(
