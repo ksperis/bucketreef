@@ -107,19 +107,21 @@ export default function PortalUsagePage() {
     hasAccountContext,
     accountIdForApi,
     selectedAccount,
+    state,
   } = usePortalWorkspaceData({ includeUsage: true, includeTraffic: true, includeHealth: true, trafficWindow });
+  const bucketUsageStatsEnabled = state?.bucket_usage_stats_enabled === true;
 
   const tabs = useMemo(
     () =>
       [
         { id: "storage" as const, label: t({ en: "Overview", fr: "Vue d'ensemble", de: "Überblick", zh: "概览" }) },
         { id: "storage-spaces" as const, label: t({ en: "By space", fr: "Par espace", de: "Nach Bereich", zh: "按空间" }) },
-        ...(generalSettings.bucket_usage_stats_enabled ? [{ id: "usage-composition" as const, label: t({ en: "File types", fr: "Types de fichiers", de: "Dateitypen", zh: "文件类型" }) }] : []),
+        ...(bucketUsageStatsEnabled ? [{ id: "usage-composition" as const, label: t({ en: "File types", fr: "Types de fichiers", de: "Dateitypen", zh: "文件类型" }) }] : []),
         ...(generalSettings.usage_history_enabled ? [{ id: "usage-history" as const, label: t({ en: "Trends", fr: "Tendances", de: "Trends", zh: "趋势" }) }] : []),
         { id: "traffic" as const, label: t({ en: "Uploads & downloads", fr: "Envois et téléchargements", de: "Uploads & Downloads", zh: "上传与下载" }) },
         ...(generalSettings.billing_enabled ? [{ id: "billing" as const, label: t({ en: "Costs", fr: "Coûts", de: "Kosten", zh: "费用" }) }] : []),
       ],
-    [generalSettings.billing_enabled, generalSettings.bucket_usage_stats_enabled, generalSettings.usage_history_enabled, t]
+    [bucketUsageStatsEnabled, generalSettings.billing_enabled, generalSettings.usage_history_enabled, t]
   );
 
   useEffect(() => {
@@ -130,7 +132,7 @@ export default function PortalUsagePage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!generalSettings.bucket_usage_stats_enabled || !hasAccountContext || !accountIdForApi) {
+    if (!bucketUsageStatsEnabled || !hasAccountContext || !accountIdForApi) {
       setUsageStatsAggregate(null);
       setUsageStatsLoading(false);
       setUsageStatsError(null);
@@ -156,7 +158,7 @@ export default function PortalUsagePage() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, generalSettings.bucket_usage_stats_enabled, hasAccountContext, t]);
+  }, [accountIdForApi, bucketUsageStatsEnabled, hasAccountContext, t]);
 
   useEffect(() => {
     let cancelled = false;

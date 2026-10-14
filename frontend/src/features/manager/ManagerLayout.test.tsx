@@ -481,7 +481,10 @@ describe("ManagerLayout", () => {
   });
 
   it("keeps Usage & Metrics enabled while manager metrics context is loading when usage stats are enabled", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext({ managerStatsEnabled: null }));
+    useS3AccountContextMock.mockReturnValue(buildContext({
+      managerStatsEnabled: null,
+      managerFeatureStates: { bucket_usage_stats: { enabled: true, source: "platform" } },
+    }));
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
 
     render(

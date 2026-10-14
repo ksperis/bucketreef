@@ -21,7 +21,12 @@ type Props = {
 };
 
 const featurePolicyOptions = [
-  { value: "disabled", label: "Disabled", symbol: "×" },
+  {
+    value: "disabled",
+    label: "Disabled",
+    symbol: "×",
+    selectedClassName: "settings-tristate-option-disabled-selected",
+  },
   { value: "targeted", label: "Targeted activation", symbol: "◎" },
   { value: "default_on", label: "Enabled by default", symbol: "✓" },
 ] satisfies readonly [

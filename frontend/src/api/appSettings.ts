@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client, { timeoutForRequestProfile } from "./client";
-import type { ManagerFeaturePolicies, PortalFeaturePolicies } from "./featurePolicies";
-export type { FeaturePolicy, FeatureState, ManagerFeaturePolicies, PortalFeaturePolicies } from "./featurePolicies";
+import type { ManagerFeaturePolicies, PortalFeaturePolicies, ProjectFeaturePolicies } from "./featurePolicies";
+export type { FeaturePolicy, FeatureState, ManagerFeaturePolicies, PortalFeaturePolicies, ProjectFeaturePolicies } from "./featurePolicies";
 
 
 export type PortalConfiguration = {
@@ -61,6 +61,7 @@ export type PortalSettingsAdminUpdate = PortalSettingsOverride & {
 };
 
 export type GeneralConfiguration = {
+  project_feature_policies: ProjectFeaturePolicies;
   rgw_account_id_prefix: string;
   documentation_base_url: string;
   manager_enabled: boolean;
@@ -76,7 +77,6 @@ export type GeneralConfiguration = {
   endpoint_status_enabled: boolean;
   quota_alerts_enabled: boolean;
   usage_history_enabled: boolean;
-  bucket_usage_stats_enabled: boolean;
   allow_login_access_keys: boolean;
   allow_login_endpoint_list: boolean;
   allow_login_custom_endpoint: boolean;
@@ -88,6 +88,7 @@ export type GeneralConfiguration = {
 
 export type GeneralSettings = GeneralConfiguration & {
   manager_feature_policies: ManagerFeaturePolicies;
+  bucket_usage_stats_enabled: boolean;
   bucket_compare_enabled: boolean;
   bucket_integrity_check_enabled: boolean;
   bucket_migration_enabled: boolean;
@@ -140,7 +141,6 @@ export type BrandingSettings = {
 
 export type ManagerSettings = {
   feature_policies: ManagerFeaturePolicies;
-  manager_rgw_usage_metrics_enabled: boolean;
   bucket_migration_parallelism_default: number;
   bucket_migration_parallelism_max: number;
   bucket_migration_max_active_per_endpoint: number;

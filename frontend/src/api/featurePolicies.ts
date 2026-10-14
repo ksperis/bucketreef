@@ -4,6 +4,7 @@ import type { AppSettings, GeneralSettings, PortalConfiguration, PortalSettings,
 export type FeaturePolicy = "disabled" | "targeted" | "default_on";
 export type FeatureState = { enabled: boolean; source: "platform" | "resource" | "direct" | "group"; blocked_reason?: string | null };
 export type ManagerFeaturePolicies = {
+  rgw_usage_metrics: FeaturePolicy;
   activity_history: FeaturePolicy;
   bucket_compare: FeaturePolicy;
   bucket_integrity_check: FeaturePolicy;
@@ -17,6 +18,7 @@ export type ManagerFeaturePolicies = {
   managed_private_connection_provisioning: FeaturePolicy;
 };
 export const DEFAULT_MANAGER_FEATURE_POLICIES: ManagerFeaturePolicies = {
+  rgw_usage_metrics: "default_on",
   activity_history: "default_on",
   bucket_compare: "targeted",
   bucket_integrity_check: "targeted",
@@ -28,6 +30,13 @@ export const DEFAULT_MANAGER_FEATURE_POLICIES: ManagerFeaturePolicies = {
   access_key_metadata: "targeted",
   access_key_expiration: "targeted",
   managed_private_connection_provisioning: "disabled",
+};
+
+export type ProjectFeaturePolicies = {
+  bucket_usage_stats: FeaturePolicy;
+};
+export const DEFAULT_PROJECT_FEATURE_POLICIES: ProjectFeaturePolicies = {
+  bucket_usage_stats: "default_on",
 };
 
 export type PortalFeaturePolicies = {
@@ -52,6 +61,7 @@ export const DEFAULT_PORTAL_FEATURE_POLICIES: PortalFeaturePolicies = {
 export function projectGeneralSettings(settings: AppSettings): GeneralSettings {
   const policies = settings.manager.feature_policies;
   return { ...settings.general, manager_feature_policies: policies,
+    bucket_usage_stats_enabled: settings.general.project_feature_policies.bucket_usage_stats !== "disabled",
     bucket_compare_enabled: policies.bucket_compare !== "disabled",
     bucket_integrity_check_enabled: policies.bucket_integrity_check !== "disabled",
     bucket_migration_enabled: policies.bucket_migration !== "disabled",

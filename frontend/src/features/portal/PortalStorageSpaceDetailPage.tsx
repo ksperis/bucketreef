@@ -953,6 +953,7 @@ function StorageSpaceDetail() {
             accountName={workspace.accountName}
             rgwAccountId={selectedAccount?.rgw_account_id}
             space={space}
+            bucketUsageStatsEnabled={state?.bucket_usage_stats_enabled === true}
           />
         </PortalTabPanel>
       ) : null}

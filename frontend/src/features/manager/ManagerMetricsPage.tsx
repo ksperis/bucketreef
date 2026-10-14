@@ -43,6 +43,7 @@ export default function ManagerMetricsPage() {
     accessMode,
     managerStatsEnabled,
     managerStatsMessage,
+    managerFeatureStates,
   } = useS3AccountContext();
 
   const selected = useMemo(
@@ -56,7 +57,7 @@ export default function ManagerMetricsPage() {
   const canLoadUsageStatsAggregate =
     hasContext &&
     Boolean(requiresS3AccountSelection) &&
-    Boolean(generalSettings.bucket_usage_stats_enabled);
+    managerFeatureStates?.bucket_usage_stats?.enabled === true;
   const canShowUsageBreakdowns = usageFeatureEnabled && hasContext;
   const showTrafficAnalytics = metricsFeatureEnabled && hasContext;
   const showMetricsDisabledBanner = hasContext && !usageFeatureEnabled && !metricsFeatureEnabled;

@@ -1,10 +1,11 @@
-import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES } from "../../../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../../../api/featurePolicies";
 import type { AppSettings } from "../../../api/appSettings";
 export function createAppSettings(
   overrides: Partial<AppSettings["general"]> = {},
 ): AppSettings {
   return {
     general: {
+      project_feature_policies: { ...DEFAULT_PROJECT_FEATURE_POLICIES },
       rgw_account_id_prefix: "80",
       documentation_base_url: "https://docs.bucketreef.ksperis.com",
       require_passkey_for_admins: false,
@@ -24,7 +25,6 @@ export function createAppSettings(
       endpoint_status_enabled: false,
       quota_alerts_enabled: false,
       usage_history_enabled: false,
-      bucket_usage_stats_enabled: true,
       allow_login_access_keys: false,
       allow_login_endpoint_list: false,
       allow_login_custom_endpoint: false,
@@ -44,7 +44,6 @@ export function createAppSettings(
     },
     manager: {
       feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_compare: "targeted", bucket_integrity_check: "targeted", bucket_migration: "targeted", bucket_purge: "disabled", bucket_quota_management: "targeted", ceph_s3_user_keys: "targeted", access_key_metadata: "disabled", access_key_expiration: "disabled", managed_private_connection_provisioning: "disabled" },
-      manager_rgw_usage_metrics_enabled: true,
       bucket_migration_parallelism_default: 8,
       bucket_migration_parallelism_max: 16,
       bucket_migration_max_active_per_endpoint: 2,
