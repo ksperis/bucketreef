@@ -263,6 +263,9 @@ export default function ManagerGroupsPage() {
       mobileRole: "actions",
       render: (group) => (
         <ListActions>
+          <ListActionLink to={`/manager/groups/${encodeURIComponent(group.name)}`}>
+            {text("Details")}
+          </ListActionLink>
           <ListActionLink to={`/manager/groups/${encodeURIComponent(group.name)}/users`}>
             {text("Members")}
           </ListActionLink>

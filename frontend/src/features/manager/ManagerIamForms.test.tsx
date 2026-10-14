@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   users: vi.fn(), groups: vi.fn(), roles: vi.fn(), policies: vi.fn(),
   createUser: vi.fn(), createGroup: vi.fn(), createRole: vi.fn(), createPolicy: vi.fn(),
   attachGroup: vi.fn(), attachRole: vi.fn(), getRole: vi.fn(), updateRole: vi.fn(),
+  putRoleTags: vi.fn(), deleteRoleTag: vi.fn(),
 }));
 vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => ({ selectedS3AccountId: "acc-7", selectedS3AccountType: "account",
@@ -31,6 +32,7 @@ vi.mock("../../api/managerIamRoles", async (original) => ({
   ...await original<typeof import("../../api/managerIamRoles")>(),
   listIamRoles: api.roles, createIamRole: api.createRole, attachRolePolicy: api.attachRole,
   getIamRole: api.getRole, updateIamRole: api.updateRole,
+  putRoleTags: api.putRoleTags, deleteRoleTag: api.deleteRoleTag,
 }));
 vi.mock("../../api/managerIamPolicies", async (original) => ({
   ...await original<typeof import("../../api/managerIamPolicies")>(), listIamPolicies: api.policies, createIamPolicy: api.createPolicy,
@@ -84,6 +86,8 @@ beforeEach(() => {
   api.attachRole.mockResolvedValue(policy);
   api.getRole.mockResolvedValue(role);
   api.updateRole.mockResolvedValue(role);
+  api.putRoleTags.mockResolvedValue([]);
+  api.deleteRoleTag.mockResolvedValue([]);
 });
 
 describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
@@ -188,6 +192,7 @@ describe("IAM role configuration", () => {
     let reject!: (error: Error) => void;
     api.updateRole.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
     const form = await open();
+    const changedTrust = { Version: "2012-10-17", Statement: [] };
     expect(within(form).getByLabelText("Role name")).toHaveAttribute("readonly");
     expect(within(form).getByLabelText("Role path")).toHaveAttribute("readonly");
     expect(within(form).getByLabelText("Role path")).toHaveValue("/application/");
@@ -197,7 +202,7 @@ describe("IAM role configuration", () => {
     await waitFor(() => expect(document).toHaveFocus());
     expect(api.updateRole).not.toHaveBeenCalled();
     expect(document).toHaveAccessibleDescription(/Assume role policy must be valid JSON\./);
-    fireEvent.change(document, { target: { value: JSON.stringify(trust) } });
+    fireEvent.change(document, { target: { value: JSON.stringify(changedTrust) } });
     expect(document).not.toHaveAttribute("aria-invalid", "true");
     fireEvent.submit(form);
     expect(document).toBeDisabled();
@@ -207,13 +212,36 @@ describe("IAM role configuration", () => {
     expect(form).toBeInTheDocument();
     await act(async () => reject(new Error("Temporary update failure")));
     expect(await within(form.closest(".workflow-page")!).findByText("Temporary update failure")).toBeInTheDocument();
-    expect(document).toHaveValue(JSON.stringify(trust));
+    expect(document).toHaveValue(JSON.stringify(trust, null, 2));
+    fireEvent.change(document, { target: { value: JSON.stringify(changedTrust) } });
     fireEvent.submit(form);
     await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
     expect(form).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(api.updateRole.mock.calls[1]).toEqual(api.updateRole.mock.calls[0]);
-    expect(api.updateRole).toHaveBeenCalledWith("acc-7", role.name, { assume_role_policy_document: trust });
+    expect(api.updateRole).toHaveBeenCalledWith("acc-7", role.name, { assume_role_policy_document: changedTrust });
+  });
+
+  it("updates maximum session duration without rewriting an unchanged trust policy", async () => {
+    const form = await open();
+    const duration = within(form).getByLabelText("Maximum session duration (seconds)");
+    fireEvent.change(duration, { target: { value: "7200" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(api.updateRole).toHaveBeenCalledWith("acc-7", role.name, { max_session_duration: 7200 }));
+  });
+
+  it("replaces all values for a changed multi-valued role tag key", async () => {
+    api.getRole.mockResolvedValueOnce({
+      ...role,
+      tags: [{ key: "team", value: "storage" }, { key: "team", value: "research" }],
+    });
+    const form = await open();
+    const removeButtons = within(form).getAllByRole("button", { name: "Remove" });
+    fireEvent.click(removeButtons[0]);
+    fireEvent.submit(form);
+    await waitFor(() => expect(api.deleteRoleTag).toHaveBeenCalledWith("acc-7", role.name, "team"));
+    expect(api.putRoleTags).toHaveBeenCalledWith("acc-7", role.name, [{ key: "team", value: "research" }]);
+    expect(api.updateRole).not.toHaveBeenCalled();
   });
 
   it("freezes role fields after a failed load and offers a fresh retry", async () => {
@@ -287,7 +315,12 @@ it.each(navigationCases)("protects the $kind form through context navigation, pe
   expect(field).toBeDisabled();
   await act(async () => reject(new Error("Temporary IAM failure")));
   expect(await screen.findByRole("alert")).toHaveTextContent("Temporary IAM failure");
-  expect(field).toHaveValue(draft);
+  if (kind === "edit-role") {
+    expect(field).toHaveValue(JSON.stringify(trust, null, 2));
+    fireEvent.change(field, { target: { value: draft } });
+  } else {
+    expect(field).toHaveValue(draft);
+  }
   fireEvent.submit(form);
   if (kind === "edit-role") {
     await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());

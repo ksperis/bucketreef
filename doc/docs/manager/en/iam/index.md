@@ -21,6 +21,19 @@ instead.
 
 1. Open `/manager/users`, `/manager/groups`, `/manager/roles`, or `/manager/iam/policies`.
 2. Create or edit IAM resources.
+   - For native IAM users and groups, open **Details** to review the provider
+     ARN and IAM path. You can rename the identity or change its path. After a
+     rename, Manager follows the new provider name automatically.
+   - BucketReef-managed identities used by Portal or managed private access
+     are read-only on the Details page. Change or remove them through the
+     BucketReef feature that owns them instead.
+   - For roles, edit the trust policy and **Maximum session duration**. Ceph
+     RGW follows the IAM range of 3600 to 43200 seconds; BucketReef uses 3600
+     seconds when the provider omits the field.
+   - Role tags are native IAM tags. Ceph RGW can expose multiple values for the
+     same tag key; Manager preserves those values. Removing a key removes all
+     of its values, and editing one value replaces the complete set for that
+     key.
 3. Attach/detach policies to users, groups, or roles.
 4. Manage IAM access keys from user key pages. When **Access-key names and
    notes** is enabled globally and for the selected RGW Account, **New key**
@@ -40,6 +53,11 @@ instead.
 
 IAM resources are managed with native IAM semantics.
 
+After an IAM mutation, Manager reads the resource back from the provider and
+shows the provider state. If a multi-step role update fails after an earlier
+step succeeded, the editor reloads that provider state before you retry; it
+does not present an in-memory rollback that never happened in Ceph RGW.
+
 ## You are done when
 
 The intended user, group, role, policy, or access key appears in Manager and a separate access check confirms the expected storage permissions.
@@ -52,6 +70,11 @@ Check endpoint IAM capability, Manager access, and the selected execution contex
 
 !!! note
     IAM UI is unavailable when selected context endpoint reports `iam = false`.
+
+!!! note
+    IAM paths must be `/` or start and end with `/`, and are limited to 512
+    characters. User and group names keep the native IAM naming rules already
+    enforced by Manager.
 
 !!! note
     **Create my private access** is available only for an authorized RGW Account

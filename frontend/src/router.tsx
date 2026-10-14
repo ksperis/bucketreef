@@ -84,11 +84,13 @@ const StorageEndpointsPage = lazy(() => import("./features/admin/StorageEndpoint
 const EndpointStatusPage = lazy(() => import("./features/admin/EndpointStatusPage"));
 const EndpointStatusDetailPage = lazy(() => import("./features/admin/EndpointStatusDetailPage"));
 const ManagerUsersPage = lazy(() => import("./features/manager/ManagerUsersPage"));
+const ManagerUserDetailPage = lazy(() => import("./features/manager/ManagerUserDetailPage"));
 const ManagerUserKeysPage = lazy(() => import("./features/manager/ManagerUserKeysPage"));
 const BucketDetailPage = lazy(() => import("./features/manager/BucketDetailPage"));
 const BrowserPage = lazy(() => import("./features/browser/BrowserPage"));
 const ManagerBrowserPage = lazy(() => import("./features/manager/ManagerBrowserPage"));
 const ManagerGroupsPage = lazy(() => import("./features/manager/ManagerGroupsPage"));
+const ManagerGroupDetailPage = lazy(() => import("./features/manager/ManagerGroupDetailPage"));
 const ManagerGroupUsersPage = lazy(() => import("./features/manager/ManagerGroupUsersPage"));
 const ManagerRolesPage = lazy(() => import("./features/manager/ManagerRolesPage"));
 const ManagerRolePoliciesPage = lazy(() => import("./features/manager/ManagerRolePoliciesPage"));
@@ -438,9 +440,11 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                     <Route path="metrics" element={<ManagerMetricsPage />} />
                     <Route element={<RequireManagerIamFeature />}>
                       <Route path="users" element={<ManagerUsersPage />} />
+                      <Route path="users/:userName" element={<ManagerUserDetailPage />} />
                       <Route path="users/:userName/keys" element={<ManagerUserKeysPage />} />
                       <Route path="users/:userName/policies" element={<ManagerUserPoliciesPage />} />
                       <Route path="groups" element={<ManagerGroupsPage />} />
+                      <Route path="groups/:groupName" element={<ManagerGroupDetailPage />} />
                       <Route path="groups/:groupName/policies" element={<ManagerGroupPoliciesPage />} />
                       <Route path="groups/:groupName/users" element={<ManagerGroupUsersPage />} />
                       <Route path="roles" element={<ManagerRolesPage />} />

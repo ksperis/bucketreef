@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
-from app.models.iam import IAMRole, IAMRoleCreate, IAMRoleUpdate
+from app.models.iam import IAMRole, IAMRoleCreate, IAMRoleUpdate, IAMTag
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
     get_account_context,
@@ -41,6 +41,12 @@ DEFAULT_ASSUME_ROLE = """
 router = APIRouter(prefix="/manager/iam/roles", tags=["manager-iam-roles"])
 
 
+def _same_policy_document(left: object, right: object) -> bool:
+    return json.dumps(left, sort_keys=True, separators=(",", ":")) == json.dumps(
+        right, sort_keys=True, separators=(",", ":")
+    )
+
+
 @router.get("", response_model=list[IAMRole])
 def list_roles(
     account: S3ExecutionContext = Depends(get_account_context),
@@ -70,7 +76,13 @@ def create_role(
         except json.JSONDecodeError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Assume role policy must be valid JSON") from exc
     try:
-        result = service.create_role(payload.name, assume_policy, path=payload.path)
+        result = service.create_role(
+            payload.name,
+            assume_policy,
+            path=payload.path,
+            max_session_duration=payload.max_session_duration,
+            tags=payload.tags,
+        )
         if payload.inline_policies:
             for inline in payload.inline_policies:
                 service.put_role_inline_policy(payload.name, inline.name, inline.document)
@@ -81,7 +93,11 @@ def create_role(
             entity_type="iam_role",
             entity_id=payload.name,
             execution_context=account,
-            metadata={"inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else []},
+            metadata={
+                "inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else [],
+                "max_session_duration": payload.max_session_duration,
+                "tag_keys": [tag.key for tag in payload.tags] if payload.tags else [],
+            },
         )
         return result
     except RuntimeError as exc:
@@ -155,11 +171,29 @@ def update_role(
         except json.JSONDecodeError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Assume role policy must be valid JSON") from exc
 
+    duration_changed = (
+        payload.max_session_duration is not None
+        and payload.max_session_duration != existing.max_session_duration
+    )
+    assume_policy_changed = (
+        assume_policy is not None
+        and not _same_policy_document(assume_policy, existing.assume_role_policy_document)
+    )
     updated = existing
-    if assume_policy is not None:
-        try:
+    try:
+        if duration_changed:
+            service.update_role_max_session_duration(role_name, payload.max_session_duration)
+            audit_service.record_action(
+                user=current_user,
+                scope="manager",
+                action="update_iam_role",
+                entity_type="iam_role",
+                entity_id=role_name,
+                execution_context=account,
+                metadata={"max_session_duration": payload.max_session_duration},
+            )
+        if assume_policy_changed:
             service.update_role_assume_policy(role_name, assume_policy)
-            updated = service.get_role(role_name) or existing
             audit_service.record_action(
                 user=current_user,
                 scope="manager",
@@ -169,10 +203,89 @@ def update_role(
                 execution_context=account,
                 metadata={"assume_role_policy_updated": True},
             )
-        except RuntimeError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+        if duration_changed or assume_policy_changed:
+            updated = service.get_role(role_name)
+            if updated is None:
+                raise RuntimeError("Updated IAM role could not be reloaded")
+    except RuntimeError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
     return updated
+
+
+@router.get("/{role_name}/tags", response_model=list[IAMTag])
+def list_role_tags(
+    role_name: str,
+    account: S3ExecutionContext = Depends(get_account_context),
+    _: ManagerActor = Depends(require_iam_capable_manager),
+) -> list[IAMTag]:
+    service = get_iam_service_for_account(account)
+    try:
+        if service.get_role(role_name) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+        return service.list_role_tags(role_name)
+    except RuntimeError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+
+
+@router.put("/{role_name}/tags", response_model=list[IAMTag])
+def put_role_tags(
+    role_name: str,
+    payload: list[IAMTag],
+    account: S3ExecutionContext = Depends(get_account_context),
+    current_user: ManagerActor = Depends(require_iam_capable_manager),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> list[IAMTag]:
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one role tag is required")
+    if len(payload) > 50:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="IAM roles support at most 50 tags per request")
+    service = get_iam_service_for_account(account)
+    try:
+        if service.get_role(role_name) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+        service.tag_role(role_name, payload)
+        tags = service.list_role_tags(role_name)
+        audit_service.record_action(
+            user=current_user,
+            scope="manager",
+            action="tag_iam_role",
+            entity_type="iam_role",
+            entity_id=role_name,
+            execution_context=account,
+            metadata={"tag_keys": [tag.key for tag in payload]},
+        )
+        return tags
+    except RuntimeError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+
+
+@router.delete("/{role_name}/tags/{tag_key:path}", response_model=list[IAMTag])
+def delete_role_tag(
+    role_name: str,
+    tag_key: str,
+    account: S3ExecutionContext = Depends(get_account_context),
+    current_user: ManagerActor = Depends(require_iam_capable_manager),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> list[IAMTag]:
+    service = get_iam_service_for_account(account)
+    try:
+        if service.get_role(role_name) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+        service.untag_role(role_name, [tag_key])
+        tags = service.list_role_tags(role_name)
+        audit_service.record_action(
+            user=current_user,
+            scope="manager",
+            action="untag_iam_role",
+            entity_type="iam_role",
+            entity_id=role_name,
+            execution_context=account,
+            metadata={"tag_keys": [tag_key]},
+        )
+        return tags
+    except RuntimeError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
 @router.get("/{role_name}/inline-policies", response_model=list[InlinePolicy])

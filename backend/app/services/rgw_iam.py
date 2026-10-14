@@ -5,7 +5,7 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from typing import List, Optional, Union
 
-from app.models.iam import AccessKey, IAMGroup, IAMRole, IAMUser
+from app.models.iam import AccessKey, IAMGroup, IAMRole, IAMTag, IAMUser
 from app.models.policy import Policy
 from app.core.config import get_settings
 from app.services.aws_client_config import build_interactive_aws_config
@@ -97,6 +97,7 @@ class RGWIAMService:
                         name=name,
                         user_id=user_id,
                         arn=arn,
+                        path=u.get("Path"),
                         groups=group_names,
                         policies=policy_arns,
                         inline_policies=inline_names or None,
@@ -142,6 +143,7 @@ class RGWIAMService:
                 name=u.get("UserName") or name,
                 user_id=u.get("UserId"),
                 arn=u.get("Arn"),
+                path=u.get("Path"),
             )
         except ClientError as exc:
             if _is_no_such_entity(exc):
@@ -149,6 +151,19 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to fetch IAM user: {exc}") from exc
         except BotoCoreError as exc:
             raise RuntimeError(f"Unable to fetch IAM user: {exc}") from exc
+
+    def update_user(self, name: str, *, new_name: Optional[str] = None, new_path: Optional[str] = None) -> None:
+        kwargs: dict = {"UserName": name}
+        if new_name is not None:
+            kwargs["NewUserName"] = new_name
+        if new_path is not None:
+            kwargs["NewPath"] = new_path
+        if len(kwargs) == 1:
+            return
+        try:
+            self.client.update_user(**kwargs)
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to update IAM user: {exc}") from exc
 
     def delete_user(self, name: str) -> None:
         try:
@@ -256,7 +271,7 @@ class RGWIAMService:
         try:
             resp = self.client.list_groups_for_user(UserName=user_name)
             return [
-                IAMGroup(name=g.get("GroupName"), arn=g.get("Arn"))
+                IAMGroup(name=g.get("GroupName"), arn=g.get("Arn"), path=g.get("Path"))
                 for g in resp.get("Groups", [])
                 if g.get("GroupName")
             ]
@@ -273,7 +288,7 @@ class RGWIAMService:
                 arn = g.get("Arn")
                 attached = self.client.list_attached_group_policies(GroupName=name).get("AttachedPolicies", [])
                 policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
-                groups.append(IAMGroup(name=name, arn=arn, policies=policy_arns))
+                groups.append(IAMGroup(name=name, arn=arn, path=g.get("Path"), policies=policy_arns))
             return groups
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list IAM groups: {exc}") from exc
@@ -282,7 +297,7 @@ class RGWIAMService:
         try:
             resp = self.client.create_group(GroupName=name)
             g = resp.get("Group", {})
-            return IAMGroup(name=g.get("GroupName") or name, arn=g.get("Arn"))
+            return IAMGroup(name=g.get("GroupName") or name, arn=g.get("Arn"), path=g.get("Path"))
         except ClientError as exc:
             if aws_error_code(exc) == "EntityAlreadyExists":
                 raise RGWIAMGroupAlreadyExistsError(f"IAM group already exists: {name}") from exc
@@ -299,6 +314,40 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to delete IAM group: {exc}") from exc
         except BotoCoreError as exc:
             raise RuntimeError(f"Unable to delete IAM group: {exc}") from exc
+
+    def get_group(self, name: str) -> Optional[IAMGroup]:
+        try:
+            resp = self.client.get_group(GroupName=name)
+            group = resp.get("Group", {}) or {}
+            if not group:
+                return None
+            attached = self.client.list_attached_group_policies(GroupName=name).get("AttachedPolicies", [])
+            policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
+            return IAMGroup(
+                name=group.get("GroupName") or name,
+                arn=group.get("Arn"),
+                path=group.get("Path"),
+                policies=policy_arns,
+            )
+        except ClientError as exc:
+            if _is_no_such_entity(exc):
+                return None
+            raise RuntimeError(f"Unable to fetch IAM group: {exc}") from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(f"Unable to fetch IAM group: {exc}") from exc
+
+    def update_group(self, name: str, *, new_name: Optional[str] = None, new_path: Optional[str] = None) -> None:
+        kwargs: dict = {"GroupName": name}
+        if new_name is not None:
+            kwargs["NewGroupName"] = new_name
+        if new_path is not None:
+            kwargs["NewPath"] = new_path
+        if len(kwargs) == 1:
+            return
+        try:
+            self.client.update_group(**kwargs)
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to update IAM group: {exc}") from exc
 
     def list_group_users(self, group_name: str) -> List[IAMUser]:
         try:
@@ -395,20 +444,45 @@ class RGWIAMService:
                 arn = r.get("Arn")
                 attached = self.client.list_attached_role_policies(RoleName=name).get("AttachedPolicies", [])
                 policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
-                roles.append(IAMRole(name=name, arn=arn, path=r.get("Path"), policies=policy_arns))
+                roles.append(
+                    IAMRole(
+                        name=name,
+                        arn=arn,
+                        path=r.get("Path"),
+                        policies=policy_arns,
+                        max_session_duration=r.get("MaxSessionDuration") or 3600,
+                    )
+                )
             return roles
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list IAM roles: {exc}") from exc
 
-    def create_role(self, name: str, assume_role_policy: Union[dict, str], path: Optional[str] = None) -> IAMRole:
+    def create_role(
+        self,
+        name: str,
+        assume_role_policy: Union[dict, str],
+        path: Optional[str] = None,
+        max_session_duration: Optional[int] = None,
+        tags: Optional[list[IAMTag]] = None,
+    ) -> IAMRole:
         try:
             document = json.dumps(assume_role_policy) if isinstance(assume_role_policy, dict) else assume_role_policy
             kwargs: dict = {"RoleName": name, "AssumeRolePolicyDocument": document}
             if path:
                 kwargs["Path"] = path
+            if max_session_duration is not None:
+                kwargs["MaxSessionDuration"] = max_session_duration
+            if tags:
+                kwargs["Tags"] = [{"Key": tag.key, "Value": tag.value} for tag in tags]
             resp = self.client.create_role(**kwargs)
             r = resp.get("Role", {})
-            return IAMRole(name=r.get("RoleName") or name, arn=r.get("Arn"), path=r.get("Path"))
+            return IAMRole(
+                name=r.get("RoleName") or name,
+                arn=r.get("Arn"),
+                path=r.get("Path"),
+                max_session_duration=r.get("MaxSessionDuration") or max_session_duration or 3600,
+                tags=tags,
+            )
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to create IAM role: {exc}") from exc
 
@@ -419,12 +493,15 @@ class RGWIAMService:
             attached = self.client.list_attached_role_policies(RoleName=name).get("AttachedPolicies", [])
             policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
             assume_doc = self._normalize_policy_document(data.get("AssumeRolePolicyDocument"))
+            tags = self.list_role_tags(name)
             return IAMRole(
                 name=data.get("RoleName") or name,
                 arn=data.get("Arn"),
                 path=data.get("Path"),
                 policies=policy_arns,
                 assume_role_policy_document=assume_doc,
+                max_session_duration=data.get("MaxSessionDuration") or 3600,
+                tags=tags,
             )
         except ClientError as exc:
             if _is_no_such_entity(exc):
@@ -449,6 +526,42 @@ class RGWIAMService:
             self.client.update_assume_role_policy(RoleName=role_name, PolicyDocument=document)
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to update role trust policy: {exc}") from exc
+
+    def update_role_max_session_duration(self, role_name: str, max_session_duration: int) -> None:
+        try:
+            self.client.update_role(RoleName=role_name, MaxSessionDuration=max_session_duration)
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to update role maximum session duration: {exc}") from exc
+
+    def list_role_tags(self, role_name: str) -> list[IAMTag]:
+        try:
+            resp = self.client.list_role_tags(RoleName=role_name)
+            return [
+                IAMTag(key=tag.get("Key", ""), value=tag.get("Value", ""))
+                for tag in resp.get("Tags", [])
+                if tag.get("Key")
+            ]
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to list IAM role tags: {exc}") from exc
+
+    def tag_role(self, role_name: str, tags: list[IAMTag]) -> None:
+        try:
+            self.client.tag_role(
+                RoleName=role_name,
+                Tags=[{"Key": tag.key, "Value": tag.value} for tag in tags],
+            )
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to tag IAM role: {exc}") from exc
+
+    def untag_role(self, role_name: str, tag_keys: list[str]) -> None:
+        try:
+            self.client.untag_role(RoleName=role_name, TagKeys=tag_keys)
+        except ClientError as exc:
+            if _is_no_such_entity(exc):
+                return
+            raise RuntimeError(f"Unable to remove IAM role tags: {exc}") from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(f"Unable to remove IAM role tags: {exc}") from exc
 
     # Policies
     def _policy_from_data(self, data: dict, document: Optional[dict] = None) -> Policy:

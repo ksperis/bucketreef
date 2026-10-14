@@ -199,9 +199,9 @@ export function createSeed(): DemoState {
   }));
   const iam: Record<number, DemoIam> = {};
   for (const account of accounts) {
-    iam[account.id] = { ...emptyIam(), users: ["backup-service", "analytics-reader", "media-editor"].map(name => ({ name, arn: `arn:aws:iam::${account.rgw_account_id}:user/${name}`, groups: ["applications"], policies: [], inline_policies: [], has_keys: false })),
-      groups: [{ name: "applications" }],
-      roles: [{ name: "ApplicationReadOnly", arn: `arn:aws:iam::${account.rgw_account_id}:role/ApplicationReadOnly`, assume_role_policy_document: { Version: "2012-10-17", Statement: [] } }], policies: [{ name: "ReadProjectObjects", arn: `arn:aws:iam::${account.rgw_account_id}:policy/ReadProjectObjects`, document: { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["s3:GetObject", "s3:ListBucket"], Resource: ["*"] }] } }] };
+    iam[account.id] = { ...emptyIam(), users: ["backup-service", "analytics-reader", "media-editor"].map(name => ({ name, path: "/services/", arn: `arn:aws:iam::${account.rgw_account_id}:user/${name}`, groups: ["applications"], policies: [], inline_policies: [], has_keys: false })),
+      groups: [{ name: "applications", path: "/teams/" }],
+      roles: [{ name: "ApplicationReadOnly", path: "/applications/", arn: `arn:aws:iam::${account.rgw_account_id}:role/ApplicationReadOnly`, max_session_duration: 3600, tags: [{ key: "environment", value: "demo" }], assume_role_policy_document: { Version: "2012-10-17", Statement: [] } }], policies: [{ name: "ReadProjectObjects", arn: `arn:aws:iam::${account.rgw_account_id}:policy/ReadProjectObjects`, document: { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["s3:GetObject", "s3:ListBucket"], Resource: ["*"] }] } }] };
   }
   for (const u of users) u.group_details = groups.filter(g => g.user_details?.some(m => m.id === u.id)).map(g => ({ id: g.id, name: g.name }));
   return { initializedAt: now.toISOString(), nextId: 1000, endpoints, accounts, users, groups, buckets, spaces, requests, iam,

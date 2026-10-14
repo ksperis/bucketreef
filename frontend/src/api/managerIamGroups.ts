@@ -18,10 +18,35 @@ import {
   putEntityInlinePolicy,
 } from "./managerIamEntityClient";
 
-export type IAMGroup = { name: string; arn?: string; policies?: string[] };
+export type IAMGroup = {
+  name: string;
+  arn?: string;
+  path?: string;
+  policies?: string[];
+  is_bucketreef_managed?: boolean;
+  management_source?: string | null;
+};
 
 export async function listIamGroups(accountId?: S3AccountSelector): Promise<IAMGroup[]> {
   return listIamEntities<IAMGroup>("groups", accountId);
+}
+
+export async function getIamGroup(accountId: S3AccountSelector, groupName: string): Promise<IAMGroup> {
+  const { data } = await client.get<IAMGroup>(`/manager/iam/groups/${encodeURIComponent(groupName)}`, {
+    params: withS3AccountParam(undefined, accountId),
+  });
+  return data;
+}
+
+export async function updateIamGroup(
+  accountId: S3AccountSelector,
+  groupName: string,
+  payload: { name?: string; path?: string },
+): Promise<IAMGroup> {
+  const { data } = await client.put<IAMGroup>(`/manager/iam/groups/${encodeURIComponent(groupName)}`, payload, {
+    params: withS3AccountParam(undefined, accountId),
+  });
+  return data;
 }
 
 export async function createIamGroup(

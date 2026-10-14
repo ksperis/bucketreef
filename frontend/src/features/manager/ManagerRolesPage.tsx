@@ -10,6 +10,7 @@ import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { S3AccountSelector } from "../../api/accountParams";
 import {
+  IAMTag,
   IAMRole,
   attachRolePolicy,
   createIamRole,
@@ -38,7 +39,9 @@ import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
 import ManagerRoleEditor from "./ManagerRoleEditor";
+import ManagerRoleTagsEditor, { roleTagError } from "./ManagerRoleTagsEditor";
 import { DEFAULT_ASSUME_ROLE_DOCUMENT, DEFAULT_ROLE_PATH, parseIamRolePolicy } from "./iamRoleForm";
+import { iamPathFormatError, roleMaxSessionDurationError } from "./iamIdentityForm";
 import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerRolesPage() {
@@ -80,6 +83,8 @@ export default function ManagerRolesPage() {
   const [advancedName, setAdvancedName] = useState("");
   const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [advancedPath, setAdvancedPath] = useState(DEFAULT_ROLE_PATH);
+  const [advancedMaxSessionDuration, setAdvancedMaxSessionDuration] = useState(3600);
+  const [advancedTags, setAdvancedTags] = useState<IAMTag[]>([]);
   const [assumeRolePolicyText, setAssumeRolePolicyText] = useState(DEFAULT_ASSUME_ROLE_DOCUMENT);
   const [creating, setCreating] = useState(false);
   const [deletingRole, setDeletingRole] = useState<string | null>(null);
@@ -92,6 +97,8 @@ export default function ManagerRolesPage() {
     stableSignature({
       advancedName: "",
       advancedPath: DEFAULT_ROLE_PATH,
+      advancedMaxSessionDuration: 3600,
+      advancedTags: [],
       assumeRolePolicyText: DEFAULT_ASSUME_ROLE_DOCUMENT,
       selectedPolicies: [],
       inlineDrafts: [],
@@ -132,6 +139,8 @@ export default function ManagerRolesPage() {
       stableSignature({
         advancedName,
         advancedPath,
+        advancedMaxSessionDuration,
+        advancedTags,
         assumeRolePolicyText,
         selectedPolicies,
         inlineDrafts,
@@ -141,6 +150,8 @@ export default function ManagerRolesPage() {
     [
       advancedName,
       advancedPath,
+      advancedMaxSessionDuration,
+      advancedTags,
       assumeRolePolicyText,
       inlineDraftName,
       inlineDrafts,
@@ -149,12 +160,15 @@ export default function ManagerRolesPage() {
     ]
   );
   const nameFormatError = iamNameFormatError(advancedName.trim(), "role");
+  const pathFormatError = advancedPath.trim() ? iamPathFormatError(advancedPath.trim()) : undefined;
+  const maxSessionDurationError = roleMaxSessionDurationError(advancedMaxSessionDuration);
+  const tagsError = advancedTags.find(roleTagError) ? "Fix invalid role tags before continuing." : undefined;
 
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (needsS3AccountSelection || creating) return;
     setAdvancedValidationAttempted(true);
-    if (!advancedName.trim() || nameFormatError || advancedPolicy.error || !validateInlineDrafts()) {
+    if (!advancedName.trim() || nameFormatError || pathFormatError || maxSessionDurationError || tagsError || advancedPolicy.error || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
@@ -168,6 +182,8 @@ export default function ManagerRolesPage() {
         name: roleName,
         path: trimmedPath === "" ? undefined : trimmedPath,
         assume_role_policy_document: advancedPolicy.document,
+        max_session_duration: advancedMaxSessionDuration,
+        tags: advancedTags,
         inline_policies: inlineDrafts,
       });
       if (selectedPolicies.length > 0) {
@@ -180,6 +196,8 @@ export default function ManagerRolesPage() {
       }
       setAdvancedName("");
       setAdvancedPath(DEFAULT_ROLE_PATH);
+      setAdvancedMaxSessionDuration(3600);
+      setAdvancedTags([]);
       setAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
       setSelectedPolicies([]);
       setPolicySearch("");
@@ -228,6 +246,8 @@ export default function ManagerRolesPage() {
     setAdvancedValidationAttempted(false);
     setAdvancedName("");
     setAdvancedPath(DEFAULT_ROLE_PATH);
+    setAdvancedMaxSessionDuration(3600);
+    setAdvancedTags([]);
     setAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
     setSelectedPolicies([]);
     setPolicySearch("");
@@ -238,6 +258,8 @@ export default function ManagerRolesPage() {
       stableSignature({
         advancedName: "",
         advancedPath: DEFAULT_ROLE_PATH,
+        advancedMaxSessionDuration: 3600,
+        advancedTags: [],
         assumeRolePolicyText: DEFAULT_ASSUME_ROLE_DOCUMENT,
         selectedPolicies: [],
         inlineDrafts: [],
@@ -251,6 +273,8 @@ export default function ManagerRolesPage() {
     setShowCreateForm(false);
     setAdvancedName("");
     setAdvancedPath(DEFAULT_ROLE_PATH);
+    setAdvancedMaxSessionDuration(3600);
+    setAdvancedTags([]);
     setAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
     setSelectedPolicies([]);
     setPolicySearch("");
@@ -399,9 +423,14 @@ export default function ManagerRolesPage() {
           submitLabel={text("Create role")} busyLabel={text("Creating...")}
         >
           <ManagerRoleFormFields name={advancedName} path={advancedPath} policy={assumeRolePolicyText}
+            maxSessionDuration={advancedMaxSessionDuration}
             onNameChange={setAdvancedName} onPathChange={setAdvancedPath} onPolicyChange={setAssumeRolePolicyText}
+            onMaxSessionDurationChange={setAdvancedMaxSessionDuration}
             nameError={nameFormatError ? text(nameFormatError!) : advancedValidationAttempted && !advancedName.trim() ? text("Role name is required.") : undefined}
-            policyError={advancedValidationAttempted ? advancedPolicy.error : undefined} />
+            pathError={advancedValidationAttempted ? pathFormatError : undefined}
+            policyError={advancedValidationAttempted ? advancedPolicy.error : undefined}
+            maxSessionDurationError={advancedValidationAttempted ? maxSessionDurationError : undefined} />
+          <ManagerRoleTagsEditor tags={advancedTags} onChange={setAdvancedTags} />
           <ManagedPolicySelectionPanel
             title={text("Attach policies")}
             description={text("Select managed policies to grant permissions immediately.")}

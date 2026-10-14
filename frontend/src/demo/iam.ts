@@ -1,4 +1,5 @@
 import type { AccessKey } from "../api/managerIamUsers";
+import type { IAMTag } from "../api/managerIamRoles";
 import type { IamPolicy, InlinePolicy } from "../api/managerIamPolicies";
 import { DemoError, done, json, required, scopedAccount, textField, type DemoRequest } from "./http";
 import type { DemoIam } from "./state";
@@ -24,7 +25,7 @@ export function keyActions(c: DemoRequest, iam: DemoIam, owner: string, keyId?: 
 export function iam(c: DemoRequest): Response | undefined {
   const portalKeys = c.path.match(/^\/portal\/access-keys(?:\/([^/]+)(?:\/status)?)?$/);
   const cephKeys = c.path.match(/^\/manager\/ceph\/keys(?:\/([^/]+)(?:\/status)?)?$/);
-  const match = c.path.match(/^\/manager\/iam\/(users|groups|roles|policies)(?:\/([^/]+)(?:\/(keys|policies|inline-policies|users)(?:\/([^/]+)(?:\/status)?)?)?)?$/);
+  const match = c.path.match(/^\/manager\/iam\/(users|groups|roles|policies)(?:\/([^/]+)(?:\/(keys|policies|inline-policies|users|tags)(?:\/([^/]+)(?:\/status)?)?)?)?$/);
   if (!match && !portalKeys && !cephKeys) return undefined;
   const account = scopedAccount(c); const data = required(c.state.iam[account.id]);
   if (portalKeys || cephKeys) {
@@ -52,7 +53,21 @@ export function iam(c: DemoRequest): Response | undefined {
   const entity = required(collection.find(e => e.name === name || e.arn === name));
   if (!resource) {
     if (c.method === "GET") return json(entity);
-    if (c.method === "PUT") { Object.assign(entity, c.body); return json(entity); }
+    if (c.method === "PUT") {
+      const previousName = entity.name;
+      const nextName = typeof c.body.name === "string" && c.body.name ? c.body.name : previousName;
+      Object.assign(entity, c.body, { name: nextName });
+      if (nextName !== previousName) {
+        const oldId = `${segment}/${previousName}`; const newId = `${segment}/${nextName}`;
+        if (data.keys[previousName]) { data.keys[nextName] = data.keys[previousName]; delete data.keys[previousName]; }
+        if (data.inline[oldId]) { data.inline[newId] = data.inline[oldId]; delete data.inline[oldId]; }
+        if (data.attachments[oldId]) { data.attachments[newId] = data.attachments[oldId]; delete data.attachments[oldId]; }
+        if (segment === "groups") data.users.forEach(user => { user.groups = user.groups?.map(group => group === previousName ? nextName : group); });
+        const arnResource = segment === "policies" ? "policy" : segment.slice(0, -1);
+        entity.arn = `arn:aws:iam::${account.rgw_account_id}:${arnResource}/${nextName}`;
+      }
+      return json(entity);
+    }
     if (c.method === "DELETE") { collection.splice(collection.findIndex(item => item.name === entity.name), 1); delete data.keys[entity.name]; delete data.inline[`${segment}/${name}`]; delete data.attachments[`${segment}/${name}`]; return done(); }
   }
   if (resource === "keys" && segment === "users") return keyActions(c, data, entity.name, resourceId);
@@ -61,6 +76,20 @@ export function iam(c: DemoRequest): Response | undefined {
     const user = required(data.users.find(u => u.name === (resourceId ?? c.body.name)));
     if (c.method === "POST") { user.groups = [...new Set([...(user.groups ?? []), entity.name])]; return json(user); }
     if (c.method === "DELETE") { user.groups = user.groups?.filter(g => g !== entity.name); return done(); }
+  }
+  if (resource === "tags" && segment === "roles") {
+    const role = entity as typeof entity & { tags?: IAMTag[] };
+    const tags = role.tags ?? (role.tags = []);
+    if (c.method === "GET" && !resourceId) return json(tags);
+    if (c.method === "PUT" && !resourceId) {
+      const incoming = (Array.isArray(c.body) ? c.body : []) as unknown as IAMTag[];
+      for (const tag of incoming) tags.push({ key: tag.key, value: tag.value });
+      return json(tags);
+    }
+    if (c.method === "DELETE" && resourceId) {
+      role.tags = tags.filter(tag => tag.key !== resourceId);
+      return json(role.tags);
+    }
   }
   const id = `${segment}/${entity.name}`;
   if (resource === "policies") {

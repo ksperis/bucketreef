@@ -42,18 +42,39 @@ type AccessKeyMetadataInput = {
 export type IAMUser = {
   name: string;
   arn?: string;
+  path?: string;
   groups?: string[];
   policies?: string[];
   inline_policies?: string[];
   has_keys?: boolean;
   is_private_access_managed?: boolean;
   managed_connection_id?: number | null;
+  is_bucketreef_managed?: boolean;
+  management_source?: string | null;
 };
 
 type IAMUserWithKey = IAMUser & { access_key?: AccessKey };
 
 export async function listIamUsers(accountId?: S3AccountSelector): Promise<IAMUser[]> {
   return listIamEntities<IAMUser>("users", accountId);
+}
+
+export async function getIamUser(accountId: S3AccountSelector, userName: string): Promise<IAMUser> {
+  const { data } = await client.get<IAMUser>(`/manager/iam/users/${encodeURIComponent(userName)}`, {
+    params: withS3AccountParam(undefined, accountId),
+  });
+  return data;
+}
+
+export async function updateIamUser(
+  accountId: S3AccountSelector,
+  userName: string,
+  payload: { name?: string; path?: string },
+): Promise<IAMUser> {
+  const { data } = await client.put<IAMUser>(`/manager/iam/users/${encodeURIComponent(userName)}`, payload, {
+    params: withS3AccountParam(undefined, accountId),
+  });
+  return data;
 }
 
 export async function createIamUser(
