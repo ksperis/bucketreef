@@ -426,7 +426,14 @@ def test_policy_fallbacks_and_create_policy_not_supported(monkeypatch):
 
     fake.raise_on["list_policies"] = _client_error("MethodNotAllowed", "ListPolicies")
     fallback = service.list_policies()
-    assert any(policy.name == "AmazonS3FullAccess" for policy in fallback)
+    assert {policy.name for policy in fallback} == {
+        "AmazonS3FullAccess",
+        "AmazonS3ReadOnlyAccess",
+        "AmazonSNSFullAccess",
+        "AmazonSNSReadOnlyAccess",
+        "IAMFullAccess",
+        "IAMReadOnlyAccess",
+    }
 
     fake.raise_on.pop("list_policies", None)
     detailed = service.get_policy("arn:custom", include_document=True)

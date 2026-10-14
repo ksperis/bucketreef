@@ -52,10 +52,12 @@ class RGWIAMService:
         verify_tls: bool = True,
     ) -> None:
         self.client = get_iam_client(access_key, secret_key, endpoint=endpoint, region=region, verify_tls=verify_tls)
-        # Known Ceph-managed policies (subset supported by RGW IAM)
+        # Known Ceph-managed policies supported by RGW IAM.
         self._default_policies: list[Policy] = [
             self._policy_from_data({"PolicyName": "AmazonS3FullAccess", "Arn": "arn:aws:iam::aws:policy/AmazonS3FullAccess"}),
             self._policy_from_data({"PolicyName": "AmazonS3ReadOnlyAccess", "Arn": "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"}),
+            self._policy_from_data({"PolicyName": "AmazonSNSFullAccess", "Arn": "arn:aws:iam::aws:policy/AmazonSNSFullAccess"}),
+            self._policy_from_data({"PolicyName": "AmazonSNSReadOnlyAccess", "Arn": "arn:aws:iam::aws:policy/AmazonSNSReadOnlyAccess"}),
             self._policy_from_data({"PolicyName": "IAMFullAccess", "Arn": "arn:aws:iam::aws:policy/IAMFullAccess"}),
             self._policy_from_data({"PolicyName": "IAMReadOnlyAccess", "Arn": "arn:aws:iam::aws:policy/IAMReadOnlyAccess"}),
         ]
