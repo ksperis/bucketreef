@@ -32,11 +32,12 @@ import TrafficBytesChart from "./TrafficBytesChart";
 import UiSegmentedControl from "./ui/UiSegmentedControl";
 import { cx, uiMenuClass } from "./ui/styles";
 import { formatChartTooltipTimestamp, type ChartTooltipProps } from "./chartTooltip";
+import { useMetricsI18n, type MetricsMessageKey } from "./metricsMessage";
 
-const WINDOW_OPTIONS: { label: string; value: TrafficWindow; helper: string }[] = [
-  { label: "24h", value: "day", helper: "Last 24 hours" },
-  { label: "7d", value: "week", helper: "Weekly trend" },
-  { label: "30d", value: "month", helper: "Monthly trend" },
+const WINDOW_OPTIONS: { labelKey: MetricsMessageKey; value: TrafficWindow; helperKey: MetricsMessageKey }[] = [
+  { labelKey: "dayLabel", value: "day", helperKey: "dayHelper" },
+  { labelKey: "weekLabel", value: "week", helperKey: "weekHelper" },
+  { labelKey: "monthLabel", value: "month", helperKey: "monthHelper" },
 ];
 
 type TimelinePoint = {
@@ -118,7 +119,7 @@ type MetricsTrafficOverviewProps = {
 };
 
 export default function MetricsTrafficOverview({
-  title = "RGW traffic",
+  title,
   traffic,
   window,
   onWindowChange,
@@ -127,12 +128,20 @@ export default function MetricsTrafficOverview({
   showEmpty,
   showBucketRanking = true,
   description,
-  bucketRankingTitle = "Most active buckets",
-  userRankingTitle = "Most active accounts",
+  bucketRankingTitle,
+  userRankingTitle,
   bucketRankingLabels,
   userRankingLabels,
   labels,
 }: MetricsTrafficOverviewProps) {
+  const { text } = useMetricsI18n();
+  const resolvedTitle = title ?? text("trafficTitle");
+  const ingressLabel = labels?.ingress ?? text("ingress");
+  const egressLabel = labels?.egress ?? text("egress");
+  const windowOptions = WINDOW_OPTIONS.map((option) => ({
+    label: text(option.labelKey),
+    value: option.value,
+  }));
   const timeline = useMemo<TimelinePoint[]>(
     () => {
       const raw = (traffic?.series ?? [])
@@ -209,18 +218,18 @@ export default function MetricsTrafficOverview({
     const halfStep = Math.max(step / 2, 1);
     return [minTs - halfStep, maxTs + halfStep] as [number, number];
   }, [timeline, window]);
-  const helperText = WINDOW_OPTIONS.find((option) => option.value === window)?.helper ?? "Selected range";
-  const subtitle = description ?? `Reading RGW logs (${helperText}) for the selected window.`;
+  const helperKey = WINDOW_OPTIONS.find((option) => option.value === window)?.helperKey ?? "selectedRange";
+  const subtitle = description ?? text("trafficDescription", { range: text(helperKey) });
   const hideMetrics = Boolean(error);
 
   return (
     <MetricsCard
-      title={title}
+      title={resolvedTitle}
       description={subtitle}
       actions={
         <UiSegmentedControl
-          ariaLabel={`${title} window`}
-          options={WINDOW_OPTIONS}
+          ariaLabel={text("trafficWindowAria", { title: resolvedTitle })}
+          options={windowOptions}
           value={window}
           onChange={onWindowChange}
         />
@@ -231,27 +240,27 @@ export default function MetricsTrafficOverview({
 
       {!hideMetrics && !showEmpty && (
         <div className="grid gap-4 md:grid-cols-3">
-          <MetricsSnapshotCard label={labels?.egress ?? "Egress"} value={formatBytes(totals?.bytes_out ?? 0)} hint={labels?.egressHint ?? "Outgoing bytes"} loading={loading} />
-          <MetricsSnapshotCard label={labels?.ingress ?? "Ingress"} value={formatBytes(totals?.bytes_in ?? 0)} hint={labels?.ingressHint ?? "Incoming bytes"} loading={loading} />
+          <MetricsSnapshotCard label={egressLabel} value={formatBytes(totals?.bytes_out ?? 0)} hint={labels?.egressHint ?? text("egressHint")} loading={loading} />
+          <MetricsSnapshotCard label={ingressLabel} value={formatBytes(totals?.bytes_in ?? 0)} hint={labels?.ingressHint ?? text("ingressHint")} loading={loading} />
           <MetricsSnapshotCard
-            label={labels?.successRate ?? "Success rate"}
+            label={labels?.successRate ?? text("successRate")}
             value={totals?.success_rate != null ? formatPercentage(totals.success_rate * 100) : "—"}
-            hint={`${formatCompactNumber(totals?.ops ?? 0)} ${labels?.summaryActivityUnit ?? "requests"}`}
+            hint={`${formatCompactNumber(totals?.ops ?? 0)} ${labels?.summaryActivityUnit ?? text("requests")}`}
             loading={loading}
           />
         </div>
       )}
 
       {showEmpty && !hideMetrics && (
-        <MetricsEmptyState>{labels?.emptyMessage ?? "No traffic data available for this window."}</MetricsEmptyState>
+        <MetricsEmptyState>{labels?.emptyMessage ?? text("emptyTraffic")}</MetricsEmptyState>
       )}
 
       {!showEmpty && !hideMetrics && (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <ChartCard
-              title={labels?.trafficChartTitle ?? (window === "week" || window === "month" ? "Daily traffic" : "Hourly traffic")}
-              subtitle={labels?.trafficChartSubtitle ?? "Ingress vs egress comparison"}
+              title={labels?.trafficChartTitle ?? text(window === "week" || window === "month" ? "dailyTraffic" : "hourlyTraffic")}
+              subtitle={labels?.trafficChartSubtitle ?? text("trafficComparison")}
               loading={loading}
               hasData={hasData}
             >
@@ -261,13 +270,13 @@ export default function MetricsTrafficOverview({
                 start={traffic?.start}
                 end={traffic?.end}
                 chartKey={`${traffic?.start ?? ""}-${traffic?.end ?? ""}-${window}`}
-                ingressLabel={labels?.ingress}
-                egressLabel={labels?.egress}
+                ingressLabel={ingressLabel}
+                egressLabel={egressLabel}
               />
             </ChartCard>
           </div>
           <div>
-            <ChartCard title={labels?.callVolumeTitle ?? "Call volume"} subtitle={labels?.callVolumeSubtitle ?? "Ops per slot"} loading={loading} hasData={hasData}>
+            <ChartCard title={labels?.callVolumeTitle ?? text("callVolume")} subtitle={labels?.callVolumeSubtitle ?? text("opsPerSlot")} loading={loading} hasData={hasData}>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={timeline} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
@@ -282,7 +291,7 @@ export default function MetricsTrafficOverview({
                   />
                   <YAxis tickFormatter={(value) => formatCompactNumber(Number(value) || 0)} stroke="#94A3B8" />
                   <Tooltip content={<OpsTooltip window={window} />} />
-                  <Bar dataKey="ops" name={labels?.callVolumeBarName ?? "Ops"} fill="#14B8A6" />
+                  <Bar dataKey="ops" name={labels?.callVolumeBarName ?? text("opsTitle")} fill="#14B8A6" />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -294,7 +303,7 @@ export default function MetricsTrafficOverview({
         <div className={cx("grid gap-4", showBucketRanking ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
           {showBucketRanking ? (
             <RankingCard
-              title={bucketRankingTitle}
+              title={bucketRankingTitle ?? text("mostActiveBuckets")}
               items={(traffic?.bucket_rankings ?? []).slice(0, 5)}
               loading={loading}
               rankingLabels={bucketRankingLabels}
@@ -302,7 +311,7 @@ export default function MetricsTrafficOverview({
             />
           ) : null}
           <RankingCard
-            title={userRankingTitle}
+            title={userRankingTitle ?? text("mostActiveAccounts")}
             items={(traffic?.user_rankings ?? []).slice(0, 5)}
             loading={loading}
             type="user"
@@ -326,7 +335,7 @@ type ChartCardProps = {
 
 function ChartCard({ title, subtitle, children, loading, hasData }: ChartCardProps) {
   return (
-    <MetricsChartPanel title={title} description={subtitle} loading={loading} hasData={hasData} emptyMessage="No usable metrics for this period yet.">
+    <MetricsChartPanel title={title} description={subtitle} loading={loading} hasData={hasData}>
       {children}
     </MetricsChartPanel>
   );
@@ -344,6 +353,7 @@ function formatOpsAxisTimestamp(value: string | number, window: TrafficWindow) {
 type OpsTooltipProps = ChartTooltipProps & { window: TrafficWindow };
 
 function OpsTooltip({ payload, label, window }: OpsTooltipProps) {
+  const { text } = useMetricsI18n();
   const entry = payload?.[0];
   if (!entry) return null;
   const formatted = formatChartTooltipTimestamp(
@@ -355,7 +365,7 @@ function OpsTooltip({ payload, label, window }: OpsTooltipProps) {
       <p className="font-semibold">{formatted}</p>
       <p className="ui-caption">
         <span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
-        {formatCompactNumber(Number(entry.value) || 0)} ops
+        {formatCompactNumber(Number(entry.value) || 0)} {text("ops")}
       </p>
     </div>
   );
@@ -371,6 +381,7 @@ type RankingCardProps = {
 };
 
 function RankingCard({ title, items, loading, type = "bucket", rankingLabels, labels }: RankingCardProps) {
+  const { text } = useMetricsI18n();
   if (loading) {
     return <MetricsChartPanel title={title} loading />;
   }
@@ -391,10 +402,10 @@ function RankingCard({ title, items, loading, type = "bucket", rankingLabels, la
             title: technicalLabel,
             detail: (
               <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span>{formatCompactNumber(entry.ops)} {labels?.rankingActivityUnit ?? "ops"}</span>
-                <span>{entry.success_ratio != null ? formatPercentage(entry.success_ratio * 100) : "n/a"} {labels?.successText ?? "success"}</span>
-                <span>{labels?.inboundLabel ?? "In"} {formatBytes(entry.bytes_in)}</span>
-                <span>{labels?.outboundLabel ?? "Out"} {formatBytes(entry.bytes_out)}</span>
+                <span>{formatCompactNumber(entry.ops)} {labels?.rankingActivityUnit ?? text("ops")}</span>
+                <span>{entry.success_ratio != null ? formatPercentage(entry.success_ratio * 100) : text("notAvailable")} {labels?.successText ?? text("success")}</span>
+                <span>{labels?.inboundLabel ?? text("inbound")} {formatBytes(entry.bytes_in)}</span>
+                <span>{labels?.outboundLabel ?? text("outbound")} {formatBytes(entry.bytes_out)}</span>
               </span>
             ),
             value: formatBytes(entry.bytes_total),
@@ -412,7 +423,8 @@ type RequestBreakdownProps = {
 };
 
 function RequestBreakdown({ items, loading, labels }: RequestBreakdownProps) {
-  const title = labels?.requestBreakdownTitle ?? "Request breakdown";
+  const { text } = useMetricsI18n();
+  const title = labels?.requestBreakdownTitle ?? text("requestBreakdown");
   if (loading) {
     return <MetricsChartPanel title={title} loading />;
   }
@@ -426,7 +438,7 @@ function RequestBreakdown({ items, loading, labels }: RequestBreakdownProps) {
           key: entry.group,
           label: entry.group,
           color: "#94A3B8",
-          detail: `${formatCompactNumber(entry.ops)} ${labels?.rankingActivityUnit ?? "ops"}`,
+          detail: `${formatCompactNumber(entry.ops)} ${labels?.rankingActivityUnit ?? text("ops")}`,
           value: formatBytes(entry.bytes_in + entry.bytes_out),
         }))}
       />
