@@ -34,6 +34,31 @@ for password, role, activation, MFA, and external-identity changes.
 
 ## Context and executor
 
+RGW Account IDs are independent of Ceph tenant names. `S3Account`, `S3User`
+and their `S3ExecutionContext` preserve `rgw_tenant`: `''` is the known default
+tenant and `NULL` is an unverified legacy scope. RGW users are identified by
+endpoint, tenant and UID. Admin Ops user/key/quota and usage requests use
+`tenant$uid`; merely adding a separate `tenant` query parameter does not scope
+those operations on Ceph. Owner-scoped bucket-info and bucket quota derive
+the tenant from the qualified owner UID and keep the bucket name unprefixed,
+as required by Squid bucket statistics. Ownerless bucket identifiers and index
+operations use `tenant/bucket`. Account-ID operations keep the Account ID as
+their scope.
+
+Runtime Read Ops resolves legacy Account metadata and access-key identities.
+Supervision collectors never acquire Admin Ops credentials for this discovery.
+Reads do not persist legacy discovery; administrative mutations verify the exact
+principal and stored key before changing it. Rotation journals preserve the
+tenant and reject a changed tenant on resume. Physical bucket identities and
+metric aggregation keys include the tenant instead of dropping UID prefixes.
+
+Native S3/IAM execution continues to use the selected identity's credentials.
+Ceph applies its implicit tenant to bucket names and policy resources; Portal's
+DB grants remain scoped by Account ID and its personal IAM identities remain
+account-local. Tenant-scoped Portal policies omit default-tenant principal
+aliases so a foreign same-name user cannot be exempted from the access Deny. Support for tenant metadata does not introduce tenant lifecycle
+operations or a new authorization model.
+
 - `/manager` and `/browser` rely on execution context selection.
 - `/portal` requires explicit Portal account access and uses Portal Storage
   Space metadata and grants as the source of truth.

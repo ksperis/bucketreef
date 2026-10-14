@@ -49,6 +49,7 @@ class _FakeBucketsService:
 def _build_account() -> S3Account:
     account = S3Account(
         name="cache-account",
+        rgw_tenant="",
         rgw_account_id="RGW00000000000000999",
         rgw_access_key="AK-CACHE",
         rgw_secret_key="SK-CACHE",
@@ -288,6 +289,7 @@ def test_shared_bucket_listing_cache_expires_after_ttl(monkeypatch):
     "changes",
     [
         {"secret_key": "rotated-secret"},
+        {"rgw_tenant": "customer01"},
         {"session_token_value": "renewed-session"},
         {"session_region": "us-west-2"},
         {"session_force_path_style": False},

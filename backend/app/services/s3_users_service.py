@@ -46,8 +46,12 @@ from app.models.s3_user import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
 from app.services.rgw_user_key_parser import RgwUserKeyParser
+from app.services.rgw_principal_scope import resolve_principal_tenant
 from app.services import s3_client
-from app.utils.rgw_payloads import extract_bucket_list, extract_rgw_user_payload
+from app.utils.rgw_payloads import (
+    extract_bucket_list, extract_rgw_user_payload, extract_rgw_user_identity,
+    require_rgw_user_identity, split_rgw_tenant_uid,
+)
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.quota_stats import bytes_to_gb, extract_quota_limits, parse_positive_limit
 from app.utils.size_units import size_to_bytes
@@ -98,6 +102,49 @@ class S3UsersService:
         endpoint = self._endpoint_for_user(s3_user)
         return self._admin_for_endpoint(endpoint)
 
+    def _tenant_for_user(self, s3_user: S3UserModel, admin: RGWAdminClient) -> str:
+        """Resolve legacy NULL identities by their stored access key, not a bare UID."""
+        if s3_user.rgw_tenant is not None:
+            return s3_user.rgw_tenant
+        resolved = resolve_principal_tenant(s3_user, admin)
+        uid = s3_user.rgw_user_uid
+        collision = self.db.query(S3UserModel.id).filter(
+            S3UserModel.id != s3_user.id,
+            S3UserModel.storage_endpoint_id == s3_user.storage_endpoint_id,
+            S3UserModel.rgw_user_uid == uid,
+            or_(S3UserModel.rgw_tenant == resolved, S3UserModel.rgw_tenant.is_(None)),
+        ).first()
+        if collision:
+            raise ValueError("RGW identity conflicts with another imported user")
+        return resolved
+
+    def _verified_user(self, s3_user: S3UserModel, admin: RGWAdminClient) -> str:
+        """Verify the exact remote principal and its stored credential before Admin Ops writes."""
+        tenant = self._tenant_for_user(s3_user, admin)
+        remote = admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=True)
+        if not remote:
+            raise ValueError("RGW user could not be verified")
+        require_rgw_user_identity(remote, s3_user.rgw_user_uid, tenant)
+        if not any(key.get("access_key") == s3_user.rgw_access_key for key in admin.extract_keys(remote)):
+            raise ValueError("RGW user no longer owns its stored access key")
+        s3_user.rgw_tenant = tenant
+        return tenant
+
+    def _existing_identity(self, uid: str, tenant: str, endpoint_id: int, admin: RGWAdminClient):
+        # Reconcile a legacy row before deciding whether a same-UID import is a duplicate.
+        legacy = self.db.query(S3UserModel).filter(
+            S3UserModel.storage_endpoint_id == endpoint_id,
+            S3UserModel.rgw_user_uid == uid,
+            S3UserModel.rgw_tenant.is_(None),
+        ).all()
+        for row in legacy:
+            self._verified_user(row, admin)
+        return self.db.query(S3UserModel).filter(
+            S3UserModel.storage_endpoint_id == endpoint_id,
+            S3UserModel.rgw_user_uid == uid,
+            S3UserModel.rgw_tenant == tenant,
+        ).first()
+
     def _interface_bucket_count(self, s3_user: S3UserModel) -> Optional[int]:
         access_key = (s3_user.rgw_access_key or "").strip()
         secret_key = (s3_user.rgw_secret_key or "").strip()
@@ -122,7 +169,8 @@ class S3UsersService:
         try:
             endpoint = self._endpoint_for_user(s3_user)
             admin = get_endpoint_runtime_rgw_client(endpoint)
-            payload = admin.get_all_buckets(uid=s3_user.rgw_user_uid, with_stats=True)
+            tenant = self._tenant_for_user(s3_user, admin)
+            payload = admin.get_all_buckets(uid=s3_user.rgw_user_uid, with_stats=True, **({"tenant": tenant} if tenant else {}))
         except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to list buckets with stats for user %s: %s", s3_user.rgw_user_uid, exc)
             return None, None, None
@@ -139,8 +187,9 @@ class S3UsersService:
             logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None
         try:
-            max_size_bytes, max_objects = rgw_admin.get_user_quota(s3_user.rgw_user_uid)
-        except RGWAdminError as exc:
+            tenant = self._tenant_for_user(s3_user, rgw_admin)
+            max_size_bytes, max_objects = rgw_admin.get_user_quota(s3_user.rgw_user_uid, tenant=tenant or None)
+        except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to fetch S3 user quota for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None
         return bytes_to_gb(max_size_bytes), max_objects
@@ -152,8 +201,11 @@ class S3UsersService:
             logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None, None
         try:
-            payload = rgw_admin.get_user(s3_user.rgw_user_uid, allow_not_found=True) or {}
-        except RGWAdminError as exc:
+            tenant = self._tenant_for_user(s3_user, rgw_admin)
+            payload = rgw_admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=True) or {}
+            if payload:
+                require_rgw_user_identity(payload, s3_user.rgw_user_uid, tenant)
+        except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to fetch S3 user limits for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None, None
         max_size_bytes, max_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
@@ -175,8 +227,10 @@ class S3UsersService:
             raise ValueError(sanitized_error_log_detail(exc)) from exc
         enabled = max_size_bytes is not None or max_objects is not None
         try:
+            tenant = self._verified_user(s3_user, admin)
             response = admin.set_user_quota(
                 uid=s3_user.rgw_user_uid,
+                **({"tenant": tenant} if tenant else {}),
                 max_size_bytes=max_size_bytes,
                 max_objects=max_objects,
                 enabled=enabled,
@@ -347,35 +401,33 @@ class S3UsersService:
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
         validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies)
-        uid = (payload.uid or "").strip() or managed_s3_user_uid()
-        existing = (
-            self.db.query(S3UserModel)
-            .filter(S3UserModel.rgw_user_uid == uid)
-            .first()
-        )
-        if existing:
-            raise ValueError("An S3 user with this UID already exists")
+        uid, tenant = split_rgw_tenant_uid((payload.uid or "").strip() or managed_s3_user_uid(), payload.rgw_tenant)
         endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
         require_endpoint_permissions(endpoint, "users_write")
         admin = self._admin_for_endpoint(endpoint)
+        if self._existing_identity(uid, tenant, endpoint.id, admin):
+            raise ValueError("An S3 user with this UID already exists in this tenant")
         try:
             response = admin.create_user(
                 uid=uid,
                 display_name=payload.name,
                 email=payload.email or "",
+                **({"tenant": tenant} if tenant else {}),
             )
         except RGWAdminError as exc:
             raise ValueError(f"RGW user creation failed: {exc}") from exc
-        access_key, secret_key = RgwUserKeyParser.select_credentials(
+        if isinstance(response, dict) and response.get("conflict"):
+            raise ValueError("An RGW user with this UID already exists in this tenant")
+        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
             admin.extract_keys(response)
         )
         if not access_key or not secret_key:
             try:
-                key_response = admin.create_access_key(uid, tenant=None)
+                key_response = admin.create_access_key(uid, tenant=tenant or None)
             except RGWAdminError as exc:
                 raise ValueError(f"Unable to obtain RGW access keys: {exc}") from exc
-            access_key, secret_key = RgwUserKeyParser.select_credentials(
+            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
                 admin.extract_keys(key_response)
             )
         if not access_key or not secret_key:
@@ -383,6 +435,7 @@ class S3UsersService:
         s3_user = S3UserModel(
             name=payload.name,
             rgw_user_uid=uid,
+            rgw_tenant=tenant,
             email=payload.email,
             rgw_access_key=access_key,
             rgw_secret_key=secret_key,
@@ -417,29 +470,26 @@ class S3UsersService:
     def import_users(self, items: list[S3UserImport]) -> list[S3UserSchema]:
         created: list[S3UserSchema] = []
         for payload in items:
-            uid = payload.uid.strip()
+            uid, tenant = split_rgw_tenant_uid(payload.uid, payload.rgw_tenant)
             if not uid:
                 raise ValueError("uid is required")
             endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
             admin = self._admin_for_endpoint(endpoint)
-            exists = (
-                self.db.query(S3UserModel)
-                .filter(S3UserModel.rgw_user_uid == uid)
-                .first()
-            )
+            exists = self._existing_identity(uid, tenant, endpoint.id, admin)
             if exists:
                 continue
             try:
-                user_info = admin.get_user(uid, tenant=None, allow_not_found=True)
+                user_info = admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
             except RGWAdminError as exc:
                 raise ValueError(f"RGW lookup failed for {uid}: {exc}") from exc
             if not user_info or user_info.get("not_found"):
                 raise ValueError(f"RGW user {uid} not found")
+            require_rgw_user_identity(user_info, uid, tenant)
             try:
-                key_resp = admin.create_access_key(uid, tenant=None)
+                key_resp = admin.create_access_key(uid, tenant=tenant or None)
             except RGWAdminError as exc:
                 raise ValueError(f"Unable to create access key for {uid}: {exc}") from exc
-            access_key, secret_key = RgwUserKeyParser.select_credentials(
+            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
                 admin.extract_keys(key_resp)
             )
             if not access_key or not secret_key:
@@ -449,6 +499,7 @@ class S3UsersService:
             s3_user = S3UserModel(
                 name=name,
                 rgw_user_uid=uid,
+                rgw_tenant=tenant,
                 email=email,
                 rgw_access_key=access_key,
                 rgw_secret_key=secret_key,
@@ -546,15 +597,18 @@ class S3UsersService:
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
         s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
+        tenant = self._tenant_for_user(s3_user, admin)
         try:
             user_info = admin.get_user(
                 s3_user.rgw_user_uid,
+                tenant=tenant or None,
                 allow_not_found=True,
             )
         except RGWAdminError as exc:
             raise ValueError(f"Unable to list keys: {exc}") from exc
         if not user_info or user_info.get("not_found"):
             raise S3UserNotFoundError("RGW user not found")
+        require_rgw_user_identity(user_info, s3_user.rgw_user_uid, tenant)
         return RgwUserKeyParser.to_access_keys(
             admin.extract_keys(user_info),
             ui_managed_access_key=s3_user.rgw_access_key,
@@ -563,33 +617,39 @@ class S3UsersService:
     def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
         s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
+        tenant = self._verified_user(s3_user, admin)
         existing_access_keys: set[str] = set()
         try:
             before_payload = admin.get_user(
                 s3_user.rgw_user_uid,
+                tenant=tenant or None,
                 allow_not_found=True,
             )
             if before_payload and not before_payload.get("not_found"):
                 existing_access_keys = RgwUserKeyParser.access_key_ids(
                     admin.extract_keys(before_payload)
                 )
-        except RGWAdminError:
-            # Creation can still succeed even if pre-read fails.
-            pass
+        except RGWAdminError as exc:
+            raise ValueError(f"Unable to verify RGW user before key creation: {exc}") from exc
         try:
-            response = admin.create_access_key(s3_user.rgw_user_uid, tenant=None)
+            if before_payload:
+                require_rgw_user_identity(before_payload, s3_user.rgw_user_uid, tenant)
+            response = admin.create_access_key(s3_user.rgw_user_uid, tenant=tenant or None)
         except RGWAdminError as exc:
             raise ValueError(f"Unable to create access key: {exc}") from exc
         if isinstance(response, dict) and response.get("not_found"):
             raise S3UserNotFoundError("RGW user not found")
-        return RgwUserKeyParser.to_generated_key(
+        key = RgwUserKeyParser.to_generated_key(
             admin.extract_keys(response),
             existing_access_keys=existing_access_keys,
         )
+        self.db.commit()
+        return key
 
     def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:
         s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
+        tenant = self._verified_user(s3_user, admin)
         normalized = (access_key or "").strip()
         if not normalized:
             raise ValueError("access_key is required")
@@ -600,7 +660,7 @@ class S3UsersService:
                 s3_user.rgw_user_uid,
                 normalized,
                 active,
-                tenant=None,
+                tenant=tenant or None,
             )
         except RGWAdminError as exc:
             if exc.status_code == 404:
@@ -609,12 +669,14 @@ class S3UsersService:
         keys = self.list_keys(user_id)
         for key in keys:
             if key.access_key_id == normalized:
+                self.db.commit()
                 return key
         raise S3AccessKeyNotFoundError("Access key not found after status update")
 
     def delete_key(self, user_id: int, access_key: str) -> None:
         s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
+        tenant = self._verified_user(s3_user, admin)
         normalized = (access_key or "").strip()
         if not normalized:
             raise ValueError("access_key is required")
@@ -624,14 +686,16 @@ class S3UsersService:
             admin.delete_access_key(
                 s3_user.rgw_user_uid,
                 normalized,
-                tenant=None,
+                tenant=tenant or None,
             )
         except RGWAdminError as exc:
             raise ValueError(f"Unable to delete access key: {exc}") from exc
+        self.db.commit()
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
+        tenant = self._verified_user(s3_user, admin)
         if delete_rgw:
             bucket_count = self._interface_bucket_count(s3_user)
             if bucket_count is None:
@@ -639,14 +703,14 @@ class S3UsersService:
             if bucket_count > 0:
                 raise ValueError(f"RGW user still owns {bucket_count} bucket(s); delete them first.")
             try:
-                admin.delete_user(s3_user.rgw_user_uid, tenant=None)
+                admin.delete_user(s3_user.rgw_user_uid, tenant=tenant or None)
             except RGWAdminError as exc:
                 raise ValueError(f"Unable to delete RGW user {s3_user.rgw_user_uid}: {exc}") from exc
         else:
             key_to_delete = (s3_user.rgw_access_key or "").strip()
             if key_to_delete:
                 try:
-                    admin.delete_access_key(s3_user.rgw_user_uid, key_to_delete, tenant=None)
+                    admin.delete_access_key(s3_user.rgw_user_uid, key_to_delete, tenant=tenant or None)
                 except RGWAdminError as exc:
                     raise ValueError(f"Unable to delete interface access key: {exc}") from exc
         self._delete_user_entry(s3_user)

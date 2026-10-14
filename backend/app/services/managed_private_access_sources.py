@@ -21,6 +21,9 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessError,
     ManagedPrivateAccessForbidden,
 )
+from app.services.rgw_principal_scope import resolve_target_tenant
+from app.services.rgw_admin import RGWAdminError
+from app.utils.rgw_payloads import rgw_qualified_uid
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import (
@@ -176,11 +179,15 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "Managed Ceph private access is not allowed for this context"
             )
+        try:
+            principal = rgw_qualified_uid(s3_user.rgw_user_uid, resolve_target_tenant(s3_user))
+        except (ValueError, RGWAdminError) as exc:
+            raise ManagedPrivateAccessError("The RGW User tenant could not be verified") from exc
         return ManagedPrivateAccessSource(
             "s3_user",
             s3_user.id,
             "rgw_user",
-            s3_user.rgw_user_uid,
+            principal,
             None,
         )
 

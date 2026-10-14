@@ -27,6 +27,9 @@ class FakeRGWAdmin:
         self.created_users.append(uid)
         return {"keys": [{"access_key": "AKIA", "secret_key": "SECRET"}]}
 
+    def get_user(self, uid, tenant=None, allow_not_found=False):
+        return {"uid": uid, "tenant": tenant or "", "keys": [{"access_key": "AKIA", "secret_key": "SECRET"}]}
+
     def create_access_key(
         self,
         uid: str,

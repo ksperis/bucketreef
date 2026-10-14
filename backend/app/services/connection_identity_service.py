@@ -21,6 +21,7 @@ from app.utils.normalize import (
     normalize_optional_string,
 )
 from app.utils.rgw_identifiers import is_rgw_account_id
+from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
 from app.utils.cache import prune_expired_lru_cache
 
@@ -35,10 +36,11 @@ class ConnectionIdentityResolution:
     metrics_enabled: bool
     usage_enabled: bool
     reason: Optional[str] = None
+    rgw_tenant: Optional[str] = None
 
     @property
     def iam_identity(self) -> Optional[str]:
-        return self.rgw_user_uid or self.rgw_account_id
+        return rgw_qualified_uid(self.rgw_user_uid, self.rgw_tenant) if self.rgw_user_uid else self.rgw_account_id
 
     @property
     def eligible(self) -> bool:
@@ -147,8 +149,10 @@ class ConnectionIdentityService:
             connection.credential_owner_identifier,
         )
         if uid:
+            parsed_uid, tenant = extract_rgw_user_identity({"uid": uid})
             return ConnectionIdentityResolution(
-                rgw_user_uid=uid,
+                rgw_user_uid=parsed_uid,
+                rgw_tenant=tenant or "",
                 rgw_account_id=account_id,
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
@@ -210,6 +214,8 @@ class ConnectionIdentityService:
             )
 
         uid, account_id = _identity_from_rgw_payload(payload)
+        parsed_uid, tenant = extract_rgw_user_identity(payload)
+        uid = parsed_uid or uid
         if not uid:
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
@@ -220,6 +226,7 @@ class ConnectionIdentityService:
             )
         return ConnectionIdentityResolution(
             rgw_user_uid=uid,
+            rgw_tenant=tenant or "",
             rgw_account_id=account_id,
             metrics_enabled=metrics_enabled,
             usage_enabled=usage_enabled,
@@ -276,6 +283,7 @@ class ConnectionIdentityService:
         identity = self._resolve_identity_uncached(connection)
         if identity.iam_identity:
             return ConnectionIdentityResolution(
+                rgw_tenant=identity.rgw_tenant,
                 rgw_user_uid=identity.rgw_user_uid,
                 rgw_account_id=identity.rgw_account_id,
                 metrics_enabled=metrics_enabled,
@@ -387,14 +395,9 @@ def _identity_from_rgw_payload(payload: object) -> tuple[Optional[str], Optional
         account_id = normalize_optional_string(
             candidate.get("account_id")
             or candidate.get("account")
-            or candidate.get("tenant")
         )
         if account_id:
             break
-    if uid and "$" in uid and not account_id:
-        account_hint = uid.split("$", 1)[0].strip()
-        if is_rgw_account_id(account_hint):
-            account_id = account_hint
     if not uid and account_id and is_rgw_account_id(account_id):
         return None, account_id
     return uid, account_id

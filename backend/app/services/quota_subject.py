@@ -17,6 +17,7 @@ class SubjectContext:
     quota_account_id: Optional[str]
     quota_user_uid: Optional[str]
     contact_email: Optional[str]
+    rgw_tenant: Optional[str] = ""
 
 
 def quota_subject_ids(

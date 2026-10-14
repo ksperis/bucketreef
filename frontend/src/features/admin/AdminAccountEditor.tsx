@@ -135,7 +135,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
     <WorkflowPage title={`Edit ${account.name}`} description={pageDescription}
       breadcrumbs={adminPageBreadcrumbs("accounts", { label: "Edit" })} onBack={controller.requestClose} backDisabled={controller.locked}
       backLabel="Back to accounts" width="wide" contentVariant="plain" contentClassName="settings-compact settings-form"
-      metaContent={<WorkflowMetadata items={[{ label: "RGW ID", value: account.rgw_account_id }, { label: "Endpoint", value: account.storage_endpoint_name ?? "—", title: account.storage_endpoint_url }]} />}>
+      metaContent={<WorkflowMetadata items={[{ label: "RGW ID", value: account.rgw_account_id }, { label: "Ceph tenant", value: account.rgw_tenant == null ? "Unverified" : (account.rgw_tenant || "Default") }, { label: "Endpoint", value: account.storage_endpoint_name ?? "—", title: account.storage_endpoint_url }]} />}>
       <WorkflowTabs<EditTab> activeTab={tab} onTabChange={next => { if (!controller.locked) setTab(next); }}
         ariaLabel="RGW account configuration sections" idPrefix="admin-rgw-account-edit" panelClassName="mt-3 min-w-0"
         tabs={[{ id: "general", label: "General" }, { id: "users", label: "Linked UI users" }, { id: "groups", label: "Linked UI groups" },

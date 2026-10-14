@@ -240,7 +240,7 @@ def test_admin_ops_methods_send_exact_methods_and_omit_false_booleans(monkeypatc
     assert calls[0] == {
         "method": "DELETE",
         "path": "/admin/user",
-        "params": {"uid": "alice", "format": "json", "tenant": "tenant-a"},
+        "params": {"uid": "tenant-a$alice", "format": "json", "tenant": "tenant-a"},
     }
     assert "purge-data" not in calls[0]["params"]
     assert calls[1]["params"]["purge-data"] == "true"
@@ -281,7 +281,7 @@ def test_user_and_account_conflicts_remain_explicit(monkeypatch):
     assert account == {"conflict": True}
 
 
-def test_get_user_tenant_fallback_to_composite_uid(monkeypatch):
+def test_get_user_uses_composite_uid_before_any_lookup(monkeypatch):
     client = _client()
     calls: list[dict] = []
 
@@ -295,8 +295,8 @@ def test_get_user_tenant_fallback_to_composite_uid(monkeypatch):
     monkeypatch.setattr(client, "_request", fake_request)
     result = client.get_user("alice", tenant="RGW1", allow_not_found=True)
     assert result == {"uid": "RGW1$alice"}
-    assert calls[0]["uid"] == "alice"
-    assert calls[1]["uid"] == "RGW1$alice"
+    assert len(calls) == 1
+    assert calls[0]["uid"] == "RGW1$alice"
 
 
 def testextract_keys_prioritizes_secret_and_deduplicates():
@@ -353,7 +353,7 @@ def test_quota_helpers_and_usage_timestamp_format(monkeypatch):
     assert client._format_usage_timestamp(datetime(2026, 3, 5, 10, 20, 30, tzinfo=timezone.utc)) == "2026-03-05 10:20:30"
 
 
-def test_create_user_with_account_id_conflict_and_delete_user_fallback(monkeypatch):
+def test_create_user_with_account_id_conflict_and_delete_user_never_changes_uid(monkeypatch):
     client = _client()
     monkeypatch.setattr(client, "_request", lambda *args, **kwargs: {"conflict": True})
     monkeypatch.setattr(client, "get_user", lambda *args, **kwargs: {"uid": "alice"})
@@ -370,8 +370,9 @@ def test_create_user_with_account_id_conflict_and_delete_user_fallback(monkeypat
         return {}
 
     monkeypatch.setattr(client, "_request", fake_delete)
-    client.delete_user("with spaces")
-    assert attempts == ["with spaces", "with-spaces"]
+    with pytest.raises(RGWAdminError):
+        client.delete_user("with spaces")
+    assert attempts == ["with spaces"]
 
 
 def test_get_account_quota_and_set_user_caps(monkeypatch):
@@ -611,7 +612,7 @@ def test_update_user_helpers_and_bucket_usage_paths(monkeypatch):
     )
     assert captured["path"] == "/admin/usage"
     usage_params = captured["params"]
-    assert usage_params["uid"] == "alice"
+    assert usage_params["uid"] == "RGW1$alice"
     assert usage_params["tenant"] == "RGW1"
     assert usage_params["bucket"] == "bucket-a"
     assert usage_params["show-entries"] == "true"
@@ -655,7 +656,7 @@ def test_misc_admin_helpers_and_quota_paths(monkeypatch):
     assert captured[0]["params"] == {"format": "json", "id": "RGW1"}
     assert captured[1]["params"] == {"format": "json", "account-id": "RGW1", "uid": "alice"}
     assert captured[2]["params"]["tenant"] == "RGW1"
-    assert captured[2]["params"]["uid"] == "alice"
+    assert captured[2]["params"]["uid"] == "RGW1$alice"
     assert captured[2]["params"]["account-id"] == "RGW1"
     assert captured[2]["params"]["max-size-kb"] == 2 * 1024 * 1024
     assert captured[3]["params"]["tenant"] == "RGW1"
@@ -717,7 +718,7 @@ def test_create_and_delete_access_key_parameter_paths(monkeypatch):
 
     client.delete_access_key("alice", "AKIA1", tenant="RGW1")
     assert captured[1]["method"] == "DELETE"
-    assert captured[1]["params"]["uid"] == "alice"
+    assert captured[1]["params"]["uid"] == "RGW1$alice"
     assert captured[1]["params"]["access-key"] == "AKIA1"
     assert captured[1]["params"]["key"] == "AKIA1"
     assert captured[1]["params"]["tenant"] == "RGW1"

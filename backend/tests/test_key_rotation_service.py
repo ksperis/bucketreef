@@ -227,10 +227,12 @@ def test_endpoint_resource_listing_is_scoped_to_persisted_endpoint(db_session):
     assert service._list_s3_users_for_endpoint(secondary_endpoint) == [user_secondary]
 
 
-def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_session, monkeypatch):
+@pytest.mark.parametrize("rgw_tenant", ["", "customer01"])
+def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_session, monkeypatch, rgw_tenant):
     endpoint = _seed_endpoint(db_session, name="ceph-main-1")
     account = S3Account(
         name="acc-one",
+        rgw_tenant=rgw_tenant,
         rgw_account_id="RGW00000000000000001",
         rgw_user_uid="RGW00000000000000001-admin",
         rgw_access_key="ACC-OLD",
@@ -253,7 +255,7 @@ def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_sessio
     registry.add_identity(uid="svc-supervision", tenant=None, keys=[("SUP-OLD", "SUP-OLD-SEC")], admin=True)
     registry.add_identity(
         uid="RGW00000000000000001-admin",
-        tenant="RGW00000000000000001",
+        tenant=rgw_tenant or None,
         keys=[("ACC-OLD", "ACC-OLD-SEC")],
         account_id="RGW00000000000000001",
     )
@@ -452,7 +454,7 @@ def test_env_managed_endpoint_mixed_rotation_still_rotates_accounts_and_s3_users
     registry.add_identity(uid="svc-admin", tenant=None, keys=[("ADM-OLD", "ADM-OLD-SEC")], admin=True)
     registry.add_identity(
         uid="RGW00000000000000002-admin",
-        tenant="RGW00000000000000002",
+        tenant=None,
         keys=[("ENV-ACC-OLD", "ENV-ACC-OLD-SEC")],
         account_id="RGW00000000000000002",
     )

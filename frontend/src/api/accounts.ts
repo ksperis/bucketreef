@@ -31,6 +31,7 @@ export type S3Account = {
   quota_max_size_gb?: number | null;
   quota_max_objects?: number | null;
   rgw_account_id: string;
+  rgw_tenant?: string | null;
   email?: string | null;
   used_bytes?: number | null;
   user_links: AccountUserLink[];
@@ -58,6 +59,7 @@ export type S3AccountSummary = {
   name: string;
   tags: TagDefinitionSummary[];
   rgw_account_id: string;
+  rgw_tenant?: string | null;
   user_links: AccountUserLink[];
   group_links: AccountGroupLink[];
   storage_endpoint_id: number;
@@ -150,6 +152,7 @@ export async function deleteS3Account(accountId: number, options?: { deleteRgw?:
 
 type ImportS3AccountPayload = {
   rgw_account_id: string;
+  root_uid?: string;
   name?: string | null;
   email?: string | null;
   storage_endpoint_id: number;

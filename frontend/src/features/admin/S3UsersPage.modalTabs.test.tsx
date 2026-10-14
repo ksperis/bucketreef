@@ -734,11 +734,11 @@ describe("S3UsersPage modal tabs", () => {
     await waitFor(() => expect(fields.getByRole("button", {name: "Import", exact: true})).toBeEnabled());
     fireEvent.submit(form);
     expect(text).toHaveAccessibleDescription("Enter at least one identifier.");
-    fireEvent.change(text, {target: {value: "tenant/"}});
+    fireEvent.change(text, {target: {value: "tenant$"}});
     fireEvent.submit(form);
-    expect(text).toHaveAccessibleDescription("Invalid identifiers: tenant/");
+    expect(text).toHaveAccessibleDescription("Invalid identifiers: tenant$");
     expect(importS3UsersMock).not.toHaveBeenCalled();
-    fireEvent.change(text, {target: {value: "tenant/user-alpha\nuser-beta"}});
+    fireEvent.change(text, {target: {value: "tenant$user-alpha\nuser-beta"}});
     expect(text).not.toHaveAttribute("aria-invalid", "true");
     let reject!: (error: Error) => void;
     importS3UsersMock.mockReturnValueOnce(new Promise((_, fail) => {reject = fail;}));
@@ -750,11 +750,11 @@ describe("S3UsersPage modal tabs", () => {
     expect(fields.getByRole("button", {name: "Cancel"})).toBeDisabled();
     await act(async () => reject(new Error("Fixture import refused")));
     expect(await fields.findByText("Fixture import refused")).toHaveAttribute("role", "alert");
-    expect(text).toHaveValue("tenant/user-alpha\nuser-beta");
+    expect(text).toHaveValue("tenant$user-alpha\nuser-beta");
     fireEvent.submit(form);
     await waitFor(() => expect(importS3UsersMock).toHaveBeenCalledTimes(2));
     expect(importS3UsersMock.mock.calls[1]).toEqual(importS3UsersMock.mock.calls[0]);
-    expect(importS3UsersMock).toHaveBeenLastCalledWith([{uid: "user-alpha", storage_endpoint_id: 10}, {uid: "user-beta", storage_endpoint_id: 10}]);
+    expect(importS3UsersMock).toHaveBeenLastCalledWith([{uid: "tenant$user-alpha", storage_endpoint_id: 10}, {uid: "user-beta", storage_endpoint_id: 10}]);
     await waitFor(() => expect(text).toHaveValue(""));
     expect(text).not.toHaveAttribute("aria-invalid", "true");
     fireEvent.click(fields.getByRole("button", {name: "Cancel"}));

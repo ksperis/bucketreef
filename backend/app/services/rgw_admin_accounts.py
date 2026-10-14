@@ -6,14 +6,15 @@ from typing import Any, Dict, Optional, Tuple
 
 from app.services.rgw_admin_transport import RGWAdminError, RGWAdminOperationResponse
 from app.utils.quota_stats import extract_quota_limits
+from app.utils.rgw_payloads import rgw_qualified_uid
 from app.utils.rgw_account_extra_params import validate_rgw_account_extra_params
 
 
 class RGWAdminAccountOperations:
     def get_account_user(
-        self, account_id: str, uid: str, allow_not_found: bool = False
+        self, account_id: str, uid: str, allow_not_found: bool = False, tenant: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
-        user = self.get_user(uid, tenant=None, allow_not_found=allow_not_found)
+        user = self.get_user(uid, tenant=tenant, allow_not_found=allow_not_found)
         if not user:
             return None
         details = user.get("user") if isinstance(user.get("user"), dict) else user
@@ -322,9 +323,10 @@ class RGWAdminAccountOperations:
         email: Optional[str] = None,
         generate_key: bool = True,
         extra_params: Optional[Dict[str, Any]] = None,
+        tenant: Optional[str] = None,
     ) -> Dict[str, Any]:
         params: Dict[str, Any] = {
-            "uid": uid,
+            "uid": rgw_qualified_uid(uid, tenant),
             "account-id": account_id,
             "display-name": display_name or uid,
             "generate-key": self._to_rgw_bool(bool(generate_key)),
@@ -334,6 +336,8 @@ class RGWAdminAccountOperations:
             params["email"] = email
         if account_root:
             params["account-root"] = "true"
+        if tenant:
+            params["tenant"] = tenant
         self._validate_user_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         return self._request(

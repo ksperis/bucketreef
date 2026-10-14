@@ -26,6 +26,32 @@ The RGW Accounts page uses `/admin/s3-accounts`. The former frontend alias
 `/admin/accounts` is no longer supported; update bookmarks to the canonical
 URL. Backend account endpoints under `/api/admin/accounts` are unchanged.
 
+### RGW Accounts and Ceph tenants
+
+RGW Account IDs and Ceph tenants are independent identifiers. BucketReef supports
+imported accounts and standalone RGW users in the default tenant or an explicit
+tenant. Account creation through BucketReef uses the default tenant; the Accounts
+page displays the tenant as read-only metadata and does not administer tenants.
+
+To import an account, enter one Account ID per line. The importer preserves the
+tenant returned by RGW and discovers its existing account root, including custom
+root UIDs. You may append an existing root UID after a space, for example
+`RGW12345678901234567 customer01$customer01-root`. This also avoids enumerating
+the user inventory when the root is already known. The selected root must belong
+to the imported account and tenant.
+
+For standalone users, import either `uid` for the default tenant or `tenant$uid`.
+The user creation form also accepts an optional tenant. Namespaces remain scoped
+by endpoint, tenant and UID, so the same UID can be imported from different
+tenants. The stored tenant is read-only after import or creation. Portal continues
+to require an RGW Account and personal IAM identities; standalone RGW users are
+Manager/Browser contexts.
+
+Statistics, traffic, quotas, keys, physical bucket tags and usage-history
+collection retain the selected tenant. S3 and IAM requests use the selected
+principal's credentials, with RGW enforcing the implicit tenant. BucketReef does
+not change tenant lifecycle or migrate identities between tenants.
+
 ## Expected result
 
 Platform and tenant-entry resources are configured and auditable.

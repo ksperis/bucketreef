@@ -253,6 +253,8 @@ def import_accounts(
         return imported
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
+    except RGWAdminError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
 @router.put("/{account_id}", response_model=S3Account)

@@ -248,7 +248,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("presents account identity, usage gauges, and quotas in consistent General sections", async () => {
     const account = await getS3AccountMock();
-    getS3AccountMock.mockResolvedValue({ ...account, quota_max_size_gb: 2, quota_max_objects: 200 });
+    getS3AccountMock.mockResolvedValue({ ...account, rgw_tenant: "customer01", quota_max_size_gb: 2, quota_max_objects: 200 });
     adminAccountStatsMock.mockReturnValue({
       stats: {
         total_bytes: 1024 ** 3,
@@ -275,6 +275,8 @@ describe("AccountsPage modal tabs", () => {
       screen.getByText("Manage quotas, usage, UI associations, Manager features, and Portal overrides for this account.")
     ).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "Account details" })).toBeInTheDocument();
+    expect(screen.getByText("customer01")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /Ceph tenant/ })).not.toBeInTheDocument();
     expect(within(generalPanel).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuenow", "50");
     expect(within(generalPanel).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuenow", "25");
     expect(within(generalPanel).getByText("Active buckets")).toBeInTheDocument();
@@ -1217,7 +1219,7 @@ describe("AccountsPage modal tabs", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete acc-1" }));
-    expect(dialog.getByRole("checkbox", { name: "Also delete RGW tenant RGW001" })).toBeDisabled();
+    expect(dialog.getByRole("checkbox", { name: "Also delete RGW account RGW001" })).toBeDisabled();
     expect(dialog.getByText("tenant$user")).toBeInTheDocument();
     expect(dialog.getByText("notification-topic")).toBeInTheDocument();
     if (counts.bucket_count === null) expect(dialog.getByText(/Unable to verify linked RGW resources/)).toBeInTheDocument();
@@ -1233,7 +1235,7 @@ describe("AccountsPage modal tabs", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete acc-1" }));
-    const choice = dialog.getByRole("checkbox", { name: "Also delete RGW tenant RGW001" });
+    const choice = dialog.getByRole("checkbox", { name: "Also delete RGW account RGW001" });
     expect(choice).not.toBeChecked();
     fireEvent.click(choice);
     fireEvent.click(dialog.getByRole("button", { name: "Delete account" }));
@@ -1324,15 +1326,15 @@ describe("AccountsPage modal tabs", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));
     const form = await screen.findByRole("form", {name: "Import RGW accounts"});
-    const fields = within(form), text = fields.getByLabelText("RGW tenant IDs");
+    const fields = within(form), text = fields.getByLabelText("RGW account IDs");
     await waitFor(() => expect(fields.getByRole("button", {name: "Import", exact: true})).toBeEnabled());
     fireEvent.submit(form);
     expect(text).toHaveAccessibleDescription("Enter at least one identifier.");
     fireEvent.change(text, {target: {value: "invalid-id"}});
     fireEvent.submit(form);
-    expect(text).toHaveAccessibleDescription("Invalid identifiers: invalid-id");
+    expect(text).toHaveAccessibleDescription("Enter a valid RGW account ID followed by an optional root UID.");
     expect(importS3AccountsMock).not.toHaveBeenCalled();
-    fireEvent.change(text, {target: {value: "RGW00000000000000001\nRGW00000000000000002"}});
+    fireEvent.change(text, {target: {value: "RGW00000000000000001\nRGW00000000000000002 customer01$custom-root"}});
     expect(text).not.toHaveAttribute("aria-invalid", "true");
     let reject!: (error: Error) => void;
     importS3AccountsMock.mockReturnValueOnce(new Promise((_, fail) => {reject = fail;}));
@@ -1344,11 +1346,11 @@ describe("AccountsPage modal tabs", () => {
     expect(fields.getByRole("button", {name: "Cancel"})).toBeDisabled();
     await act(async () => reject(new Error("Fixture import refused")));
     expect(await fields.findByText("Fixture import refused")).toHaveAttribute("role", "alert");
-    expect(text).toHaveValue("RGW00000000000000001\nRGW00000000000000002");
+    expect(text).toHaveValue("RGW00000000000000001\nRGW00000000000000002 customer01$custom-root");
     fireEvent.submit(form);
     await waitFor(() => expect(importS3AccountsMock).toHaveBeenCalledTimes(2));
     expect(importS3AccountsMock.mock.calls[1]).toEqual(importS3AccountsMock.mock.calls[0]);
-    expect(importS3AccountsMock).toHaveBeenLastCalledWith([{rgw_account_id: "RGW00000000000000001", storage_endpoint_id: 10}, {rgw_account_id: "RGW00000000000000002", storage_endpoint_id: 10}]);
+    expect(importS3AccountsMock).toHaveBeenLastCalledWith([{rgw_account_id: "RGW00000000000000001", storage_endpoint_id: 10}, {rgw_account_id: "RGW00000000000000002", root_uid: "customer01$custom-root", storage_endpoint_id: 10}]);
     await waitFor(() => expect(text).toHaveValue(""));
     expect(text).not.toHaveAttribute("aria-invalid", "true");
     fireEvent.click(fields.getByRole("button", {name: "Cancel"}));

@@ -65,8 +65,8 @@ class AdminDashboardMetricsService:
     def _cache_scope(self, kind: str) -> tuple[list[dict], str]:
         endpoints = [e for e in self._scope_endpoints() if self._target(e)[f"{kind}_enabled"]]
         ids = [e.id for e in endpoints]
-        accounts = self.db.query(S3Account.id, S3Account.storage_endpoint_id, S3Account.rgw_account_id, S3Account.rgw_user_uid).filter(S3Account.storage_endpoint_id.in_(ids)).order_by(S3Account.id).all()
-        users = self.db.query(S3User.id, S3User.storage_endpoint_id, S3User.rgw_user_uid).filter(S3User.storage_endpoint_id.in_(ids)).order_by(S3User.id).all()
+        accounts = self.db.query(S3Account.id, S3Account.storage_endpoint_id, S3Account.rgw_account_id, S3Account.rgw_user_uid, S3Account.rgw_tenant).filter(S3Account.storage_endpoint_id.in_(ids)).order_by(S3Account.id).all()
+        users = self.db.query(S3User.id, S3User.storage_endpoint_id, S3User.rgw_user_uid, S3User.rgw_tenant).filter(S3User.storage_endpoint_id.in_(ids)).order_by(S3User.id).all()
         # Use the persisted identity revision, never credentials or their hashes.
         # Tenant identifiers remain endpoint-qualified even when RGW UIDs overlap.
         scope = {

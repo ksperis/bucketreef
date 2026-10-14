@@ -34,6 +34,8 @@ from app.services.portal.server_access_log_records import (
     utc_dates_for_local_day,
     utc_dates_for_local_range,
 )
+from app.services.rgw_principal_scope import resolve_principal_tenant
+from app.utils.rgw_payloads import require_rgw_user_identity
 from app.services.rgw_admin import RGWAdminClient, get_rgw_admin_client
 from app.utils.aws_errors import aws_error_code
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
@@ -171,7 +173,7 @@ class PortalServerAccessLogQueriesMixin:
             if uid:
                 break
         for candidate in candidates:
-            account_id = dash_to_none(candidate.get("account_id") or candidate.get("account") or candidate.get("tenant"))
+            account_id = dash_to_none(candidate.get("account_id") or candidate.get("account"))
             if account_id:
                 break
         for candidate in candidates:
@@ -269,9 +271,14 @@ class PortalServerAccessLogQueriesMixin:
             if rgw_admin is not None:
                 for requester in unknown_requesters:
                     try:
-                        identity = self._portal_server_access_identity_from_rgw_payload(
-                            rgw_admin.get_user(requester, allow_not_found=True),
-                        )
+                        if "$" in requester:
+                            tenant, uid = requester.split("$", 1)
+                        else:
+                            tenant, uid = resolve_principal_tenant(account, rgw_admin), requester
+                        payload = rgw_admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
+                        if payload:
+                            require_rgw_user_identity(payload, uid, tenant)
+                        identity = self._portal_server_access_identity_from_rgw_payload(payload)
                     except Exception as exc:
                         logger.debug("Unable to resolve requester identity for %s: %s", requester, exc)
                         identity = None

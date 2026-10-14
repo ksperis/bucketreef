@@ -39,6 +39,7 @@ def make_s3_execution_context(
         "name": "Execution context",
         "access_key": "TEST-AK",
         "secret_key": "TEST-SK",
+        "rgw_tenant": "",
         "manager_capabilities": AccountCapabilities(
             can_manage_buckets=can_manage_buckets, can_manage_iam=can_manage_iam,
         ),

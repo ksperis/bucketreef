@@ -42,4 +42,5 @@ def make_s3_account(db: Session, **values: Any) -> S3Account:
             db.add(endpoint)
             db.flush()
         values["storage_endpoint_id"] = endpoint.id
+    values.setdefault("rgw_tenant", "")
     return S3Account(**values)

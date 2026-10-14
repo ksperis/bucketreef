@@ -31,10 +31,17 @@ class PortalStorageSpaceBucketPoliciesMixin:
         if not username:
             return []
         arns: list[str] = []
-        if iam_user_id and str(iam_user_id).startswith("arn:"):
-            arns.append(str(iam_user_id))
-        arns.append(f"arn:aws:iam:::user/{username}")
         rgw_account_id = account.rgw_account_id
+        scoped_prefix = f"arn:aws:iam::{rgw_account_id}:"
+        default_tenant = account.rgw_tenant == ""
+        if iam_user_id and str(iam_user_id).startswith("arn:") and (
+            default_tenant or str(iam_user_id).startswith(scoped_prefix)
+        ):
+            arns.append(str(iam_user_id))
+        # A default-tenant alias in NotPrincipal would exempt a foreign
+        # same-name user from the Storage Space access-boundary Deny.
+        if default_tenant:
+            arns.append(f"arn:aws:iam:::user/{username}")
         arns.append(f"arn:aws:iam::{rgw_account_id}:user/{username}")
         return sorted(set(arns))
 

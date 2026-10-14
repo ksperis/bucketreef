@@ -12,6 +12,7 @@ export type S3User = {
   id: number;
   name: string;
   rgw_user_uid: string;
+  rgw_tenant?: string | null;
   tags: TagDefinitionSummary[];
   email?: string | null;
   created_at?: string | null;
@@ -50,6 +51,7 @@ export type S3UserSummary = {
   id: number;
   name: string;
   rgw_user_uid: string;
+  rgw_tenant?: string | null;
   tags: TagDefinitionSummary[];
   storage_endpoint_id: number;
   storage_endpoint_name: string;
@@ -65,6 +67,7 @@ export type S3UserSummary = {
 type CreateS3UserPayload = {
   name: string;
   uid?: string | null;
+  rgw_tenant?: string;
   email?: string | null;
   quota_max_size_gb?: number | null;
   quota_max_size_unit?: string | null;
@@ -81,6 +84,7 @@ type CreateS3UserPayload = {
 
 type ImportS3UserPayload = {
   uid: string;
+  rgw_tenant?: string;
   name?: string | null;
   email?: string | null;
   storage_endpoint_id: number;

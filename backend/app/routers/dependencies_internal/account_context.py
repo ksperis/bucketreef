@@ -304,6 +304,7 @@ def _resolve_session_account(
         rgw_account_id=context_rgw_account_id,
         email=context_email,
         rgw_user_uid=context_rgw_user_uid,
+        rgw_tenant=account.rgw_tenant if account is not None else None,
         access_key=actor.access_key,
         secret_key=actor.secret_key,
         storage_endpoint_id=context_endpoint_id,

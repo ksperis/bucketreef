@@ -21,7 +21,7 @@ import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsDialog } from "../../components/settings/SettingsControls";
 import AdminRgwEndpointField from "./AdminRgwEndpointField";
 import AdminRgwCreateFields from "./AdminRgwCreateFields";
-import { useAdminRgwFormValidation, rgwCreateErrors, rgwImportEntries } from "./useAdminRgwFormValidation";
+import { useAdminRgwFormValidation, rgwCreateErrors, rgwAccountImportEntries } from "./useAdminRgwFormValidation";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiTextarea from "../../components/ui/UiTextarea";
@@ -376,6 +376,12 @@ export default function S3AccountsPage() {
       render: (account) => account.rgw_account_id,
     },
     {
+      id: "tenant",
+      label: "Ceph tenant",
+      cellClassName: "min-w-[125px]",
+      render: (account) => account.rgw_tenant == null ? "Unverified" : (account.rgw_tenant || "Default"),
+    },
+    {
       id: "endpoint",
       label: "Endpoint",
       cellClassName: "min-w-[160px]",
@@ -437,7 +443,7 @@ export default function S3AccountsPage() {
   });
 
   const createValidation = useAdminRgwFormValidation(form, rgwCreateErrors(form));
-  const importEntries = rgwImportEntries(importText, "account");
+  const importEntries = rgwAccountImportEntries(importText);
   const importValidation = useAdminRgwFormValidation({importText, storage_endpoint_id: importTenantEndpointId}, {
     ...(importEntries.error ? {importText: importEntries.error} : {}),
     ...(!importTenantEndpointId ? {storage_endpoint_id: "Select a Ceph endpoint."} : {}),
@@ -501,8 +507,9 @@ export default function S3AccountsPage() {
     setImportError(null);
     setImportMessage(null);
     try {
-      await importS3Accounts(importEntries.entries.map(identifier => ({
-        rgw_account_id: identifier,
+      await importS3Accounts(importEntries.entries.map(entry => ({
+        rgw_account_id: entry.rgw_account_id.toUpperCase(),
+        root_uid: entry.root_uid,
         storage_endpoint_id: Number(importTenantEndpointId),
       })));
       setImportMessage("S3Accounts imported.");
@@ -638,7 +645,7 @@ export default function S3AccountsPage() {
     <div className={workflowPageHostClass(Boolean(editingS3Account))}>
       <PageHeader actionPresentation="listing"
         title="RGW Accounts"
-        description="Provision Ceph RGW accounts (tenants), quotas, and root users."
+        description="Provision Ceph RGW accounts, quotas, and root users."
         breadcrumbs={adminPageBreadcrumbs("accounts")}
         actions={
           isSuperAdmin
@@ -694,7 +701,7 @@ export default function S3AccountsPage() {
       {isSuperAdmin && accountToDelete && (
         <ConfirmActionDialog
           title={`Delete ${accountToDelete.name}`}
-          description="Removing this account deletes the UI entry. Optionally delete the backing RGW tenant if it no longer contains resources."
+          description="Removing this account deletes the UI entry. Optionally delete the backing RGW account if it no longer contains resources."
           confirmLabel="Delete account"
           processingLabel="Deleting..."
           loading={deleteModalBusy}
@@ -704,7 +711,7 @@ export default function S3AccountsPage() {
             <div className="space-y-2">
               <p>{deleteModalUnknownResources
                 ? "Unable to verify linked RGW resources. RGW deletion is disabled until counts are available."
-                : "This RGW tenant still has attached resources. Remove buckets, RGW users (excluding the admin user), and notification topics before deleting it from RGW."}</p>
+                : "This RGW account still has attached resources. Remove buckets, RGW users (excluding the admin user), and notification topics before deleting it from RGW."}</p>
               <p className="settings-label">
                 Buckets: {accountToDelete.bucket_count ?? "unknown"} · IAM users (excl. admin):{" "}
                 {accountToDelete.rgw_user_count ?? "unknown"} · RGW topics:{" "}
@@ -735,7 +742,7 @@ export default function S3AccountsPage() {
               onChange={(event) => setDeleteFromRgw(event.target.checked)}
             >
               <span className="modal-option-copy">
-                Also delete RGW tenant <code className="break-all font-mono">{accountToDelete.rgw_account_id ?? accountToDelete.id}</code>
+                Also delete RGW account <code className="break-all font-mono">{accountToDelete.rgw_account_id ?? accountToDelete.id}</code>
               </span>
             </UiCheckboxField>
           }
@@ -750,8 +757,8 @@ export default function S3AccountsPage() {
             submitDisabled={importPermissionLoading || !importEndpointCanWrite}
             onCancel={importCloseGuard.requestClose} submitLabel="Import" busyLabel="Importing...">
             <div className="settings-fields settings-form">
-              <p className="settings-body text-[var(--ui-text-muted)]">Enter RGW tenant IDs, one per line. The platform will ensure a root user exists and retrieve keys.</p>
-              <UiTextarea label="RGW tenant IDs" name="importText" rows={6} required value={importText}
+              <p className="settings-body text-[var(--ui-text-muted)]">Enter RGW account IDs, one per line. Optionally add an existing root UID after a space (e.g. customer01$customer01-root). The Ceph tenant is read from RGW.</p>
+              <UiTextarea label="RGW account IDs" name="importText" rows={6} required value={importText}
                 error={importValidation.errors.importText} placeholder="RGW00000000000000001"
                 onChange={event => setImportText(event.target.value)} />
               <AdminRgwEndpointField label="Ceph endpoint" value={importTenantEndpointId}

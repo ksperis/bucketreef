@@ -19,6 +19,7 @@ from app.db import (
 )
 from app.services.audit_service import AuditService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError, get_rgw_admin_client
+from app.utils.rgw_payloads import require_rgw_user_identity
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint, resolve_feature_flags
@@ -121,9 +122,9 @@ class DurableKeyRotationService:
         if isinstance(target, EndpointServiceIdentity):
             return target.rgw_uid, None
         if isinstance(target, S3Account):
-            return target.rgw_user_uid, target.rgw_account_id
+            return target.rgw_user_uid, target.rgw_tenant
         if isinstance(target, S3User):
-            return target.rgw_user_uid, None
+            return target.rgw_user_uid, target.rgw_tenant
         return None, None
 
     def _validate(
@@ -136,6 +137,8 @@ class DurableKeyRotationService:
         access: str,
         secret: str,
     ) -> None:
+        if isinstance(target, (S3Account, S3User)):
+            require_rgw_user_identity(payload, target.rgw_user_uid, target.rgw_tenant or "")
         entries = RgwUserKeyParser.to_access_keys(admin.extract_keys(payload), ui_managed_access_key=None)
         key = next((key for key in entries if key.access_key_id == access), None)
         pair = next((item for item in admin.extract_keys(payload) if item.get("access_key") == access), None)
@@ -225,10 +228,21 @@ class DurableKeyRotationService:
                 if uid is None:
                     from app.services.key_rotation_rgw import RgwAccessKeyRotator
                     uid, tenant = RgwAccessKeyRotator().resolve_identity_from_access_key(admin, old_access)
+                elif isinstance(target, (S3Account, S3User)):
+                    if preferred_tenant is None:
+                        from app.services.key_rotation_rgw import RgwAccessKeyRotator
+                        resolved_uid, tenant = RgwAccessKeyRotator().resolve_identity_from_access_key(admin, old_access)
+                        if resolved_uid != uid:
+                            raise ValueError("Stored RGW principal does not own the access key")
+                        target.rgw_tenant = tenant or ""
+                    else:
+                        tenant = preferred_tenant or None
                 elif key_type not in SERVICE_TYPES:
                     from app.services.key_rotation_rgw import RgwAccessKeyRotator
                     tenant = RgwAccessKeyRotator().detect_user_tenant(admin, uid=uid, preferred_tenant=preferred_tenant)
                 payload = admin.get_user(uid, tenant=tenant, allow_not_found=True) if tenant else admin.get_user(uid, allow_not_found=True)
+                if isinstance(target, (S3Account, S3User)):
+                    require_rgw_user_identity(payload, uid, tenant or "")
                 if key_type in SERVICE_TYPES:
                     provenance = f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
                     if target.provenance != provenance or not self.identities._owns(target, payload):
@@ -248,6 +262,8 @@ class DurableKeyRotationService:
             expected = intent.new_access_key if intent.phase == "activated" else intent.old_access_key
             if isinstance(target, (S3Account, S3User)) and target.rgw_user_uid != intent.rgw_uid:
                 raise ValueError("Rotation principal changed; restore the original target before retrying.")
+            if isinstance(target, (S3Account, S3User)) and target.rgw_tenant is not None and target.rgw_tenant != (intent.tenant or ""):
+                raise ValueError("Rotation tenant changed; restore the original target before retrying.")
             current_access, _ = self._credentials(target)
             if current_access != expected:
                 raise ValueError("Rotation target credentials changed; resolve the pending rotation before retrying.")
@@ -257,6 +273,8 @@ class DurableKeyRotationService:
                     raise ReplacementValidationError("Cannot rotate an identity without ownership proof.")
             kwargs = {"tenant": intent.tenant} if intent.tenant else {}
             payload = admin.get_user(intent.rgw_uid, **kwargs)
+            if isinstance(target, (S3Account, S3User)):
+                require_rgw_user_identity(payload, intent.rgw_uid, intent.tenant or "")
             if key_type in SERVICE_TYPES:
                 if not self.identities._owns(target, payload):
                     raise ReplacementValidationError("Cannot rotate an identity without ownership proof.")

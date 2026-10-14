@@ -54,8 +54,7 @@ def test_validate_rgw_account_name_rejects_names_refused_by_ceph(name, message):
     [
         ({"uid": " user ", "tenant": " tenant "}, ("user", "tenant")),
         ({"user": {"uid": "tenant$user"}}, ("user", "tenant")),
-        ({"user": {"uid": "tenant$user", "tenant": "override"}}, ("user", "override")),
-        ({"user": {"uid": 12}, "uid": "fallback"}, (None, None)),
+        ({"user": {"uid": 12}, "uid": "fallback"}, ("fallback", None)),
         (None, (None, None)),
     ],
 )

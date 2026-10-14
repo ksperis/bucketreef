@@ -611,10 +611,12 @@ def test_retry_cleanup_uses_typed_not_found_errors(db_session):
         service.retry_provisioning_cleanup(user=user, provisioning_id=999)
 
 
-def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkeypatch):
+@pytest.mark.parametrize("tenant", ["", "customer01"])
+def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkeypatch, tenant):
     user = _user(db_session, email="rgw@example.test")
     endpoint = _endpoint(db_session, iam=False, admin=True)
     s3_user = S3User(
+        rgw_tenant=tenant,
         name="RGW user",
         rgw_user_uid="rgw-principal",
         rgw_access_key="TECHNICAL-AK",
@@ -652,7 +654,7 @@ def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkey
     assert created.access_key_id == "PERSONAL-AK"
     assert created.access_key_id != s3_user.rgw_access_key
     assert created.credential_owner_type == "s3_user"
-    assert created.credential_owner_identifier == s3_user.rgw_user_uid
+    assert created.credential_owner_identifier == (f"{tenant}${s3_user.rgw_user_uid}" if tenant else s3_user.rgw_user_uid)
     assert "PERSONAL-SK" not in result.model_dump_json()
     audits = db_session.query(AuditLog).filter(AuditLog.action.like("managed_private_access.%")).all()
     assert audits

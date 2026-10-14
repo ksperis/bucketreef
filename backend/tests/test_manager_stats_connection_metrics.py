@@ -181,11 +181,13 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
         db=db_session,
     )
     dependencies.require_usage_capable_manager(account=account, actor=user, db=db_session)
-    assert account.rgw_user_uid == "rgw-account$reporting"
+    assert account.rgw_user_uid == "reporting"
+    assert account.rgw_tenant == "rgw-account"
 
     class _FakeBucketsService:
         def list_buckets(self, target_account):
-            assert target_account.rgw_user_uid == "rgw-account$reporting"
+            assert target_account.rgw_user_uid == "reporting"
+            assert target_account.rgw_tenant == "rgw-account"
             return []
 
     payload = manager_stats_router.account_stats(account=account, bucket_service=_FakeBucketsService(), _={})
@@ -255,7 +257,8 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
         db=db_session,
     )
     dependencies.require_metrics_capable_manager(account=account, actor=user, db=db_session)
-    assert account.rgw_user_uid == "rgw-account$traffic"
+    assert account.rgw_user_uid == "traffic"
+    assert account.rgw_tenant == "rgw-account"
 
     captured = {"uid": None}
 
@@ -286,7 +289,7 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
         account=account,
         _={},
     )
-    assert captured["uid"] == "rgw-account$traffic"
+    assert captured["uid"] == "traffic"
     assert payload["window"] == "week"
     assert payload["totals"]["ops"] == 0
 

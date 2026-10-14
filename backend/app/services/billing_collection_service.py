@@ -24,7 +24,8 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.traffic_service import aggregate_usage, flatten_usage_entries
 from app.utils.numbers import int_or_zero
-from app.utils.rgw_payloads import extract_bucket_list
+from app.utils.rgw_payloads import extract_bucket_list, rgw_qualified_uid
+from app.services.rgw_principal_scope import resolve_target_tenant
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
 from app.utils.usage_stats import extract_usage_stats
@@ -192,7 +193,7 @@ class BillingCollector:
                 continue
             try:
                 payload = rgw_admin.get_usage(
-                    uid=uid,
+                    uid=rgw_qualified_uid(uid, resolve_target_tenant(s3_user)),
                     start=start,
                     end=end,
                     show_entries=True,
@@ -265,7 +266,7 @@ class BillingCollector:
             try:
                 total_bytes, total_objects, by_bucket = self._collect_bucket_stats(
                     rgw_admin,
-                    account.rgw_user_uid,
+                    rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account)),
                 )
                 self._upsert_storage(
                     day=day,
@@ -309,7 +310,7 @@ class BillingCollector:
             try:
                 total_bytes, total_objects, by_bucket = self._collect_bucket_stats(
                     rgw_admin,
-                    uid,
+                    rgw_qualified_uid(uid, resolve_target_tenant(s3_user)),
                 )
                 self._upsert_storage(
                     day=day,
