@@ -268,7 +268,7 @@ export default function ProjectSettingsEditor({
             ? "settings-tristate-option-inherit-ghost-selected"
             : "settings-tristate-option-inherit-disabled-selected",
         },
-        { value: "enabled", label: enabled(true), symbol: "✓" },
+        { value: "enabled", label: enabled(true), symbol: "✓", disabled: blocked },
       ] satisfies readonly [
         SettingsTriStateOption<"disabled" | "inherit" | "enabled">,
         SettingsTriStateOption<"disabled" | "inherit" | "enabled">,
@@ -286,7 +286,6 @@ export default function ProjectSettingsEditor({
               ariaLabel={title}
               value={draft[key]}
               options={triStateOptions}
-              disabled={blocked}
               badge={blocked ? { visible: true, label: platformDisabledLabel, tone: "warning" } : undefined}
               onChange={(next) => update(key, next)}
             />

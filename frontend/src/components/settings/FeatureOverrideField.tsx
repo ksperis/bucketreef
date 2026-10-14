@@ -78,7 +78,7 @@ export default function FeatureOverrideField({ title, value, policy, onChange, h
         ariaLabel={title}
         value={selection}
         options={triStateOptions}
-        disabled={disabled || blocked}
+        disabled={disabled}
         onChange={setSelection}
         badge={constraintLabel ? { visible: true, label: constraintLabel, tone: "warning" } : undefined}
       />} />;
@@ -87,7 +87,7 @@ export default function FeatureOverrideField({ title, value, policy, onChange, h
     value={selection}
     onChange={event => setSelection(event.target.value as FeatureOverrideValue)}>
     <option value="inherit">Platform value — {inheritedState}</option>
-    <option value="enabled" disabled={Boolean(unavailableReason)}>Enabled</option>
+    <option value="enabled" disabled={blocked || Boolean(unavailableReason)}>Enabled</option>
     <option value="disabled">Disabled</option>
   </SettingsSelect>;
   return <SettingsItem compact className="settings-effective-row" title={title} help={help}

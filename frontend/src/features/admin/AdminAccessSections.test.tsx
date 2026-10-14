@@ -32,14 +32,15 @@ describe("additive Manager grants", () => {
     expect(screen.getByText("Role required")).toBeVisible();
   });
 
-  it("keeps a blocked direct grant visible as a disabled switch", () => {
+  it("keeps a blocked direct grant visible and allows it to be revoked", async () => {
+    const change = vi.fn();
     const blockedTools = [{ ...tools[0], enabled: false, platformDefault: false }];
     render(<ManagerToolAccessSection
       title="Tools"
       description="Direct grants"
       tools={blockedTools}
       access={{ ...DEFAULT_MANAGER_TOOL_ACCESS, bucket_compare: true }}
-      onChange={vi.fn()}
+      onChange={change}
     />);
     expect(screen.getByText("Unavailable")).toBeVisible();
     expect(screen.getByText("Platform")).toBeVisible();
@@ -47,6 +48,21 @@ describe("additive Manager grants", () => {
     expect(screen.queryByText("Saved grant: On")).not.toBeInTheDocument();
     const grant = screen.getByRole("switch", { name: "Bucket compare" });
     expect(grant).toBeChecked();
+    expect(grant).not.toBeDisabled();
+    await userEvent.click(grant);
+    expect(change).toHaveBeenCalledWith("bucket_compare", false);
+  });
+
+  it("keeps a blocked grant disabled when there is nothing to revoke", () => {
+    const blockedTools = [{ ...tools[0], enabled: false, platformDefault: false }];
+    render(<ManagerToolAccessSection
+      title="Tools"
+      description="Direct grants"
+      tools={blockedTools}
+      onChange={vi.fn()}
+    />);
+    const grant = screen.getByRole("switch", { name: "Bucket compare" });
+    expect(grant).not.toBeChecked();
     expect(grant).toBeDisabled();
   });
 });
