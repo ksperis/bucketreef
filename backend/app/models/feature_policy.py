@@ -18,6 +18,7 @@ class FeaturePolicies(ApiModel):
 
 
 class ManagerFeaturePolicies(FeaturePolicies):
+    rgw_usage_metrics: FeaturePolicy = FeaturePolicy.DEFAULT_ON
     activity_history: FeaturePolicy = FeaturePolicy.DEFAULT_ON
     bucket_compare: FeaturePolicy = FeaturePolicy.TARGETED
     bucket_integrity_check: FeaturePolicy = FeaturePolicy.TARGETED
@@ -29,6 +30,10 @@ class ManagerFeaturePolicies(FeaturePolicies):
     access_key_metadata: FeaturePolicy = FeaturePolicy.TARGETED
     access_key_expiration: FeaturePolicy = FeaturePolicy.TARGETED
     managed_private_connection_provisioning: FeaturePolicy = FeaturePolicy.DISABLED
+
+
+class ProjectFeaturePolicies(FeaturePolicies):
+    bucket_usage_stats: FeaturePolicy = FeaturePolicy.DEFAULT_ON
 
 
 class PortalFeaturePolicies(FeaturePolicies):

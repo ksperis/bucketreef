@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3Connection, S3User, StorageEndpoint, User, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
+from app.models.feature_policy import FeaturePolicy
 from app.models.session import ManagerSessionPrincipal, SessionCapabilities
 from app.routers import dependencies
 from app.routers.dependencies_internal import feature_gates
@@ -91,10 +92,10 @@ def _usage_history_settings(enabled: bool) -> AppSettings:
         ),
     ],
 )
-def test_manager_rgw_metrics_kill_switch_blocks_every_actor(monkeypatch, dependency, actor):
+def test_manager_rgw_metrics_kill_switch_blocks_every_actor(monkeypatch, db_session, dependency, actor):
     settings = AppSettings()
-    settings.manager.manager_rgw_usage_metrics_enabled = False
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    settings.manager.feature_policies.rgw_usage_metrics = FeaturePolicy.DISABLED
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     with pytest.raises(HTTPException) as exc:
         dependency(
@@ -106,6 +107,7 @@ def test_manager_rgw_metrics_kill_switch_blocks_every_actor(monkeypatch, depende
                 rgw_user_uid="rgw-metrics-disabled-admin",
             ),
             actor=actor,
+            db=db_session,
         )
 
     assert exc.value.status_code == 403
@@ -119,11 +121,11 @@ def test_manager_rgw_metrics_kill_switch_blocks_every_actor(monkeypatch, depende
         dependencies.require_metrics_capable_manager,
     ],
 )
-def test_manager_rgw_metrics_ignore_bucket_composition_kill_switch(monkeypatch, dependency):
+def test_manager_rgw_metrics_ignore_bucket_composition_kill_switch(monkeypatch, db_session, dependency):
     settings = AppSettings()
-    settings.general.bucket_usage_stats_enabled = False
-    settings.manager.manager_rgw_usage_metrics_enabled = True
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    settings.general.project_feature_policies.bucket_usage_stats = FeaturePolicy.DISABLED
+    settings.manager.feature_policies.rgw_usage_metrics = FeaturePolicy.DEFAULT_ON
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(feature_gates, "has_supervision_credentials", lambda account: True)
     actor = User(
         email="rgw-metrics-independent@example.com",
@@ -141,6 +143,7 @@ def test_manager_rgw_metrics_ignore_bucket_composition_kill_switch(monkeypatch, 
                 rgw_user_uid="rgw-metrics-enabled-admin",
             ),
             actor=actor,
+            db=db_session,
         )
         is actor
     )
@@ -177,7 +180,7 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
         actor=user,
         db=db_session,
     )
-    dependencies.require_usage_capable_manager(account=account, actor=user)
+    dependencies.require_usage_capable_manager(account=account, actor=user, db=db_session)
     assert account.rgw_user_uid == "rgw-account$reporting"
 
     class _FakeBucketsService:
@@ -251,7 +254,7 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
         actor=user,
         db=db_session,
     )
-    dependencies.require_metrics_capable_manager(account=account, actor=user)
+    dependencies.require_metrics_capable_manager(account=account, actor=user, db=db_session)
     assert account.rgw_user_uid == "rgw-account$traffic"
 
     captured = {"uid": None}
@@ -358,7 +361,7 @@ def test_manager_stats_dependency_rejects_connection_without_resolved_identity(d
         db=db_session,
     )
     with pytest.raises(HTTPException) as exc:
-        dependencies.require_usage_capable_manager(account=account, actor=user)
+        dependencies.require_usage_capable_manager(account=account, actor=user, db=db_session)
     assert exc.value.status_code == 403
     assert "unable to resolve rgw identity" in str(exc.value.detail).lower()
 

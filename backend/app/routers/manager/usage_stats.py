@@ -115,6 +115,7 @@ def stream_manager_usage_stats_aggregate(
 def get_manager_bucket_usage_stats(
     bucket_name: str,
     db: Session = Depends(get_db),
+    _feature_user: User = Depends(require_bucket_usage_stats_enabled),
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketUsageStatsLatestResponse:
@@ -133,6 +134,7 @@ def get_manager_bucket_usage_stats(
 def stream_manager_bucket_usage_stats_for_bucket(
     bucket_name: str,
     request: Request,
+    _feature_user: User = Depends(require_bucket_usage_stats_enabled),
     account: S3ExecutionContext = Depends(get_account_context),
     actor: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:

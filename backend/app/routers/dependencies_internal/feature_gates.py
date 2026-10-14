@@ -17,6 +17,11 @@ from app.routers.manager.access import require_manager_capabilities
 from app.services import app_settings_service
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
+from app.services.feature_policy_service import (
+    bucket_usage_stats_state,
+    manager_rgw_usage_metrics_state,
+    project_account_resource,
+)
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES
 from app.services.manager_ceph_management_access_service import ManagerCephManagementAccessService
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
@@ -46,10 +51,16 @@ _MANAGER_TOOL_DISABLED_MESSAGES: dict[ManagerToolKey, str] = {
 def _require_supervision_access(
     account: S3ExecutionContext,
     actor: ManagerActor,
+    db: Session,
     disabled_detail: str,
     required_feature: Literal["metrics", "usage"],
 ) -> ManagerActor:
-    if not app_settings_service.load_app_settings().manager.manager_rgw_usage_metrics_enabled:
+    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    metrics_state = manager_rgw_usage_metrics_state(
+        settings.manager.feature_policies,
+        project_account_resource(db, account),
+    )
+    if not metrics_state.enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="RGW traffic and usage metrics are disabled",
@@ -112,10 +123,12 @@ def require_iam_capable_manager(
 def require_usage_capable_manager(
     account: S3ExecutionContext = Depends(get_account_context),
     actor: ManagerActor = Depends(get_current_actor),
+    db: Session = Depends(get_db),
 ) -> ManagerActor:
     return _require_supervision_access(
         account,
         actor,
+        db,
         disabled_detail="Storage metrics are disabled for this endpoint",
         required_feature="metrics",
     )
@@ -137,10 +150,12 @@ def require_sns_capable_manager(
 def require_metrics_capable_manager(
     account: S3ExecutionContext = Depends(get_account_context),
     actor: ManagerActor = Depends(get_current_actor),
+    db: Session = Depends(get_db),
 ) -> ManagerActor:
     return _require_supervision_access(
         account,
         actor,
+        db,
         disabled_detail="Usage logs are disabled for this endpoint",
         required_feature="usage",
     )
@@ -193,9 +208,17 @@ def require_bucket_purge_global_enabled() -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bucket purge feature is disabled")
 
 
-def require_bucket_usage_stats_enabled(user: User = Depends(get_current_user)) -> User:
-    app_settings = app_settings_service.load_app_settings()
-    if not bool(app_settings.general.bucket_usage_stats_enabled):
+def require_bucket_usage_stats_enabled(
+    user: User = Depends(get_current_user),
+    account: S3ExecutionContext = Depends(get_account_context),
+    db: Session = Depends(get_db),
+) -> User:
+    app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    state = bucket_usage_stats_state(
+        app_settings.general.project_feature_policies,
+        project_account_resource(db, account),
+    )
+    if not state.enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bucket usage stats feature is disabled")
     if user.role not in MANAGER_TOOL_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")

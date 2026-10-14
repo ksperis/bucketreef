@@ -707,8 +707,9 @@ def test_manager_context_connection_exposes_detected_identity_and_stats_enabled(
 
 def test_manager_context_reports_global_rgw_metrics_disablement(db_session, monkeypatch):
     settings = AppSettings()
-    settings.manager.manager_rgw_usage_metrics_enabled = False
+    settings.manager.feature_policies.rgw_usage_metrics = "disabled"
     monkeypatch.setattr(manager_context_router, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(manager_context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     user = User(
         email="manager-context-rgw-metrics-disabled@example.com",
         hashed_password="x",

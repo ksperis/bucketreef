@@ -66,14 +66,14 @@ def test_manager_mode_uses_explicit_execution_kind(db_session, actor, kind, expe
         ("s3_user", None),
     ],
 )
-def test_incomplete_source_metadata_does_not_become_account_metrics(monkeypatch, actor, kind, message):
+def test_incomplete_source_metadata_does_not_become_account_metrics(db_session, monkeypatch, actor, kind, message):
     settings = AppSettings()
-    settings.manager.manager_rgw_usage_metrics_enabled = True
     monkeypatch.setattr(context_router, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(context_router, "has_supervision_credentials", lambda _account: True)
     account = _context(kind, manager_capabilities=AccountCapabilities(can_manage_buckets=True))
 
-    assert context_router._manager_stats_state(account, actor) == (False, message, None)
+    assert context_router._manager_stats_state(account, actor, db_session) == (False, message, None)
 
 
 @pytest.mark.parametrize("kind", ["ceph_admin", "portal_account"])
@@ -97,8 +97,8 @@ def test_manager_context_preserves_direct_session_capabilities(
     settings.general.manager_enabled = True
     settings.general.browser_enabled = True
     settings.general.browser_manager_enabled = True
-    settings.manager.manager_rgw_usage_metrics_enabled = True
     monkeypatch.setattr(context_router, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(context_router, "has_supervision_credentials", lambda _account: True)
     actor = _session_actor(access_browser=browser_allowed, can_view_traffic=traffic_allowed)
     account = _context("session", manager_capabilities=AccountCapabilities(can_manage_buckets=True))

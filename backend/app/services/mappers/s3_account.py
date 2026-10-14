@@ -59,6 +59,8 @@ def s3_account_from_db(
         allow_access_key_metadata=account.allow_access_key_metadata,
         allow_access_key_expiration=account.allow_access_key_expiration,
         allow_activity_history=account.allow_activity_history,
+        allow_rgw_usage_metrics=account.allow_rgw_usage_metrics,
+        allow_bucket_usage_stats=account.allow_bucket_usage_stats,
         tags=tags or [],
     )
 
@@ -87,5 +89,7 @@ def s3_account_summary_from_db(
         allow_access_key_metadata=account.allow_access_key_metadata,
         allow_access_key_expiration=account.allow_access_key_expiration,
         allow_activity_history=account.allow_activity_history,
+        allow_rgw_usage_metrics=account.allow_rgw_usage_metrics,
+        allow_bucket_usage_stats=account.allow_bucket_usage_stats,
         tags=tags or [],
     )

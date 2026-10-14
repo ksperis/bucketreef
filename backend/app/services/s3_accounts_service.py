@@ -1,6 +1,10 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.feature_policy_service import manager_override_values, validate_manager_overrides
+from app.services.feature_policy_service import (
+    manager_override_values,
+    validate_manager_overrides,
+    validate_project_overrides,
+)
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from dataclasses import dataclass
 import logging
@@ -787,7 +791,9 @@ class S3AccountsService:
             account_ids=[account.id],
         )
 
-        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies, account)
+        app_settings = load_app_settings_for_db_readonly(self.db)
+        validate_manager_overrides(payload, app_settings.manager.feature_policies, account)
+        validate_project_overrides(payload, app_settings.general.project_feature_policies, account)
         if payload.name:
             account.name = payload.name
         if payload.email is not None:
@@ -805,6 +811,10 @@ class S3AccountsService:
             account.allow_access_key_expiration = payload.allow_access_key_expiration
         if "allow_activity_history" in payload.model_fields_set:
             account.allow_activity_history = payload.allow_activity_history
+        if "allow_rgw_usage_metrics" in payload.model_fields_set:
+            account.allow_rgw_usage_metrics = payload.allow_rgw_usage_metrics
+        if "allow_bucket_usage_stats" in payload.model_fields_set:
+            account.allow_bucket_usage_stats = payload.allow_bucket_usage_stats
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None
