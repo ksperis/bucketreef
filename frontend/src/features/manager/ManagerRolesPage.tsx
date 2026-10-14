@@ -324,6 +324,7 @@ export default function ManagerRolesPage() {
       label: text("Actions"),
       align: "right",
       mobileRole: "actions",
+      actionWidth: "compact",
       render: (role) => (
         <ListActions>
           <ListActionLink

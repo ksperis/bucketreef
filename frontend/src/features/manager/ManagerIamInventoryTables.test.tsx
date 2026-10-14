@@ -107,6 +107,7 @@ describe("Manager IAM inventory tables", () => {
     expect(groupEdit).toHaveAttribute("href", "/manager/groups/operators");
     expect(groupEdit).toHaveAttribute("data-table-default-action", "true");
     expect(groupEdit.closest("td")).toHaveAttribute("data-mobile-actions", "true");
+    expect(groupEdit.closest("td")).toHaveClass("w-44");
 
     await waitFor(() => {
       expect(listIamGroupsMock).toHaveBeenCalledWith("acc-1");
@@ -144,6 +145,7 @@ describe("Manager IAM inventory tables", () => {
     expect(roleEdit).toHaveAttribute("href", "/manager/roles/app-reader");
     expect(roleEdit).toHaveAttribute("data-table-default-action", "true");
     expect(roleEdit.closest("td")).toHaveAttribute("data-mobile-actions", "true");
+    expect(roleEdit.closest("td")).toHaveClass("w-44");
 
     await waitFor(() => {
       expect(listIamRolesMock).toHaveBeenCalledWith("acc-1");

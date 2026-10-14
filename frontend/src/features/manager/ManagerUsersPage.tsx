@@ -441,6 +441,7 @@ export default function ManagerUsersPage() {
       label: text("Actions"),
       align: "right",
       mobileRole: "actions",
+      actionWidth: "compact",
       render: (user) => (
         <ListActions>
           <ListActionLink

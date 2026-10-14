@@ -261,6 +261,7 @@ export default function ManagerGroupsPage() {
       label: text("Actions"),
       align: "right",
       mobileRole: "actions",
+      actionWidth: "compact",
       render: (group) => (
         <ListActions>
           <ListActionLink

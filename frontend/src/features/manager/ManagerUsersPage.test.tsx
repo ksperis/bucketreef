@@ -140,6 +140,7 @@ describe("ManagerUsersPage", () => {
     expect(editLink).toHaveAttribute("href", "/manager/users/alice");
     expect(editLink).toHaveAttribute("data-table-default-action", "true");
     expect(editLink.closest("td")).toHaveAttribute("data-mobile-actions", "true");
+    expect(editLink.closest("td")).toHaveClass("w-44");
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(deleteIamUserMock).not.toHaveBeenCalled();
