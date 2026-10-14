@@ -223,7 +223,12 @@ class PortalAccessKeysMixin:
             return "Editor"
         return "Viewer"
 
-    def _external_access_policy(self, bucket_name: str, permission: Optional[str]) -> dict:
+    def _external_access_policy(
+        self,
+        account: S3Account,
+        bucket_name: str,
+        permission: Optional[str],
+    ) -> dict:
         role = self._external_permission_role(permission)
         return {
             "Version": "2012-10-17",
@@ -232,7 +237,7 @@ class PortalAccessKeysMixin:
                     "Sid": PORTAL_EXTERNAL_STORAGE_SPACE_SID,
                     "Effect": "Allow",
                     "Action": self._storage_space_role_actions(role),
-                    "Resource": self._bucket_arns(bucket_name),
+                    "Resource": self._bucket_arns(bucket_name, account),
                 }
             ],
         }
@@ -284,7 +289,7 @@ class PortalAccessKeysMixin:
             iam_service.put_user_inline_policy(
                 iam_username,
                 self._external_access_policy_name,
-                self._external_access_policy(metadata.bucket_name, permission),
+                self._external_access_policy(access.account, metadata.bucket_name, permission),
             )
             new_key = iam_service.create_access_key(iam_username)
             credential = PortalExternalAccessCredential(

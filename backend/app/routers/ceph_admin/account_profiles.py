@@ -4,7 +4,7 @@
 """Ceph Admin RGW account creation, profile, configuration, and metrics routes."""
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -251,13 +251,20 @@ def update_rgw_account_config(
 @router.get("/{account_id}/metrics", response_model=CephAdminEntityMetrics)
 def get_rgw_account_metrics(
     account_id: str,
+    root_uid: Optional[str] = None,
+    tenant: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminEntityMetrics:
     normalized_account_id = account_id.strip()
     if not normalized_account_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="account_id is required")
+    normalized_root_uid = (root_uid or "").strip() or f"{normalized_account_id}-admin"
     try:
-        payload = ctx.rgw_admin.get_all_buckets(account_id=normalized_account_id, with_stats=True)
+        payload = ctx.rgw_admin.get_all_buckets(
+            uid=normalized_root_uid,
+            with_stats=True,
+            tenant=tenant,
+        )
     except RGWAdminError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 

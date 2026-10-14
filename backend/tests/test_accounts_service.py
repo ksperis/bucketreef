@@ -26,6 +26,7 @@ from app.db import (
     UserS3Account,
 )
 from app.models.s3_account import S3AccountCreate, S3AccountImport
+from app.services import s3_client
 
 
 def _seed_ceph_endpoint(
@@ -199,6 +200,39 @@ def test_get_account_usage_uses_runtime_without_monitoring_feature(db_session, m
     assert admin_calls == [
         {"account_id": None, "uid": "RGW00000000000000009", "with_stats": True}
     ]
+
+
+def test_get_account_usage_uses_root_bucket_count_for_explicit_tenant(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=False)
+    account = S3Account(
+        name="Tenant Usage Account",
+        rgw_account_id="RGW00000000000000010",
+        rgw_user_uid="tenant-root",
+        rgw_tenant="customer10",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    class FakeAdmin(FakeRGWAdmin):
+        def get_all_buckets(self, account_id=None, uid=None, with_stats=False, tenant=None):  # noqa: ANN001
+            assert uid == account.rgw_account_id
+            assert tenant == account.rgw_tenant
+            return {"buckets": []}
+
+    class FakeS3:
+        def list_buckets(self):
+            return {"Buckets": [{"Name": "tenant-log-bucket"}]}
+
+    service = _build_service(db_session, monkeypatch, FakeAdmin())
+    monkeypatch.setattr(s3_client, "get_s3_client", lambda *args, **kwargs: FakeS3())
+
+    assert service.get_account_usage(account) == (None, None, 1)
 
 def test_create_account_with_root(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)

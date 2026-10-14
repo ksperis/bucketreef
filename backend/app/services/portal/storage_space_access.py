@@ -231,6 +231,7 @@ class PortalStorageSpaceAccessMixin:
         iam_service: RGWIAMService,
         iam_username: Optional[str],
         access_by_bucket: dict[str, PortalStorageSpaceRole],
+        account: Optional[S3Account] = None,
     ) -> None:
         if not iam_username:
             raise RuntimeError("IAM username missing for this portal user")
@@ -249,7 +250,7 @@ class PortalStorageSpaceAccessMixin:
             for bucket_name, bucket_role in sorted(access_by_bucket.items()):
                 if bucket_role != role:
                     continue
-                resources.extend(self._bucket_arns(bucket_name))
+                resources.extend(self._bucket_arns(bucket_name, account))
             if resources:
                 next_statements.append(
                     {
@@ -284,7 +285,12 @@ class PortalStorageSpaceAccessMixin:
             if portal_role == PortalAccountRole.PORTAL_MANAGER.value
             else self._storage_space_roles_by_bucket(user, account, portal_role)
         )
-        self._sync_user_storage_space_policy_projection(iam_service, iam_username, access_by_bucket)
+        self._sync_user_storage_space_policy_projection(
+            iam_service,
+            iam_username,
+            access_by_bucket,
+            account,
+        )
 
     def _storage_space_participant_user_ids(self, metadata: PortalStorageSpaceMetadata) -> set[int]:
         user_ids: set[int] = set()

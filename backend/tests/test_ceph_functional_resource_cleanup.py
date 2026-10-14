@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -26,8 +25,8 @@ class _AdminSession:
         self.get_calls.append((path, params or {}))
         if path == "/admin/accounts/7":
             return {"storage_endpoint_id": 3}
-        if path == "/ceph-admin/endpoints/3/buckets":
-            return {"items": list(self.bucket_items)}
+        if path == "/manager/buckets":
+            return list(self.bucket_items)
         raise AssertionError(f"unexpected GET {path}")
 
     def delete(self, path: str, *, params=None, json=None, expected_status=(200,)):
@@ -38,10 +37,20 @@ class _AdminSession:
 class _RgwAdminClient:
     def __init__(self) -> None:
         self.deleted_buckets: list[tuple[str, bool]] = []
+        self.deleted_accounts: list[str] = []
+        self.list_users_calls = 0
 
     def delete_bucket_operation(self, bucket: str, *, purge_objects: bool = False):
         self.deleted_buckets.append((bucket, purge_objects))
         return _OperationResult()
+
+    def delete_account_operation(self, account_id: str):
+        self.deleted_accounts.append(account_id)
+        return _OperationResult()
+
+    def list_users(self):
+        self.list_users_calls += 1
+        return []
 
 
 def test_cleanup_purges_tracked_bucket_through_ceph_admin() -> None:
@@ -67,7 +76,7 @@ def test_cleanup_purges_tracked_bucket_through_ceph_admin() -> None:
     ]
 
 
-def test_cleanup_discovers_and_purges_buckets_owned_by_tracked_rgw_account() -> None:
+def test_cleanup_discovers_and_purges_buckets_through_account_scope() -> None:
     admin = _AdminSession()
     admin.bucket_items = [
         {"name": "derived-portal-bucket", "owner": "RGW00000000000000007"},
@@ -81,22 +90,7 @@ def test_cleanup_discovers_and_purges_buckets_owned_by_tracked_rgw_account() -> 
 
     assert tracker.cleanup() == []
 
-    listing_call = next(
-        call
-        for call in admin.get_calls
-        if call[0] == "/ceph-admin/endpoints/3/buckets"
-    )
-    advanced_filter = json.loads(listing_call[1]["advanced_filter"])
-    assert advanced_filter == {
-        "match": "all",
-        "rules": [
-            {
-                "field": "owner",
-                "op": "eq",
-                "value": "RGW00000000000000007",
-            }
-        ],
-    }
+    assert ("/manager/buckets", {"account_id": 7}) in admin.get_calls
     assert (
         "/ceph-admin/endpoints/3/buckets/derived-portal-bucket",
         {},
@@ -113,3 +107,15 @@ def test_cleanup_discovers_and_purges_buckets_owned_by_tracked_rgw_account() -> 
         {},
         (204,),
     ) in admin.deleted
+
+
+def test_cleanup_deletes_empty_ceph_admin_account_without_global_user_scan() -> None:
+    admin = _AdminSession()
+    rgw = _RgwAdminClient()
+    tracker = ResourceTracker(admin_session=admin, rgw_admin_client=rgw)
+    tracker.track_ceph_admin_account("RGW00000000000000008")
+
+    assert tracker.cleanup() == []
+
+    assert rgw.deleted_accounts == ["RGW00000000000000008"]
+    assert rgw.list_users_calls == 0

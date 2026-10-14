@@ -142,16 +142,25 @@ def _assert_s3_bucket_access_denied(
 
 
 def _delete_test_bucket(
-    manager_session: BackendSession,
+    super_admin_session: BackendSession,
     resource_tracker: ResourceTracker,
     account_id: int,
     bucket_name: str,
 ) -> None:
     try:
-        manager_session.delete(
-            f"/manager/buckets/{bucket_name}",
-            params={"account_id": account_id, "force": "true"},
-            expected_status=(200, 204, 404),
+        account = super_admin_session.get(f"/admin/accounts/{account_id}")
+        endpoint_id = int(account["storage_endpoint_id"])
+        tenant = str(account.get("rgw_tenant") or "").strip()
+        target = f"{tenant}/{bucket_name}" if tenant else bucket_name
+        super_admin_session.delete(
+            f"/ceph-admin/endpoints/{endpoint_id}/buckets/{bucket_name}",
+            params={"tenant": tenant} if tenant else None,
+            json={
+                "confirmation": f"PURGE AND DELETE BUCKET {target}",
+                "purge_objects": True,
+                "bypass_gc": False,
+            },
+            expected_status=(200, 404),
         )
     except BackendAPIError:
         return
@@ -413,7 +422,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             except BackendAPIError:
                 pass
         if bucket_name:
-            _delete_test_bucket(manager_session, resource_tracker, account_id, bucket_name)
+            _delete_test_bucket(super_admin_session, resource_tracker, account_id, bucket_name)
         if storage_space_id:
             try:
                 manager_session.delete(
@@ -423,7 +432,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
                 )
             except BackendAPIError:
                 pass
-        _delete_test_bucket(manager_session, resource_tracker, account_id, log_bucket)
+        _delete_test_bucket(super_admin_session, resource_tracker, account_id, log_bucket)
         account_cleaned = _cleanup_account_before_user(
             super_admin_session,
             resource_tracker,

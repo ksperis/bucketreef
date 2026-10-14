@@ -20,6 +20,7 @@ class PortalIamPolicyDocumentsMixin:
     def _resolve_group_policy(
         self,
         group_key: str,
+        account: Optional[S3Account] = None,
     ) -> dict:
         if group_key == "manager":
             return {
@@ -35,7 +36,7 @@ class PortalIamPolicyDocumentsMixin:
                         "Sid": PORTAL_MANAGER_PROJECT_STORAGE_SID,
                         "Effect": "Allow",
                         "Action": self._storage_space_role_actions("Manager"),
-                        "Resource": ["arn:aws:s3:::*", "arn:aws:s3:::*/*"],
+                        "Resource": self._bucket_arns("*", account),
                     },
                 ],
             }
@@ -104,8 +105,15 @@ class PortalIamPolicyDocumentsMixin:
             "s3:PutLifecycleConfiguration",
         ]
 
-    def _bucket_arns(self, bucket_name: str) -> list[str]:
-        return [f"arn:aws:s3:::{bucket_name}", f"arn:aws:s3:::{bucket_name}/*"]
+    def _bucket_arns(
+        self,
+        bucket_name: str,
+        account: Optional[S3Account] = None,
+    ) -> list[str]:
+        tenant = str(account.rgw_tenant or "").strip() if account is not None else ""
+        prefix = f"arn:aws:s3::{tenant}:" if tenant else "arn:aws:s3:::"
+        bucket_arn = f"{prefix}{bucket_name}"
+        return [bucket_arn, f"{bucket_arn}/*"]
 
     def _storage_space_policy_actions(self) -> list[str]:
         return [
@@ -159,7 +167,7 @@ class PortalIamPolicyDocumentsMixin:
             "Statement": [],
         }
         statements = policy["Statement"]
-        resources = self._bucket_arns(bucket_name)
+        resources = self._bucket_arns(bucket_name, account)
         actions = self._storage_space_policy_actions()
         if metadata.archived_at:
             statements.append(

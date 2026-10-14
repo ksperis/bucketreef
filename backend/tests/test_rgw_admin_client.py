@@ -216,7 +216,7 @@ def test_get_all_buckets_uses_extended_timeout_only_with_stats(monkeypatch):
     assert captured[1]["params"] == {"format": "json", "stats": "true"}
 
 
-def test_update_account_uses_canonical_id_and_snake_case_limits(monkeypatch):
+def test_update_account_uses_canonical_id_and_admin_ops_limit_names(monkeypatch):
     client = RGWAdminClient(
         access_key="AKIA-TEST",
         secret_key="SECRET-TEST",
@@ -244,21 +244,21 @@ def test_update_account_uses_canonical_id_and_snake_case_limits(monkeypatch):
     )
 
     params = captured["params"]
-    assert captured["method"] == "POST"
+    assert captured["method"] == "PUT"
     assert captured["path"] == "/admin/account"
     assert isinstance(params, dict)
     assert params["id"] == "RGW-01"
-    assert params["max_users"] == 10
-    assert params["max_buckets"] == 20
-    assert params["max_roles"] == 30
-    assert params["max_groups"] == 40
-    assert params["max_access_keys"] == 50
+    assert params["max-users"] == 10
+    assert params["max-buckets"] == 20
+    assert params["max-roles"] == 30
+    assert params["max-groups"] == 40
+    assert params["max-access-keys"] == 50
     assert "account-id" not in params
-    assert "max-users" not in params
-    assert "max-buckets" not in params
-    assert "max-roles" not in params
-    assert "max-groups" not in params
-    assert "max-access-keys" not in params
+    assert "max_users" not in params
+    assert "max_buckets" not in params
+    assert "max_roles" not in params
+    assert "max_groups" not in params
+    assert "max_access_keys" not in params
 
 
 def test_set_account_quota_uses_id_only(monkeypatch):

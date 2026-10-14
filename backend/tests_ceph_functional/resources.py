@@ -50,7 +50,7 @@ class ResourceTracker:
     users: list[int] = field(default_factory=list)
     migrations: list[int] = field(default_factory=list)
     ceph_admin_users: list[tuple[str, str | None]] = field(default_factory=list)
-    ceph_admin_accounts: list[str] = field(default_factory=list)
+    ceph_admin_accounts: list[tuple[str, bool]] = field(default_factory=list)
     ceph_admin_buckets: list[tuple[str, str | None]] = field(default_factory=list)
 
     def track_account(
@@ -77,10 +77,15 @@ class ResourceTracker:
             return
         self.ceph_admin_users.append((uid, tenant))
 
-    def track_ceph_admin_account(self, account_id: str) -> None:
+    def track_ceph_admin_account(
+        self,
+        account_id: str,
+        *,
+        cleanup_users_on_conflict: bool = True,
+    ) -> None:
         if not account_id:
             return
-        self.ceph_admin_accounts.append(account_id)
+        self.ceph_admin_accounts.append((account_id, cleanup_users_on_conflict))
 
     def track_ceph_admin_bucket(self, bucket: str, *, tenant: str | None = None) -> None:
         if not bucket:
@@ -115,7 +120,11 @@ class ResourceTracker:
         ]
 
     def discard_ceph_admin_account(self, account_id: str) -> None:
-        self.ceph_admin_accounts = [tracked_id for tracked_id in self.ceph_admin_accounts if tracked_id != account_id]
+        self.ceph_admin_accounts = [
+            (tracked_id, cleanup_users)
+            for tracked_id, cleanup_users in self.ceph_admin_accounts
+            if tracked_id != account_id
+        ]
 
     def discard_ceph_admin_bucket(self, bucket: str, *, tenant: str | None = None) -> None:
         self.ceph_admin_buckets = [
@@ -275,13 +284,21 @@ class ResourceTracker:
                             log(f"Deleted RGW user {uid}{tenant_suffix}")
                     except Exception as exc:  # pragma: no cover - network/cluster dependent
                         errors.append(f"ceph-admin user {uid} (tenant={tenant or '-'}) cleanup failed: {exc}")
-                for account_id in reversed(self.ceph_admin_accounts):
+                for account_id, cleanup_users_on_conflict in reversed(self.ceph_admin_accounts):
                     try:
-                        self._cleanup_rgw_account_users(account_id, log=log)
                         strict_delete = getattr(self.rgw_admin_client, "delete_account_operation", None)
                         if callable(strict_delete):
-                            _require_cleanup_success(strict_delete(account_id))
+                            result = strict_delete(account_id)
+                            if (
+                                not result.success
+                                and result.status_code == 409
+                                and cleanup_users_on_conflict
+                            ):
+                                self._cleanup_rgw_account_users(account_id, log=log)
+                                result = strict_delete(account_id)
+                            _require_cleanup_success(result)
                         else:
+                            self._cleanup_rgw_account_users(account_id, log=log)
                             self.rgw_admin_client.delete_account(account_id)
                         if log:
                             log(f"Deleted RGW account {account_id}")
@@ -300,52 +317,30 @@ class ResourceTracker:
         *,
         log: Callable[[str], None] | None = None,
     ) -> None:
-        """Purge buckets still owned by a tracked test account before RGW deletion."""
+        """Discover account buckets through Manager, then purge them through Ceph Admin."""
 
         account = self.admin_session.get(f"/admin/accounts/{account_id}")
         endpoint_id = int(account["storage_endpoint_id"])
-        advanced_filter = json.dumps(
-            {
-                "match": "all",
-                "rules": [
-                    {
-                        "field": "owner",
-                        "op": "eq",
-                        "value": rgw_account_id,
-                    }
-                ],
-            }
+        tenant = str(account.get("rgw_tenant") or "").strip()
+        payload = self.admin_session.get(
+            "/manager/buckets",
+            params={"account_id": account_id},
         )
-        page = 1
-        page_size = 200
-        bucket_names: list[str] = []
-
-        while True:
-            payload = self.admin_session.get(
-                f"/ceph-admin/endpoints/{endpoint_id}/buckets",
-                params={
-                    "page": page,
-                    "page_size": page_size,
-                    "advanced_filter": advanced_filter,
-                    "with_stats": "false",
-                },
-            )
-            items = payload.get("items", []) if isinstance(payload, dict) else []
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                bucket_name = str(item.get("name") or item.get("bucket") or "").strip()
-                if bucket_name:
-                    bucket_names.append(bucket_name)
-            if len(items) < page_size:
-                break
-            page += 1
+        items = payload.get("items", []) if isinstance(payload, dict) else payload
+        bucket_names = [
+            str(item.get("name") or item.get("bucket") or "").strip()
+            for item in (items or [])
+            if isinstance(item, dict)
+            and str(item.get("name") or item.get("bucket") or "").strip()
+        ]
 
         for bucket_name in dict.fromkeys(bucket_names):
+            target = f"{tenant}/{bucket_name}" if tenant else bucket_name
             self.admin_session.delete(
                 f"/ceph-admin/endpoints/{endpoint_id}/buckets/{bucket_name}",
+                params={"tenant": tenant} if tenant else None,
                 json={
-                    "confirmation": f"PURGE AND DELETE BUCKET {bucket_name}",
+                    "confirmation": f"PURGE AND DELETE BUCKET {target}",
                     "purge_objects": True,
                     "bypass_gc": False,
                 },

@@ -102,7 +102,14 @@ def test_ceph_admin_users_listing_detail_config_keys_and_metrics(
         if matched is None:
             pytest.skip(f"RGW user {uid} is not exposed by ceph-admin listing on this cluster")
         tenant = matched.get("tenant")
-        tenant_query = {"tenant": tenant} if tenant else None
+        tenant_query = {
+            **({"tenant": tenant} if tenant else {}),
+            **(
+                {"expected_account_id": matched["account_id"]}
+                if matched.get("account_id")
+                else {}
+            ),
+        }
 
         detail = run_or_skip(
             "ceph-admin user detail",

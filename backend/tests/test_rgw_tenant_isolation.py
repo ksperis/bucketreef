@@ -86,9 +86,11 @@ def test_account_user_inventory_excludes_actual_tenanted_root(db_session):
     account_id = "RGW12345678901234567"
     admin = SimpleNamespace(
         account_api_supported=True,
-        get_account=lambda *args, **kwargs: {"id": account_id, "tenant": "customer01"},
-        list_user_ids=lambda: ["customer01$custom-root", "customer01$member", "customer02$member"],
-        get_user=lambda uid, **kwargs: {"user_id": uid, "tenant": "customer01", "account_id": account_id},
+        get_account=lambda *args, **kwargs: {
+            "id": account_id,
+            "tenant": "customer01",
+            "user_list": ["customer01$custom-root", "customer01$member"],
+        },
     )
     service = S3AccountsService(db_session)
     assert service._account_rgw_users(account_id, None, admin, root_uid="custom-root") == (1, ["customer01$member"])

@@ -581,6 +581,43 @@ def test_portal_manager_group_policy_uses_fixed_account_access(db_session):
     assert "s3:*" not in statements[1]["Action"]
 
 
+def test_portal_policy_arns_are_scoped_to_explicit_rgw_tenant(db_session):
+    account = make_s3_account(
+        db_session,
+        name="tenant-policy-account",
+        rgw_account_id="RGW00000000000000042",
+        rgw_tenant="customer42",
+    )
+    service = PortalService(db_session)
+
+    manager_policy = service._resolve_group_policy("manager", account)
+    assert manager_policy["Statement"][1]["Resource"] == [
+        "arn:aws:s3::customer42:*",
+        "arn:aws:s3::customer42:*/*",
+    ]
+    assert service._bucket_arns("research-data", account) == [
+        "arn:aws:s3::customer42:research-data",
+        "arn:aws:s3::customer42:research-data/*",
+    ]
+
+    log_policy = service._portal_server_access_log_policy(
+        account,
+        "portal-logs",
+        None,
+    )
+    logging_statement = next(
+        statement
+        for statement in log_policy["Statement"]
+        if statement["Sid"] == "BucketReefPortalServerAccessLogging"
+    )
+    assert logging_statement["Resource"] == (
+        "arn:aws:s3::customer42:portal-logs/portal-server-access/*"
+    )
+    assert logging_statement["Condition"]["ArnLike"] == {
+        "aws:SourceArn": "arn:aws:s3::customer42:*"
+    }
+
+
 def test_portal_groups_always_receive_their_bootstrap_policies(db_session):
     service = PortalService(db_session)
     iam_service = Mock()
