@@ -12,6 +12,11 @@ import {
   type BucketUsageStatsSnapshot,
 } from "../../../api/bucketUsageStats";
 import { extractApiError, isCancelledError } from "../../../utils/apiError";
+import {
+  bucketUsageStatsErrorMessage,
+  bucketUsageStatsMessage,
+  useBucketUsageStatsI18n,
+} from "../../shared/bucketUsageStatsMessage";
 
 type UseBucketUsageStatsControllerOptions = {
   accountId: S3AccountSelector;
@@ -28,6 +33,7 @@ export function useBucketUsageStatsController({
   enabled,
   endpointId,
 }: UseBucketUsageStatsControllerOptions) {
+  const { locale } = useBucketUsageStatsI18n();
   const [snapshot, setSnapshot] = useState<BucketUsageStatsSnapshot | null>(
     null,
   );
@@ -58,7 +64,7 @@ export function useBucketUsageStatsController({
       setSnapshot(data.snapshot ?? null);
     } catch (loadFailure) {
       setSnapshot(null);
-      setError(extractApiError(loadFailure, "Unable to load bucket usage stats."));
+      setError(extractApiError(loadFailure, bucketUsageStatsMessage.loadError.en));
     } finally {
       setLoading(false);
     }
@@ -90,7 +96,7 @@ export function useBucketUsageStatsController({
         setError(
           extractApiError(
             recalculationFailure,
-            "Unable to calculate bucket usage stats.",
+            bucketUsageStatsMessage.recalculateError.en,
           ),
         );
       }
@@ -114,7 +120,7 @@ export function useBucketUsageStatsController({
 
   return {
     cancelRecalculation,
-    error,
+    error: bucketUsageStatsErrorMessage(error, locale),
     load,
     loading,
     recalculate,

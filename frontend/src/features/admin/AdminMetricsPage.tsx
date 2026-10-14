@@ -35,10 +35,12 @@ import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
+import { adminMetricsSourceText, useAdminMetricsI18n } from "./adminMetricsMessage";
 
 type AdminMetricsTab = "storage" | "usage-composition" | "usage-history" | "traffic";
 
 export default function AdminMetricsPage() {
+  const { text, translateText } = useAdminMetricsI18n();
   const { generalSettings } = useGeneralSettings();
   const [activeTab, setActiveTab] = useState<AdminMetricsTab>("storage");
   const [storage, setStorage] = useState<AdminStats | null>(null);
@@ -79,7 +81,7 @@ export default function AdminMetricsPage() {
         setEndpoints(cephEndpoints);
         if (cephEndpoints.length === 0) {
           setSelectedEndpointId(null);
-          setEndpointError("No Ceph endpoint available for metrics.");
+          setEndpointError(adminMetricsSourceText("noEndpointError"));
         } else {
           const preferred = cephEndpoints.find((ep) => ep.is_default) || cephEndpoints[0];
           setSelectedEndpointId((current) => current ?? preferred.id);
@@ -88,7 +90,7 @@ export default function AdminMetricsPage() {
         if (!cancelled) {
           setEndpoints([]);
           setSelectedEndpointId(null);
-          setEndpointError(extractApiError(err, "Unable to retrieve the endpoint list."));
+          setEndpointError(extractApiError(err, adminMetricsSourceText("loadEndpointsError")));
         }
       } finally {
         if (!cancelled) {
@@ -123,7 +125,7 @@ export default function AdminMetricsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setStorageError(extractApiError(err, "Unable to load admin storage metrics."));
+          setStorageError(extractApiError(err, adminMetricsSourceText("loadStorageError")));
           setStorage(null);
         }
       } finally {
@@ -159,7 +161,7 @@ export default function AdminMetricsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setTrafficError(extractApiError(err, "Unable to retrieve RGW logs."));
+          setTrafficError(extractApiError(err, adminMetricsSourceText("loadTrafficError")));
           setTraffic(null);
         }
       } finally {
@@ -203,7 +205,7 @@ export default function AdminMetricsPage() {
       } catch (err) {
         if (!cancelled) {
           setUsageHistoryTrends(null);
-          setUsageHistoryError(extractApiError(err, "Unable to load usage history trends."));
+          setUsageHistoryError(extractApiError(err, adminMetricsSourceText("loadHistoryError")));
         }
       } finally {
         if (!cancelled) {
@@ -231,7 +233,7 @@ export default function AdminMetricsPage() {
       setUsageStatsAggregate(data.aggregate);
     } catch (err) {
       setUsageStatsAggregate(null);
-      setUsageStatsError(extractApiError(err, "Unable to load managed accounts usage composition."));
+      setUsageStatsError(extractApiError(err, adminMetricsSourceText("loadCompositionError")));
     } finally {
       setUsageStatsLoading(false);
     }
@@ -256,7 +258,7 @@ export default function AdminMetricsPage() {
       await loadUsageStatsAggregate();
     } catch (err) {
       if (!isCancelledError(err)) {
-        setUsageStatsError(extractApiError(err, "Unable to recalculate managed accounts usage composition."));
+        setUsageStatsError(extractApiError(err, adminMetricsSourceText("recalculateCompositionError")));
       }
     } finally {
       if (usageStatsAbortRef.current === controller) {
@@ -292,11 +294,11 @@ export default function AdminMetricsPage() {
     () =>
       (storage?.s3_user_usage ?? []).map((user) => ({
         id: user.rgw_user_uid || `s3-user-${user.user_id}`,
-        label: user.user_name || user.rgw_user_uid || `User #${user.user_id}`,
+        label: user.user_name || user.rgw_user_uid || text("userFallback", { id: user.user_id }),
         usedBytes: user.used_bytes ?? null,
         objectCount: user.object_count ?? null,
       })),
-    [storage?.s3_user_usage]
+    [storage?.s3_user_usage, text]
   );
 
   const missingTraffic = selectedEndpointId != null && !traffic && !trafficLoading && !trafficError;
@@ -305,22 +307,22 @@ export default function AdminMetricsPage() {
   const metricsTabs = useMemo(
     () =>
       [
-        { id: "storage" as const, label: "Storage" },
-        { id: "usage-composition" as const, label: "Usage composition" },
-        ...(showUsageHistoryTrends ? [{ id: "usage-history" as const, label: "Usage history" }] : []),
-        { id: "traffic" as const, label: "Traffic" },
+        { id: "storage" as const, label: text("storage") },
+        { id: "usage-composition" as const, label: text("usageComposition") },
+        ...(showUsageHistoryTrends ? [{ id: "usage-history" as const, label: text("usageHistory") }] : []),
+        { id: "traffic" as const, label: text("traffic") },
       ],
-    [showUsageHistoryTrends]
+    [showUsageHistoryTrends, text]
   );
   const usageStatsAggregateSection = (
     <BucketUsageStatsAggregateCard
-      title="Managed accounts usage composition"
-      description="Latest calculated bucket snapshots for S3 accounts managed by the application on the selected endpoint."
+      title={text("managedAccountsComposition")}
+      description={text("managedAccountsDescription")}
       aggregate={usageStatsAggregate}
       loading={usageStatsLoading}
-      error={usageStatsError}
+      error={usageStatsError ? translateText(usageStatsError) : null}
       recalculating={usageStatsRecalculating}
-      recalculateLabel="Recalculate endpoint"
+      recalculateLabel={text("recalculateEndpoint")}
       onCancel={handleCancelUsageStats}
       onRecalculate={handleRecalculateUsageStats}
     />
@@ -335,11 +337,14 @@ export default function AdminMetricsPage() {
   return (
     <div className="space-y-4 ui-caption leading-relaxed">
       <PageHeader
-        title="Usage & Metrics"
-        description="Managed account usage composition, platform storage, and traffic analytics."
-        breadcrumbs={adminPageBreadcrumbs("metrics")}
+        title={text("title")}
+        description={text("description")}
+        breadcrumbs={adminPageBreadcrumbs("metrics").map((breadcrumb) => ({
+          ...breadcrumb,
+          label: breadcrumb.to === "/admin" ? text("admin") : text("title"),
+        }))}
         rightContent={            <UiSelect
-              label="Ceph endpoint"
+              label={text("endpoint")}
               value={selectedEndpointId ?? ""}
               onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
               disabled={endpointLoading || endpoints.length === 0}
@@ -347,12 +352,12 @@ export default function AdminMetricsPage() {
               className="ui-list-control"
               size="compact"
             >
-              {endpointLoading && <option value="">Loading...</option>}
-              {!endpointLoading && endpoints.length === 0 && <option value="">No Ceph endpoint</option>}
+              {endpointLoading && <option value="">{text("loading")}</option>}
+              {!endpointLoading && endpoints.length === 0 && <option value="">{text("noEndpoint")}</option>}
               {!endpointLoading &&
                 endpoints.map((endpoint) => (
                   <option key={endpoint.id} value={endpoint.id} title={endpoint.endpoint_url}>
-                    {endpoint.is_default ? `${endpoint.name} (default)` : endpoint.name}
+                    {endpoint.is_default ? text("defaultEndpoint", { name: endpoint.name }) : endpoint.name}
                   </option>
                 ))}
             </UiSelect>}
@@ -360,9 +365,9 @@ export default function AdminMetricsPage() {
 
       {!endpointLoading && selectedEndpointId == null ? (
         <PageEmptyState
-          title="No Ceph endpoint available for metrics"
-          description={endpointError || "Add or enable a Ceph endpoint before loading platform metrics."}
-          primaryAction={{ label: "Open endpoints", to: "/admin/endpoints" }}
+          title={text("noEndpointTitle")}
+          description={endpointError ? translateText(endpointError) : text("noEndpointDescription")}
+          primaryAction={{ label: text("openEndpoints"), to: "/admin/endpoints" }}
           tone="warning"
         />
       ) : null}
@@ -374,7 +379,7 @@ export default function AdminMetricsPage() {
             activeTab={activeTab}
             onChange={(tab) => setActiveTab(tab as AdminMetricsTab)}
             variant="line"
-            ariaLabel="Admin metrics sections"
+            ariaLabel={text("sections")}
             idPrefix="admin-metrics"
           />
 
@@ -382,41 +387,41 @@ export default function AdminMetricsPage() {
           {activeTab === "storage" ? (
             storageError ? (
               <MetricsUnavailableCard
-                title="Storage snapshot"
-                description="Aggregated stats across known S3 accounts."
-                message={storageError}
+                title={text("storageSnapshot")}
+                description={text("storageSnapshotDescription")}
+                message={translateText(storageError)}
                 tone="warning"
               />
             ) : (
               <>
                 <MetricsSummaryCard
-                  title="Storage snapshot"
-                  description="Aggregated stats across known S3 accounts."
+                  title={text("storageSnapshot")}
+                  description={text("storageSnapshotDescription")}
                   updatedAt={storage?.generated_at}
                 >
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <MetricsSnapshotCard
-                      label="Stored volume"
+                      label={text("storedVolume")}
                       value={storageTotals?.used_bytes != null ? formatBytes(storageTotals.used_bytes) : "—"}
-                      hint="Sum of known buckets"
+                      hint={text("knownBuckets")}
                       loading={storageLoading}
                     />
                     <MetricsSnapshotCard
-                      label="Objects"
+                      label={text("objects")}
                       value={storageTotals?.object_count != null ? formatCompactNumber(storageTotals.object_count) : "—"}
-                      hint="Instant count"
+                      hint={text("instantCount")}
                       loading={storageLoading}
                     />
                     <MetricsSnapshotCard
-                      label="Visible buckets"
+                      label={text("visibleBuckets")}
                       value={storageTotals?.bucket_count != null ? formatCompactNumber(storageTotals.bucket_count) : "—"}
-                      hint="Based on root credentials"
+                      hint={text("rootCredentials")}
                       loading={storageLoading}
                     />
                     <MetricsSnapshotCard
-                      label="S3 accounts"
+                      label={text("s3Accounts")}
                       value={storage ? formatCompactNumber(storage.total_accounts) : "—"}
-                      hint={`${formatCompactNumber(storage?.total_s3_users ?? 0)} S3 users`}
+                      hint={text("s3UsersCount", { count: formatCompactNumber(storage?.total_s3_users ?? 0) })}
                       loading={storageLoading}
                     />
                   </div>
@@ -424,39 +429,51 @@ export default function AdminMetricsPage() {
 
                 {showStorageMetrics && (
                   <MetricsCard
-                    title="Storage breakdown"
-                    description="Accounts and S3 users by volume and object count."
+                    title={text("storageBreakdown")}
+                    description={text("storageBreakdownDescription")}
                   >
                     <div className="grid gap-6 xl:grid-cols-2">
                       <UsageBreakdown
-                        title="Accounts (volume)"
+                        title={text("accountsVolume")}
                         loading={storageLoading}
                         metric="bytes"
                         items={accountUsageItems}
-                        emptyMessage="No volume data available."
+                        emptyMessage={text("noVolume")}
+                        objectUnitLabel={text("objectUnit")}
+                        othersLabel={text("others")}
+                        totalLabel={text("total")}
                       />
                       <UsageBreakdown
-                        title="Accounts (objects)"
+                        title={text("accountsObjects")}
                         loading={storageLoading}
                         metric="objects"
                         items={accountUsageItems}
-                        emptyMessage="No object data available."
+                        emptyMessage={text("noObjects")}
+                        objectUnitLabel={text("objectUnit")}
+                        othersLabel={text("others")}
+                        totalLabel={text("total")}
                       />
                     </div>
                     <div className="grid gap-6 xl:grid-cols-2">
                       <UsageBreakdown
-                        title="S3 users (volume)"
+                        title={text("usersVolume")}
                         loading={storageLoading}
                         metric="bytes"
                         items={userUsageItems}
-                        emptyMessage="No S3 users with metrics."
+                        emptyMessage={text("noUserMetrics")}
+                        objectUnitLabel={text("objectUnit")}
+                        othersLabel={text("others")}
+                        totalLabel={text("total")}
                       />
                       <UsageBreakdown
-                        title="S3 users (objects)"
+                        title={text("usersObjects")}
                         loading={storageLoading}
                         metric="objects"
                         items={userUsageItems}
-                        emptyMessage="No S3 users with metrics."
+                        emptyMessage={text("noUserMetrics")}
+                        objectUnitLabel={text("objectUnit")}
+                        othersLabel={text("others")}
+                        totalLabel={text("total")}
                       />
                     </div>
                   </MetricsCard>
@@ -473,8 +490,9 @@ export default function AdminMetricsPage() {
               window={usageHistoryWindow}
               onWindowChange={setUsageHistoryWindow}
               loading={usageHistoryLoading}
-              error={usageHistoryError}
-              description="Stored quota snapshots across accounts and S3 users for the selected endpoint."
+              error={usageHistoryError ? translateText(usageHistoryError) : null}
+              description={text("historyDescription")}
+              text={translateText}
             />
           )}
 
@@ -484,7 +502,7 @@ export default function AdminMetricsPage() {
               window={window}
               onWindowChange={setWindow}
               loading={trafficLoading}
-              error={trafficError}
+              error={trafficError ? translateText(trafficError) : null}
               showEmpty={missingTraffic}
             />
           ) : null}

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useCallback, useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -21,16 +21,18 @@ import { MetricsCard, MetricsChartPanel } from "./MetricsCard";
 import MetricsUnavailableCard from "./MetricsUnavailableCard";
 import { MetricsSnapshotCard } from "./MetricsTrafficOverview";
 import UiSegmentedControl from "./ui/UiSegmentedControl";
-import { formatChartTooltipTimestamp, type ChartTooltipProps } from "./chartTooltip";
+import type { ChartTooltipProps } from "./chartTooltip";
+import type { UiLanguage } from "./language";
+import { usageHistoryMessage, useUsageHistoryI18n, type UsageHistoryMessageKey, type UsageHistoryText } from "./usageHistoryMessage";
 import {
   cx,
   uiMenuClass,
 } from "./ui/styles";
 
-const WINDOW_OPTIONS: { label: string; value: UsageHistoryTrendWindow; helper: string }[] = [
-  { label: "24h", value: "day", helper: "Hourly snapshots" },
-  { label: "7d", value: "week", helper: "Daily snapshots" },
-  { label: "30d", value: "month", helper: "Daily snapshots" },
+const WINDOW_OPTIONS: { label: UsageHistoryMessageKey; value: UsageHistoryTrendWindow; helper: UsageHistoryMessageKey }[] = [
+  { label: "dayWindow", value: "day", helper: "hourlySnapshots" },
+  { label: "weekWindow", value: "week", helper: "dailySnapshots" },
+  { label: "monthWindow", value: "month", helper: "dailySnapshots" },
 ];
 
 type TrendPoint = UsageHistoryTrendResponse["points"][number] & {
@@ -67,13 +69,6 @@ type UsageHistoryTrendsSectionProps = {
   };
 };
 
-function fallbackText(message: string, values?: Record<string, string | number>): string {
-  if (!values) return message;
-  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-  );
-}
-
 export default function UsageHistoryTrendsSection({
   trends,
   window,
@@ -85,8 +80,12 @@ export default function UsageHistoryTrendsSection({
   text: translateText,
   labels,
 }: UsageHistoryTrendsSectionProps) {
-  const text = translateText ?? fallbackText;
-  const resolvedTitle = title ?? text("Usage history");
+  const { locale, text: defaultText } = useUsageHistoryI18n();
+  const text: UsageHistoryText = useCallback(
+    (key, values) => translateText ? translateText(usageHistoryMessage[key].en, values) : defaultText(key, values),
+    [defaultText, translateText],
+  );
+  const resolvedTitle = title ?? text("title");
   const chartData = useMemo<TrendPoint[]>(
     () =>
       (trends?.points ?? [])
@@ -110,14 +109,14 @@ export default function UsageHistoryTrendsSection({
   }, [chartData, window]);
   const summary = trends?.summary;
   const hasData = chartData.length > 0;
-  const helper = text(WINDOW_OPTIONS.find((option) => option.value === window)?.helper ?? "Stored snapshots");
-  const subtitle = description ?? text("{helper} from collected quota usage history.", { helper });
+  const helper = text(WINDOW_OPTIONS.find((option) => option.value === window)?.helper ?? "storedSnapshots");
+  const subtitle = description ?? text("trendsDescription", { helper });
 
   if (error) {
     return (
       <MetricsUnavailableCard
         title={resolvedTitle}
-        description={labels?.unavailableDescription ?? text("Stored quota snapshots over time.")}
+        description={labels?.unavailableDescription ?? text("unavailableDescription")}
         message={error}
         tone="error"
       />
@@ -128,8 +127,8 @@ export default function UsageHistoryTrendsSection({
     return (
       <MetricsUnavailableCard
         title={resolvedTitle}
-        description={labels?.unavailableDescription ?? text("Stored quota snapshots over time.")}
-        message={trends.unavailable_reason || text("Usage history trends are unavailable for this context.")}
+        description={labels?.unavailableDescription ?? text("unavailableDescription")}
+        message={trends.unavailable_reason || text("trendsUnavailable")}
       />
     );
   }
@@ -140,8 +139,8 @@ export default function UsageHistoryTrendsSection({
       description={subtitle}
       actions={
         <UiSegmentedControl
-          ariaLabel={text("{title} window", { title: resolvedTitle })}
-          options={WINDOW_OPTIONS}
+          ariaLabel={text("windowLabel", { title: resolvedTitle })}
+          options={WINDOW_OPTIONS.map((option) => ({ ...option, label: text(option.label), helper: text(option.helper) }))}
           value={window}
           onChange={onWindowChange}
         />
@@ -150,38 +149,39 @@ export default function UsageHistoryTrendsSection({
 
       <div className="grid gap-4 md:grid-cols-4">
         <MetricsSnapshotCard
-          label={labels?.latestStorage ?? text("Latest storage")}
+          label={labels?.latestStorage ?? text("latestStorage")}
           value={formatBytes(summary?.latest_used_bytes ?? 0)}
-          hint={labels?.latestStorageHint ?? text("{count} subjects", { count: formatCompactNumber(summary?.subjects_count ?? 0) })}
+          hint={labels?.latestStorageHint ?? text("subjectsCount", { count: formatCompactNumber(summary?.subjects_count ?? 0) })}
           loading={loading}
         />
         <MetricsSnapshotCard
-          label={labels?.latestObjects ?? text("Latest objects")}
+          label={labels?.latestObjects ?? text("latestObjects")}
           value={formatCompactNumber(summary?.latest_used_objects ?? 0)}
-          hint={labels?.latestObjectsHint ?? text("{count} buckets", { count: formatCompactNumber(summary?.latest_bucket_count ?? 0) })}
+          hint={labels?.latestObjectsHint ?? text("bucketsCount", { count: formatCompactNumber(summary?.latest_bucket_count ?? 0) })}
           loading={loading}
         />
         <MetricsSnapshotCard
-          label={labels?.maxQuotaRatio ?? text("Max quota ratio")}
+          label={labels?.maxQuotaRatio ?? text("maxQuotaRatio")}
           value={formatPercentage(summary?.max_usage_ratio_pct)}
-          hint={labels?.maxQuotaHint ?? text("Highest point")}
+          hint={labels?.maxQuotaHint ?? text("highestPoint")}
           loading={loading}
         />
         <MetricsSnapshotCard
-          label={labels?.snapshots ?? text("Snapshots")}
+          label={labels?.snapshots ?? text("snapshots")}
           value={formatCompactNumber(summary?.total_records ?? 0)}
-          hint={labels?.snapshotsHint ?? text("{count} periods", { count: formatCompactNumber(summary?.points_count ?? 0) })}
+          hint={labels?.snapshotsHint ?? text("periodsCount", { count: formatCompactNumber(summary?.points_count ?? 0) })}
           loading={loading}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard
-          title={labels?.storageChartTitle ?? text("Storage evolution")}
-          subtitle={labels?.storageChartSubtitle ?? text("Used bytes over time")}
+          text={text}
+          title={labels?.storageChartTitle ?? text("storageEvolution")}
+          subtitle={labels?.storageChartSubtitle ?? text("usedBytesOverTime")}
           loading={loading}
           hasData={hasData}
-          emptyMessage={labels?.emptyMessage ?? text("No usage history snapshots for this window yet.")}
+          emptyMessage={labels?.emptyMessage ?? text("emptyTrends")}
         >
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={chartData}>
@@ -191,23 +191,24 @@ export default function UsageHistoryTrendsSection({
                 type="number"
                 domain={domain ?? ["auto", "auto"]}
                 scale="time"
-                tickFormatter={(value) => formatAxisTimestamp(value, window)}
+                tickFormatter={(value) => formatAxisTimestamp(value, window, locale)}
                 stroke="#94A3B8"
                 minTickGap={32}
               />
               <YAxis tickFormatter={(value) => formatBytesAxis(Number(value) || 0)} stroke="#94A3B8" />
-              <Tooltip content={<UsageHistoryTooltip window={window} metric="storage" />} />
-              <Area type="monotone" dataKey="used_bytes" name={labels?.storageLineName ?? text("Storage")} stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.16} />
+              <Tooltip content={<UsageHistoryTooltip window={window} metric="storage" locale={locale} />} />
+              <Area type="monotone" dataKey="used_bytes" name={labels?.storageLineName ?? text("storage")} stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.16} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
 
         <ChartCard
-          title={labels?.inventoryChartTitle ?? text("Objects & buckets")}
-          subtitle={labels?.inventoryChartSubtitle ?? text("Inventory snapshots over time")}
+          text={text}
+          title={labels?.inventoryChartTitle ?? text("objectsAndBuckets")}
+          subtitle={labels?.inventoryChartSubtitle ?? text("inventorySnapshots")}
           loading={loading}
           hasData={hasData}
-          emptyMessage={labels?.emptyMessage ?? text("No usage history snapshots for this window yet.")}
+          emptyMessage={labels?.emptyMessage ?? text("emptyTrends")}
         >
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={chartData}>
@@ -217,15 +218,15 @@ export default function UsageHistoryTrendsSection({
                 type="number"
                 domain={domain ?? ["auto", "auto"]}
                 scale="time"
-                tickFormatter={(value) => formatAxisTimestamp(value, window)}
+                tickFormatter={(value) => formatAxisTimestamp(value, window, locale)}
                 stroke="#94A3B8"
                 minTickGap={32}
               />
               <YAxis tickFormatter={(value) => formatCompactNumber(Number(value) || 0)} stroke="#94A3B8" />
-              <Tooltip content={<UsageHistoryTooltip window={window} metric="inventory" />} />
+              <Tooltip content={<UsageHistoryTooltip window={window} metric="inventory" locale={locale} />} />
               <Legend />
-              <Line type="monotone" dataKey="used_objects" name={labels?.objectLineName ?? text("Objects")} stroke="#0EA5E9" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="bucket_count" name={labels?.bucketLineName ?? text("Buckets")} stroke="#14B8A6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="used_objects" name={labels?.objectLineName ?? text("objects")} stroke="#0EA5E9" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="bucket_count" name={labels?.bucketLineName ?? text("buckets")} stroke="#14B8A6" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -241,39 +242,47 @@ type ChartCardProps = {
   loading?: boolean;
   hasData?: boolean;
   emptyMessage?: string;
+  text: UsageHistoryText;
 };
 
-function ChartCard({ title, subtitle, children, loading, hasData, emptyMessage }: ChartCardProps) {
+function ChartCard({ title, subtitle, children, loading, hasData, emptyMessage, text }: ChartCardProps) {
   return (
     <MetricsChartPanel
       title={title}
       description={subtitle}
       loading={loading}
       hasData={hasData}
-      emptyMessage={emptyMessage ?? "No usage history snapshots for this window yet."}
+      emptyMessage={emptyMessage ?? text("emptyTrends")}
     >
       {children}
     </MetricsChartPanel>
   );
 }
 
-function formatAxisTimestamp(value: string | number, window: UsageHistoryTrendWindow) {
+function formatAxisTimestamp(value: string | number, window: UsageHistoryTrendWindow, locale: UiLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   if (window === "day") {
-    return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date);
+    return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : locale, { hour: "2-digit", minute: "2-digit" }).format(date);
   }
-  return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short" }).format(date);
+  return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : locale, { day: "2-digit", month: "short" }).format(date);
 }
 
 type UsageHistoryTooltipProps = ChartTooltipProps & {
   window: UsageHistoryTrendWindow;
   metric: "storage" | "inventory";
+  locale: UiLanguage;
 };
 
-function UsageHistoryTooltip({ payload, label, window, metric }: UsageHistoryTooltipProps) {
+function UsageHistoryTooltip({ payload, label, window, metric, locale }: UsageHistoryTooltipProps) {
   if (!payload?.length) return null;
-  const formatted = formatChartTooltipTimestamp(label, window === "day" ? "hourly" : "daily");
+  const date = label === undefined ? null : new Date(label);
+  const formatted = date == null ? "" : Number.isNaN(date.getTime()) ? String(label) : new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : locale, {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    ...(window === "day" ? { hour: "2-digit", minute: "2-digit" } as const : {}),
+  }).format(date);
   return (
     <div className={cx(uiMenuClass, "px-3 py-2 ui-body")}>
       <p className="font-semibold">{formatted}</p>
@@ -289,6 +298,6 @@ function UsageHistoryTooltip({ payload, label, window, metric }: UsageHistoryToo
 
 function formatTooltipValue(name: string, value: unknown, metric: "storage" | "inventory") {
   const numeric = Number(value) || 0;
-  if (metric === "storage" || name === "Storage") return formatBytes(numeric);
+  if (metric === "storage" || name === usageHistoryMessage.storage.en) return formatBytes(numeric);
   return formatCompactNumber(numeric);
 }

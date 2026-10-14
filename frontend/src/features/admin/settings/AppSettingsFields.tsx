@@ -10,6 +10,7 @@ import { SettingsField } from "../../../components/settings/SettingsControls";
 import type { FeaturePolicy } from "../../../api/featurePolicies";
 import type { useAppSettingsDraft } from "./useAppSettingsDraft";
 import type { SettingsPath } from "./appSettingsDraft";
+import { useAppSettingsI18n } from "./appSettingsMessage";
 
 type Props = {
   form: ReturnType<typeof useAppSettingsDraft>;
@@ -48,6 +49,7 @@ export function AppSettingsToggle({
   experimental,
 }: Props & { experimental?: boolean }) {
   const errorId = useId();
+  const { text } = useAppSettingsI18n();
   return (
     <SettingsItem
       compact
@@ -75,7 +77,7 @@ export function AppSettingsToggle({
           onChange={(value) => form.setValue(field, value)}
           ariaLabel={ariaLabel ?? title}
           badge={
-            experimental ? { visible: true, label: "Experimental" } : undefined
+            experimental ? { visible: true, label: text("experimental") } : undefined
           }
         />
       }
@@ -119,6 +121,7 @@ export function AppSettingsNumber({
 
 export function AppSettingsPolicy({ form, field, title, description, ariaLabel, disabled, experimental }: Props & { experimental?: boolean }) {
   const errorId = useId();
+  const { text } = useAppSettingsI18n();
   return <SettingsItem compact title={title} help={description}
     description={form.errors[field] ? <span id={errorId} role="alert" className="text-rose-700 dark:text-rose-300">{form.errors[field]}</span> : undefined}
     action={<SettingsTriStateAction
@@ -129,6 +132,6 @@ export function AppSettingsPolicy({ form, field, title, description, ariaLabel, 
       options={featurePolicyOptions}
       disabled={disabled || form.busy}
       onChange={value => form.setValue(field, value)}
-      badge={experimental ? { visible: true, label: "Experimental" } : undefined}
+      badge={experimental ? { visible: true, label: text("experimental") } : undefined}
     />} />;
 }
