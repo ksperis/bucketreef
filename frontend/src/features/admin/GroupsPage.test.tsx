@@ -571,7 +571,7 @@ describe("GroupsPage", () => {
       name: "Allow managed private connection provisioning",
     });
     expect(provisioningGrant).toBeChecked();
-    expect(provisioningGrant).toBeDisabled();
+    expect(provisioningGrant).toBeEnabled();
     expect(within(featureRow).queryByText("Platform disabled")).not.toBeInTheDocument();
     expect(within(featureRow).queryByText("Saved grant: On")).not.toBeInTheDocument();
 

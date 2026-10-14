@@ -12,13 +12,6 @@ export const coverage = [
   { id: "external", mode: "disabled", scope: "MFA, SSO, LDAP, recovery, managed private provisioning, external sends, webhooks, SNS and live public links", limitation: "No external business connection", scenario: "restrictions" },
 ] as const;
 
-export const disabledFlags = {
-  bucket_migration_enabled: false,
-  bucket_purge_enabled: false,
-  bucket_integrity_check_enabled: false,
-  managed_private_connection_provisioning_enabled: false,
-} as const;
-
 export const disabledRequest = /\/(?:migrations|multipart|integrity-check|index-check|purge|key-rotation|managed-private-access|webauthn|recovery|oidc|ldap)(?:\/|$)|\/versions\/cleanup|\/trash\/restore-prefix|\/restore-at|\/compare\/action|\/usage-stats\/(?:run|calculate|scan|recalculate)/;
 export const disabledRoute = /\/(?:migrations|bucket-migration|bucket-integrity|bucket-purge|index-check|key-rotation|storage-ops)(?:\/|$)/;
 export const readonlyRequest = /^\/(?:settings(?:\/|$)|admin\/(?:settings|auth|integrations|webhooks|billing|health|audit)|auth\/settings)|\/public-links(?:\/|$)|\/topics(?:\/|$)/;

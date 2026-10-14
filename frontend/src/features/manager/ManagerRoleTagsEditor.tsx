@@ -5,13 +5,13 @@ import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import { useManagerI18n } from "./managerI18n";
 
-export function roleTagKeyError(value: string): string | undefined {
+function roleTagKeyError(value: string): string | undefined {
   if (!value) return "Tag key is required.";
   if (value.length > 128) return "Tag key must be at most 128 characters.";
   return undefined;
 }
 
-export function roleTagValueError(value: string): string | undefined {
+function roleTagValueError(value: string): string | undefined {
   if (value.length > 256) return "Tag value must be at most 256 characters.";
   return undefined;
 }

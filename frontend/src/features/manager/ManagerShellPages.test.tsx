@@ -495,7 +495,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: true,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
-      managerFeatureStates: ACTIVITY_FEATURE_STATES,
+      managerFeatureStates: { ...ACTIVITY_FEATURE_STATES, bucket_usage_stats: { enabled: true, source: "platform" } },
     });
 
     render(
@@ -554,7 +554,7 @@ describe("manager shell pages", () => {
       managerStatsEnabled: true,
       managerStatsMessage: null,
       managerBrowserEnabled: true,
-      managerFeatureStates: ACTIVITY_FEATURE_STATES,
+      managerFeatureStates: { ...ACTIVITY_FEATURE_STATES, bucket_usage_stats: { enabled: true, source: "platform" } },
     });
 
     render(

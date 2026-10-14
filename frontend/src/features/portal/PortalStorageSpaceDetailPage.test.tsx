@@ -47,6 +47,7 @@ const mocks = vi.hoisted(() => ({
     accountIdForApi: "101",
     state: {
       portal_role: "portal_manager",
+      bucket_usage_stats_enabled: true,
       can_create_external_sharing: true,
       storage_space_version_cleanup_enabled: true,
     },
@@ -453,6 +454,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     mocks.generalSettings.browser_enabled = true;
     mocks.generalSettings.browser_portal_enabled = true;
     mocks.generalSettings.bucket_usage_stats_enabled = true;
+    mocks.hookResult.state.bucket_usage_stats_enabled = true;
     mocks.hookResult.workspace.spaces[0].name = "Research Data";
     mocks.hookResult.workspace.spaces[0].role = "Manager";
     mocks.hookResult.workspace.spaces[0].canBrowse = true;
@@ -815,6 +817,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("keeps traffic available when file-composition collection is disabled", async () => {
     mocks.generalSettings.bucket_usage_stats_enabled = false;
+    mocks.hookResult.state.bucket_usage_stats_enabled = false;
 
     await renderPage(["/portal/storage-spaces/research-data?tab=statistics"]);
 

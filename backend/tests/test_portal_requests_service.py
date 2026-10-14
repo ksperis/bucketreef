@@ -711,7 +711,9 @@ def test_setting_change_request_rejects_when_project_settings_are_delegated(db_s
     assert db_session.query(PortalAdminRequest).count() == 0
 
 
-def test_approve_setting_change_preserves_concurrent_project_overrides(db_session):
+def test_approve_setting_change_preserves_concurrent_project_overrides(db_session, monkeypatch):
+    from app.models.app_settings import AppSettings
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings", AppSettings)
     account = _seed_account(db_session)
     account.portal_settings_override = json.dumps(
         {"allow_portal_named_bucket_create": True}

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GeneralSettingsProvider, useGeneralSettings } from "./GeneralSettingsContext";
+import { DEFAULT_GENERAL_SETTINGS, GeneralSettingsProvider, useGeneralSettings } from "./GeneralSettingsContext";
 import * as appSettingsApi from "../api/appSettings";
 
 const sessionState = vi.hoisted(() => ({ authenticated: false }));
@@ -29,6 +29,9 @@ function Probe() {
       <span data-testid="usage-history">{String(generalSettings.usage_history_enabled)}</span>
       <span data-testid="portal-browser">{String(generalSettings.browser_portal_enabled)}</span>
       <span data-testid="bucket-quota-management">{String(generalSettings.bucket_quota_management_enabled)}</span>
+      <span data-testid="usage-policy">{generalSettings.project_feature_policies.bucket_usage_stats}</span>
+      <span data-testid="activity-policy">{generalSettings.manager_feature_policies.activity_history}</span>
+      <span data-testid="compare-policy">{generalSettings.manager_feature_policies.bucket_compare}</span>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="runtime-loading">{String(runtimeSurfacesLoading)}</span>
       <span data-testid="runtime-admin">{String(runtimeSurfaces.admin)}</span>
@@ -149,5 +152,24 @@ describe("GeneralSettingsProvider fallbacks", () => {
     expect(JSON.parse(window.localStorage.getItem("settings:general:v2") ?? "{}")).toEqual(
       expect.objectContaining({ bucket_migration_enabled: true })
     );
+  });
+
+  it("fills policy fields missing from older cached settings while keeping saved values", async () => {
+    sessionState.authenticated = true;
+    window.localStorage.setItem("settings:general:v2", JSON.stringify({
+      ...DEFAULT_GENERAL_SETTINGS,
+      portal_enabled: true,
+      project_feature_policies: undefined,
+      manager_feature_policies: { bucket_compare: "disabled" },
+    }));
+    vi.mocked(appSettingsApi.fetchGeneralSettings).mockRejectedValueOnce(new Error("offline"));
+
+    render(<GeneralSettingsProvider><Probe /></GeneralSettingsProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("usage-policy")).toHaveTextContent("default_on");
+    expect(screen.getByTestId("activity-policy")).toHaveTextContent("default_on");
+    expect(screen.getByTestId("compare-policy")).toHaveTextContent("disabled");
+    expect(screen.getByTestId("portal-browser")).toHaveTextContent("true");
   });
 });

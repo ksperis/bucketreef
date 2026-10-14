@@ -947,7 +947,7 @@ describe("UsersPage modal tabs", () => {
     const migrationRow = screen.getByText("Bucket migration").closest(".settings-item-compact") as HTMLElement;
     const migrationToggle = within(migrationRow).getByRole("switch", { name: /Bucket migration/i });
     expect(migrationToggle).toBeChecked();
-    expect(migrationToggle).toBeDisabled();
+    expect(migrationToggle).toBeEnabled();
     expect(within(migrationRow).queryByText("Platform disabled")).not.toBeInTheDocument();
 
     fireEvent.click(compareToggle);
@@ -1052,7 +1052,7 @@ describe("UsersPage modal tabs", () => {
       name: "Allow managed private connection provisioning",
     });
     expect(provisioningGrant).toBeChecked();
-    expect(provisioningGrant).toBeDisabled();
+    expect(provisioningGrant).toBeEnabled();
     expect(within(featureRow).queryByText("Platform disabled")).not.toBeInTheDocument();
     expect(within(featureRow).queryByText("Saved grant: On")).not.toBeInTheDocument();
 

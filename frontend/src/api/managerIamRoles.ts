@@ -66,13 +66,6 @@ export async function updateIamRole(accountId: S3AccountSelector, roleName: stri
   return data;
 }
 
-export async function listRoleTags(accountId: S3AccountSelector, roleName: string): Promise<IAMTag[]> {
-  const { data } = await client.get<IAMTag[]>(`/manager/iam/roles/${encodeURIComponent(roleName)}/tags`, {
-    params: withS3AccountParam(undefined, accountId),
-  });
-  return data;
-}
-
 export async function putRoleTags(accountId: S3AccountSelector, roleName: string, tags: IAMTag[]): Promise<IAMTag[]> {
   const { data } = await client.put<IAMTag[]>(`/manager/iam/roles/${encodeURIComponent(roleName)}/tags`, tags, {
     params: withS3AccountParam(undefined, accountId),

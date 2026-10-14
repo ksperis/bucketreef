@@ -51,6 +51,23 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   allow_user_external_identity_unlink: false,
 };
 
+// A cached response can predate newly added feature-policy fields. Keep the
+// existing values while filling in missing fields until the server refreshes.
+function completeGeneralSettings(settings: Partial<GeneralSettings>): GeneralSettings {
+  return {
+    ...DEFAULT_GENERAL_SETTINGS,
+    ...settings,
+    manager_feature_policies: {
+      ...DEFAULT_MANAGER_FEATURE_POLICIES,
+      ...settings.manager_feature_policies,
+    },
+    project_feature_policies: {
+      ...DEFAULT_PROJECT_FEATURE_POLICIES,
+      ...settings.project_feature_policies,
+    },
+  };
+}
+
 type GeneralSettingsContextValue = {
   generalSettings: GeneralSettings;
   runtimeSurfaces: RuntimeSurfaces;
@@ -72,7 +89,9 @@ const GeneralSettingsContext = createContext<GeneralSettingsContextValue>({
 export function GeneralSettingsProvider({ children }: { children: ReactNode }) {
   const { authenticated, loading: sessionLoading } = useSession();
   const [cachedSettings] = useState(() => readClientJson<GeneralSettings>(CLIENT_STORAGE_KEYS.generalSettingsCache));
-  const [generalSettings, setGeneralSettingsState] = useState<GeneralSettings>(cachedSettings ?? DEFAULT_GENERAL_SETTINGS);
+  const [generalSettings, setGeneralSettingsState] = useState<GeneralSettings>(
+    cachedSettings ? completeGeneralSettings(cachedSettings) : DEFAULT_GENERAL_SETTINGS
+  );
   const [loading, setLoading] = useState(() => cachedSettings == null);
   const [runtimeSurfaces, setRuntimeSurfaces] = useState<RuntimeSurfaces>(DEFAULT_RUNTIME_SURFACES);
   const [runtimeSurfacesLoading, setRuntimeSurfacesLoading] = useState(true);
@@ -87,7 +106,7 @@ export function GeneralSettingsProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const data = await fetchGeneralSettings();
-      setGeneralSettingsState(data);
+      setGeneralSettingsState(completeGeneralSettings(data));
       writeClientJson(CLIENT_STORAGE_KEYS.generalSettingsCache, data);
     } catch {
       if (!cachedSettings) setGeneralSettingsState(DEFAULT_GENERAL_SETTINGS);
@@ -97,7 +116,7 @@ export function GeneralSettingsProvider({ children }: { children: ReactNode }) {
   }, [authenticated, cachedSettings, sessionLoading]);
 
   const setGeneralSettings = useCallback((settings: GeneralSettings) => {
-    setGeneralSettingsState(settings);
+    setGeneralSettingsState(completeGeneralSettings(settings));
     writeClientJson(CLIENT_STORAGE_KEYS.generalSettingsCache, settings);
   }, []);
 
