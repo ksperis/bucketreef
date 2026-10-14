@@ -81,6 +81,24 @@ def test_get_account_detail_uses_typed_not_found_error(db_session):
         service.get_account_detail(999_999)
 
 
+@pytest.mark.parametrize("result", [
+    {"conflict": True}, {"id": "RGW-FOREIGN"},
+    {"id": "RGW-EXPECTED", "account": {"account_id": "RGW-FOREIGN"}}, {},
+])
+def test_account_provisioning_rejects_conflicts_and_unverified_id(result):
+    with pytest.raises(ValueError, match="RGW account creation failed|RGW did not confirm"):
+        S3AccountsService._ensure_account_creation_succeeded(result, "RGW-EXPECTED")
+
+
+def test_import_root_lookup_rejects_conflicting_nested_account_id():
+    class Admin:
+        def get_user(self, *args, **kwargs):
+            return {"account_id": "RGW1", "user": {"uid": "root", "account_id": "RGW2"}}
+
+    with pytest.raises(ValueError, match="belongs to another account"):
+        S3AccountsService._load_existing_root_user(Admin(), "root", "RGW1")
+
+
 class FakeRGWAdmin:
     def get_user_by_access_key(self, access_key, **kwargs):
         return {"caps": "users=read,write;accounts=read,write"}

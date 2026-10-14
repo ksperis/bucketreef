@@ -289,7 +289,8 @@ class EndpointServiceIdentityService:
                 identity.status = "provisioning"
                 self.db.commit()
                 payload = admin.create_user(identity.rgw_uid, display_name=f"BucketReef {kind} service",
-                    generate_key=False, extra_params={"access-key": identity.access_key, "secret-key": identity.secret_key, "max-buckets": 0})
+                    generate_key=False, access_key=identity.access_key, secret_key=identity.secret_key,
+                    extra_params={"max-buckets": 0})
                 if not self._owns(identity, payload):
                     raise ValueError("RGW did not confirm ownership of the new service identity.")
                 self._validate_managed_keys(identity, payload)

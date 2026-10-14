@@ -69,21 +69,19 @@ def create_rgw_account(
 
     account_id = requested_account_id
     if isinstance(create_result, dict):
-        account_id = (
-            normalize_optional_scalar(create_result.get("id"))
-            or normalize_optional_scalar(create_result.get("account_id"))
-            or account_id
-        )
         account_payload = create_result.get("account")
-        if not account_id and isinstance(account_payload, dict):
-            account_id = (
-                normalize_optional_scalar(account_payload.get("id"))
-                or normalize_optional_scalar(account_payload.get("account_id"))
-            )
-    if not account_id:
+        returned_ids = {
+            value for record in (create_result, account_payload)
+            if isinstance(record, dict)
+            for key in ("id", "account_id")
+            if (value := normalize_optional_scalar(record.get(key)))
+        }
+    else:
+        returned_ids = set()
+    if returned_ids != {requested_account_id}:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unable to determine created account id from RGW response",
+            detail="RGW did not confirm the requested account identity",
         )
 
     account_quota_updated = (
@@ -181,7 +179,22 @@ def update_rgw_account_config(
             )
         except RGWAdminError as exc:
             raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+        if isinstance(update_result, dict) and update_result.get("conflict"):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW account update conflicted")
         raise_if_unsupported(update_result, "RGW account update is not supported on this cluster")
+        if isinstance(update_result, dict):
+            response_account = update_result.get("account")
+            returned_ids = {
+                value for record in (update_result, response_account)
+                if isinstance(record, dict)
+                for key in ("id", "account_id")
+                if (value := normalize_optional_scalar(record.get(key)))
+            }
+            if returned_ids and returned_ids != {normalized_account_id}:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="RGW returned a different account identity",
+                )
 
     if {"quota_enabled", "quota_max_size_bytes", "quota_max_objects"} & field_set:
         try:

@@ -261,7 +261,7 @@ def test_admin_ops_methods_send_exact_methods_and_omit_false_booleans(monkeypatc
     assert calls[7]["params"]["check-objects"] == "true"
 
 
-def test_create_user_and_account_conflict_fallback(monkeypatch):
+def test_user_and_account_conflicts_remain_explicit(monkeypatch):
     client = _client()
 
     def fake_request(method: str, path: str, **kwargs):
@@ -273,12 +273,12 @@ def test_create_user_and_account_conflict_fallback(monkeypatch):
 
     monkeypatch.setattr(client, "_request", fake_request)
     monkeypatch.setattr(client, "get_user", lambda *args, **kwargs: {"uid": "alice"})
-    monkeypatch.setattr(client, "get_account", lambda *args, **kwargs: {"id": "RGW1"})
+    monkeypatch.setattr(client, "get_account", lambda *args, **kwargs: pytest.fail("Conflict must not be adopted"))
 
     user = client.create_user("alice")
     account = client.create_account(account_id="RGW1", account_name="acc")
     assert user == {"conflict": True}
-    assert account == {"id": "RGW1"}
+    assert account == {"conflict": True}
 
 
 def test_get_user_tenant_fallback_to_composite_uid(monkeypatch):
@@ -695,6 +695,10 @@ def test_get_account_user_filters_account_id(monkeypatch):
     assert client.get_account_user("RGW1", "alice", allow_not_found=True) is None
     monkeypatch.setattr(client, "get_user", lambda *args, **kwargs: {"uid": "alice", "account_id": "RGW1"})
     assert client.get_account_user("RGW1", "alice", allow_not_found=True) == {"uid": "alice", "account_id": "RGW1"}
+    monkeypatch.setattr(client, "get_user", lambda *args, **kwargs: {
+        "account_id": "RGW1", "user": {"account_id": "RGW2", "uid": "alice"},
+    })
+    assert client.get_account_user("RGW1", "alice", allow_not_found=True) is None
 
 
 def test_create_and_delete_access_key_parameter_paths(monkeypatch):
@@ -742,7 +746,7 @@ def test_create_update_delete_account_branches(monkeypatch):
         return {"id": params.get("id", "RGW-OK")}
 
     monkeypatch.setattr(client, "_request", fake_request)
-    monkeypatch.setattr(client, "get_account", lambda account_id, allow_not_found=True: {"id": account_id, "name": "existing"})
+    monkeypatch.setattr(client, "get_account", lambda *args, **kwargs: pytest.fail("Conflict must not trigger lookup"))
 
     created = client.create_account(
         account_id="RGW-CONFLICT",
@@ -755,7 +759,7 @@ def test_create_update_delete_account_branches(monkeypatch):
         max_access_keys=50,
         extra_params={"foo": "bar", "none": None, "": "skip"},
     )
-    assert created == {"id": "RGW-CONFLICT", "name": "existing"}
+    assert created == {"conflict": True}
     create_params = calls[0]["params"]
     assert create_params["email"] == "acc@test"
     assert create_params["max_users"] == 10
@@ -776,7 +780,7 @@ def test_create_update_delete_account_branches(monkeypatch):
         email="updated@test",
         extra_params={"foo": "bar", "skip": None, "": "bad"},
     )
-    assert updated == {"id": "RGW-UPD", "name": "existing"}
+    assert updated == {"conflict": True}
     update_params = calls[-1]["params"]
     assert update_params["name"] == "updated"
     assert update_params["email"] == "updated@test"
@@ -785,6 +789,34 @@ def test_create_update_delete_account_branches(monkeypatch):
 
     deleted = client.delete_account("RGW-DEL")
     assert deleted == {"id": "RGW-DEL"}
+
+
+@pytest.mark.parametrize("extra_key", ["id", "account_id", "NAME", " format ", "max-buckets", "email"])
+def test_account_raw_params_cannot_override_dedicated_fields(monkeypatch, extra_key):
+    client = _client()
+    monkeypatch.setattr(client, "_request", lambda *args, **kwargs: pytest.fail("Unexpected RGW mutation"))
+    with pytest.raises(ValueError, match="cannot be overridden"):
+        client.create_account(account_id="RGW1", account_name="safe", extra_params={extra_key: "other"})
+    with pytest.raises(ValueError, match="cannot be overridden"):
+        client.update_account("RGW1", extra_params={extra_key: "other"})
+
+
+def test_explicit_technical_credentials_are_separate_from_user_extra_params(monkeypatch):
+    client = _client()
+    calls = []
+    monkeypatch.setattr(client, "_request", lambda *args, **kwargs: calls.append(kwargs["params"]) or {"uid": "service"})
+    client.create_user("service", generate_key=False, access_key="AK", secret_key="SK",
+                       extra_params={"max-buckets": 0})
+    assert calls == [{"uid": "service", "display-name": "service", "email": "",
+                      "generate-key": "false", "max-buckets": 0, "access-key": "AK", "secret-key": "SK"}]
+    with pytest.raises(ValueError, match="identity"):
+        client.create_user("service", generate_key=False,
+                           extra_params={"access-key": "AK", "secret-key": "SK"})
+    with pytest.raises(ValueError, match="complete credential pair"):
+        client.create_user("service", generate_key=False, access_key="AK")
+    with pytest.raises(ValueError, match="generate_key=False"):
+        client.create_user("service", access_key="AK", secret_key="SK")
+    assert len(calls) == 1
 
 
 def test_account_quota_and_get_account_success_paths(monkeypatch):

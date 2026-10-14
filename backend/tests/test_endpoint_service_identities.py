@@ -36,7 +36,9 @@ class FakeRGW:
         if self.fail_create:
             raise RGWAdminError("request failed")
         params = kwargs["extra_params"]
-        self.users[uid] = {"user_id": uid, "caps": "", "keys": [{"access_key": params["access-key"], "secret_key": params["secret-key"]}]}
+        assert params == {"max-buckets": 0}
+        assert kwargs["generate_key"] is False
+        self.users[uid] = {"user_id": uid, "caps": "", "keys": [{"access_key": kwargs["access_key"], "secret_key": kwargs["secret_key"]}]}
         return deepcopy(self.users[uid])
 
     def set_user_caps(self, uid, caps):
@@ -210,6 +212,24 @@ def test_uid_collision_never_adopts_or_mutates_foreign_user(identities):
     assert endpoint.service_identity("supervision").status == "ready"
     assert not service.revoke(endpoint, "runtime")
     assert rgw.users[identity.rgw_uid] == foreign
+
+
+def test_concurrent_uid_creation_conflict_never_sets_caps_on_foreign_user(identities, monkeypatch):
+    service, endpoint, rgw = identities
+    original_create = rgw.create_user
+
+    def conflicting_create(uid, **kwargs):
+        rgw.users[uid] = {"user_id": uid, "keys": [{"access_key": "FOREIGN"}], "caps": ""}
+        rgw.calls.append(("conflicting_create", uid, kwargs))
+        return {"conflict": True, "status_code": 409}
+
+    monkeypatch.setattr(rgw, "create_user", conflicting_create)
+    service.reconcile(endpoint)
+    runtime = endpoint.service_identity("runtime")
+    assert runtime.status == "error"
+    assert rgw.users[runtime.rgw_uid]["keys"][0]["access_key"] == "FOREIGN"
+    assert not any(call[0] == "caps" and call[1] == runtime.rgw_uid for call in rgw.calls)
+    monkeypatch.setattr(rgw, "create_user", original_create)
 
 
 def test_minimal_admin_and_external_identities_preserve_usage_without_write_caps(identities, db_session):

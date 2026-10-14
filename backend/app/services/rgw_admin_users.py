@@ -39,7 +39,13 @@ class RGWAdminUserOperations:
         caps: Optional[str] = None,
         generate_key: bool = True,
         extra_params: Optional[Dict[str, Any]] = None,
+        access_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
     ) -> Dict[str, Any]:
+        if bool(access_key) != bool(secret_key):
+            raise ValueError("Explicit key creation requires a complete credential pair")
+        if access_key and generate_key:
+            raise ValueError("Explicit credentials require generate_key=False")
         params: Dict[str, Any] = {
             "uid": uid,
             "display-name": display_name or uid,
@@ -52,6 +58,8 @@ class RGWAdminUserOperations:
             params["caps"] = caps
         self._validate_user_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
+        if access_key:
+            params.update({"access-key": access_key, "secret-key": secret_key})
         result = self._request(
             "PUT",
             "/admin/user",

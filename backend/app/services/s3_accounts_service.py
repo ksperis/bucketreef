@@ -243,12 +243,23 @@ class S3AccountsService:
         return safe or "bucketreef-admin-user"
 
     @staticmethod
-    def _ensure_account_creation_succeeded(result: Any) -> None:
+    def _ensure_account_creation_succeeded(result: Any, expected_id: str) -> None:
         if isinstance(result, dict) and result.get("conflict"):
             raise ValueError(
                 "RGW account creation failed: another account already uses "
                 "this name or email."
             )
+        if not isinstance(result, dict):
+            raise ValueError("RGW did not confirm the created account identity")
+        account_payload = result.get("account")
+        returned_ids = {
+            str(value).strip() for item in (result, account_payload)
+            if isinstance(item, dict)
+            for key in ("id", "account_id")
+            if (value := item.get(key)) is not None and str(value).strip()
+        }
+        if returned_ids != {expected_id}:
+            raise ValueError("RGW did not confirm the requested account identity")
 
     def _account_rgw_users(
         self,
@@ -443,8 +454,11 @@ class S3AccountsService:
                 continue
             if payload and not payload.get("not_found"):
                 user = payload.get("user") if isinstance(payload.get("user"), dict) else payload
-                existing_account = str(user.get("account_id") or payload.get("account_id") or "").strip()
-                if existing_account != account_id:
+                account_values = {
+                    str(value).strip() for value in (user.get("account_id"), payload.get("account_id"))
+                    if value is not None and str(value).strip()
+                }
+                if account_values != {account_id}:
                     raise ValueError("RGW root UID belongs to another account or has no verifiable account")
                 return payload
         return None
@@ -712,9 +726,17 @@ class S3AccountsService:
                 )
             except RGWAdminError as exc:
                 raise ValueError(f"RGW account creation failed: {exc}") from exc
-            self._ensure_account_creation_succeeded(create_result)
-        elif remote.get("name") != payload.name:
-            raise ValueError("Provisioned RGW account does not match the requested name")
+            self._ensure_account_creation_succeeded(create_result, rgw_account_id)
+        else:
+            nested_account = remote.get("account")
+            remote_ids = {
+                str(value).strip() for item in (remote, nested_account)
+                if isinstance(item, dict)
+                for key in ("id", "account_id")
+                if (value := item.get(key)) is not None and str(value).strip()
+            }
+            if remote.get("name") != payload.name or remote_ids != {rgw_account_id}:
+                raise ValueError("Provisioned RGW account does not match the requested identity")
         root_uid, access_key, secret_key = self._ensure_provisioned_root_credentials(
             admin,
             rgw_account_id=rgw_account_id,
@@ -756,7 +778,7 @@ class S3AccountsService:
                 account_id=rgw_account_id,
                 account_name=payload.name,
             )
-            self._ensure_account_creation_succeeded(create_result)
+            self._ensure_account_creation_succeeded(create_result, rgw_account_id)
             logger.debug("Created RGW account %s (%s)", rgw_account_id, payload.name)
         except RGWAdminError as exc:
             raise ValueError(f"RGW account creation failed: {exc}") from exc

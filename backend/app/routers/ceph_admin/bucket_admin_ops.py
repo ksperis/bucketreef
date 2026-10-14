@@ -47,6 +47,46 @@ def _bucket_value(payload: Any, *keys: str) -> Optional[str]:
     return None
 
 
+def _verified_account_target(payload: Any, expected_id: str) -> bool:
+    if not isinstance(payload, dict) or payload.get("not_found") or payload.get("conflict"):
+        return False
+    nested = payload.get("account")
+    values = {
+        str(value).strip() for item in (payload, nested) if isinstance(item, dict)
+        for key in ("id", "account_id")
+        if (value := item.get(key)) is not None and str(value).strip()
+    }
+    return values == {expected_id}
+
+
+def _verified_user_target(payload: Any, expected_uid: str, expected_tenant: Optional[str]) -> bool:
+    if not isinstance(payload, dict) or payload.get("not_found") or payload.get("conflict"):
+        return False
+    nested = payload.get("user")
+    identities: list[str] = []
+    tenants: set[str] = set()
+    for item in (payload, nested):
+        if not isinstance(item, dict):
+            continue
+        tenant = normalize_optional_string(item.get("tenant"))
+        if tenant:
+            tenants.add(tenant)
+        for key in ("uid", "user_id"):
+            identifier = normalize_optional_string(item.get(key))
+            if identifier:
+                identities.append(identifier)
+                if "$" in identifier:
+                    embedded_tenant, identifier = identifier.split("$", 1)
+                    tenants.add(embedded_tenant)
+                if identifier != expected_uid:
+                    return False
+    if not identities:
+        return False
+    if expected_tenant:
+        return tenants == {expected_tenant}
+    return not tenants
+
+
 def _load_bucket_info(
     ctx: CephAdminContext,
     *,
@@ -212,7 +252,7 @@ def _validate_link_target(
                 allow_not_found=True,
                 allow_not_implemented=True,
             )
-            exists = isinstance(target, dict) and bool(target)
+            exists = _verified_account_target(target, raw_target)
         else:
             target_tenant = None
             target_uid = raw_target
@@ -223,7 +263,7 @@ def _validate_link_target(
                 tenant=target_tenant,
                 allow_not_found=True,
             )
-            exists = isinstance(target, dict) and bool(target)
+            exists = _verified_user_target(target, target_uid, target_tenant)
     except RGWAdminError as exc:
         return _network_failure(
             ctx,
@@ -235,22 +275,24 @@ def _validate_link_target(
             metadata={"new_owner": raw_target, "target_type": payload.target_type},
         )
     if not exists:
+        missing = not isinstance(target, dict) or not target or target.get("not_found")
         record_ceph_admin_action(
             ctx,
             action=action,
             entity_type="rgw_bucket",
             entity_id=bucket_target,
             status="failed",
-            message="The selected RGW link target was not found.",
+            message="The selected RGW link target could not be verified.",
             metadata={
-                "validation": "target_not_found",
+                "validation": "target_not_found" if missing else "target_unverified",
                 "new_owner": raw_target,
                 "target_type": payload.target_type,
             },
         )
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="The selected RGW User or Account was not found.",
+            status_code=status.HTTP_404_NOT_FOUND if missing else status.HTTP_409_CONFLICT,
+            detail=("The selected RGW User or Account was not found." if missing
+                    else "The selected RGW User or Account identity could not be verified."),
         )
     return raw_target
 

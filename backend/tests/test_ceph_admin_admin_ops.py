@@ -283,6 +283,61 @@ def test_bucket_link_validates_target_and_forwards_fresh_bucket_id(
     assert audit.calls[-1]["metadata"]["new_owner"] == target_id
 
 
+@pytest.mark.parametrize(("target_type", "target_id", "result"), [
+    ("account", "RGW12345678901234567", {"id": "RGW99999999999999999"}),
+    ("account", "RGW12345678901234567", {"id": "RGW12345678901234567",
+                                          "account": {"account_id": "RGW99999999999999999"}}),
+    ("user", "tenant-a$alice", {"user_id": "tenant-b$alice"}),
+    ("user", "tenant-a$alice", {"uid": "alice", "tenant": "tenant-b"}),
+    ("user", "tenant-a$alice", {"uid": "alice"}),
+    ("user", "alice", {"uid": "alice", "tenant": "tenant-a"}),
+    ("user", "tenant-a$alice", {"account_id": "RGW1"}),
+])
+def test_bucket_link_rejects_unverified_identity_before_mutation(target_type, target_id, result):
+    admin = FakeAdmin()
+    if target_type == "account":
+        admin.get_account = lambda *args, **kwargs: result
+    else:
+        admin.get_user = lambda *args, **kwargs: result
+    ctx, audit = _context(admin)
+    with pytest.raises(HTTPException) as raised:
+        bucket_admin_ops.link_bucket(
+            "bucket-a",
+            CephAdminBucketLinkRequest(
+                confirmation=f"LINK BUCKET tenant-a/bucket-a TO {target_id}",
+                target_type=target_type, target_id=target_id,
+            ),
+            tenant="tenant-a", ctx=ctx,
+        )
+    assert raised.value.status_code == 409
+    assert not any(name == "link_bucket" for name, _ in admin.calls)
+    assert audit.calls[-1]["metadata"]["validation"] == "target_unverified"
+
+
+@pytest.mark.parametrize("user_info", [
+    {"user_id": "tenant-a$alice", "uid": "alice"},
+    {"uid": "alice", "tenant": "tenant-a"},
+    {"user": {"user_id": "tenant-a$alice"}},
+])
+def test_bucket_link_accepts_verified_tenant_user_representations(user_info):
+    assert bucket_admin_ops._verified_user_target(user_info, "alice", "tenant-a")
+
+
+def test_bucket_link_missing_target_retains_not_found_response():
+    ctx, _ = _context()
+    with pytest.raises(HTTPException) as raised:
+        bucket_admin_ops.link_bucket(
+            "bucket-a",
+            CephAdminBucketLinkRequest(
+                confirmation="LINK BUCKET tenant-a/bucket-a TO missing-user",
+                target_type="user", target_id="missing-user",
+            ),
+            tenant="tenant-a", ctx=ctx,
+        )
+    assert raised.value.status_code == 404
+    assert not any(name == "link_bucket" for name, _ in ctx.rgw_admin.calls)
+
+
 def test_bucket_unlink_derives_current_owner(monkeypatch):
     admin = FakeAdmin()
     ctx, _ = _context(admin)
