@@ -8,16 +8,21 @@ type Props = {
   name: string;
   path: string;
   policy: string;
+  maxSessionDuration: number;
   editing?: boolean;
   onNameChange?: (value: string) => void;
   onPathChange?: (value: string) => void;
   onPolicyChange: (value: string) => void;
+  onMaxSessionDurationChange: (value: number) => void;
   nameError?: string;
+  pathError?: string;
   policyError?: string;
+  maxSessionDurationError?: string;
 };
 
 export default function ManagerRoleFormFields({
-  name, path, policy, editing = false, onNameChange, onPathChange, onPolicyChange, nameError, policyError,
+  name, path, policy, maxSessionDuration, editing = false, onNameChange, onPathChange, onPolicyChange,
+  onMaxSessionDurationChange, nameError, pathError, policyError, maxSessionDurationError,
 }: Props) {
   const { text } = useManagerI18n();
   return <>
@@ -27,7 +32,11 @@ export default function ManagerRoleFormFields({
           onChange={(event) => onNameChange?.(event.target.value)} placeholder={text("Role name")} error={nameError} />
         <UiInput label={editing ? text("Role path") : text("Role path (optional)")} value={path} readOnly={editing}
           onChange={(event) => onPathChange?.(event.target.value)} placeholder={text("/application/")}
+          error={pathError}
           hint={editing ? text("Path is fixed at creation. Create a new role to use a different path.") : text("Defaults to \"/\". Sets the IAM path prefix for the role.")} />
+        <UiInput label={text("Maximum session duration (seconds)")} type="number" min={3600} max={43200} step={1}
+          value={String(maxSessionDuration)} onChange={(event) => onMaxSessionDurationChange(Number(event.target.value))}
+          error={maxSessionDurationError} hint={text("Allowed range: 3600 to 43200 seconds.")} />
       </div>
     </SettingsSection>
     <SettingsSection title={text("Trust policy")} presentation="compact">

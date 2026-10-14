@@ -443,6 +443,9 @@ export default function ManagerUsersPage() {
       mobileRole: "actions",
       render: (user) => (
         <ListActions>
+          <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}`}>
+            {text("Details")}
+          </ListActionLink>
           <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}/keys`}>
             {text("Keys")}
           </ListActionLink>

@@ -17,6 +17,8 @@ describe("Manager i18n", () => {
     expect(managerText("{count} keys", "fr", { count: 2 })).toBe("2 clés");
     expect(managerText("Topic '{name}' created.", "fr", { name: "events" })).toBe("Topic « events » créé.");
     expect(managerText("Valid JSON", "fr")).toBe("JSON valide");
+    expect(managerText("IAM user details", "fr")).toBe("Détails de l’utilisateur IAM");
+    expect(managerText("Role tags", "fr")).toBe("Tags du rôle");
   });
 
   it("preserves S3 and IAM technical literals", () => {
@@ -51,6 +53,8 @@ describe("Manager i18n", () => {
     expect(managerText("Logical bytes", "zh")).toBe("逻辑字节数");
     expect(managerText("Valid JSON", "de")).toBe("Gültiges JSON");
     expect(managerText("Valid JSON", "zh")).toBe("JSON 有效");
+    expect(managerText("Maximum session duration (seconds)", "de")).toBe("Maximale Sitzungsdauer (Sekunden)");
+    expect(managerText("IAM group details", "zh")).toBe("IAM 组详情");
     expect(managerText("S3 rejects new PUT ACLs that grant public access to buckets or objects.", "de"))
       .toContain("S3");
     expect(managerText("S3 rejects new PUT ACLs that grant public access to buckets or objects.", "zh"))

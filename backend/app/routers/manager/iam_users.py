@@ -4,17 +4,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.db import AccountIAMUser
 from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
-from app.models.iam import AccessKey, AccessKeyStatusChange, IAMUser, IAMUserCreate, IAMUserWithKey
+from app.models.iam import AccessKey, AccessKeyStatusChange, IAMUser, IAMUserCreate, IAMUserUpdate, IAMUserWithKey
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
     get_account_context,
     get_audit_service,
     require_iam_capable_manager,
 )
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
 from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
     get_iam_service_for_account,
@@ -31,6 +32,28 @@ from app.services.managed_private_access_sources import iam_source_reference
 router = APIRouter(prefix="/manager/iam/users", tags=["manager-iam-users"])
 
 
+def _annotate_managed_user(db: Session, account: S3ExecutionContext, item: IAMUser) -> IAMUser:
+    source = iam_source_reference(account)
+    if source is not None:
+        provisioning = ManagedPrivateAccessService(db).managed_iam_user(*source, item.name)
+        if provisioning is not None:
+            item.is_private_access_managed = True
+            item.managed_connection_id = provisioning.s3_connection_id
+            item.is_bucketreef_managed = True
+            item.management_source = "private_access"
+            return item
+    if account.id is not None:
+        portal_identity = (
+            db.query(AccountIAMUser)
+            .filter(AccountIAMUser.account_id == account.id, AccountIAMUser.iam_username == item.name)
+            .first()
+        )
+        if portal_identity is not None:
+            item.is_bucketreef_managed = True
+            item.management_source = "portal"
+    return item
+
+
 @router.get("", response_model=list[IAMUser])
 def list_users(
     account: S3ExecutionContext = Depends(get_account_context),
@@ -40,21 +63,86 @@ def list_users(
     service = get_iam_service_for_account(account)
     try:
         users = service.list_users()
-        source = iam_source_reference(account)
-        if source is not None:
-            managed = {
-                row.iam_username: row
-                for row in ManagedPrivateAccessService(db).managed_resources_for_source(*source)
-                if row.iam_username
-            }
-            for item in users:
-                provisioning = managed.get(item.name)
-                if provisioning is not None:
-                    item.is_private_access_managed = True
-                    item.managed_connection_id = provisioning.s3_connection_id
+        for item in users:
+            _annotate_managed_user(db, account, item)
         return users
     except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+        raise_bad_gateway_from_runtime(exc)
+
+
+@router.get("/{user_name}", response_model=IAMUser)
+def get_user(
+    user_name: str,
+    account: S3ExecutionContext = Depends(get_account_context),
+    db: Session = Depends(get_db),
+    _: ManagerActor = Depends(require_iam_capable_manager),
+) -> IAMUser:
+    service = get_iam_service_for_account(account)
+    try:
+        user = service.get_user(user_name)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        user.groups = [group.name for group in service.list_groups_for_user(user_name)]
+        user.policies = [policy.arn for policy in service.list_user_policies(user_name) if policy.arn]
+        inline = service.list_user_inline_policies(user_name)
+        user.inline_policies = inline or None
+        user.has_keys = bool(service.list_access_keys(user_name))
+        return _annotate_managed_user(db, account, user)
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
+
+
+@router.put("/{user_name}", response_model=IAMUser)
+def update_user(
+    user_name: str,
+    payload: IAMUserUpdate,
+    account: S3ExecutionContext = Depends(get_account_context),
+    current_user: ManagerActor = Depends(require_iam_capable_manager),
+    audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
+) -> IAMUser:
+    service = get_iam_service_for_account(account)
+    try:
+        existing = service.get_user(user_name)
+        if existing is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        _annotate_managed_user(db, account, existing)
+        if existing.is_bucketreef_managed:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="BucketReef-managed IAM users cannot be renamed or moved",
+            )
+        new_name = payload.name if payload.name is not None and payload.name != user_name else None
+        new_path = payload.path if payload.path is not None and payload.path != existing.path else None
+        service.update_user(user_name, new_name=new_name, new_path=new_path)
+        effective_name = new_name or user_name
+        if new_name is not None and account.id is not None:
+            AccessKeyMetadataService(db).rename_iam_principal_metadata(account.id, user_name, effective_name)
+        updated = service.get_user(effective_name)
+        if updated is None:
+            raise RuntimeError("Updated IAM user could not be reloaded")
+        updated.groups = [group.name for group in service.list_groups_for_user(effective_name)]
+        updated.policies = [policy.arn for policy in service.list_user_policies(effective_name) if policy.arn]
+        inline = service.list_user_inline_policies(effective_name)
+        updated.inline_policies = inline or None
+        updated.has_keys = bool(service.list_access_keys(effective_name))
+        if new_name is not None or new_path is not None:
+            audit_service.record_action(
+                user=current_user,
+                scope="manager",
+                action="update_iam_user",
+                entity_type="iam_user",
+                entity_id=effective_name,
+                execution_context=account,
+                metadata={
+                    "previous_name": user_name if new_name is not None else None,
+                    "name_updated": new_name is not None,
+                    "path_updated": new_path is not None,
+                },
+            )
+        return updated
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
 
 
 @router.post("", response_model=IAMUserWithKey, status_code=status.HTTP_201_CREATED)

@@ -140,6 +140,26 @@ def test_iam_metadata_round_trip_clear_and_principal_cleanup(db_session):
     assert service.iam_metadata(account.id, "alice") == {}
 
 
+def test_iam_metadata_follows_principal_rename(db_session):
+    endpoint = _storage_endpoint(db_session)
+    account = _account(db_session, endpoint, enabled=True)
+    db_session.commit()
+    service = AccessKeyMetadataService(db_session)
+    service.set_iam_metadata(
+        account.id,
+        "alice",
+        "AK-1",
+        AccessKeyMetadataInput(name="backup", notes="renamed principal"),
+    )
+
+    service.rename_iam_principal_metadata(account.id, "alice", "alice-renamed")
+
+    assert service.iam_metadata(account.id, "alice") == {}
+    renamed = service.iam_metadata(account.id, "alice-renamed")
+    assert renamed["AK-1"].name == "backup"
+    assert renamed["AK-1"].notes == "renamed principal"
+
+
 def test_apply_metadata_supports_generated_s3_user_key():
     expires_at = utcnow() + timedelta(hours=1)
     key = S3UserGeneratedKey(access_key_id="AK-GENERATED", secret_access_key="SK-GENERATED")

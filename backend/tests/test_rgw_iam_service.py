@@ -61,7 +61,12 @@ class _FakeIAMClient:
         self.calls.append(("get_user", kwargs))
         self._maybe_raise("get_user")
         name = kwargs["UserName"]
-        return {"User": {"UserName": name, "UserId": f"uid-{name}", "Arn": f"arn:{name}"}}
+        return {"User": {"UserName": name, "UserId": f"uid-{name}", "Arn": f"arn:{name}", "Path": "/service/"}}
+
+    def update_user(self, **kwargs):
+        self.calls.append(("update_user", kwargs))
+        self._maybe_raise("update_user")
+        return {}
 
     def delete_user(self, **kwargs):
         self.calls.append(("delete_user", kwargs))
@@ -139,6 +144,17 @@ class _FakeIAMClient:
         group_name = kwargs["GroupName"]
         return {"Group": {"GroupName": group_name, "Arn": f"arn:{group_name}"}}
 
+    def get_group(self, **kwargs):
+        self.calls.append(("get_group", kwargs))
+        self._maybe_raise("get_group")
+        group_name = kwargs["GroupName"]
+        return {"Group": {"GroupName": group_name, "Arn": f"arn:{group_name}", "Path": "/teams/"}, "Users": []}
+
+    def update_group(self, **kwargs):
+        self.calls.append(("update_group", kwargs))
+        self._maybe_raise("update_group")
+        return {}
+
     def delete_group(self, **kwargs):
         self.calls.append(("delete_group", kwargs))
         self._maybe_raise("delete_group")
@@ -196,13 +212,13 @@ class _FakeIAMClient:
     def list_roles(self):
         self.calls.append(("list_roles", {}))
         self._maybe_raise("list_roles")
-        return {"Roles": [{"RoleName": "role-a", "Arn": "arn:role-a", "Path": "/"}]}
+        return {"Roles": [{"RoleName": "role-a", "Arn": "arn:role-a", "Path": "/", "MaxSessionDuration": 3600}]}
 
     def create_role(self, **kwargs):
         self.calls.append(("create_role", kwargs))
         self._maybe_raise("create_role")
         role_name = kwargs["RoleName"]
-        return {"Role": {"RoleName": role_name, "Arn": f"arn:{role_name}", "Path": kwargs.get("Path", "/")}}
+        return {"Role": {"RoleName": role_name, "Arn": f"arn:{role_name}", "Path": kwargs.get("Path", "/"), "MaxSessionDuration": kwargs.get("MaxSessionDuration", 3600)}}
 
     def get_role(self, **kwargs):
         self.calls.append(("get_role", kwargs))
@@ -213,6 +229,7 @@ class _FakeIAMClient:
                 "RoleName": role_name,
                 "Arn": f"arn:{role_name}",
                 "Path": "/",
+                "MaxSessionDuration": 7200,
                 "AssumeRolePolicyDocument": '{"Version":"2012-10-17"}',
             }
         }
@@ -225,6 +242,26 @@ class _FakeIAMClient:
     def update_assume_role_policy(self, **kwargs):
         self.calls.append(("update_assume_role_policy", kwargs))
         self._maybe_raise("update_assume_role_policy")
+        return {}
+
+    def update_role(self, **kwargs):
+        self.calls.append(("update_role", kwargs))
+        self._maybe_raise("update_role")
+        return {}
+
+    def list_role_tags(self, **kwargs):
+        self.calls.append(("list_role_tags", kwargs))
+        self._maybe_raise("list_role_tags")
+        return {"Tags": [{"Key": "environment", "Value": "test"}, {"Key": "environment", "Value": "qa"}]}
+
+    def tag_role(self, **kwargs):
+        self.calls.append(("tag_role", kwargs))
+        self._maybe_raise("tag_role")
+        return {}
+
+    def untag_role(self, **kwargs):
+        self.calls.append(("untag_role", kwargs))
+        self._maybe_raise("untag_role")
         return {}
 
     def list_policies(self, **kwargs):
@@ -367,11 +404,20 @@ def test_user_group_role_policy_crud_smoke(monkeypatch):
     service.delete_user_inline_policy("alice", "inline-user-policy")
     service.attach_user_policy("alice", "arn:policy:user")
     service.detach_user_policy("alice", "arn:policy:user")
+    user = service.get_user("alice")
+    assert user and user.path == "/service/"
+    service.update_user("alice", new_name="alice-2", new_path="/users/")
+    assert ("update_user", {"UserName": "alice", "NewUserName": "alice-2", "NewPath": "/users/"}) in fake.calls
 
     groups = service.list_groups()
     assert groups and groups[0].name == "grp-a"
     created_group = service.create_group("grp-b")
     assert created_group.name == "grp-b"
+    fetched_group = service.get_group("grp-a")
+    assert fetched_group and fetched_group.path == "/teams/"
+    assert ("get_group", {"GroupName": "grp-a"}) in fake.calls
+    service.update_group("grp-a", new_name="grp-b", new_path="/groups/")
+    assert ("update_group", {"GroupName": "grp-a", "NewGroupName": "grp-b", "NewPath": "/groups/"}) in fake.calls
     members = service.list_group_users("grp-a")
     assert members and members[0].name == "member-a"
     service.add_user_to_group("grp-a", "alice")
@@ -386,11 +432,28 @@ def test_user_group_role_policy_crud_smoke(monkeypatch):
 
     roles = service.list_roles()
     assert roles and roles[0].name == "role-a"
-    created_role = service.create_role("role-b", {"Statement": []}, path="/service/")
+    created_role = service.create_role(
+        "role-b",
+        {"Statement": []},
+        path="/service/",
+        max_session_duration=7200,
+        tags=[rgw_iam.IAMTag(key="team", value="storage")],
+    )
     assert created_role.name == "role-b"
     fetched_role = service.get_role("role-a")
     assert fetched_role and fetched_role.assume_role_policy_document == {"Version": "2012-10-17"}
+    assert fetched_role.max_session_duration == 7200
+    assert fetched_role.tags and [(tag.key, tag.value) for tag in fetched_role.tags] == [
+        ("environment", "test"),
+        ("environment", "qa"),
+    ]
     service.update_role_assume_policy("role-a", {"Statement": []})
+    service.update_role_max_session_duration("role-a", 14400)
+    service.tag_role("role-a", [rgw_iam.IAMTag(key="owner", value="ops")])
+    service.untag_role("role-a", ["owner"])
+    assert ("update_role", {"RoleName": "role-a", "MaxSessionDuration": 14400}) in fake.calls
+    assert ("tag_role", {"RoleName": "role-a", "Tags": [{"Key": "owner", "Value": "ops"}]}) in fake.calls
+    assert ("untag_role", {"RoleName": "role-a", "TagKeys": ["owner"]}) in fake.calls
     assert service.list_role_policies("role-a")[0].arn == "arn:policy:role"
     assert service.list_role_inline_policies("role-a") == ["inline-role-policy"]
     assert service.get_role_inline_policy("role-a", "inline-role-policy") == {"Statement": []}

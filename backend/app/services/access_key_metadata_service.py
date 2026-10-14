@@ -180,6 +180,13 @@ class AccessKeyMetadataService:
         self._iam_query(account_id, principal_name).delete(synchronize_session=False)
         self.db.commit()
 
+    def rename_iam_principal_metadata(self, account_id: int, principal_name: str, new_principal_name: str) -> None:
+        self._iam_query(account_id, principal_name).update(
+            {ManagerAccessKeyMetadata.principal_name: new_principal_name},
+            synchronize_session=False,
+        )
+        self.db.commit()
+
     def delete_s3_user_metadata(self, s3_user_id: int, access_key_id: str) -> None:
         self._s3_user_query(s3_user_id).filter(
             ManagerAccessKeyMetadata.access_key_id == access_key_id

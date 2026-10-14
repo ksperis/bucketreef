@@ -23,18 +23,25 @@ export type IAMRole = {
   path?: string;
   policies?: string[];
   assume_role_policy_document?: Record<string, unknown> | string;
+  max_session_duration?: number;
+  tags?: IAMTag[];
 };
+
+export type IAMTag = { key: string; value: string };
 
 type CreateRolePayload = {
   name: string;
   path?: string;
   assume_role_policy_document?: Record<string, unknown> | string;
+  max_session_duration?: number;
+  tags?: IAMTag[];
   inline_policies?: InlinePolicy[];
 };
 
 type UpdateRolePayload = {
   path?: string;
   assume_role_policy_document?: Record<string, unknown> | string;
+  max_session_duration?: number;
 };
 
 export async function listIamRoles(accountId?: S3AccountSelector): Promise<IAMRole[]> {
@@ -56,6 +63,28 @@ export async function updateIamRole(accountId: S3AccountSelector, roleName: stri
   const { data } = await client.put<IAMRole>(`/manager/iam/roles/${encodeURIComponent(roleName)}`, payload, {
     params: withS3AccountParam(undefined, accountId),
   });
+  return data;
+}
+
+export async function listRoleTags(accountId: S3AccountSelector, roleName: string): Promise<IAMTag[]> {
+  const { data } = await client.get<IAMTag[]>(`/manager/iam/roles/${encodeURIComponent(roleName)}/tags`, {
+    params: withS3AccountParam(undefined, accountId),
+  });
+  return data;
+}
+
+export async function putRoleTags(accountId: S3AccountSelector, roleName: string, tags: IAMTag[]): Promise<IAMTag[]> {
+  const { data } = await client.put<IAMTag[]>(`/manager/iam/roles/${encodeURIComponent(roleName)}/tags`, tags, {
+    params: withS3AccountParam(undefined, accountId),
+  });
+  return data;
+}
+
+export async function deleteRoleTag(accountId: S3AccountSelector, roleName: string, tagKey: string): Promise<IAMTag[]> {
+  const { data } = await client.delete<IAMTag[]>(
+    `/manager/iam/roles/${encodeURIComponent(roleName)}/tags/${encodeURIComponent(tagKey)}`,
+    { params: withS3AccountParam(undefined, accountId) },
+  );
   return data;
 }
 
