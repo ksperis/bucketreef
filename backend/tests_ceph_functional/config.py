@@ -91,6 +91,8 @@ class CephTestSettings:
     rgw_admin_endpoint: str | None
     rgw_admin_access_key: str | None = field(repr=False)
     rgw_admin_secret_key: str | None = field(repr=False)
+    ceph_admin_access_key: str | None = field(repr=False)
+    ceph_admin_secret_key: str | None = field(repr=False)
     rgw_admin_region: str | None
     rgw_verify_tls: bool
     rgw_ca_bundle: str | None
@@ -167,6 +169,14 @@ def load_settings() -> CephTestSettings:
             "SEED_RGW_ADMIN_SECRET_KEY",
             "SEED_CEPH_ADMIN_SECRET_KEY",
             "SEED_S3_SECRET_KEY",
+        ),
+        ceph_admin_access_key=_env_str(
+            "CEPH_TEST_CEPH_ADMIN_ACCESS_KEY",
+            "SEED_CEPH_ADMIN_ACCESS_KEY",
+        ),
+        ceph_admin_secret_key=_env_str(
+            "CEPH_TEST_CEPH_ADMIN_SECRET_KEY",
+            "SEED_CEPH_ADMIN_SECRET_KEY",
         ),
         rgw_admin_region=_env_str("CEPH_TEST_RGW_REGION", "SEED_S3_REGION"),
         rgw_verify_tls=_env_bool("CEPH_TEST_RGW_VERIFY_TLS", False),

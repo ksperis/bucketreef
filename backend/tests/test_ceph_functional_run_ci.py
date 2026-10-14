@@ -10,6 +10,7 @@ from app.services.storage_endpoint_normalization import (
     parse_env_storage_endpoints,
 )
 from tests_ceph_functional.bootstrap_session import _grant_functional_test_access
+from tests_ceph_functional.clients import CephVerifier
 from tests_ceph_functional import run_ci
 
 
@@ -18,6 +19,8 @@ def _seed_required_endpoint_env(monkeypatch):
     monkeypatch.setenv("CEPH_TEST_RGW_ADMIN_ENDPOINT", "https://admin.example.test")
     monkeypatch.setenv("CEPH_TEST_RGW_ADMIN_ACCESS_KEY", "admin-ak")
     monkeypatch.setenv("CEPH_TEST_RGW_ADMIN_SECRET_KEY", "admin-sk")
+    monkeypatch.setenv("CEPH_TEST_CEPH_ADMIN_ACCESS_KEY", "ceph-admin-ak")
+    monkeypatch.setenv("CEPH_TEST_CEPH_ADMIN_SECRET_KEY", "ceph-admin-sk")
     monkeypatch.setenv("CEPH_TEST_SUPERVISION_ACCESS_KEY", "supervision-ak")
     monkeypatch.setenv("CEPH_TEST_SUPERVISION_SECRET_KEY", "supervision-sk")
 
@@ -34,6 +37,8 @@ def test_ci_endpoint_payload_enables_replication(monkeypatch):
     assert payload[0]["is_default"] is True
     assert payload[0]["features"]["account"] == {"enabled": True}
     assert payload[0]["features"]["replication"] == {"enabled": True}
+    assert payload[0]["ceph_admin_allowed"] is True
+    assert payload[0]["ceph_admin_access_key"] == "ceph-admin-ak"
     states = normalize_env_storage_endpoint_states(
         parse_env_storage_endpoints(json.dumps(payload))
     )
@@ -104,6 +109,9 @@ def test_ci_endpoint_payload_can_use_env_storage_endpoints():
             },
             "admin_access_key": "admin-ak",
             "admin_secret_key": "admin-sk",
+            "ceph_admin_allowed": True,
+            "ceph_admin_access_key": "ceph-admin-ak",
+            "ceph_admin_secret_key": "ceph-admin-sk",
             "supervision_access_key": "supervision-ak",
             "supervision_secret_key": "supervision-sk",
             "is_default": True,
@@ -118,8 +126,45 @@ def test_ci_endpoint_payload_can_use_env_storage_endpoints():
     assert env["CEPH_TEST_LAB_S3_ENDPOINT"] == "https://s3-z1.example.test"
     assert env["CEPH_TEST_RGW_ADMIN_ENDPOINT"] == "https://admin-z1.example.test"
     assert env["CEPH_TEST_RGW_ADMIN_ACCESS_KEY"] == "admin-ak"
+    assert env["CEPH_TEST_CEPH_ADMIN_ACCESS_KEY"] == "ceph-admin-ak"
     assert env["CEPH_TEST_SUPERVISION_SECRET_KEY"] == "supervision-sk"
     assert env["CEPH_TEST_RGW_VERIFY_TLS"] == "true"
+
+
+def _verifier_settings(**overrides):
+    values = {
+        "rgw_admin_endpoint": "https://admin.example.test",
+        "rgw_admin_access_key": "admin-ak",
+        "rgw_admin_secret_key": "admin-sk",
+        "ceph_admin_access_key": None,
+        "ceph_admin_secret_key": None,
+        "rgw_admin_region": "us-east-1",
+        "rgw_ca_bundle": None,
+        "rgw_verify_tls": True,
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def test_ceph_verifier_prefers_dedicated_ceph_admin_credentials():
+    verifier = CephVerifier(
+        _verifier_settings(
+            ceph_admin_access_key="ceph-admin-ak",
+            ceph_admin_secret_key="ceph-admin-sk",
+        )
+    )
+
+    assert verifier.client.access_key == "ceph-admin-ak"
+    assert verifier.client.secret_key == "ceph-admin-sk"
+
+
+def test_ceph_verifier_rejects_partial_ceph_admin_credentials():
+    try:
+        CephVerifier(_verifier_settings(ceph_admin_access_key="ceph-admin-ak"))
+    except RuntimeError as exc:
+        assert str(exc) == "Ceph Admin credentials must be configured as a complete pair"
+    else:
+        raise AssertionError("CephVerifier accepted a partial Ceph Admin credential pair")
 
 
 def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):

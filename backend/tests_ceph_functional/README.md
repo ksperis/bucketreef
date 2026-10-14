@@ -11,6 +11,8 @@ lab RGW endpoint via `ENV_STORAGE_ENDPOINTS`.
 1. A running instance of the backend API reachable from your workstation.
 2. Credentials for a super admin user on that instance.
 3. (Optional) RGW Admin API credentials to double-check the Ceph state directly.
+   When a dedicated Ceph Admin pair is configured, direct verification and cleanup
+   prefer it so restricted Admin Ops credentials do not need bucket write permissions.
 
 Export the following environment variables before running the suite.
 For local one-shot runs, `backend/.env` is loaded automatically. Administrator
@@ -27,7 +29,8 @@ credentials may still use their documented storage-specific fallback values.
 | `CEPH_TEST_RESOURCE_PREFIX` | | Prefix used for accounts/buckets created during the run (`ceph-functional` by default). |
 | `CEPH_TEST_DELETE_RGW_TENANT` | | Whether teardown should remove the RGW tenant (default `false`). |
 | `CEPH_TEST_RGW_ADMIN_ENDPOINT` | | RGW admin endpoint for direct Ceph checks. |
-| `CEPH_TEST_RGW_ADMIN_ACCESS_KEY` / `CEPH_TEST_RGW_ADMIN_SECRET_KEY` | | Credentials for the RGW admin API. |
+| `CEPH_TEST_RGW_ADMIN_ACCESS_KEY` / `CEPH_TEST_RGW_ADMIN_SECRET_KEY` | | Admin Ops credentials used by endpoint workflows and as the direct-verifier fallback. |
+| `CEPH_TEST_CEPH_ADMIN_ACCESS_KEY` / `CEPH_TEST_CEPH_ADMIN_SECRET_KEY` | | Dedicated Ceph Admin credentials preferred for direct verification and destructive test cleanup. Configure both or neither. |
 | `CEPH_TEST_RGW_REGION` | | Region for AWS SigV4 signing (defaults to backend config). |
 | `CEPH_TEST_RGW_VERIFY_TLS` / `CEPH_TEST_RGW_CA_BUNDLE` | | TLS options for RGW admin calls. |
 | `CEPH_TEST_CEPH_ADMIN_ENDPOINT_NAME` | | Optional endpoint name override for ceph-admin tests. |

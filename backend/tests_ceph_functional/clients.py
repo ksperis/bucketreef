@@ -248,18 +248,28 @@ class BackendAuthenticator:
 
 
 class CephVerifier:
-    """Optional helper hitting RGW Admin APIs to validate Ceph state."""
+    """Optional helper hitting RGW Admin APIs to validate and clean Ceph state."""
 
     def __init__(self, settings: CephTestSettings) -> None:
+        has_ceph_admin_access = bool(settings.ceph_admin_access_key)
+        has_ceph_admin_secret = bool(settings.ceph_admin_secret_key)
+        if has_ceph_admin_access != has_ceph_admin_secret:
+            raise RuntimeError("Ceph Admin credentials must be configured as a complete pair")
+        if has_ceph_admin_access:
+            access_key = settings.ceph_admin_access_key
+            secret_key = settings.ceph_admin_secret_key
+        else:
+            access_key = settings.rgw_admin_access_key
+            secret_key = settings.rgw_admin_secret_key
         if not (
             settings.rgw_admin_endpoint
-            and settings.rgw_admin_access_key
-            and settings.rgw_admin_secret_key
+            and access_key
+            and secret_key
         ):
             raise RuntimeError("RGW admin credentials are not configured")
         self.client = RGWAdminClient(
-            access_key=settings.rgw_admin_access_key,
-            secret_key=settings.rgw_admin_secret_key,
+            access_key=access_key,
+            secret_key=secret_key,
             endpoint=settings.rgw_admin_endpoint,
             region=settings.rgw_admin_region,
         )
