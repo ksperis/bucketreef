@@ -170,6 +170,23 @@ def test_user_purge_preserves_rgw_204_audits_and_invalidates(monkeypatch):
     assert audit.calls[-1]["metadata"]["rgw_status_code"] == 204
 
 
+def test_user_delete_rejects_mismatched_account_before_rgw_delete():
+    class AccountAdmin(FakeAdmin):
+        def get_user(self, uid: str, tenant: str | None = None, allow_not_found: bool = True):
+            return {"uid": uid, "account_id": "RGW12345678901234567"}
+
+    admin = AccountAdmin()
+    ctx, _audit = _context(admin)
+    with pytest.raises(HTTPException) as raised:
+        identity_admin_ops.delete_user(
+            "alice", CephAdminUserDeleteRequest(confirmation="DELETE USER alice"),
+            tenant=None, expected_account_id="RGW88888888888888888", ctx=ctx,
+        )
+
+    assert raised.value.status_code == 409
+    assert not any(name == "delete_user" for name, _ in admin.calls)
+
+
 def test_bucket_delete_returns_rgw_error_status_and_keeps_cache(monkeypatch):
     admin = FakeAdmin()
     admin.response = _upstream(

@@ -12,6 +12,7 @@ from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
+from app.utils.rgw_payloads import extract_rgw_user_payload
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 
@@ -99,6 +100,36 @@ def load_user_payload(uid: str, tenant: Optional[str], ctx: CephAdminContext) ->
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RGW user not found")
     if not isinstance(payload, dict):
         return {"payload": payload}
+    return payload
+
+
+def require_user_scope(
+    uid: str,
+    tenant: Optional[str],
+    expected_account_id: Optional[str],
+    ctx: CephAdminContext,
+) -> dict[str, Any]:
+    """Resolve the RGW identity before any user/key mutation, failing closed on drift."""
+    payload = load_user_payload(uid, tenant, ctx)
+    user = extract_rgw_user_payload(payload)
+    raw_uid = normalize_optional_scalar(user.get("uid") or user.get("user_id") or payload.get("uid") or payload.get("user_id"))
+    actual_tenant = normalize_optional_scalar(user.get("tenant") or payload.get("tenant"))
+    if raw_uid and "$" in raw_uid:
+        embedded_tenant, raw_uid = split_tenant_uid(raw_uid)
+        actual_tenant = actual_tenant or embedded_tenant
+    account_values = {
+        value for value in (
+            normalize_optional_scalar(user.get("account_id")),
+            normalize_optional_scalar(payload.get("account_id")),
+        ) if value
+    }
+    if raw_uid != uid or (actual_tenant or None) != (tenant or None):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW user identity has changed; refresh the user list")
+    if expected_account_id:
+        if account_values != {expected_account_id}:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW user account has changed; refresh the user list")
+    elif account_values:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="expected_account_id is required for an account user")
     return payload
 
 

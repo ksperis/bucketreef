@@ -21,16 +21,20 @@ export type CephAdminRgwGeneratedAccessKey = {
   secret_key: string;
 };
 
-const tenantParams = (tenant?: string | null) => (tenant ? { tenant } : undefined);
+const userParams = (tenant?: string | null, expectedAccountId?: string | null) => ({
+  ...(tenant ? { tenant } : {}),
+  ...(expectedAccountId ? { expected_account_id: expectedAccountId } : {}),
+});
 
 export async function listCephAdminUserKeys(
   endpointId: number,
   uid: string,
-  tenant?: string | null
+  tenant?: string | null,
+  expectedAccountId?: string | null,
 ): Promise<CephAdminRgwAccessKey[]> {
   const { data } = await client.get<CephAdminRgwAccessKey[]>(
     `/ceph-admin/endpoints/${endpointId}/users/${encodeURIComponent(uid)}/keys`,
-    { params: tenantParams(tenant) }
+    { params: userParams(tenant, expectedAccountId) }
   );
   return data;
 }
@@ -38,12 +42,13 @@ export async function listCephAdminUserKeys(
 export async function createCephAdminUserKey(
   endpointId: number,
   uid: string,
-  tenant?: string | null
+  tenant?: string | null,
+  expectedAccountId?: string | null,
 ): Promise<CephAdminRgwGeneratedAccessKey> {
   const { data } = await client.post<CephAdminRgwGeneratedAccessKey>(
     `/ceph-admin/endpoints/${endpointId}/users/${encodeURIComponent(uid)}/keys`,
     undefined,
-    { params: tenantParams(tenant) }
+    { params: userParams(tenant, expectedAccountId) }
   );
   return data;
 }
@@ -53,12 +58,13 @@ export async function updateCephAdminUserKeyStatus(
   uid: string,
   accessKey: string,
   active: boolean,
-  tenant?: string | null
+  tenant?: string | null,
+  expectedAccountId?: string | null,
 ): Promise<CephAdminRgwAccessKey> {
   const { data } = await client.put<CephAdminRgwAccessKey>(
     `/ceph-admin/endpoints/${endpointId}/users/${encodeURIComponent(uid)}/keys/${encodeURIComponent(accessKey)}/status`,
     { active },
-    { params: tenantParams(tenant) }
+    { params: userParams(tenant, expectedAccountId) }
   );
   return data;
 }
@@ -67,10 +73,11 @@ export async function deleteCephAdminUserKey(
   endpointId: number,
   uid: string,
   accessKey: string,
-  tenant?: string | null
+  tenant?: string | null,
+  expectedAccountId?: string | null,
 ): Promise<void> {
   await client.delete(
     `/ceph-admin/endpoints/${endpointId}/users/${encodeURIComponent(uid)}/keys/${encodeURIComponent(accessKey)}`,
-    { params: tenantParams(tenant) }
+    { params: userParams(tenant, expectedAccountId) }
   );
 }

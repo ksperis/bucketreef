@@ -64,6 +64,14 @@ DELETE ACCOUNT <account_id>
 
 ### Users
 
+When creating an RGW user, the UID must be free in the selected tenant/account
+scope. An existing UID produces a conflict; BucketReef will not silently reuse
+the existing RGW principal or its access keys. If creation returns a conflict,
+verify the UID and account association in RGW before retrying. User configuration,
+access-key operations and deletion also verify the selected account association;
+refresh the users list if the identity or account changed. Editing a user's
+ordinary profile does not change its account-root status.
+
 Use **Delete user** to remove an empty RGW User. **Purge owned data** is off by
 default and passes `purge-data` to RGW when explicitly enabled. The RGW User
 whose credentials provide the active Ceph Admin connection cannot delete

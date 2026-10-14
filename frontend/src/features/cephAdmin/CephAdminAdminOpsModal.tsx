@@ -280,7 +280,8 @@ export default function CephAdminAdminOpsModal({
             endpointId,
             action.user.uid,
             { confirmation, purge_data: purgeData },
-            action.user.tenant
+            action.user.tenant,
+            action.user.account_id
           );
           break;
         case "delete-bucket":

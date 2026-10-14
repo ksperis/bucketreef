@@ -201,7 +201,7 @@ describe("Ceph Admin entity editor layout", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete key" }));
 
     await waitFor(() => {
-      expect(deleteCephAdminUserKeyMock).toHaveBeenCalledWith(7, "analytics-user", "AKIA-DELETE", undefined);
+      expect(deleteCephAdminUserKeyMock).toHaveBeenCalledWith(7, "analytics-user", "AKIA-DELETE", undefined, "RGW12345678901234567");
     });
   });
 });

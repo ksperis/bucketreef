@@ -1169,6 +1169,7 @@ export default function CephAdminUsersPage() {
           endpointUrl={selectedEndpoint?.endpoint_url ?? null}
           uid={editingTarget.uid}
           tenant={editingTarget.tenant}
+          expectedAccountId={editingTarget.account_id ?? null}
           canViewMetrics={canViewMetrics}
           onClose={() => setEditingTarget(null)}
           onSaved={applyUpdatedUser}

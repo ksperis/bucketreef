@@ -17,7 +17,7 @@ from app.models.ceph_admin import (
 )
 from app.routers.ceph_admin.audit import record_ceph_admin_action
 from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
-from app.routers.ceph_admin.user_common import load_user_payload, serialize_access_keys
+from app.routers.ceph_admin.user_common import require_user_scope, serialize_access_keys
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
@@ -57,11 +57,12 @@ def _managed_private_key(
 def list_rgw_user_keys(
     user_id: str,
     tenant: Optional[str] = None,
+    expected_account_id: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> list[CephAdminRgwAccessKey]:
     uid = user_id.strip()
-    load_user_payload(uid, tenant, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx)
     try:
         keys = ctx.rgw_admin.list_user_keys(uid, tenant=tenant)
     except RGWAdminError as exc:
@@ -85,10 +86,11 @@ def list_rgw_user_keys(
 def create_rgw_user_key(
     user_id: str,
     tenant: Optional[str] = None,
+    expected_account_id: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwGeneratedAccessKey:
     uid = user_id.strip()
-    load_user_payload(uid, tenant, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx)
     try:
         response = ctx.rgw_admin.create_access_key(uid, tenant=tenant)
     except RGWAdminError as exc:
@@ -117,6 +119,7 @@ def update_rgw_user_key_status(
     access_key: str,
     update: CephAdminRgwAccessKeyStatusChange,
     tenant: Optional[str] = None,
+    expected_account_id: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> CephAdminRgwAccessKey:
@@ -129,7 +132,7 @@ def update_rgw_user_key_status(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; update or delete its private connection instead",
         )
-    load_user_payload(uid, tenant, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx)
     try:
         ctx.rgw_admin.set_access_key_status(uid, normalized_key, update.active, tenant=tenant)
         keys = ctx.rgw_admin.list_user_keys(uid, tenant=tenant)
@@ -158,6 +161,7 @@ def delete_rgw_user_key(
     user_id: str,
     access_key: str,
     tenant: Optional[str] = None,
+    expected_account_id: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -170,7 +174,7 @@ def delete_rgw_user_key(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; delete its private connection instead",
         )
-    load_user_payload(uid, tenant, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx)
     try:
         ctx.rgw_admin.delete_access_key(uid, normalized_key, tenant=tenant)
     except RGWAdminError as exc:

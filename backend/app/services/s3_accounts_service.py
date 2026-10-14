@@ -442,6 +442,10 @@ class S3AccountsService:
             except RGWAdminError:
                 continue
             if payload and not payload.get("not_found"):
+                user = payload.get("user") if isinstance(payload.get("user"), dict) else payload
+                existing_account = str(user.get("account_id") or payload.get("account_id") or "").strip()
+                if existing_account != account_id:
+                    raise ValueError("RGW root UID belongs to another account or has no verifiable account")
                 return payload
         return None
 
@@ -506,6 +510,10 @@ class S3AccountsService:
                     display_name=prepared.root_display_name,
                     account_root=True,
                 )
+                if isinstance(resp, dict) and resp.get("conflict"):
+                    resp = self._load_existing_root_user(admin, prepared.root_uid, item.rgw_account_id)
+                    if not resp:
+                        raise ValueError("RGW root UID conflict; account ownership could not be verified")
                 access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
                     admin.extract_keys(resp)
                 )
@@ -605,6 +613,10 @@ class S3AccountsService:
                     display_name=self._root_display_name(account_name, rgw_account_id),
                     account_root=True,
                 )
+                if isinstance(root_payload, dict) and root_payload.get("conflict"):
+                    root_payload = self._load_existing_root_user(admin, root_uid, rgw_account_id)
+                    if not root_payload:
+                        raise ValueError("RGW root UID conflict; account ownership could not be verified")
             except RGWAdminError as exc:
                 raise ValueError(f"RGW root user creation failed: {exc}") from exc
 

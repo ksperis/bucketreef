@@ -16,6 +16,16 @@ from app.models.pagination import PaginatedResponse
 from app.models.tagging import TagDefinitionSummary
 from app.utils.rgw_identifiers import validate_rgw_account_name, validate_rgw_tenant, validate_rgw_user_uid
 
+
+def _safe_rgw_user_extra_params(value: dict[str, Any]) -> dict[str, Any]:
+    protected = {
+        "uid", "tenant", "account-id", "account-root", "format",
+        "generate-key", "access-key", "secret-key", "key", "key-type",
+    }
+    if any(str(key).strip().lower().replace("_", "-") in protected for key in value):
+        raise ValueError("User identity and credential parameters must use dedicated fields")
+    return value
+
 class CephAdminEndpoint(ApiModel):
     id: int
     name: str
@@ -327,26 +337,7 @@ class CephAdminRgwUserCreate(ApiModel):
     @field_validator("extra_params")
     @classmethod
     def validate_extra_identifiers(cls, value: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
-        # Admin Ops merges these options over the named fields before sending them.
-        overrides = {str(key or "").strip(): item for key, item in value.items() if item is not None}
-        uid = overrides.get("uid", info.data.get("uid"))
-        tenant = overrides.get("tenant", info.data.get("tenant"))
-        key = "tenant"
-        try:
-            if tenant is not None:
-                if not isinstance(tenant, str):
-                    raise ValueError("Tenant must be a string.")
-                validate_rgw_tenant(tenant.strip())
-            key = "uid"
-            if uid is not None:
-                if not isinstance(uid, str):
-                    raise ValueError("UID must be a string.")
-                validate_rgw_user_uid(uid, tenant)
-        except ValueError as exc:
-            raise ValidationError.from_exception_data(cls.__name__, [{
-                "type": "value_error", "loc": (key,), "ctx": {"error": exc},
-            }]) from exc
-        return value
+        return _safe_rgw_user_extra_params(value)
 
     @model_validator(mode="after")
     def validate_scope(self):
@@ -391,6 +382,11 @@ class CephAdminRgwUserConfigUpdate(ApiModel):
     quota_max_objects: Optional[int] = Field(default=None, ge=0)
     caps: Optional[CephAdminRgwUserCapsUpdate] = None
     extra_params: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("extra_params")
+    @classmethod
+    def validate_extra_identifiers(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _safe_rgw_user_extra_params(value)
 
 
 class CephAdminBucketUsagePoint(ApiModel):

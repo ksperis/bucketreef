@@ -277,7 +277,7 @@ def test_create_user_and_account_conflict_fallback(monkeypatch):
 
     user = client.create_user("alice")
     account = client.create_account(account_id="RGW1", account_name="acc")
-    assert user == {"uid": "alice"}
+    assert user == {"conflict": True}
     assert account == {"id": "RGW1"}
 
 
@@ -358,7 +358,7 @@ def test_create_user_with_account_id_conflict_and_delete_user_fallback(monkeypat
     monkeypatch.setattr(client, "_request", lambda *args, **kwargs: {"conflict": True})
     monkeypatch.setattr(client, "get_user", lambda *args, **kwargs: {"uid": "alice"})
     result = client.create_user_with_account_id("alice", "RGW1")
-    assert result == {"uid": "alice"}
+    assert result == {"conflict": True}
 
     attempts: list[str] = []
 
@@ -574,7 +574,7 @@ def test_update_user_helpers_and_bucket_usage_paths(monkeypatch):
         account_root=True,
         extra_params={"foo": "bar", "": "x", "none": None},
     )
-    assert result == {"uid": "alice"}
+    assert result == {"conflict": True}
     params = captured["params"]
     assert isinstance(params, dict)
     assert params["tenant"] == "RGW1"
@@ -687,7 +687,7 @@ def test_create_user_with_account_id_uses_account_lookup_after_conflict(monkeypa
         email="alice@test",
         extra_params={"foo": "bar", "empty": None},
     )
-    assert payload == {"uid": "account-user"}
+    assert payload == {"conflict": True}
 
 def test_get_account_user_filters_account_id(monkeypatch):
     client = _client()
