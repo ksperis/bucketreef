@@ -30,7 +30,7 @@ import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKe
 import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
 import { useManagerI18n } from "./managerI18n";
 
-export default function ManagerUserKeysPage() {
+export default function ManagerUserKeysPage({ embedded = false }: { embedded?: boolean }) {
   const { text, intlLocale } = useManagerI18n();
   const { userName } = useParams<{ userName: string }>();
   const {
@@ -324,6 +324,9 @@ export default function ManagerUserKeysPage() {
   ];
 
   if (isS3User) {
+    if (embedded) {
+      return <PageBanner tone="info">{text("IAM users are not available for standalone S3 users. Select an S3 Account to continue.")}</PageBanner>;
+    }
     return (
       <PageShell actionPresentation="listing"
           title={text("User access keys")}
@@ -343,29 +346,14 @@ export default function ManagerUserKeysPage() {
     return <div className="ui-body text-slate-600">{text("Select an account before managing keys.")}</div>;
   }
 
-  return (
-    <PageShell actionPresentation="listing"
-      title={text("IAM access keys")}
-      description={
-        <>
-          {text("Manage access keys for")} <span className="font-semibold text-slate-700 dark:text-slate-100">{pageTitle}</span>.
-        </>
-      }
-      breadcrumbs={managerPageBreadcrumbs(text, "users",
-        { label: pageTitle },
-        { label: text("Access keys") },
+  const content = <>
+      {embedded && (
+        <div className="flex justify-end">
+          <ListActionButton type="button" onClick={handleCreateKey} disabled={busy === "create"}>
+            {text(busy === "create" ? "Creating..." : "New key")}
+          </ListActionButton>
+        </div>
       )}
-      actions={[
-        { label: text("← Back to users"), to: "/manager/users", variant: "ghost" },
-        { label: text("Attached policies"), to: `/manager/users/${encodeURIComponent(pageTitle)}/policies`, variant: "ghost" },
-        {
-          label: text(busy === "create" ? "Creating..." : "New key"),
-          onClick: handleCreateKey,
-          variant: "primary",
-        },
-      ]}
-    >
-
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
@@ -426,7 +414,34 @@ export default function ManagerUserKeysPage() {
           onSubmit={metadataDialog.mode === "create" ? createKey : saveMetadata}
         />
       )}
+    </>;
 
+  if (embedded) return <div className="space-y-4">{content}</div>;
+
+  return (
+    <PageShell actionPresentation="listing"
+      title={text("IAM access keys")}
+      description={
+        <>
+          {text("Manage access keys for")} <span className="font-semibold text-slate-700 dark:text-slate-100">{pageTitle}</span>.
+        </>
+      }
+      breadcrumbs={managerPageBreadcrumbs(text, "users",
+        { label: pageTitle },
+        { label: text("Access keys") },
+      )}
+      actions={[
+        { label: text("← Back to users"), to: "/manager/users", variant: "ghost" },
+        { label: text("Attached policies"), to: `/manager/users/${encodeURIComponent(pageTitle)}/policies`, variant: "ghost" },
+        {
+          label: text(busy === "create" ? "Creating..." : "New key"),
+          onClick: handleCreateKey,
+          variant: "primary",
+        },
+      ]}
+    >
+
+      {content}
     </PageShell>
   );
 }

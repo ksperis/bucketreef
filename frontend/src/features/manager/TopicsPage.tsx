@@ -6,24 +6,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listTopics, type Topic } from "../../api/topics";
 import type { S3AccountSelector } from "../../api/accountParams";
 import UiInput from "../../components/ui/UiInput";
-import { ListActions, ListActionButton } from "../../components/list/ListControls";
+import { ListActions, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import DataTableShell, { dataTableDefaultActionProps, type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import TopicCreateDialog from "./TopicCreateDialog";
 import TopicDeleteDialog from "./TopicDeleteDialog";
-import TopicAttributesEditor from "./TopicAttributesEditor";
-import TopicPolicyEditor from "./TopicPolicyEditor";
 import { useManagerI18n } from "./managerI18n";
 
 type TopicAction = { kind: "create"; accountId: S3AccountSelector }
-  | { kind: "attributes" | "policy" | "delete"; accountId: S3AccountSelector; topic: Topic };
+  | { kind: "delete"; accountId: S3AccountSelector; topic: Topic };
 
 export default function TopicsPage() {
   const { text } = useManagerI18n();
@@ -94,18 +92,12 @@ export default function TopicsPage() {
       mobileRole: "actions",
       render: (topic) => (
         <ListActions>
-          <ListActionButton
-            type="button"
-            onClick={() => setActive({ kind: "attributes", accountId: accountIdForApi, topic })}
+          <ListActionLink
+            to={`/manager/topics/${encodeURIComponent(topic.name)}`}
+            {...dataTableDefaultActionProps}
           >
-            {text("Attributes")}
-          </ListActionButton>
-          <ListActionButton
-            type="button"
-            onClick={() => setActive({ kind: "policy", accountId: accountIdForApi, topic })}
-          >
-            {text("Policy")}
-          </ListActionButton>
+            {text("Edit")}
+          </ListActionLink>
           <ListActionButton
             type="button"
             variant="danger"
@@ -117,16 +109,6 @@ export default function TopicsPage() {
       ),
     },
   ];
-
-  if (active?.kind === "attributes") return <TopicAttributesEditor
-    key={`${active.accountId}:${active.topic.arn}`} accountId={active.accountId} currentAccountId={accountIdForApi}
-    topic={active.topic} onClose={close} onSaved={configuration => {
-      if (currentAccount.current !== active.accountId) return;
-      setTopics(current => current.map(topic => topic.arn === active.topic.arn ? { ...topic, configuration } : topic));
-    }} />;
-  if (active?.kind === "policy") return <TopicPolicyEditor
-    key={`${active.accountId}:${active.topic.arn}`} accountId={active.accountId} currentAccountId={accountIdForApi}
-    topic={active.topic} onClose={close} />;
 
   return <div className="space-y-4">
       <PageHeader actionPresentation="listing"

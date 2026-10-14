@@ -21,7 +21,7 @@ import UiButton from "../../components/ui/UiButton";
 import UiSelect from "../../components/ui/UiSelect";
 import { useManagerI18n } from "./managerI18n";
 
-export default function ManagerGroupUsersPage() {
+export default function ManagerGroupUsersPage({ embedded = false }: { embedded?: boolean }) {
   const { text } = useManagerI18n();
   const { groupName } = useParams<{ groupName: string }>();
   const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
@@ -136,6 +136,9 @@ export default function ManagerGroupUsersPage() {
   };
 
   if (isS3User) {
+    if (embedded) {
+      return <PageBanner tone="info">{text("IAM features are disabled for standalone S3 users. Select an S3 Account to continue.")}</PageBanner>;
+    }
     return (
       <PageShell actionPresentation="listing"
           title={text("Group members")}
@@ -197,25 +200,14 @@ export default function ManagerGroupUsersPage() {
     },
   ];
 
-  return (
-    <PageShell actionPresentation="listing"
-      title={text("Group members")}
-      description={
-        <>
-          {text("Manage users for")} <span className="font-semibold text-slate-700 dark:text-slate-100">{decodedGroup}</span>.
-        </>
-      }
-      breadcrumbs={managerPageBreadcrumbs(text, "groups",
-        { label: decodedGroup },
-        { label: text("Users") },
+  const content = <>
+      {embedded && (
+        <div className="flex justify-end">
+          <ListActionButton type="button" onClick={handleRefresh} disabled={loading}>
+            {text("Refresh")}
+          </ListActionButton>
+        </div>
       )}
-      actions={[
-        { label: text("← Back to groups"), to: "/manager/groups", variant: "ghost" },
-        { label: text("Attached policies"), to: `/manager/groups/${encodeURIComponent(decodedGroup)}/policies`, variant: "ghost" },
-        { label: text("Refresh"), onClick: handleRefresh, variant: "ghost" },
-      ]}
-    >
-
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {noAvailableUsers && (
@@ -268,6 +260,29 @@ export default function ManagerGroupUsersPage() {
         />
       </ListPageSection>
       {memberConfirmation.confirmationDialog}
+    </>;
+
+  if (embedded) return <div className="space-y-4">{content}</div>;
+
+  return (
+    <PageShell actionPresentation="listing"
+      title={text("Group members")}
+      description={
+        <>
+          {text("Manage users for")} <span className="font-semibold text-slate-700 dark:text-slate-100">{decodedGroup}</span>.
+        </>
+      }
+      breadcrumbs={managerPageBreadcrumbs(text, "groups",
+        { label: decodedGroup },
+        { label: text("Users") },
+      )}
+      actions={[
+        { label: text("← Back to groups"), to: "/manager/groups", variant: "ghost" },
+        { label: text("Attached policies"), to: `/manager/groups/${encodeURIComponent(decodedGroup)}/policies`, variant: "ghost" },
+        { label: text("Refresh"), onClick: handleRefresh, variant: "ghost" },
+      ]}
+    >
+      {content}
     </PageShell>
   );
 }

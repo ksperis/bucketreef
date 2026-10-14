@@ -2,7 +2,10 @@ import { test, expect } from "@playwright/test";
 
 const routes = [
   "/manager/buckets", "/manager/buckets/helios-documents", "/manager/users", "/manager/groups", "/manager/roles", "/manager/iam/policies", "/manager/metrics",
-  "/manager/browser?bucket=helios-documents&ctx=101", "/manager/users/backup-service/keys",
+  "/manager/browser?bucket=helios-documents&ctx=101",
+  "/manager/users/backup-service", "/manager/users/backup-service/keys", "/manager/users/backup-service/groups", "/manager/users/backup-service/policies",
+  "/manager/groups/applications", "/manager/groups/applications/members", "/manager/groups/applications/policies", "/manager/groups/applications/users",
+  "/manager/roles/ApplicationReadOnly", "/manager/roles/ApplicationReadOnly/trust", "/manager/roles/ApplicationReadOnly/policies",
   "/admin/users", "/admin/groups", "/admin/s3-accounts", "/admin/storage-endpoints", "/admin/s3-connections", "/admin/general-settings", "/admin/authentication-settings", "/admin/portal-requests", "/admin/access-audit", "/admin/audit", "/admin/metrics", "/admin/billing", "/admin/manager-settings", "/admin/browser-settings", "/admin/portal-settings", "/admin/webhook-settings", "/admin/api-tokens", "/admin/endpoint-status", "/admin/endpoint-status/11",
   "/portal/storage-spaces", "/portal/storage-spaces/space-1", "/portal/shares", "/portal/requests", "/portal/usage", "/portal/history", "/portal/access-keys",
   "/ceph-admin/accounts", "/ceph-admin/users", "/ceph-admin/buckets", "/ceph-admin/metrics", "/ceph-admin/buckets/helios-documents",

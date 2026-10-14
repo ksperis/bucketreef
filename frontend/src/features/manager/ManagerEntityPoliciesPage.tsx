@@ -45,6 +45,7 @@ type ManagerEntityPoliciesPageProps = {
   ) => Promise<{ name: string; document: Record<string, unknown> }>;
   deleteInlinePolicyForEntity: (accountId: S3AccountSelector, entityName: string, policyName: string) => Promise<void>;
   extraActions?: (entityName: string) => PageAction[];
+  embedded?: boolean;
 };
 
 type EntityPageConfig = {
@@ -85,6 +86,7 @@ export default function ManagerEntityPoliciesPage({
   putInlinePolicyForEntity,
   deleteInlinePolicyForEntity,
   extraActions,
+  embedded = false,
 }: ManagerEntityPoliciesPageProps) {
   const { text } = useManagerI18n();
   const config = ENTITY_CONFIG[entityType];
@@ -228,6 +230,13 @@ export default function ManagerEntityPoliciesPage({
   };
 
   if (isS3User) {
+    if (embedded) {
+      return (
+        <PageBanner tone="info">
+          {text("IAM {entities} are not available for standalone S3 users. Select an S3 Account to continue.", { entities: pluralLabel })}
+        </PageBanner>
+      );
+    }
     return (
       <PageShell actionPresentation="listing"
           title={text(config.title)}
@@ -294,23 +303,14 @@ export default function ManagerEntityPoliciesPage({
         </>
       );
 
-  return (
-    <PageShell actionPresentation="listing"
-      title={text(config.title)}
-      description={detailLine}
-      breadcrumbs={managerPageBreadcrumbs(
-        text,
-        parentPageId[entityType],
-        { label: decodedEntity },
-        { label: text("Policies") },
+  const content = <>
+      {embedded && (
+        <div className="flex justify-end">
+          <ListActionButton type="button" onClick={handleRefresh} disabled={loading}>
+            {text("Refresh")}
+          </ListActionButton>
+        </div>
       )}
-      actions={[
-        { label: text("← Back to {entities}", { entities: pluralLabel }), to: config.managerRoute, variant: "ghost" },
-        ...(extraActions?.(decodedEntity) ?? []),
-        { label: text("Refresh"), onClick: handleRefresh, variant: "ghost" },
-      ]}
-    >
-
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {noPoliciesAvailable && (
@@ -363,6 +363,28 @@ export default function ManagerEntityPoliciesPage({
         </SettingsSection>
       </div>
       {policyConfirmation.confirmationDialog}
+    </>;
+
+  if (embedded) return <div className="space-y-4">{content}</div>;
+
+  return (
+    <PageShell actionPresentation="listing"
+      title={text(config.title)}
+      description={detailLine}
+      breadcrumbs={managerPageBreadcrumbs(
+        text,
+        parentPageId[entityType],
+        { label: decodedEntity },
+        { label: text("Policies") },
+      )}
+      actions={[
+        { label: text("← Back to {entities}", { entities: pluralLabel }), to: config.managerRoute, variant: "ghost" },
+        ...(extraActions?.(decodedEntity) ?? []),
+        { label: text("Refresh"), onClick: handleRefresh, variant: "ghost" },
+      ]}
+    >
+
+      {content}
     </PageShell>
   );
 }

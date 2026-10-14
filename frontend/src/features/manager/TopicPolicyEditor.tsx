@@ -14,11 +14,12 @@ import { useManagerI18n } from "./managerI18n";
 
 const defaultPolicy = JSON.stringify({ Version: "2012-10-17", Statement: [] }, null, 2);
 
-export default function TopicPolicyEditor({ accountId, currentAccountId, topic, onClose }: {
+export default function TopicPolicyEditor({ accountId, currentAccountId, topic, onClose, embedded = false }: {
   accountId: S3AccountSelector;
   currentAccountId: S3AccountSelector;
   topic: Topic;
   onClose: () => void;
+  embedded?: boolean;
 }) {
   const { text } = useManagerI18n();
   const exampleId = useId();
@@ -68,6 +69,7 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
   return <SettingsWorkflowForm title={text("Topic policy · {topic}", { topic: topic.name })}
     description={text("Edit the SNS policy that controls access to this topic.")}
     breadcrumbs={managerPageBreadcrumbs(text, "topics", { label: text("Policy") })} backLabel={text("Back to topics")}
+    embedded={embedded}
     dirty={dirty && !loading && !loadError} busy={saving} loading={loading} disabled={Boolean(loadError)}
     error={loadError || error} persistentEdit submitLabel={text("Save policy")} onSubmit={save} onClose={onClose}>
     {loading && <p role="status" className="settings-description">{text("Loading topic policy...")}</p>}

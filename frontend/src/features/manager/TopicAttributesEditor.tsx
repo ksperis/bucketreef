@@ -94,12 +94,13 @@ const editableValues = ({ attributeItems, ...delivery }: ReturnType<typeof confi
   attributeItems: attributeItems.map(({ key, value }) => ({ key, value })),
 });
 
-export default function TopicAttributesEditor({ accountId, currentAccountId, topic, onSaved, onClose }: {
+export default function TopicAttributesEditor({ accountId, currentAccountId, topic, onSaved, onClose, embedded = false }: {
   accountId: S3AccountSelector;
   currentAccountId: S3AccountSelector;
   topic: Topic;
   onSaved: (configuration: Record<string, unknown>) => void;
   onClose: () => void;
+  embedded?: boolean;
 }) {
   const { text } = useManagerI18n();
   const sslHintId = useId();
@@ -181,6 +182,7 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
   return <SettingsWorkflowForm title={`Topic attributes · ${topic.name}`}
     description={text("Configure notification delivery and provider-specific SNS attributes.")}
     breadcrumbs={managerPageBreadcrumbs(text, "topics", { label: text("Attributes") })} backLabel={text("Back to topics")}
+    embedded={embedded}
     dirty={dirty && !loading && !loadError} busy={saving} loading={loading} disabled={Boolean(loadError)}
     error={loadError || error} persistentEdit submitLabel={text("Save attributes")} onSubmit={save} onClose={onClose}>
     {loading && <p role="status" className="settings-description">{text("Loading topic attributes...")}</p>}

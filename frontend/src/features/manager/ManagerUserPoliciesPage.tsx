@@ -13,7 +13,7 @@ import {
 import ManagerEntityPoliciesPage from "./ManagerEntityPoliciesPage";
 import { useManagerI18n } from "./managerI18n";
 
-export default function ManagerUserPoliciesPage() {
+export default function ManagerUserPoliciesPage({ embedded = false }: { embedded?: boolean }) {
   const { text } = useManagerI18n();
   return (
     <ManagerEntityPoliciesPage
@@ -25,6 +25,7 @@ export default function ManagerUserPoliciesPage() {
       listInlinePoliciesForEntity={listUserInlinePolicies}
       putInlinePolicyForEntity={putUserInlinePolicy}
       deleteInlinePolicyForEntity={deleteUserInlinePolicy}
+      embedded={embedded}
       extraActions={(entityName) => [
         {
           label: text("Access keys"),

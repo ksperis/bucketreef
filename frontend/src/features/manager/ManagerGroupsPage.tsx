@@ -15,7 +15,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import DataTableShell, { dataTableDefaultActionProps, type DataTableColumn } from "../../components/list/DataTableShell";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
@@ -263,14 +263,11 @@ export default function ManagerGroupsPage() {
       mobileRole: "actions",
       render: (group) => (
         <ListActions>
-          <ListActionLink to={`/manager/groups/${encodeURIComponent(group.name)}`}>
-            {text("Details")}
-          </ListActionLink>
-          <ListActionLink to={`/manager/groups/${encodeURIComponent(group.name)}/users`}>
-            {text("Members")}
-          </ListActionLink>
-          <ListActionLink to={`/manager/groups/${encodeURIComponent(group.name)}/policies`}>
-            {text("Policies")}
+          <ListActionLink
+            to={`/manager/groups/${encodeURIComponent(group.name)}`}
+            {...dataTableDefaultActionProps}
+          >
+            {text("Edit")}
           </ListActionLink>
           <ListActionButton
             onClick={() => handleDelete(group.name)}

@@ -10,7 +10,7 @@ import { useSettingsFormController } from "./useSettingsFormController";
 export default function SettingsWorkflowForm({
   title, description, breadcrumbs, backLabel, contentVariant, width = "standard", formLabel = title,
   dirty, busy = false, loading = false, disabled = false, readOnly = false, completed = false, error, submitLabel,
-  busyLabel = submitLabel, persistentEdit = false, onSubmit, onClose, children,
+  busyLabel = submitLabel, persistentEdit = false, embedded = false, onSubmit, onClose, children,
 }: Pick<ComponentProps<typeof WorkflowPage>, "title" | "description" | "breadcrumbs" | "backLabel" | "contentVariant" | "width"> & {
   formLabel?: string;
   dirty: boolean;
@@ -20,6 +20,7 @@ export default function SettingsWorkflowForm({
   readOnly?: boolean;
   completed?: boolean;
   persistentEdit?: boolean;
+  embedded?: boolean;
   error?: string | null;
   submitLabel: string;
   busyLabel?: string;
@@ -30,18 +31,21 @@ export default function SettingsWorkflowForm({
   const { labels, locked, requestClose, submit, confirmationDialog, navigationGuard } = useSettingsFormController({
     dirty: dirty && !readOnly, busy, disabled: disabled || loading || readOnly, completed, onSubmit, onClose,
   });
-  return <>
-    <WorkflowPage title={title} description={description} breadcrumbs={breadcrumbs}
-      backLabel={backLabel} onBack={requestClose} backDisabled={locked} width={width}
-      contentVariant={contentVariant} contentClassName="settings-compact settings-form">
-      <SettingsForm label={formLabel} onSubmit={submit} busy={locked || loading}
+  const form = (
+    <SettingsForm label={formLabel} onSubmit={submit} busy={locked || loading}
         submitDisabled={disabled || readOnly} onCancel={requestClose} submitLabel={submitLabel} busyLabel={submitLabel}
         actions={readOnly ? (
-          <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>{labels.close}</SettingsButton>
+          embedded ? null : <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>{labels.close}</SettingsButton>
         ) : persistentEdit ? (
-          <SettingsPersistentEditActions dirty={dirty} busy={locked} disabled={loading || disabled}
-            onCancel={requestClose} saveLabel={submitLabel} savingLabel={busyLabel}
-            cancelLabel={labels.cancel} doneLabel={labels.done} />
+          embedded ? (
+            <SettingsButton type="submit" disabled={locked || loading || disabled || !dirty} loading={locked}>
+              {locked ? busyLabel : submitLabel}
+            </SettingsButton>
+          ) : (
+            <SettingsPersistentEditActions dirty={dirty} busy={locked} disabled={loading || disabled}
+              onCancel={requestClose} saveLabel={submitLabel} savingLabel={busyLabel}
+              cancelLabel={labels.cancel} doneLabel={labels.done} />
+          )
         ) : <>
           <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>{labels.cancel}</SettingsButton>
           <SettingsButton type="submit" disabled={locked || loading || disabled} loading={locked}>{locked ? busyLabel : submitLabel}</SettingsButton>
@@ -51,7 +55,17 @@ export default function SettingsWorkflowForm({
           {children}
         </div>
       </SettingsForm>
-    </WorkflowPage>
+  );
+  return <>
+    {embedded ? (
+      <div className="settings-compact settings-form">{form}</div>
+    ) : (
+      <WorkflowPage title={title} description={description} breadcrumbs={breadcrumbs}
+        backLabel={backLabel} onBack={requestClose} backDisabled={locked} width={width}
+        contentVariant={contentVariant} contentClassName="settings-compact settings-form">
+        {form}
+      </WorkflowPage>
+    )}
     {confirmationDialog}
     {navigationGuard}
   </>;
