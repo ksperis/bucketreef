@@ -479,7 +479,8 @@ export const SettingsEffectiveAction = ({
       ) : null}
       {constraintLabel ? (
         <UiBadge tone="warning">{constraintLabel}</UiBadge>
-      ) : children}
+      ) : null}
+      {children}
       {savedLabel ? (
         <span className="settings-effective-saved">{savedLabel}</span>
       ) : null}

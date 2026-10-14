@@ -38,17 +38,27 @@ describe("resource feature inheritance", () => {
     expect(inherited).toHaveTextContent("×");
   });
 
-  it("keeps an inherited platform-disabled value visible in a disabled tri-state control", () => {
-    render(<FeatureOverrideField title="Keys" value={null} policy="disabled" onChange={() => undefined} triState />);
+  it("blocks activation while keeping safe choices editable under a platform prohibition", async () => {
+    const user = userEvent.setup();
+    function Editor() {
+      const [value, setValue] = useState<boolean | null>(null);
+      return <FeatureOverrideField title="Keys" value={value} policy="disabled" onChange={setValue} triState />;
+    }
+    render(<Editor />);
 
     expect(screen.getByText("Platform disabled")).toBeVisible();
     expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
     expect(screen.queryByText("Override")).not.toBeInTheDocument();
     const group = screen.getByRole("radiogroup", { name: "Keys" });
-    expect(group).toHaveAttribute("aria-disabled", "true");
+    expect(group).not.toHaveAttribute("aria-disabled");
     const inherited = within(group).getByRole("radio", { name: "Inherited platform value — Disabled" });
     expect(inherited).toHaveAttribute("aria-checked", "true");
-    expect(inherited).toBeDisabled();
+    expect(inherited).not.toBeDisabled();
+    expect(within(group).getByRole("radio", { name: "Enabled" })).toBeDisabled();
+    const disabled = within(group).getByRole("radio", { name: "Disabled" });
+    expect(disabled).not.toBeDisabled();
+    await user.click(disabled);
+    expect(disabled).toHaveAttribute("aria-checked", "true");
   });
 
   it("keeps an explicit opt-out distinct from the platform value", async () => {
@@ -66,11 +76,12 @@ describe("resource feature inheritance", () => {
     expect(select).toHaveDisplayValue("Platform value — Enabled");
   });
 
-  it("shows a stored platform-disabled choice in a disabled tri-state control", async () => {
+  it("lets an administrator clear a stored enabled override after the platform disables it", async () => {
     const user = userEvent.setup();
     function Editor() {
       const [value, setValue] = useState<boolean | null>(true);
-      return <FeatureOverrideField title="Keys" value={value} policy="disabled" onChange={setValue} help="Requires a compatible endpoint." triState />;
+      return <><FeatureOverrideField title="Keys" value={value} policy="disabled" onChange={setValue} help="Requires a compatible endpoint." triState />
+        <output>{value === null ? "inherited" : String(value)}</output></>;
     }
     render(<Editor />);
     expect(screen.getByText("Platform disabled")).toBeVisible();
@@ -79,10 +90,29 @@ describe("resource feature inheritance", () => {
     const enabled = within(group).getByRole("radio", { name: "Enabled" });
     expect(enabled).toHaveAttribute("aria-checked", "true");
     expect(enabled).toBeDisabled();
+    const inherited = within(group).getByRole("radio", { name: "Inherited platform value — Disabled" });
+    expect(inherited).not.toBeDisabled();
+    await user.click(inherited);
+    expect(screen.getByRole("status")).toHaveTextContent("inherited");
     await user.click(screen.getByRole("button", { name: "Keys: information" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("compatible endpoint");
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("prevents a new enabled choice in the select presentation while allowing cleanup", async () => {
+    const user = userEvent.setup();
+    function Editor() {
+      const [value, setValue] = useState<boolean | null>(true);
+      return <><FeatureOverrideField title="History" value={value} policy="disabled" onChange={setValue} />
+        <output>{value === null ? "inherited" : String(value)}</output></>;
+    }
+    render(<Editor />);
+
+    const select = screen.getByRole("combobox", { name: "History" });
+    expect(within(select).getByRole("option", { name: "Enabled" })).toBeDisabled();
+    await user.selectOptions(select, "inherit");
+    expect(screen.getByRole("status")).toHaveTextContent("inherited");
   });
 
   it("shows an endpoint constraint as a badge while keeping safe override choices editable", async () => {

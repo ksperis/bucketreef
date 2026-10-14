@@ -50,7 +50,7 @@ export function AdminAccessToggleSection({
   return (
     <SettingsSection title={title} description={description} presentation="compact">
       {items.map((item) => {
-        const disabled = Boolean(item.disabled || item.blocked);
+        const disabled = Boolean(item.disabled || (item.blocked && !item.checked));
         return (
           <SettingsItem
             key={item.ariaLabel}

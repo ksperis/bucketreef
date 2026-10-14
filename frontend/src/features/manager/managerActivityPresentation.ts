@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { ManagerActivityEntry } from "../../api/managerActivity";
 
-export type ManagerActivityCategory = "bucket" | "user" | "group" | "role" | "policy" | "topic" | "migration" | "object" | "other";
+type ManagerActivityCategory = "bucket" | "user" | "group" | "role" | "policy" | "topic" | "migration" | "object" | "other";
 
 function normalizeActionLabel(action: string): string {
   return action

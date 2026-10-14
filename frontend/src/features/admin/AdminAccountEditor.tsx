@@ -36,8 +36,6 @@ type EditorState = { dirty: boolean; busy: boolean };
 type Props = {
   account: S3Account | S3AccountSummary;
   portalEnabled: boolean;
-  accessKeyMetadataEnabled: boolean;
-  accessKeyExpirationEnabled: boolean;
   canManageManagerFeatures: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;

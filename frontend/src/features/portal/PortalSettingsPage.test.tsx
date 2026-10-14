@@ -113,7 +113,7 @@ describe("Portal project settings", () => {
     },
   );
 
-  it("keeps a platform-disabled Portal feature visible as a disabled tri-state control", async () => {
+  it("blocks Portal activation while allowing a stored override to return to inheritance", async () => {
     mocks.fetch.mockResolvedValue({
       ...project,
       project_override: { browser_access_enabled: true },
@@ -134,10 +134,16 @@ describe("Portal project settings", () => {
     expect(within(row).queryByText("Override")).not.toBeInTheDocument();
     expect(within(row).queryByText("Saved: Enabled")).not.toBeInTheDocument();
     const group = within(row).getByRole("radiogroup", { name: "Browser workspace access" });
-    expect(group).toHaveAttribute("aria-disabled", "true");
+    expect(group).not.toHaveAttribute("aria-disabled");
     const enabled = within(group).getByRole("radio", { name: "Enabled" });
     expect(enabled).toHaveAttribute("aria-checked", "true");
     expect(enabled).toBeDisabled();
+    const inherited = within(group).getByRole("radio", { name: /^Platform value/ });
+    expect(inherited).not.toBeDisabled();
+    fireEvent.click(inherited);
+    expectPortalFeature("Browser workspace access", "inherit");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith("101", {}));
   });
 
   it("keeps a draft when delegation is revoked and reloads current values on confirmed cancellation", async () => {
