@@ -1,10 +1,9 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getIamUser, type IAMUser, updateIamUser } from "../../api/managerIamUsers";
 import { getIamGroup, type IAMGroup, updateIamGroup } from "../../api/managerIamGroups";
 import PageShell from "../../components/PageShell";
-import { ListActionLink } from "../../components/list/ListControls";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -20,10 +19,11 @@ import { useManagerI18n } from "./managerI18n";
 
 type Identity = IAMUser | IAMGroup;
 
-export default function ManagerIamIdentityDetailPage({ kind }: { kind: "user" | "group" }) {
+export default function ManagerIamIdentityDetailPage({ kind, embedded = false }: { kind: "user" | "group"; embedded?: boolean }) {
   const { text } = useManagerI18n();
   const params = useParams<{ userName?: string; groupName?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
   const needsSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
@@ -82,27 +82,22 @@ export default function ManagerIamIdentityDetailPage({ kind }: { kind: "user" | 
       setEntity(updated); setName(updated.name); setPath(updated.path ?? "/");
       setInitial(stableSignature({ name: updated.name, path: updated.path ?? "/" }));
       setSaved(true);
-      if (updated.name !== entityName) navigate(`${listRoute}/${encodeURIComponent(updated.name)}`, { replace: true });
+      if (updated.name !== entityName) {
+        const currentBase = `${listRoute}/${encodeURIComponent(entityName)}`;
+        const suffix = location.pathname.startsWith(currentBase) ? location.pathname.slice(currentBase.length) : "";
+        navigate(`${listRoute}/${encodeURIComponent(updated.name)}${suffix}`, { replace: true });
+      }
     } catch (err) {
       setError(extractApiError(err, kind === "user" ? "Unable to update IAM user." : "Unable to update IAM group."));
     } finally { setSaving(false); }
   };
-
-  const related = kind === "user"
-    ? [
-        { label: text("Keys"), to: `/manager/users/${encodeURIComponent(entity?.name ?? entityName)}/keys` },
-        { label: text("Policies"), to: `/manager/users/${encodeURIComponent(entity?.name ?? entityName)}/policies` },
-      ]
-    : [
-        { label: text("Members"), to: `/manager/groups/${encodeURIComponent(entity?.name ?? entityName)}/users` },
-        { label: text("Policies"), to: `/manager/groups/${encodeURIComponent(entity?.name ?? entityName)}/policies` },
-      ];
 
   return <SettingsWorkflowForm
     title={text(kind === "user" ? "IAM user details" : "IAM group details")}
     description={text(kind === "user" ? "Review and update the native IAM user identity." : "Review and update the native IAM group identity.")}
     breadcrumbs={managerPageBreadcrumbs(text, kind === "user" ? "users" : "groups", { label: entity?.name ?? entityName })}
     backLabel={text(kind === "user" ? "Back to users" : "Back to groups")}
+    embedded={embedded}
     contentVariant="plain" dirty={current !== initial} loading={loading} busy={saving} readOnly={managed}
     error={error} onSubmit={submit} onClose={() => navigate(listRoute)} persistentEdit
     submitLabel={text("Save changes")} busyLabel={text("Saving...")}>
@@ -116,11 +111,6 @@ export default function ManagerIamIdentityDetailPage({ kind }: { kind: "user" | 
           readOnly={managed} onChange={(event) => { setPath(event.target.value); setSaved(false); }} error={pathError ? text(pathError) : undefined}
           hint={text("Use '/' or a path that starts and ends with '/'.")} />
         <UiInput label="ARN" value={entity?.arn ?? ""} readOnly />
-      </div>
-    </SettingsSection>
-    <SettingsSection title={text("Related IAM configuration")} presentation="compact">
-      <div className="flex flex-wrap gap-2">
-        {related.map((item) => <ListActionLink key={item.to} to={item.to}>{item.label}</ListActionLink>)}
       </div>
     </SettingsSection>
   </SettingsWorkflowForm>;

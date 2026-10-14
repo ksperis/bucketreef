@@ -85,19 +85,16 @@ const EndpointStatusPage = lazy(() => import("./features/admin/EndpointStatusPag
 const EndpointStatusDetailPage = lazy(() => import("./features/admin/EndpointStatusDetailPage"));
 const ManagerUsersPage = lazy(() => import("./features/manager/ManagerUsersPage"));
 const ManagerUserDetailPage = lazy(() => import("./features/manager/ManagerUserDetailPage"));
-const ManagerUserKeysPage = lazy(() => import("./features/manager/ManagerUserKeysPage"));
 const BucketDetailPage = lazy(() => import("./features/manager/BucketDetailPage"));
 const BrowserPage = lazy(() => import("./features/browser/BrowserPage"));
 const ManagerBrowserPage = lazy(() => import("./features/manager/ManagerBrowserPage"));
 const ManagerGroupsPage = lazy(() => import("./features/manager/ManagerGroupsPage"));
 const ManagerGroupDetailPage = lazy(() => import("./features/manager/ManagerGroupDetailPage"));
-const ManagerGroupUsersPage = lazy(() => import("./features/manager/ManagerGroupUsersPage"));
 const ManagerRolesPage = lazy(() => import("./features/manager/ManagerRolesPage"));
-const ManagerRolePoliciesPage = lazy(() => import("./features/manager/ManagerRolePoliciesPage"));
-const ManagerUserPoliciesPage = lazy(() => import("./features/manager/ManagerUserPoliciesPage"));
-const ManagerGroupPoliciesPage = lazy(() => import("./features/manager/ManagerGroupPoliciesPage"));
+const ManagerRoleWorkspacePage = lazy(() => import("./features/manager/ManagerRoleWorkspacePage"));
 const ManagerMetricsPage = lazy(() => import("./features/manager/ManagerMetricsPage"));
 const TopicsPage = lazy(() => import("./features/manager/TopicsPage"));
+const ManagerTopicWorkspacePage = lazy(() => import("./features/manager/ManagerTopicWorkspacePage"));
 const ManagerMigrationsPage = lazy(() => import("./features/manager/ManagerMigrationsPage"));
 const ManagerMigrationDetailPage = lazy(() => import("./features/manager/ManagerMigrationDetailPage"));
 const ManagerMigrationWizardPage = lazy(() => import("./features/manager/ManagerMigrationWizardPage"));
@@ -441,17 +438,23 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                     <Route element={<RequireManagerIamFeature />}>
                       <Route path="users" element={<ManagerUsersPage />} />
                       <Route path="users/:userName" element={<ManagerUserDetailPage />} />
-                      <Route path="users/:userName/keys" element={<ManagerUserKeysPage />} />
-                      <Route path="users/:userName/policies" element={<ManagerUserPoliciesPage />} />
+                      <Route path="users/:userName/keys" element={<ManagerUserDetailPage />} />
+                      <Route path="users/:userName/groups" element={<ManagerUserDetailPage />} />
+                      <Route path="users/:userName/policies" element={<ManagerUserDetailPage />} />
                       <Route path="groups" element={<ManagerGroupsPage />} />
                       <Route path="groups/:groupName" element={<ManagerGroupDetailPage />} />
-                      <Route path="groups/:groupName/policies" element={<ManagerGroupPoliciesPage />} />
-                      <Route path="groups/:groupName/users" element={<ManagerGroupUsersPage />} />
+                      <Route path="groups/:groupName/members" element={<ManagerGroupDetailPage />} />
+                      <Route path="groups/:groupName/policies" element={<ManagerGroupDetailPage />} />
+                      <Route path="groups/:groupName/users" element={<ManagerGroupDetailPage />} />
                       <Route path="roles" element={<ManagerRolesPage />} />
-                      <Route path="roles/:roleName/policies" element={<ManagerRolePoliciesPage />} />
+                      <Route path="roles/:roleName" element={<ManagerRoleWorkspacePage />} />
+                      <Route path="roles/:roleName/trust" element={<ManagerRoleWorkspacePage />} />
+                      <Route path="roles/:roleName/policies" element={<ManagerRoleWorkspacePage />} />
                       <Route path="iam/policies" element={<PoliciesPage />} />
                     </Route>
                     <Route path="topics" element={<TopicsPage />} />
+                    <Route path="topics/:topicName" element={<ManagerTopicWorkspacePage />} />
+                    <Route path="topics/:topicName/policy" element={<ManagerTopicWorkspacePage />} />
                     <Route path="ceph/keys" element={<ManagerCephKeysPage />} />
                     <Route element={<RequireManagerBucketCompareFeature />}>
                       <Route path="bucket-compare" element={<ManagerBucketComparePage />} />

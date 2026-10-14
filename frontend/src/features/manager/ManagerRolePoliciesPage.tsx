@@ -12,7 +12,7 @@ import {
 } from "../../api/managerIamRoles";
 import ManagerEntityPoliciesPage from "./ManagerEntityPoliciesPage";
 
-export default function ManagerRolePoliciesPage() {
+export default function ManagerRolePoliciesPage({ embedded = false }: { embedded?: boolean }) {
   return (
     <ManagerEntityPoliciesPage
       entityType="role"
@@ -23,6 +23,7 @@ export default function ManagerRolePoliciesPage() {
       listInlinePoliciesForEntity={listRoleInlinePolicies}
       putInlinePolicyForEntity={putRoleInlinePolicy}
       deleteInlinePolicyForEntity={deleteRoleInlinePolicy}
+      embedded={embedded}
     />
   );
 }

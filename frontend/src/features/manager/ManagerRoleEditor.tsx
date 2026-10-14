@@ -37,24 +37,27 @@ function sameTags(left: IAMTag[], right: IAMTag[]): boolean {
 }
 
 /** A mounted role/executor owns the request and draft until save or dismissal. */
-export default function ManagerRoleEditor({ accountId, roleName, onClose, onSaved }: {
+export default function ManagerRoleEditor({ accountId, roleName, onClose, onSaved, mode = "all", embedded = false }: {
   accountId: S3AccountSelector;
   roleName: string;
   onClose: () => void;
   onSaved: () => void;
+  mode?: "all" | "general" | "trust";
+  embedded?: boolean;
 }) {
   const { text } = useManagerI18n();
   const load = useCallback(async () => {
     const role = await getIamRole(accountId, roleName);
     return {
+      arn: role.arn ?? "",
       path: role.path ?? DEFAULT_ROLE_PATH,
       policy: formatPolicy(role.assume_role_policy_document),
       maxSessionDuration: role.max_session_duration ?? 3600,
       tags: role.tags ?? [],
     };
   }, [accountId, roleName]);
-  const { baseline, draft, setDraft, accept, dirty, loading, loadError, retry } = useSettingsRemoteDraft(
-    () => ({ path: DEFAULT_ROLE_PATH, policy: DEFAULT_ASSUME_ROLE_DOCUMENT, maxSessionDuration: 3600, tags: [] as IAMTag[] }), load, "Unable to load role details.",
+  const { baseline, draft, setDraft, accept, dirty: draftDirty, loading, loadError, retry } = useSettingsRemoteDraft(
+    () => ({ arn: "", path: DEFAULT_ROLE_PATH, policy: DEFAULT_ASSUME_ROLE_DOCUMENT, maxSessionDuration: 3600, tags: [] as IAMTag[] }), load, "Unable to load role details.",
   );
   const [saving, setSaving] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
@@ -63,10 +66,15 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
   const parsed = parseIamRolePolicy(draft.policy);
   const maxDurationError = roleMaxSessionDurationError(draft.maxSessionDuration);
   const tagsError = draft.tags.find(roleTagError) ? "Fix invalid role tags before continuing." : undefined;
+  const dirty = mode === "trust"
+    ? draft.policy !== baseline.policy
+    : mode === "general"
+      ? draft.maxSessionDuration !== baseline.maxSessionDuration || !sameTags(draft.tags, baseline.tags)
+      : draftDirty;
   const save = async (event: FormEvent<HTMLFormElement>) => {
     if (loading || loadError || saving) return;
     setValidationAttempted(true);
-    if (parsed.error || maxDurationError || tagsError) {
+    if ((mode !== "general" && parsed.error) || (mode !== "trust" && (maxDurationError || tagsError))) {
       focusFirstInvalidField(event.currentTarget);
       return;
     }
@@ -76,26 +84,29 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
     try {
       const baselinePolicy = parseIamRolePolicy(baseline.policy);
       const roleChanges: Parameters<typeof updateIamRole>[2] = {};
-      if (JSON.stringify(parsed.document) !== JSON.stringify(baselinePolicy.document)) {
+      if (mode !== "general" && JSON.stringify(parsed.document) !== JSON.stringify(baselinePolicy.document)) {
         roleChanges.assume_role_policy_document = parsed.document;
       }
-      if (draft.maxSessionDuration !== baseline.maxSessionDuration) {
+      if (mode !== "trust" && draft.maxSessionDuration !== baseline.maxSessionDuration) {
         roleChanges.max_session_duration = draft.maxSessionDuration;
       }
       if (Object.keys(roleChanges).length > 0) {
         await updateIamRole(accountId, roleName, roleChanges);
       }
-      const currentByKey = tagsByKey(baseline.tags);
-      const desiredByKey = tagsByKey(draft.tags);
-      for (const key of new Set([...currentByKey.keys(), ...desiredByKey.keys()])) {
-        const currentTags = currentByKey.get(key) ?? [];
-        const desiredTags = desiredByKey.get(key) ?? [];
-        if (sameTags(currentTags, desiredTags)) continue;
-        if (currentTags.length > 0) await deleteRoleTag(accountId, roleName, key);
-        if (desiredTags.length > 0) await putRoleTags(accountId, roleName, desiredTags);
+      if (mode !== "trust") {
+        const currentByKey = tagsByKey(baseline.tags);
+        const desiredByKey = tagsByKey(draft.tags);
+        for (const key of new Set([...currentByKey.keys(), ...desiredByKey.keys()])) {
+          const currentTags = currentByKey.get(key) ?? [];
+          const desiredTags = desiredByKey.get(key) ?? [];
+          if (sameTags(currentTags, desiredTags)) continue;
+          if (currentTags.length > 0) await deleteRoleTag(accountId, roleName, key);
+          if (desiredTags.length > 0) await putRoleTags(accountId, roleName, desiredTags);
+        }
       }
       const role = await getIamRole(accountId, roleName);
       accept({
+        arn: role.arn ?? "",
         path: role.path ?? DEFAULT_ROLE_PATH,
         policy: formatPolicy(role.assume_role_policy_document),
         maxSessionDuration: role.max_session_duration ?? 3600,
@@ -109,8 +120,9 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
     } finally { setSaving(false); }
   };
   return <SettingsWorkflowForm title={text("Edit IAM role: {role}", { role: roleName })} formLabel={text("Edit IAM role")}
-    description={text("Review the role identity and update its trust policy.")}
+    description={mode === "trust" ? text("Edit the trust policy used by STS AssumeRole.") : text("Review the role identity, session duration, and tags.")}
     breadcrumbs={managerPageBreadcrumbs(text, "roles", { label: text("Edit") })} backLabel={text("Back to roles")}
+    embedded={embedded}
     contentVariant="plain" dirty={dirty && !loading && !loadError} busy={saving} loading={loading}
     disabled={Boolean(loadError)} error={loadError || error} onSubmit={save} onClose={onClose}
     persistentEdit submitLabel={text("Save changes")} busyLabel={text("Saving...")}>
@@ -118,14 +130,14 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
     {saved && <UiInlineMessage tone="success" role="status">{text("Role updated")}</UiInlineMessage>}
     {loadError && <div><SettingsButton variant="secondary" onClick={retry}>{text("Retry loading")}</SettingsButton></div>}
     <fieldset disabled={Boolean(loadError)} className="min-w-0">
-      <ManagerRoleFormFields editing name={roleName} path={draft.path} policy={draft.policy}
+      <ManagerRoleFormFields editing sections={mode === "all" ? "all" : mode} name={roleName} path={draft.path} arn={draft.arn} policy={draft.policy}
         maxSessionDuration={draft.maxSessionDuration}
         onPolicyChange={policy => { setDraft(value => ({ ...value, policy })); setError(null); }}
         onMaxSessionDurationChange={maxSessionDuration => { setDraft(value => ({ ...value, maxSessionDuration })); setError(null); }}
         policyError={validationAttempted ? parsed.error : undefined}
         maxSessionDurationError={validationAttempted ? maxDurationError : undefined} />
-      <ManagerRoleTagsEditor tags={draft.tags} onChange={tags => { setDraft(value => ({ ...value, tags })); setError(null); }} />
-      {validationAttempted && tagsError && <UiInlineMessage tone="error">{text(tagsError)}</UiInlineMessage>}
+      {mode !== "trust" && <ManagerRoleTagsEditor tags={draft.tags} onChange={tags => { setDraft(value => ({ ...value, tags })); setError(null); }} />}
+      {mode !== "trust" && validationAttempted && tagsError && <UiInlineMessage tone="error">{text(tagsError)}</UiInlineMessage>}
     </fieldset>
   </SettingsWorkflowForm>;
 }

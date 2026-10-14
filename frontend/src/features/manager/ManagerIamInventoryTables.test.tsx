@@ -103,7 +103,10 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByText("operators").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(screen.getByText("arn:aws:iam::acc-1:group/operators").closest("td")).toHaveAttribute("data-label", "ARN");
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
-    expect(screen.getByRole("link", { name: "Members" }).closest("td")).toHaveAttribute("data-mobile-actions", "true");
+    const groupEdit = screen.getByRole("link", { name: "Edit" });
+    expect(groupEdit).toHaveAttribute("href", "/manager/groups/operators");
+    expect(groupEdit).toHaveAttribute("data-table-default-action", "true");
+    expect(groupEdit.closest("td")).toHaveAttribute("data-mobile-actions", "true");
 
     await waitFor(() => {
       expect(listIamGroupsMock).toHaveBeenCalledWith("acc-1");
@@ -137,7 +140,10 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByText("/application/").closest("td")).toHaveAttribute("data-label", "Path");
     expect(screen.getByText("arn:aws:iam::acc-1:role/app-reader").closest("td")).toHaveAttribute("data-label", "ARN");
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
-    expect(screen.getByRole("button", { name: "Edit" }).closest("td")).toHaveAttribute("data-mobile-actions", "true");
+    const roleEdit = screen.getByRole("link", { name: "Edit" });
+    expect(roleEdit).toHaveAttribute("href", "/manager/roles/app-reader");
+    expect(roleEdit).toHaveAttribute("data-table-default-action", "true");
+    expect(roleEdit.closest("td")).toHaveAttribute("data-mobile-actions", "true");
 
     await waitFor(() => {
       expect(listIamRolesMock).toHaveBeenCalledWith("acc-1");

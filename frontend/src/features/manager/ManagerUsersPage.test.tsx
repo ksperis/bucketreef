@@ -136,7 +136,10 @@ describe("ManagerUsersPage", () => {
     expect(screen.getByText("arn:aws:iam::acc-1:user/alice").closest("td")).toHaveAttribute("data-label", "ARN");
     expect(screen.getByText("operators").closest("td")).toHaveAttribute("data-label", "Groups");
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
-    expect(screen.getByRole("link", { name: "Keys" }).closest("td")).toHaveAttribute("data-mobile-actions", "true");
+    const editLink = screen.getByRole("link", { name: "Edit" });
+    expect(editLink).toHaveAttribute("href", "/manager/users/alice");
+    expect(editLink).toHaveAttribute("data-table-default-action", "true");
+    expect(editLink.closest("td")).toHaveAttribute("data-mobile-actions", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(deleteIamUserMock).not.toHaveBeenCalled();

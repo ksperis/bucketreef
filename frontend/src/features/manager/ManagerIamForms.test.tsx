@@ -7,6 +7,7 @@ import { setSessionUserCache } from "../../utils/workspaces";
 import PoliciesPage from "./PoliciesPage";
 import ManagerUsersPage from "./ManagerUsersPage";
 import ManagerGroupsPage from "./ManagerGroupsPage";
+import ManagerRoleEditor from "./ManagerRoleEditor";
 import ManagerRolesPage from "./ManagerRolesPage";
 
 const api = vi.hoisted(() => ({
@@ -163,9 +164,11 @@ it.each([
 
 describe("IAM role configuration", () => {
   const open = async () => {
-    render(<MemoryRouter><ManagerRolesPage /></MemoryRouter>);
-    await screen.findByText(role.name);
-    fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    render(
+      <MemoryRouter>
+        <ManagerRoleEditor accountId="acc-7" roleName={role.name} onClose={() => undefined} onSaved={() => undefined} />
+      </MemoryRouter>,
+    );
     return screen.findByRole("form", { name: "Edit IAM role" });
   };
 
@@ -246,9 +249,11 @@ describe("IAM role configuration", () => {
 
   it("freezes role fields after a failed load and offers a fresh retry", async () => {
     api.getRole.mockRejectedValueOnce(new Error("Role details unavailable"));
-    render(<MemoryRouter><ManagerRolesPage /></MemoryRouter>);
-    await screen.findByText(role.name);
-    fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    render(
+      <MemoryRouter>
+        <ManagerRoleEditor accountId="acc-7" roleName={role.name} onClose={() => undefined} onSaved={() => undefined} />
+      </MemoryRouter>,
+    );
     await screen.findByText("Role details unavailable");
     expect(screen.getByRole("textbox", { name: "Assume role policy (JSON)" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
@@ -261,15 +266,21 @@ describe("IAM role configuration", () => {
 });
 
 
-it("ignores a late role read after closing and reopening its editor", async () => {
+it("ignores a late role read after remounting its editor", async () => {
   let resolveOld!: (value: typeof role) => void;
   api.getRole.mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; }));
-  render(<MemoryRouter><ManagerRolesPage /></MemoryRouter>);
-  await screen.findByText(role.name);
-  fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+  const view = render(
+    <MemoryRouter>
+      <ManagerRoleEditor accountId="acc-7" roleName={role.name} onClose={() => undefined} onSaved={() => undefined} />
+    </MemoryRouter>,
+  );
   expect(screen.getByRole("textbox", { name: "Assume role policy (JSON)" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "Back to roles" }));
-  fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+  view.rerender(<MemoryRouter><div /></MemoryRouter>);
+  view.rerender(
+    <MemoryRouter>
+      <ManagerRoleEditor accountId="acc-7" roleName={role.name} onClose={() => undefined} onSaved={() => undefined} />
+    </MemoryRouter>,
+  );
   const policy = screen.getByRole("textbox", { name: "Assume role policy (JSON)" });
   await waitFor(() => expect(policy).toBeEnabled());
   fireEvent.change(policy, { target: { value: "unsaved draft" } });
@@ -281,10 +292,9 @@ const navigationCases = [
   ...cases.map(({ kind, Page, create }) => ({ kind, Page, mutate: create,
     action: `Create ${kind}`, formName: `Create IAM ${kind}`, fieldName: `${kind[0].toUpperCase()}${kind.slice(1)} name`, draft: "Unsaved-identity" })),
   { kind: "policy", Page: PoliciesPage, mutate: api.createPolicy, action: "Create policy", formName: "Create IAM policy", fieldName: "Policy name", draft: "Unsaved-policy" },
-  { kind: "edit-role", Page: ManagerRolesPage, mutate: api.updateRole, action: "Edit", formName: "Edit IAM role", fieldName: "Assume role policy (JSON)", draft: '{"Version":"2012-10-17","Statement":[]}' },
 ];
 
-it.each(navigationCases)("protects the $kind form through context navigation, pending work and error retry", async ({ kind, Page, mutate, action, formName, fieldName, draft }) => {
+it.each(navigationCases)("protects the $kind form through context navigation, pending work and error retry", async ({ Page, mutate, action, formName, fieldName, draft }) => {
   const user = userEvent.setup();
   setSessionUserCache({ role: "ui_user", authType: "password" });
   let reject!: (error: Error) => void;
@@ -315,20 +325,9 @@ it.each(navigationCases)("protects the $kind form through context navigation, pe
   expect(field).toBeDisabled();
   await act(async () => reject(new Error("Temporary IAM failure")));
   expect(await screen.findByRole("alert")).toHaveTextContent("Temporary IAM failure");
-  if (kind === "edit-role") {
-    expect(field).toHaveValue(JSON.stringify(trust, null, 2));
-    fireEvent.change(field, { target: { value: draft } });
-  } else {
-    expect(field).toHaveValue(draft);
-  }
+  expect(field).toHaveValue(draft);
   fireEvent.submit(form);
-  if (kind === "edit-role") {
-    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
-    expect(form).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
-  } else {
-    await waitFor(() => expect(form).not.toBeInTheDocument());
-  }
+  await waitFor(() => expect(form).not.toBeInTheDocument());
   expect(mutate.mock.calls[0]).toEqual(mutate.mock.calls[1]);
   expect(mutate.mock.calls[1][0]).toBe("acc-7");
   const saved = new Event("beforeunload", { cancelable: true });

@@ -13,7 +13,7 @@ import {
 import ManagerEntityPoliciesPage from "./ManagerEntityPoliciesPage";
 import { useManagerI18n } from "./managerI18n";
 
-export default function ManagerGroupPoliciesPage() {
+export default function ManagerGroupPoliciesPage({ embedded = false }: { embedded?: boolean }) {
   const { text } = useManagerI18n();
   return (
     <ManagerEntityPoliciesPage
@@ -25,10 +25,11 @@ export default function ManagerGroupPoliciesPage() {
       listInlinePoliciesForEntity={listGroupInlinePolicies}
       putInlinePolicyForEntity={putGroupInlinePolicy}
       deleteInlinePolicyForEntity={deleteGroupInlinePolicy}
+      embedded={embedded}
       extraActions={(entityName) => [
         {
           label: text("Members"),
-          to: `/manager/groups/${encodeURIComponent(entityName)}/users`,
+          to: `/manager/groups/${encodeURIComponent(entityName)}/members`,
           variant: "ghost",
         },
       ]}

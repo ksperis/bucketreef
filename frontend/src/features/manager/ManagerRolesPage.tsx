@@ -22,7 +22,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import DataTableShell, { dataTableDefaultActionProps, type DataTableColumn } from "../../components/list/DataTableShell";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
@@ -38,7 +38,6 @@ import { useManagerIamCollection } from "./useManagerIamCollection";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
-import ManagerRoleEditor from "./ManagerRoleEditor";
 import ManagerRoleTagsEditor, { roleTagError } from "./ManagerRoleTagsEditor";
 import { DEFAULT_ASSUME_ROLE_DOCUMENT, DEFAULT_ROLE_PATH, parseIamRolePolicy } from "./iamRoleForm";
 import { iamPathFormatError, roleMaxSessionDurationError } from "./iamIdentityForm";
@@ -106,7 +105,6 @@ export default function ManagerRolesPage() {
       inlinePolicyText: "",
     })
   );
-  const [editingRoleName, setEditingRoleName] = useState<string | null>(null);
   const advancedPolicy = parseIamRolePolicy(assumeRolePolicyText);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -328,13 +326,11 @@ export default function ManagerRolesPage() {
       mobileRole: "actions",
       render: (role) => (
         <ListActions>
-          <ListActionButton
-            onClick={() => { setError(null); setEditingRoleName(role.name); }}
+          <ListActionLink
+            to={`/manager/roles/${encodeURIComponent(role.name)}`}
+            {...dataTableDefaultActionProps}
           >
             {text("Edit")}
-          </ListActionButton>
-          <ListActionLink to={`/manager/roles/${encodeURIComponent(role.name)}/policies`}>
-            {text("Policies")}
           </ListActionLink>
           <ListActionButton
             onClick={() => handleDelete(role.name)}
@@ -349,7 +345,7 @@ export default function ManagerRolesPage() {
   ];
 
   return (
-    <div className={workflowPageHostClass(showCreateForm || Boolean(editingRoleName))}>
+    <div className={workflowPageHostClass(showCreateForm)}>
       <PageHeader actionPresentation="listing"
         title={text("IAM Roles")}
         description={text("Manage roles using the account root keys.")}
@@ -471,12 +467,6 @@ export default function ManagerRolesPage() {
           />
         </SettingsWorkflowForm>
       )}
-      {editingRoleName && <ManagerRoleEditor
-        key={`${accountIdForApi}:${editingRoleName}`} accountId={accountIdForApi} roleName={editingRoleName}
-        onClose={() => setEditingRoleName(null)} onSaved={() => {
-          setActionMessage(text("Role updated"));
-          void load(accountIdForApi);
-        }} />}
       {deleteConfirmation.confirmationDialog}
     </div>
   );

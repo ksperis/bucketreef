@@ -23,7 +23,7 @@ import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import DataTableShell, { dataTableDefaultActionProps, type DataTableColumn } from "../../components/list/DataTableShell";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
@@ -443,14 +443,11 @@ export default function ManagerUsersPage() {
       mobileRole: "actions",
       render: (user) => (
         <ListActions>
-          <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}`}>
-            {text("Details")}
-          </ListActionLink>
-          <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}/keys`}>
-            {text("Keys")}
-          </ListActionLink>
-          <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}/policies`}>
-            {text("Policies")}
+          <ListActionLink
+            to={`/manager/users/${encodeURIComponent(user.name)}`}
+            {...dataTableDefaultActionProps}
+          >
+            {text("Edit")}
           </ListActionLink>
           <ListActionButton
             onClick={() => handleDelete(user.name)}

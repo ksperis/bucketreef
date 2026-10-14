@@ -21,9 +21,14 @@ instead.
 
 1. Open `/manager/users`, `/manager/groups`, `/manager/roles`, or `/manager/iam/policies`.
 2. Create or edit IAM resources.
-   - For native IAM users and groups, open **Details** to review the provider
-     ARN and IAM path. You can rename the identity or change its path. After a
-     rename, Manager follows the new provider name automatically.
+   - Selecting a user, group, or role opens its resource workspace directly.
+     Use the tabs to keep the resource in context while changing its related
+     settings: **General**, **Keys**, **Groups/Members**, **Trust policy**, and
+     **Policies** appear when they apply to that resource type.
+   - For native IAM users and groups, **General** shows the provider ARN and IAM
+     path. You can rename the identity or change its path. After a rename,
+     Manager follows the new provider name automatically and keeps the active
+     resource tab when possible.
    - BucketReef-managed identities used by Portal or managed private access
      are read-only on the Details page. Change or remove them through the
      BucketReef feature that owns them instead.
@@ -34,20 +39,21 @@ instead.
      same tag key; Manager preserves those values. Removing a key removes all
      of its values, and editing one value replaces the complete set for that
      key.
-3. Attach/detach policies to users, groups, or roles.
-4. Manage IAM access keys from user key pages. When **Access-key names and
+3. Attach/detach policies from the resource **Policies** tab.
+4. Manage user membership from **Groups** on a user or **Members** on a group.
+5. Manage IAM access keys from the user **Keys** tab. When **Access-key names and
    notes** is enabled globally and for the selected RGW Account, **New key**
    accepts an optional name and notes. Existing keys can be updated with
    **Edit details**. This metadata is stored only by BucketReef and does not
    change the IAM credential or its permissions.
-5. To create a personal private S3 connection without handling its secret,
+6. To create a personal private S3 connection without handling its secret,
    select **Create my private access** on the Users page. The default creates a
    dedicated IAM identity with `AmazonS3FullAccess` and a Browser-enabled
    private connection. Open **Advanced configuration** to replace that policy,
    attach IAM groups or inline policies, or change Browser/Manager availability.
    BucketReef creates the key on the server and never displays its generated
    secret in this flow.
-6. Verify resulting access with your standard IAM validation process.
+7. Verify resulting access with your standard IAM validation process.
 
 ## Expected result
 

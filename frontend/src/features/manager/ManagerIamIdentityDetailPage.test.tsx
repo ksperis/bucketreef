@@ -73,7 +73,6 @@ it("loads a native IAM user, renames it and follows the provider canonical name"
   expect(name).toHaveValue("alice");
   expect(path).toHaveValue("/people/");
   expect(within(form).getByLabelText("ARN")).toHaveValue("arn:aws:iam::7:user/alice");
-  expect(within(form).getByRole("link", { name: "Keys" })).toHaveAttribute("href", "/manager/users/alice/keys");
 
   fireEvent.change(name, { target: { value: "alice-renamed" } });
   fireEvent.change(path, { target: { value: "/service/" } });
@@ -86,15 +85,13 @@ it("loads a native IAM user, renames it and follows the provider canonical name"
   await waitFor(() => expect(api.getUser).toHaveBeenCalledWith("acc-7", "alice-renamed"));
 });
 
-it("loads and updates a native IAM group with member and policy navigation", async () => {
+it("loads and updates a native IAM group", async () => {
   const router = createMemoryRouter([
     { path: "/manager/groups/:groupName", element: <ManagerIamIdentityDetailPage kind="group" /> },
   ], { initialEntries: ["/manager/groups/research"] });
   render(<RouterProvider router={router} />);
 
   const form = await screen.findByRole("form", { name: "IAM group details" });
-  expect(within(form).getByRole("link", { name: "Members" })).toHaveAttribute("href", "/manager/groups/research/users");
-  expect(within(form).getByRole("link", { name: "Policies" })).toHaveAttribute("href", "/manager/groups/research/policies");
   fireEvent.change(within(form).getByLabelText("Group name"), { target: { value: "research-renamed" } });
   fireEvent.change(within(form).getByLabelText("IAM path"), { target: { value: "/science/" } });
   fireEvent.submit(form);

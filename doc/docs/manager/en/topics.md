@@ -17,8 +17,10 @@ Confirm that the selected endpoint supports SNS. Topics and bucket notification 
 
 1. Open **Manager > SNS Topics**.
 2. Create a topic.
-3. Inspect topic attributes.
-4. Edit or review topic policy.
+3. Select a topic to open its resource workspace.
+4. Use **Configuration** to inspect or edit delivery attributes and **Policy**
+   to review or edit the SNS access policy. Each tab has its own URL, so a
+   refresh or direct link returns to the same part of the topic workflow.
 5. Delete unused topics.
 
 ## Expected result
