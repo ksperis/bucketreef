@@ -159,6 +159,7 @@ class PortalIamMixin:
     def _ensure_portal_groups(
         self,
         iam_service: RGWIAMService,
+        account: Optional[S3Account] = None,
     ) -> None:
         """Ensure portal groups exist and carry the expected policies."""
         groups = {g.name for g in iam_service.list_groups()}
@@ -166,12 +167,12 @@ class PortalIamMixin:
             (
                 self._manager_group_name,
                 self._manager_group_policy_name,
-                self._resolve_group_policy("manager"),
+                self._resolve_group_policy("manager", account),
             ),
             (
                 self._user_group_name,
                 self._inline_policy_name,
-                self._resolve_group_policy("user"),
+                self._resolve_group_policy("user", account),
             ),
         )
 
@@ -235,7 +236,7 @@ class PortalIamMixin:
         if account is not None and portal_role == PortalAccountRole.PORTAL_MANAGER.value:
             self._sync_portal_server_access_log_bucket_policy_if_present(account)
 
-        self._ensure_portal_groups(iam_service)
+        self._ensure_portal_groups(iam_service, account)
         target_group = self._manager_group_name if portal_role == PortalAccountRole.PORTAL_MANAGER.value else self._user_group_name
         other_group = self._user_group_name if target_group == self._manager_group_name else self._manager_group_name
 

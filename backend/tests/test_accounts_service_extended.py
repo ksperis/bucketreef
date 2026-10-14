@@ -185,6 +185,16 @@ def test_account_rgw_users_paths(db_session):
     assert service._account_rgw_users("RGW1", None, admin) == (2, ["alice", "bob"])
 
 
+def test_account_rgw_users_does_not_scan_endpoint_inventory(db_session):
+    service, admin = _service(db_session)
+    admin.account_payload = {"id": "RGW1", "tenant": ""}
+    inventory_calls: list[bool] = []
+    admin.list_user_ids = lambda: inventory_calls.append(True) or []  # type: ignore[attr-defined]
+
+    assert service._account_rgw_users("RGW1", None, admin) == (None, None)
+    assert inventory_calls == []
+
+
 def test_account_rgw_users_skips_optional_lookup_when_accounts_api_is_unavailable(db_session):
     service, admin = _service(db_session)
     admin.unsupported_account_api = True
@@ -481,6 +491,34 @@ def test_delete_account_removes_empty_portal_groups_before_root_user(db_session,
         "root",
         "account",
     ]
+
+
+def test_delete_account_uses_scoped_iam_when_account_user_list_is_missing(db_session, monkeypatch):
+    endpoint = _seed_endpoint(
+        db_session,
+        name="ceph-delete-standard-account-info",
+        is_default=True,
+        iam_enabled=True,
+    )
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="delete-standard-account-info",
+        rgw_account_id="RGW-DEL-IAM-2",
+    )
+    service, admin = _service(db_session)
+    admin.account_payload = {"id": account.rgw_account_id, "tenant": ""}
+    admin.list_user_ids = lambda: pytest.fail("endpoint-wide inventory must not be loaded")  # type: ignore[attr-defined]
+    monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 0))
+    monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
+    monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
+    monkeypatch.setattr(service, "_iam_for_account", lambda _account: _FakeAccountIAM())
+    monkeypatch.setattr(service, "_delete_root_user", lambda _account: None)
+
+    service.delete_account(account.id, delete_rgw=True)
+
+    assert admin.deleted_accounts == [account.rgw_account_id]
+    assert db_session.query(S3Account).filter(S3Account.id == account.id).first() is None
 
 
 @pytest.mark.parametrize(

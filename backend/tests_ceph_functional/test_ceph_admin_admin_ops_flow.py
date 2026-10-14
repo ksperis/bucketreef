@@ -146,6 +146,7 @@ def test_ceph_admin_admin_ops_lifecycle(
 
         deleted = super_admin_session.delete(
             f"{root}/users/{account_user}",
+            params={"expected_account_id": nonempty_account},
             json={"confirmation": f"DELETE USER {account_user}", "purge_data": False},
         )
         _assert_success(deleted, "delete_user")

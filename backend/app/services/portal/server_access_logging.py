@@ -141,16 +141,19 @@ class PortalServerAccessLoggingMixin:
             for stmt in statements
             if not (isinstance(stmt, dict) and stmt.get("Sid") in managed_sids)
         ]
+        log_bucket_arn = self._bucket_arns(log_bucket, account)[0]
+        tenant = str(account.rgw_tenant or "").strip()
+        source_arn = f"arn:aws:s3::{tenant}:*" if tenant else "arn:aws:s3:::*"
         filtered.append(
             {
                 "Sid": PORTAL_SERVER_ACCESS_LOGGING_SID,
                 "Effect": "Allow",
                 "Principal": {"Service": "logging.s3.amazonaws.com"},
                 "Action": "s3:PutObject",
-                "Resource": f"arn:aws:s3:::{log_bucket}/{SERVER_ACCESS_LOGGING_PREFIX_ROOT}*",
+                "Resource": f"{log_bucket_arn}/{SERVER_ACCESS_LOGGING_PREFIX_ROOT}*",
                 "Condition": {
                     "StringEquals": {"aws:SourceAccount": self._portal_server_access_source_account_id(account)},
-                    "ArnLike": {"aws:SourceArn": "arn:aws:s3:::*"},
+                    "ArnLike": {"aws:SourceArn": source_arn},
                 },
             }
         )
@@ -162,10 +165,7 @@ class PortalServerAccessLoggingMixin:
                     "Effect": "Deny",
                     "Principal": {"AWS": manager_principals},
                     "Action": "s3:*",
-                    "Resource": [
-                        f"arn:aws:s3:::{log_bucket}",
-                        f"arn:aws:s3:::{log_bucket}/*",
-                    ],
+                    "Resource": self._bucket_arns(log_bucket, account),
                 }
             )
         policy["Statement"] = filtered

@@ -246,6 +246,8 @@ def test_admin_ops_methods_send_exact_methods_and_omit_false_booleans(monkeypatc
     assert calls[1]["params"]["purge-data"] == "true"
     assert "purge-objects" not in calls[2]["params"]
     assert "bypass-gc" not in calls[2]["params"]
+    assert calls[2]["params"]["bucket"] == "tenant-a/bucket-a"
+    assert "tenant" not in calls[2]["params"]
     assert calls[3]["params"]["purge-objects"] == "true"
     assert calls[3]["params"]["bypass-gc"] == "true"
     assert calls[4]["method"] == "POST"
@@ -742,7 +744,7 @@ def test_create_update_delete_account_branches(monkeypatch):
             return {"not_found": True}
         if path == "/admin/account" and method == "POST" and params.get("id") == "RGW-CONFLICT":
             return {"conflict": True}
-        if path == "/admin/account" and method == "POST" and params.get("id") == "RGW-UPD":
+        if path == "/admin/account" and method == "PUT" and params.get("id") == "RGW-UPD":
             return {"conflict": True}
         return {"id": params.get("id", "RGW-OK")}
 
@@ -763,11 +765,11 @@ def test_create_update_delete_account_branches(monkeypatch):
     assert created == {"conflict": True}
     create_params = calls[0]["params"]
     assert create_params["email"] == "acc@test"
-    assert create_params["max_users"] == 10
-    assert create_params["max_buckets"] == 20
-    assert create_params["max_roles"] == 30
-    assert create_params["max_groups"] == 40
-    assert create_params["max_access_keys"] == 50
+    assert create_params["max-users"] == 10
+    assert create_params["max-buckets"] == 20
+    assert create_params["max-roles"] == 30
+    assert create_params["max-groups"] == 40
+    assert create_params["max-access-keys"] == 50
     assert create_params["foo"] == "bar"
     assert "none" not in create_params
     assert "" not in create_params
@@ -782,6 +784,7 @@ def test_create_update_delete_account_branches(monkeypatch):
         extra_params={"foo": "bar", "skip": None, "": "bad"},
     )
     assert updated == {"conflict": True}
+    assert calls[-1]["method"] == "PUT"
     update_params = calls[-1]["params"]
     assert update_params["name"] == "updated"
     assert update_params["email"] == "updated@test"

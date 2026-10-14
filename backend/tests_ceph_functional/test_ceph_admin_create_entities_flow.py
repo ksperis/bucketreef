@@ -87,6 +87,9 @@ def test_ceph_admin_create_account_and_user_with_cleanup(
     )
     keys = run_or_skip(
         "ceph-admin created user keys listing",
-        lambda: super_admin_session.get(f"{users_path}/{uid}/keys"),
+        lambda: super_admin_session.get(
+            f"{users_path}/{uid}/keys",
+            params={"expected_account_id": account_id},
+        ),
     )
     assert isinstance(keys, list)

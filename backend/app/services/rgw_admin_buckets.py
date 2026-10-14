@@ -59,9 +59,13 @@ class RGWAdminBucketOperations:
         purge_objects: bool = False,
         bypass_gc: bool = False,
     ) -> RGWAdminOperationResponse:
-        params: Dict[str, Any] = {"bucket": bucket, "format": "json"}
-        if tenant:
-            params["tenant"] = tenant
+        params: Dict[str, Any] = {
+            "bucket": self._admin_bucket_identifier(bucket, tenant),
+            "format": "json",
+        }
+        # Ceph Squid resolves a tenant-qualified bucket name correctly for
+        # DELETE, while combining that name with a separate tenant parameter
+        # can return NoSuchBucket. Keep the tenant in the bucket identifier.
         if purge_objects:
             params["purge-objects"] = "true"
         if bypass_gc:

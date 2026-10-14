@@ -11,6 +11,7 @@ import logging
 import re
 from typing import Any, Optional
 
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFoundError
@@ -43,6 +44,7 @@ from app.services.portal_role_sync import (
     sync_portal_role_promotions,
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
+from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_topics_resolver import (
     RgwAccountTopicsResolver,
@@ -53,7 +55,7 @@ from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.tags_service import TagsService
-from app.utils.s3_endpoint import resolve_iam_client_options
+from app.utils.s3_endpoint import resolve_iam_client_options, resolve_s3_client_kwargs
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
@@ -171,9 +173,30 @@ class S3AccountsService:
             raise ValueError("RGW account quota update is not supported on this cluster.")
 
     def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
+        root_bucket_count: Optional[int] = None
+        if account.rgw_tenant:
+            access_key, secret_key = account.effective_rgw_credentials()
+            if not access_key or not secret_key:
+                return None, None, None
+            try:
+                root_buckets = s3_client.get_s3_client(
+                    access_key,
+                    secret_key,
+                    request_profile="interactive",
+                    **resolve_s3_client_kwargs(account),
+                ).list_buckets()
+            except (BotoCoreError, ClientError, RuntimeError) as exc:
+                logger.warning(
+                    "Unable to verify buckets through the root identity for tenant account %s: %s",
+                    account.rgw_account_id,
+                    sanitized_error_log_detail(exc),
+                )
+                return None, None, None
+            root_bucket_count = len(root_buckets.get("Buckets") or [])
+
         admin = self._runtime_for_account(account, allow_missing=True)
         if not admin:
-            return None, None, None
+            return None, None, root_bucket_count
         try:
             uid = account.rgw_account_id or account.rgw_user_uid
             if not uid:
@@ -181,8 +204,19 @@ class S3AccountsService:
             payload = admin.get_all_buckets(uid=uid, with_stats=True, **({"tenant": account.rgw_tenant} if account.rgw_tenant else {}))
         except RGWAdminError as exc:
             logger.warning("Unable to list buckets for account %s: %s", account.rgw_account_id, exc)
-            return None, None, None
-        return aggregate_bucket_usage(extract_bucket_list(payload))
+            return None, None, root_bucket_count
+        used_bytes, used_objects, bucket_count = aggregate_bucket_usage(
+            extract_bucket_list(payload)
+        )
+        if root_bucket_count is None:
+            return used_bytes, used_objects, bucket_count
+        if root_bucket_count != bucket_count:
+            # Some RGW versions return an empty Admin Ops account listing for
+            # explicit tenants. Preserve an exact bucket count from the scoped
+            # root identity and keep aggregate usage unknown rather than
+            # presenting incomplete byte/object totals as authoritative.
+            return None, None, root_bucket_count
+        return used_bytes, used_objects, bucket_count
 
     def get_account_quota(
         self,
@@ -297,28 +331,13 @@ class S3AccountsService:
         info = account_info.get("account") if isinstance(account_info.get("account"), dict) else account_info
         user_list = info.get("user_list", info.get("users"))
         if not isinstance(user_list, list):
-            # AccountInfo does not contain users on standard Ceph. Prove the
-            # inventory before treating an account as empty for deletion.
-            inventory = getattr(admin, "list_user_ids", None)
-            if not callable(inventory):
-                return None, None
-            tenant = str(info.get("tenant") or "")
-            try:
-                user_list = []
-                for raw_uid in inventory():
-                    uid, candidate_tenant = split_rgw_tenant_uid(raw_uid)
-                    if candidate_tenant != tenant:
-                        continue
-                    payload = admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
-                    if not payload:
-                        raise ValueError("RGW user inventory changed during verification")
-                    require_rgw_user_identity(payload, uid, tenant)
-                    user = payload.get("user") if isinstance(payload.get("user"), dict) else payload
-                    if user.get("account_id") == account_identifier:
-                        user_list.append(raw_uid)
-            except (RGWAdminError, ValueError) as exc:
-                logger.debug("Unable to verify account user inventory: %s", exc)
-                return None, None
+            # Standard Ceph AccountInfo does not embed the account's users.
+            # Do not scan the endpoint-wide user inventory here: account
+            # listings call this method once per account and a large default
+            # tenant would otherwise turn one request into thousands of Admin
+            # Ops lookups. Import keeps its deliberate one-shot discovery path,
+            # while deletion proves that no non-root users remain through IAM.
+            return None, None
         cleaned: list[str] = []
         root_uid = root_uid or self._root_uid(account_identifier)
         for entry in user_list:
@@ -1011,7 +1030,8 @@ class S3AccountsService:
                 endpoint_capabilities=endpoint_capabilities,
                 root_uid=account.rgw_user_uid,
             )
-            if rgw_user_count is None:
+            iam_can_verify_users = resolve_feature_flags(endpoint).iam_enabled
+            if rgw_user_count is None and not iam_can_verify_users:
                 raise ValueError("Unable to verify RGW users; cannot delete the RGW account.")
             rgw_topic_count, _ = self.account_topics.resolve(
                 account_identifier,
@@ -1020,11 +1040,17 @@ class S3AccountsService:
             )
             if rgw_topic_count is None:
                 raise ValueError("Unable to verify RGW notification topics; cannot delete the RGW account.")
-            if bucket_count > 0 or rgw_user_count > 0 or rgw_topic_count > 0:
+            if bucket_count > 0 or (rgw_user_count or 0) > 0 or rgw_topic_count > 0:
                 raise ValueError(
-                    f"RGW account still has attached resources (buckets={bucket_count}, users={rgw_user_count}, topics={rgw_topic_count}); remove them first."
+                    "RGW account still has attached resources "
+                    f"(buckets={bucket_count}, users={rgw_user_count or 0}, topics={rgw_topic_count}); "
+                    "remove them first."
                 )
 
+            # On standard Ceph releases AccountInfo omits user_list. IAM
+            # ListUsers is scoped by the account root credentials and provides
+            # the missing non-root user proof without enumerating every RGW
+            # user on the endpoint.
             self._prepare_account_iam_for_deletion(account, endpoint)
             self._delete_root_user(account)
             try:

@@ -47,15 +47,15 @@ class RGWAdminAccountOperations:
         if email is not None:
             params["email"] = email
         if max_users is not None:
-            params["max_users"] = int(max_users)
+            params["max-users"] = int(max_users)
         if max_buckets is not None:
-            params["max_buckets"] = int(max_buckets)
+            params["max-buckets"] = int(max_buckets)
         if max_roles is not None:
-            params["max_roles"] = int(max_roles)
+            params["max-roles"] = int(max_roles)
         if max_groups is not None:
-            params["max_groups"] = int(max_groups)
+            params["max-groups"] = int(max_groups)
         if max_access_keys is not None:
-            params["max_access_keys"] = int(max_access_keys)
+            params["max-access-keys"] = int(max_access_keys)
         validate_rgw_account_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         result = self._request(
@@ -93,19 +93,19 @@ class RGWAdminAccountOperations:
         if email is not None:
             params["email"] = email
         if max_users is not None:
-            params["max_users"] = int(max_users)
+            params["max-users"] = int(max_users)
         if max_buckets is not None:
-            params["max_buckets"] = int(max_buckets)
+            params["max-buckets"] = int(max_buckets)
         if max_roles is not None:
-            params["max_roles"] = int(max_roles)
+            params["max-roles"] = int(max_roles)
         if max_groups is not None:
-            params["max_groups"] = int(max_groups)
+            params["max-groups"] = int(max_groups)
         if max_access_keys is not None:
-            params["max_access_keys"] = int(max_access_keys)
+            params["max-access-keys"] = int(max_access_keys)
         validate_rgw_account_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         result = self._request(
-            "POST",
+            "PUT",
             "/admin/account",
             params=params,
             data=None,
