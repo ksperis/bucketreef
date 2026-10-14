@@ -89,6 +89,37 @@ describe("DataTableShell", () => {
     expect(actionCell).not.toHaveClass("w-px");
   });
 
+  it("can use a compact action column in fixed tables", () => {
+    render(
+      <DataTableShell
+        columns={[
+          ...columns,
+          {
+            id: "actions",
+            label: "Actions",
+            align: "right",
+            mobileRole: "actions",
+            actionWidth: "compact",
+            render: () => <button type="button">Open</button>,
+          },
+        ]}
+        rows={rows}
+        rowKey={(row) => row.id}
+        status="ready"
+        loadingMessage="Loading rows..."
+        errorMessage="Unable to load rows."
+        emptyMessage="No rows."
+        tableLayout="fixed"
+      />
+    );
+
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass("w-44");
+    expect(screen.getByRole("columnheader", { name: "Actions" })).not.toHaveClass("w-64", "w-px");
+    const actionCell = screen.getByRole("button", { name: "Open" }).closest("td");
+    expect(actionCell).toHaveClass("w-44");
+    expect(actionCell).not.toHaveClass("w-64", "w-px");
+  });
+
   it("passes custom page-size options to the shared pagination controls", async () => {
     const user = userEvent.setup();
     const onPageSizeChange = vi.fn();

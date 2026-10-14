@@ -77,6 +77,7 @@ export type DataTableColumn<Row, SortField extends string = string> = {
   primary?: boolean;
   mobileLabel?: string;
   mobileRole?: "primary" | "actions";
+  actionWidth?: "compact" | "wide";
   mobileHidden?: boolean;
   render: (row: Row) => ReactNode;
 };
@@ -159,9 +160,11 @@ export default function DataTableShell<Row, SortField extends string = string>({
     : responsiveCards
       ? "md:pb-2"
       : "pb-2";
-  const actionColumnClasses = cx(
+  const actionColumnClasses = (column: DataTableColumn<Row, SortField>) => cx(
     tableActionColumnClasses,
-    tableLayout === "fixed" ? "w-64" : "w-px"
+    tableLayout === "fixed"
+      ? column.actionWidth === "compact" ? "w-44" : "w-64"
+      : "w-px"
   );
 
   return (
@@ -191,7 +194,7 @@ export default function DataTableShell<Row, SortField extends string = string>({
                     data-table-actions={stickyActions && column.mobileRole === "actions" ? "true" : undefined}
                     className={cx(
                       "ui-table-header",
-                      column.mobileRole === "actions" && actionColumnClasses,
+                      column.mobileRole === "actions" && actionColumnClasses(column),
                       (column.align ?? "left") === "right" ? "text-right" : "text-left",
                       column.headerClassName
                     )}
@@ -245,7 +248,7 @@ export default function DataTableShell<Row, SortField extends string = string>({
                           className={cx(
                             cellBase,
                             textClass,
-                            mobileRole === "actions" && actionColumnClasses,
+                            mobileRole === "actions" && actionColumnClasses(column),
                             column.cellClassName
                           )}
                           data-label={responsiveCards && !mobileRole && !column.mobileHidden ? mobileLabel : undefined}
