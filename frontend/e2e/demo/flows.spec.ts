@@ -65,8 +65,8 @@ test("files: bytes, tags, versions, restore, deletion and reload", async ({ page
 test("restrictions: immutable flags, missing requests and migration deep links", async ({ page }) => {
   await open(page, "/admin/general-settings");
   const settings = (await api(page, "/admin/settings")).data;
-  expect(settings.general.bucket_migration_enabled).toBe(false);
-  settings.general.bucket_migration_enabled = true;
+  expect(settings.manager.feature_policies.bucket_migration).toBe("disabled");
+  settings.manager.feature_policies.bucket_migration = "default_on";
   expect((await api(page, "/admin/settings", "PUT", settings)).status).toBe(403);
   for (const path of ["/manager/migrations", "/manager/buckets/purge/stream", "/browser/buckets/helios-documents/multipart", "/portal/storage-spaces/space-1/versions/cleanup/stream"]) expect((await api(page, path, "POST", {})).status).toBe(403);
   expect((await api(page, "/uncovered-demo-contract")).status).toBe(501);
