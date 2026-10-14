@@ -26,6 +26,7 @@ from app.routers.ceph_admin.audit import record_ceph_admin_action
 from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
 from app.services.rgw_admin import RGWAdminError
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
+from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.normalize import normalize_optional_string
 
 router = APIRouter()
@@ -220,6 +221,11 @@ def unlink_bucket(
             status_code=status.HTTP_409_CONFLICT,
             detail="The current RGW bucket owner could not be resolved.",
         )
+    unlink_identity = (
+        {"account_id": current_owner}
+        if is_rgw_account_id(current_owner)
+        else {"uid": current_owner}
+    )
     return _execute(
         ctx,
         operation=operation,
@@ -229,7 +235,7 @@ def unlink_bucket(
         call=lambda: ctx.rgw_admin.unlink_bucket_operation(
             bucket,
             tenant=tenant,
-            uid=current_owner,
+            **unlink_identity,
         ),
         metadata={"old_owner": current_owner, "new_owner": None, "options": {}},
         invalidate=invalidate_all_admin_ops_caches,
@@ -343,6 +349,11 @@ def link_bucket(
         "bucket_id": bucket_id,
         "options": {},
     }
+    link_identity = (
+        {"account_id": validated_target}
+        if payload.target_type == "account"
+        else {"uid": validated_target}
+    )
     return _execute(
         ctx,
         operation=operation,
@@ -352,7 +363,7 @@ def link_bucket(
         call=lambda: ctx.rgw_admin.link_bucket_operation(
             bucket,
             tenant=tenant,
-            uid=validated_target,
+            **link_identity,
             bucket_id=bucket_id,
         ),
         metadata=metadata,

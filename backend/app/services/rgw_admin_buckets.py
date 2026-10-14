@@ -18,18 +18,13 @@ class RGWAdminBucketOperations:
         uid: Optional[str] = None,
         stats: bool = True,
         allow_not_found: bool = True,
-        account_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         # Squid bucket stats derives the tenant from uid and does not strip a
         # tenant/ prefix from the name. Owner-scoped reads must send a bare name.
         identifier = bucket if uid else self._admin_bucket_identifier(bucket, tenant)
         params: Dict[str, Any] = {"bucket": identifier, "format": "json"}
-        if tenant:
-            params["tenant"] = tenant
         if uid:
-            params["uid"] = uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant)
-        if account_id:
-            params["account-id"] = account_id
+            params["uid"] = rgw_qualified_uid(uid, tenant)
         if stats:
             params["stats"] = "true"
         result = self._request(
@@ -76,32 +71,45 @@ class RGWAdminBucketOperations:
         self,
         bucket: str,
         *,
-        uid: str,
+        uid: Optional[str] = None,
+        account_id: Optional[str] = None,
         tenant: Optional[str] = None,
     ) -> RGWAdminOperationResponse:
+        if bool(uid) == bool(account_id):
+            raise ValueError("Exactly one of uid or account_id is required")
+        params: Dict[str, Any] = {
+            "bucket": self._admin_bucket_identifier(bucket, tenant),
+            "format": "json",
+        }
+        if account_id:
+            params["account-id"] = account_id
+        else:
+            params["uid"] = rgw_qualified_uid(uid or "", tenant)
         return self._request_operation(
             "POST",
             "/admin/bucket",
-            params={
-                "bucket": self._admin_bucket_identifier(bucket, tenant),
-                "uid": uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant),
-                "format": "json",
-            },
+            params=params,
         )
 
     def link_bucket_operation(
         self,
         bucket: str,
         *,
-        uid: str,
+        uid: Optional[str] = None,
+        account_id: Optional[str] = None,
         bucket_id: Optional[str] = None,
         tenant: Optional[str] = None,
     ) -> RGWAdminOperationResponse:
+        if bool(uid) == bool(account_id):
+            raise ValueError("Exactly one of uid or account_id is required")
         params: Dict[str, Any] = {
             "bucket": self._admin_bucket_identifier(bucket, tenant),
-            "uid": uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant),
             "format": "json",
         }
+        if account_id:
+            params["account-id"] = account_id
+        else:
+            params["uid"] = rgw_qualified_uid(uid or "", tenant)
         if bucket_id:
             params["bucket-id"] = bucket_id
         return self._request_operation("PUT", "/admin/bucket", params=params)
@@ -166,20 +174,13 @@ class RGWAdminBucketOperations:
 
     def get_all_buckets(
         self,
-        account_id: Optional[str] = None,
         uid: Optional[str] = None,
         with_stats: bool = False,
         tenant: Optional[str] = None,
     ) -> Dict[str, Any]:
         params: Dict[str, Any] = {"format": "json"}
-        if account_id:
-            params["account-id"] = account_id
-            if not uid:
-                uid = account_id
         if uid:
-            params["uid"] = uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant)
-        if tenant:
-            params["tenant"] = tenant
+            params["uid"] = rgw_qualified_uid(uid, tenant)
         timeout: Optional[float] = None
         if with_stats:
             params["stats"] = "true"
@@ -200,7 +201,6 @@ class RGWAdminBucketOperations:
         max_size_gb: Optional[int] = None,
         max_objects: Optional[int] = None,
         enabled: bool = True,
-        account_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         params: Dict[str, Any] = {
             "bucket": bucket,
@@ -208,12 +208,8 @@ class RGWAdminBucketOperations:
             "quota-scope": "bucket",
             "format": "json",
         }
-        if tenant:
-            params["tenant"] = tenant
         if uid:
-            params["uid"] = uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant)
-        if account_id:
-            params["account-id"] = account_id
+            params["uid"] = rgw_qualified_uid(uid, tenant)
         if max_size_bytes is not None:
             params["max-size-kb"] = int(max_size_bytes // 1024)
         elif max_size_gb is not None:

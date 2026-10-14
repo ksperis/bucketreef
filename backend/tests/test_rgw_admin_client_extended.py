@@ -28,7 +28,6 @@ def test_transport_is_owned_by_dedicated_module():
 
 def test_account_operations_are_owned_by_dedicated_module():
     assert RGWAdminClient.create_account.__module__ == "app.services.rgw_admin_accounts"
-    assert RGWAdminClient.get_account_stats.__module__ == "app.services.rgw_admin_accounts"
 
 
 def test_bucket_operations_are_owned_by_dedicated_module():
@@ -233,7 +232,7 @@ def test_admin_ops_methods_send_exact_methods_and_omit_false_booleans(monkeypatc
     client.delete_bucket_operation("bucket-a", tenant="tenant-a")
     client.delete_bucket_operation("bucket-a", purge_objects=True, bypass_gc=True)
     client.unlink_bucket_operation("bucket-a", tenant="tenant-a", uid="tenant-a$alice")
-    client.link_bucket_operation("bucket-a", uid="RGW1", bucket_id="bucket-id-1")
+    client.link_bucket_operation("bucket-a", account_id="RGW1", bucket_id="bucket-id-1")
     client.check_bucket_index_operation("bucket-a")
     client.check_bucket_index_operation("bucket-a", fix=True, check_objects=True)
 
@@ -254,6 +253,8 @@ def test_admin_ops_methods_send_exact_methods_and_omit_false_booleans(monkeypatc
     assert calls[4]["params"]["bucket"] == "tenant-a/bucket-a"
     assert calls[4]["params"]["uid"] == "tenant-a$alice"
     assert calls[5]["method"] == "PUT"
+    assert calls[5]["params"]["account-id"] == "RGW1"
+    assert "uid" not in calls[5]["params"]
     assert calls[5]["params"]["bucket-id"] == "bucket-id-1"
     assert calls[6]["method"] == "GET"
     assert calls[6]["params"]["index"] == ""
@@ -597,7 +598,6 @@ def test_update_user_helpers_and_bucket_usage_paths(monkeypatch):
         "bucket-a",
         tenant="RGW1",
         uid="alice",
-        account_id="RGW1",
         stats=True,
         allow_not_found=True,
     )
@@ -641,13 +641,11 @@ def test_misc_admin_helpers_and_quota_paths(monkeypatch):
         return {"ok": True}
 
     monkeypatch.setattr(client, "_request", fake_request)
-    client.get_account_stats("RGW1", sync=False)
-    client.get_all_buckets(account_id="RGW1", uid="alice", with_stats=False)
+    client.get_all_buckets(uid="alice", tenant="RGW1", with_stats=False)
     client.set_bucket_quota(
         "bucket-a",
         tenant="RGW1",
         uid="alice",
-        account_id="RGW1",
         max_size_gb=2,
         max_objects=50,
         enabled=False,
@@ -655,16 +653,15 @@ def test_misc_admin_helpers_and_quota_paths(monkeypatch):
     client.set_user_quota("alice", tenant="RGW1", max_size_bytes=2048, max_objects=5, enabled=True)
     client.set_user_caps("alice", "users=read", tenant="RGW1")
 
-    assert captured[0]["params"] == {"format": "json", "id": "RGW1"}
-    assert captured[1]["params"] == {"format": "json", "account-id": "RGW1", "uid": "alice"}
+    assert captured[0]["params"] == {"format": "json", "uid": "RGW1$alice"}
+    assert "tenant" not in captured[1]["params"]
+    assert captured[1]["params"]["uid"] == "RGW1$alice"
+    assert "account-id" not in captured[1]["params"]
+    assert captured[1]["params"]["max-size-kb"] == 2 * 1024 * 1024
     assert captured[2]["params"]["tenant"] == "RGW1"
-    assert captured[2]["params"]["uid"] == "RGW1$alice"
-    assert captured[2]["params"]["account-id"] == "RGW1"
-    assert captured[2]["params"]["max-size-kb"] == 2 * 1024 * 1024
-    assert captured[3]["params"]["tenant"] == "RGW1"
-    assert captured[3]["params"]["max-size"] == 2048
-    assert captured[3]["params"]["max-objects"] == 5
-    assert captured[4]["params"][2] == ("user-caps", "users=read")
+    assert captured[2]["params"]["max-size"] == 2048
+    assert captured[2]["params"]["max-objects"] == 5
+    assert captured[3]["params"][2] == ("user-caps", "users=read")
 
     monkeypatch.setattr(client, "get_user", lambda *args, **kwargs: {"not_found": True})
     assert client.get_user_quota("alice", tenant="RGW1") == (None, None)

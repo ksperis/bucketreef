@@ -58,7 +58,9 @@ def extract_rgw_user_identity(payload: Any) -> tuple[str | None, str | None]:
     tenants: set[str] = set()
     for candidate in candidates:
         if candidate.get("tenant") is not None:
-            tenants.add(str(candidate["tenant"]).strip())
+            explicit_tenant = str(candidate["tenant"]).strip()
+            if explicit_tenant:
+                tenants.add(explicit_tenant)
         for field in ("uid", "user_id", "user"):
             if not isinstance(candidate.get(field), str):
                 continue
@@ -67,6 +69,10 @@ def extract_rgw_user_identity(payload: Any) -> tuple[str | None, str | None]:
                 continue
             if "$" in raw:
                 embedded_tenant, raw = raw.split("$", 1)
+                embedded_tenant = embedded_tenant.strip()
+                raw = raw.strip()
+                if not embedded_tenant or not raw:
+                    raise ValueError("RGW returned an invalid tenant-qualified user identity")
                 tenants.add(embedded_tenant)
             uids.add(raw)
     if len(tenants) > 1:
@@ -78,11 +84,18 @@ def extract_rgw_user_identity(payload: Any) -> tuple[str | None, str | None]:
 
 def rgw_qualified_uid(uid: str, tenant: str | None = None) -> str:
     """Admin Ops parse the tenant from uid; a separate tenant argument is insufficient."""
-    if not tenant:
-        return uid
-    if uid.startswith(f"{tenant}$"):
-        return uid
-    return f"{tenant}${uid}"
+    normalized_uid = uid.strip()
+    if not normalized_uid:
+        raise ValueError("RGW UID is required")
+    normalized_tenant = (tenant or "").strip()
+    if "$" in normalized_uid:
+        embedded_tenant, _bare_uid = normalized_uid.split("$", 1)
+        if normalized_tenant and embedded_tenant != normalized_tenant:
+            raise ValueError("RGW UID tenant conflicts with the requested tenant")
+        return normalized_uid
+    if not normalized_tenant:
+        return normalized_uid
+    return f"{normalized_tenant}${normalized_uid}"
 
 
 def require_rgw_user_identity(payload: Any, uid: str, tenant: str) -> None:

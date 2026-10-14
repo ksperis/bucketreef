@@ -299,21 +299,6 @@ class RGWAdminAccountOperations:
                 accounts.append(fallback)
         return accounts
 
-    def get_account_stats(
-        self,
-        account_id: str,
-        sync: bool = True,
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"format": "json", "id": account_id}
-        if sync:
-            params["sync-stats"] = "true"
-        return self._request(
-            "GET",
-            "/admin/account",
-            params=params,
-            allow_not_found=True,
-        )
-
     def create_user_with_account_id(
         self,
         uid: str,

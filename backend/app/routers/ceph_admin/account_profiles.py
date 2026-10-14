@@ -258,13 +258,16 @@ def get_rgw_account_metrics(
     normalized_account_id = account_id.strip()
     if not normalized_account_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="account_id is required")
-    normalized_root_uid = (root_uid or "").strip() or f"{normalized_account_id}-admin"
     try:
-        payload = ctx.rgw_admin.get_all_buckets(
-            uid=normalized_root_uid,
-            with_stats=True,
-            tenant=tenant,
-        )
+        normalized_root_uid = (root_uid or "").strip()
+        if normalized_root_uid:
+            payload = ctx.rgw_admin.get_all_buckets(
+                uid=normalized_root_uid,
+                with_stats=True,
+                tenant=tenant,
+            )
+        else:
+            payload = ctx.rgw_admin.get_all_buckets(with_stats=True)
     except RGWAdminError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 

@@ -84,7 +84,7 @@ class PortalAccountRuntimeMixin:
 
     def _admin_bucket_list(self, account: S3Account, admin: Optional[RGWAdminClient] = None) -> list[dict]:
         rgw_admin = admin or self._runtime_read_for_account(account)
-        uid = account.rgw_account_id or account.rgw_user_uid
+        uid = account.rgw_user_uid
         if not uid:
             return []
         payload = rgw_admin.get_all_buckets(uid=uid, with_stats=True, **({"tenant": account.rgw_tenant} if account.rgw_tenant else {}))

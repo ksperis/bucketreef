@@ -11,7 +11,7 @@ from app.utils.rgw_identifiers import (
     resolve_account_scope,
     validate_rgw_account_name,
 )
-from app.utils.rgw_payloads import extract_rgw_user_identity, extract_rgw_user_payload
+from app.utils.rgw_payloads import extract_rgw_user_identity, extract_rgw_user_payload, rgw_qualified_uid
 
 
 def test_resolve_account_scope_with_account_id():
@@ -54,12 +54,23 @@ def test_validate_rgw_account_name_rejects_names_refused_by_ceph(name, message):
     [
         ({"uid": " user ", "tenant": " tenant "}, ("user", "tenant")),
         ({"user": {"uid": "tenant$user"}}, ("user", "tenant")),
+        ({"tenant": "", "user_id": "tenant$user"}, ("user", "tenant")),
         ({"user": {"uid": 12}, "uid": "fallback"}, ("fallback", None)),
         (None, (None, None)),
     ],
 )
 def test_extract_rgw_user_identity(payload, expected):
     assert extract_rgw_user_identity(payload) == expected
+
+
+def test_extract_rgw_user_identity_rejects_empty_embedded_tenant():
+    with pytest.raises(ValueError, match="invalid tenant-qualified"):
+        extract_rgw_user_identity({"user_id": "$user"})
+
+
+def test_rgw_qualified_uid_rejects_conflicting_explicit_tenant():
+    with pytest.raises(ValueError, match="tenant conflicts"):
+        rgw_qualified_uid("tenant-a$user", "tenant-b")
 
 
 @pytest.mark.parametrize(

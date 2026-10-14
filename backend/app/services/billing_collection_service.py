@@ -264,6 +264,8 @@ class BillingCollector:
         errors: list[dict[str, Any]] = []
         for account in accounts:
             try:
+                if not account.rgw_user_uid:
+                    raise ValueError("RGW account root UID is unavailable")
                 total_bytes, total_objects, by_bucket = self._collect_bucket_stats(
                     rgw_admin,
                     rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account)),

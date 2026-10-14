@@ -63,7 +63,7 @@ def test_bucket_reads_and_quota_derive_the_same_tenant(monkeypatch):
     assert [params["uid"] for _, _, params in calls] == ["customer01$analyst"] * 4
     assert calls[0][2]["bucket"] == "same-name"
     assert calls[2][2]["bucket"] == "same-name"
-    client.get_all_buckets(account_id="RGW12345678901234567", tenant="customer01")
+    client.get_usage(uid="RGW12345678901234567", tenant="customer01")
     assert calls[-1][2]["uid"] == "RGW12345678901234567"
 
 
