@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from app.services.rgw_admin_transport import RGWAdminError, RGWAdminOperationResponse
 from app.utils.quota_stats import extract_quota_limits
+from app.utils.rgw_payloads import rgw_qualified_uid
 
 
 class RGWAdminUserOperations:
@@ -47,7 +48,7 @@ class RGWAdminUserOperations:
         if access_key and generate_key:
             raise ValueError("Explicit credentials require generate_key=False")
         params: Dict[str, Any] = {
-            "uid": uid,
+            "uid": rgw_qualified_uid(uid, tenant),
             "display-name": display_name or uid,
             "email": email or "",
             "generate-key": self._to_rgw_bool(bool(generate_key)),
@@ -74,7 +75,7 @@ class RGWAdminUserOperations:
         tenant: Optional[str] = None,
         allow_not_found: bool = False,
     ) -> Optional[Dict[str, Any]]:
-        params: Dict[str, Any] = {"uid": uid, "format": "json"}
+        params: Dict[str, Any] = {"uid": rgw_qualified_uid(uid, tenant), "format": "json"}
         if tenant:
             params["tenant"] = tenant
         result = self._request(
@@ -83,13 +84,6 @@ class RGWAdminUserOperations:
             params=params,
             allow_not_found=allow_not_found,
         )
-        if result.get("not_found") and tenant:
-            result = self._request(
-                "GET",
-                "/admin/user",
-                params={"uid": f"{tenant}${uid}", "format": "json"},
-                allow_not_found=allow_not_found,
-            )
         if result.get("not_found"):
             return None
         return result
@@ -125,7 +119,7 @@ class RGWAdminUserOperations:
         if bool(access_key) != bool(secret_key):
             raise ValueError("Explicit key creation requires a complete credential pair")
         params: Dict[str, Any] = {
-            "uid": uid,
+            "uid": rgw_qualified_uid(uid, tenant),
             "key": "true",
             "generate-key": "false" if access_key else "true",
             "key-type": "s3",
@@ -154,7 +148,7 @@ class RGWAdminUserOperations:
         if not access_key:
             raise RGWAdminError("access_key is required to delete a key")
         params: Dict[str, Any] = {
-            "uid": uid,
+            "uid": rgw_qualified_uid(uid, tenant),
             "access-key": access_key,
             "key": access_key,
             "format": "json",
@@ -178,7 +172,7 @@ class RGWAdminUserOperations:
         if not access_key:
             raise RGWAdminError("access_key is required to update status")
         params: Dict[str, Any] = {
-            "uid": uid,
+            "uid": rgw_qualified_uid(uid, tenant),
             "key": "true",
             "generate-key": "false",
             "access-key": access_key,
@@ -284,6 +278,27 @@ class RGWAdminUserOperations:
             for entry in result
         ]
 
+    def list_user_ids(self) -> list[str]:
+        """Enumerate identities with users=read, including every paginated tenant."""
+        result: list[str] = []
+        marker = ""
+        seen: set[str] = set()
+        while True:
+            params = {"list": "", "format": "json", "max-entries": "1000"}
+            if marker:
+                params["marker"] = marker
+            payload = self._request("GET", "/admin/user", params=params)
+            keys = payload.get("keys") if isinstance(payload, dict) else payload
+            if not isinstance(keys, list) or any(not isinstance(key, str) for key in keys):
+                raise RGWAdminError("RGW user inventory is unavailable")
+            result.extend(keys)
+            if not isinstance(payload, dict) or not payload.get("truncated"):
+                return result
+            marker = payload.get("marker")
+            if not marker or marker in seen:
+                raise RGWAdminError("RGW user inventory pagination is incomplete")
+            seen.add(marker)
+
     def update_user(
         self,
         uid: str,
@@ -299,7 +314,7 @@ class RGWAdminUserOperations:
         account_root: Optional[bool] = None,
         extra_params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"uid": uid, "format": "json"}
+        params: Dict[str, Any] = {"uid": rgw_qualified_uid(uid, tenant), "format": "json"}
         if tenant:
             params["tenant"] = tenant
         if display_name is not None:
@@ -340,24 +355,11 @@ class RGWAdminUserOperations:
         return self.extract_keys(payload) if payload else []
 
     def delete_user(self, uid: str, tenant: Optional[str] = None) -> None:
-        attempts = [uid]
-        sanitized = self._sanitize_uid(uid)
-        if sanitized != uid:
-            attempts.append(sanitized)
-        for candidate in attempts:
-            params: Dict[str, Any] = {"uid": candidate, "format": "json"}
-            if tenant:
-                params["tenant"] = tenant
-            try:
-                self._request(
-                    "DELETE",
-                    "/admin/user",
-                    params=params,
-                    allow_not_found=True,
-                )
-                return
-            except RGWAdminError:
-                continue
+        # Never retry deletion against a sanitized UID: it can identify another user.
+        params: Dict[str, Any] = {"uid": rgw_qualified_uid(uid, tenant), "format": "json"}
+        if tenant:
+            params["tenant"] = tenant
+        self._request("DELETE", "/admin/user", params=params, allow_not_found=True)
 
     def delete_user_operation(
         self,
@@ -366,7 +368,7 @@ class RGWAdminUserOperations:
         tenant: Optional[str] = None,
         purge_data: bool = False,
     ) -> RGWAdminOperationResponse:
-        params: Dict[str, Any] = {"uid": uid, "format": "json"}
+        params: Dict[str, Any] = {"uid": rgw_qualified_uid(uid, tenant), "format": "json"}
         if tenant:
             params["tenant"] = tenant
         if purge_data:
@@ -395,7 +397,7 @@ class RGWAdminUserOperations:
     ) -> Dict[str, Any]:
         params: Dict[str, Any] = {
             "quota": "",
-            "uid": uid,
+            "uid": rgw_qualified_uid(uid, tenant),
             "quota-type": quota_type,
             "format": "json",
         }
@@ -432,7 +434,7 @@ class RGWAdminUserOperations:
         for value in caps_values:
             params: list[tuple[str, str]] = [
                 ("caps", ""),
-                ("uid", uid),
+                ("uid", rgw_qualified_uid(uid, tenant)),
                 ("user-caps", value),
                 ("format", "json"),
             ]

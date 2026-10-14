@@ -72,6 +72,7 @@ class FakeRGWAdmin:
         if payload is None:
             return {"not_found": True} if allow_not_found else None
         result = {
+            "uid": uid,
             "display_name": payload.get("display_name"),
             "email": payload.get("email"),
             "keys": [dict(entry) for entry in payload.get("keys", [])],
@@ -138,6 +139,95 @@ class FakeRGWAdmin:
             raise RGWAdminError("user not found")
         self.deleted_users.append(uid)
         self.remote_users.pop(uid, None)
+
+
+class FakeTenantedRGWAdmin(FakeRGWAdmin):
+    def __init__(self):
+        super().__init__()
+        self.principals: dict[tuple[str, str], dict] = {}
+        self.key_creations: list[tuple[str, str]] = []
+
+    def add_principal(self, uid: str, tenant: str):
+        self.principals[(tenant, uid)] = {
+            "uid": uid, "tenant": tenant,
+            "keys": [{"access_key": f"AK-{tenant}-{uid}", "secret_key": "SECRET"}],
+        }
+
+    def get_user(self, uid, tenant=None, allow_not_found=False):
+        return self.principals.get((tenant or "", uid))
+
+    def get_user_by_access_key(self, access_key, **kwargs):
+        for principal in self.principals.values():
+            if any(key["access_key"] == access_key for key in principal["keys"]):
+                return principal
+        return super().get_user_by_access_key(access_key, **kwargs)
+
+    def create_access_key(self, uid, tenant=None, **kwargs):
+        self.key_creations.append((tenant or "", uid))
+        if (tenant or "", uid) not in self.principals:
+            raise RGWAdminError("Unknown principal")
+        return {"keys": [{"access_key": f"NEW-{tenant}-{uid}", "secret_key": "NEW-SECRET"}]}
+
+    def get_user_quota(self, uid, tenant=None):
+        return None, None
+
+
+def test_import_same_uid_across_isolated_tenants(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeTenantedRGWAdmin()
+    for tenant in ("", "team_a", "team_b"):
+        fake.add_principal("analyst", tenant)
+    service = _build_service(db_session, monkeypatch, fake)
+
+    items = [S3UserImport(uid=f"{tenant + '$' if tenant else ''}analyst",
+                          storage_endpoint_id=endpoint.id) for tenant in ("", "team_a", "team_b")]
+    imported = service.import_users(items)
+
+    assert len(imported) == 3
+    assert {user.rgw_tenant for user in imported} == {"", "team_a", "team_b"}
+    assert db_session.query(S3User).filter_by(rgw_user_uid="analyst").count() == 3
+    assert fake.key_creations == [("", "analyst"), ("team_a", "analyst"), ("team_b", "analyst")]
+    assert service.import_users(items) == []
+
+
+def test_tenanted_key_mutation_requires_exact_remote_identity(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeTenantedRGWAdmin()
+    fake.add_principal("analyst", "team_a")
+    service = _build_service(db_session, monkeypatch, fake)
+    row = S3User(name="Analyst", rgw_user_uid="analyst", rgw_tenant="team_a",
+                 rgw_access_key="AK-team_a-analyst", rgw_secret_key="SECRET",
+                 storage_endpoint_id=endpoint.id)
+    db_session.add(row)
+    db_session.commit()
+
+    fake.principals[("team_a", "analyst")]["tenant"] = "team_b"
+    with pytest.raises(ValueError, match="another tenant"):
+        service.create_access_key_entry(row.id)
+    assert fake.key_creations == []
+
+    fake.principals[("team_a", "analyst")]["tenant"] = "team_a"
+    created = service.create_access_key_entry(row.id)
+    assert created.access_key_id == "NEW-team_a-analyst"
+    assert fake.key_creations == [("team_a", "analyst")]
+
+
+def test_import_reconciles_legacy_uid_before_importing_same_uid_in_another_tenant(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeTenantedRGWAdmin()
+    fake.add_principal("analyst", "")
+    fake.add_principal("analyst", "team_a")
+    row = S3User(name="Legacy", rgw_user_uid="analyst", rgw_access_key="AK--analyst",
+                 rgw_secret_key="SECRET", storage_endpoint_id=endpoint.id)
+    db_session.add(row)
+    db_session.commit()
+    row.rgw_tenant = None
+    db_session.commit()
+    service = _build_service(db_session, monkeypatch, fake)
+    imported = service.import_users([S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id)])
+    assert len(imported) == 1
+    assert imported[0].rgw_tenant == "team_a"
+    assert row.rgw_tenant == ""
 
 
 def _seed_ceph_endpoint(db_session, *, metrics_enabled: bool = False) -> StorageEndpoint:
@@ -258,6 +348,7 @@ def _seed_local_user(
     row = S3User(
         name=name,
         rgw_user_uid=uid,
+        rgw_tenant="",
         email=f"{uid}@example.com",
         rgw_access_key=f"AK-{uid}",
         rgw_secret_key=f"SK-{uid}",

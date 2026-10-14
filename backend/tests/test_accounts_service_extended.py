@@ -181,7 +181,7 @@ def test_account_rgw_users_paths(db_session):
     assert service._account_rgw_users("RGW1", None, admin) == (None, None)
 
     admin.raise_get_account = None
-    admin.account_payload = {"user_list": ["RGW1-admin", "alice", "bob", "alice"]}
+    admin.account_payload = {"user_list": ["rgw1-admin", "alice", "bob", "alice"]}
     assert service._account_rgw_users("RGW1", None, admin) == (2, ["alice", "bob"])
 
 
@@ -539,6 +539,8 @@ def test_delete_root_user_success_and_failure(db_session, monkeypatch):
     service, admin = _service(db_session)
 
     account = _seed_account(db_session, endpoint.id, name="delete-root", rgw_account_id="RGW-ROOT-1")
+    account.rgw_tenant = ""
+    admin.get_user = lambda uid, **kwargs: {"uid": uid, "account_id": account.rgw_account_id, "account_root": True}
     monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
     service._delete_root_user(account)
     assert admin.deleted_users == [("rgw-root-1-admin", None)]

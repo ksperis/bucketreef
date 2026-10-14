@@ -15,6 +15,7 @@ from app.services import (
     s3_client,
     s3_deletion,
 )
+from app.services.rgw_principal_scope import resolve_principal_tenant
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.models.bucket import Bucket
@@ -48,8 +49,9 @@ class BucketsService:
             return []
         rgw_admin = self._rgw_runtime_for_account(account)
         try:
-            payload = rgw_admin.get_all_buckets(uid=uid, with_stats=with_stats)
-        except RGWAdminError as exc:
+            tenant = resolve_principal_tenant(account, rgw_admin)
+            payload = rgw_admin.get_all_buckets(uid=uid, with_stats=with_stats, **({"tenant": tenant} if tenant else {}))
+        except (RGWAdminError, ValueError) as exc:
             raise RuntimeError(
                 f"Unable to list buckets via admin API: {sanitized_error_log_detail(exc)}"
             ) from exc
@@ -177,11 +179,15 @@ class BucketsService:
             if account_uid:
                 try:
                     rgw_admin = self._rgw_runtime_for_account(account)
-                    stats = rgw_admin.get_bucket_info(normalized_bucket, uid=account_uid, allow_not_found=True)
+                    tenant = resolve_principal_tenant(account, rgw_admin)
+                    stats = rgw_admin.get_bucket_info(
+                        normalized_bucket, uid=account_uid, allow_not_found=True,
+                        **({"tenant": tenant} if tenant else {}),
+                    )
                     usage = stats.get("usage") if isinstance(stats, dict) else None
                     usage_bytes, object_count = extract_usage_stats(usage)
                     quota_size, quota_objects = self._extract_quota_from_admin_stats(stats)
-                except (RuntimeError, RGWAdminError) as exc:
+                except (RuntimeError, RGWAdminError, ValueError) as exc:
                     logger.warning(
                         "Unable to fetch bucket stats for %s on %s: %s",
                         normalized_bucket,

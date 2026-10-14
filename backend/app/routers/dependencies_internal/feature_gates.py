@@ -91,6 +91,7 @@ def _require_supervision_access(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
         if required_feature == "usage" and not resolution.usage_enabled:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage logs are disabled for this endpoint")
+        account.rgw_tenant = resolution.rgw_tenant
         if resolution.rgw_account_id:
             account.rgw_account_id = resolution.rgw_account_id
         if resolution.rgw_user_uid:

@@ -34,7 +34,8 @@ def s3_execution_cache_key(account: S3ExecutionTarget) -> str:
         else ("account", str(account.id))
     )
     payload = json.dumps(
-        [identity, account.effective_rgw_credentials(), s3_execution_client_kwargs(account)],
+        [identity, account.rgw_tenant,
+         account.effective_rgw_credentials(), s3_execution_client_kwargs(account)],
         sort_keys=True,
         separators=(",", ":"),
     )

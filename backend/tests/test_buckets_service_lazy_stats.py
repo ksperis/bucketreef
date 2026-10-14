@@ -12,6 +12,7 @@ from tests.service_identity_helpers import service_identity
 def _build_account() -> S3Account:
     return S3Account(
         name="account-lazy-stats",
+        rgw_tenant="",
         rgw_account_id="RGW00000000000000001",
         rgw_access_key="AKIA_TEST",
         rgw_secret_key="SECRET_TEST",

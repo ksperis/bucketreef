@@ -39,7 +39,8 @@ from app.services.quota_usage_history_service import QuotaUsageHistoryService
 from app.services.user_notifications_service import UserNotificationsService
 from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
 from app.services.webhook_service import WebhookEventPublisher
-from app.utils.rgw_payloads import extract_bucket_list
+from app.utils.rgw_payloads import extract_bucket_list, rgw_qualified_uid
+from app.services.rgw_principal_scope import resolve_target_tenant
 from app.utils.time import utcnow
 from app.utils.usage_stats import extract_usage_stats
 
@@ -241,7 +242,7 @@ class QuotaMonitoringService:
         try:
             used_bytes, used_objects, bucket_count = self._collect_usage(
                 usage_client,
-                subject.usage_uid,
+                rgw_qualified_uid(subject.usage_uid, self._subject_tenant(subject)) if subject.usage_uid else None,
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning(
@@ -502,6 +503,7 @@ class QuotaMonitoringService:
                     quota_account_id=account.rgw_account_id,
                     quota_user_uid=None,
                     contact_email=account.email,
+                    rgw_tenant=account.rgw_tenant,
                 )
             )
 
@@ -523,6 +525,7 @@ class QuotaMonitoringService:
                     quota_account_id=None,
                     quota_user_uid=s3_user.rgw_user_uid,
                     contact_email=s3_user.email,
+                    rgw_tenant=s3_user.rgw_tenant,
                 )
             )
         return subjects
@@ -563,6 +566,16 @@ class QuotaMonitoringService:
         cache[endpoint.id] = client
         return client
 
+    def _subject_tenant(self, subject: SubjectContext) -> str:
+        if subject.rgw_tenant is not None:
+            return subject.rgw_tenant
+        model = S3Account if subject.subject_type == "account" else S3User
+        target = self.db.get(model, subject.subject_id)
+        if target is None:
+            raise ValueError("Quota subject no longer exists")
+        subject.rgw_tenant = resolve_target_tenant(target)
+        return subject.rgw_tenant
+
     def _collect_usage(
         self,
         admin: RGWAdminClient,
@@ -594,7 +607,7 @@ class QuotaMonitoringService:
             return client.get_account_quota(subject.quota_account_id)
         if not subject.quota_user_uid:
             return None, None
-        return client.get_user_quota(subject.quota_user_uid)
+        return client.get_user_quota(rgw_qualified_uid(subject.quota_user_uid, self._subject_tenant(subject)))
 
     def _compute_usage_ratio(
         self,

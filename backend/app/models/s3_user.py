@@ -6,7 +6,7 @@ from typing import Optional
 from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
-from app.utils.rgw_identifiers import validate_rgw_user_uid
+from app.utils.rgw_identifiers import validate_rgw_user_uid, validate_rgw_tenant
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
     OptionalTagDefinitionList,
@@ -38,6 +38,7 @@ class S3User(ApiModel):
     id: int
     name: str
     rgw_user_uid: str
+    rgw_tenant: Optional[str] = None
     email: Optional[str] = None
     created_at: Optional[datetime] = None
     user_links: list[S3UserUserLink] = Field(default_factory=list)
@@ -59,6 +60,7 @@ class S3User(ApiModel):
 class S3UserCreate(ApiModel):
     name: str
     uid: Optional[str] = None
+    rgw_tenant: str = ""
     email: Optional[str] = None
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[str] = None
@@ -73,9 +75,15 @@ class S3UserCreate(ApiModel):
             validate_rgw_user_uid(value)
         return value
 
+    @field_validator("rgw_tenant")
+    @classmethod
+    def check_tenant(cls, value: str) -> str:
+        return validate_rgw_tenant(value)
+
 
 class S3UserImport(ApiModel):
     uid: str
+    rgw_tenant: Optional[str] = None
     name: Optional[str] = None
     email: Optional[str] = None
     storage_endpoint_id: int
@@ -135,6 +143,7 @@ class S3UserSummary(ApiModel):
     id: int
     name: str
     rgw_user_uid: str
+    rgw_tenant: Optional[str] = None
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str

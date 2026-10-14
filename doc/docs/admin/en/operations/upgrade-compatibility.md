@@ -1,5 +1,23 @@
 # Operations: Upgrade and Compatibility Notes
 
+## RGW tenant identity
+
+Migration `0152_rgw_principal_tenants` adds nullable `rgw_tenant` fields to
+`s3_accounts` and `s3_users`. An empty string identifies the default tenant;
+`NULL` means the legacy identity has not been verified. Existing values are left
+unknown rather than deriving a tenant from an Account ID or a bare UID.
+
+Legacy account tenants are discovered by Account ID through Runtime Read Ops.
+Legacy user tenants are discovered by their stored access key. Ordinary reads
+do not persist this discovery; administrative user mutations and key rotations
+retain the verified tenant. A failed lookup leaves the measurement unavailable
+and does not retry another tenant.
+
+S3 user uniqueness now covers endpoint, effective tenant and UID. Legacy `NULL`
+and known default `''` collide until reconciled. Downgrade is refused if UIDs
+would violate the former global uniqueness constraint. Back up the database
+before upgrading, as for other schema changes.
+
 ## Bucket migration workflow v2
 
 Migration `0135_bucket_migration_workflow` adds persisted preparation, revision-bound

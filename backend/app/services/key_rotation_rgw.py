@@ -67,7 +67,7 @@ class RgwAccessKeyRotator:
                 break
 
         for candidate in candidates:
-            for field_name in ("tenant", "account_id"):
+            for field_name in ("tenant",):
                 normalized = normalize_optional_string(candidate.get(field_name))
                 if normalized:
                     tenant = normalized
@@ -75,9 +75,11 @@ class RgwAccessKeyRotator:
             if tenant:
                 break
 
-        if uid and "$" in uid and not tenant:
+        if uid and "$" in uid:
             split_tenant, split_uid = uid.split("$", 1)
             if split_tenant and split_uid:
+                if tenant and tenant != split_tenant:
+                    raise ValueError("RGW access key identity contains conflicting tenants")
                 tenant = split_tenant
                 uid = split_uid
 

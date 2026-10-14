@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from app.services.rgw_admin_transport import RGWAdminOperationResponse
+from app.utils.rgw_identifiers import is_rgw_account_id
+from app.utils.rgw_payloads import rgw_qualified_uid
 
 
 class RGWAdminBucketOperations:
@@ -18,11 +20,14 @@ class RGWAdminBucketOperations:
         allow_not_found: bool = True,
         account_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        params: Dict[str, Any] = {"bucket": bucket, "format": "json"}
+        # Squid bucket stats derives the tenant from uid and does not strip a
+        # tenant/ prefix from the name. Owner-scoped reads must send a bare name.
+        identifier = bucket if uid else self._admin_bucket_identifier(bucket, tenant)
+        params: Dict[str, Any] = {"bucket": identifier, "format": "json"}
         if tenant:
             params["tenant"] = tenant
         if uid:
-            params["uid"] = uid
+            params["uid"] = uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant)
         if account_id:
             params["account-id"] = account_id
         if stats:
@@ -75,7 +80,7 @@ class RGWAdminBucketOperations:
             "/admin/bucket",
             params={
                 "bucket": self._admin_bucket_identifier(bucket, tenant),
-                "uid": uid,
+                "uid": uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant),
                 "format": "json",
             },
         )
@@ -90,7 +95,7 @@ class RGWAdminBucketOperations:
     ) -> RGWAdminOperationResponse:
         params: Dict[str, Any] = {
             "bucket": self._admin_bucket_identifier(bucket, tenant),
-            "uid": uid,
+            "uid": uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant),
             "format": "json",
         }
         if bucket_id:
@@ -135,7 +140,7 @@ class RGWAdminBucketOperations:
     ) -> Dict[str, Any]:
         params: Dict[str, Any] = {"format": "json"}
         if uid:
-            params["uid"] = uid
+            params["uid"] = uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant)
         if tenant:
             params["tenant"] = tenant
         if bucket:
@@ -160,12 +165,17 @@ class RGWAdminBucketOperations:
         account_id: Optional[str] = None,
         uid: Optional[str] = None,
         with_stats: bool = False,
+        tenant: Optional[str] = None,
     ) -> Dict[str, Any]:
         params: Dict[str, Any] = {"format": "json"}
         if account_id:
             params["account-id"] = account_id
+            if not uid:
+                uid = account_id
         if uid:
-            params["uid"] = uid
+            params["uid"] = uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant)
+        if tenant:
+            params["tenant"] = tenant
         timeout: Optional[float] = None
         if with_stats:
             params["stats"] = "true"
@@ -197,7 +207,7 @@ class RGWAdminBucketOperations:
         if tenant:
             params["tenant"] = tenant
         if uid:
-            params["uid"] = uid
+            params["uid"] = uid if is_rgw_account_id(uid) else rgw_qualified_uid(uid, tenant)
         if account_id:
             params["account-id"] = account_id
         if max_size_bytes is not None:

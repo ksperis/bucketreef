@@ -35,14 +35,80 @@ def extract_rgw_user_payload(raw: Any) -> dict[str, Any]:
     return raw
 
 
+def rgw_user_account_root(payload: Any) -> bool | None:
+    """Ceph Squid emits type=root; other supported payloads expose account_root."""
+    user = extract_rgw_user_payload(payload)
+    flag = user.get("account_root", user.get("account-root"))
+    explicit = None if flag is None else flag in (True, "true", "True", "1", 1)
+    if user.get("type") is not None:
+        native = str(user["type"]).lower() == "root"
+        if explicit is not None and explicit != native:
+            raise ValueError("RGW returned conflicting account root identity fields")
+        return native
+    return explicit
+
+
 def extract_rgw_user_identity(payload: Any) -> tuple[str | None, str | None]:
     if not isinstance(payload, dict):
         return None, None
-    user_payload = extract_rgw_user_payload(payload)
-    raw_uid = normalize_optional_string(user_payload.get("uid") or payload.get("uid"))
-    tenant = normalize_optional_string(user_payload.get("tenant") or payload.get("tenant"))
-    if raw_uid and "$" in raw_uid:
-        embedded_tenant, uid = raw_uid.split("$", 1)
-        if embedded_tenant and uid:
-            return uid, tenant or embedded_tenant
-    return raw_uid, tenant
+    candidates = [payload]
+    if isinstance(payload.get("user"), dict):
+        candidates.append(payload["user"])
+    uids: set[str] = set()
+    tenants: set[str] = set()
+    for candidate in candidates:
+        if candidate.get("tenant") is not None:
+            tenants.add(str(candidate["tenant"]).strip())
+        for field in ("uid", "user_id", "user"):
+            if not isinstance(candidate.get(field), str):
+                continue
+            raw = normalize_optional_string(candidate[field])
+            if not raw:
+                continue
+            if "$" in raw:
+                embedded_tenant, raw = raw.split("$", 1)
+                tenants.add(embedded_tenant)
+            uids.add(raw)
+    if len(tenants) > 1:
+        raise ValueError("RGW returned conflicting tenant identity fields")
+    if len(uids) > 1:
+        raise ValueError("RGW returned conflicting user identity fields")
+    return next(iter(uids), None), next(iter(tenants), None)
+
+
+def rgw_qualified_uid(uid: str, tenant: str | None = None) -> str:
+    """Admin Ops parse the tenant from uid; a separate tenant argument is insufficient."""
+    if not tenant:
+        return uid
+    if uid.startswith(f"{tenant}$"):
+        return uid
+    return f"{tenant}${uid}"
+
+
+def require_rgw_user_identity(payload: Any, uid: str, tenant: str) -> None:
+    """Reject mismatched principals before using Admin Ops returned credentials.
+
+    RGW may encode the tenant either in its own field or in tenant$uid.
+    For a non-default tenant, an unqualified response cannot prove isolation.
+    """
+    actual_uid, actual_tenant = extract_rgw_user_identity(payload)
+    if not actual_uid or actual_uid != uid:
+        raise ValueError("RGW returned a different user identity")
+    if actual_tenant and actual_tenant != tenant:
+        raise ValueError("RGW returned a user from another tenant")
+    if tenant and actual_tenant != tenant:
+        raise ValueError("RGW did not confirm the requested tenant and UID")
+
+
+def split_rgw_tenant_uid(value: str, tenant: str | None = None) -> tuple[str, str]:
+    raw = value.strip()
+    explicit_tenant = (tenant or "").strip()
+    if "$" in raw:
+        embedded_tenant, raw = raw.split("$", 1)
+        if not embedded_tenant or not raw or (explicit_tenant and embedded_tenant != explicit_tenant):
+            raise ValueError("RGW tenant-qualified UID is invalid or conflicts with the tenant")
+        explicit_tenant = embedded_tenant
+    from app.utils.rgw_identifiers import validate_rgw_user_uid, validate_rgw_tenant
+    validate_rgw_user_uid(raw, explicit_tenant)
+    validate_rgw_tenant(explicit_tenant)
+    return raw, explicit_tenant

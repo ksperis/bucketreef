@@ -75,6 +75,7 @@ def _admin_user() -> User:
 
 
 def _source_context(context_id: str, **overrides) -> S3ExecutionContext:
+    overrides.setdefault("rgw_tenant", "")
     if context_id.startswith("conn-"):
         identity = {"context_kind": "connection", "s3_connection_id": int(context_id.removeprefix("conn-"))}
     elif context_id.startswith("s3u-"):
@@ -1313,6 +1314,7 @@ def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
     )
     account = S3Account(
         name="storage-ops-notifications",
+        rgw_tenant="",
         rgw_account_id="RGW00000000000000001",
         rgw_access_key="AKIA_TEST",
         rgw_secret_key="SECRET_TEST",
@@ -1390,6 +1392,7 @@ def test_storage_ops_notification_param_filter_uses_shared_snapshot_matching(mon
     )
     account = S3Account(
         name="storage-ops-notification-params",
+        rgw_tenant="",
         rgw_account_id="RGW00000000000000002",
         rgw_access_key="AKIA_TEST",
         rgw_secret_key="SECRET_TEST",
@@ -1498,7 +1501,8 @@ def test_storage_ops_owner_quota_and_usage_use_context_principal_and_resolve_con
         identity_calls.append(connection.id)
         return ConnectionIdentityResolution(
             rgw_user_uid="user-conn",
-            rgw_account_id="tenant-conn",
+            rgw_account_id=None,
+            rgw_tenant="tenant-conn",
             metrics_enabled=True,
             usage_enabled=True,
             reason=None,

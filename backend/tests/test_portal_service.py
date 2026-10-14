@@ -3852,7 +3852,7 @@ def test_portal_server_access_logs_resolve_requester_identities(monkeypatch, db_
         def __init__(self):
             self.calls: list[str] = []
 
-        def get_user(self, uid, allow_not_found=False):
+        def get_user(self, uid, tenant=None, allow_not_found=False):
             self.calls.append(uid)
             assert allow_not_found is True
             if uid == "cfb56965-6240-4335-85c4-0850c8e7ab23":

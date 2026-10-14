@@ -1,7 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, Optional, Tuple
@@ -31,8 +30,9 @@ from app.services.traffic_service import (
     flatten_usage_entries,
     window_start,
 )
-from app.utils.rgw_identifiers import resolve_admin_uid
-from app.utils.rgw_payloads import extract_bucket_list
+from app.utils.rgw_identifiers import resolve_admin_uid, is_rgw_account_id
+from app.utils.rgw_payloads import extract_bucket_list, rgw_qualified_uid
+from app.services.rgw_principal_scope import resolve_target_tenant
 from app.utils.usage_stats import aggregate_bucket_usage, extract_usage_stats
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,9 @@ class _BucketUsageIndex:
         for bucket in buckets:
             used_bytes, used_objects = extract_usage_stats(bucket.get("usage"))
             owner = str(bucket.get("owner") or "").strip()
-            entries_by_owner.setdefault(owner.lower(), []).append(
+            if not is_rgw_account_id(owner):
+                owner = rgw_qualified_uid(owner, bucket.get("tenant"))
+            entries_by_owner.setdefault(owner, []).append(
                 _OwnerUsage(
                     used_bytes=used_bytes,
                     object_count=used_objects,
@@ -123,7 +125,7 @@ class _BucketUsageIndex:
     def usage_for(self, owner_key: str | None) -> _OwnerUsage:
         if not owner_key:
             return _OwnerUsage(used_bytes=None, object_count=None, bucket_count=0)
-        entries = self.entries_by_owner.get(owner_key.lower(), [])
+        entries = self.entries_by_owner.get(owner_key, [])
         if not entries:
             return _OwnerUsage(used_bytes=None, object_count=None, bucket_count=0)
         has_bytes = any(entry.used_bytes is not None for entry in entries)
@@ -144,8 +146,6 @@ class _BucketUsageIndex:
 
 
 class AdminMetricsService:
-    _IDENTIFIER_SPLIT = re.compile(r"[$:/]")
-
     def __init__(
         self,
         db: Session,
@@ -336,9 +336,9 @@ class AdminMetricsService:
                 # Account roots and registered users can overlap. List each
                 # principal once and count each returned bucket only once.
                 identifiers = {
-                    resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
+                    rgw_qualified_uid(resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid), resolve_target_tenant(account))
                     for account in accounts
-                } | {user.rgw_user_uid for user in users}
+                } | {rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)) for user in users}
                 unique_buckets: dict[tuple, dict] = {}
                 for uid in sorted(value for value in identifiers if value):
                     try:
@@ -406,7 +406,7 @@ class AdminMetricsService:
     ) -> tuple[int | None, int | None, int | None]:
         used_bytes, used_objects, bucket_count = self._collect_bucket_usage(
             account_id=account.rgw_account_id,
-            uid=account.rgw_user_uid,
+            uid=rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account)),
             context=f"account:{account.id}",
         )
         if used_bytes is not None or used_objects is not None:
@@ -460,7 +460,7 @@ class AdminMetricsService:
         for user in s3_users:
             used_bytes, used_objects, bucket_count = self._collect_bucket_usage(
                 account_id=None,
-                uid=user.rgw_user_uid,
+                uid=rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)),
                 context=f"s3_user:{user.id}",
             )
             totals.use_user_bucket_count_when_empty(bucket_count)
@@ -532,7 +532,7 @@ class AdminMetricsService:
     ) -> list[dict]:
         s3_user_usage: list[dict] = []
         for user in s3_users:
-            usage = usage_index.usage_for(user.rgw_user_uid)
+            usage = usage_index.usage_for(rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)))
             if usage.used_bytes is None and usage.object_count is None:
                 continue
             s3_user_usage.append(
@@ -589,18 +589,14 @@ class AdminMetricsService:
             return None
         if not isinstance(value, str):
             value = str(value)
-        normalized = value.strip().lower()
+        normalized = value.strip()
         return normalized or None
 
     def _expand_identifier(self, value: Optional[str]) -> set[str]:
         normalized = self._normalize_identifier(value)
         if not normalized:
             return set()
-        tokens = {normalized}
-        for part in self._IDENTIFIER_SPLIT.split(normalized):
-            if part:
-                tokens.add(part)
-        return tokens
+        return {normalized}
 
     def _identifier_in_scope(self, value: Optional[str], allowed: set[str]) -> bool:
         if not allowed:
@@ -619,10 +615,12 @@ class AdminMetricsService:
 
         allowed: set[str] = set()
         for acc in accounts:
-            allowed.add(acc.rgw_account_id.lower())
-            allowed.add(acc.rgw_user_uid.lower())
+            allowed.add(acc.rgw_account_id)
+            root_uid = resolve_admin_uid(acc.rgw_account_id, acc.rgw_user_uid)
+            if root_uid:
+                allowed.add(rgw_qualified_uid(root_uid, resolve_target_tenant(acc)))
         for user in s3_users:
-            allowed.add(user.rgw_user_uid.lower())
+            allowed.add(rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)))
         return accounts, s3_users, allowed
 
     def _filter_buckets(self, buckets: Iterable[Dict], allowed: set[str]) -> list[dict]:
@@ -632,9 +630,10 @@ class AdminMetricsService:
         for bucket in buckets:
             if not isinstance(bucket, dict):
                 continue
-            if self._identifier_in_scope(bucket.get("owner"), allowed) or self._identifier_in_scope(
-                bucket.get("tenant"), allowed
-            ):
+            owner = str(bucket.get("owner") or "")
+            if not is_rgw_account_id(owner):
+                owner = rgw_qualified_uid(owner, bucket.get("tenant"))
+            if self._identifier_in_scope(owner, allowed):
                 filtered.append(bucket)
         return filtered
 
@@ -648,7 +647,6 @@ class AdminMetricsService:
             if (
                 self._identifier_in_scope(entry.get("user"), allowed)
                 or self._identifier_in_scope(entry.get("owner"), allowed)
-                or self._identifier_in_scope(entry.get("tenant"), allowed)
             ):
                 filtered.append(entry)
         return filtered
@@ -660,7 +658,7 @@ class AdminMetricsService:
         uid: Optional[str],
         context: str,
     ) -> Tuple[Optional[int], Optional[int], Optional[int]]:
-        resolved_uid = resolve_admin_uid(account_id, uid)
+        resolved_uid = uid or account_id
         if not resolved_uid:
             return None, None, None
         try:

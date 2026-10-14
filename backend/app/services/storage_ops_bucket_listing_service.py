@@ -35,6 +35,7 @@ from app.services.listing_progress import (
     interpolate_progress_percent,
     invoke_cancel_check,
 )
+from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.normalize import normalize_text
 from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_STORAGE_OPS
@@ -252,16 +253,16 @@ def resolve_storage_ops_contexts(
 def _resolve_context_owner(account: S3ExecutionContext) -> _StorageOpsContextOwner:
     account_id = str(account.rgw_account_id or "").strip()
     if account_id:
-        return _StorageOpsContextOwner(owner=account_id)
+        return _StorageOpsContextOwner(owner=account_id, tenant=resolve_target_tenant(account))
     user_uid = str(account.rgw_user_uid or "").strip()
     if user_uid:
-        return _StorageOpsContextOwner(owner=user_uid, tenant=account_id or None)
+        return _StorageOpsContextOwner(owner=user_uid, tenant=resolve_target_tenant(account))
     source_connection = account.source_connection
     if source_connection is None:
         return _StorageOpsContextOwner(owner=None)
     resolution = ConnectionIdentityService().resolve_rgw_identity(source_connection)
     if resolution.rgw_user_uid:
-        return _StorageOpsContextOwner(owner=resolution.rgw_user_uid, tenant=resolution.rgw_account_id)
+        return _StorageOpsContextOwner(owner=resolution.rgw_user_uid, tenant=resolution.rgw_tenant)
     return _StorageOpsContextOwner(owner=resolution.rgw_account_id)
 
 

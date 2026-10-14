@@ -551,14 +551,63 @@ def test_import_account_reuses_existing_root_user_keys(db_session, monkeypatch):
     assert db_account.rgw_user_uid == "RGW12345678901234567-admin"
     assert fake_admin.calls == [
         ("get_account", "RGW12345678901234567"),
-        ("get_user", "RGW12345678901234567"),
+        ("get_user", None),
+        ("get_user", None),
     ]
+
+
+def test_import_account_discovers_custom_tenant_root(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    account_id = "RGW12345678901234567"
+
+    class TenantedRootAdmin(FakeRGWAdminImport):
+        def get_account(self, account_id, **kwargs):
+            return {"account": {"id": account_id, "name": "Tenanted account", "tenant": "research"}}
+
+        def list_user_ids(self):
+            return ["research$custom-root", "unrelated$root"]
+
+        def get_user(self, uid, tenant=None, allow_not_found=False):
+            self.calls.append(("get_user", tenant))
+            assert uid == "custom-root"
+            assert tenant == "research"
+            return {"uid": "research$custom-root", "account_id": account_id,
+                    "type": "root", "keys": [{"access_key": "EXISTING", "secret_key": "SECRET"}]}
+
+    admin = TenantedRootAdmin()
+    service = _build_service(db_session, monkeypatch, admin)
+    created = service.import_accounts([S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)])
+
+    assert created[0].rgw_tenant == "research"
+    row = db_session.query(S3Account).filter_by(rgw_account_id=account_id).one()
+    assert (row.rgw_user_uid, row.rgw_tenant, row.rgw_access_key) == ("custom-root", "research", "EXISTING")
+    assert admin.calls == [("get_user", "research")] * 4
+
+
+def test_import_account_rejects_other_tenant_root_response(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+
+    class WrongTenantRoot(FakeRGWAdminImport):
+        def get_user(self, uid, tenant=None, allow_not_found=False):
+            return {"uid": f"other${uid}", "account_id": "RGW12345678901234567",
+                    "keys": [{"access_key": "FOREIGN", "secret_key": "SECRET"}]}
+
+    admin = WrongTenantRoot()
+    service = _build_service(db_session, monkeypatch, admin)
+    with pytest.raises(ValueError, match="another tenant"):
+        service.import_accounts([S3AccountImport(
+            rgw_account_id="RGW12345678901234567", root_uid="research$custom-root",
+            storage_endpoint_id=endpoint.id,
+        )])
+    assert db_session.query(S3Account).count() == 0
 
 
 class FakeRGWAdminImportCreatesRoot:
     def __init__(self, account_name: str = "MissingRootS3Account"):
         self.created_users: list[tuple[str, Optional[str]]] = []
         self.account_name = account_name
+        self.root_account_id: str | None = None
+        self.root_uid: str | None = None
 
     def get_account(
         self,
@@ -569,12 +618,17 @@ class FakeRGWAdminImportCreatesRoot:
         return {"id": account_id, "name": self.account_name, "user_list": []}
 
     def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
+        if uid == self.root_uid:
+            return {"uid": uid, "account_id": self.root_account_id, "account_root": True,
+                    "keys": [{"access_key": "NEWROOT", "secret_key": "NEWSECRET"}]}
         return None
 
     def create_user_with_account_id(self, *args, **kwargs):
         uid = kwargs.get("uid")
         account_id = kwargs.get("account_id")
         self.created_users.append((uid, account_id))
+        self.root_uid = uid
+        self.root_account_id = account_id
         return {"keys": [{"access_key": "NEWROOT", "secret_key": "NEWSECRET"}]}
 
     def create_access_key(self, *args, **kwargs):
@@ -644,7 +698,7 @@ def test_import_account_never_combines_credentials_from_different_keys(db_sessio
     db_account = db_session.query(S3Account).filter(S3Account.rgw_account_id == account_id).one()
     assert db_account.rgw_access_key == "MATCHED-ACCESS"
     assert db_account.rgw_secret_key == "MATCHED-SECRET"
-    assert fake_admin.created_keys == [(f"{account_id}-admin", account_id, "bkr-account-root")]
+    assert fake_admin.created_keys == [(f"{account_id}-admin", None, "bkr-account-root")]
 
 
 class FakeRGWAdminImportBatch(FakeRGWAdminImportCreatesRoot):
@@ -718,6 +772,14 @@ class FakeRGWDeleteAdmin:
 
     def delete_user(self, uid: str, tenant: Optional[str] = None):
         self.deleted_users.append((uid, tenant))
+
+    def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
+        return {
+            "uid": uid,
+            "account_id": "RGW00000000000000002",
+            "account_root": True,
+            "keys": [],
+        }
 
     def set_user_caps(self, uid: str, cap: str, tenant: Optional[str] = None):
         return {"uid": uid, "cap": cap, "tenant": tenant}
@@ -862,6 +924,7 @@ def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):
         name="DeleteRGW",
         rgw_account_id="RGW00000000000000002",
         rgw_user_uid="rgw00000000000000002-admin",
+        rgw_tenant="",
         storage_endpoint_id=endpoint.id,
     )
     db_session.add(account)

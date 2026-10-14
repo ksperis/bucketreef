@@ -40,6 +40,7 @@ class S3ExecutionContext:
     rgw_account_id: Optional[str] = None
     email: Optional[str] = None
     rgw_user_uid: Optional[str] = None
+    rgw_tenant: Optional[str] = None
     storage_endpoint_id: Optional[int] = None
     storage_endpoint: Optional[StorageEndpoint] = None
     session_token_value: Optional[str] = None
@@ -75,6 +76,7 @@ class S3ExecutionContext:
             rgw_account_id=account.rgw_account_id,
             email=account.email,
             rgw_user_uid=account.rgw_user_uid,
+            rgw_tenant=account.rgw_tenant,
             access_key=access_key,
             secret_key=secret_key,
             storage_endpoint_id=account.storage_endpoint_id,
@@ -123,6 +125,7 @@ class S3ExecutionContext:
             secret_key=user.rgw_secret_key,
             email=user.email,
             rgw_user_uid=user.rgw_user_uid,
+            rgw_tenant=user.rgw_tenant,
             storage_endpoint_id=user.storage_endpoint_id,
             storage_endpoint=user.storage_endpoint,
             s3_user_id=user.id,

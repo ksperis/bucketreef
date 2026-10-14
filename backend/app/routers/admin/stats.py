@@ -97,9 +97,9 @@ def _build_rgw_client(endpoint: StorageEndpoint) -> RGWAdminClient:
     return get_supervision_rgw_client(endpoint)
 
 
-def _load_principal_bucket_stats(rgw_admin: RGWAdminClient, uid: str) -> dict:
+def _load_principal_bucket_stats(rgw_admin: RGWAdminClient, uid: str, tenant: str | None = None) -> dict:
     try:
-        payload = rgw_admin.get_all_buckets(uid=uid, with_stats=True)
+        payload = rgw_admin.get_all_buckets(uid=uid, with_stats=True, **({"tenant": tenant} if tenant else {}))
     except RGWAdminError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -147,7 +147,7 @@ def account_stats(
 
     endpoint = _resolve_endpoint(db, account.storage_endpoint_id, require_storage_metrics=True)
     rgw_admin = _build_rgw_client(endpoint)
-    return _load_principal_bucket_stats(rgw_admin, account.rgw_user_uid)
+    return _load_principal_bucket_stats(rgw_admin, account.rgw_user_uid, account.rgw_tenant)
 
 
 @router.get("/s3-user")
@@ -162,7 +162,7 @@ def s3_user_stats(
 
     endpoint = _resolve_endpoint(db, s3_user.storage_endpoint_id, require_storage_metrics=True)
     rgw_admin = _build_rgw_client(endpoint)
-    return _load_principal_bucket_stats(rgw_admin, s3_user.rgw_user_uid)
+    return _load_principal_bucket_stats(rgw_admin, s3_user.rgw_user_uid, s3_user.rgw_tenant)
 
 
 @router.get("/storage")

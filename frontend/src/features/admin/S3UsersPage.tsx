@@ -122,6 +122,7 @@ export default function S3UsersPage() {
   const [createForm, setCreateForm] = useState({
     name: "",
     uid: "",
+    rgw_tenant: "",
     email: "",
     tags: [] as UiTagDefinition[],
     quota_max_size_gb: "",
@@ -624,6 +625,7 @@ export default function S3UsersPage() {
       await createS3User({
         name: createForm.name.trim(),
         uid: createForm.uid.trim() || undefined,
+        rgw_tenant: createForm.rgw_tenant.trim(),
         email: createForm.email.trim() || undefined,
         tags: normalizeUiTags(createForm.tags),
         quota_max_size_gb: createForm.quota_max_size_gb ? Number(createForm.quota_max_size_gb) : undefined,
@@ -636,6 +638,7 @@ export default function S3UsersPage() {
         ...prev,
         name: "",
         uid: "",
+        rgw_tenant: "",
         email: "",
         tags: [],
         quota_max_size_gb: "",
@@ -779,6 +782,12 @@ export default function S3UsersPage() {
       field: "uid",
       cellClassName: "min-w-[176px]",
       render: (user) => user.rgw_user_uid,
+    },
+    {
+      id: "tenant",
+      label: "Ceph tenant",
+      cellClassName: "min-w-[125px]",
+      render: (user) => user.rgw_tenant === null || user.rgw_tenant === undefined ? "Unverified" : (user.rgw_tenant || "Default"),
     },
     {
       id: "endpoint",
@@ -966,7 +975,7 @@ export default function S3UsersPage() {
             submitDisabled={importPermissionLoading || !importEndpointCanWrite}
             onCancel={importCloseGuard.requestClose} submitLabel="Import" busyLabel="Importing...">
             <div className="settings-fields settings-form">
-              <p className="settings-body text-[var(--ui-text-muted)]">Enter RGW user IDs, one per line. The platform will fetch or generate keys.</p>
+              <p className="settings-body text-[var(--ui-text-muted)]">Enter RGW user IDs, one per line. Use tenant$uid for an explicit tenant, or uid for the default tenant. The platform creates a dedicated access key.</p>
               <UiTextarea label="RGW user IDs" name="importText" rows={6} required value={importText}
                 error={importValidation.errors.importText} placeholder="user-alpha"
                 onChange={event => setImportText(event.target.value)} />
@@ -999,6 +1008,7 @@ export default function S3UsersPage() {
                   label: "UID",
                   value: editingUser.rgw_user_uid,
                 },
+                { label: "Ceph tenant", value: editingUser.rgw_tenant == null ? "Unverified" : (editingUser.rgw_tenant || "Default") },
                 {
                   label: "Endpoint",
                   value: editingUser.storage_endpoint_name,

@@ -32,10 +32,10 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
     rgw_admin = _FallbackRGWAdmin()
     service = AdminMetricsService(db=SimpleNamespace(), rgw_admin=rgw_admin, endpoint_id=7)
     accounts = [
-        SimpleNamespace(id=1, rgw_account_id="account-1", rgw_user_uid="root-1", name="Account 1"),
-        SimpleNamespace(id=2, rgw_account_id="account-2", rgw_user_uid="root-2", name="Account 2"),
+        SimpleNamespace(rgw_tenant="", id=1, rgw_account_id="account-1", rgw_user_uid="root-1", name="Account 1"),
+        SimpleNamespace(rgw_tenant="", id=2, rgw_account_id="account-2", rgw_user_uid="root-2", name="Account 2"),
     ]
-    s3_users = [SimpleNamespace(id=3, rgw_user_uid="user-3", name="User 3")]
+    s3_users = [SimpleNamespace(rgw_tenant="", id=3, rgw_user_uid="user-3", name="User 3")]
 
     monkeypatch.setattr(
         AdminMetricsService,
@@ -85,13 +85,13 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
 def test_consolidated_storage_snapshot_indexes_owner_usage_and_keeps_unmapped_totals():
     service = AdminMetricsService(db=SimpleNamespace(), rgw_admin=SimpleNamespace(), endpoint_id=7)
     accounts = [
-        SimpleNamespace(id=1, rgw_account_id="account-1", rgw_user_uid="root-1", name="Account 1"),
+        SimpleNamespace(rgw_tenant="", id=1, rgw_account_id="account-1", rgw_user_uid="root-1", name="Account 1"),
     ]
-    s3_users = [SimpleNamespace(id=3, rgw_user_uid="user-3", name="User 3")]
+    s3_users = [SimpleNamespace(rgw_tenant="", id=3, rgw_user_uid="user-3", name="User 3")]
     buckets = [
         {
             "bucket": "account-bucket",
-            "owner": "ACCOUNT-1",
+            "owner": "account-1",
             "usage": {"total_bytes": 100, "total_objects": 10},
         },
         {
