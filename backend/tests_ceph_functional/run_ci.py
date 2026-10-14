@@ -173,6 +173,8 @@ def _derive_ceph_test_env_from_storage_endpoints(env: dict[str, str]) -> None:
     _setdefault("CEPH_TEST_RGW_REGION", _entry_str("region"))
     _setdefault("CEPH_TEST_RGW_ADMIN_ACCESS_KEY", _entry_str("admin_access_key"))
     _setdefault("CEPH_TEST_RGW_ADMIN_SECRET_KEY", _entry_str("admin_secret_key"))
+    _setdefault("CEPH_TEST_CEPH_ADMIN_ACCESS_KEY", _entry_str("ceph_admin_access_key"))
+    _setdefault("CEPH_TEST_CEPH_ADMIN_SECRET_KEY", _entry_str("ceph_admin_secret_key"))
     _setdefault("CEPH_TEST_SUPERVISION_ACCESS_KEY", _entry_str("supervision_access_key") or _entry_str("admin_access_key"))
     _setdefault("CEPH_TEST_SUPERVISION_SECRET_KEY", _entry_str("supervision_secret_key") or _entry_str("admin_secret_key"))
     if "CEPH_TEST_LAB_VERIFY_TLS" not in env and "verify_tls" in selected:
@@ -197,9 +199,16 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
         "admin_access_key": _require_env("CEPH_TEST_RGW_ADMIN_ACCESS_KEY", source=env),
         "admin_secret_key": _require_env("CEPH_TEST_RGW_ADMIN_SECRET_KEY", source=env),
     }
+    ceph_admin_access_key = _env_str("CEPH_TEST_CEPH_ADMIN_ACCESS_KEY", source=env)
+    ceph_admin_secret_key = _env_str("CEPH_TEST_CEPH_ADMIN_SECRET_KEY", source=env)
+    if bool(ceph_admin_access_key) != bool(ceph_admin_secret_key):
+        raise RuntimeError(
+            "CEPH_TEST_CEPH_ADMIN_ACCESS_KEY and CEPH_TEST_CEPH_ADMIN_SECRET_KEY "
+            "must be configured together."
+        )
 
     def _entry(name: str, endpoint_url: str, *, is_default: bool) -> dict[str, object]:
-        return {
+        entry = {
             "name": name,
             "endpoint_url": endpoint_url,
             "region": region,
@@ -222,6 +231,15 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
             },
             "is_default": is_default,
         }
+        if ceph_admin_access_key and ceph_admin_secret_key:
+            entry.update(
+                {
+                    "ceph_admin_allowed": True,
+                    "ceph_admin_access_key": ceph_admin_access_key,
+                    "ceph_admin_secret_key": ceph_admin_secret_key,
+                }
+            )
+        return entry
 
     if s3_endpoint_z2:
         payload = [
