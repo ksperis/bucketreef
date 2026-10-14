@@ -51,7 +51,8 @@ def test_admin_get_account_portal_settings_returns_account_overrides(client, db_
     assert body["portal_collaborator_addition_delegated"] is False
 
 
-def test_admin_put_account_portal_settings_replaces_override_and_audits(client, db_session):
+def test_admin_put_account_portal_settings_replaces_override_and_audits(client, db_session, monkeypatch):
+    monkeypatch.setattr(portal_settings_module, "load_app_settings", AppSettings)
     audit = _CapturingAuditService()
     app.dependency_overrides[admin_accounts_router.get_audit_service] = lambda: audit
     account = _seed_account(

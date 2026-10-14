@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from functools import partial
 from types import SimpleNamespace
 
 import pytest
@@ -23,8 +24,8 @@ from tests.service_identity_helpers import service_identity
 GATES = [
     feature_gates.require_iam_capable_manager,
     feature_gates.require_sns_capable_manager,
-    feature_gates.require_usage_capable_manager,
-    feature_gates.require_metrics_capable_manager,
+    partial(feature_gates.require_usage_capable_manager, db=SimpleNamespace()),
+    partial(feature_gates.require_metrics_capable_manager, db=SimpleNamespace()),
 ]
 METRIC_GATES = GATES[2:]
 
@@ -32,6 +33,8 @@ METRIC_GATES = GATES[2:]
 @pytest.fixture(autouse=True)
 def enabled_settings(monkeypatch):
     monkeypatch.setattr(feature_gates.app_settings_service, "load_app_settings", AppSettings)
+    monkeypatch.setattr(feature_gates.app_settings_service, "load_app_settings_for_db_readonly", lambda _db: AppSettings())
+    monkeypatch.setattr(feature_gates, "project_account_resource", lambda _db, _context: None)
 
 
 def _context(kind="account"):

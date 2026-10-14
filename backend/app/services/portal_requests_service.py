@@ -107,13 +107,13 @@ class PortalRequestsService:
         if isinstance(payload, PortalSettingChangeRequestCreate):
             if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
                 raise ValueError("Portal manager rights required for project setting requests")
+            if access.account.portal_settings_delegated:
+                raise ValueError("Portal settings are already delegated to Portal managers")
             feature = PORTAL_FEATURE_FIELDS.get(payload.setting)
             if feature and payload.mode != "inherit" and payload.value is True:
                 policy = PortalService(self.db).get_effective_portal_settings(access.account).feature_policies
                 if getattr(policy, feature) == FeaturePolicy.DISABLED:
                     raise ValueError("This feature is disabled by the platform")
-            if access.account.portal_settings_delegated:
-                raise ValueError("Portal settings are already delegated to Portal managers")
         row = PortalAdminRequest(
             account_id=int(access.account.id),
             requester_user_id=int(actor.id),

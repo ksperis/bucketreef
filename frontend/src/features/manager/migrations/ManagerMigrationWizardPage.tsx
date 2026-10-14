@@ -144,7 +144,7 @@ export default function ManagerMigrationWizardPage() {
     return () => {
       canceled = true;
     };
-  }, [editId]);
+  }, [editId, text]);
 
   async function submit() {
     setError(null);
