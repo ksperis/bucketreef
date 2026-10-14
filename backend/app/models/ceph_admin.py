@@ -23,8 +23,15 @@ def _safe_rgw_user_extra_params(value: dict[str, Any]) -> dict[str, Any]:
         "uid", "tenant", "account-id", "account-root", "format",
         "generate-key", "access-key", "secret-key", "key", "key-type",
     }
-    if any(str(key).strip().lower().replace("_", "-") in protected for key in value):
-        raise ValueError("User identity and credential parameters must use dedicated fields")
+    for key, item in value.items():
+        key_label = str(key).strip()
+        if key_label.lower().replace("_", "-") not in protected:
+            continue
+        error = ValueError("User identity and credential parameters must use dedicated fields")
+        raise ValidationError.from_exception_data(
+            "CephAdminRgwUserExtraParams",
+            [{"type": "value_error", "loc": (key_label,), "input": item, "ctx": {"error": error}}],
+        ) from error
     return value
 
 class CephAdminEndpoint(ApiModel):
