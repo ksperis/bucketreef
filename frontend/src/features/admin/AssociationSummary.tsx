@@ -11,6 +11,8 @@ import GroupAvatar from "../../components/GroupAvatar";
 import UserAvatar from "../../components/UserAvatar";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { buildAdminPrincipalEditHref } from "./adminPrincipalEditLink";
+import type { UiLanguage } from "../../components/language";
+import { associationSummaryRoleText, associationSummaryText, useAssociationSummaryI18n } from "./associationSummaryMessage";
 
 export type AssociationChipItem = {
   id: number | string;
@@ -80,15 +82,16 @@ function tooltipDescription(
   entries: AssociationRoleTooltipEntry[],
   remaining: number,
   detailLabel: string,
+  locale: UiLanguage,
 ): string {
   const lines = [
     `${label} (${entries.length + remaining})`,
     ...entries.map((entry) => {
       const identity = `${entry.descriptionKindLabel ? `${entry.descriptionKindLabel}: ` : ""}${entry.identity}`;
-      return entry.roles.length > 0 ? `${identity} — ${detailLabel}: ${entry.roles.join(", ")}` : identity;
+      return entry.roles.length > 0 ? `${identity} — ${detailLabel}: ${entry.roles.map(role => associationSummaryRoleText(role, locale)).join(", ")}` : identity;
     }),
   ];
-  if (remaining > 0) lines.push(`… ${remaining} more`);
+  if (remaining > 0) lines.push(associationSummaryText("moreDescription", locale, { count: remaining }));
   return lines.join("\n");
 }
 
@@ -98,7 +101,7 @@ export function AssociationRoleTooltip({
   tooltipLimit = DEFAULT_TOOLTIP_LIMIT,
   ariaLabel,
   focusable = false,
-  detailLabel = "Roles",
+  detailLabel,
   detailTone = "semantic",
   children,
 }: {
@@ -111,6 +114,7 @@ export function AssociationRoleTooltip({
   detailTone?: AssociationRoleTooltipDetailTone;
   children: ReactNode;
 }) {
+  const { locale, text } = useAssociationSummaryI18n();
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
@@ -118,7 +122,7 @@ export function AssociationRoleTooltip({
   const boundedLimit = Math.max(1, tooltipLimit);
   const listedEntries = useMemo(() => entries.slice(0, boundedLimit), [boundedLimit, entries]);
   const remaining = entries.length - listedEntries.length;
-  const description = tooltipDescription(label, listedEntries, remaining, detailLabel);
+  const description = tooltipDescription(label, listedEntries, remaining, detailLabel ?? text("roles"), locale);
 
   const cancelClose = () => {
     if (closeTimerRef.current != null) {
@@ -169,14 +173,14 @@ export function AssociationRoleTooltip({
       >
         <div
           role="tooltip"
-          aria-label={`${label} details`}
+          aria-label={text("details", { label })}
           onMouseEnter={openTooltip}
           onMouseLeave={scheduleClose}
         >
           <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1 dark:border-slate-800">
             <p className="text-[11px] font-semibold leading-4 text-slate-900 dark:text-slate-100">{label}</p>
             <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-              {entries.length} total
+              {text("total", { count: entries.length })}
             </span>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -199,7 +203,7 @@ export function AssociationRoleTooltip({
                         key={`${entry.key}:${role}`}
                         tone={detailTone === "neutral" ? "neutral" : roleBadgeTone(role)}
                       >
-                        {role}
+                        {associationSummaryRoleText(role, locale)}
                       </ListBadge>
                     ))}
                   </div>
@@ -209,7 +213,7 @@ export function AssociationRoleTooltip({
           </div>
           {remaining > 0 ? (
             <p className="border-t border-slate-100 pt-1 text-[10px] font-medium leading-4 text-slate-500 dark:border-slate-800 dark:text-slate-400">
-              +{remaining} more {remaining === 1 ? "entry" : "entries"}
+              {text(remaining === 1 ? "moreEntry" : "moreEntries", { count: remaining })}
             </p>
           ) : null}
         </div>
@@ -218,24 +222,24 @@ export function AssociationRoleTooltip({
   );
 }
 
-export function accountAssociationRoleLabels(account: AssociationAccountItem): string[] {
+export function accountAssociationRoleLabels(account: AssociationAccountItem, locale: UiLanguage = "en"): string[] {
   const roles: string[] = [];
   if (account.manager_role === "account_administrator") {
-    roles.push("Account administrator");
+    roles.push(associationSummaryText("accountAdministrator", locale));
   }
-  if (account.portal_role === "portal_manager") roles.push("Portal manager");
-  if (account.portal_role === "portal_user") roles.push("Portal user");
-  if (roles.length === 0) roles.push("Member");
+  if (account.portal_role === "portal_manager") roles.push(associationSummaryText("portalManager", locale));
+  if (account.portal_role === "portal_user") roles.push(associationSummaryText("portalUser", locale));
+  if (roles.length === 0) roles.push(associationSummaryText("member", locale));
   return roles;
 }
 
-export function uiPrincipalRoleLabel(role?: string | null): string {
+export function uiPrincipalRoleLabel(role?: string | null, locale: UiLanguage = "en"): string {
   const normalized = (role ?? "").toLowerCase();
-  if (["ui_superadmin", "super_admin", "superadmin"].includes(normalized)) return "Superadmin";
-  if (["ui_admin", "account_admin", "admin"].includes(normalized)) return "Admin";
-  if (["ui_none", "none"].includes(normalized)) return "No UI access";
-  if (["ui_user", "account_user", "user"].includes(normalized)) return "User";
-  return role?.trim() || "User";
+  if (["ui_superadmin", "super_admin", "superadmin"].includes(normalized)) return associationSummaryText("superadmin", locale);
+  if (["ui_admin", "account_admin", "admin"].includes(normalized)) return associationSummaryText("admin", locale);
+  if (["ui_none", "none"].includes(normalized)) return associationSummaryText("noUiAccess", locale);
+  if (["ui_user", "account_user", "user"].includes(normalized)) return associationSummaryText("user", locale);
+  return role?.trim() || associationSummaryText("user", locale);
 }
 
 export function CompactAssociationSummary({
@@ -245,9 +249,10 @@ export function CompactAssociationSummary({
   categories: CompactAssociationCategory[];
   tooltipLimit?: number;
 }) {
+  const { text } = useAssociationSummaryI18n();
   const visibleCategories = categories.filter((category) => category.items.length > 0);
   if (visibleCategories.length === 0) {
-    return <span className="ui-caption text-slate-500 dark:text-slate-400">None</span>;
+    return <span className="ui-caption text-slate-500 dark:text-slate-400">{text("none")}</span>;
   }
   const total = visibleCategories.reduce((sum, category) => sum + category.items.length, 0);
   const entries = visibleCategories.flatMap((category) =>
@@ -261,10 +266,10 @@ export function CompactAssociationSummary({
   );
   return (
     <AssociationRoleTooltip
-      label="Linked associations"
+      label={text("linkedAssociations")}
       entries={entries}
       tooltipLimit={tooltipLimit}
-      ariaLabel={`${total} linked association${total === 1 ? "" : "s"}`}
+      ariaLabel={text(total === 1 ? "linkedAssociationCount" : "linkedAssociationsCount", { count: total })}
       focusable
     >
       <span className="inline-flex max-w-full flex-wrap items-center gap-1.5">
@@ -274,7 +279,7 @@ export function CompactAssociationSummary({
             disableToneStyles className={`gap-1 ui-list-association-${category.id}`}
           >
             <span>{category.label}</span>
-            <span aria-label={`${category.items.length} ${category.label.toLowerCase()}`}>{category.items.length}</span>
+            <span aria-label={text("categoryCount", { count: category.items.length, category: category.label.toLowerCase() })}>{category.items.length}</span>
           </ListBadge>
         ))}
       </span>
@@ -282,15 +287,15 @@ export function CompactAssociationSummary({
   );
 }
 
-function principalTooltipEntry(item: AssociationPrincipalItem): AssociationRoleTooltipEntry {
+function principalTooltipEntry(item: AssociationPrincipalItem, locale: UiLanguage): AssociationRoleTooltipEntry {
   const identity = item.email && item.email !== item.label ? `${item.label} · ${item.email}` : item.label;
   const roles: string[] = [...(item.role_labels ?? [])];
-  const kindLabel = item.kind === "group" ? "UI group" : "UI user";
+  const kindLabel = associationSummaryText(item.kind === "group" ? "uiGroup" : "uiUser", locale);
   if (item.manager_role === "account_administrator") {
-    roles.push("Account administrator");
+    roles.push(associationSummaryText("accountAdministrator"));
   }
-  if (item.portal_role === "portal_manager") roles.push("Portal manager");
-  if (item.portal_role === "portal_user") roles.push("Portal user");
+  if (item.portal_role === "portal_manager") roles.push(associationSummaryText("portalManager"));
+  if (item.portal_role === "portal_user") roles.push(associationSummaryText("portalUser"));
   return {
     key: `${item.kind}:${item.id}`,
     identity,
@@ -309,19 +314,20 @@ export function AssociationPrincipalStack({
   maxVisible?: number;
   tooltipLimit?: number;
 }) {
-  if (items.length === 0) return <span className="ui-caption text-slate-500 dark:text-slate-400">None</span>;
+  const { locale, text } = useAssociationSummaryI18n();
+  if (items.length === 0) return <span className="ui-caption text-slate-500 dark:text-slate-400">{text("none")}</span>;
   const visible = items.slice(0, maxVisible);
   const remaining = items.length - visible.length;
-  const entries = items.map(principalTooltipEntry);
+  const entries = items.map(item => principalTooltipEntry(item, locale));
   return (
     <AssociationRoleTooltip
-      label="Linked principals"
+      label={text("linkedPrincipals")}
       entries={entries}
       tooltipLimit={tooltipLimit}
-      ariaLabel={`${items.length} linked principal${items.length === 1 ? "" : "s"}`}
+      ariaLabel={text(items.length === 1 ? "linkedPrincipalCount" : "linkedPrincipalsCount", { count: items.length })}
     >
       <span className="inline-flex items-center -space-x-1.5">{visible.map((item) => {
-        const principalType = item.kind === "group" ? "UI group" : "UI user";
+        const principalType = text(item.kind === "group" ? "uiGroup" : "uiUser");
         const href = buildAdminPrincipalEditHref({
           id: item.id,
           kind: item.kind,
@@ -331,7 +337,7 @@ export function AssociationPrincipalStack({
           <a
             key={`${item.kind}-${item.id}`}
             href={href}
-            aria-label={`Edit ${principalType} ${item.label}`}
+            aria-label={text("editPrincipal", { kind: principalType, label: item.label })}
             className={`group relative inline-flex shrink-0 transition-transform hover:z-20 hover:-translate-y-0.5 focus:z-20 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)] ${
               item.kind === "group" ? "rounded-lg" : "rounded-full"
             }`}
