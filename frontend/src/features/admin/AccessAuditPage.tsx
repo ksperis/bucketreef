@@ -25,6 +25,7 @@ import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
 import { triggerBlobDownload } from "../../utils/download";
 import AccessAuditTable from "./AccessAuditTable";
+import { useAccessAuditI18n } from "./accessAuditMessage";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 
 type AllOr<T extends string> = "all" | T;
@@ -36,6 +37,7 @@ function positiveInt(value: string | null) {
 }
 
 export default function AccessAuditPage() {
+  const { text, scopeLabel, rightLabel } = useAccessAuditI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialScope = searchParams.get("scope") as AccessAuditScope | null;
   const initialRight = searchParams.get("right") as AccessAuditRightCode | null;
@@ -54,8 +56,9 @@ export default function AccessAuditPage() {
   const [rows, setRows] = useState<AccessAuditRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ cause: unknown; fallbackKey: "loadError" | "exportError" } | null>(null);
   const [exporting, setExporting] = useState(false);
+  const error = failure ? extractApiError(failure.cause, text(failure.fallbackKey)) : null;
 
   const query = useMemo(() => ({
     search: search.trim() || undefined,
@@ -84,7 +87,7 @@ export default function AccessAuditPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
+    setFailure(null);
     listAccessAudit({ ...query, page, page_size: pageSize })
       .then((response) => {
         if (cancelled) return;
@@ -95,7 +98,7 @@ export default function AccessAuditPage() {
         if (cancelled) return;
         setRows([]);
         setTotal(0);
-        setError(extractApiError(cause, "Unable to load effective access audit."));
+        setFailure({ cause, fallbackKey: "loadError" });
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -114,11 +117,11 @@ export default function AccessAuditPage() {
 
   async function handleExport() {
     setExporting(true);
-    setError(null);
+    setFailure(null);
     try {
       triggerBlobDownload("access-audit.csv", await downloadAccessAuditCsv(query));
     } catch (cause) {
-      setError(extractApiError(cause, "Unable to export effective access audit."));
+      setFailure({ cause, fallbackKey: "exportError" });
     } finally {
       setExporting(false);
     }
@@ -131,68 +134,70 @@ export default function AccessAuditPage() {
     const parts: string[] = [];
     if (userId != null) {
       const principal = rows.find((row) => row.principal.id === userId)?.principal;
-      parts.push(`UI User: ${principal?.full_name?.trim() || principal?.email || `#${userId}`}`);
+      parts.push(text("uiUserContext", { name: principal?.full_name?.trim() || principal?.email || `#${userId}` }));
     }
     if (groupId != null) {
       const source = rows
         .flatMap((row) => row.rights)
         .flatMap((right) => right.sources)
         .find((candidate) => candidate.kind === "group" && candidate.group_id === groupId);
-      parts.push(`UI Group: ${source?.group_name || `#${groupId}`}`);
+      parts.push(text("uiGroupContext", { name: source?.group_name || `#${groupId}` }));
     }
     if (targetId != null) {
       const target = rows.find((row) => row.target.id === targetId)?.target;
-      const scopeLabel = scope === "all"
-        ? "Target"
-        : ACCESS_AUDIT_SCOPES.find((item) => item.value === scope)?.label ?? "Target";
-      parts.push(`${scopeLabel}: ${target?.name || `#${targetId}`}`);
+      const label = scope === "all"
+        ? text("target")
+        : scopeLabel(scope, ACCESS_AUDIT_SCOPES.find((item) => item.value === scope)?.label ?? text("target"));
+      parts.push(text("targetContext", { scope: label, name: target?.name || `#${targetId}` }));
     }
     return parts.join(" · ");
-  }, [groupId, rows, scope, targetId, userId]);
+  }, [groupId, rows, scope, scopeLabel, targetId, text, userId]);
 
   return (
     <PageShell
       actionPresentation="listing"
-      title="Effective access audit"
-      description="Review saved BucketReef permissions after direct and UI Group grants are combined."
-      breadcrumbs={adminPageBreadcrumbs("access-audit")}
+      title={text("title")}
+      description={text("description")}
+      breadcrumbs={adminPageBreadcrumbs("access-audit").map((breadcrumb, index) => ({
+        ...breadcrumb, label: text(index === 0 ? "admin" : "accessAudit"),
+      }))}
     >
       <ListPageSection
         variant="page"
-        title="Effective access audit"
-        countLabel={`${total} ${total === 1 ? "entry" : "entries"}`}
-        search={<UiInput aria-label="Search effective access" type="search" value={search}
+        title={text("title")}
+        countLabel={text(total === 1 ? "entryCount" : "entriesCount", { count: total })}
+        search={<UiInput aria-label={text("searchAccess")} type="search" value={search}
           onChange={(event) => updateFilter(() => setSearch(event.target.value))}
-          placeholder="Search users, targets, rights, or groups" size="compact" fieldClassName="min-w-[220px] flex-1" />}
+          placeholder={text("searchPlaceholder")} size="compact" fieldClassName="min-w-[220px] flex-1" />}
         filters={<>
-          <UiSelect label="Scope" aria-label="Filter by scope" size="compact" value={scope}
+          <UiSelect label={text("scope")} aria-label={text("filterScope")} size="compact" value={scope}
             onChange={(event) => updateFilter(() => setScope(event.target.value as AllOr<AccessAuditScope>))}>
-            <option value="all">All scopes</option>
-            {ACCESS_AUDIT_SCOPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            <option value="all">{text("allScopes")}</option>
+            {ACCESS_AUDIT_SCOPES.map((item) => <option key={item.value} value={item.value}>{scopeLabel(item.value, item.label)}</option>)}
           </UiSelect>
-          <UiSelect label="Right" aria-label="Filter by right" size="compact" value={right}
+          <UiSelect label={text("right")} aria-label={text("filterRight")} size="compact" value={right}
             onChange={(event) => updateFilter(() => setRight(event.target.value as AllOr<AccessAuditRightCode>))}>
-            <option value="all">All rights</option>
-            {ACCESS_AUDIT_RIGHTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            <option value="all">{text("allRights")}</option>
+            {ACCESS_AUDIT_RIGHTS.map((item) => <option key={item.value} value={item.value}>{rightLabel(item.value, item.label)}</option>)}
           </UiSelect>
-          <UiSelect label="Source" aria-label="Filter by source" size="compact" value={source}
+          <UiSelect label={text("source")} aria-label={text("filterSource")} size="compact" value={source}
             onChange={(event) => updateFilter(() => setSource(event.target.value as AllOr<AccessAuditSourceKind>))}>
-            <option value="all">All sources</option>
-            <option value="platform">Platform</option>
-            <option value="direct">Direct</option>
-            <option value="group">UI Group</option>
+            <option value="all">{text("allSources")}</option>
+            <option value="platform">{text("platform")}</option>
+            <option value="direct">{text("direct")}</option>
+            <option value="group">{text("uiGroup")}</option>
           </UiSelect>
         </>}
-        actions={<ListActionButton onClick={() => void handleExport()} loading={exporting}>Export CSV</ListActionButton>}
+        actions={<ListActionButton onClick={() => void handleExport()} loading={exporting}>{text("exportCsv")}</ListActionButton>}
         secondaryContent={hasContextFilter || error ? <div className="flex flex-wrap items-center gap-2">
           {hasContextFilter ? <>
-            <span>Context filter: {contextLabel}</span>
+            <span>{text("contextFilter", { context: contextLabel })}</span>
             <ListActionButton variant="ghost" onClick={() => {
               setPage(1);
               setUserId(undefined);
               setGroupId(undefined);
               setTargetId(undefined);
-            }}>Clear context</ListActionButton>
+            }}>{text("clearContext")}</ListActionButton>
           </> : null}
           {error ? <span role="alert">{error}</span> : null}
         </div> : undefined}
@@ -200,7 +205,7 @@ export default function AccessAuditPage() {
         <AccessAuditTable
           rows={rows}
           status={status}
-          emptyMessage={hasActiveFilters ? "No effective access matches the current filters." : "No effective BucketReef rights are currently granted."}
+          emptyMessage={text(hasActiveFilters ? "noMatchingAccess" : "noGrantedRights")}
           sortBy={sortBy}
           sortDir={sortDir}
           onSort={handleSort}
