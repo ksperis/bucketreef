@@ -87,20 +87,20 @@ describe("ManagerSettingsPage", () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const compositionToggle = (await screen.findByLabelText("Bucket composition statistics")) as HTMLInputElement;
-    const rgwMetricsToggle = screen.getByLabelText("RGW traffic and usage metrics") as HTMLInputElement;
-    expect(compositionToggle.checked).toBe(true);
-    expect(rgwMetricsToggle.checked).toBe(true);
+    const compositionPolicy = await policyGroup("Bucket composition statistics");
+    const rgwMetricsPolicy = await policyGroup("RGW traffic and usage metrics");
+    expectPolicy(compositionPolicy, "Enabled by default");
+    expectPolicy(rgwMetricsPolicy, "Enabled by default");
 
-    await user.click(rgwMetricsToggle);
+    await user.click(within(rgwMetricsPolicy).getByRole("radio", { name: "Disabled" }));
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
       expect(updateAppSettingsMock).toHaveBeenCalledTimes(1);
     });
     const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
-    expect(payload.manager.manager_rgw_usage_metrics_enabled).toBe(false);
-    expect(payload.general.bucket_usage_stats_enabled).toBe(true);
+    expect(payload.manager.feature_policies.rgw_usage_metrics).toBe("disabled");
+    expect(payload.general.project_feature_policies.bucket_usage_stats).toBe("default_on");
   });
 
   it("renders bucket quota kill switch and sends it in save payload", async () => {
@@ -143,7 +143,7 @@ describe("ManagerSettingsPage", () => {
     render(<ManagerSettingsPage />);
 
     await policyGroup("Bucket compare tool");
-    expect(screen.getAllByText(/Choose whether features are blocked/)).toHaveLength(2);
+    expect(screen.getAllByText(/Choose whether features are blocked/)).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "Bucket compare tool: information" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Bucket quota management: information" })).toBeInTheDocument();
   });
@@ -207,27 +207,27 @@ describe("ManagerSettingsPage", () => {
   it("resets RGW metrics and bucket composition from their independent defaults", async () => {
     const user = userEvent.setup();
     const current = buildSettings();
-    current.general.bucket_usage_stats_enabled = false;
-    current.manager.manager_rgw_usage_metrics_enabled = true;
+    current.general.project_feature_policies.bucket_usage_stats = "disabled";
+    current.manager.feature_policies.rgw_usage_metrics = "default_on";
     fetchAppSettingsMock.mockResolvedValue(current);
     const defaults = buildSettings();
-    defaults.general.bucket_usage_stats_enabled = true;
-    defaults.manager.manager_rgw_usage_metrics_enabled = false;
+    defaults.general.project_feature_policies.bucket_usage_stats = "default_on";
+    defaults.manager.feature_policies.rgw_usage_metrics = "disabled";
     fetchDefaultAppSettingsMock.mockResolvedValue(defaults);
 
     render(<ManagerSettingsPage />);
 
-    const compositionToggle = (await screen.findByLabelText("Bucket composition statistics")) as HTMLInputElement;
-    const rgwMetricsToggle = screen.getByLabelText("RGW traffic and usage metrics") as HTMLInputElement;
-    expect(compositionToggle.checked).toBe(false);
-    expect(rgwMetricsToggle.checked).toBe(true);
+    const compositionPolicy = await policyGroup("Bucket composition statistics");
+    const rgwMetricsPolicy = await policyGroup("RGW traffic and usage metrics");
+    expectPolicy(compositionPolicy, "Disabled");
+    expectPolicy(rgwMetricsPolicy, "Enabled by default");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expect(compositionToggle.checked).toBe(true);
-      expect(rgwMetricsToggle.checked).toBe(false);
+      expectPolicy(compositionPolicy, "Enabled by default");
+      expectPolicy(rgwMetricsPolicy, "Disabled");
     });
   });
 
@@ -288,9 +288,9 @@ describe("ManagerSettingsPage", () => {
     expect(screen.queryByText("Optional administrative and operational tools available in Manager.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Workspace access/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/non-admin/i)).not.toBeInTheDocument();
-    expect(screen.getAllByRole("switch").map(toggle => toggle.getAttribute("aria-label"))).toEqual([
-      "Bucket composition statistics", "RGW traffic and usage metrics",
-    ]);
-    expect(screen.getAllByRole("radiogroup")).toHaveLength(11);
+    expect(screen.getAllByRole("radiogroup").map(group => group.getAttribute("aria-label"))).toEqual(
+      expect.arrayContaining(["Bucket composition statistics", "RGW traffic and usage metrics"]),
+    );
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(13);
   });
 });

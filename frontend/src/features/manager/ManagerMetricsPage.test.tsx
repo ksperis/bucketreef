@@ -93,6 +93,9 @@ function buildContext({
     accessMode,
     managerStatsEnabled,
     managerStatsMessage,
+    managerFeatureStates: {
+      bucket_usage_stats: { enabled: bucketUsageStatsEnabled, source: "platform" },
+    },
   };
 }
 

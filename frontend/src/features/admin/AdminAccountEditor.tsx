@@ -204,6 +204,18 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                 portalEnabled={portalEnabled} disabled={controller.locked} onPendingChange={setGroupPending} />
             </div>
             {canManageManagerFeatures && <div hidden={tab !== "manager"}><div className="settings-stack">
+              <SettingsSection presentation="compact" title="Usage and metrics">
+                <FeatureOverrideField title="RGW traffic and usage metrics" value={form.draft.allow_rgw_usage_metrics}
+                  policy={generalSettings.manager_feature_policies.rgw_usage_metrics} disabled={controller.locked}
+                  triState
+                  help="Controls traffic and usage metrics for this RGW Account. Endpoint capabilities and supervision credentials still apply."
+                  onChange={value => update("allow_rgw_usage_metrics", value)} />
+                <FeatureOverrideField title="Bucket composition statistics" value={form.draft.allow_bucket_usage_stats}
+                  policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
+                  triState
+                  help="Shared project capability used by both Manager and Portal."
+                  onChange={value => update("allow_bucket_usage_stats", value)} />
+              </SettingsSection>
               <SettingsSection presentation="compact" title="Access-key extensions">
                 <FeatureOverrideField title="Access-key names and notes" value={form.draft.allow_access_key_metadata}
                   policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={controller.locked}

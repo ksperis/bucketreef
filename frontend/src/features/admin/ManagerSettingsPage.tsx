@@ -11,7 +11,6 @@ import {
 import SettingsDraftDialog from "../../components/settings/SettingsDraftDialog";
 import AdminSettingsFrame from "./settings/AdminSettingsFrame";
 import {
-  AppSettingsToggle,
   AppSettingsPolicy,
   FEATURE_POLICY_SECTION_DESCRIPTION,
 } from "./settings/AppSettingsFields";
@@ -41,8 +40,8 @@ const migrationFields = [
   },
 ] as const;
 const paths = [
-  "general.bucket_usage_stats_enabled",
-  "manager.manager_rgw_usage_metrics_enabled",
+  "general.project_feature_policies.bucket_usage_stats",
+  "manager.feature_policies.rgw_usage_metrics",
   "manager.feature_policies.bucket_quota_management",
   "manager.feature_policies.activity_history",
   "manager.feature_policies.ceph_s3_user_keys",
@@ -140,16 +139,17 @@ export default function ManagerSettingsPage() {
       <SettingsSection
         presentation="compact"
         title="Usage and metrics"
+        description={FEATURE_POLICY_SECTION_DESCRIPTION}
       >
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="general.bucket_usage_stats_enabled"
+          field="general.project_feature_policies.bucket_usage_stats"
           title="Bucket composition statistics"
           description="Enables scan-calculated statistics in Manager and Portal."
         />
-        <AppSettingsToggle
+        <AppSettingsPolicy
           form={form}
-          field="manager.manager_rgw_usage_metrics_enabled"
+          field="manager.feature_policies.rgw_usage_metrics"
           title="RGW traffic and usage metrics"
           description="Available when the selected context and endpoint meet the prerequisites."
         />

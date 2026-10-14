@@ -11,7 +11,6 @@ import {
   type PortalStorageSpaceUsageStatsSnapshot,
 } from "../../api/portalUsage";
 import type { ManagerTrafficStats, TrafficWindow } from "../../api/stats";
-import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { MetricsCard, MetricsEmptyState, MetricsTile } from "../../components/MetricsCard";
 import MetricsTrafficOverview from "../../components/MetricsTrafficOverview";
 import PageBanner from "../../components/PageBanner";
@@ -31,6 +30,7 @@ type PortalStorageSpaceStatisticsProps = {
   accountName: string;
   rgwAccountId?: string | null;
   space: PortalWorkspaceSpace;
+  bucketUsageStatsEnabled: boolean;
 };
 
 export default function PortalStorageSpaceStatistics({
@@ -38,9 +38,9 @@ export default function PortalStorageSpaceStatistics({
   accountName,
   rgwAccountId,
   space,
+  bucketUsageStatsEnabled,
 }: PortalStorageSpaceStatisticsProps) {
   const { locale, t } = useI18n();
-  const { generalSettings } = useGeneralSettings();
   const [usageStatsSnapshot, setUsageStatsSnapshot] = useState<PortalStorageSpaceUsageStatsSnapshot | null>(null);
   const [usageStatsLoading, setUsageStatsLoading] = useState(false);
   const [usageStatsError, setUsageStatsError] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function PortalStorageSpaceStatistics({
 
   useEffect(() => {
     let cancelled = false;
-    if (!generalSettings.bucket_usage_stats_enabled || !canBrowse) return;
+    if (!bucketUsageStatsEnabled || !canBrowse) return;
     setUsageStatsLoading(true);
     setUsageStatsError(null);
     fetchPortalStorageSpaceUsageStats(accountIdForApi, space.id)
@@ -82,7 +82,7 @@ export default function PortalStorageSpaceStatistics({
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, canBrowse, generalSettings.bucket_usage_stats_enabled, space.id, t]);
+  }, [accountIdForApi, bucketUsageStatsEnabled, canBrowse, space.id, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +183,7 @@ export default function PortalStorageSpaceStatistics({
         </PageBanner>
       ) : (
         <>
-          {generalSettings.bucket_usage_stats_enabled ? (
+          {bucketUsageStatsEnabled ? (
             <MetricsCard
               title={t({ en: "File composition", fr: "Composition des fichiers", de: "Dateizusammensetzung", zh: "文件组成" })}
               description={t({

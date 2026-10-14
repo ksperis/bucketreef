@@ -1,4 +1,4 @@
-import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES } from "../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
 import type { BrowserFavorite } from "../api/browserFavorites";
 import type { User } from "../api/users";
 import type { S3Account } from "../api/accounts";
@@ -47,13 +47,14 @@ export type DemoState = {
 };
 export const settings: AppSettings = {
   general: {
+    project_feature_policies: { ...DEFAULT_PROJECT_FEATURE_POLICIES },
     rgw_account_id_prefix: "80",
     documentation_base_url: "https://docs.bucketreef.ksperis.com",
     manager_enabled: true, ceph_admin_enabled: true, storage_ops_enabled: false,
     browser_enabled: true, browser_root_enabled: true, browser_manager_enabled: true,
     browser_portal_enabled: true, browser_ceph_admin_enabled: true, portal_enabled: true,
     billing_enabled: true, endpoint_status_enabled: true, quota_alerts_enabled: true,
-    usage_history_enabled: true, bucket_usage_stats_enabled: true,
+    usage_history_enabled: true,
     allow_login_access_keys: false, allow_login_endpoint_list: false, allow_login_custom_endpoint: false,
     require_passkey_for_admins: false, require_passkey_for_users: false,
     allow_user_profile_name_edit: true, allow_user_external_identity_unlink: false,
@@ -65,7 +66,7 @@ export const settings: AppSettings = {
       noncurrent_version_expiration_days: 90, cors_allowed_origins: [] },
   },
   manager: {
-      feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_integrity_check: "disabled", bucket_compare: "targeted", bucket_quota_management: "targeted", ceph_s3_user_keys: "targeted", access_key_metadata: "disabled", access_key_expiration: "disabled" }, manager_rgw_usage_metrics_enabled: true, bucket_migration_parallelism_default: 1, bucket_migration_parallelism_max: 1, bucket_migration_max_active_per_endpoint: 1 },
+      feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_integrity_check: "disabled", bucket_compare: "targeted", bucket_quota_management: "targeted", ceph_s3_user_keys: "targeted", access_key_metadata: "disabled", access_key_expiration: "disabled" }, bucket_migration_parallelism_default: 1, bucket_migration_parallelism_max: 1, bucket_migration_max_active_per_endpoint: 1 },
   browser: { allow_proxy_transfers: true, direct_upload_parallelism: 2, proxy_upload_parallelism: 2,
     direct_download_parallelism: 2, proxy_download_parallelism: 2, other_operations_parallelism: 2, streaming_zip_threshold_mb: 200 },
   onboarding: { dismissed: true }, branding: { primary_color: "#0569f8", login_logo_url: null },

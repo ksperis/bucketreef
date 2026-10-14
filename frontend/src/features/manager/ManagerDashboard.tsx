@@ -692,7 +692,7 @@ export default function ManagerDashboard() {
   const canLoadUsageStatsDataTypes =
     hasContext &&
     Boolean(requiresS3AccountSelection) &&
-    Boolean(generalSettings.bucket_usage_stats_enabled);
+    managerFeatureStates?.bucket_usage_stats?.enabled === true;
   const refreshKey = `${accessMode ?? "default"}:${refreshNonce}`;
   const { stats, loading, error } = useManagerStats(
     accountIdForApi,

@@ -1,7 +1,7 @@
 /* Opt-in settings geometry and typography; colors come from the theme. */
 :root {
   --settings-content-width: 1120px;
-  --settings-title-width: 190px;
+  --settings-title-width: 230px;
   --settings-section-gap: 12px;
   --settings-column-gap: 16px;
   --settings-row-height: 40px;
@@ -309,7 +309,7 @@
 }
 .settings-effective-action {
   display: grid;
-  grid-template-columns: minmax(7.5rem, auto) auto;
+  grid-template-columns: 10.5rem auto;
   align-items: center;
   gap: 6px 12px;
   min-width: min(20rem, 100%);
@@ -325,7 +325,7 @@
 }
 .settings-effective-summary {
   gap: 6px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .settings-effective-local {
   gap: 7px;

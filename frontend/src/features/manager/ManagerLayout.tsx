@@ -102,7 +102,9 @@ function ManagerShell() {
   const metricsFeatureEnabled = endpointCaps ? endpointCaps.usage !== false : true;
   const snsFeatureEnabled = endpointCaps ? endpointCaps.sns !== false : true;
   const canViewUsageStatsMenu =
-    canManageBuckets && Boolean(requiresS3AccountSelection) && Boolean(generalSettings.bucket_usage_stats_enabled);
+    canManageBuckets &&
+    Boolean(requiresS3AccountSelection) &&
+    managerFeatureStates?.bucket_usage_stats?.enabled === true;
   const canViewMetricsMenu =
     canViewUsageStatsMenu || (Boolean(managerStatsEnabled) && (usageFeatureEnabled || metricsFeatureEnabled));
   const managerMetricsDisabledHint =
