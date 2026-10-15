@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
 from app.core.security import constant_time_equal, decode_typed_token
 from app.db import AuthSession, User, WebAuthnCredential, is_admin_ui_role
 from app.models.auth import (
@@ -43,7 +42,10 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.identity_security_policy import (
     require_self_service_security_action,
 )
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 from app.utils.request_security import client_ip, require_trusted_origin
 
 
@@ -417,10 +419,7 @@ def revoke_webauthn_credential(
     try:
         WebAuthnService(db).revoke_credential(current_user, credential_id)
     except LastRequiredPasskeyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     except WebAuthnSecurityError as exc:
         raise HTTPException(status_code=400, detail="Passkey cannot be revoked") from exc
     AuthSessionService(db).revoke_all_for_user(current_user, "mfa_changed", increment_version=False)

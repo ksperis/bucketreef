@@ -23,13 +23,13 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_bucket_listing_cache import get_cached_rgw_bucket_entries
 from app.routers.dependencies import get_current_ceph_admin
-from app.core.sensitive_data import sanitize_error_detail
 from app.services.s3_execution_context import build_ceph_admin_s3_context
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsOptions,
     BucketUsageStatsResolvedTarget,
     BucketUsageStatsService,
 )
+from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(tags=["ceph-admin-bucket-usage-stats"])
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def _list_ceph_bucket_names(ctx: CephAdminContext) -> list[str]:
     try:
         entries = get_cached_rgw_bucket_entries(ctx, with_stats=False)
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     names: list[str] = []
     for entry in entries:
         if not isinstance(entry, dict):
