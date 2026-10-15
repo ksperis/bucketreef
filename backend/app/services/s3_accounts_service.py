@@ -33,7 +33,6 @@ from app.models.s3_account import (
 )
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.managed_resource_naming import (
-    ACCOUNT_ROOT_KEY_NAME,
     PORTAL_MANAGED_IAM_GROUP_NAMES,
 )
 from app.services.mappers.s3_account import s3_account_from_db, s3_account_summary_from_db
@@ -603,7 +602,6 @@ class S3AccountsService:
                     resp = admin.create_access_key(
                         prepared.root_uid,
                         tenant=prepared.rgw_tenant or None,
-                        key_name=ACCOUNT_ROOT_KEY_NAME,
                     )
                     access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
                         admin.extract_keys(resp)
@@ -708,7 +706,6 @@ class S3AccountsService:
             try:
                 key_payload = admin.create_access_key(
                     root_uid,
-                    key_name=ACCOUNT_ROOT_KEY_NAME,
                 )
             except RGWAdminError as exc:
                 raise ValueError(f"RGW root access key creation failed: {exc}") from exc

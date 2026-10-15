@@ -46,7 +46,7 @@ export function ceph(c: DemoRequest): Response | undefined {
     const detail = ({ user, account }: typeof users[number]): CephAdminRgwUserDetail => ({ uid: `${account.id}:${user.name}`, display_name: user.name, account_id: account.rgw_account_id, account_name: account.name, email: `${user.name}@example.com`, suspended: false, max_buckets: 100, caps: [], keys: (c.state.iam[account.id].keys[user.name] ?? []).map(k => ({ access_key: k.access_key_id, status: k.status, is_active: k.status === "Active" })), ...user.rgw });
     const updateUser = (user: typeof users[number]["user"]) => {
       const body = c.body;
-      for (const field of ["display_name", "email", "suspended", "max_buckets", "op_mask", "admin", "system", "account_root"]) if (field in body) user.rgw = { ...user.rgw, [field]: body[field] };
+      for (const field of ["display_name", "email", "suspended", "max_buckets", "op_mask", "system", "account_root"]) if (field in body) user.rgw = { ...user.rgw, [field]: body[field] };
       if ("quota_enabled" in body) user.rgw = { ...user.rgw, quota: { enabled: Boolean(body.quota_enabled), max_size_bytes: Number(body.quota_max_size_bytes ?? -1), max_objects: Number(body.quota_max_objects ?? -1) } };
       if (body.caps && typeof body.caps === "object") {
         const caps = body.caps as { mode?: string; values: string[] };

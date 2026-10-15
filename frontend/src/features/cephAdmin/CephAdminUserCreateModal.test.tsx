@@ -53,6 +53,7 @@ describe("CephAdminUserCreateModal", () => {
     expect(accountSelect).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("UID")).toHaveClass("ui-control");
     expect(within(dialog).getByRole("textbox", { name: "Caps", exact: true })).toHaveClass("ui-control");
+    expect(within(dialog).getByLabelText("Admin")).toBeDisabled();
 
     await screen.findByRole("option", { name: "Analytics (RGW000000000000001)" });
 
@@ -100,6 +101,7 @@ describe("CephAdminUserCreateModal", () => {
         },
       })
     );
+    expect(createCephAdminUserMock.mock.calls[0]?.[1]).not.toHaveProperty("admin");
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ uid: "alice" }));
   });
 

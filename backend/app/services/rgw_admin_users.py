@@ -56,7 +56,7 @@ class RGWAdminUserOperations:
         if tenant:
             params["tenant"] = tenant
         if caps:
-            params["caps"] = caps
+            params["user-caps"] = caps
         self._validate_user_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         if access_key:
@@ -107,7 +107,6 @@ class RGWAdminUserOperations:
         self,
         uid: str,
         tenant: Optional[str] = None,
-        key_name: Optional[str] = None,
         account_id: Optional[str] = None,
         access_key: Optional[str] = None,
         secret_key: Optional[str] = None,
@@ -127,8 +126,6 @@ class RGWAdminUserOperations:
         }
         if tenant:
             params["tenant"] = tenant
-        if key_name:
-            params["key-name"] = key_name
         if access_key:
             params.update({"access-key": access_key, "secret-key": secret_key})
         return self._request(
@@ -309,7 +306,6 @@ class RGWAdminUserOperations:
         suspended: Optional[bool] = None,
         max_buckets: Optional[int] = None,
         op_mask: Optional[str] = None,
-        admin: Optional[bool] = None,
         system: Optional[bool] = None,
         account_root: Optional[bool] = None,
         extra_params: Optional[Dict[str, Any]] = None,
@@ -324,11 +320,9 @@ class RGWAdminUserOperations:
         if suspended is not None:
             params["suspended"] = self._to_rgw_bool(bool(suspended))
         if max_buckets is not None:
-            params["max_buckets"] = int(max_buckets)
+            params["max-buckets"] = int(max_buckets)
         if op_mask is not None:
             params["op-mask"] = op_mask
-        if admin is not None:
-            params["admin"] = self._to_rgw_bool(bool(admin))
         if system is not None:
             params["system"] = self._to_rgw_bool(bool(system))
         if account_root is not None:
@@ -426,6 +420,13 @@ class RGWAdminUserOperations:
         tenant: Optional[str] = None,
         op: str = "add",
     ) -> Dict[str, Any]:
+        normalized_op = str(op or "add").strip().lower()
+        if normalized_op == "add":
+            method = "PUT"
+        elif normalized_op == "rm":
+            method = "DELETE"
+        else:
+            raise ValueError("RGW user capability operation must be 'add' or 'rm'")
         if isinstance(caps, (list, tuple, set)):
             caps_values = [str(value) for value in caps if value]
         else:
@@ -438,9 +439,7 @@ class RGWAdminUserOperations:
                 ("user-caps", value),
                 ("format", "json"),
             ]
-            if op:
-                params.append(("caps-op", op))
             if tenant:
                 params.append(("tenant", tenant))
-            result = self._request("PUT", "/admin/user", params=params)
+            result = self._request(method, "/admin/user", params=params)
         return result

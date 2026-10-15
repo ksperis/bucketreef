@@ -62,7 +62,6 @@ export type UpdateCephAdminUserPayload = {
   suspended?: boolean | null;
   max_buckets?: number | null;
   op_mask?: string | null;
-  admin?: boolean | null;
   system?: boolean | null;
   account_root?: boolean | null;
   quota_enabled?: boolean | null;
@@ -81,7 +80,6 @@ export type CreateCephAdminUserPayload = {
   suspended?: boolean | null;
   max_buckets?: number | null;
   op_mask?: string | null;
-  admin?: boolean | null;
   system?: boolean | null;
   account_root?: boolean | null;
   generate_key?: boolean;
