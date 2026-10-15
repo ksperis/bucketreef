@@ -17,6 +17,9 @@ from app.core.config import get_settings
 from app.db import Base
 
 
+_EXPECTED_ALEMBIC_HEAD = "0157_canonical_audit_status"
+
+
 def _alembic_config() -> Config:
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     config.attributes["configure_logger"] = False
@@ -26,7 +29,7 @@ def _alembic_config() -> Config:
 def test_alembic_exposes_single_merge_head():
     script = ScriptDirectory.from_config(_alembic_config())
 
-    assert script.get_heads() == ["0156_canonical_portal_user_access_requests"]
+    assert script.get_heads() == [_EXPECTED_ALEMBIC_HEAD]
 
 
 def test_alembic_head_matches_sqlalchemy_metadata(tmp_path, monkeypatch):
@@ -91,7 +94,7 @@ def test_alembic_merge_head_upgrades_from_each_branch(
         with engine.connect() as connection:
             assert connection.scalars(
                 sa.text("SELECT version_num FROM alembic_version")
-            ).all() == ["0156_canonical_portal_user_access_requests"]
+            ).all() == [_EXPECTED_ALEMBIC_HEAD]
             table_names = set(sa.inspect(connection).get_table_names())
             assert "browser_favorites" in table_names
             assert "browser_presets" not in table_names
