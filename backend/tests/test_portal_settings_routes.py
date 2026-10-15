@@ -138,7 +138,8 @@ def test_delegated_manager_updates_shared_override_and_audits(
     assert body["project_override"]["bucket_defaults"]["noncurrent_version_expiration_days"] == 45
     audit = db_session.query(AuditLog).filter(AuditLog.action == "update_project_portal_settings").one()
     assert audit.scope == "portal"
-    assert audit.account_id == account.id
+    assert audit.context_kind == "portal_account"
+    assert audit.context_id == str(account.id)
     assert audit.user_id == manager.id
 
 

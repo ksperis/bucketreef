@@ -57,5 +57,5 @@ export function managerActivityPresentation(log: ManagerActivityEntry): { label:
 }
 
 export function managerActivityTarget(log: ManagerActivityEntry): string {
-  return log.entity_id || log.context_name || log.account_name || "—";
+  return log.entity_id || log.context_name || "—";
 }

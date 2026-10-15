@@ -341,9 +341,9 @@ export default function AuditLogsPage() {
         label: text("executionContext"),
         cellClassName: "min-w-[10rem]",
         render: (log) => {
-          const name = log.context_name || log.account_name;
-          const id = log.context_id || (log.account_id ? String(log.account_id) : null);
-          const kind = log.context_kind || (log.account_id ? "account" : null);
+          const name = log.context_name;
+          const id = log.context_id;
+          const kind = log.context_kind;
           if (!name && !id) return <span className="text-slate-500 dark:text-slate-400">-</span>;
           return (
             <div className="min-w-0">

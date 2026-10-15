@@ -17,7 +17,5 @@ class ManagerActivityEntry(ApiModel):
     context_kind: Optional[str] = None
     context_id: Optional[str] = None
     context_name: Optional[str] = None
-    account_id: Optional[int] = None
-    account_name: Optional[str] = None
     status: str
     user_email: str

@@ -24,10 +24,11 @@ not record individual storage probes, object keys, credentials, or raw SDK
 errors. Configuration preview is read-only and produces no audit event.
 
 Application audit rows may carry the canonical Manager execution identity as
-`context_kind`, `context_id`, and `context_name`. For RGW Accounts, the legacy
-`account_id` and `account_name` fields remain populated for compatibility. New
-Manager producers must pass the explicit `S3ExecutionContext`; they must not
-encode RGW Users or S3 Connections as synthetic account references.
+`context_kind`, `context_id`, and `context_name`. Account-scoped events use
+`account` outside Portal and `portal_account` inside Portal. Audit rows no longer
+carry duplicate `account_id` or `account_name` compatibility fields. Manager
+producers must pass the explicit `S3ExecutionContext`; they must not encode RGW
+Users or S3 Connections as synthetic account references.
 
 Admin Audit and `GET /api/admin/audit/logs` expose that execution context while
 preserving the pagination contract. Their rows represent only control-plane and

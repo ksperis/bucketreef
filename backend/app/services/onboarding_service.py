@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.db import (
     OnboardingJourney,
     OnboardingPreference,
+    S3Account,
     StorageEndpoint,
     StorageProvider,
     User,
@@ -391,13 +392,19 @@ class OnboardingService:
         self.db.commit()
 
     def audit(self, actor, action, identifier, *, status="success", **metadata):
+        account_id = metadata.get("account_id")
+        account = (
+            self.db.get(S3Account, account_id)
+            if isinstance(account_id, int) and account_id > 0
+            else None
+        )
         AuditService(self.db).record_action(
             user=actor,
             scope="admin",
             action=f"onboarding.{action}",
             entity_type="onboarding",
             entity_id=identifier,
-            account_id=metadata.get("account_id"),
+            account=account,
             status=status,
             metadata={"workflow_id": identifier, **metadata},
         )

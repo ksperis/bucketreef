@@ -13,7 +13,6 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
     __table_args__ = (
         Index("ix_audit_logs_scope_id", "scope", "id"),
-        Index("ix_audit_logs_account_id_id", "account_id", "id"),
         Index("ix_audit_logs_context_kind_id_id", "context_kind", "context_id", "id"),
         Index("ix_audit_logs_user_id_id", "user_id", "id"),
         Index("ix_audit_logs_user_role_id", "user_role", "id"),
@@ -31,8 +30,6 @@ class AuditLog(Base):
     context_kind = Column(String, nullable=True)
     context_id = Column(String, nullable=True)
     context_name = Column(String, nullable=True)
-    account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True)
-    account_name = Column(String, nullable=True)
     status = Column(String, nullable=False, default="success")
     message = Column(String, nullable=True)
     metadata_json = Column(Text, nullable=True)
@@ -41,4 +38,3 @@ class AuditLog(Base):
     user_agent = Column(String, nullable=True)
 
     user = relationship("User", lazy="joined")
-    account = relationship("S3Account", lazy="joined")
