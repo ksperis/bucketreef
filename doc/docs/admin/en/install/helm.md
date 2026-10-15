@@ -27,7 +27,7 @@ remain in `deploy/helm/bucketreef` for chart development and CI validation.
 
 - Backend and frontend Deployments + Services.
 - Optional Ingress.
-- Built-in CronJobs for billing, healthchecks, quota monitoring, usage history collection, and user notification retention.
+- Built-in CronJobs for billing, healthchecks, quota monitoring, usage history collection, bucket composition collection, and user notification retention.
 - Optional bundled PostgreSQL in values (evaluate for your environment policies).
 - CronJobs render with `concurrencyPolicy: Forbid`; the backend also uses database leases so a manual trigger and a CronJob cannot run the same collection at the same time.
 
@@ -37,6 +37,7 @@ Cron values blocks:
 - `healthcheckCronJob`
 - `quotaMonitorCronJob`
 - `usageHistoryCronJob`
+- `bucketUsageStatsCronJob`
 - `notificationRetentionCronJob`
 
 Backend env defaults include billing/quota and user-notification retention knobs.

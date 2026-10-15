@@ -11,6 +11,7 @@ from app.models.feature_policy import (
     FeaturePolicy,
     FeatureState,
     ManagerFeaturePolicies,
+    ProjectCollectionPolicies,
     ProjectFeaturePolicies,
     resolve_feature_policy,
 )
@@ -34,6 +35,10 @@ MANAGER_ACCOUNT_POLICY_FIELDS = {
 
 PROJECT_RESOURCE_FIELDS = {
     "allow_bucket_usage_stats": "bucket_usage_stats",
+}
+
+PROJECT_COLLECTION_RESOURCE_FIELDS = {
+    "allow_bucket_usage_stats_collection": "bucket_usage_stats",
 }
 
 MANAGER_OVERRIDE_FEATURES = {
@@ -77,6 +82,23 @@ def validate_project_overrides(
             raise ValueError("This feature is disabled by the platform")
 
 
+def validate_project_collection_overrides(
+    payload: ApiModel,
+    policies: ProjectCollectionPolicies,
+    current: S3Account | None = None,
+) -> None:
+    for field, feature in PROJECT_COLLECTION_RESOURCE_FIELDS.items():
+        if field not in payload.model_fields_set:
+            continue
+        value = getattr(payload, field)
+        if (
+            value is True
+            and getattr(policies, feature) == FeaturePolicy.DISABLED
+            and (current is None or getattr(current, field) is not True)
+        ):
+            raise ValueError("This collection is disabled by the platform")
+
+
 def project_account_resource(db: Session, context: S3ExecutionContext) -> S3Account | None:
     if context.context_kind in {"account", "portal_account", "session"}:
         if isinstance(context.id, int):
@@ -105,6 +127,16 @@ def bucket_usage_stats_state(
     return resolve_feature_policy(
         policies.bucket_usage_stats,
         resource.allow_bucket_usage_stats if resource is not None else None,
+    )
+
+
+def bucket_usage_stats_collection_state(
+    policies: ProjectCollectionPolicies,
+    resource: S3Account | None,
+) -> FeatureState:
+    return resolve_feature_policy(
+        policies.bucket_usage_stats,
+        resource.allow_bucket_usage_stats_collection if resource is not None else None,
     )
 
 

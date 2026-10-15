@@ -6,8 +6,10 @@ from app.routers import dependencies
 from app.models.app_settings import AppSettings
 from app.routers.internal import billing_collect
 from app.services.billing_collection_service import BillingCollector
+from app.services.bucket_usage_stats_collection_service import BucketUsageStatsCollectionService
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import (
+    BUCKET_USAGE_STATS_COLLECT_OPERATION,
     HEALTHCHECK_RUN_OPERATION,
     QUOTA_MONITOR_ALERTS_OPERATION,
     USAGE_HISTORY_COLLECT_OPERATION,
@@ -76,6 +78,32 @@ def test_internal_healthchecks_skip_when_lease_is_active(client, db_session, mon
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "skipped"
     assert response.json()["operation"] == HEALTHCHECK_RUN_OPERATION
+
+
+def test_internal_bucket_usage_stats_skip_when_lease_is_active(client, db_session, monkeypatch):
+    _set_token(monkeypatch)
+    OperationLeaseService(db_session).acquire(
+        BUCKET_USAGE_STATS_COLLECT_OPERATION,
+        ttl_seconds=600,
+        owner="other-backend",
+    )
+    monkeypatch.setattr(
+        BucketUsageStatsCollectionService,
+        "collect",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError()),
+    )
+
+    response = client.post(
+        "/api/internal/bucket-usage-stats/collect",
+        headers={"X-Internal-Token": "expected-token"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "status": "skipped",
+        "reason": "already_running",
+        "operation": BUCKET_USAGE_STATS_COLLECT_OPERATION,
+    }
 
 
 def test_internal_quota_monitor_skips_when_lease_is_active(client, db_session, monkeypatch):

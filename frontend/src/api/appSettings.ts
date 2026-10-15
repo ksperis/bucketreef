@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client, { timeoutForRequestProfile } from "./client";
-import type { ManagerFeaturePolicies, PortalFeaturePolicies, ProjectFeaturePolicies } from "./featurePolicies";
+import type { ManagerFeaturePolicies, PortalFeaturePolicies, ProjectCollectionPolicies, ProjectFeaturePolicies } from "./featurePolicies";
 export type { FeaturePolicy, FeatureState, ManagerFeaturePolicies, PortalFeaturePolicies } from "./featurePolicies";
 
 
@@ -62,6 +62,7 @@ export type PortalSettingsAdminUpdate = PortalSettingsOverride & {
 
 export type GeneralConfiguration = {
   project_feature_policies: ProjectFeaturePolicies;
+  project_collection_policies: ProjectCollectionPolicies;
   rgw_account_id_prefix: string;
   documentation_base_url: string;
   manager_enabled: boolean;

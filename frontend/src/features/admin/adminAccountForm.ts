@@ -16,6 +16,7 @@ export function adminAccountForm(account: S3Account) {
     allow_activity_history: account.allow_activity_history ?? null,
     allow_rgw_usage_metrics: account.allow_rgw_usage_metrics ?? null,
     allow_bucket_usage_stats: account.allow_bucket_usage_stats ?? null,
+    allow_bucket_usage_stats_collection: account.allow_bucket_usage_stats_collection ?? null,
     user_links: account.user_links.map<AccountUserLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
     group_links: account.group_links.map<AccountGroupLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
   };
@@ -35,13 +36,14 @@ export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAcco
     tags: normalizeUiTags(draft.tags),
     user_links: draft.user_links,
     group_links: draft.group_links,
+    allow_bucket_usage_stats: draft.allow_bucket_usage_stats,
+    allow_bucket_usage_stats_collection: draft.allow_bucket_usage_stats_collection,
     ...(canManageManagerFeatures ? {
       allow_bucket_quota_management: draft.allow_bucket_quota_management,
       allow_access_key_metadata: draft.allow_access_key_metadata,
       allow_access_key_expiration: draft.allow_access_key_expiration,
       allow_activity_history: draft.allow_activity_history,
       allow_rgw_usage_metrics: draft.allow_rgw_usage_metrics,
-      allow_bucket_usage_stats: draft.allow_bucket_usage_stats,
     } : {}),
     ...(allowQuotaUpdates && accountQuotaChanged(draft, baseline) ? {
       quota_max_size_gb: draft.quota_max_size_gb !== "" ? Number(draft.quota_max_size_gb) : null,

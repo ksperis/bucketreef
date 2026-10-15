@@ -56,6 +56,7 @@ class S3Account(Base):
     allow_activity_history = Column(Boolean, default=None, nullable=True)
     allow_rgw_usage_metrics = Column(Boolean, default=None, nullable=True)
     allow_bucket_usage_stats = Column(Boolean, default=None, nullable=True)
+    allow_bucket_usage_stats_collection = Column(Boolean, default=None, nullable=True)
 
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
 

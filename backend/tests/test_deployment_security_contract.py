@@ -89,6 +89,9 @@ def test_compose_services_drop_privileges_and_keep_public_port():
         assert services["scheduler"]["environment"][
             "ACCESS_KEY_EXPIRATION_CRON_SCHEDULE"
         ]
+        assert services["scheduler"]["environment"][
+            "BUCKET_USAGE_STATS_CRON_SCHEDULE"
+        ]
 
 
 def test_helm_workloads_apply_least_privilege_contract():
@@ -100,6 +103,7 @@ def test_helm_workloads_apply_least_privilege_contract():
         "healthcheck-cronjob.yaml",
         "quota-monitor-cronjob.yaml",
         "usage-history-cronjob.yaml",
+        "bucket-usage-stats-cronjob.yaml",
         "notification-retention-cronjob.yaml",
         "access-key-expiration-cronjob.yaml",
     ]

@@ -40,7 +40,6 @@ const migrationFields = [
   },
 ] as const;
 const paths = [
-  "general.project_feature_policies.bucket_usage_stats",
   "manager.feature_policies.rgw_usage_metrics",
   "manager.feature_policies.bucket_quota_management",
   "manager.feature_policies.activity_history",
@@ -141,12 +140,6 @@ export default function ManagerSettingsPage() {
         title="Usage and metrics"
         description={FEATURE_POLICY_SECTION_DESCRIPTION}
       >
-        <AppSettingsPolicy
-          form={form}
-          field="general.project_feature_policies.bucket_usage_stats"
-          title="Bucket composition statistics"
-          description="Enables scan-calculated statistics in Manager and Portal."
-        />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.rgw_usage_metrics"

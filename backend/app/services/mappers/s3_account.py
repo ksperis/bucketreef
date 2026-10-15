@@ -62,6 +62,7 @@ def s3_account_from_db(
         allow_activity_history=account.allow_activity_history,
         allow_rgw_usage_metrics=account.allow_rgw_usage_metrics,
         allow_bucket_usage_stats=account.allow_bucket_usage_stats,
+        allow_bucket_usage_stats_collection=account.allow_bucket_usage_stats_collection,
         tags=tags or [],
     )
 
@@ -93,5 +94,6 @@ def s3_account_summary_from_db(
         allow_activity_history=account.allow_activity_history,
         allow_rgw_usage_metrics=account.allow_rgw_usage_metrics,
         allow_bucket_usage_stats=account.allow_bucket_usage_stats,
+        allow_bucket_usage_stats_collection=account.allow_bucket_usage_stats_collection,
         tags=tags or [],
     )

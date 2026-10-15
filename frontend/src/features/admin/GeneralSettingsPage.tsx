@@ -25,6 +25,7 @@ import AdminSettingsFrame from "./settings/AdminSettingsFrame";
 import BrandingPreview from "./settings/BrandingPreview";
 import {
   AppSettingsNumber,
+  AppSettingsPolicy,
   AppSettingsToggle,
 } from "./settings/AppSettingsFields";
 import { useAppSettingsDraft } from "./settings/useAppSettingsDraft";
@@ -57,6 +58,8 @@ const paths = [
   ...featureFields.map((field) => `general.${field}` as const),
   "general.rgw_account_id_prefix",
   "general.documentation_base_url",
+  "general.project_feature_policies.bucket_usage_stats",
+  "general.project_collection_policies.bucket_usage_stats",
   "general.quota_alerts_enabled",
   "general.usage_history_enabled",
   "quota_notifications.threshold_percent",
@@ -478,6 +481,18 @@ export default function GeneralSettingsPage() {
         title="Services and monitoring"
         description="Optional platform capabilities."
       >
+        <AppSettingsPolicy
+          form={form}
+          field="general.project_feature_policies.bucket_usage_stats"
+          title="Bucket composition statistics"
+          description="Controls whether Manager and Portal can read snapshots and request manual recalculation."
+        />
+        <AppSettingsPolicy
+          form={form}
+          field="general.project_collection_policies.bucket_usage_stats"
+          title="Automatic bucket composition collection"
+          description="Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled."
+        />
         {feature(
           "billing_enabled",
           "Billing",

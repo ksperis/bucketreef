@@ -36,6 +36,10 @@ class ProjectFeaturePolicies(FeaturePolicies):
     bucket_usage_stats: FeaturePolicy = FeaturePolicy.DEFAULT_ON
 
 
+class ProjectCollectionPolicies(FeaturePolicies):
+    bucket_usage_stats: FeaturePolicy = FeaturePolicy.TARGETED
+
+
 class PortalFeaturePolicies(FeaturePolicies):
     browser_access: FeaturePolicy = FeaturePolicy.DEFAULT_ON
     private_storage_space_create: FeaturePolicy = FeaturePolicy.DEFAULT_ON

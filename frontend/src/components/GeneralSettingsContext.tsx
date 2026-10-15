@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_RUNTIME_SURFACES,
@@ -16,6 +16,7 @@ import { useSession } from "../auth/SessionProvider";
 
 const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
+  project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,
   manager_feature_policies: DEFAULT_MANAGER_FEATURE_POLICIES,
   rgw_account_id_prefix: "80",
   documentation_base_url: "https://docs.bucketreef.ksperis.com",
@@ -64,6 +65,10 @@ function completeGeneralSettings(settings: Partial<GeneralSettings>): GeneralSet
     project_feature_policies: {
       ...DEFAULT_PROJECT_FEATURE_POLICIES,
       ...settings.project_feature_policies,
+    },
+    project_collection_policies: {
+      ...DEFAULT_PROJECT_COLLECTION_POLICIES,
+      ...settings.project_collection_policies,
     },
   };
 }

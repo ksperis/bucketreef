@@ -33,6 +33,12 @@ current/noncurrent split.
 Bucket composition statistics are separate from RGW traffic/usage metrics; the
 two features can have different availability.
 
+Automatic collection is configured separately from feature availability. When
+enabled for an RGW Account, the scheduler checks hourly for missing snapshots or
+snapshots at least 24 hours old and refreshes only those buckets. Manual
+recalculation remains available whenever bucket composition statistics are
+enabled, even when automatic collection is disabled.
+
 ## Related pages
 
 - [Buckets](index.md)

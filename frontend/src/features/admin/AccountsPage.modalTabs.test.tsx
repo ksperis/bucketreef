@@ -1,4 +1,4 @@
-import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../../api/featurePolicies";
 import { transferableAbortController } from "node:util";
 import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
@@ -105,7 +105,7 @@ vi.mock("../../api/accounts", () => ({
 
 vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
-    generalSettings: { portal_enabled: portalEnabled, project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES, manager_feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_quota_management: "targeted" } },
+    generalSettings: { portal_enabled: portalEnabled, project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES, project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES, manager_feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_quota_management: "targeted" } },
     loading: false,
     refresh: vi.fn(),
     setGeneralSettings: vi.fn(),

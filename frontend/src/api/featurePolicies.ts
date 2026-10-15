@@ -39,6 +39,13 @@ export const DEFAULT_PROJECT_FEATURE_POLICIES: ProjectFeaturePolicies = {
   bucket_usage_stats: "default_on",
 };
 
+export type ProjectCollectionPolicies = {
+  bucket_usage_stats: FeaturePolicy;
+};
+export const DEFAULT_PROJECT_COLLECTION_POLICIES: ProjectCollectionPolicies = {
+  bucket_usage_stats: "targeted",
+};
+
 export type PortalFeaturePolicies = {
   browser_access: FeaturePolicy;
   private_storage_space_create: FeaturePolicy;

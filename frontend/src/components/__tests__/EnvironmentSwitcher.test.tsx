@@ -1,4 +1,4 @@
-import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../../api/featurePolicies";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,6 +38,7 @@ vi.mock("../../api/users", () => ({
 
 const baseSettings: GeneralSettings = {
   project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
+  project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,
   manager_feature_policies: DEFAULT_MANAGER_FEATURE_POLICIES,
   rgw_account_id_prefix: "80",
   documentation_base_url: "https://docs.bucketreef.ksperis.com",

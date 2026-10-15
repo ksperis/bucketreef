@@ -52,6 +52,7 @@ export type S3Account = {
   allow_activity_history?: boolean | null;
   allow_rgw_usage_metrics?: boolean | null;
   allow_bucket_usage_stats?: boolean | null;
+  allow_bucket_usage_stats_collection?: boolean | null;
 };
 
 export type S3AccountSummary = {
@@ -73,6 +74,7 @@ export type S3AccountSummary = {
   allow_activity_history?: boolean | null;
   allow_rgw_usage_metrics?: boolean | null;
   allow_bucket_usage_stats?: boolean | null;
+  allow_bucket_usage_stats_collection?: boolean | null;
 };
 
 type PaginatedS3AccountsResponse = PaginatedResponse<S3Account>;
@@ -138,6 +140,7 @@ type UpdateS3AccountPayload = {
   allow_activity_history?: boolean | null;
   allow_rgw_usage_metrics?: boolean | null;
   allow_bucket_usage_stats?: boolean | null;
+  allow_bucket_usage_stats_collection?: boolean | null;
 };
 
 export async function updateS3Account(accountId: number, payload: UpdateS3AccountPayload): Promise<S3Account> {

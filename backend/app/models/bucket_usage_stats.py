@@ -15,6 +15,7 @@ from app.models.bucket_operation import (
 
 
 BucketUsageStatsStatus = Literal["completed", "completed_with_warnings", "failed", "canceled"]
+BucketUsageStatsBucketStatus = Literal["completed", "completed_with_warnings", "failed", "canceled", "skipped"]
 BucketUsageStatsScanMode = Literal["versions", "current_only"]
 
 
@@ -98,7 +99,7 @@ class BucketUsageStatsBucketResult(ApiModel):
     bucket_name: str
     context_id: Optional[str] = None
     context_name: Optional[str] = None
-    status: BucketUsageStatsStatus
+    status: BucketUsageStatsBucketStatus
     snapshot: Optional[BucketUsageStatsSnapshot] = None
     duration_seconds: float = 0
     message: Optional[str] = None
@@ -123,6 +124,7 @@ class BucketUsageStatsResult(ApiModel):
     total_buckets: int = 0
     completed_buckets: int = 0
     failed_buckets: int = 0
+    skipped_buckets: int = 0
     listed_versions: int = 0
     listed_delete_markers: int = 0
     total_bytes: int = 0

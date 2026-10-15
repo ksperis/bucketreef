@@ -24,6 +24,16 @@ QUOTA_MONITOR_ALERTS_OPERATION = "quota-monitor:alerts"
 USAGE_HISTORY_COLLECT_OPERATION = "quota-monitor:usage-history"
 USER_NOTIFICATIONS_PURGE_OPERATION = "user-notifications:purge"
 ACCESS_KEY_EXPIRATION_RUN_OPERATION = "access-key-expirations:run"
+BUCKET_USAGE_STATS_COLLECT_OPERATION = "bucket-usage-stats:collect"
+BUCKET_USAGE_STATS_LEASE_TTL_SECONDS = 24 * 60 * 60
+
+
+def bucket_usage_stats_bucket_operation_name(scope: str, bucket_name: str) -> str:
+    normalized_scope = str(scope or "").strip()
+    normalized_bucket = str(bucket_name or "").strip()
+    if not normalized_scope or not normalized_bucket:
+        raise ValueError("Bucket usage statistics lease scope and bucket are required")
+    return f"bucket-usage-stats:bucket:{normalized_scope}:{normalized_bucket}"
 
 
 def billing_daily_operation_name(day_iso: str) -> str:

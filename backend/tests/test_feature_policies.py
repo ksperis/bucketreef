@@ -11,6 +11,7 @@ from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.portal_service import PortalService
 from app.services.feature_policy_service import (
+    bucket_usage_stats_collection_state,
     bucket_usage_stats_state,
     manager_resource_states,
     manager_rgw_usage_metrics_state,
@@ -52,20 +53,25 @@ def test_project_usage_capabilities_share_account_override_precedence(
     settings = AppSettings()
     settings.manager.feature_policies.rgw_usage_metrics = policy
     settings.general.project_feature_policies.bucket_usage_stats = policy
+    settings.general.project_collection_policies.bucket_usage_stats = policy
     account = make_s3_account(
         db_session,
         name=f"Usage policies {policy.value} {override}",
         allow_rgw_usage_metrics=override,
         allow_bucket_usage_stats=override,
+        allow_bucket_usage_stats_collection=override,
     )
 
     metrics = manager_rgw_usage_metrics_state(settings.manager.feature_policies, account)
     composition = bucket_usage_stats_state(settings.general.project_feature_policies, account)
+    collection = bucket_usage_stats_collection_state(settings.general.project_collection_policies, account)
 
     assert metrics.enabled is enabled
     assert metrics.source == source
     assert composition.enabled is enabled
     assert composition.source == source
+    assert collection.enabled is enabled
+    assert collection.source == source
 
 
 def test_import_preserves_availability_and_portal_exceptions():
