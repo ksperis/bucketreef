@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.domain_errors import UiGroupNotFoundError
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User, is_superadmin_ui_role
 from app.models.ui_group import (
     PaginatedUiGroupsResponse,
@@ -26,7 +25,10 @@ from app.services.identity_security_policy import (
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService, get_ui_groups_service
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_error_from_value_error,
+)
 
 router = APIRouter(prefix="/admin/groups", tags=["admin-groups"])
 
@@ -113,7 +115,7 @@ def create_group(
         )
         return groups_service.group_to_out(group)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
 
 
 @router.put("/{group_id}", response_model=UiGroupOut)
@@ -165,7 +167,7 @@ async def upload_group_avatar(
     try:
         UiGroupAvatarService(db).store_uploaded_image(group, payload, file.content_type)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     audit_service.record_action(
         user=current_user,
         scope="admin",

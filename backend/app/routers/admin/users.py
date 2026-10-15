@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User as DbUser
 from app.db import UserRole, is_superadmin_ui_role
 from app.models.user import (
@@ -35,7 +34,10 @@ from app.services.identity_security_policy import (
     require_admin_interactive_session,
     require_admin_sensitive_action,
 )
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_error_from_value_error,
+)
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -204,7 +206,7 @@ def create_user(
         )
         return users_service.user_to_out(user)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
 
 
 @router.put("/{user_id}", response_model=UserOut)
@@ -275,7 +277,7 @@ async def upload_user_avatar(
     try:
         UserAvatarService(users_service.db).store_uploaded_image(target, payload, file.content_type)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     audit_service.record_action(
         user=current_user, scope="admin", action="upload_avatar", entity_type="ui_user", entity_id=str(target.id),
         metadata={"content_type": target.avatar_content_type, "size_bytes": len(payload)},
