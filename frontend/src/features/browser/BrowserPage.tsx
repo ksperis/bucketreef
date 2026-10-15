@@ -1,5 +1,4 @@
 import type { BrowserFavorite } from "../../api/browserFavorites";
-import BrowserFavoritesControl from "./BrowserFavoritesControl";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -37,16 +36,12 @@ import { readStoredUser } from "../../utils/workspaces";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import { useBrowserContext } from "./BrowserContext";
-import {
-  useBrowserSidebarSlot,
-  type BrowserSidebarBodyRenderer,
-} from "./BrowserLayout";
+import { useBrowserSidebarSlot } from "./BrowserLayout";
 import BrowserBulkAttributesModal from "./BrowserBulkAttributesModal";
 import { hasOpenModal } from "../../components/ui/modalStack";
 import BrowserObjectExplorer from "./BrowserObjectExplorer";
 import BrowserObjectSearchHeader from "./BrowserObjectSearchHeader";
 import BrowserFoldersPanel from "./BrowserFoldersPanel";
-import BrowserWorkspaceSidebar from "./BrowserWorkspaceSidebar";
 import BrowserToolbar from "./BrowserToolbar";
 import { useBrowserBucketCors } from "./useBrowserBucketCors";
 import { useBrowserBulkAttributes } from "./useBrowserBulkAttributes";
@@ -95,6 +90,7 @@ import { useBrowserStsSession } from "./useBrowserStsSession";
 import { useBrowserUploadQueue } from "./useBrowserUploadQueue";
 import { useBrowserVersionCleanup } from "./useBrowserVersionCleanup";
 import { useBrowserVersionActions } from "./useBrowserVersionActions";
+import { useBrowserWorkspaceSidebarBody } from "./useBrowserWorkspaceSidebarBody";
 import BrowserBulkRestoreModal from "./BrowserBulkRestoreModal";
 import BrowserArchivePreparationDialog from "./BrowserArchivePreparationDialog";
 import BrowserCleanupModal from "./BrowserCleanupModal";
@@ -1930,99 +1926,45 @@ export default function BrowserPage({
     onWarning: setWarningMessage,
   });
 
-  const renderWorkspaceSidebarBody = useCallback<BrowserSidebarBodyRenderer>(
-    ({ compact, variant, closeMobile }) => (
-      <BrowserWorkspaceSidebar
-        favorites={
-          <BrowserFavoritesControl
-            accountUser={accountUser}
-            bucketDetailsByName={isStorageSpaceContext ? bucketDetailsByName : undefined}
-            bucketLabels={isStorageSpaceContext ? bucketDisplayNameByName : undefined}
-            busy={browserFavoritesBusy}
-            compact={compact}
-            contextLabels={favoriteContextLabels}
-            current={currentFavorite}
-            error={browserFavoritesError}
-            favorites={browserFavoriteItems}
-            onApply={(favorite) => {
-              void applyBrowserFavorite(favorite).then((applied) => {
-                if (applied && variant === "mobile") closeMobile();
-              });
-            }}
-            onRemove={(favorite) => {
-              void removeBrowserFavoriteLocation(favorite);
-            }}
-            unavailable={unavailableBrowserFavorites}
-          />
-        }
-        compact={compact}
-        variant={variant}
-        closeMobile={closeMobile}
-        isPortalContext={isPortalBrowserSurface}
-        rows={workspaceSidebarRows}
-        activeBucketName={bucketName}
-        bucketFilter={bucketFilter}
-        loadingBuckets={loadingBuckets}
-        bucketError={bucketError}
-        bucketManagementEnabled={bucketManagementEnabled}
-        canLoadMore={canLoadMoreBucketResults}
-        bucketMenuLoadingMore={bucketMenuLoadingMore}
-        bucketMenuTotal={bucketMenuTotal}
-        bucketTotalCount={bucketTotalCount}
-        usageSummary={usageSummary}
-        usageLoading={usageSummaryLoading}
-        usageError={usageSummaryError}
-        panelViewportRef={
-          variant === "desktop" ? bucketPanelViewportRef : undefined
-        }
-        loadMoreSentinelRef={
-          variant === "desktop" ? bucketPanelLoadMoreSentinelRef : undefined
-        }
-        onBucketFilterChange={setBucketFilter}
-        onRetryBuckets={() => void refreshBucketList()}
-        onCreateBucket={openCreateBucketDialog}
-        onSelectBucket={handleBucketChange}
-        onLoadMore={handleBucketMenuLoadMore}
-        workspaceAccountAction={workspaceAccountAction}
-      />
-    ),
-    [
+  const renderWorkspaceSidebarBody = useBrowserWorkspaceSidebarBody({
+    favorites: {
       accountUser,
-      applyBrowserFavorite,
-      browserFavoriteItems,
-      browserFavoritesBusy,
-      browserFavoritesError,
-      bucketDetailsByName,
-      bucketDisplayNameByName,
-      currentFavorite,
-      favoriteContextLabels,
-      bucketError,
+      bucketDetailsByName: isStorageSpaceContext ? bucketDetailsByName : undefined,
+      bucketLabels: isStorageSpaceContext ? bucketDisplayNameByName : undefined,
+      busy: browserFavoritesBusy,
+      contextLabels: favoriteContextLabels,
+      current: currentFavorite,
+      error: browserFavoritesError,
+      favorites: browserFavoriteItems,
+      onApply: applyBrowserFavorite,
+      onRemove: removeBrowserFavoriteLocation,
+      unavailable: unavailableBrowserFavorites,
+    },
+    sidebar: {
+      isPortalContext: isPortalBrowserSurface,
+      rows: workspaceSidebarRows,
+      activeBucketName: bucketName,
       bucketFilter,
+      loadingBuckets,
+      bucketError,
       bucketManagementEnabled,
+      canLoadMore: canLoadMoreBucketResults,
       bucketMenuLoadingMore,
       bucketMenuTotal,
-      bucketName,
-      bucketPanelLoadMoreSentinelRef,
-      bucketPanelViewportRef,
       bucketTotalCount,
-      canLoadMoreBucketResults,
-      handleBucketChange,
-      handleBucketMenuLoadMore,
-      isPortalBrowserSurface,
-      isStorageSpaceContext,
-      loadingBuckets,
-      openCreateBucketDialog,
-      removeBrowserFavoriteLocation,
-      refreshBucketList,
-      setBucketFilter,
       usageSummary,
-      usageSummaryError,
-      usageSummaryLoading,
-      unavailableBrowserFavorites,
+      usageLoading: usageSummaryLoading,
+      usageError: usageSummaryError,
+      onBucketFilterChange: setBucketFilter,
+      onRetryBuckets: refreshBucketList,
+      onCreateBucket: openCreateBucketDialog,
+      onSelectBucket: handleBucketChange,
+      onLoadMore: handleBucketMenuLoadMore,
       workspaceAccountAction,
-      workspaceSidebarRows,
-    ],
-  );
+    },
+    panelViewportRef: bucketPanelViewportRef,
+    loadMoreSentinelRef: bucketPanelLoadMoreSentinelRef,
+  });
 
   useLayoutEffect(() => {
     if (!showWorkspaceSidebar) {
