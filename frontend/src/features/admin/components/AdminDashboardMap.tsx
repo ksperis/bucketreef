@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { HealthCheckStatus } from "../../../api/healthchecks";
-import { useAdminDashboardI18n } from "../adminDashboardMessages";
+import { useAdminDashboardMapI18n } from "./adminDashboardMapMessages";
 
 export type AdminDashboardMapMarker = {
   id: number;
@@ -671,7 +671,7 @@ function MapFrame({
 }
 
 export default function AdminDashboardMap({ markers, loading = false, error = null }: AdminDashboardMapProps) {
-  const { text } = useAdminDashboardI18n();
+  const { text } = useAdminDashboardMapI18n();
   const { basemap, projectedMarkers } = projectMarkers(markers);
   const viewport = scaledViewport(basemap);
   const markerRadius = Math.max(viewport.width, viewport.height) * 0.012;

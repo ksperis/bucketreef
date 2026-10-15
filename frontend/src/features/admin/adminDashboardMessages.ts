@@ -119,11 +119,6 @@ const messages = {
   refreshHelp: m("Refresh dashboard; storage and traffic respect the cache for up to 30 minutes.", "刷新仪表盘；存储和流量数据遵循最长 30 分钟的缓存有效期。"),
   administration: m("Administration", "管理"),
   enabledFeatures: m("Enabled features", "已启用的功能"),
-  loadingMap: m("Loading map...", "正在加载地图…"),
-  endpointMap: m("Infrastructure endpoint map", "基础设施端点地图"),
-  noCoordinates: m("No GPS coordinates available for endpoints.", "没有可用的端点 GPS 坐标。"),
-  infrastructureMap: m("Infrastructure map", "基础设施地图"),
-  geolocatedEndpoints: m("{count} geolocated endpoint(s)", "{count} 个已定位端点"),
 } satisfies Record<string, I18nMessage>;
 
 type AdminDashboardMessageKey = keyof typeof messages;
