@@ -666,16 +666,7 @@ def _manual_findings(profile: DeploymentProfile) -> list[DeploymentCheckFinding]
     return findings
 
 
-def run_deployment_checks(
-    settings: Settings,
-    *,
-    app_settings: AppSettings | None,
-    profile: DeploymentProfile | None = None,
-    db: Session | None = None,
-    include_manual: bool = True,
-    phase: CheckPhase = "full",
-) -> list[DeploymentCheckFinding]:
-    profile = profile or settings.deployment_profile
+def _runtime_configuration_findings(settings: Settings) -> list[DeploymentCheckFinding]:
     findings: list[DeploymentCheckFinding] = []
     production = settings.app_env == "production"
 
@@ -877,6 +868,20 @@ def run_deployment_checks(
 
     findings.extend(_environment_oidc_findings(settings))
     findings.extend(_environment_ldap_findings(settings))
+    return findings
+
+
+def run_deployment_checks(
+    settings: Settings,
+    *,
+    app_settings: AppSettings | None,
+    profile: DeploymentProfile | None = None,
+    db: Session | None = None,
+    include_manual: bool = True,
+    phase: CheckPhase = "full",
+) -> list[DeploymentCheckFinding]:
+    profile = profile or settings.deployment_profile
+    findings = _runtime_configuration_findings(settings)
 
     if phase == "full":
         findings.extend(_app_settings_findings(settings, app_settings))
