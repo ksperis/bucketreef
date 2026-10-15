@@ -10,6 +10,7 @@ from app.services.s3_execution_client import (
     require_s3_execution_credentials,
     s3_execution_cache_key,
     s3_execution_client_kwargs,
+    s3_execution_request_kwargs,
 )
 from app.services.s3_execution_context import S3ExecutionContext
 
@@ -35,6 +36,31 @@ def test_s3_execution_client_kwargs_includes_session_overrides() -> None:
     )
 
     assert s3_execution_client_kwargs(account) == {
+        "endpoint": "https://s3.example.test",
+        "region": "us-east-2",
+        "force_path_style": True,
+        "verify_tls": False,
+        "session_token": "session-token",
+    }
+
+
+def test_s3_execution_request_kwargs_includes_credentials_and_client_options() -> None:
+    account = SimpleNamespace(
+        effective_rgw_credentials=lambda: ("access-key", "secret-key"),
+        storage_endpoint=None,
+        session_endpoint="https://s3.example.test",
+        session_region="us-east-2",
+        session_force_path_style=True,
+        session_verify_tls=False,
+        session_token=lambda: "session-token",
+    )
+
+    assert s3_execution_request_kwargs(
+        account,
+        error_message="credentials are required",
+    ) == {
+        "access_key": "access-key",
+        "secret_key": "secret-key",
         "endpoint": "https://s3.example.test",
         "region": "us-east-2",
         "force_path_style": True,

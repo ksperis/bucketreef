@@ -26,6 +26,22 @@ def s3_execution_client_kwargs(account: S3ExecutionTarget) -> dict[str, Any]:
     }
 
 
+def s3_execution_request_kwargs(
+    account: S3ExecutionTarget,
+    *,
+    error_message: str,
+) -> dict[str, Any]:
+    access_key, secret_key = require_s3_execution_credentials(
+        account,
+        error_message=error_message,
+    )
+    return {
+        "access_key": access_key,
+        "secret_key": secret_key,
+        **s3_execution_client_kwargs(account),
+    }
+
+
 def s3_execution_cache_key(account: S3ExecutionTarget) -> str:
     """Fingerprint the explicit execution identity and full S3 client configuration."""
     identity = (
