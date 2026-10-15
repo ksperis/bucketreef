@@ -1,12 +1,12 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 """Persist service identity provenance and move existing keys without decrypting them."""
+from datetime import UTC, datetime
 import uuid
 
 import sqlalchemy as sa
 from alembic import op
 from app.db.utc_datetime import UTCDateTime
-from app.utils.time import utcnow
 
 revision = "0138_endpoint_service_identities"
 down_revision = "0137_browser_path_favorites"
@@ -43,7 +43,7 @@ def upgrade():
         batch.add_column(sa.Column("ceph_admin_allowed", sa.Boolean(), nullable=False, server_default=sa.false()))
     connection = op.get_bind()
     endpoints = sa.Table("storage_endpoints", sa.MetaData(), autoload_with=connection)
-    now = utcnow()
+    now = datetime.now(UTC)
     for row in connection.execute(sa.select(endpoints)).mappings():
         connection.execute(endpoints.update().where(endpoints.c.id == row["id"]).values(identity_namespace=uuid.uuid4().hex))
         for kind in ("supervision", "ceph_admin"):

@@ -10,11 +10,12 @@ Create Date: 2026-09-26
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import sqlalchemy as sa
 from alembic import op
 
 from app.db.utc_datetime import UTCDateTime
-from app.utils.time import utcnow
 
 
 revision = "0132_webhook_endpoints"
@@ -148,7 +149,7 @@ def upgrade() -> None:
         sa.select(migrations.c.webhook_url).where(migrations.c.webhook_url.is_not(None))
     ).scalars().all()
     urls = sorted({str(value).strip() for value in raw_urls if str(value or "").strip()})
-    now = utcnow()
+    now = datetime.now(UTC)
     for index, url in enumerate(urls, start=1):
         name = f"Imported migration webhook {index}"
         bind.execute(

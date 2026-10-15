@@ -2,10 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 """Make the Runtime service identity the service-mode source of truth."""
 
+from datetime import UTC, datetime
+
 import sqlalchemy as sa
 from alembic import op
-
-from app.utils.time import utcnow
 
 
 revision = "0140_runtime_identity_mode_source"
@@ -19,7 +19,7 @@ def upgrade():
     metadata = sa.MetaData()
     endpoints = sa.Table("storage_endpoints", metadata, autoload_with=connection)
     identities = sa.Table("endpoint_service_identities", metadata, autoload_with=connection)
-    now = utcnow()
+    now = datetime.now(UTC)
 
     for endpoint in connection.execute(
         sa.select(
