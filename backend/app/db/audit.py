@@ -3,7 +3,7 @@
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Column, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -12,6 +12,10 @@ from .base import Base
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     __table_args__ = (
+        CheckConstraint(
+            "status IN ('success', 'failure', 'partial')",
+            name="ck_audit_logs_status",
+        ),
         Index("ix_audit_logs_scope_id", "scope", "id"),
         Index("ix_audit_logs_context_kind_id_id", "context_kind", "context_id", "id"),
         Index("ix_audit_logs_user_id_id", "user_id", "id"),

@@ -245,18 +245,16 @@ def test_manager_activity_supports_cursor_search_and_status_without_hidden_field
     assert [entry["id"] for entry in response.json()] == [third.id, second.id, first.id]
 
 
-def test_manager_activity_groups_failure_statuses_for_the_user_filter(client, db_session):
+def test_manager_activity_filters_canonical_failure_status(client, db_session):
     account = _account("account-failures", db_session)
     context = _context(account)
     failure = _audit_log(context=context, action="first_failure", entity_id="one", status="failure")
-    failed = _audit_log(context=context, action="second_failure", entity_id="two", status="failed")
-    error = _audit_log(context=context, action="third_failure", entity_id="three", status="error")
-    success = _audit_log(context=context, action="success", entity_id="four", status="success")
-    db_session.add_all([failure, failed, error, success])
+    success = _audit_log(context=context, action="success", entity_id="two", status="success")
+    db_session.add_all([failure, success])
     db_session.commit()
     app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
 
     response = client.get("/api/manager/activity?status=failure&limit=20")
 
     assert response.status_code == 200, response.text
-    assert [entry["id"] for entry in response.json()] == [error.id, failed.id, failure.id]
+    assert [entry["id"] for entry in response.json()] == [failure.id]

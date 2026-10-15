@@ -27,6 +27,19 @@ defaults when executing a persisted collaborator request. A malformed row is
 failed instead of being interpreted as a Portal User addition. Apply the
 database migration before starting the matching backend version.
 
+## 2026-10 canonical audit statuses
+
+Migration `0157_canonical_audit_status` reduces persisted audit outcomes to the
+canonical values `success`, `failure`, and `partial`. Historical `failed` and
+`error` rows are rewritten to `failure`, including differences in case or
+surrounding whitespace. The migration stops if another unknown status exists so
+operators can repair it explicitly instead of silently changing its meaning.
+
+After the migration, the database enforces the canonical status set. Manager
+Activity therefore filters and renders `failure` directly and no longer carries
+aliases for historical values. Apply the database migration before starting the
+matching backend version.
+
 ## RGW tenant identity
 
 Migration `0152_rgw_principal_tenants` adds nullable `rgw_tenant` fields to

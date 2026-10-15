@@ -43,7 +43,7 @@ def require_confirmation(
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,
-        status="failed",
+        status="failure",
         message="Admin Ops confirmation did not match the expected phrase.",
         metadata={"validation": "confirmation_mismatch"},
     )
@@ -105,7 +105,7 @@ def admin_ops_network_failure(
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,
-        status="failed",
+        status="failure",
         message=message,
         metadata={**(metadata or {}), "rgw_status_code": None, "rgw_error_code": None},
     )
@@ -159,7 +159,7 @@ def execute_admin_operation(
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,
-        status="success" if upstream.success else "failed",
+        status="success" if upstream.success else "failure",
         message=result.message,
         metadata=audit_metadata,
     )

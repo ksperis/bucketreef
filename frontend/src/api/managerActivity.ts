@@ -14,7 +14,7 @@ export type ManagerActivityEntry = {
   context_kind?: string | null;
   context_id?: string | null;
   context_name?: string | null;
-  status: string;
+  status: "success" | "failure" | "partial";
   user_email: string;
 };
 

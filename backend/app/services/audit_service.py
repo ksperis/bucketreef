@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Sequence
 from typing import Any, Literal, Optional, Protocol
 
 from sqlalchemy import or_
@@ -21,6 +20,7 @@ from app.services.webhook_service import WebhookEventPublisher
 logger = logging.getLogger(__name__)
 
 MAX_AUDIT_METADATA_LENGTH = 16384
+AuditStatus = Literal["success", "failure", "partial"]
 
 
 class AuditAccountSource(Protocol):
@@ -109,7 +109,7 @@ class AuditService:
         execution_context: Optional[S3ExecutionContext] = None,
         account: Optional[AuditAccountSource] = None,
         metadata: Optional[dict[str, Any]] = None,
-        status: str = "success",
+        status: AuditStatus = "success",
         message: Optional[str] = None,
         user_email: Optional[str] = None,
         user_role: Optional[str] = None,
@@ -190,7 +190,6 @@ class AuditService:
         cursor: Optional[int] = None,
         search: Optional[str] = None,
         status: Optional[str] = None,
-        statuses: Optional[Sequence[str]] = None,
         search_mode: Literal["all", "manager_activity"] = "all",
     ) -> list[AuditLog]:
         query = self.db.query(AuditLog)
@@ -204,9 +203,7 @@ class AuditService:
             query = query.filter(AuditLog.context_id == context_id)
         if cursor:
             query = query.filter(AuditLog.id < cursor)
-        if statuses:
-            query = query.filter(AuditLog.status.in_(tuple(statuses)))
-        elif status:
+        if status:
             query = query.filter(AuditLog.status == status)
         if search:
             trimmed = search.strip()
