@@ -192,6 +192,36 @@ def test_app_settings_db_payload_is_parsed_strictly():
         )
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"general":{"bucket_usage_stats_enabled":false}}',
+        '{"manager":{"manager_rgw_usage_metrics_enabled":false}}',
+    ],
+)
+def test_app_settings_db_payload_rejects_legacy_usage_flags(payload):
+    with pytest.raises(ValidationError):
+        app_settings_service._parse_settings_payload(payload)
+
+
+def test_app_settings_disk_import_converts_legacy_usage_flags(tmp_path):
+    settings_path = tmp_path / "app_settings.json"
+    settings_path.write_text(
+        json.dumps(
+            {
+                "general": {"bucket_usage_stats_enabled": False},
+                "manager": {"manager_rgw_usage_metrics_enabled": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    settings = app_settings_service._load_persisted_settings_from_disk(settings_path)
+
+    assert settings.general.project_feature_policies.bucket_usage_stats == "disabled"
+    assert settings.manager.feature_policies.rgw_usage_metrics == "disabled"
+
+
 def test_general_feature_locks_only_use_dedicated_feature_sources(monkeypatch):
     monkeypatch.setattr(
         app_settings_service,
