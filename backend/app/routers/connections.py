@@ -34,7 +34,11 @@ from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.services.tags_service import TagsService, serialize_tag_summaries
 from app.utils.tagging import TAG_DOMAIN_PRIVATE_CONNECTION_USER
 from app.core.sensitive_data import sanitize_error_detail
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter(prefix="/connections", tags=["connections"])
 
@@ -155,7 +159,7 @@ def create_connection(
             detail="Storage endpoint not found",
         ) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc)))
+        raise_bad_request_from_value_error(exc)
     except Exception as exc:
         # Avoid leaking internal details or sensitive hints.
         db.rollback()
@@ -244,8 +248,5 @@ def delete_connection(
             detail=sanitize_error_detail({"message": str(exc), "provisioning_id": exc.provisioning_id}),
         ) from exc
     except (ManagedPrivateAccessConflict, S3ConnectionConflictError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     return None
