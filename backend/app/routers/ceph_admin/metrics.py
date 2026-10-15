@@ -18,10 +18,10 @@ from app.services.traffic_service import (
     window_start,
 )
 from app.services.rgw_supervision import get_supervision_rgw_client
+from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import extract_usage_stats
-from app.core.sensitive_data import sanitize_error_detail
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/metrics", tags=["ceph-admin-metrics"])
 
@@ -30,7 +30,7 @@ def _build_supervision_client(endpoint: StorageEndpoint):
     try:
         return get_supervision_rgw_client(endpoint)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 def _require_storage_metrics_enabled(endpoint: StorageEndpoint) -> None:
@@ -70,7 +70,7 @@ def cluster_storage_metrics(
     try:
         payload = rgw_admin.get_all_buckets(with_stats=True)
     except RGWAdminError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
     bucket_usage: list[dict[str, Any]] = []
     owner_totals: dict[str, dict[str, Any]] = {}
@@ -168,7 +168,7 @@ def cluster_traffic_metrics(
             show_summary=False,
         )
     except RGWAdminError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
     entries = flatten_usage_entries(payload)
     bucket_filter = bucket.strip() if isinstance(bucket, str) else None

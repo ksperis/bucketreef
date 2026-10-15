@@ -17,7 +17,7 @@ from app.routers.dependencies import (
     require_metrics_capable_manager,
     require_usage_capable_manager,
 )
-from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.app_settings_service import load_app_settings
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.healthcheck_query_service import HealthCheckQueryService
@@ -26,6 +26,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficService, TrafficWindow
 from app.services.usage_trends_service import account_usage_trend_filters, build_account_usage_trends
 from app.services.usage_history_service import UsageHistoryService
+from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.time import utcnow
 from app.utils.usage_stats import build_bucket_overview
 
@@ -119,11 +120,11 @@ def account_traffic(
     try:
         service = TrafficService(account)
     except ValueError as exc:
-        raise HTTPException(status_code=502, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(502, exc)
     try:
         return service.get_traffic(window=window, bucket=bucket)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(400, exc)
     except RGWAdminError as exc:
         raise HTTPException(
             status_code=502,
