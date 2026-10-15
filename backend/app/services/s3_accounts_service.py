@@ -18,7 +18,6 @@ from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFou
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     AccountIAMUser,
-    AuditLog,
     S3Account,
     StorageEndpoint,
     StorageProvider,
@@ -1118,11 +1117,6 @@ class S3AccountsService:
             synchronize_session=False
         )
         ResourceDeletionPurgeService(self.db).purge_account_derived_data(account.id)
-        (
-            self.db.query(AuditLog)
-            .filter(AuditLog.account_id == account.id)
-            .update({AuditLog.account_id: None}, synchronize_session=False)
-        )
         self.db.delete(account)
         self.db.flush()
         self.tags.cleanup_orphan_definitions(

@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical audit execution context
+
+Migration `0155_canonical_audit_context` completes the audit execution-context
+cutover introduced by migration `0150`. It backfills account-scoped audit rows
+created while the compatibility columns still existed, converts historical
+Portal account rows to `context_kind=portal_account`, and then removes
+`audit_logs.account_id`, `audit_logs.account_name`, their foreign key, and their
+account lookup index.
+
+The Admin Audit and Manager Activity APIs now expose only `context_kind`,
+`context_id`, and `context_name`; deploy the backend and frontend together. The
+webhook event payload keeps its existing optional `account` object so external
+webhook consumers are unaffected by the database/API cleanup.
+
 ## RGW tenant identity
 
 Migration `0152_rgw_principal_tenants` adds nullable `rgw_tenant` fields to

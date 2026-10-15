@@ -187,8 +187,7 @@ def update_account_portal_settings(
         action="update_account_portal_settings",
         entity_type="account",
         entity_id=str(account_id),
-        account_id=account_id,
-        account_name=account.name,
+        account=account,
         metadata={
             "admin_override": override.model_dump(exclude_unset=True, exclude_none=False),
             "delegated_to_portal_managers": updated.delegated_to_portal_managers,
@@ -219,8 +218,7 @@ def create_account(
             action="create_account",
             entity_type="account",
             entity_id=str(created.id),
-            account_id=created.id,
-            account_name=created.name,
+            account=created,
             metadata={
                 "quota_max_size_gb": created.quota_max_size_gb,
                 "quota_max_objects": created.quota_max_objects,
@@ -274,8 +272,7 @@ def update_account(
             action="update_account",
             entity_type="account",
             entity_id=str(account_id),
-            account_id=updated.id,
-            account_name=updated.name,
+            account=updated,
             metadata=payload.model_dump(exclude_none=True),
         )
         return updated

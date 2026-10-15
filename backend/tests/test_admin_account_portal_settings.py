@@ -98,7 +98,7 @@ def test_admin_put_account_portal_settings_replaces_override_and_audits(client, 
     assert len(audit.actions) == 1
     assert audit.actions[0]["action"] == "update_account_portal_settings"
     assert audit.actions[0]["scope"] == "admin"
-    assert audit.actions[0]["account_id"] == account.id
+    assert audit.actions[0]["account"] is account
     assert audit.actions[0]["metadata"]["admin_override"]["bucket_defaults"]["versioning"] is True
 
 

@@ -19,6 +19,17 @@ The database schema diagrams are generated from the SQLAlchemy metadata in
 `backend/app/db`. The overview keeps all tables and foreign-key topology in a
 single readable image; detailed slices show full column lists.
 
+Regenerate both the D2 sources and published SVGs after a model change:
+
+```bash
+backend/.venv/bin/python backend/scripts/generate_database_schema_docs.py --render
+```
+
+Use `--check` to verify that the committed D2 sources still match the current
+SQLAlchemy metadata without modifying files. The generator requires every
+metadata table to belong to exactly one documented domain, so newly added tables
+cannot silently disappear from these diagrams.
+
 [![Database schema overview](/assets/diagrams/database-schema/overview.svg)](/assets/diagrams/database-schema/overview.svg)
 
 ### Detailed slices

@@ -24,7 +24,7 @@ Legend: {
   style.stroke: "#cbd5e1"
   "endpoint_health_checks": {
     class: table
-    tooltip: "PK: id\nIndexes: ix_endpoint_health_checks_checked_at(checked_at) [index]; ix_endpoint_health_checks_endpoint_mode_checked(storage_endpoint_id, check_mode, checked_at) [index]; ix_endpoint_health_checks_id(id) [index]; ix_endpoint_health_checks_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_endpoint_health_checks_checked_at(checked_at) [index]; ix_endpoint_health_checks_endpoint_mode_checked(storage_endpoint_id, check_mode, checked_at) [index]; ix_endpoint_health_checks_id(id) [index]; ix_endpoint_health_checks_storage_endpoint_id(storage_endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
     "checked_at": "DATETIME [NN]"
@@ -36,7 +36,7 @@ Legend: {
   }
   "endpoint_health_latest": {
     class: table
-    tooltip: "PK: id\nUnique: uq_endpoint_health_latest_scope(storage_endpoint_id, check_mode, check_type, scope)\nIndexes: ix_endpoint_health_latest_checked_at(checked_at) [index]; ix_endpoint_health_latest_endpoint_type_scope_checked(storage_endpoint_id, check_type, scope, checked_at) [index]; ix_endpoint_health_latest_id(id) [index]; ix_endpoint_health_latest_storage_endpoint_id(storage_endpoint_id) [index]; ix_endpoint_health_latest_updated_at(updated_at) [index]"
+    tooltip: "PK: id\\nUnique: uq_endpoint_health_latest_scope(storage_endpoint_id, check_mode, check_type, scope)\\nIndexes: ix_endpoint_health_latest_checked_at(checked_at) [index]; ix_endpoint_health_latest_endpoint_type_scope_checked(storage_endpoint_id, check_type, scope, checked_at) [index]; ix_endpoint_health_latest_id(id) [index]; ix_endpoint_health_latest_storage_endpoint_id(storage_endpoint_id) [index]; ix_endpoint_health_latest_updated_at(updated_at) [index]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
     "check_mode": "VARCHAR [NN]"
@@ -56,7 +56,7 @@ Legend: {
   }
   "endpoint_health_status_segments": {
     class: table
-    tooltip: "PK: id\nIndexes: ix_endpoint_health_segments_endpoint_type_scope_ended(storage_endpoint_id, check_type, scope, ended_at) [index]; ix_endpoint_health_segments_endpoint_type_scope_started(storage_endpoint_id, check_type, scope, started_at) [index]; ix_endpoint_health_status_segments_ended_at(ended_at) [index]; ix_endpoint_health_status_segments_id(id) [index]; ix_endpoint_health_status_segments_started_at(started_at) [index]; ix_endpoint_health_status_segments_status(status) [index]; ix_endpoint_health_status_segments_storage_endpoint_id(storage_endpoint_id) [index]; ix_endpoint_health_status_segments_updated_at(updated_at) [index]"
+    tooltip: "PK: id\\nIndexes: ix_endpoint_health_segments_endpoint_type_scope_ended(storage_endpoint_id, check_type, scope, ended_at) [index]; ix_endpoint_health_segments_endpoint_type_scope_started(storage_endpoint_id, check_type, scope, started_at) [index]; ix_endpoint_health_status_segments_ended_at(ended_at) [index]; ix_endpoint_health_status_segments_id(id) [index]; ix_endpoint_health_status_segments_started_at(started_at) [index]; ix_endpoint_health_status_segments_status(status) [index]; ix_endpoint_health_status_segments_storage_endpoint_id(storage_endpoint_id) [index]; ix_endpoint_health_status_segments_updated_at(updated_at) [index]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
     "check_mode": "VARCHAR [NN]"
@@ -74,7 +74,7 @@ Legend: {
   }
   "endpoint_health_rollups": {
     class: table
-    tooltip: "PK: id\nUnique: uq_endpoint_health_rollup_bucket(storage_endpoint_id, check_mode, check_type, scope, resolution_seconds, bucket_start)\nIndexes: ix_endpoint_health_rollups_bucket_start(bucket_start) [index]; ix_endpoint_health_rollups_endpoint_type_scope_res_bucket(storage_endpoint_id, check_type, scope, resolution_seconds, bucket_start) [index]; ix_endpoint_health_rollups_id(id) [index]; ix_endpoint_health_rollups_storage_endpoint_id(storage_endpoint_id) [index]; ix_endpoint_health_rollups_updated_at(updated_at) [index]"
+    tooltip: "PK: id\\nUnique: uq_endpoint_health_rollup_bucket(storage_endpoint_id, check_mode, check_type, scope, resolution_seconds, bucket_start)\\nIndexes: ix_endpoint_health_rollups_bucket_start(bucket_start) [index]; ix_endpoint_health_rollups_endpoint_type_scope_res_bucket(storage_endpoint_id, check_type, scope, resolution_seconds, bucket_start) [index]; ix_endpoint_health_rollups_id(id) [index]; ix_endpoint_health_rollups_storage_endpoint_id(storage_endpoint_id) [index]; ix_endpoint_health_rollups_updated_at(updated_at) [index]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
     "check_mode": "VARCHAR [NN]"
@@ -86,16 +86,14 @@ Legend: {
     "degraded_count": "INTEGER [NN]"
     "down_count": "INTEGER [NN]"
     "unknown_count": "INTEGER [NN]"
-    "latency_min_ms": "INTEGER"
     "latency_avg_ms": "INTEGER"
-    "latency_max_ms": "INTEGER"
     "latency_p95_ms": "INTEGER"
     "latency_sample_count": "INTEGER [NN]"
     "updated_at": "DATETIME [NN]"
   }
   "quota_usage_hourly": {
     class: table
-    tooltip: "PK: id\nCheck: ck_quota_usage_hourly_subject_kind: (s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR (s3_account_id IS NULL AND s3_user_id IS NOT NULL)\nIndexes: ix_quota_usage_hourly_endpoint_hour_account(storage_endpoint_id, hour_ts, s3_account_id) [index]; ix_quota_usage_hourly_endpoint_hour_user(storage_endpoint_id, hour_ts, s3_user_id) [index]; ix_quota_usage_hourly_hour_ts(hour_ts) [index]; ix_quota_usage_hourly_id(id) [index]; ix_quota_usage_hourly_s3_account_id(s3_account_id) [index]; ix_quota_usage_hourly_s3_user_id(s3_user_id) [index]; ix_quota_usage_hourly_storage_endpoint_id(storage_endpoint_id) [index]; uq_quota_usage_hourly_account(hour_ts, storage_endpoint_id, s3_account_id) [unique]; uq_quota_usage_hourly_user(hour_ts, storage_endpoint_id, s3_user_id) [unique]"
+    tooltip: "PK: id\\nCheck: ck_quota_usage_hourly_subject_kind: (s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR (s3_account_id IS NULL AND s3_user_id IS NOT NULL)\\nIndexes: ix_quota_usage_hourly_endpoint_hour_account(storage_endpoint_id, hour_ts, s3_account_id) [index]; ix_quota_usage_hourly_endpoint_hour_user(storage_endpoint_id, hour_ts, s3_user_id) [index]; ix_quota_usage_hourly_hour_ts(hour_ts) [index]; ix_quota_usage_hourly_id(id) [index]; ix_quota_usage_hourly_s3_account_id(s3_account_id) [index]; ix_quota_usage_hourly_s3_user_id(s3_user_id) [index]; ix_quota_usage_hourly_storage_endpoint_id(storage_endpoint_id) [index]; uq_quota_usage_hourly_account(hour_ts, storage_endpoint_id, s3_account_id) [unique]; uq_quota_usage_hourly_user(hour_ts, storage_endpoint_id, s3_user_id) [unique]"
     "id": "INTEGER [PK, NN]"
     "hour_ts": "DATETIME [NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
@@ -111,7 +109,7 @@ Legend: {
   }
   "quota_usage_daily": {
     class: table
-    tooltip: "PK: id\nCheck: ck_quota_usage_daily_subject_kind: (s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR (s3_account_id IS NULL AND s3_user_id IS NOT NULL)\nIndexes: ix_quota_usage_daily_day(day) [index]; ix_quota_usage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_quota_usage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_quota_usage_daily_id(id) [index]; ix_quota_usage_daily_s3_account_id(s3_account_id) [index]; ix_quota_usage_daily_s3_user_id(s3_user_id) [index]; ix_quota_usage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_quota_usage_daily_account(day, storage_endpoint_id, s3_account_id) [unique]; uq_quota_usage_daily_user(day, storage_endpoint_id, s3_user_id) [unique]"
+    tooltip: "PK: id\\nCheck: ck_quota_usage_daily_subject_kind: (s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR (s3_account_id IS NULL AND s3_user_id IS NOT NULL)\\nIndexes: ix_quota_usage_daily_day(day) [index]; ix_quota_usage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_quota_usage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_quota_usage_daily_id(id) [index]; ix_quota_usage_daily_s3_account_id(s3_account_id) [index]; ix_quota_usage_daily_s3_user_id(s3_user_id) [index]; ix_quota_usage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_quota_usage_daily_account(day, storage_endpoint_id, s3_account_id) [unique]; uq_quota_usage_daily_user(day, storage_endpoint_id, s3_user_id) [unique]"
     "id": "INTEGER [PK, NN]"
     "day": "DATE [NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
@@ -126,7 +124,7 @@ Legend: {
   }
   "quota_alert_states": {
     class: table
-    tooltip: "PK: id\nCheck: ck_quota_alert_states_subject_kind: (s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR (s3_account_id IS NULL AND s3_user_id IS NOT NULL)\nIndexes: ix_quota_alert_states_endpoint_account(storage_endpoint_id, s3_account_id) [index]; ix_quota_alert_states_endpoint_user(storage_endpoint_id, s3_user_id) [index]; ix_quota_alert_states_id(id) [index]; ix_quota_alert_states_s3_account_id(s3_account_id) [index]; ix_quota_alert_states_s3_user_id(s3_user_id) [index]; ix_quota_alert_states_storage_endpoint_id(storage_endpoint_id) [index]; uq_quota_alert_states_account(storage_endpoint_id, s3_account_id) [unique]; uq_quota_alert_states_user(storage_endpoint_id, s3_user_id) [unique]"
+    tooltip: "PK: id\\nCheck: ck_quota_alert_states_subject_kind: (s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR (s3_account_id IS NULL AND s3_user_id IS NOT NULL)\\nIndexes: ix_quota_alert_states_endpoint_account(storage_endpoint_id, s3_account_id) [index]; ix_quota_alert_states_endpoint_user(storage_endpoint_id, s3_user_id) [index]; ix_quota_alert_states_id(id) [index]; ix_quota_alert_states_s3_account_id(s3_account_id) [index]; ix_quota_alert_states_s3_user_id(s3_user_id) [index]; ix_quota_alert_states_storage_endpoint_id(storage_endpoint_id) [index]; uq_quota_alert_states_account(storage_endpoint_id, s3_account_id) [unique]; uq_quota_alert_states_user(storage_endpoint_id, s3_user_id) [unique]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
     "s3_account_id": "INTEGER [FK]"
@@ -141,7 +139,7 @@ Legend: {
   }
   "billing_usage_daily": {
     class: table
-    tooltip: "PK: id\nUnique: uq_billing_usage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\nIndexes: ix_billing_usage_daily_day(day) [index]; ix_billing_usage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_usage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_usage_daily_id(id) [index]; ix_billing_usage_daily_s3_account_id(s3_account_id) [index]; ix_billing_usage_daily_s3_user_id(s3_user_id) [index]; ix_billing_usage_daily_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_billing_usage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_billing_usage_daily_day(day) [index]; ix_billing_usage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_usage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_usage_daily_id(id) [index]; ix_billing_usage_daily_s3_account_id(s3_account_id) [index]; ix_billing_usage_daily_s3_user_id(s3_user_id) [index]; ix_billing_usage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_usage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_usage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
     "id": "INTEGER [PK, NN]"
     "day": "DATE [NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
@@ -156,7 +154,7 @@ Legend: {
   }
   "billing_storage_daily": {
     class: table
-    tooltip: "PK: id\nUnique: uq_billing_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\nIndexes: ix_billing_storage_daily_day(day) [index]; ix_billing_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_storage_daily_id(id) [index]; ix_billing_storage_daily_s3_account_id(s3_account_id) [index]; ix_billing_storage_daily_s3_user_id(s3_user_id) [index]; ix_billing_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_billing_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_billing_storage_daily_day(day) [index]; ix_billing_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_storage_daily_id(id) [index]; ix_billing_storage_daily_s3_account_id(s3_account_id) [index]; ix_billing_storage_daily_s3_user_id(s3_user_id) [index]; ix_billing_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_storage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_storage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
     "id": "INTEGER [PK, NN]"
     "day": "DATE [NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
@@ -170,7 +168,7 @@ Legend: {
   }
   "billing_rate_cards": {
     class: table
-    tooltip: "PK: id\nUnique: uq_billing_rate_cards_name(name)\nIndexes: ix_billing_rate_cards_endpoint_effective_window(storage_endpoint_id, effective_from, effective_to) [index]; ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_billing_rate_cards_name(name)\\nIndexes: ix_billing_rate_cards_endpoint_effective_window(storage_endpoint_id, effective_from, effective_to) [index]; ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_storage_endpoint_id(storage_endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "name": "VARCHAR [NN]"
     "currency": "VARCHAR [NN]"
@@ -186,7 +184,7 @@ Legend: {
   }
   "billing_assignments": {
     class: table
-    tooltip: "PK: id\nIndexes: ix_billing_assignments_endpoint_account_created(storage_endpoint_id, s3_account_id, created_at) [index]; ix_billing_assignments_endpoint_user_created(storage_endpoint_id, s3_user_id, created_at) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_card_id(rate_card_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_created(storage_endpoint_id, s3_account_id, created_at) [index]; ix_billing_assignments_endpoint_user_created(storage_endpoint_id, s3_user_id, created_at) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_card_id(rate_card_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
     "s3_account_id": "INTEGER [FK]"
@@ -199,6 +197,10 @@ Legend: {
 "External references": {
   style.fill: "#fff7ed"
   style.stroke: "#fdba74"
+  "storage_endpoints": {
+    class: external
+    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
+  }
   "s3_accounts": {
     class: external
     tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
@@ -207,33 +209,29 @@ Legend: {
     class: external
     tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
   }
-  "storage_endpoints": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
-  }
 }
 
-"billing_rate_cards"."storage_endpoint_id" -> "storage_endpoints"
-"endpoint_health_checks"."storage_endpoint_id" -> "storage_endpoints"
-"endpoint_health_latest"."storage_endpoint_id" -> "storage_endpoints"
-"endpoint_health_rollups"."storage_endpoint_id" -> "storage_endpoints"
-"endpoint_health_status_segments"."storage_endpoint_id" -> "storage_endpoints"
+"endpoint_health_checks"."storage_endpoint_id" -> "storage_endpoints"."id"
+"endpoint_health_latest"."storage_endpoint_id" -> "storage_endpoints"."id"
+"endpoint_health_status_segments"."storage_endpoint_id" -> "storage_endpoints"."id"
+"endpoint_health_rollups"."storage_endpoint_id" -> "storage_endpoints"."id"
+"quota_usage_hourly"."storage_endpoint_id" -> "storage_endpoints"."id"
+"quota_usage_hourly"."s3_account_id" -> "s3_accounts"."id"
+"quota_usage_hourly"."s3_user_id" -> "s3_users"."id"
+"quota_usage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
+"quota_usage_daily"."s3_account_id" -> "s3_accounts"."id"
+"quota_usage_daily"."s3_user_id" -> "s3_users"."id"
+"quota_alert_states"."storage_endpoint_id" -> "storage_endpoints"."id"
+"quota_alert_states"."s3_account_id" -> "s3_accounts"."id"
+"quota_alert_states"."s3_user_id" -> "s3_users"."id"
+"billing_usage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
+"billing_usage_daily"."s3_account_id" -> "s3_accounts"."id"
+"billing_usage_daily"."s3_user_id" -> "s3_users"."id"
+"billing_storage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
+"billing_storage_daily"."s3_account_id" -> "s3_accounts"."id"
+"billing_storage_daily"."s3_user_id" -> "s3_users"."id"
+"billing_rate_cards"."storage_endpoint_id" -> "storage_endpoints"."id"
+"billing_assignments"."storage_endpoint_id" -> "storage_endpoints"."id"
+"billing_assignments"."s3_account_id" -> "s3_accounts"."id"
+"billing_assignments"."s3_user_id" -> "s3_users"."id"
 "billing_assignments"."rate_card_id" -> "billing_rate_cards"."id"
-"billing_assignments"."s3_account_id" -> "s3_accounts"
-"billing_assignments"."s3_user_id" -> "s3_users"
-"billing_assignments"."storage_endpoint_id" -> "storage_endpoints"
-"billing_storage_daily"."s3_account_id" -> "s3_accounts"
-"billing_storage_daily"."s3_user_id" -> "s3_users"
-"billing_storage_daily"."storage_endpoint_id" -> "storage_endpoints"
-"billing_usage_daily"."s3_account_id" -> "s3_accounts"
-"billing_usage_daily"."s3_user_id" -> "s3_users"
-"billing_usage_daily"."storage_endpoint_id" -> "storage_endpoints"
-"quota_alert_states"."s3_account_id" -> "s3_accounts"
-"quota_alert_states"."s3_user_id" -> "s3_users"
-"quota_alert_states"."storage_endpoint_id" -> "storage_endpoints"
-"quota_usage_daily"."s3_account_id" -> "s3_accounts"
-"quota_usage_daily"."s3_user_id" -> "s3_users"
-"quota_usage_daily"."storage_endpoint_id" -> "storage_endpoints"
-"quota_usage_hourly"."s3_account_id" -> "s3_accounts"
-"quota_usage_hourly"."s3_user_id" -> "s3_users"
-"quota_usage_hourly"."storage_endpoint_id" -> "storage_endpoints"

@@ -74,7 +74,6 @@ def _audit_log(
     entity_id: str = "research-data",
     status: str = "success",
 ) -> AuditLog:
-    account_id = context.id if context.context_kind == "account" and isinstance(context.id, int) else None
     return AuditLog(
         user_email="manager@example.com",
         user_role="ui_user",
@@ -85,8 +84,6 @@ def _audit_log(
         context_kind=context.context_kind,
         context_id=context.context_id,
         context_name=context.name,
-        account_id=account_id,
-        account_name=context.name if account_id is not None else None,
         status=status,
         metadata_json='{"secret":"hidden"}',
         request_id="req-hidden",
@@ -130,8 +127,6 @@ def test_manager_activity_filters_audit_logs_to_exact_execution_context(client, 
     assert entry["context_kind"] == "account"
     assert entry["context_id"] == str(account.id)
     assert entry["context_name"] == "account-a"
-    assert entry["account_id"] == account.id
-    assert entry["account_name"] == "account-a"
     assert entry["status"] == "success"
     assert entry["user_email"] == "manager@example.com"
 
@@ -157,7 +152,6 @@ def test_manager_activity_supports_non_account_manager_contexts(client, db_sessi
     assert [entry["id"] for entry in response.json()] == [expected.id]
     assert response.json()[0]["context_kind"] == resource_kind
     assert response.json()[0]["context_id"] == context.context_id
-    assert response.json()[0]["account_id"] is None
 
 
 def test_manager_activity_does_not_expose_sensitive_audit_fields(client, db_session):

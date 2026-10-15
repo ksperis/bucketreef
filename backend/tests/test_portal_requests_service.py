@@ -149,7 +149,8 @@ def test_portal_request_creation_lists_only_requester_and_notifies_admin(db_sess
     assert notification.notification_type == "portal_request"
     assert notification.subject_type is None
     assert audit.scope == "portal"
-    assert audit.account_id == account.id
+    assert audit.context_kind == "portal_account"
+    assert audit.context_id == str(account.id)
 
 
 def test_approve_user_access_creates_placeholder_and_portal_link(db_session):

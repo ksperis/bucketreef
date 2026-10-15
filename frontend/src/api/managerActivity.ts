@@ -14,8 +14,6 @@ export type ManagerActivityEntry = {
   context_kind?: string | null;
   context_id?: string | null;
   context_name?: string | null;
-  account_id?: number | null;
-  account_name?: string | null;
   status: string;
   user_email: string;
 };

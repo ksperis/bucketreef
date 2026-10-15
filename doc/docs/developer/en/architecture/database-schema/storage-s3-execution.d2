@@ -24,16 +24,15 @@ Legend: {
   style.stroke: "#cbd5e1"
   "storage_endpoints": {
     class: table
-    tooltip: "PK: id\nUnique: uq_storage_endpoints_endpoint(endpoint_url); uq_storage_endpoints_name(name)\nIndexes: ix_storage_endpoints_id(id) [index]"
+    tooltip: "PK: id\\nUnique: unnamed(identity_namespace); uq_storage_endpoints_endpoint(endpoint_url); uq_storage_endpoints_name(name)\\nCheck: ck_storage_endpoints_endpoint_url_canonical: endpoint_url = trim(endpoint_url) AND endpoint_url NOT LIKE '%/' AND length(endpoint_url) > 0; ck_storage_endpoints_provider: provider IN ('ceph', 'aws', 'other')\\nIndexes: ix_storage_endpoints_id(id) [index]"
     "id": "INTEGER [PK, NN]"
     "name": "VARCHAR [NN]"
     "endpoint_url": "VARCHAR [NN]"
-    "admin_endpoint": "VARCHAR"
     "region": "VARCHAR"
     "provider": "VARCHAR [NN]"
     "admin_access_key": "VARCHAR"
     "admin_secret_key": "VARCHAR"
-    "identity_namespace": "VARCHAR [NN, UQ]"
+    "identity_namespace": "VARCHAR(32) [NN, UQ]"
     "ceph_admin_allowed": "BOOLEAN [NN]"
     "features_config": "TEXT"
     "latitude": "FLOAT"
@@ -47,7 +46,7 @@ Legend: {
   }
   "endpoint_service_identities": {
     class: table
-    tooltip: "PK: id\nUnique: uq_endpoint_service_identity_kind(endpoint_id, kind)\nCheck: Ceph Admin identities must use managed mode\nIndexes: endpoint_id [index]"
+    tooltip: "PK: id\\nUnique: uq_endpoint_service_identity_kind(endpoint_id, kind)\\nCheck: ck_endpoint_service_identity_ceph_admin_external: kind != 'ceph_admin' OR mode = 'external'; ck_endpoint_service_identity_kind: kind IN ('runtime', 'supervision', 'ceph_admin'); ck_endpoint_service_identity_mode: mode IN ('managed', 'external'); ck_endpoint_service_identity_status: status IN ('not_provisioned', 'missing', 'provisioning', 'ready', 'error', 'revocation_pending', 'disabled')\\nIndexes: ix_endpoint_service_identities_endpoint_id(endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "endpoint_id": "INTEGER [FK, NN]"
     "kind": "VARCHAR(24) [NN]"
@@ -55,7 +54,6 @@ Legend: {
     "rgw_uid": "VARCHAR(128)"
     "access_key": "VARCHAR"
     "secret_key": "VARCHAR"
-    "previous_access_key": "VARCHAR"
     "provenance": "VARCHAR(128)"
     "status": "VARCHAR(24) [NN]"
     "last_error": "VARCHAR(256)"
@@ -63,25 +61,73 @@ Legend: {
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
   }
+  "key_rotation_intents": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_key_rotation_intent_target(endpoint_id, key_type, target_id)\\nCheck: ck_key_rotation_intent_phase: phase IN ('prepared', 'activated'); ck_key_rotation_intent_type: key_type IN ('endpoint_admin', 'endpoint_runtime', 'endpoint_supervision', 'ceph_admin', 'account', 's3_user')\\nIndexes: ix_key_rotation_intents_endpoint_id(endpoint_id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "endpoint_id": "INTEGER [FK, NN]"
+    "key_type": "VARCHAR(32) [NN]"
+    "target_id": "INTEGER [NN]"
+    "rgw_uid": "VARCHAR [NN]"
+    "tenant": "VARCHAR"
+    "rgw_endpoint": "VARCHAR [NN]"
+    "old_access_key": "VARCHAR [NN]"
+    "new_access_key": "VARCHAR [NN]"
+    "new_secret_key": "VARCHAR [NN]"
+    "deactivate_only": "BOOLEAN [NN]"
+    "phase": "VARCHAR(16) [NN]"
+    "actor_email": "VARCHAR [NN]"
+    "last_error": "VARCHAR(256)"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "manager_access_key_metadata": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_manager_access_key_metadata_iam(account_id, principal_name, access_key_id); uq_manager_access_key_metadata_s3_user(s3_user_id, access_key_id)\\nCheck: ck_manager_access_key_metadata_scope: (account_id IS NOT NULL AND s3_user_id IS NULL AND principal_name IS NOT NULL) OR (account_id IS NULL AND s3_user_id IS NOT NULL AND principal_name IS NULL)\\nIndexes: ix_manager_access_key_metadata_access_key(access_key_id) [index]; ix_manager_access_key_metadata_expires_at(expires_at) [index]; ix_manager_access_key_metadata_id(id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "account_id": "INTEGER [FK]"
+    "s3_user_id": "INTEGER [FK]"
+    "principal_name": "VARCHAR(256)"
+    "access_key_id": "VARCHAR(256) [NN]"
+    "name": "VARCHAR(128)"
+    "notes": "TEXT"
+    "expires_at": "DATETIME"
+    "expiration_state": "VARCHAR(32)"
+    "expiration_enforced_at": "DATETIME"
+    "expiration_last_attempt_at": "DATETIME"
+    "expiration_last_error": "TEXT"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
   "s3_accounts": {
     class: table
-    tooltip: "PK: id\nUnique: unnamed(name); unnamed(rgw_account_id)\nIndexes: ix_s3_accounts_id(id) [index]; ix_s3_accounts_storage_endpoint(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: unnamed(name); unnamed(rgw_account_id)\\nCheck: ck_s3_accounts_rgw_account_id_canonical: rgw_account_id = TRIM(rgw_account_id) AND LENGTH(rgw_account_id) > 0; ck_s3_accounts_rgw_user_uid_canonical: rgw_user_uid = TRIM(rgw_user_uid) AND LENGTH(rgw_user_uid) > 0\\nIndexes: ix_s3_accounts_id(id) [index]; ix_s3_accounts_storage_endpoint(storage_endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "name": "VARCHAR [NN, UQ]"
-    "rgw_account_id": "VARCHAR [UQ]"
+    "rgw_account_id": "VARCHAR [NN, UQ]"
+    "rgw_tenant": "VARCHAR [NN]"
     "email": "VARCHAR"
     "rgw_access_key": "VARCHAR"
     "rgw_secret_key": "VARCHAR"
-    "rgw_user_uid": "VARCHAR"
+    "rgw_user_uid": "VARCHAR [NN]"
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
-    "storage_endpoint_id": "INTEGER [FK]"
+    "storage_endpoint_id": "INTEGER [FK, NN]"
     "portal_settings_override": "TEXT"
-    "allow_bucket_quota_management": "BOOLEAN [NN]"
+    "portal_settings_delegated": "BOOLEAN [NN]"
+    "portal_collaborator_role_management_delegated": "BOOLEAN [NN]"
+    "portal_collaborator_addition_delegated": "BOOLEAN [NN]"
+    "allow_bucket_quota_management": "BOOLEAN"
+    "allow_access_key_metadata": "BOOLEAN"
+    "allow_access_key_expiration": "BOOLEAN"
+    "allow_activity_history": "BOOLEAN"
+    "allow_rgw_usage_metrics": "BOOLEAN"
+    "allow_bucket_usage_stats": "BOOLEAN"
+    "allow_bucket_usage_stats_collection": "BOOLEAN"
   }
   "user_s3_accounts": {
     class: table
-    tooltip: "PK: id\nUnique: uq_user_s3_account(user_id, account_id)\nIndexes: ix_user_s3_accounts_account_user(account_id, user_id) [index]; ix_user_s3_accounts_id(id) [index]"
+    tooltip: "PK: id\\nUnique: uq_user_s3_account(user_id, account_id)\\nCheck: ck_user_s3_accounts_has_role: manager_role IS NOT NULL OR portal_role IS NOT NULL; ck_user_s3_accounts_manager_browser_role: allow_manager_browser_data_access IS FALSE OR manager_role = 'account_administrator'; ck_user_s3_accounts_manager_role: manager_role IS NULL OR manager_role = 'account_administrator'; ck_user_s3_accounts_portal_role: portal_role IS NULL OR portal_role IN ('portal_user', 'portal_manager')\\nIndexes: ix_user_s3_accounts_account_user(account_id, user_id) [index]; ix_user_s3_accounts_id(id) [index]"
     "id": "INTEGER [PK, NN]"
     "user_id": "INTEGER [FK, NN]"
     "account_id": "INTEGER [FK, NN]"
@@ -93,7 +139,7 @@ Legend: {
   }
   "account_iam_users": {
     class: table
-    tooltip: "PK: id\nUnique: uq_account_iam_user(user_id, account_id); uq_account_iam_user_id(iam_user_id)\nIndexes: ix_account_iam_users_account_user(account_id, user_id) [index]; ix_account_iam_users_id(id) [index]"
+    tooltip: "PK: id\\nUnique: uq_account_iam_user(user_id, account_id); uq_account_iam_user_id(iam_user_id)\\nIndexes: ix_account_iam_users_account_user(account_id, user_id) [index]; ix_account_iam_users_id(id) [index]"
     "id": "INTEGER [PK, NN]"
     "user_id": "INTEGER [FK, NN]"
     "account_id": "INTEGER [FK, NN]"
@@ -105,30 +151,35 @@ Legend: {
   }
   "s3_users": {
     class: table
-    tooltip: "PK: id\nUnique: uq_s3_users_uid(rgw_user_uid)\nIndexes: ix_s3_users_id(id) [index]; ix_s3_users_storage_endpoint(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_s3_users_endpoint_tenant_uid(storage_endpoint_id, rgw_tenant, rgw_user_uid)\\nCheck: ck_s3_users_rgw_user_uid_canonical: rgw_user_uid = TRIM(rgw_user_uid) AND LENGTH(rgw_user_uid) > 0\\nIndexes: ix_s3_users_id(id) [index]; ix_s3_users_storage_endpoint(storage_endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "name": "VARCHAR [NN]"
     "rgw_user_uid": "VARCHAR [NN]"
+    "rgw_tenant": "VARCHAR [NN]"
     "email": "VARCHAR"
     "rgw_access_key": "VARCHAR [NN]"
     "rgw_secret_key": "VARCHAR [NN]"
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
-    "storage_endpoint_id": "INTEGER [FK]"
-    "allow_bucket_quota_management": "BOOLEAN [NN]"
-    "allow_access_key_management": "BOOLEAN [NN]"
-    "allow_managed_private_connection_provisioning": "BOOLEAN [NN]"
+    "storage_endpoint_id": "INTEGER [FK, NN]"
+    "allow_bucket_quota_management": "BOOLEAN"
+    "allow_access_key_management": "BOOLEAN"
+    "allow_access_key_metadata": "BOOLEAN"
+    "allow_access_key_expiration": "BOOLEAN"
+    "allow_activity_history": "BOOLEAN"
+    "allow_managed_private_connection_provisioning": "BOOLEAN"
   }
   "user_s3_users": {
     class: table
-    tooltip: "PK: id\nUnique: uq_user_s3_user(user_id, s3_user_id)\nIndexes: ix_user_s3_users_id(id) [index]; ix_user_s3_users_s3_user_user(s3_user_id, user_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_user_s3_user(user_id, s3_user_id)\\nIndexes: ix_user_s3_users_id(id) [index]; ix_user_s3_users_s3_user_user(s3_user_id, user_id) [index]"
     "id": "INTEGER [PK, NN]"
     "user_id": "INTEGER [FK, NN]"
     "s3_user_id": "INTEGER [FK, NN]"
+    "allow_manager_browser_data_access": "BOOLEAN [NN]"
   }
   "s3_connections": {
     class: table
-    tooltip: "PK: id\nIndexes: ix_s3_connections_created_by_user_id(created_by_user_id) [index]; ix_s3_connections_id(id) [index]; ix_s3_connections_storage_endpoint_id(storage_endpoint_id) [index]; uq_s3_connections_private_creator_name(created_by_user_id, name) [unique]; uq_s3_connections_shared_name(name) [unique]"
+    tooltip: "PK: id\\nCheck: ck_s3_connections_credential_owner_type: credential_owner_type IS NULL OR credential_owner_type IN ('iam_user', 'account_user', 's3_user')\\nIndexes: ix_s3_connections_created_by_user_id(created_by_user_id) [index]; ix_s3_connections_id(id) [index]; ix_s3_connections_storage_endpoint_id(storage_endpoint_id) [index]; uq_s3_connections_private_creator_name(created_by_user_id, name) [unique]; uq_s3_connections_shared_name(name) [unique]"
     "id": "INTEGER [PK, NN]"
     "created_by_user_id": "INTEGER [FK, NN]"
     "name": "VARCHAR [NN]"
@@ -136,6 +187,7 @@ Legend: {
     "is_active": "BOOLEAN [NN]"
     "access_manager": "BOOLEAN [NN]"
     "access_browser": "BOOLEAN [NN]"
+    "allow_activity_history": "BOOLEAN"
     "remediation_required": "BOOLEAN [NN]"
     "remediation_reason": "VARCHAR"
     "server_managed": "BOOLEAN [NN]"
@@ -152,9 +204,18 @@ Legend: {
     "updated_at": "DATETIME [NN]"
     "last_used_at": "DATETIME"
   }
+  "user_s3_connections": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_user_s3_connection(user_id, s3_connection_id)\\nIndexes: ix_user_s3_connections_connection_user(s3_connection_id, user_id) [index]; ix_user_s3_connections_id(id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "user_id": "INTEGER [FK, NN]"
+    "s3_connection_id": "INTEGER [FK, NN]"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
   "managed_private_accesses": {
     class: table
-    tooltip: "PK: id\nUnique: uq_managed_private_access_connection(s3_connection_id)\nIndexes: ix_managed_private_accesses_id(id) [index]; ix_managed_private_accesses_owner_user_id(owner_user_id) [index]; ix_managed_private_accesses_s3_connection_id(s3_connection_id) [index]; uq_managed_private_access_active_source(owner_user_id, source_context_type, source_context_id) [partial unique]"
+    tooltip: "PK: id\\nUnique: uq_managed_private_access_connection(s3_connection_id)\\nCheck: ck_managed_private_access_principal_type: remote_principal_type IN ('iam_user', 'rgw_user'); ck_managed_private_access_source_type: source_context_type IN ('account', 'connection', 's3_user'); ck_managed_private_access_state: state IN ('provisioning', 'active', 'deleting', 'cleanup_pending', 'failed')\\nIndexes: ix_managed_private_accesses_id(id) [index]; ix_managed_private_accesses_owner_user_id(owner_user_id) [index]; ix_managed_private_accesses_s3_connection_id(s3_connection_id) [index]; uq_managed_private_access_active_source(owner_user_id, source_context_type, source_context_id) [unique]"
     "id": "INTEGER [PK, NN]"
     "owner_user_id": "INTEGER [FK, NN]"
     "source_context_type": "VARCHAR [NN]"
@@ -163,7 +224,7 @@ Legend: {
     "remote_principal_identifier": "VARCHAR [NN]"
     "iam_username": "VARCHAR"
     "access_key_id": "VARCHAR"
-    "s3_connection_id": "INTEGER [FK, UQ]"
+    "s3_connection_id": "INTEGER [FK]"
     "state": "VARCHAR [NN]"
     "cleanup_error": "TEXT"
     "iam_groups_json": "TEXT [NN]"
@@ -174,18 +235,9 @@ Legend: {
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
   }
-  "user_s3_connections": {
-    class: table
-    tooltip: "PK: id\nUnique: uq_user_s3_connection(user_id, s3_connection_id)\nIndexes: ix_user_s3_connections_connection_user(s3_connection_id, user_id) [index]; ix_user_s3_connections_id(id) [index]"
-    "id": "INTEGER [PK, NN]"
-    "user_id": "INTEGER [FK, NN]"
-    "s3_connection_id": "INTEGER [FK, NN]"
-    "created_at": "DATETIME [NN]"
-    "updated_at": "DATETIME [NN]"
-  }
   "ui_group_s3_accounts": {
     class: table
-    tooltip: "PK: id\nUnique: uq_ui_group_s3_account(group_id, account_id)\nIndexes: ix_ui_group_s3_accounts_account_group(account_id, group_id) [index]; ix_ui_group_s3_accounts_id(id) [index]"
+    tooltip: "PK: id\\nUnique: uq_ui_group_s3_account(group_id, account_id)\\nCheck: ck_ui_group_s3_accounts_has_role: manager_role IS NOT NULL OR portal_role IS NOT NULL; ck_ui_group_s3_accounts_manager_browser_role: allow_manager_browser_data_access IS FALSE OR manager_role = 'account_administrator'; ck_ui_group_s3_accounts_manager_role: manager_role IS NULL OR manager_role = 'account_administrator'; ck_ui_group_s3_accounts_portal_role: portal_role IS NULL OR portal_role IN ('portal_user', 'portal_manager')\\nIndexes: ix_ui_group_s3_accounts_account_group(account_id, group_id) [index]; ix_ui_group_s3_accounts_id(id) [index]"
     "id": "INTEGER [PK, NN]"
     "group_id": "INTEGER [FK, NN]"
     "account_id": "INTEGER [FK, NN]"
@@ -197,14 +249,15 @@ Legend: {
   }
   "ui_group_s3_users": {
     class: table
-    tooltip: "PK: id\nUnique: uq_ui_group_s3_user(group_id, s3_user_id)\nIndexes: ix_ui_group_s3_users_id(id) [index]; ix_ui_group_s3_users_s3_user_group(s3_user_id, group_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_ui_group_s3_user(group_id, s3_user_id)\\nIndexes: ix_ui_group_s3_users_id(id) [index]; ix_ui_group_s3_users_s3_user_group(s3_user_id, group_id) [index]"
     "id": "INTEGER [PK, NN]"
     "group_id": "INTEGER [FK, NN]"
     "s3_user_id": "INTEGER [FK, NN]"
+    "allow_manager_browser_data_access": "BOOLEAN [NN]"
   }
   "ui_group_s3_connections": {
     class: table
-    tooltip: "PK: id\nUnique: uq_ui_group_s3_connection(group_id, s3_connection_id)\nIndexes: ix_ui_group_s3_connections_connection_group(s3_connection_id, group_id) [index]; ix_ui_group_s3_connections_id(id) [index]"
+    tooltip: "PK: id\\nUnique: uq_ui_group_s3_connection(group_id, s3_connection_id)\\nIndexes: ix_ui_group_s3_connections_connection_group(s3_connection_id, group_id) [index]; ix_ui_group_s3_connections_id(id) [index]"
     "id": "INTEGER [PK, NN]"
     "group_id": "INTEGER [FK, NN]"
     "s3_connection_id": "INTEGER [FK, NN]"
@@ -216,143 +269,37 @@ Legend: {
 "External references": {
   style.fill: "#fff7ed"
   style.stroke: "#fdba74"
-  "audit_logs": {
+  "users": {
     class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/operations-audit.d2"
-  }
-  "billing_assignments": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "billing_rate_cards": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "billing_storage_daily": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "billing_usage_daily": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "endpoint_health_checks": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "endpoint_health_latest": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "endpoint_health_rollups": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "endpoint_health_status_segments": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "portal_public_links": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/portal.d2"
-  }
-  "portal_storage_space_metadata": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/portal.d2"
-  }
-  "quota_alert_states": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "quota_usage_daily": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "quota_usage_hourly": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/observability-quota-billing.d2"
-  }
-  "s3_account_tags": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/tags-classification.d2"
-  }
-  "s3_connection_tags": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/tags-classification.d2"
-  }
-  "s3_user_tags": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/tags-classification.d2"
-  }
-  "storage_endpoint_tags": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/tags-classification.d2"
+    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/identity-ui-access.d2"
   }
   "ui_groups": {
     class: external
     tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/identity-ui-access.d2"
   }
-  "user_notifications": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/operations-audit.d2"
-  }
-  "users": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/identity-ui-access.d2"
-  }
 }
 
-"billing_rate_cards" -> "storage_endpoints"."id"
-"endpoint_health_checks" -> "storage_endpoints"."id"
-"endpoint_health_latest" -> "storage_endpoints"."id"
-"endpoint_health_rollups" -> "storage_endpoints"."id"
-"endpoint_health_status_segments" -> "storage_endpoints"."id"
 "endpoint_service_identities"."endpoint_id" -> "storage_endpoints"."id": "ondelete=CASCADE"
+"key_rotation_intents"."endpoint_id" -> "storage_endpoints"."id": "ondelete=CASCADE"
+"manager_access_key_metadata"."account_id" -> "s3_accounts"."id": "ondelete=CASCADE"
+"manager_access_key_metadata"."s3_user_id" -> "s3_users"."id": "ondelete=CASCADE"
 "s3_accounts"."storage_endpoint_id" -> "storage_endpoints"."id"
-"s3_connections"."created_by_user_id" -> "users"
-"s3_connections"."storage_endpoint_id" -> "storage_endpoints"."id"
-"managed_private_accesses"."owner_user_id" -> "users"
-"managed_private_accesses"."s3_connection_id" -> "s3_connections"."id": "ondelete=SET NULL"
-"s3_users"."storage_endpoint_id" -> "storage_endpoints"."id"
-"account_iam_users"."account_id" -> "s3_accounts"."id"
-"account_iam_users"."user_id" -> "users"
-"audit_logs" -> "s3_accounts"."id"
-"billing_assignments" -> "s3_accounts"."id"
-"billing_assignments" -> "s3_users"."id"
-"billing_assignments" -> "storage_endpoints"."id"
-"billing_storage_daily" -> "s3_accounts"."id"
-"billing_storage_daily" -> "s3_users"."id"
-"billing_storage_daily" -> "storage_endpoints"."id"
-"billing_usage_daily" -> "s3_accounts"."id"
-"billing_usage_daily" -> "s3_users"."id"
-"billing_usage_daily" -> "storage_endpoints"."id"
-"portal_public_links" -> "s3_accounts"."id": "ondelete=CASCADE"
-"portal_storage_space_metadata" -> "s3_accounts"."id": "ondelete=CASCADE"
-"quota_alert_states" -> "s3_accounts"."id"
-"quota_alert_states" -> "s3_users"."id"
-"quota_alert_states" -> "storage_endpoints"."id"
-"quota_usage_daily" -> "s3_accounts"."id"
-"quota_usage_daily" -> "s3_users"."id"
-"quota_usage_daily" -> "storage_endpoints"."id"
-"quota_usage_hourly" -> "s3_accounts"."id"
-"quota_usage_hourly" -> "s3_users"."id"
-"quota_usage_hourly" -> "storage_endpoints"."id"
-"s3_account_tags" -> "s3_accounts"."id": "ondelete=CASCADE"
-"s3_connection_tags" -> "s3_connections"."id": "ondelete=CASCADE"
-"s3_user_tags" -> "s3_users"."id": "ondelete=CASCADE"
-"storage_endpoint_tags" -> "storage_endpoints"."id": "ondelete=CASCADE"
-"ui_group_s3_accounts"."account_id" -> "s3_accounts"."id"
-"ui_group_s3_accounts"."group_id" -> "ui_groups"
-"ui_group_s3_connections"."group_id" -> "ui_groups"
-"ui_group_s3_connections"."s3_connection_id" -> "s3_connections"."id"
-"ui_group_s3_users"."group_id" -> "ui_groups"
-"ui_group_s3_users"."s3_user_id" -> "s3_users"."id"
-"user_notifications" -> "s3_accounts"."id"
-"user_notifications" -> "s3_users"."id"
-"user_notifications" -> "storage_endpoints"."id"
+"user_s3_accounts"."user_id" -> "users"."id"
 "user_s3_accounts"."account_id" -> "s3_accounts"."id"
-"user_s3_accounts"."user_id" -> "users"
-"user_s3_connections"."s3_connection_id" -> "s3_connections"."id"
-"user_s3_connections"."user_id" -> "users"
+"account_iam_users"."user_id" -> "users"."id"
+"account_iam_users"."account_id" -> "s3_accounts"."id"
+"s3_users"."storage_endpoint_id" -> "storage_endpoints"."id"
+"user_s3_users"."user_id" -> "users"."id"
 "user_s3_users"."s3_user_id" -> "s3_users"."id"
-"user_s3_users"."user_id" -> "users"
+"s3_connections"."created_by_user_id" -> "users"."id"
+"s3_connections"."storage_endpoint_id" -> "storage_endpoints"."id"
+"user_s3_connections"."user_id" -> "users"."id"
+"user_s3_connections"."s3_connection_id" -> "s3_connections"."id"
+"managed_private_accesses"."owner_user_id" -> "users"."id"
+"managed_private_accesses"."s3_connection_id" -> "s3_connections"."id": "ondelete=SET NULL"
+"ui_group_s3_accounts"."group_id" -> "ui_groups"."id"
+"ui_group_s3_accounts"."account_id" -> "s3_accounts"."id"
+"ui_group_s3_users"."group_id" -> "ui_groups"."id"
+"ui_group_s3_users"."s3_user_id" -> "s3_users"."id"
+"ui_group_s3_connections"."group_id" -> "ui_groups"."id"
+"ui_group_s3_connections"."s3_connection_id" -> "s3_connections"."id"

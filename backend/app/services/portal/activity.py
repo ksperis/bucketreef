@@ -98,7 +98,8 @@ class PortalActivityMixin:
             self.db.query(AuditLog)
             .filter(
                 AuditLog.scope == "portal",
-                AuditLog.account_id == access.account.id,
+                AuditLog.context_kind == "portal_account",
+                AuditLog.context_id == str(access.account.id),
                 AuditLog.action.notin_(NON_PERSISTED_AUDIT_ACTIONS),
             )
             .order_by(AuditLog.id.desc())

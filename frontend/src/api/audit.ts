@@ -16,8 +16,6 @@ export type AuditLogEntry = {
   context_kind?: string | null;
   context_id?: string | null;
   context_name?: string | null;
-  account_id?: number | null;
-  account_name?: string | null;
   status: string;
   message?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -33,7 +31,6 @@ type AuditLogQuery = {
   cursor?: number | null;
   role?: string;
   scope?: string;
-  account_id?: number;
   context_kind?: string;
   context_id?: string;
   search?: string;

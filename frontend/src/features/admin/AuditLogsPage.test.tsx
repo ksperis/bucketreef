@@ -29,8 +29,6 @@ describe("AuditLogsPage", () => {
           status: "success",
           entity_type: "user",
           entity_id: "12",
-          account_name: null,
-          account_id: null,
           metadata: { changed: true },
         },
       ],

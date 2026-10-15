@@ -80,7 +80,7 @@ def stream_ceph_admin_bucket_purge(
             user_email=str(user.email),
             user_role=str(user.role),
             scope="ceph_admin",
-            account_name=ctx.endpoint.name,
+            execution_context=account,
         ),
         base_metadata=base_metadata,
     )

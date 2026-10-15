@@ -24,7 +24,7 @@ Legend: {
   style.stroke: "#cbd5e1"
   "audit_logs": {
     class: table
-    tooltip: "PK: id\nIndexes: ix_audit_logs_account_id_id(account_id, id) [index]; ix_audit_logs_created_at(created_at) [index]; ix_audit_logs_id(id) [index]; ix_audit_logs_request_id(request_id) [index]; ix_audit_logs_scope_id(scope, id) [index]; ix_audit_logs_user_id_id(user_id, id) [index]; ix_audit_logs_user_role_id(user_role, id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_audit_logs_context_kind_id_id(context_kind, context_id, id) [index]; ix_audit_logs_created_at(created_at) [index]; ix_audit_logs_id(id) [index]; ix_audit_logs_request_id(request_id) [index]; ix_audit_logs_scope_id(scope, id) [index]; ix_audit_logs_user_id_id(user_id, id) [index]; ix_audit_logs_user_role_id(user_role, id) [index]"
     "id": "INTEGER [PK, NN]"
     "created_at": "DATETIME [NN]"
     "user_id": "INTEGER [FK]"
@@ -34,8 +34,9 @@ Legend: {
     "action": "VARCHAR [NN]"
     "entity_type": "VARCHAR"
     "entity_id": "VARCHAR"
-    "account_id": "INTEGER [FK]"
-    "account_name": "VARCHAR"
+    "context_kind": "VARCHAR"
+    "context_id": "VARCHAR"
+    "context_name": "VARCHAR"
     "status": "VARCHAR [NN]"
     "message": "VARCHAR"
     "metadata_json": "TEXT"
@@ -45,7 +46,7 @@ Legend: {
   }
   "user_notifications": {
     class: table
-    tooltip: "PK: id\nUnique: uq_user_notifications_user_event(user_id, event_key)\nIndexes: ix_user_notifications_created_at(created_at) [index]; ix_user_notifications_id(id) [index]; ix_user_notifications_notification_type(notification_type) [index]; ix_user_notifications_s3_account_id(s3_account_id) [index]; ix_user_notifications_s3_user_id(s3_user_id) [index]; ix_user_notifications_storage_endpoint_id(storage_endpoint_id) [index]; ix_user_notifications_subject_account(s3_account_id, created_at) [index]; ix_user_notifications_subject_s3_user(s3_user_id, created_at) [index]; ix_user_notifications_user_created(user_id, created_at) [index]; ix_user_notifications_user_id(user_id) [index]; ix_user_notifications_user_read(user_id, read_at) [index]"
+    tooltip: "PK: id\\nUnique: uq_user_notifications_user_event(user_id, event_key)\\nIndexes: ix_user_notifications_created_at(created_at) [index]; ix_user_notifications_id(id) [index]; ix_user_notifications_notification_type(notification_type) [index]; ix_user_notifications_s3_account_id(s3_account_id) [index]; ix_user_notifications_s3_user_id(s3_user_id) [index]; ix_user_notifications_storage_endpoint_id(storage_endpoint_id) [index]; ix_user_notifications_subject_account(s3_account_id, created_at) [index]; ix_user_notifications_subject_s3_user(s3_user_id, created_at) [index]; ix_user_notifications_user_created(user_id, created_at) [index]; ix_user_notifications_user_id(user_id) [index]; ix_user_notifications_user_read(user_id, read_at) [index]"
     "id": "INTEGER [PK, NN]"
     "user_id": "INTEGER [FK, NN]"
     "notification_type": "VARCHAR [NN]"
@@ -63,7 +64,7 @@ Legend: {
   }
   "webhook_endpoints": {
     class: table
-    tooltip: "PK: id\nUnique: uq_webhook_endpoints_name(name)\nIndexes: ix_webhook_endpoints_enabled_id(enabled, id) [index]; ix_webhook_endpoints_id(id) [index]"
+    tooltip: "PK: id\\nUnique: uq_webhook_endpoints_name(name)\\nIndexes: ix_webhook_endpoints_enabled_id(enabled, id) [index]; ix_webhook_endpoints_id(id) [index]"
     "id": "INTEGER [PK, NN]"
     "name": "VARCHAR [NN]"
     "url": "TEXT [NN]"
@@ -74,14 +75,14 @@ Legend: {
   }
   "webhook_endpoint_subscriptions": {
     class: table
-    tooltip: "PK: id\nUnique: uq_webhook_endpoint_subscription(endpoint_id, event_type)\nIndexes: ix_webhook_endpoint_subscriptions_endpoint_id(endpoint_id) [index]; ix_webhook_endpoint_subscriptions_id(id) [index]; ix_webhook_subscriptions_event_endpoint(event_type, endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_webhook_endpoint_subscription(endpoint_id, event_type)\\nIndexes: ix_webhook_endpoint_subscriptions_endpoint_id(endpoint_id) [index]; ix_webhook_endpoint_subscriptions_id(id) [index]; ix_webhook_subscriptions_event_endpoint(event_type, endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "endpoint_id": "INTEGER [FK, NN]"
     "event_type": "VARCHAR [NN]"
   }
   "webhook_deliveries": {
     class: table
-    tooltip: "PK: id\nUnique: uq_webhook_deliveries_delivery_id(delivery_id)\nIndexes: ix_webhook_deliveries_created_at(created_at) [index]; ix_webhook_deliveries_due(status, next_attempt_at, id) [index]; ix_webhook_deliveries_endpoint_created(endpoint_id, created_at, id) [index]; ix_webhook_deliveries_endpoint_id(endpoint_id) [index]; ix_webhook_deliveries_event(event_id, endpoint_id) [index]; ix_webhook_deliveries_event_id(event_id) [index]; ix_webhook_deliveries_event_type(event_type) [index]; ix_webhook_deliveries_id(id) [index]; ix_webhook_deliveries_next_attempt_at(next_attempt_at) [index]; ix_webhook_deliveries_status(status) [index]"
+    tooltip: "PK: id\\nUnique: uq_webhook_deliveries_delivery_id(delivery_id)\\nIndexes: ix_webhook_deliveries_created_at(created_at) [index]; ix_webhook_deliveries_due(status, next_attempt_at, id) [index]; ix_webhook_deliveries_endpoint_created(endpoint_id, created_at, id) [index]; ix_webhook_deliveries_endpoint_id(endpoint_id) [index]; ix_webhook_deliveries_event(event_id, endpoint_id) [index]; ix_webhook_deliveries_event_id(event_id) [index]; ix_webhook_deliveries_event_type(event_type) [index]; ix_webhook_deliveries_id(id) [index]; ix_webhook_deliveries_next_attempt_at(next_attempt_at) [index]; ix_webhook_deliveries_status(status) [index]"
     "id": "INTEGER [PK, NN]"
     "delivery_id": "VARCHAR [NN]"
     "event_id": "VARCHAR [NN]"
@@ -100,7 +101,7 @@ Legend: {
   }
   "bucket_migrations": {
     class: table
-    tooltip: "PK: id\nIndexes: ix_bucket_migrations_created_at(created_at) [index]; ix_bucket_migrations_created_by_user_id(created_by_user_id) [index]; ix_bucket_migrations_id(id) [index]; ix_bucket_migrations_precheck_status(precheck_status) [index]; ix_bucket_migrations_source_context_id(source_context_id) [index]; ix_bucket_migrations_source_target(source_context_id, target_context_id) [index]; ix_bucket_migrations_status(status) [index]; ix_bucket_migrations_status_created(status, created_at) [index]; ix_bucket_migrations_target_context_id(target_context_id) [index]; ix_bucket_migrations_updated_at(updated_at) [index]; ix_bucket_migrations_worker_lease(worker_lease_until, status) [index]; ix_bucket_migrations_worker_lease_owner(worker_lease_owner) [index]; ix_bucket_migrations_worker_lease_until(worker_lease_until) [index]"
+    tooltip: "PK: id\\nIndexes: ix_bucket_migrations_created_at(created_at) [index]; ix_bucket_migrations_created_by_user_id(created_by_user_id) [index]; ix_bucket_migrations_id(id) [index]; ix_bucket_migrations_precheck_status(precheck_status) [index]; ix_bucket_migrations_preparation_status(preparation_status) [index]; ix_bucket_migrations_source_context_id(source_context_id) [index]; ix_bucket_migrations_source_target(source_context_id, target_context_id) [index]; ix_bucket_migrations_status(status) [index]; ix_bucket_migrations_status_created(status, created_at) [index]; ix_bucket_migrations_target_context_id(target_context_id) [index]; ix_bucket_migrations_updated_at(updated_at) [index]; ix_bucket_migrations_worker_lease(worker_lease_until, status) [index]; ix_bucket_migrations_worker_lease_owner(worker_lease_owner) [index]; ix_bucket_migrations_worker_lease_until(worker_lease_until) [index]"
     "id": "INTEGER [PK, NN]"
     "created_by_user_id": "INTEGER [FK]"
     "source_context_id": "VARCHAR [NN]"
@@ -121,6 +122,17 @@ Legend: {
     "precheck_status": "VARCHAR [NN]"
     "precheck_report_json": "TEXT"
     "precheck_checked_at": "DATETIME"
+    "workflow_version": "INTEGER [NN]"
+    "configuration_revision": "INTEGER [NN]"
+    "checked_revision": "INTEGER"
+    "preparation_status": "VARCHAR [NN]"
+    "preparation_active_checks": "BOOLEAN [NN]"
+    "preparation_completed_items": "INTEGER [NN]"
+    "preparation_requested_at": "DATETIME"
+    "maintenance_operation": "VARCHAR"
+    "maintenance_status": "VARCHAR [NN]"
+    "maintenance_error": "TEXT"
+    "maintenance_requested_by_user_id": "INTEGER [FK]"
     "parallelism_max": "INTEGER [NN]"
     "total_items": "INTEGER [NN]"
     "completed_items": "INTEGER [NN]"
@@ -136,7 +148,7 @@ Legend: {
   }
   "bucket_migration_items": {
     class: table
-    tooltip: "PK: id\nUnique: uq_bucket_migration_items_source(migration_id, source_bucket)\nIndexes: ix_bucket_migration_items_created_at(created_at) [index]; ix_bucket_migration_items_id(id) [index]; ix_bucket_migration_items_migration_id(migration_id) [index]; ix_bucket_migration_items_migration_status(migration_id, status) [index]; ix_bucket_migration_items_status(status) [index]; ix_bucket_migration_items_updated_at(updated_at) [index]"
+    tooltip: "PK: id\\nUnique: uq_bucket_migration_items_source(migration_id, source_bucket)\\nIndexes: ix_bucket_migration_items_created_at(created_at) [index]; ix_bucket_migration_items_id(id) [index]; ix_bucket_migration_items_migration_id(migration_id) [index]; ix_bucket_migration_items_migration_status(migration_id, status) [index]; ix_bucket_migration_items_status(status) [index]; ix_bucket_migration_items_updated_at(updated_at) [index]"
     "id": "INTEGER [PK, NN]"
     "migration_id": "INTEGER [FK, NN]"
     "source_bucket": "VARCHAR [NN]"
@@ -147,6 +159,12 @@ Legend: {
     "read_only_applied": "BOOLEAN [NN]"
     "target_lock_applied": "BOOLEAN [NN]"
     "target_bucket_exists": "BOOLEAN [NN]"
+    "target_created_by_migration": "BOOLEAN [NN]"
+    "preparation_effects_json": "TEXT"
+    "source_deleted": "BOOLEAN [NN]"
+    "cleanup_status": "VARCHAR [NN]"
+    "cleanup_error": "TEXT"
+    "cleanup_verification_json": "TEXT"
     "objects_copied": "INTEGER [NN]"
     "objects_deleted": "INTEGER [NN]"
     "source_count": "INTEGER"
@@ -170,7 +188,7 @@ Legend: {
   }
   "bucket_migration_events": {
     class: table
-    tooltip: "PK: id\nIndexes: ix_bucket_migration_events_created_at(created_at) [index]; ix_bucket_migration_events_id(id) [index]; ix_bucket_migration_events_item_created(item_id, created_at) [index]; ix_bucket_migration_events_item_id(item_id) [index]; ix_bucket_migration_events_migration_created(migration_id, created_at) [index]; ix_bucket_migration_events_migration_id(migration_id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_bucket_migration_events_created_at(created_at) [index]; ix_bucket_migration_events_id(id) [index]; ix_bucket_migration_events_item_created(item_id, created_at) [index]; ix_bucket_migration_events_item_id(item_id) [index]; ix_bucket_migration_events_migration_created(migration_id, created_at) [index]; ix_bucket_migration_events_migration_id(migration_id) [index]"
     "id": "INTEGER [PK, NN]"
     "migration_id": "INTEGER [FK, NN]"
     "item_id": "INTEGER [FK]"
@@ -181,7 +199,7 @@ Legend: {
   }
   "bucket_usage_stats_snapshots": {
     class: table
-    tooltip: "PK: id\nUnique: uq_bucket_usage_stats_scope_bucket(scope_kind, scope_id, bucket_name)\nIndexes: ix_bucket_usage_stats_calculated_at(calculated_at) [index]; ix_bucket_usage_stats_scope(scope_kind, scope_id) [index]; ix_bucket_usage_stats_snapshots_id(id) [index]"
+    tooltip: "PK: id\\nUnique: uq_bucket_usage_stats_scope_bucket(scope_kind, scope_id, bucket_name)\\nIndexes: ix_bucket_usage_stats_calculated_at(calculated_at) [index]; ix_bucket_usage_stats_scope(scope_kind, scope_id) [index]; ix_bucket_usage_stats_snapshots_id(id) [index]"
     "id": "INTEGER [PK, NN]"
     "scope_kind": "VARCHAR [NN]"
     "scope_id": "VARCHAR [NN]"
@@ -206,20 +224,34 @@ Legend: {
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
   }
+  "backend_operation_leases": {
+    class: table
+    tooltip: "PK: operation_name\\nIndexes: ix_backend_operation_leases_lease_until(lease_until) [index]"
+    "operation_name": "VARCHAR [PK, NN]"
+    "lease_owner": "VARCHAR [NN]"
+    "lease_until": "DATETIME [NN]"
+    "acquired_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+    "metadata_json": "TEXT"
+  }
+  "app_settings": {
+    class: table
+    tooltip: "PK: key"
+    "key": "VARCHAR [PK, NN]"
+    "payload_json": "TEXT [NN]"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
 }
 
 "External references": {
   style.fill: "#fff7ed"
   style.stroke: "#fdba74"
-  "s3_accounts": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
-  }
-  "s3_users": {
-    class: external
-    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
-  }
   "storage_endpoints": {
+    class: external
+    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
+  }
+  "s3_accounts": {
     class: external
     tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
   }
@@ -227,17 +259,21 @@ Legend: {
     class: external
     tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/identity-ui-access.d2"
   }
+  "s3_users": {
+    class: external
+    tooltip: "Full definition: doc/docs/developer/en/architecture/database-schema/storage-s3-execution.d2"
+  }
 }
 
-"bucket_migrations"."created_by_user_id" -> "users"
-"audit_logs"."account_id" -> "s3_accounts"
-"audit_logs"."user_id" -> "users"
-"bucket_migration_items"."migration_id" -> "bucket_migrations"."id"
-"user_notifications"."s3_account_id" -> "s3_accounts"
-"user_notifications"."s3_user_id" -> "s3_users"
-"user_notifications"."storage_endpoint_id" -> "storage_endpoints"
-"user_notifications"."user_id" -> "users": "ondelete=CASCADE"
+"audit_logs"."user_id" -> "users"."id"
+"user_notifications"."user_id" -> "users"."id": "ondelete=CASCADE"
+"user_notifications"."storage_endpoint_id" -> "storage_endpoints"."id"
+"user_notifications"."s3_account_id" -> "s3_accounts"."id"
+"user_notifications"."s3_user_id" -> "s3_users"."id"
 "webhook_endpoint_subscriptions"."endpoint_id" -> "webhook_endpoints"."id": "ondelete=CASCADE"
 "webhook_deliveries"."endpoint_id" -> "webhook_endpoints"."id": "ondelete=CASCADE"
-"bucket_migration_events"."item_id" -> "bucket_migration_items"."id"
+"bucket_migrations"."created_by_user_id" -> "users"."id"
+"bucket_migrations"."maintenance_requested_by_user_id" -> "users"."id"
+"bucket_migration_items"."migration_id" -> "bucket_migrations"."id"
 "bucket_migration_events"."migration_id" -> "bucket_migrations"."id"
+"bucket_migration_events"."item_id" -> "bucket_migration_items"."id"
