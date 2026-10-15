@@ -13,6 +13,7 @@ import UiButton, { UiButtonLink } from "./ui/UiButton";
 import "./compactDashboard.css";
 import UiMeterBar from "./ui/UiMeterBar";
 import { cx, uiCardClass, uiMutedTextClass } from "./ui/styles";
+import { useWorkspaceDashboardI18n } from "./workspaceDashboardMessages";
 
 export type WorkspaceDashboardFeature = {
   id: string;
@@ -112,11 +113,11 @@ export function buildWorkspaceStorageEvolutionPoints(
   }));
 }
 
-function workspaceStatusLabel(status: HealthCheckStatus): string {
-  if (status === "up") return "Up";
-  if (status === "degraded") return "Degraded";
-  if (status === "down") return "Down";
-  return "Unknown";
+function workspaceStatusLabel(status: HealthCheckStatus, text: ReturnType<typeof useWorkspaceDashboardI18n>["text"]): string {
+  if (status === "up") return text("up");
+  if (status === "degraded") return text("degraded");
+  if (status === "down") return text("down");
+  return text("unknown");
 }
 
 function workspaceStatusDotClass(status: HealthCheckStatus): string {
@@ -144,12 +145,13 @@ export function WorkspaceStatusDot({ status, className }: { status: HealthCheckS
 }
 
 export function WorkspaceStatusPill({ status, className, presentation }: { status: HealthCheckStatus; className?: string; presentation?: "compact" }) {
+  const { text } = useWorkspaceDashboardI18n();
   if (presentation === "compact") {
-    return <UiBadge tone={status === "up" ? "success" : status === "degraded" ? "warning" : status === "down" ? "danger" : "neutral"} className={cx("ui-dashboard-badge", className)}>{workspaceStatusLabel(status)}</UiBadge>;
+    return <UiBadge tone={status === "up" ? "success" : status === "degraded" ? "warning" : status === "down" ? "danger" : "neutral"} className={cx("ui-dashboard-badge", className)}>{workspaceStatusLabel(status, text)}</UiBadge>;
   }
   return (
     <span className={cx("rounded-md border px-2 py-0.5 font-semibold leading-4", workspaceStatusPillClass(status), className)}>
-      {workspaceStatusLabel(status)}
+      {workspaceStatusLabel(status, text)}
     </span>
   );
 }
@@ -279,11 +281,12 @@ export function WorkspaceDashboardProgressBar({
   className?: string;
   ariaLabel?: string;
 }) {
+  const { text } = useWorkspaceDashboardI18n();
   const boundedValue = Math.max(0, Math.min(100, value ?? 0));
   return (
     <UiMeterBar
       value={boundedValue}
-      label={ariaLabel ?? "Quota usage"}
+      label={ariaLabel ?? text("quotaUsage")}
       className={cx("h-2 bg-slate-200/70 dark:bg-slate-700/60", className)}
       barClassName={workspaceDashboardToneClasses(tone).bar}
     />
@@ -331,6 +334,7 @@ export function WorkspaceDashboardMetricTrendLine({ trend }: { trend: WorkspaceD
 }
 
 function WorkspaceDashboardMetricCard({ metric, presentation }: { metric: WorkspaceDashboardMetric; presentation?: "compact" }) {
+  const { text } = useWorkspaceDashboardI18n();
   const content = (
     <div
       className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-kpi" : "flex h-full min-h-[164px] items-center gap-3 overflow-hidden px-4 py-3.5 sm:gap-4 sm:px-5")}
@@ -369,7 +373,7 @@ function WorkspaceDashboardMetricCard({ metric, presentation }: { metric: Worksp
               value={metric.progress}
               tone={metric.tone}
               className="h-1.5 w-full max-w-[220px]"
-              ariaLabel={metric.progressLabel ?? `${metric.label} quota usage`}
+              ariaLabel={metric.progressLabel ?? text("metricQuotaUsage", { label: metric.label })}
             />
           ) : (
             <span className="h-1.5 w-full max-w-[220px]" aria-hidden="true" />
@@ -430,8 +434,8 @@ export function WorkspaceDashboardKpiRow({
 export function WorkspaceDashboardStorageEvolutionChart({
   points,
   gradientId,
-  emptyLabel = "No storage history yet.",
-  chartLabel = "Storage evolution chart",
+  emptyLabel,
+  chartLabel,
   yLabelFormatter = formatBytes,
   xLabelFormatter = formatStorageEvolutionShortDate,
   presentation,
@@ -444,6 +448,7 @@ export function WorkspaceDashboardStorageEvolutionChart({
   xLabelFormatter?: (value: number) => string;
   presentation?: "compact";
 }) {
+  const { text } = useWorkspaceDashboardI18n();
   const fallbackId = useId();
   const chartColor = presentation === "compact" ? "var(--ui-primary)" : "rgb(37 99 235)";
   const fillId = gradientId ?? `workspace-storage-evolution-fill-${fallbackId.replace(/:/g, "")}`;
@@ -482,13 +487,13 @@ export function WorkspaceDashboardStorageEvolutionChart({
   if (!chart) {
     return (
       <div className="mt-4 flex h-[116px] items-center justify-center rounded-md border border-dashed border-[color:var(--ui-border-soft)] ui-caption text-[var(--ui-text-muted)]">
-        {emptyLabel}
+        {emptyLabel === undefined ? text("noStorageHistory") : emptyLabel}
       </div>
     );
   }
 
   return (
-    <div className="mt-4" aria-label={chartLabel}>
+    <div className="mt-4" aria-label={chartLabel === undefined ? text("storageEvolutionChart") : chartLabel}>
       <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-x-3">
         <div className="flex h-[92px] flex-col items-end justify-between py-1 pr-1 text-right text-[10px] font-medium leading-3 text-[var(--ui-text-muted)]">
           {chart.yLabels.map((label, index) => (
@@ -640,9 +645,10 @@ function WorkspaceDashboardSparkline({
   values: number[];
   tone: WorkspacePlatformMetric["tone"];
 }) {
+  const { text } = useWorkspaceDashboardI18n();
   const points = normalizeSeries(values);
   const chart = (
-    <svg viewBox="0 0 96 34" className="h-[30px] w-full" role="img" aria-label="Trend line">
+    <svg viewBox="0 0 96 34" className="h-[30px] w-full" role="img" aria-label={text("trendLine")}>
       <polyline points={points} fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={metricToneClass(tone)} />
     </svg>
   );
@@ -663,14 +669,15 @@ export function WorkspaceDashboardLinkRow({ className, ...props }: ComponentProp
   return <Link {...props} className={cx("ui-dashboard-link-row", className)} />;
 }
 
-export function WorkspaceDashboardSummary({ items, loading, unavailableReason, title = "Administration" }: {
+export function WorkspaceDashboardSummary({ items, loading, unavailableReason, title }: {
   title?: string;
   items: WorkspaceDashboardSummaryItem[];
   loading: boolean;
   unavailableReason?: string | null;
 }) {
+  const { text } = useWorkspaceDashboardI18n();
   return (
-    <WorkspaceDashboardCard title={title} presentation="compact">
+    <WorkspaceDashboardCard title={title === undefined ? text("administration") : title} presentation="compact">
       {unavailableReason && <p role="status" className="ui-dashboard-note">{unavailableReason}</p>}
       <div className="ui-dashboard-summary">
         {items.map((item) => (
@@ -687,18 +694,19 @@ export function WorkspaceDashboardSummary({ items, loading, unavailableReason, t
 
 /** A compact feature group, placed inside an owning dashboard panel. */
 export function WorkspaceFeatureSummary({ group }: { group: WorkspaceDashboardFeatureGroup }) {
+  const { text } = useWorkspaceDashboardI18n();
   const enabledFeatures = group.features.filter((feature) => feature.enabled);
   return (
-    <section aria-label={`${group.title} summary`} className="ui-dashboard-feature-group">
+    <section aria-label={text("featureSummary", { title: group.title })} className="ui-dashboard-feature-group">
       <div className="ui-dashboard-feature-heading">
         <h3 className="ui-dashboard-label">{group.title}</h3>
-        <span className="ui-dashboard-note">{enabledFeatures.length} enabled</span>
+        <span className="ui-dashboard-note">{text("enabledCount", { count: enabledFeatures.length })}</span>
       </div>
       <div className="ui-dashboard-badges">
-        {enabledFeatures.length === 0 ? <span className="ui-dashboard-note">None enabled</span> : enabledFeatures.map((feature) => (
+        {enabledFeatures.length === 0 ? <span className="ui-dashboard-note">{text("noneEnabled")}</span> : enabledFeatures.map((feature) => (
           <UiBadge key={feature.id} tone="primary" className="ui-dashboard-badge">
             {feature.label}
-            {feature.massManagement && <span title="Mass management" className="ui-dashboard-note">MM</span>}
+            {feature.massManagement && <span title={text("massManagement")} className="ui-dashboard-note">{text("massManagementAbbreviation")}</span>}
           </UiBadge>
         ))}
       </div>

@@ -62,6 +62,9 @@ import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/
 import { useI18n } from "../../i18n";
 import { onboardingCopy } from "./onboardingCopy";
 import { useOnboardingStatus } from "./useOnboardingStatus";
+import { adminDashboardSourceText, useAdminDashboardI18n } from "./adminDashboardMessages";
+
+type AdminDashboardText = ReturnType<typeof useAdminDashboardI18n>["text"];
 
 const ADMIN_INCIDENT_HISTORY_MINUTES = 7 * 24 * 60;
 const MAX_ENDPOINT_ROWS = 8;
@@ -75,35 +78,35 @@ function parseBackendIsoDate(value?: string | null): Date | null {
   return parsed;
 }
 
-function formatRelativeTime(value?: string | null, now = Date.now()): string {
+function formatRelativeTime(value: string | null | undefined, text: AdminDashboardText, now = Date.now()): string {
   const parsed = parseBackendIsoDate(value);
-  if (!parsed) return "Date unavailable";
+  if (!parsed) return text("dateUnavailable");
   const diffMs = Math.max(0, now - parsed.getTime());
   const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return text("justNow");
+  if (minutes < 60) return text("minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return text("hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return text("daysAgo", { count: days });
 }
 
-function formatStaleThreshold(seconds?: number): string | null {
+function formatStaleThreshold(seconds: number | undefined, text: AdminDashboardText): string | null {
   if (!seconds || seconds <= 0) return null;
-  if (seconds % 3600 === 0) return `${seconds / 3600}h`;
-  if (seconds % 60 === 0) return `${seconds / 60}m`;
-  return `${seconds}s`;
+  if (seconds % 3600 === 0) return text("hours", { count: seconds / 3600 });
+  if (seconds % 60 === 0) return text("minutes", { count: seconds / 60 });
+  return text("seconds", { count: seconds });
 }
 
-function formatEndpointFreshnessWarning(data: WorkspaceEndpointHealthOverviewResponse): string | null {
+function formatEndpointFreshnessWarning(data: WorkspaceEndpointHealthOverviewResponse, text: AdminDashboardText): string | null {
   if (data.endpoint_count === 0) {
-    return "Endpoint Status is enabled, but no endpoint healthcheck data is available.";
+    return text("noHealthcheckData");
   }
   const staleCount = data.endpoints.filter((endpoint) => endpoint.is_stale === true).length;
   if (staleCount === 0) return null;
-  const threshold = formatStaleThreshold(data.stale_after_seconds);
-  const thresholdDetail = threshold ? ` after ${threshold}` : "";
-  return `${staleCount}/${data.endpoint_count} endpoint(s) have stale healthcheck data${thresholdDetail}. Stale endpoints are shown as Unknown until a fresh check is stored.`;
+  const threshold = formatStaleThreshold(data.stale_after_seconds, text);
+  const thresholdDetail = threshold ? text("staleAfter", { threshold }) : "";
+  return text("staleHealthcheckData", { count: staleCount, total: data.endpoint_count, threshold: thresholdDetail });
 }
 
 function formatLatency(value?: number | null): string {
@@ -127,12 +130,12 @@ function computeMeanAvailability(data: EndpointHealthOverviewResponse | null, sc
   return Math.round(totalAvailability / availabilityValues.length);
 }
 
-function formatAuditAction(log: AuditLogEntry): string {
+function formatAuditAction(log: AuditLogEntry, text: AdminDashboardText): string {
   const action = log.action.replace(/[._-]+/g, " ").trim();
-  if (log.action.includes("login")) return `User ${log.user_email} logged in`;
-  if (log.entity_type === "bucket" && log.entity_id) return `Bucket "${log.entity_id}" ${action}`;
-  if (log.entity_type === "endpoint" && log.entity_id) return `Endpoint ${log.entity_id} ${action}`;
-  if (log.entity_id) return `${log.entity_type ?? "Entity"} ${log.entity_id} ${action}`;
+  if (log.action.includes("login")) return text("userLoggedIn", { email: log.user_email });
+  if (log.entity_type === "bucket" && log.entity_id) return text("bucketAction", { id: log.entity_id, action });
+  if (log.entity_type === "endpoint" && log.entity_id) return text("endpointAction", { id: log.entity_id, action });
+  if (log.entity_id) return text("entityAction", { entity: log.entity_type ?? text("entity"), id: log.entity_id, action });
   return action.charAt(0).toUpperCase() + action.slice(1);
 }
 
@@ -181,28 +184,29 @@ function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarn
   unavailableReason?: string | null;
   freshnessWarning: string | null;
 }) {
+  const { text } = useAdminDashboardI18n();
   const endpoints = unavailableReason ? [] : data?.endpoints.slice(0, MAX_ENDPOINT_ROWS) ?? [];
   return (
     <div className="ui-dashboard-operational-grid">
       <WorkspaceDashboardCard
-        title="Endpoint Health"
+        title={text("endpointHealth")}
         presentation="compact"
-        action={<WorkspaceDashboardActionLink to="/admin/endpoint-status">Open Endpoint Status</WorkspaceDashboardActionLink>}
+        action={<WorkspaceDashboardActionLink to="/admin/endpoint-status">{text("openEndpointStatus")}</WorkspaceDashboardActionLink>}
       >
-        <p className="ui-dashboard-note">Stored healthcheck samples and latency.{data && <> Data refreshed {formatLocalDateTime(data.generated_at)}.</>}</p>
+        <p className="ui-dashboard-note">{text("healthSamples")}{data && <>{text("dataRefreshed", { timestamp: formatLocalDateTime(data.generated_at) })}</>}</p>
         {freshnessWarning && !unavailableReason && <div className="mt-2"><PageBanner tone="warning">{freshnessWarning}</PageBanner></div>}
-        {loading ? <p role="status" className="ui-dashboard-note mt-2">Loading endpoint health…</p> : unavailableReason ? <p role="status" className="ui-dashboard-note mt-2">{unavailableReason}</p> : (
+        {loading ? <p role="status" className="ui-dashboard-note mt-2">{text("loadingHealth")}</p> : unavailableReason ? <p role="status" className="ui-dashboard-note mt-2">{unavailableReason}</p> : (
           <>
             <div className="ui-dashboard-badges mt-2">
-              <WorkspaceStatusCounter presentation="compact" label="Up" value={data?.up_count} status="up" />
-              <WorkspaceStatusCounter presentation="compact" label="Degraded" value={data?.degraded_count} status="degraded" />
-              <WorkspaceStatusCounter presentation="compact" label="Down" value={data?.down_count} status="down" />
-              <WorkspaceStatusCounter presentation="compact" label="Unknown" value={data?.unknown_count} status="unknown" />
+              <WorkspaceStatusCounter presentation="compact" label={text("status_up")} value={data?.up_count} status="up" />
+              <WorkspaceStatusCounter presentation="compact" label={text("status_degraded")} value={data?.degraded_count} status="degraded" />
+              <WorkspaceStatusCounter presentation="compact" label={text("status_down")} value={data?.down_count} status="down" />
+              <WorkspaceStatusCounter presentation="compact" label={text("status_unknown")} value={data?.unknown_count} status="unknown" />
             </div>
-            <ul className="ui-dashboard-endpoint-list" aria-label="Endpoint health samples">
+            <ul className="ui-dashboard-endpoint-list" aria-label={text("endpointHealthSamples")}>
               {endpoints.map((endpoint) => <EndpointRow key={endpoint.endpoint_id} endpoint={endpoint} />)}
             </ul>
-            {(data?.endpoints.length ?? 0) > MAX_ENDPOINT_ROWS && <p className="ui-dashboard-note">+ {(data?.endpoints.length ?? 0) - MAX_ENDPOINT_ROWS} more endpoint(s)</p>}
+            {(data?.endpoints.length ?? 0) > MAX_ENDPOINT_ROWS && <p className="ui-dashboard-note">{text("moreEndpoints", { count: (data?.endpoints.length ?? 0) - MAX_ENDPOINT_ROWS })}</p>}
           </>
         )}
       </WorkspaceDashboardCard>
@@ -212,7 +216,7 @@ function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarn
         loading={loading}
         unavailableReason={unavailableReason}
         incidentHighlightMinutes={data?.incident_highlight_minutes}
-        action={{ to: "/admin/endpoint-status", label: "View all incidents" }}
+        action={{ to: "/admin/endpoint-status", label: text("allIncidents") }}
         showEmptyState
       />
     </div>
@@ -220,11 +224,12 @@ function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarn
 }
 
 function EndpointRow({ endpoint }: { endpoint: WorkspaceEndpointHealthEntry }) {
+  const { text } = useAdminDashboardI18n();
   const stale = endpoint.is_stale === true;
   const effectiveStatus = stale ? "unknown" : endpoint.status;
   const checkedAtLabel = endpoint.checked_at
-    ? `Checked ${formatRelativeTime(endpoint.checked_at)}${stale ? " · Stale" : ""}`
-    : "No healthcheck yet";
+    ? text("checked", { time: formatRelativeTime(endpoint.checked_at, text), stale: stale ? text("stale") : "" })
+    : text("noHealthcheck");
   return (
     <li className="ui-dashboard-endpoint-row">
       <span className="ui-dashboard-endpoint-name">
@@ -237,7 +242,7 @@ function EndpointRow({ endpoint }: { endpoint: WorkspaceEndpointHealthEntry }) {
       </span>
       <span className="ui-dashboard-endpoint-check" data-stale={stale} title={formatLocalDateTime(endpoint.checked_at)}>{checkedAtLabel}</span>
       <UiBadge tone={effectiveStatus === "up" ? "success" : effectiveStatus === "degraded" ? "warning" : effectiveStatus === "down" ? "danger" : "neutral"} className="ui-dashboard-badge ui-dashboard-endpoint-state">
-        {effectiveStatus === "up" ? "Up" : effectiveStatus === "degraded" ? "Degraded" : effectiveStatus === "down" ? "Down" : "Unknown"}
+        {text(effectiveStatus === "up" ? "status_up" : effectiveStatus === "degraded" ? "status_degraded" : effectiveStatus === "down" ? "status_down" : "status_unknown")}
       </UiBadge>
     </li>
   );
@@ -247,12 +252,12 @@ function coverageLabel(coverage?: AdminDashboardCoverage): string {
   return coverage ? `${coverage.complete_count}/${coverage.eligible_count}` : "—";
 }
 
-function coverageNote(coverage?: AdminDashboardCoverage): string | null {
+function coverageNote(coverage: AdminDashboardCoverage | undefined, text: AdminDashboardText): string | null {
   if (!coverage || coverage.eligible_count === 0) return null;
   if (coverage.complete_count === coverage.eligible_count) return null;
   const details = coverage.issues.map((issue) => `${issue.name}: ${issue.reason}`).join("; ");
-  const prefix = coverage.contributing_count > 0 ? "Partial data" : "Data unavailable";
-  return `${prefix} — ${coverage.complete_count}/${coverage.eligible_count} endpoints fully measured.${details ? ` ${details}` : ""}`;
+  const prefix = text(coverage.contributing_count > 0 ? "partialData" : "dataUnavailable");
+  return text("coverageNote", { prefix, complete: coverage.complete_count, total: coverage.eligible_count, details: details ? ` ${details}` : "" });
 }
 
 function StorageTrafficSummary({
@@ -280,77 +285,78 @@ function StorageTrafficSummary({
   availabilityCoverage: string;
   availabilityNote: string | null;
 }) {
+  const { text } = useAdminDashboardI18n();
   const storageTotals = storage?.storage_totals;
   const requestsSeries = trafficOpsSeries(traffic);
-  const storageReason = storageError || (!storageLoading && !storage ? "Storage metrics are not available." : storage?.coverage?.eligible_count === 0 ? "No managed Ceph endpoint has ready Supervision credentials and Metrics enabled." : undefined);
-  const trafficReason = trafficError || (!trafficLoading && !traffic ? "Usage logs are not available." : traffic?.coverage?.eligible_count === 0 ? "No managed Ceph endpoint has ready Supervision credentials and Usage enabled." : undefined);
+  const storageReason = storageError || (!storageLoading && !storage ? text("storageUnavailable") : storage?.coverage?.eligible_count === 0 ? text("noStorageEndpoint") : undefined);
+  const trafficReason = trafficError || (!trafficLoading && !traffic ? text("trafficUnavailable") : traffic?.coverage?.eligible_count === 0 ? text("noTrafficEndpoint") : undefined);
   const status = (label: string, loading: boolean, reason?: string | null, coverage?: AdminDashboardCoverage) => {
     if (loading) return null;
-    if (reason || (coverage && coverage.contributing_count === 0)) return `${label} unavailable`;
-    if (coverage && coverage.complete_count < coverage.eligible_count) return `${label} partial`;
+    if (reason || (coverage && coverage.contributing_count === 0)) return text("unavailableStatus", { label });
+    if (coverage && coverage.complete_count < coverage.eligible_count) return text("partialStatus", { label });
     return null;
   };
   const statuses = [
-    status("Storage", storageLoading, storageReason, storage?.coverage),
-    status("Traffic", trafficLoading, trafficReason, traffic?.coverage),
-    healthScoreLoading ? null : healthScoreUnavailableReason ? "Availability unavailable" : availabilityNote ? "Availability partial" : null,
+    status(text("storage"), storageLoading, storageReason, storage?.coverage),
+    status(text("traffic"), trafficLoading, trafficReason, traffic?.coverage),
+    healthScoreLoading ? null : healthScoreUnavailableReason ? text("availabilityUnavailable") : availabilityNote ? text("availabilityPartial") : null,
   ].filter((value): value is string => value !== null);
   const metrics: WorkspacePlatformMetric[] = [
     {
-      label: "Buckets",
+      label: text("buckets"),
       value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.bucket_count ?? null),
       tone: "blue",
     },
     {
-      label: "Objects",
+      label: text("objects"),
       value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.object_count ?? null),
       tone: "violet",
     },
     {
-      label: "Stored data",
+      label: text("storedData"),
       value: storageLoading ? "..." : formatOptionalBytes(storageReason ? null : storageTotals?.used_bytes ?? null),
       tone: "emerald",
     },
     {
-      label: "Requests (24h)",
+      label: text("requests"),
       value: trafficLoading ? "..." : formatOptionalCompactNumber(trafficReason ? null : traffic?.totals.ops ?? null),
-      delta: trafficReason ? undefined : traffic?.totals.success_rate != null ? `${formatPercentage(traffic.totals.success_rate * 100)} success` : undefined,
+      delta: trafficReason ? undefined : traffic?.totals.success_rate != null ? text("success", { percent: formatPercentage(traffic.totals.success_rate * 100) }) : undefined,
       series: !trafficReason && requestsSeries.length > 0 ? requestsSeries : undefined,
       tone: "blue",
     },
     {
-      label: "Availability (7 days)",
+      label: text("availabilityWeek"),
       value: healthScoreLoading ? "…" : healthScore == null || healthScoreUnavailableReason ? "—" : `${healthScore}%`,
       tone: "emerald",
     },
   ];
 
   return (
-    <WorkspaceDashboardCard aria-label="Storage & traffic" wrapHeading presentation="compact"
-      title="Storage & traffic"
-      titleAccessory={<WorkspaceDashboardInfo label="About storage and traffic metrics">
-          <p className="ui-dashboard-note">Aggregated across managed and supervised Ceph endpoints. Includes Accounts and S3 Users registered in BucketReef.</p>
-          <table className="ui-dashboard-info-table ui-data-table" aria-label="Metric coverage and dates">
-            <thead><tr><th scope="col">Measure</th><th scope="col">Endpoints</th><th scope="col">Data date</th></tr></thead>
+    <WorkspaceDashboardCard aria-label={text("storageTraffic")} wrapHeading presentation="compact"
+      title={text("storageTraffic")}
+      titleAccessory={<WorkspaceDashboardInfo label={text("aboutMetrics")}>
+          <p className="ui-dashboard-note">{text("aggregation")}</p>
+          <table className="ui-dashboard-info-table ui-data-table" aria-label={text("metricCoverage")}>
+            <thead><tr><th scope="col">{text("measure")}</th><th scope="col">{text("endpoints")}</th><th scope="col">{text("dataDate")}</th></tr></thead>
             <tbody>
-              <tr><td>Storage</td><td>{storageLoading ? "Loading…" : coverageLabel(storage?.coverage)}</td><td>{storage?.generated_at ? <time dateTime={storage.generated_at}>{formatLocalDateTime(storage.generated_at)}</time> : "—"}</td></tr>
-              <tr><td>Traffic</td><td>{trafficLoading ? "Loading…" : coverageLabel(traffic?.coverage)}</td><td>{traffic?.end ? <time dateTime={traffic.end}>{formatLocalDateTime(traffic.end)}</time> : "—"}</td></tr>
-              <tr><td>Availability</td><td>{availabilityCoverage}</td><td>7-day mean</td></tr>
+              <tr><td>{text("storage")}</td><td>{storageLoading ? text("loading") : coverageLabel(storage?.coverage)}</td><td>{storage?.generated_at ? <time dateTime={storage.generated_at}>{formatLocalDateTime(storage.generated_at)}</time> : "—"}</td></tr>
+              <tr><td>{text("traffic")}</td><td>{trafficLoading ? text("loading") : coverageLabel(traffic?.coverage)}</td><td>{traffic?.end ? <time dateTime={traffic.end}>{formatLocalDateTime(traffic.end)}</time> : "—"}</td></tr>
+              <tr><td>{text("availability")}</td><td>{availabilityCoverage}</td><td>{text("weekMean")}</td></tr>
             </tbody>
           </table>
-          {storageReason && <p className="ui-dashboard-note mt-2">Storage: {storageReason}</p>}
-          {trafficReason && <p className="ui-dashboard-note mt-2">Traffic: {trafficReason}</p>}
-          {!storageReason && coverageNote(storage?.coverage) && <p className="ui-dashboard-note mt-2">Storage: {coverageNote(storage?.coverage)}</p>}
-          {!trafficReason && coverageNote(traffic?.coverage) && <p className="ui-dashboard-note mt-2">Traffic: {coverageNote(traffic?.coverage)}</p>}
-          {healthScoreUnavailableReason && <p className="ui-dashboard-note mt-2">Availability: {healthScoreUnavailableReason}</p>}
-          {availabilityNote && <p className="ui-dashboard-note mt-2">Availability: {availabilityNote}</p>}
-          <p className="ui-dashboard-note mt-2">Coverage counts fully measured endpoints. Partial totals remain visible.</p>
-          <p className="ui-dashboard-note mt-2">Mean availability across endpoints with measurements.</p>
-          <p className="ui-dashboard-note mt-2">Storage and traffic are cached for up to 30 minutes. Refresh respects this expiry.</p>
+          {storageReason && <p className="ui-dashboard-note mt-2">{text("storageDetail", { reason: storageReason })}</p>}
+          {trafficReason && <p className="ui-dashboard-note mt-2">{text("trafficDetail", { reason: trafficReason })}</p>}
+          {!storageReason && coverageNote(storage?.coverage, text) && <p className="ui-dashboard-note mt-2">{text("storageDetail", { reason: coverageNote(storage?.coverage, text)! })}</p>}
+          {!trafficReason && coverageNote(traffic?.coverage, text) && <p className="ui-dashboard-note mt-2">{text("trafficDetail", { reason: coverageNote(traffic?.coverage, text)! })}</p>}
+          {healthScoreUnavailableReason && <p className="ui-dashboard-note mt-2">{text("availabilityDetail", { reason: healthScoreUnavailableReason })}</p>}
+          {availabilityNote && <p className="ui-dashboard-note mt-2">{text("availabilityDetail", { reason: availabilityNote })}</p>}
+          <p className="ui-dashboard-note mt-2">{text("coverageHelp")}</p>
+          <p className="ui-dashboard-note mt-2">{text("availabilityHelp")}</p>
+          <p className="ui-dashboard-note mt-2">{text("cacheHelp")}</p>
         </WorkspaceDashboardInfo>}
       action={statuses.length > 0 ? <span role="status" className="ui-dashboard-badges">{statuses.map(label => <UiBadge key={label} tone="warning" className="ui-dashboard-badge">{label}</UiBadge>)}</span> : undefined}
     >
-      <p className="ui-dashboard-note">Managed &amp; supervised Ceph</p>
+      <p className="ui-dashboard-note">{text("supervisedCeph")}</p>
       <div className="ui-dashboard-metrics mt-2">
         {metrics.map((metric) => <WorkspacePlatformMetricCard key={metric.label} metric={metric} />)}
       </div>
@@ -363,26 +369,28 @@ function RecentActivityCard({ logs, loading, unavailableReason }: {
   loading: boolean;
   unavailableReason?: string | null;
 }) {
+  const { text } = useAdminDashboardI18n();
   return (
-    <WorkspaceDashboardCard title="Recent activity" presentation="compact">
-      {loading ? <p role="status" className="ui-dashboard-note">Loading activity…</p> : unavailableReason ? <p role="status" className="ui-dashboard-note">{unavailableReason}</p> : logs.length === 0 ? <p className="ui-dashboard-note">No recent audit activity.</p> : (
+    <WorkspaceDashboardCard title={text("recentActivity")} presentation="compact">
+      {loading ? <p role="status" className="ui-dashboard-note">{text("loadingActivity")}</p> : unavailableReason ? <p role="status" className="ui-dashboard-note">{unavailableReason}</p> : logs.length === 0 ? <p className="ui-dashboard-note">{text("noActivity")}</p> : (
         <ul className="ui-dashboard-activity">
           {logs.slice(0, 5).map((log) => (
             <li key={log.id}>
-              <span className="ui-dashboard-note ui-dashboard-activity-text">{formatAuditAction(log)}</span>
-              <span className="ui-dashboard-note" title={formatLocalDateTime(log.created_at)}>{formatRelativeTime(log.created_at)}</span>
+              <span className="ui-dashboard-note ui-dashboard-activity-text">{formatAuditAction(log, text)}</span>
+              <span className="ui-dashboard-note" title={formatLocalDateTime(log.created_at)}>{formatRelativeTime(log.created_at, text)}</span>
             </li>
           ))}
         </ul>
       )}
       <div className="ui-dashboard-panel-footer">
-        <WorkspaceDashboardActionLink to="/admin/audit">View audit logs<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>
+        <WorkspaceDashboardActionLink to="/admin/audit">{text("auditLogs")}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>
       </div>
     </WorkspaceDashboardCard>
   );
 }
 
 export default function AdminDashboard() {
+  const { text, translateText } = useAdminDashboardI18n();
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -431,7 +439,7 @@ export default function AdminDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setSummary(null);
-        setSummaryError(extractApiError(err, "Unable to load admin overview."));
+        setSummaryError(extractApiError(err, adminDashboardSourceText("loadOverviewError")));
       })
       .finally(() => {
         if (!cancelled) setSummaryLoading(false);
@@ -448,7 +456,7 @@ export default function AdminDashboard() {
     setDashboardScope(null);
     fetchAdminDashboardScope()
       .then((data) => { if (!cancelled) setDashboardScope(data); })
-      .catch((err) => { if (!cancelled) setScopeError(extractApiError(err, "Unable to load supervised endpoint scope.")); })
+      .catch((err) => { if (!cancelled) setScopeError(extractApiError(err, adminDashboardSourceText("loadScopeError"))); })
       .finally(() => { if (!cancelled) setScopeLoading(false); });
     return () => { cancelled = true; };
   }, [refreshNonce]);
@@ -466,7 +474,7 @@ export default function AdminDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setStorage(null);
-        setStorageError(extractApiError(err, "Storage metrics are not available."));
+        setStorageError(extractApiError(err, adminDashboardSourceText("storageUnavailable")));
       })
       .finally(() => {
         if (!cancelled) setStorageLoading(false);
@@ -489,7 +497,7 @@ export default function AdminDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setTraffic(null);
-        setTrafficError(extractApiError(err, "Usage logs are not available."));
+        setTrafficError(extractApiError(err, adminDashboardSourceText("trafficUnavailable")));
       })
       .finally(() => {
         if (!cancelled) setTrafficLoading(false);
@@ -512,7 +520,7 @@ export default function AdminDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setAuditLogs([]);
-        setAuditError(extractApiError(err, "Audit activity is not available."));
+        setAuditError(extractApiError(err, adminDashboardSourceText("loadActivityError")));
       })
       .finally(() => {
         if (!cancelled) setAuditLoading(false);
@@ -544,7 +552,7 @@ export default function AdminDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setWorkspaceHealth(null);
-        setWorkspaceHealthError(extractApiError(err, "Unable to load workspace endpoint health."));
+        setWorkspaceHealthError(extractApiError(err, adminDashboardSourceText("loadHealthError")));
       })
       .finally(() => {
         if (!cancelled) {
@@ -557,8 +565,8 @@ export default function AdminDashboard() {
   }, [generalSettings.endpoint_status_enabled, refreshNonce]);
 
   const endpointFreshnessWarning = useMemo(
-    () => (workspaceHealth ? formatEndpointFreshnessWarning(workspaceHealth) : null),
-    [workspaceHealth],
+    () => (workspaceHealth ? formatEndpointFreshnessWarning(workspaceHealth, text) : null),
+    [workspaceHealth, text],
   );
 
   useEffect(() => {
@@ -579,7 +587,7 @@ export default function AdminDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setMapEndpoints([]);
-        setMapEndpointsError(extractApiError(err, "Unable to load endpoint map coordinates."));
+        setMapEndpointsError(extractApiError(err, adminDashboardSourceText("loadMapError")));
       })
       .finally(() => {
         if (!cancelled) {
@@ -605,7 +613,7 @@ export default function AdminDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setHealthOverview(null);
-        setHealthOverviewError(extractApiError(err, "7-day endpoint health history is not available."));
+        setHealthOverviewError(extractApiError(err, adminDashboardSourceText("healthHistoryUnavailable")));
       })
       .finally(() => {
         if (!cancelled) {
@@ -625,7 +633,7 @@ export default function AdminDashboard() {
       const data = await dismissOnboarding();
       setOnboarding(data);
     } catch (err) {
-      setOnboardingActionError(extractApiError(err, "Unable to hide setup yet."));
+      setOnboardingActionError(extractApiError(err, adminDashboardSourceText("hideSetupError")));
     } finally {
       setDismissBusy(false);
     }
@@ -633,11 +641,11 @@ export default function AdminDashboard() {
 
   const coreFeatures = useMemo<WorkspaceDashboardFeature[]>(
     () => [
-      { id: "manager", label: "Manager", enabled: generalSettings.manager_enabled },
-      { id: "browser", label: "Browser", enabled: generalSettings.browser_enabled },
-      { id: "portal", label: "Portal", enabled: generalSettings.portal_enabled },
-      { id: "ceph_admin", label: "Ceph Admin", enabled: generalSettings.ceph_admin_enabled, massManagement: true },
-      { id: "storage_ops", label: "Storage Ops", enabled: generalSettings.storage_ops_enabled, massManagement: true },
+      { id: "manager", label: text("manager"), enabled: generalSettings.manager_enabled },
+      { id: "browser", label: text("browser"), enabled: generalSettings.browser_enabled },
+      { id: "portal", label: text("portal"), enabled: generalSettings.portal_enabled },
+      { id: "ceph_admin", label: text("cephAdmin"), enabled: generalSettings.ceph_admin_enabled, massManagement: true },
+      { id: "storage_ops", label: text("storageOps"), enabled: generalSettings.storage_ops_enabled, massManagement: true },
     ],
     [
       generalSettings.browser_enabled,
@@ -645,30 +653,32 @@ export default function AdminDashboard() {
       generalSettings.manager_enabled,
       generalSettings.portal_enabled,
       generalSettings.storage_ops_enabled,
+      text,
     ]
   );
 
   const extraFeatures = useMemo<WorkspaceDashboardFeature[]>(
     () => [
-      { id: "billing", label: "Billing", enabled: generalSettings.billing_enabled },
-      { id: "endpoint_status", label: "Endpoint Status", enabled: generalSettings.endpoint_status_enabled },
-      { id: "quota_alerts", label: "Quota alerts", enabled: generalSettings.quota_alerts_enabled },
-      { id: "usage_history", label: "Usage history", enabled: generalSettings.usage_history_enabled },
+      { id: "billing", label: text("billing"), enabled: generalSettings.billing_enabled },
+      { id: "endpoint_status", label: text("endpointStatus"), enabled: generalSettings.endpoint_status_enabled },
+      { id: "quota_alerts", label: text("quotaAlerts"), enabled: generalSettings.quota_alerts_enabled },
+      { id: "usage_history", label: text("usageHistory"), enabled: generalSettings.usage_history_enabled },
     ],
     [
       generalSettings.billing_enabled,
       generalSettings.endpoint_status_enabled,
       generalSettings.quota_alerts_enabled,
       generalSettings.usage_history_enabled,
+      text,
     ]
   );
 
   const featureGroups = useMemo<WorkspaceDashboardFeatureGroup[]>(
     () => [
-      { title: "Core features", features: coreFeatures },
-      { title: "Extra features", features: extraFeatures },
+      { title: text("coreFeatures"), features: coreFeatures },
+      { title: text("extraFeatures"), features: extraFeatures },
     ],
-    [coreFeatures, extraFeatures]
+    [coreFeatures, extraFeatures, text]
   );
 
   const administrationItems = useMemo<WorkspaceDashboardSummaryItem[]>(() => {
@@ -676,48 +686,48 @@ export default function AdminDashboard() {
     return [
       {
         id: "ui-users",
-        label: "UI Users",
+        label: text("uiUsers"),
         value: totalUiUsers,
-        hint: `Admins: ${summary?.total_admins ?? 0}  Users: ${summary?.total_users ?? 0}`,
+        hint: text("userCounts", { admins: summary?.total_admins ?? 0, users: summary?.total_users ?? 0 }),
         to: "/admin/users",
       },
       {
         id: "active-sessions",
-        label: "Active Sessions",
+        label: text("activeSessions"),
         value: summary?.total_active_sessions ?? 0,
-        hint: `UI: ${summary?.active_sessions_by_type?.ui ?? 0} · S3: ${summary?.active_sessions_by_type?.s3 ?? 0}`,
+        hint: text("sessionCounts", { ui: summary?.active_sessions_by_type?.ui ?? 0, s3: summary?.active_sessions_by_type?.s3 ?? 0 }),
         to: "/admin/identity-security",
       },
       {
         id: "accounts-primary",
-        label: "Accounts",
+        label: text("accounts"),
         value: summary?.total_accounts ?? 0,
-        hint: `Assigned: ${summary?.assigned_accounts ?? 0}`,
+        hint: text("assigned", { count: summary?.assigned_accounts ?? 0 }),
         to: "/admin/s3-accounts",
       },
       {
         id: "s3-users",
-        label: "S3 Users",
+        label: text("s3Users"),
         value: summary?.total_s3_users ?? 0,
-        hint: `Assigned: ${summary?.assigned_s3_users ?? 0}`,
+        hint: text("assigned", { count: summary?.assigned_s3_users ?? 0 }),
         to: "/admin/s3-users",
       },
       {
         id: "shared-s3-connections",
-        label: "Shared S3 Connections",
+        label: text("sharedConnections"),
         value: summary?.total_shared_connections ?? 0,
-        hint: "Admin-managed",
+        hint: text("adminManaged"),
         to: "/admin/s3-connections",
       },
       {
         id: "endpoints",
-        label: "Endpoints",
+        label: text("endpoints"),
         value: summary?.total_endpoints ?? 0,
-        hint: `Ceph: ${summary?.total_ceph_endpoints ?? 0}  Other: ${summary?.total_other_endpoints ?? 0}`,
+        hint: text("endpointCounts", { ceph: summary?.total_ceph_endpoints ?? 0, other: summary?.total_other_endpoints ?? 0 }),
         to: "/admin/storage-endpoints",
       },
     ];
-  }, [summary]);
+  }, [summary, text]);
 
   const mapMarkers = useMemo<AdminDashboardMapMarker[]>(() => {
     const statusByEndpointId = new Map<number, HealthCheckStatus>();
@@ -734,26 +744,26 @@ export default function AdminDashboard() {
   }, [mapEndpoints, workspaceHealth]);
 
   const endpointUnavailableReason = !generalSettings.endpoint_status_enabled
-    ? "Endpoint Status feature is disabled."
+    ? text("endpointStatusDisabled")
     : workspaceHealthError
-      ? workspaceHealthError
+      ? translateText(workspaceHealthError)
       : !workspaceHealthLoading && workspaceHealth && workspaceHealth.endpoint_count === 0
-        ? "Endpoint Status has no endpoint data yet."
+        ? text("noEndpointData")
         : null;
   const healthScore = computeMeanAvailability(healthOverview, dashboardScope);
   const measuredIds = new Set(healthOverview?.endpoints.filter((endpoint) => endpoint.availability_pct != null && Number.isFinite(endpoint.availability_pct)).map((endpoint) => endpoint.endpoint_id));
   const missingHealth = dashboardScope?.endpoints.filter((endpoint) => !measuredIds.has(endpoint.endpoint_id)) ?? [];
   const availabilityLoading = scopeLoading || healthOverviewLoading;
-  const availabilityCoverage = availabilityLoading ? "Loading…" : dashboardScope && generalSettings.endpoint_status_enabled && !healthOverviewError
+  const availabilityCoverage = availabilityLoading ? text("loading") : dashboardScope && generalSettings.endpoint_status_enabled && !healthOverviewError
     ? `${dashboardScope.endpoints.length - missingHealth.length}/${dashboardScope.endpoints.length}` : "—";
   const availabilityNote = !availabilityLoading && generalSettings.endpoint_status_enabled && !healthOverviewError && missingHealth.length > 0
-    ? `7-day measurements unavailable: ${missingHealth.map((endpoint) => endpoint.name).join(", ")}.` : null;
+    ? text("missingWeekMeasurements", { endpoints: missingHealth.map((endpoint) => endpoint.name).join(", ") }) : null;
   const healthScoreUnavailableReason =
-    (!generalSettings.endpoint_status_enabled ? "Endpoint Status feature is disabled." : null) ||
-    scopeError ||
-    healthOverviewError ||
-    (dashboardScope?.endpoints.length === 0 ? "No managed and supervised Ceph endpoint has Metrics or Usage enabled." : null) ||
-    (healthScore == null && !healthOverviewLoading ? "7-day endpoint health history is not available." : null);
+    (!generalSettings.endpoint_status_enabled ? text("endpointStatusDisabled") : null) ||
+    (scopeError ? translateText(scopeError) : null) ||
+    (healthOverviewError ? translateText(healthOverviewError) : null) ||
+    (dashboardScope?.endpoints.length === 0 ? text("noSupervisedEndpoint") : null) ||
+    (healthScore == null && !healthOverviewLoading ? text("healthHistoryUnavailable") : null);
   const refreshing =
     summaryLoading ||
     scopeLoading ||
@@ -767,19 +777,19 @@ export default function AdminDashboard() {
   return (
     <div className="ui-dashboard-compact" data-testid="admin-dashboard">
       <PageHeader
-        title="Admin overview"
-        description="Monitor the health and status of your S3 infrastructure."
-        breadcrumbs={adminPageBreadcrumbs("dashboard")}
+        title={text("title")}
+        description={text("description")}
+        breadcrumbs={adminPageBreadcrumbs("dashboard").map((breadcrumb) => ({ ...breadcrumb, label: text(breadcrumb.to === "/admin" ? "admin" : "dashboard") }))}
         rightContent={
           <div className="flex items-center gap-3">
-            <span title="Last dashboard retrieval; metrics and healthcheck samples retain their own timestamps." className={cx("hidden ui-caption sm:inline", uiMutedTextClass)}>
-              Updated {lastUpdated ? formatLocalDateTime(lastUpdated) : "-"}
+            <span title={text("lastRetrievalHelp")} className={cx("hidden ui-caption sm:inline", uiMutedTextClass)}>
+              {text("updated", { timestamp: lastUpdated ? formatLocalDateTime(lastUpdated) : "-" })}
             </span>
             <WorkspaceDashboardAction
               type="button"
               onClick={() => setRefreshNonce((current) => current + 1)}
-              aria-label="Refresh admin dashboard"
-              title="Refresh dashboard; storage and traffic respect the cache for up to 30 minutes."
+              aria-label={text("refresh")}
+              title={text("refreshHelp")}
               variant="secondary"
               className="ui-dashboard-action-icon"
               disabled={refreshing}
@@ -793,7 +803,7 @@ export default function AdminDashboard() {
       {onboarding && !onboarding.dismissed && !onboarding.complete && (
         <OnboardingPanel
           onboarding={onboarding}
-          error={onboardingActionError || onboardingStatusError}
+          error={onboardingActionError || onboardingStatusError ? translateText((onboardingActionError || onboardingStatusError)!) : null}
           dismissBusy={dismissBusy}
           onDismiss={handleDismissOnboarding}
         />
@@ -808,22 +818,22 @@ export default function AdminDashboard() {
       <StorageTrafficSummary
         storage={storage}
         storageLoading={storageLoading}
-        storageError={storageError}
+        storageError={storageError ? translateText(storageError) : null}
         traffic={traffic}
         trafficLoading={trafficLoading}
-        trafficError={trafficError}
+        trafficError={trafficError ? translateText(trafficError) : null}
         healthScore={healthScore}
         healthScoreLoading={availabilityLoading}
         healthScoreUnavailableReason={healthScoreUnavailableReason}
         availabilityCoverage={availabilityCoverage}
         availabilityNote={availabilityNote}
       />
-      <WorkspaceDashboardSummary items={administrationItems} loading={summaryLoading} unavailableReason={summaryError} />
+      <WorkspaceDashboardSummary items={administrationItems} loading={summaryLoading} unavailableReason={summaryError ? translateText(summaryError) : null} title={text("administration")} />
       <div className="ui-dashboard-secondary-grid">
-        <RecentActivityCard logs={auditLogs} loading={auditLoading} unavailableReason={auditError} />
-        {generalSettings.endpoint_status_enabled && <AdminDashboardMap markers={mapMarkers} loading={mapEndpointsLoading} error={mapEndpointsError} />}
+        <RecentActivityCard logs={auditLogs} loading={auditLoading} unavailableReason={auditError ? translateText(auditError) : null} />
+        {generalSettings.endpoint_status_enabled && <AdminDashboardMap markers={mapMarkers} loading={mapEndpointsLoading} error={mapEndpointsError ? translateText(mapEndpointsError) : null} />}
       </div>
-      <WorkspaceDashboardCard title="Enabled features" presentation="compact">
+      <WorkspaceDashboardCard title={text("enabledFeatures")} presentation="compact">
         <div className="ui-dashboard-features">
           {featureGroups.map((group) => <WorkspaceFeatureSummary key={group.title} group={group} />)}
         </div>
