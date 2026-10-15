@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.webhook import (
     WebhookDeliveryOut,
@@ -22,6 +21,7 @@ from app.services.audit_service import AuditService
 from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.webhook_catalog import get_webhook_event_definitions
 from app.services.webhook_service import WebhookService, webhook_target_hostname
+from app.utils.http_errors import http_exception_from_exception
 
 router = APIRouter(prefix="/admin/settings/webhooks", tags=["admin-webhooks"])
 
@@ -31,17 +31,11 @@ def _service(db: Session) -> WebhookService:
 
 
 def _not_found(exc: LookupError) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=sanitize_error_detail(str(exc)),
-    )
+    return http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
 
 
 def _bad_request(exc: ValueError) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail=sanitize_error_detail(str(exc)),
-    )
+    return http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @router.get("", response_model=list[WebhookEndpointOut])
