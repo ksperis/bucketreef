@@ -594,58 +594,6 @@ class BucketMigrationItemRunnerMixin:
             return "pre_sync"
         return "apply_read_only"
 
-    def _precheck_target_lock_roundtrip(self, target_ctx: _ResolvedContext, target_bucket: str) -> None:
-        try:
-            existing_policy = self._configuration.get_policy(target_bucket, target_ctx.account)
-        except RuntimeError as exc:
-            if self._is_access_denied_error(exc):
-                raise RuntimeError(
-                    "Unable to read destination bucket policy during precheck. "
-                    f"Required permissions on '{target_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
-                ) from exc
-            raise
-
-        lock_policy_doc = self._build_target_write_lock_policy(
-            target_bucket,
-            existing_policy if isinstance(existing_policy, dict) else None,
-        )
-        try:
-            self._configuration.put_policy(target_bucket, target_ctx.account, lock_policy_doc)
-        except RuntimeError as exc:
-            if self._is_access_denied_error(exc):
-                raise RuntimeError(
-                    "Unable to apply destination write-lock policy during precheck. "
-                    f"Required permissions on '{target_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
-                ) from exc
-            raise
-
-        lock_test_error: Optional[Exception] = None
-        try:
-            self._validate_target_lock_worker_access(target_ctx, target_bucket)
-        except Exception as exc:  # noqa: BLE001
-            lock_test_error = exc
-
-        restore_error: Optional[Exception] = None
-        try:
-            restored = self._without_managed_target_write_lock_statement(existing_policy)
-            if isinstance(restored, dict):
-                self._configuration.put_policy(target_bucket, target_ctx.account, restored)
-            else:
-                self._configuration.delete_policy(target_bucket, target_ctx.account)
-        except Exception as exc:  # noqa: BLE001
-            restore_error = exc
-
-        if lock_test_error is not None:
-            raise RuntimeError(
-                "Destination write-lock policy denied migration write/delete operations. "
-                "Use a dedicated migration context or disable destination lock. "
-                f"Underlying error: {lock_test_error}"
-            ) from lock_test_error
-        if restore_error is not None:
-            raise RuntimeError(
-                f"Unable to restore destination bucket policy after write-lock precheck on '{target_bucket}': {restore_error}"
-            ) from restore_error
-
     def _is_bucket_already_exists_error(self, exc: Exception) -> bool:
         text = str(exc).strip().lower()
         return any(
