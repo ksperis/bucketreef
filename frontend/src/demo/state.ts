@@ -133,7 +133,7 @@ export function createSeed(): DemoState {
   }));
   const names = ["Helios Retail", "Northwind Research", "BlueHarbor Media", "Alpine Analytics", "Orion Operations"];
   const accounts: S3Account[] = names.map((name, i) => ({
-    id: 101 + i, name, rgw_account_id: `RGW${58084876167649330n + BigInt(i)}`, email: `team-${i}@example.com`,
+    id: 101 + i, name, rgw_account_id: `RGW${58084876167649330n + BigInt(i)}`, rgw_tenant: "", email: `team-${i}@example.com`,
     tags: [], user_links: [], group_links: [], quota_max_size_gb: 500, quota_max_objects: 500000,
     storage_endpoint_id: endpoints[i % 2].id, storage_endpoint_name: endpoints[i % 2].name,
     storage_endpoint_url: endpoints[i % 2].endpoint_url, storage_endpoint_is_default: i % 2 === 0,

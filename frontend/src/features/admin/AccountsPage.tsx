@@ -379,7 +379,7 @@ export default function S3AccountsPage() {
       id: "tenant",
       label: "Ceph tenant",
       cellClassName: "min-w-[125px]",
-      render: (account) => account.rgw_tenant == null ? "Unverified" : (account.rgw_tenant || "Default"),
+      render: (account) => account.rgw_tenant || "Default",
     },
     {
       id: "endpoint",

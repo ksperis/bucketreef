@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 from app.db import PortalStorageSpaceMetadata, S3Account
-from app.services.rgw_principal_scope import resolve_principal_tenant
+from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.utils.quota_stats import extract_positive_limit, extract_quota_limits
@@ -110,7 +110,7 @@ class PortalAccountRuntimeMixin:
         if in_scope is None:
             return None
         rgw_admin = admin or self._runtime_read_for_account(account)
-        tenant = resolve_principal_tenant(account, rgw_admin)
+        tenant = resolve_target_tenant(account)
         return rgw_admin.get_bucket_info(
             normalized_bucket,
             allow_not_found=True,

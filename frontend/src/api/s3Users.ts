@@ -12,7 +12,7 @@ export type S3User = {
   id: number;
   name: string;
   rgw_user_uid: string;
-  rgw_tenant?: string | null;
+  rgw_tenant: string;
   tags: TagDefinitionSummary[];
   email?: string | null;
   created_at?: string | null;
@@ -51,7 +51,7 @@ export type S3UserSummary = {
   id: number;
   name: string;
   rgw_user_uid: string;
-  rgw_tenant?: string | null;
+  rgw_tenant: string;
   tags: TagDefinitionSummary[];
   storage_endpoint_id: number;
   storage_endpoint_name: string;

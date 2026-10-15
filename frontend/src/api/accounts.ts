@@ -31,7 +31,7 @@ export type S3Account = {
   quota_max_size_gb?: number | null;
   quota_max_objects?: number | null;
   rgw_account_id: string;
-  rgw_tenant?: string | null;
+  rgw_tenant: string;
   email?: string | null;
   used_bytes?: number | null;
   user_links: AccountUserLink[];
@@ -59,7 +59,7 @@ export type S3AccountSummary = {
   name: string;
   tags: TagDefinitionSummary[];
   rgw_account_id: string;
-  rgw_tenant?: string | null;
+  rgw_tenant: string;
   user_links: AccountUserLink[];
   group_links: AccountGroupLink[];
   storage_endpoint_id: number;

@@ -38,7 +38,7 @@ class S3Account(ApiModel):
     id: int
     name: str
     rgw_account_id: str
-    rgw_tenant: Optional[str] = None
+    rgw_tenant: str
     quota_max_size_gb: Optional[float] = None
     quota_max_objects: Optional[int] = None
     email: Optional[str] = None
@@ -132,7 +132,7 @@ class S3AccountSummary(ApiModel):
     id: int
     name: str
     rgw_account_id: str
-    rgw_tenant: Optional[str] = None
+    rgw_tenant: str
     user_links: list[AccountUserLink] = Field(default_factory=list)
     group_links: list[AccountGroupLink] = Field(default_factory=list)
     storage_endpoint_id: int

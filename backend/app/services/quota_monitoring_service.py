@@ -40,7 +40,6 @@ from app.services.user_notifications_service import UserNotificationsService
 from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
 from app.services.webhook_service import WebhookEventPublisher
 from app.utils.rgw_payloads import extract_bucket_list, rgw_qualified_uid
-from app.services.rgw_principal_scope import resolve_target_tenant
 from app.utils.time import utcnow
 from app.utils.usage_stats import extract_usage_stats
 
@@ -567,14 +566,7 @@ class QuotaMonitoringService:
         return client
 
     def _subject_tenant(self, subject: SubjectContext) -> str:
-        if subject.rgw_tenant is not None:
-            return subject.rgw_tenant
-        model = S3Account if subject.subject_type == "account" else S3User
-        target = self.db.get(model, subject.subject_id)
-        if target is None:
-            raise ValueError("Quota subject no longer exists")
-        subject.rgw_tenant = resolve_target_tenant(target)
-        return subject.rgw_tenant
+        return subject.rgw_tenant or ""
 
     def _collect_usage(
         self,

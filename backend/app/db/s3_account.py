@@ -28,8 +28,7 @@ class S3Account(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     rgw_account_id = Column(String, unique=True, nullable=False)
-    # None marks a legacy row whose RGW tenant has not yet been verified.
-    rgw_tenant = Column(String, nullable=True, default="")
+    rgw_tenant = Column(String, nullable=False, default="", server_default="")
     email = Column(String, nullable=True)
     rgw_access_key = Column(String, nullable=True)
     rgw_secret_key = Column(EncryptedString, nullable=True)

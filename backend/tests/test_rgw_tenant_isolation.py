@@ -14,7 +14,6 @@ from app.services.buckets_service import BucketsService
 from app.services.portal_service import PortalService
 from app.services.quota_monitoring_service import QuotaMonitoringService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_principal_scope import resolve_principal_tenant
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficService, TrafficWindow
 from app.utils.rgw_payloads import require_rgw_user_identity, rgw_user_account_root
@@ -173,16 +172,6 @@ def test_metrics_do_not_merge_same_uid_across_tenants(monkeypatch):
     assert service._filter_usage_entries([
         {"user": "customer01$analyst"}, {"user": "customer02$analyst"}, {"user": "analyst"}
     ], {"customer01$analyst"}) == [{"user": "customer01$analyst"}]
-
-
-def test_legacy_user_discovery_works_with_runtime_user_info_without_keys():
-    target = SimpleNamespace(rgw_tenant=None, rgw_user_uid="analyst", rgw_access_key="STORED")
-    admin = SimpleNamespace(get_user_by_access_key=lambda key, **kwargs: {"user_id": "customer01$analyst"})
-    assert resolve_principal_tenant(target, admin) == "customer01"
-    assert target.rgw_tenant is None
-    admin.get_user_by_access_key = lambda key, **kwargs: {"uid": "other"}
-    with pytest.raises(ValueError, match="unverified"):
-        resolve_principal_tenant(target, admin)
 
 
 def test_billing_and_quota_collectors_preserve_tenants(db_session):
