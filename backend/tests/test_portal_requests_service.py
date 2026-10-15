@@ -198,7 +198,7 @@ def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
     assert link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
 
 
-def test_approve_legacy_user_access_request_defaults_to_portal_user(db_session):
+def test_approve_user_access_rejects_noncanonical_missing_intent(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
@@ -212,13 +212,8 @@ def test_approve_legacy_user_access_request_defaults_to_portal_user(db_session):
     db_session.add(row)
     db_session.commit()
 
-    approved = service.approve_request(created.id, admin)
-
-    target = db_session.query(User).filter(User.email == "jane.viewer@example.org").one()
-    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
-    assert approved.result is not None
-    assert approved.result["requested_portal_role"] == PortalAccountRole.PORTAL_USER.value
-    assert link.portal_role == PortalAccountRole.PORTAL_USER.value
+    with pytest.raises(PortalRequestExecutionError, match="Invalid Portal collaborator request intent"):
+        service.approve_request(created.id, admin)
 
 
 def test_approve_user_access_preserves_existing_portal_manager_role(db_session):
