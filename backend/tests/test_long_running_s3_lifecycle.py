@@ -292,6 +292,10 @@ def test_empty_remediation_does_not_acquire_clients(monkeypatch):
 def test_usage_worker_cancellation_releases_client_without_persisting(monkeypatch, stream):
     session_factory = Mock(side_effect=AssertionError("Canceled scan must not persist"))
     service = BucketUsageStatsService(session_factory)
+    lease = object()
+    release_lease = Mock()
+    monkeypatch.setattr(service, "_acquire_bucket_lease", lambda _target: lease)
+    monkeypatch.setattr(service, "_release_bucket_lease", release_lease)
     client = TrackingClient(error=BucketUsageStatsCancelled("Canceled while listing"))
     monkeypatch.setattr(service, "_build_client", lambda _account: client)
     target = BucketUsageStatsResolvedTarget(
@@ -318,3 +322,4 @@ def test_usage_worker_cancellation_releases_client_without_persisting(monkeypatc
             run()
     assert client.close_calls == 1
     session_factory.assert_not_called()
+    release_lease.assert_called_once_with(lease)
