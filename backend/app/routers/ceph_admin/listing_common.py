@@ -22,6 +22,7 @@ from app.services.listing_progress import (
     ListingProgressSnapshot,
 )
 from app.utils.cache import prune_expired_lru_cache
+from app.utils.http_errors import raise_http_exception_from_exception
 from app.core.sensitive_data import sanitize_error_detail
 from app.routers.sse_worker import (
     SseMessageSender,
@@ -189,7 +190,7 @@ def parse_filter_query(
     try:
         return query_cls.model_validate(parsed)
     except ValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 def coerce_number(value: object) -> float | None:
