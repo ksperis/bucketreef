@@ -393,13 +393,6 @@ class BucketMigrationPolicyGrantsMixin:
             return
         self._configuration.delete_policy(bucket_name, account)
 
-    def _remove_managed_read_only_statement(self, source_bucket: str, source_account: S3ExecutionTarget) -> None:
-        self._remove_managed_policy_statement(
-            source_bucket,
-            source_account,
-            sid=_READ_ONLY_POLICY_SID,
-        )
-
     def _remove_managed_target_write_lock_statement(self, target_bucket: str, target_account: S3ExecutionTarget) -> None:
         self._remove_managed_policy_statement(
             target_bucket,
