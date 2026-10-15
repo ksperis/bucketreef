@@ -4,7 +4,22 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.utils.normalize import normalize_optional_string
+from app.utils.normalize import normalize_optional_scalar, normalize_optional_string
+
+
+def extract_rgw_account_ids(*records: object) -> set[str]:
+    """Collect account identifiers from RGW response records.
+
+    RGW account responses vary between ``id`` and ``account_id``. Keep both
+    aliases visible so callers can reject conflicting provider identities.
+    """
+    return {
+        account_id
+        for record in records
+        if isinstance(record, dict)
+        for field in ("id", "account_id")
+        if (account_id := normalize_optional_scalar(record.get(field)))
+    }
 
 
 def extract_bucket_list(payload: Any) -> list[dict]:

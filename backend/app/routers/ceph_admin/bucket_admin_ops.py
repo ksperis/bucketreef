@@ -28,6 +28,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.normalize import normalize_optional_string
+from app.utils.rgw_payloads import extract_rgw_account_ids
 
 router = APIRouter()
 
@@ -52,12 +53,7 @@ def _verified_account_target(payload: Any, expected_id: str) -> bool:
     if not isinstance(payload, dict) or payload.get("not_found") or payload.get("conflict"):
         return False
     nested = payload.get("account")
-    values = {
-        str(value).strip() for item in (payload, nested) if isinstance(item, dict)
-        for key in ("id", "account_id")
-        if (value := item.get(key)) is not None and str(value).strip()
-    }
-    return values == {expected_id}
+    return extract_rgw_account_ids(payload, nested) == {expected_id}
 
 
 def _verified_user_target(payload: Any, expected_uid: str, expected_tenant: Optional[str]) -> bool:

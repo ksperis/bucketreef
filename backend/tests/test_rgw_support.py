@@ -11,7 +11,28 @@ from app.utils.rgw_identifiers import (
     resolve_account_scope,
     validate_rgw_account_name,
 )
-from app.utils.rgw_payloads import extract_rgw_user_identity, extract_rgw_user_payload, rgw_qualified_uid
+from app.utils.rgw_payloads import (
+    extract_rgw_account_ids,
+    extract_rgw_user_identity,
+    extract_rgw_user_payload,
+    rgw_qualified_uid,
+)
+
+
+def test_extract_rgw_account_ids_preserves_alias_conflicts():
+    assert extract_rgw_account_ids(
+        {"id": " RGW001 ", "account_id": "RGW001"},
+        {"account_id": "RGW002"},
+        None,
+    ) == {"RGW001", "RGW002"}
+
+
+def test_extract_rgw_account_ids_ignores_empty_values_and_normalizes_scalars():
+    assert extract_rgw_account_ids(
+        {"id": " ", "account_id": 42},
+        {"id": None},
+        "RGW999",
+    ) == {"42"}
 
 
 def test_resolve_account_scope_with_account_id():
