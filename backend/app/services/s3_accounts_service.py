@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from app.services.feature_policy_service import (
-    manager_override_values,
+    apply_resource_feature_overrides,
     validate_manager_overrides,
     validate_project_collection_overrides,
     validate_project_overrides,
@@ -735,7 +735,6 @@ class S3AccountsService:
             rgw_user_uid=root_uid,
             email=payload.email,
             storage_endpoint_id=endpoint.id,
-            **manager_override_values(payload),
         )
         self.db.add(account)
         self.db.flush()
@@ -889,20 +888,7 @@ class S3AccountsService:
             account.storage_endpoint_id = endpoint.id
         if payload.tags is not None:
             self.tags.replace_account_tags(account, payload.tags)
-        if "allow_bucket_quota_management" in payload.model_fields_set:
-            account.allow_bucket_quota_management = payload.allow_bucket_quota_management
-        if "allow_access_key_metadata" in payload.model_fields_set:
-            account.allow_access_key_metadata = payload.allow_access_key_metadata
-        if "allow_access_key_expiration" in payload.model_fields_set:
-            account.allow_access_key_expiration = payload.allow_access_key_expiration
-        if "allow_activity_history" in payload.model_fields_set:
-            account.allow_activity_history = payload.allow_activity_history
-        if "allow_rgw_usage_metrics" in payload.model_fields_set:
-            account.allow_rgw_usage_metrics = payload.allow_rgw_usage_metrics
-        if "allow_bucket_usage_stats" in payload.model_fields_set:
-            account.allow_bucket_usage_stats = payload.allow_bucket_usage_stats
-        if "allow_bucket_usage_stats_collection" in payload.model_fields_set:
-            account.allow_bucket_usage_stats_collection = payload.allow_bucket_usage_stats_collection
+        apply_resource_feature_overrides(payload, account)
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None

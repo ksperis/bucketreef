@@ -1,6 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.feature_policy_service import manager_override_values, validate_manager_overrides
+from app.services.feature_policy_service import apply_resource_feature_overrides, validate_manager_overrides
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 import logging
 from typing import Any, Optional
@@ -418,7 +418,6 @@ class S3UsersService:
             rgw_access_key=access_key,
             rgw_secret_key=secret_key,
             storage_endpoint_id=endpoint.id,
-            **manager_override_values(payload),
         )
         self.db.add(s3_user)
         self.db.flush()
@@ -514,18 +513,7 @@ class S3UsersService:
         )
         if payload.tags is not None:
             self.tags.replace_s3_user_tags(s3_user, payload.tags)
-        if "allow_bucket_quota_management" in payload.model_fields_set:
-            s3_user.allow_bucket_quota_management = payload.allow_bucket_quota_management
-        if "allow_access_key_management" in payload.model_fields_set:
-            s3_user.allow_access_key_management = payload.allow_access_key_management
-        if "allow_access_key_metadata" in payload.model_fields_set:
-            s3_user.allow_access_key_metadata = payload.allow_access_key_metadata
-        if "allow_access_key_expiration" in payload.model_fields_set:
-            s3_user.allow_access_key_expiration = payload.allow_access_key_expiration
-        if "allow_activity_history" in payload.model_fields_set:
-            s3_user.allow_activity_history = payload.allow_activity_history
-        if "allow_managed_private_connection_provisioning" in payload.model_fields_set:
-            s3_user.allow_managed_private_connection_provisioning = payload.allow_managed_private_connection_provisioning
+        apply_resource_feature_overrides(payload, s3_user)
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             self._apply_user_quota(
