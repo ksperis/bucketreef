@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.models.access_context import ManagerActor
 from app.models.policy import Policy, PolicyCreate
 from app.routers.dependencies import (
@@ -13,6 +12,10 @@ from app.routers.dependencies import (
 from app.services.audit_service import AuditService
 from app.services.policies_service import PoliciesService, get_policies_service
 from app.services.s3_execution_context import S3ExecutionContext
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter(prefix="/manager/iam/policies", tags=["manager-iam-policies"])
 PoliciesContext = tuple[S3ExecutionContext, PoliciesService]
@@ -24,7 +27,7 @@ def get_policies_context(
     try:
         service = get_policies_service(account)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     return account, service
 
 
@@ -37,7 +40,7 @@ def list_policies(
     try:
         return service.list_policies()
     except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
 @router.get("/{policy_arn}", response_model=Policy)
@@ -74,9 +77,9 @@ def create_policy(
         )
         return result
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
 @router.delete("/{policy_arn}", status_code=status.HTTP_204_NO_CONTENT)
@@ -98,4 +101,4 @@ def delete_policy(
             execution_context=account,
         )
     except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
