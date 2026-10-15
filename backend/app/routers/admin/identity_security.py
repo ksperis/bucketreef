@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import AuthSession, User, WebAuthnCredential, is_superadmin_ui_role
 from app.models.auth import LinkDecisionRequest, SessionInfo
 from app.models.identity_security import (
@@ -37,7 +36,11 @@ from app.services.identity_security_policy import (
 )
 from app.services.mfa_reset_service import MfaResetService
 from app.services.users_service import UsersService
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 
 router = APIRouter(prefix="/admin", tags=["admin-identity-security"])
@@ -171,10 +174,7 @@ def set_user_password(
         validate_password_policy(payload.password)
         users.update_user(target.id, UserUpdate(password=payload.password))
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_bad_request_from_value_error(exc)
     audit.record_action(
         user=actor,
         scope="security",
@@ -212,10 +212,7 @@ def add_user_external_identity(
             link_source="administrator",
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     audit.record_action(
         user=actor,
         scope="security",
@@ -373,10 +370,7 @@ def decide_identity_link_request(
             reason=payload.reason,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_bad_request_from_value_error(exc)
     audit.record_action(
         user=actor,
         scope="security",
