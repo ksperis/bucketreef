@@ -1,4 +1,4 @@
-import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../../../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../../../api/featurePolicies";
 import type { AppSettings } from "../../../api/appSettings";
 export function createAppSettings(
   overrides: Partial<AppSettings["general"]> = {},
@@ -6,6 +6,7 @@ export function createAppSettings(
   return {
     general: {
       project_feature_policies: { ...DEFAULT_PROJECT_FEATURE_POLICIES },
+      project_collection_policies: { ...DEFAULT_PROJECT_COLLECTION_POLICIES },
       rgw_account_id_prefix: "80",
       documentation_base_url: "https://docs.bucketreef.ksperis.com",
       require_passkey_for_admins: false,

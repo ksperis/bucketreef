@@ -187,6 +187,18 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                         ]} />}
                       </>}
               </SettingsSection>
+              <SettingsSection title="Services and monitoring" description="Account-specific overrides for shared project services." presentation="compact">
+                <FeatureOverrideField title="Bucket composition statistics" value={form.draft.allow_bucket_usage_stats}
+                  policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
+                  triState
+                  help="Shared project capability used by both Manager and Portal."
+                  onChange={value => update("allow_bucket_usage_stats", value)} />
+                <FeatureOverrideField title="Automatic bucket composition collection" value={form.draft.allow_bucket_usage_stats_collection}
+                  policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={controller.locked}
+                  triState
+                  help="Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled."
+                  onChange={value => update("allow_bucket_usage_stats_collection", value)} />
+              </SettingsSection>
               {permissions.loading ? <p role="status">Checking endpoint permissions...</p> : permissions.loadError ? <UiInlineMessage tone="error" role="alert">
                 {permissions.loadError} <SettingsButton variant="secondary" onClick={permissions.retry}>Retry permissions</SettingsButton>
               </UiInlineMessage> : !allowQuotaUpdates && <UiInlineMessage tone="info">Quota editing requires Admin Ops support and accounts=write on the endpoint.</UiInlineMessage>}
@@ -210,11 +222,6 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                   triState
                   help="Controls traffic and usage metrics for this RGW Account. Endpoint capabilities and supervision credentials still apply."
                   onChange={value => update("allow_rgw_usage_metrics", value)} />
-                <FeatureOverrideField title="Bucket composition statistics" value={form.draft.allow_bucket_usage_stats}
-                  policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
-                  triState
-                  help="Shared project capability used by both Manager and Portal."
-                  onChange={value => update("allow_bucket_usage_stats", value)} />
               </SettingsSection>
               <SettingsSection presentation="compact" title="Access-key extensions">
                 <FeatureOverrideField title="Access-key names and notes" value={form.draft.allow_access_key_metadata}

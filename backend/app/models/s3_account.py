@@ -62,6 +62,7 @@ class S3Account(ApiModel):
     allow_activity_history: Optional[bool] = None
     allow_rgw_usage_metrics: Optional[bool] = None
     allow_bucket_usage_stats: Optional[bool] = None
+    allow_bucket_usage_stats_collection: Optional[bool] = None
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
 
@@ -112,6 +113,7 @@ class S3AccountUpdate(ApiModel):
     allow_activity_history: Optional[bool] = None
     allow_rgw_usage_metrics: Optional[bool] = None
     allow_bucket_usage_stats: Optional[bool] = None
+    allow_bucket_usage_stats_collection: Optional[bool] = None
 
     @field_validator("storage_endpoint_id", mode="before")
     @classmethod
@@ -146,6 +148,7 @@ class S3AccountSummary(ApiModel):
     allow_activity_history: Optional[bool] = None
     allow_rgw_usage_metrics: Optional[bool] = None
     allow_bucket_usage_stats: Optional[bool] = None
+    allow_bucket_usage_stats_collection: Optional[bool] = None
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
 
 

@@ -231,6 +231,14 @@ usageHistoryCronJob:
   failedJobsHistoryLimit: 2
   extraEnv: []
 
+bucketUsageStatsCronJob:
+  enabled: false
+  schedule: "17 * * * *"
+  backoffLimit: 1
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  extraEnv: []
+
 notificationRetentionCronJob:
   enabled: false
   schedule: "15 3 * * *"

@@ -1,4 +1,4 @@
-import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
 import type { BrowserFavorite } from "../api/browserFavorites";
 import type { User } from "../api/users";
 import type { S3Account } from "../api/accounts";
@@ -48,6 +48,7 @@ export type DemoState = {
 export const settings: AppSettings = {
   general: {
     project_feature_policies: { ...DEFAULT_PROJECT_FEATURE_POLICIES },
+    project_collection_policies: { ...DEFAULT_PROJECT_COLLECTION_POLICIES },
     rgw_account_id_prefix: "80",
     documentation_base_url: "https://docs.bucketreef.ksperis.com",
     manager_enabled: true, ceph_admin_enabled: true, storage_ops_enabled: false,

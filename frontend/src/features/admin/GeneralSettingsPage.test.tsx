@@ -1,6 +1,6 @@
 import { createAppSettings } from "./settings/settingsTestFixtures";
 import { ThemeProvider } from "../../components/theme";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -141,6 +141,25 @@ describe("GeneralSettingsPage branding", () => {
 
     await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
     expect(updateAppSettingsMock.mock.calls[0][0].general.rgw_account_id_prefix).toBe("123");
+  });
+
+  it("configures bucket composition availability and automatic collection independently", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const statistics = await screen.findByRole("radiogroup", { name: "Bucket composition statistics" });
+    const collection = screen.getByRole("radiogroup", { name: "Automatic bucket composition collection" });
+    expect(within(statistics).getByRole("radio", { name: "Enabled by default" })).toBeChecked();
+    expect(within(collection).getByRole("radio", { name: "Targeted activation" })).toBeChecked();
+
+    await user.click(within(statistics).getByRole("radio", { name: "Disabled" }));
+    await user.click(within(collection).getByRole("radio", { name: "Enabled by default" }));
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
+    const payload = updateAppSettingsMock.mock.calls[0][0];
+    expect(payload.general.project_feature_policies.bucket_usage_stats).toBe("disabled");
+    expect(payload.general.project_collection_policies.bucket_usage_stats).toBe("default_on");
   });
 
   it("saves a custom documentation base URL", async () => {

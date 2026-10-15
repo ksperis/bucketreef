@@ -351,14 +351,17 @@ def test_update_account_persists_project_usage_feature_overrides(db_session, mon
         S3AccountUpdate(
             allow_rgw_usage_metrics=False,
             allow_bucket_usage_stats=True,
+            allow_bucket_usage_stats_collection=True,
         ),
     )
 
     assert updated.allow_rgw_usage_metrics is False
     assert updated.allow_bucket_usage_stats is True
+    assert updated.allow_bucket_usage_stats_collection is True
     db_session.refresh(account)
     assert account.allow_rgw_usage_metrics is False
     assert account.allow_bucket_usage_stats is True
+    assert account.allow_bucket_usage_stats_collection is True
 
 
 def test_delete_account_guardrails_and_success(db_session, monkeypatch):

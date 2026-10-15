@@ -3,6 +3,7 @@
 from app.services.feature_policy_service import (
     manager_override_values,
     validate_manager_overrides,
+    validate_project_collection_overrides,
     validate_project_overrides,
 )
 from app.services.app_settings_service import load_app_settings_for_db_readonly
@@ -883,6 +884,7 @@ class S3AccountsService:
         app_settings = load_app_settings_for_db_readonly(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies, account)
         validate_project_overrides(payload, app_settings.general.project_feature_policies, account)
+        validate_project_collection_overrides(payload, app_settings.general.project_collection_policies, account)
         if payload.name:
             account.name = payload.name
         if payload.email is not None:
@@ -904,6 +906,8 @@ class S3AccountsService:
             account.allow_rgw_usage_metrics = payload.allow_rgw_usage_metrics
         if "allow_bucket_usage_stats" in payload.model_fields_set:
             account.allow_bucket_usage_stats = payload.allow_bucket_usage_stats
+        if "allow_bucket_usage_stats_collection" in payload.model_fields_set:
+            account.allow_bucket_usage_stats_collection = payload.allow_bucket_usage_stats_collection
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None

@@ -94,7 +94,7 @@ export type BucketUsageStatsBucketResult = {
   bucket_name: string;
   context_id?: string | null;
   context_name?: string | null;
-  status: "completed" | "completed_with_warnings" | "failed" | "canceled";
+  status: "completed" | "completed_with_warnings" | "failed" | "canceled" | "skipped";
   snapshot?: BucketUsageStatsSnapshot | null;
   duration_seconds: number;
   message?: string | null;
@@ -119,6 +119,7 @@ export type BucketUsageStatsResult = {
   total_buckets: number;
   completed_buckets: number;
   failed_buckets: number;
+  skipped_buckets?: number;
   listed_versions: number;
   listed_delete_markers: number;
   total_bytes: number;

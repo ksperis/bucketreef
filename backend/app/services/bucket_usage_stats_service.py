@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime
@@ -35,6 +36,12 @@ from app.services.bucket_usage_stats_scan import (
     ObjectVersionEntry,
 )
 from app.services.long_running_s3_client import LongRunningS3ClientMixin
+from app.services.operation_lease_service import (
+    BUCKET_USAGE_STATS_LEASE_TTL_SECONDS,
+    OperationLeaseHandle,
+    OperationLeaseService,
+    bucket_usage_stats_bucket_operation_name,
+)
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import format_s3_error
@@ -43,6 +50,7 @@ from app.utils.time import utcnow
 
 ProgressCallback = Callable[[BucketUsageStatsProgress], None]
 CancelCheck = Callable[[], None]
+logger = logging.getLogger(__name__)
 
 
 class BucketUsageStatsCancelled(RuntimeError):
@@ -115,6 +123,41 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
 
     def __init__(self, session_factory: sessionmaker[Session] | Callable[[], Session] | None = None) -> None:
         self.session_factory = session_factory
+
+    @staticmethod
+    def _bucket_lease_scope(target: BucketUsageStatsResolvedTarget) -> str:
+        endpoint_id = getattr(target.account, "storage_endpoint_id", None)
+        if endpoint_id is None:
+            endpoint_id = getattr(getattr(target.account, "storage_endpoint", None), "id", None)
+        return f"endpoint:{endpoint_id}" if endpoint_id is not None else f"{target.scope_kind}:{target.scope_id}"
+
+    def _acquire_bucket_lease(self, target: BucketUsageStatsResolvedTarget) -> OperationLeaseHandle | None:
+        if self.session_factory is None:
+            return None
+        db = self.session_factory()
+        try:
+            return OperationLeaseService(db).acquire(
+                bucket_usage_stats_bucket_operation_name(self._bucket_lease_scope(target), target.bucket_name),
+                ttl_seconds=BUCKET_USAGE_STATS_LEASE_TTL_SECONDS,
+                lease_context={
+                    "scope_kind": target.scope_kind,
+                    "scope_id": target.scope_id,
+                    "bucket_name": target.bucket_name,
+                },
+            )
+        finally:
+            db.close()
+
+    def _release_bucket_lease(self, lease: OperationLeaseHandle) -> None:
+        if self.session_factory is None:
+            return
+        db = self.session_factory()
+        try:
+            OperationLeaseService(db).release(lease)
+        except Exception:  # noqa: BLE001
+            logger.warning("Unable to release bucket usage statistics lease %s", lease.operation_name, exc_info=True)
+        finally:
+            db.close()
 
     def _iter_version_entries(
         self,
@@ -598,12 +641,23 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         bucket_results: list[BucketUsageStatsBucketResult] = []
         completed_buckets = 0
         failed_buckets = 0
+        skipped_buckets = 0
         listed_versions = 0
         listed_delete_markers = 0
         total_bytes = 0
 
         def run_target(target: BucketUsageStatsResolvedTarget) -> BucketUsageStatsBucketResult:
             started = monotonic()
+            lease = self._acquire_bucket_lease(target)
+            if self.session_factory is not None and lease is None:
+                return BucketUsageStatsBucketResult(
+                    bucket_name=target.bucket_name,
+                    context_id=target.context_id,
+                    context_name=target.context_name,
+                    status="skipped",
+                    duration_seconds=monotonic() - started,
+                    message="Skipped because bucket usage statistics are already being calculated.",
+                )
             try:
                 snapshot = self.calculate_and_persist(
                     target,
@@ -634,6 +688,9 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                     duration_seconds=monotonic() - started,
                     message=format_s3_error(exc),
                 )
+            finally:
+                if lease is not None:
+                    self._release_bucket_lease(lease)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             pending = {executor.submit(run_target, target): target for target in targets}
@@ -648,6 +705,8 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                     completed_buckets += 1
                     if result.status == "failed":
                         failed_buckets += 1
+                    elif result.status == "skipped":
+                        skipped_buckets += 1
                     if result.snapshot:
                         listed_versions += result.snapshot.object_version_count
                         listed_delete_markers += result.snapshot.delete_marker_count
@@ -669,12 +728,18 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                         )
 
         finished_at = utcnow()
-        status_value: BucketUsageStatsStatus = "completed" if failed_buckets == 0 else ("failed" if failed_buckets == len(targets) else "completed_with_warnings")
+        if failed_buckets == len(targets) and targets:
+            status_value: BucketUsageStatsStatus = "failed"
+        elif failed_buckets or skipped_buckets:
+            status_value = "completed_with_warnings"
+        else:
+            status_value = "completed"
         return BucketUsageStatsResult(
             status=status_value,
             total_buckets=len(targets),
             completed_buckets=completed_buckets,
             failed_buckets=failed_buckets,
+            skipped_buckets=skipped_buckets,
             listed_versions=listed_versions,
             listed_delete_markers=listed_delete_markers,
             total_bytes=total_bytes,

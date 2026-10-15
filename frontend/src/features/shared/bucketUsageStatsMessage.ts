@@ -78,6 +78,7 @@ export const bucketUsageStatsMessage = {
   statusCompletedWithWarnings: m("completed with warnings", "已完成，有警告"),
   statusCanceled: m("canceled", "已取消"),
   statusFailed: m("failed", "失败"),
+  statusSkipped: m("skipped", "已跳过"),
   stagePrepare: m("prepare", "准备"),
   stageList: m("list", "列出对象"),
   stagePersist: m("persist", "保存快照"),

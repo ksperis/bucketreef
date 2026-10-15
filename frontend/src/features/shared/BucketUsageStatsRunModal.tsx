@@ -7,6 +7,7 @@ import { useMemo, useRef, useState } from "react";
 import {
   streamCephAdminBucketUsageStats,
   streamStorageOpsBucketUsageStats,
+  type BucketUsageStatsBucketResult,
   type BucketUsageStatsPayload,
   type BucketUsageStatsProgress,
   type BucketUsageStatsResult,
@@ -51,11 +52,12 @@ type BucketUsageStatsRunModalProps =
       mode: "storage-ops";
     });
 
-const statusKeys: Record<BucketUsageStatsResult["status"], BucketUsageStatsMessageKey> = {
+const statusKeys: Record<BucketUsageStatsBucketResult["status"], BucketUsageStatsMessageKey> = {
   completed: "statusCompleted",
   completed_with_warnings: "statusCompletedWithWarnings",
   canceled: "statusCanceled",
   failed: "statusFailed",
+  skipped: "statusSkipped",
 };
 const calculationMessageKeys: Record<BucketUsageStatsResult["status"], BucketUsageStatsMessageKey> = {
   completed: "calculationCompleted",

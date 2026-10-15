@@ -83,13 +83,11 @@ describe("ManagerSettingsPage", () => {
     expect(screen.getAllByText("Experimental")).toHaveLength(2);
   });
 
-  it("saves RGW metrics independently from bucket composition statistics", async () => {
+  it("saves RGW metrics policy", async () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
 
-    const compositionPolicy = await policyGroup("Bucket composition statistics");
     const rgwMetricsPolicy = await policyGroup("RGW traffic and usage metrics");
-    expectPolicy(compositionPolicy, "Enabled by default");
     expectPolicy(rgwMetricsPolicy, "Enabled by default");
 
     await user.click(within(rgwMetricsPolicy).getByRole("radio", { name: "Disabled" }));
@@ -100,7 +98,6 @@ describe("ManagerSettingsPage", () => {
     });
     const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
     expect(payload.manager.feature_policies.rgw_usage_metrics).toBe("disabled");
-    expect(payload.general.project_feature_policies.bucket_usage_stats).toBe("default_on");
   });
 
   it("renders bucket quota kill switch and sends it in save payload", async () => {
@@ -204,29 +201,24 @@ describe("ManagerSettingsPage", () => {
     });
   });
 
-  it("resets RGW metrics and bucket composition from their independent defaults", async () => {
+  it("resets RGW metrics from defaults", async () => {
     const user = userEvent.setup();
     const current = buildSettings();
-    current.general.project_feature_policies.bucket_usage_stats = "disabled";
     current.manager.feature_policies.rgw_usage_metrics = "default_on";
     fetchAppSettingsMock.mockResolvedValue(current);
     const defaults = buildSettings();
-    defaults.general.project_feature_policies.bucket_usage_stats = "default_on";
     defaults.manager.feature_policies.rgw_usage_metrics = "disabled";
     fetchDefaultAppSettingsMock.mockResolvedValue(defaults);
 
     render(<ManagerSettingsPage />);
 
-    const compositionPolicy = await policyGroup("Bucket composition statistics");
     const rgwMetricsPolicy = await policyGroup("RGW traffic and usage metrics");
-    expectPolicy(compositionPolicy, "Disabled");
     expectPolicy(rgwMetricsPolicy, "Enabled by default");
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await user.click(screen.getByRole("button", { name: "Load defaults" }));
 
     await waitFor(() => {
-      expectPolicy(compositionPolicy, "Enabled by default");
       expectPolicy(rgwMetricsPolicy, "Disabled");
     });
   });
@@ -279,18 +271,18 @@ describe("ManagerSettingsPage", () => {
     badges.forEach((badge) => expect(badge).toHaveClass("ui-badge-base"));
   });
 
-  it("groups global usage and Manager tools without workspace policy wording", async () => {
+  it("groups Manager usage and tools without workspace policy wording", async () => {
     render(<ManagerSettingsPage />);
 
-    await screen.findByLabelText("Bucket composition statistics");
+    await screen.findByLabelText("RGW traffic and usage metrics");
     expect(screen.getByText("Usage and metrics")).toBeInTheDocument();
     expect(screen.getByText("Manager tools")).toBeInTheDocument();
     expect(screen.queryByText("Optional administrative and operational tools available in Manager.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Workspace access/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/non-admin/i)).not.toBeInTheDocument();
     expect(screen.getAllByRole("radiogroup").map(group => group.getAttribute("aria-label"))).toEqual(
-      expect.arrayContaining(["Bucket composition statistics", "RGW traffic and usage metrics"]),
+      expect.arrayContaining(["RGW traffic and usage metrics"]),
     );
-    expect(screen.getAllByRole("radiogroup")).toHaveLength(13);
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(12);
   });
 });

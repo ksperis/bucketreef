@@ -12,6 +12,7 @@ from app.models.feature_policy import (
     FeaturePolicy,
     ManagerFeaturePolicies,
     PortalFeaturePolicies,
+    ProjectCollectionPolicies,
     ProjectFeaturePolicies,
 )
 from app.core.config import get_settings
@@ -68,6 +69,7 @@ class PortalBucketDefaults(ApiModel):
 
 class GeneralSettings(ApiModel):
     project_feature_policies: ProjectFeaturePolicies = Field(default_factory=ProjectFeaturePolicies)
+    project_collection_policies: ProjectCollectionPolicies = Field(default_factory=ProjectCollectionPolicies)
     rgw_account_id_prefix: str = Field(default="80", pattern=r"^\d{1,3}$")
     documentation_base_url: str = DEFAULT_DOCUMENTATION_BASE_URL
     manager_enabled: bool = True
