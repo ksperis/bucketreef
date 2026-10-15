@@ -417,6 +417,255 @@ def _persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
     ]
 
 
+def _app_settings_findings(
+    settings: Settings,
+    app_settings: AppSettings | None,
+) -> list[DeploymentCheckFinding]:
+    if app_settings is None:
+        return [
+            _finding(
+                "app-settings",
+                "Application settings",
+                passed=False,
+                severity="critical",
+                pass_message="Application settings are available.",
+                fail_message="Application settings could not be loaded; application-level security checks are incomplete.",
+            )
+        ]
+
+    access_key_login_safe = (
+        not app_settings.general.allow_login_access_keys
+        or settings.require_registered_s3_login_endpoints
+        or not app_settings.general.allow_login_custom_endpoint
+    )
+    return [
+        _finding(
+            "app-settings",
+            "Application settings",
+            passed=True,
+            severity="critical",
+            pass_message="Application settings are available for readiness checks.",
+            fail_message="Application settings could not be loaded.",
+        ),
+        _finding(
+            "admin-passkey-policy",
+            "Administrator passkey policy",
+            passed=app_settings.general.require_passkey_for_admins,
+            severity="critical",
+            pass_message="Administrator passkeys are required.",
+            fail_message=(
+                "Enroll an administrator passkey, then enable 'Require passkeys for administrators' before production."
+            ),
+        ),
+        _finding(
+            "registered-s3-login-endpoints",
+            "S3 login endpoint boundary",
+            passed=access_key_login_safe,
+            severity="critical",
+            pass_message="Direct S3 access-key login cannot use an unregistered custom endpoint.",
+            fail_message=(
+                "Custom S3 endpoint login is enabled without requiring registered endpoints; restrict it before production."
+            ),
+            docs_anchor="s3-login-endpoint-boundary",
+        ),
+    ]
+
+
+def _database_profile_findings(
+    settings: Settings,
+    profile: DeploymentProfile,
+) -> list[DeploymentCheckFinding]:
+    findings: list[DeploymentCheckFinding] = []
+    postgresql = _is_postgresql(settings.database_url)
+    database_severity: CheckSeverity = "critical" if profile != "full" or settings.backend_replicas > 1 else "warning"
+    findings.append(
+        _finding(
+            "database",
+            "Database topology",
+            passed=postgresql,
+            severity=database_severity,
+            pass_message=(
+                "PostgreSQL is configured."
+                if postgresql
+                else "SQLite is used by a single full-profile backend; PostgreSQL remains recommended for production."
+            ),
+            fail_message=(
+                "SQLite is suitable only for a single full-profile backend; PostgreSQL is recommended for production."
+                if database_severity == "warning"
+                else "Split or multi-replica deployments require PostgreSQL."
+            ),
+            docs_anchor="database-topology",
+        )
+    )
+    findings.append(
+        _finding(
+            "sqlite-bucket-migration-worker",
+            "SQLite migration worker",
+            passed=not (is_sqlite_url(settings.database_url) and settings.bucket_migration_worker_enabled),
+            severity="warning",
+            pass_message="The bucket migration worker is not combined with SQLite, or PostgreSQL is configured.",
+            fail_message=(
+                "SQLite is configured while the bucket migration worker is enabled; PostgreSQL is recommended for long-running migrations."
+            ),
+            docs_anchor="database-topology",
+        )
+    )
+
+    if profile in {"admin", "user"}:
+        expected_jobs = profile == "admin"
+        findings.append(
+            _finding(
+                "job-owner",
+                "Scheduled job ownership",
+                passed=settings.scheduled_jobs_enabled is expected_jobs,
+                severity="critical",
+                pass_message="Scheduled-job ownership matches the deployment profile.",
+                fail_message=(
+                    "The administration profile must own scheduled jobs."
+                    if expected_jobs
+                    else "This deployment profile must disable scheduled jobs."
+                ),
+                docs_anchor="scheduled-job-ownership",
+            )
+        )
+    else:
+        findings.append(
+            _finding(
+                "job-owner",
+                "Scheduled job ownership",
+                passed=settings.scheduled_jobs_enabled or ceph_admin_only_runtime(settings),
+                severity="warning",
+                pass_message="This full-profile instance owns scheduled jobs or intentionally runs only Ceph Admin.",
+                fail_message="Scheduled jobs are disabled on this full-profile instance; verify they are intentionally run elsewhere.",
+                docs_anchor="scheduled-job-ownership",
+            )
+        )
+
+    split_surface_contract = profile in {"admin", "user"}
+    production = settings.app_env == "production"
+    for surface, expected in _PROFILE_SURFACES[profile].items():
+        enabled = runtime_surface_enabled(settings, surface)
+        blocks_startup = production and split_surface_contract
+        findings.append(
+            _finding(
+                f"surface-{surface.replace('_', '-')}",
+                f"Runtime surface: {surface.replace('_', ' ').title()}",
+                passed=enabled is expected,
+                severity="blocker" if blocks_startup else "critical",
+                pass_message=f"Runtime surface {surface} matches profile {profile}.",
+                fail_message=f"Runtime surface {surface} must be {'enabled' if expected else 'disabled'} for profile {profile}.",
+                docs_anchor="runtime-surfaces",
+                blocks_startup=blocks_startup,
+            )
+        )
+
+    if split_surface_contract:
+        public_origins = settings.effective_public_origins()
+        webauthn_origins = settings.effective_webauthn_origins()
+        findings.extend(
+            [
+                _finding(
+                    "shared-origins",
+                    "Split deployment public origins",
+                    passed=len(public_origins) >= 2,
+                    severity="critical",
+                    pass_message="Multiple trusted public origins are configured for the split deployment.",
+                    fail_message="Split admin/user deployments must configure both public origins on each backend.",
+                    docs_anchor="split-deployment-contract",
+                ),
+                _finding(
+                    "webauthn-origins",
+                    "Split deployment WebAuthn origins",
+                    passed=set(webauthn_origins) == set(public_origins),
+                    severity="critical",
+                    pass_message="WebAuthn accepts the same trusted origins as the split deployment.",
+                    fail_message="WebAuthn origins must cover every trusted public origin in a split deployment.",
+                    docs_anchor="split-deployment-contract",
+                ),
+            ]
+        )
+    return findings
+
+
+def _persisted_findings(settings: Settings, db: Session) -> list[DeploymentCheckFinding]:
+    findings = [
+        *_persisted_security_findings(db),
+        *_persisted_provider_findings(settings, db),
+    ]
+    uncovered = find_uncovered_outbound_targets(db, settings)
+    preview = ", ".join(f"{item.target_type}:{item.hostname}" for item in uncovered[:5])
+    suffix = " ..." if len(uncovered) > 5 else ""
+    findings.append(
+        _finding(
+            "outbound-target-allowlists",
+            "Persisted outbound target allowlists",
+            passed=not uncovered,
+            severity="critical",
+            pass_message="Persisted user-controlled outbound targets are covered by the configured allowlists.",
+            fail_message=(
+                f"{len(uncovered)} persisted outbound target(s) are not covered by the configured allowlists: {preview}{suffix}"
+            ),
+            docs_anchor="outbound-target-allowlists",
+        )
+    )
+    return findings
+
+
+def _manual_findings(profile: DeploymentProfile) -> list[DeploymentCheckFinding]:
+    findings = [
+        _manual(
+            "manual-backup-restore",
+            "Backup and restore test",
+            "Confirm that database backups and credential-encryption key recovery have been tested end to end.",
+        ),
+        _manual(
+            "manual-secret-management",
+            "Secret management and rotation",
+            "Confirm production secrets are injected through the approved secret-management boundary and that rotation and recovery procedures are tested.",
+        ),
+        _manual(
+            "manual-ingress-boundary",
+            "Ingress and network exposure",
+            "Confirm TLS, ingress restrictions, proxy peers, and private/internal endpoint exposure from the deployed network.",
+        ),
+        _manual(
+            "manual-auth-flow",
+            "Authentication end-to-end",
+            "Run the real administrator and enabled OIDC/LDAP login flows, including a denied or revoked access case.",
+        ),
+        _manual(
+            "manual-jobs-runtime",
+            "Scheduled jobs execution",
+            "Confirm healthcheck, billing, quota, and usage-history jobs actually run where intended.",
+        ),
+        _manual(
+            "manual-observability-audit",
+            "Observability and audit retention",
+            "Confirm backend logs, control-plane audit, and provider object-access logs are collected with the intended retention.",
+        ),
+        _manual(
+            "manual-image-supply-chain",
+            "Image pinning and vulnerability scans",
+            "Confirm deployed images and charts are pinned to approved versions or digests and satisfy the current vulnerability, SBOM, and image-scanning policy.",
+        ),
+        _manual(
+            "manual-storage-endpoint",
+            "Storage endpoint acceptance",
+            "Validate the first supported storage endpoint with healthchecks and representative allowed and denied operations.",
+        ),
+    ]
+    if profile in {"admin", "user"}:
+        findings.append(
+            _manual(
+                "manual-split-state",
+                "Split deployment shared state",
+                "Compare the admin and user runtimes to confirm the intended database, key rings, origins, and single scheduler owner.",
+                docs_anchor="split-deployment-contract",
+            )
+        )
+    return findings
+
+
 def run_deployment_checks(
     settings: Settings,
     *,
@@ -630,244 +879,14 @@ def run_deployment_checks(
     findings.extend(_environment_ldap_findings(settings))
 
     if phase == "full":
-        if app_settings is None:
-            findings.append(
-                _finding(
-                    "app-settings",
-                    "Application settings",
-                    passed=False,
-                    severity="critical",
-                    pass_message="Application settings are available.",
-                    fail_message="Application settings could not be loaded; application-level security checks are incomplete.",
-                )
-            )
-        else:
-            findings.append(
-                _finding(
-                    "app-settings",
-                    "Application settings",
-                    passed=True,
-                    severity="critical",
-                    pass_message="Application settings are available for readiness checks.",
-                    fail_message="Application settings could not be loaded.",
-                )
-            )
-            findings.append(
-                _finding(
-                    "admin-passkey-policy",
-                    "Administrator passkey policy",
-                    passed=app_settings.general.require_passkey_for_admins,
-                    severity="critical",
-                    pass_message="Administrator passkeys are required.",
-                    fail_message=(
-                        "Enroll an administrator passkey, then enable 'Require passkeys for administrators' before production."
-                    ),
-                )
-            )
-            access_key_login_safe = (
-                not app_settings.general.allow_login_access_keys
-                or settings.require_registered_s3_login_endpoints
-                or not app_settings.general.allow_login_custom_endpoint
-            )
-            findings.append(
-                _finding(
-                    "registered-s3-login-endpoints",
-                    "S3 login endpoint boundary",
-                    passed=access_key_login_safe,
-                    severity="critical",
-                    pass_message="Direct S3 access-key login cannot use an unregistered custom endpoint.",
-                    fail_message=(
-                        "Custom S3 endpoint login is enabled without requiring registered endpoints; restrict it before production."
-                    ),
-                    docs_anchor="s3-login-endpoint-boundary",
-                )
-            )
+        findings.extend(_app_settings_findings(settings, app_settings))
 
-    postgresql = _is_postgresql(settings.database_url)
-    database_severity: CheckSeverity = "critical" if profile != "full" or settings.backend_replicas > 1 else "warning"
-    database_ok = postgresql
-    findings.append(
-        _finding(
-            "database",
-            "Database topology",
-            passed=database_ok,
-            severity=database_severity,
-            pass_message=(
-                "PostgreSQL is configured."
-                if postgresql
-                else "SQLite is used by a single full-profile backend; PostgreSQL remains recommended for production."
-            ),
-            fail_message=(
-                "SQLite is suitable only for a single full-profile backend; PostgreSQL is recommended for production."
-                if database_severity == "warning"
-                else "Split or multi-replica deployments require PostgreSQL."
-            ),
-            docs_anchor="database-topology",
-        )
-    )
-    findings.append(
-        _finding(
-            "sqlite-bucket-migration-worker",
-            "SQLite migration worker",
-            passed=not (is_sqlite_url(settings.database_url) and settings.bucket_migration_worker_enabled),
-            severity="warning",
-            pass_message="The bucket migration worker is not combined with SQLite, or PostgreSQL is configured.",
-            fail_message=(
-                "SQLite is configured while the bucket migration worker is enabled; PostgreSQL is recommended for long-running migrations."
-            ),
-            docs_anchor="database-topology",
-        )
-    )
-
-    if profile in {"admin", "user"}:
-        expected_jobs = profile in {"admin"}
-        job_ok = settings.scheduled_jobs_enabled is expected_jobs
-        severity = "critical"
-        findings.append(
-            _finding(
-                "job-owner",
-                "Scheduled job ownership",
-                passed=job_ok,
-                severity=severity,
-                pass_message="Scheduled-job ownership matches the deployment profile.",
-                fail_message=(
-                    "The administration profile must own scheduled jobs."
-                    if expected_jobs
-                    else "This deployment profile must disable scheduled jobs."
-                ),
-                docs_anchor="scheduled-job-ownership",
-            )
-        )
-    else:
-        findings.append(
-            _finding(
-                "job-owner",
-                "Scheduled job ownership",
-                passed=settings.scheduled_jobs_enabled or ceph_admin_only_runtime(settings),
-                severity="warning",
-                pass_message="This full-profile instance owns scheduled jobs or intentionally runs only Ceph Admin.",
-                fail_message="Scheduled jobs are disabled on this full-profile instance; verify they are intentionally run elsewhere.",
-                docs_anchor="scheduled-job-ownership",
-            )
-        )
-
-    split_surface_contract = profile in {"admin", "user"}
-    for surface, expected in _PROFILE_SURFACES[profile].items():
-        enabled = runtime_surface_enabled(settings, surface)
-        blocks_startup = production and split_surface_contract
-        findings.append(
-            _finding(
-                f"surface-{surface.replace('_', '-')}",
-                f"Runtime surface: {surface.replace('_', ' ').title()}",
-                passed=enabled is expected,
-                severity="blocker" if blocks_startup else "critical",
-                pass_message=f"Runtime surface {surface} matches profile {profile}.",
-                fail_message=f"Runtime surface {surface} must be {'enabled' if expected else 'disabled'} for profile {profile}.",
-                docs_anchor="runtime-surfaces",
-                blocks_startup=blocks_startup,
-            )
-        )
-
-    if profile in {"admin", "user"}:
-        public_origins = settings.effective_public_origins()
-        webauthn_origins = settings.effective_webauthn_origins()
-        findings.append(
-            _finding(
-                "shared-origins",
-                "Split deployment public origins",
-                passed=len(public_origins) >= 2,
-                severity="critical",
-                pass_message="Multiple trusted public origins are configured for the split deployment.",
-                fail_message="Split admin/user deployments must configure both public origins on each backend.",
-                docs_anchor="split-deployment-contract",
-            )
-        )
-        findings.append(
-            _finding(
-                "webauthn-origins",
-                "Split deployment WebAuthn origins",
-                passed=set(webauthn_origins) == set(public_origins),
-                severity="critical",
-                pass_message="WebAuthn accepts the same trusted origins as the split deployment.",
-                fail_message="WebAuthn origins must cover every trusted public origin in a split deployment.",
-                docs_anchor="split-deployment-contract",
-            )
-        )
-
+    findings.extend(_database_profile_findings(settings, profile))
     if phase == "full" and db is not None:
-        findings.extend(_persisted_security_findings(db))
-        findings.extend(_persisted_provider_findings(settings, db))
-        uncovered = find_uncovered_outbound_targets(db, settings)
-        preview = ", ".join(f"{item.target_type}:{item.hostname}" for item in uncovered[:5])
-        suffix = " ..." if len(uncovered) > 5 else ""
-        findings.append(
-            _finding(
-                "outbound-target-allowlists",
-                "Persisted outbound target allowlists",
-                passed=not uncovered,
-                severity="critical",
-                pass_message="Persisted user-controlled outbound targets are covered by the configured allowlists.",
-                fail_message=(
-                    f"{len(uncovered)} persisted outbound target(s) are not covered by the configured allowlists: {preview}{suffix}"
-                ),
-                docs_anchor="outbound-target-allowlists",
-            )
-        )
+        findings.extend(_persisted_findings(settings, db))
 
     if phase == "full" and include_manual:
-        findings.extend(
-            [
-                _manual(
-                    "manual-backup-restore",
-                    "Backup and restore test",
-                    "Confirm that database backups and credential-encryption key recovery have been tested end to end.",
-                ),
-                _manual(
-                    "manual-secret-management",
-                    "Secret management and rotation",
-                    "Confirm production secrets are injected through the approved secret-management boundary and that rotation and recovery procedures are tested.",
-                ),
-                _manual(
-                    "manual-ingress-boundary",
-                    "Ingress and network exposure",
-                    "Confirm TLS, ingress restrictions, proxy peers, and private/internal endpoint exposure from the deployed network.",
-                ),
-                _manual(
-                    "manual-auth-flow",
-                    "Authentication end-to-end",
-                    "Run the real administrator and enabled OIDC/LDAP login flows, including a denied or revoked access case.",
-                ),
-                _manual(
-                    "manual-jobs-runtime",
-                    "Scheduled jobs execution",
-                    "Confirm healthcheck, billing, quota, and usage-history jobs actually run where intended.",
-                ),
-                _manual(
-                    "manual-observability-audit",
-                    "Observability and audit retention",
-                    "Confirm backend logs, control-plane audit, and provider object-access logs are collected with the intended retention.",
-                ),
-                _manual(
-                    "manual-image-supply-chain",
-                    "Image pinning and vulnerability scans",
-                    "Confirm deployed images and charts are pinned to approved versions or digests and satisfy the current vulnerability, SBOM, and image-scanning policy.",
-                ),
-                _manual(
-                    "manual-storage-endpoint",
-                    "Storage endpoint acceptance",
-                    "Validate the first supported storage endpoint with healthchecks and representative allowed and denied operations.",
-                ),
-            ]
-        )
-        if profile in {"admin", "user"}:
-            findings.append(
-                _manual(
-                    "manual-split-state",
-                    "Split deployment shared state",
-                    "Compare the admin and user runtimes to confirm the intended database, key rings, origins, and single scheduler owner.",
-                    docs_anchor="split-deployment-contract",
-                )
-            )
+        findings.extend(_manual_findings(profile))
 
     return findings
 
