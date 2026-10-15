@@ -10,7 +10,6 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.bucket_listing import BucketListingRequest
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse
@@ -33,6 +32,7 @@ from app.services.storage_ops_bucket_listing_service import (
     compute_storage_ops_bucket_listing,
     resolve_storage_ops_contexts,
 )
+from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(prefix="/storage-ops/buckets", tags=["storage-ops-buckets"])
 logger = logging.getLogger(__name__)
@@ -104,10 +104,7 @@ def _compute_storage_ops_listing(
             cancel_check=cancel_check,
         )
     except BucketListingFilterError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @router.post("/cache/refresh")

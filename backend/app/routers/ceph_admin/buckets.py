@@ -10,7 +10,6 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
 from app.models.bucket_listing import BucketListingRequest
 from app.models.ceph_admin import PaginatedCephAdminBucketsResponse
 from app.routers.ceph_admin import bucket_config, bucket_tools
@@ -22,7 +21,10 @@ from app.services.ceph_admin_bucket_listing_service import compute_ceph_admin_bu
 from app.services.ceph_admin_bucket_listing_snapshot import RequiredBucketStatsUnavailableError
 from app.services.listing_progress import ListingProgressSnapshot
 from app.services.rgw_admin import RGWAdminError
-from app.utils.http_errors import raise_bad_gateway_from_runtime
+from app.utils.http_errors import (
+    raise_bad_gateway_from_runtime,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/buckets", tags=["ceph-admin-buckets"])
 router.include_router(bucket_config.router)
@@ -121,15 +123,9 @@ def _compute_bucket_listing(
             cancel_check=cancel_check,
         )
     except BucketListingFilterError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
     except RequiredBucketStatsUnavailableError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     except RGWAdminError as exc:
         raise_bad_gateway_from_runtime(exc)
 
