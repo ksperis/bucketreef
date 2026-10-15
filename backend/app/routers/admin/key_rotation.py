@@ -9,7 +9,7 @@ from app.models.key_rotation import KeyRotationRequest, KeyRotationResponse
 from app.routers.dependencies import get_audit_service, get_current_super_admin
 from app.services.audit_service import AuditService
 from app.services.key_rotation_service import KeyRotationService, get_key_rotation_service
-from app.core.sensitive_data import sanitize_error_detail
+from app.utils.http_errors import raise_bad_request_from_value_error
 
 router = APIRouter(prefix="/admin/key-rotation", tags=["admin-key-rotation"])
 
@@ -31,7 +31,7 @@ def rotate_keys(
     try:
         result = service.rotate_keys(payload)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
 
     audit.record_action(
         user=current_user,
