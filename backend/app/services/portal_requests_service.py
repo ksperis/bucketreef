@@ -458,16 +458,14 @@ class PortalRequestsService:
 
     def _execute_user_access(self, row: PortalAdminRequest) -> dict[str, Any]:
         payload = self._decode_json(row.payload_json)
-        intent = str(payload.get("intent") or "add").strip()
+        intent = str(payload.get("intent") or "").strip()
         if intent == "role_change":
             return self._execute_user_role_change(row, payload)
         if intent != "add":
             raise ValueError("Invalid Portal collaborator request intent")
         target_name = str(payload.get("target_name") or "").strip()
         target_email = str(payload.get("target_email") or "").strip().lower()
-        requested_portal_role = str(
-            payload.get("portal_role") or PortalAccountRole.PORTAL_USER.value
-        ).strip()
+        requested_portal_role = str(payload.get("portal_role") or "").strip()
         if not target_name or not target_email:
             raise ValueError("Target user name and email are required")
         if requested_portal_role not in {
