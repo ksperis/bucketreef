@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { HealthCheckStatus } from "../../../api/healthchecks";
+import { useAdminDashboardI18n } from "../adminDashboardMessages";
 
 export type AdminDashboardMapMarker = {
   id: number;
@@ -670,6 +671,7 @@ function MapFrame({
 }
 
 export default function AdminDashboardMap({ markers, loading = false, error = null }: AdminDashboardMapProps) {
+  const { text } = useAdminDashboardI18n();
   const { basemap, projectedMarkers } = projectMarkers(markers);
   const viewport = scaledViewport(basemap);
   const markerRadius = Math.max(viewport.width, viewport.height) * 0.012;
@@ -679,7 +681,7 @@ export default function AdminDashboardMap({ markers, loading = false, error = nu
     return (
       <MapFrame>
         <div className="absolute inset-0 flex items-center justify-center ui-caption text-slate-500 dark:text-slate-400">
-          Loading map...
+          {text("loadingMap")}
         </div>
       </MapFrame>
     );
@@ -699,7 +701,7 @@ export default function AdminDashboardMap({ markers, loading = false, error = nu
     <MapFrame>
       <svg
         role="img"
-        aria-label="Infrastructure endpoint map"
+        aria-label={text("endpointMap")}
         className="absolute inset-0 h-full w-full"
         viewBox={`${viewport.minX} ${viewport.minY} ${viewport.width} ${viewport.height}`}
         preserveAspectRatio="xMidYMid meet"
@@ -727,12 +729,12 @@ export default function AdminDashboardMap({ markers, loading = false, error = nu
       </svg>
       {projectedMarkers.length === 0 && (
         <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 rounded-md border border-slate-200/80 bg-white/85 px-3 py-2 text-center ui-caption font-medium text-slate-600 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/85 dark:text-slate-300">
-          No GPS coordinates available for endpoints.
+          {text("noCoordinates")}
         </div>
       )}
       <div className="absolute left-3 top-3">
-        <h2 className="ui-dashboard-title">Infrastructure map</h2>
-        <p className="ui-dashboard-note">{projectedMarkers.length} geolocated endpoint(s)</p>
+        <h2 className="ui-dashboard-title">{text("infrastructureMap")}</h2>
+        <p className="ui-dashboard-note">{text("geolocatedEndpoints", { count: projectedMarkers.length })}</p>
       </div>
     </MapFrame>
   );
