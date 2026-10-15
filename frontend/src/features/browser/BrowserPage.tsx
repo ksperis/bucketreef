@@ -22,7 +22,6 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { ListActionButton } from "../../components/list/ListControls";
-import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import {
@@ -35,7 +34,6 @@ import {
   writeClientStorage,
 } from "../../utils/clientStorage";
 import { readStoredUser } from "../../utils/workspaces";
-import { formatBytes } from "../../utils/format";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import { useBrowserContext } from "./BrowserContext";
@@ -98,6 +96,7 @@ import { useBrowserUploadQueue } from "./useBrowserUploadQueue";
 import { useBrowserVersionCleanup } from "./useBrowserVersionCleanup";
 import { useBrowserVersionActions } from "./useBrowserVersionActions";
 import BrowserBulkRestoreModal from "./BrowserBulkRestoreModal";
+import BrowserArchivePreparationDialog from "./BrowserArchivePreparationDialog";
 import BrowserCleanupModal from "./BrowserCleanupModal";
 import {
   FULL_BROWSER_CAPABILITY_FACTS,
@@ -3283,55 +3282,12 @@ export default function BrowserPage({
         />
       )}
       {archivePreparation && (
-        <ConfirmActionDialog
-          title={
-            archivePreparation.phase === "inventorying"
-              ? text("Preparing ZIP archive")
-              : text("Save large ZIP archive")
-          }
-          description={
-            archivePreparation.phase === "inventorying"
-              ? archivePreparation.totalFolders > 0
-                ? text(
-                    "Checking folders and archive paths ({completed}/{total}). No object content is downloaded during this step.",
-                    {
-                      completed: archivePreparation.completedFolders,
-                      total: archivePreparation.totalFolders,
-                    },
-                  )
-                : text("Checking files and archive paths. No object content is downloaded during this step.")
-              : text("The inventory is complete. Choose the destination file to start downloading object content.")
-          }
-          details={
-            archivePreparation.phase === "ready"
-              ? [
-                  { label: text("Files"), value: archivePreparation.fileCount },
-                  { label: text("Volume"), value: formatBytes(archivePreparation.totalBytes, intlLocale) },
-                  {
-                    label: text("Excluded"),
-                    value: archivePreparation.excludedCount,
-                  },
-                ]
-              : []
-          }
-          confirmLabel={text("Choose file and download")}
-          confirmDisabled={
-            archivePreparation.phase === "inventorying" ||
-            !archivePreparation.canDownload
-          }
-          cancelLabel={
-            archivePreparation.phase === "inventorying"
-              ? text("Cancel preparation")
-              : text("Close")
-          }
-          tone="primary"
-          error={
-            archivePreparation.phase === "ready"
-              ? archivePreparation.error
-              : undefined
-          }
+        <BrowserArchivePreparationDialog
+          preparation={archivePreparation}
           onCancel={cancelArchivePreparation}
-          onConfirm={() => void savePreparedArchive()}
+          onConfirm={() => {
+            void savePreparedArchive();
+          }}
         />
       )}
       {confirmDialog && (

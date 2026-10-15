@@ -45,7 +45,7 @@ import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
-type BrowserArchivePreparation =
+export type BrowserArchivePreparation =
   | {
       phase: "inventorying";
       folderLabel: string;
