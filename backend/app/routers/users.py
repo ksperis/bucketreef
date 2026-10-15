@@ -22,8 +22,10 @@ from app.services.users_service import UsersService
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.user_avatar_service import MAX_AVATAR_BYTES, UserAvatarService
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_error_from_value_error,
+)
 
 from app.routers.browser_favorites import router as browser_favorites_router
 
@@ -136,7 +138,7 @@ def update_users_me(
             new_password=payload.new_password,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
 
     audit_metadata = payload.model_dump(exclude_none=True)
     if "current_password" in audit_metadata:
@@ -167,7 +169,7 @@ async def upload_my_avatar(
     try:
         service.store_uploaded_image(current_user, payload, file.content_type)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     audit_service.record_action(
         user=current_user,
         scope="users",
