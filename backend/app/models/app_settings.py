@@ -91,21 +91,6 @@ class GeneralSettings(ApiModel):
     allow_user_profile_name_edit: bool = False
     allow_user_external_identity_unlink: bool = False
 
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_legacy_bucket_usage_stats_flag(cls, value):
-        if not isinstance(value, dict) or "bucket_usage_stats_enabled" not in value:
-            return value
-        data = dict(value)
-        legacy = data.pop("bucket_usage_stats_enabled")
-        if not isinstance(legacy, bool):
-            raise ValueError("Legacy setting bucket_usage_stats_enabled must be a boolean")
-        policies = dict(data.get("project_feature_policies") or {})
-        policies.setdefault("bucket_usage_stats", "default_on" if legacy else "disabled")
-        data["project_feature_policies"] = policies
-        return data
-
-
     @field_validator("documentation_base_url", mode="before")
     @classmethod
     def normalize_documentation_base_url(cls, value: Optional[str]) -> str:
@@ -257,21 +242,6 @@ class ManagerSettings(ApiModel):
         ge=1,
         le=64,
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_legacy_rgw_usage_metrics_flag(cls, value):
-        if not isinstance(value, dict) or "manager_rgw_usage_metrics_enabled" not in value:
-            return value
-        data = dict(value)
-        legacy = data.pop("manager_rgw_usage_metrics_enabled")
-        if not isinstance(legacy, bool):
-            raise ValueError("Legacy setting manager_rgw_usage_metrics_enabled must be a boolean")
-        policies = dict(data.get("feature_policies") or {})
-        policies.setdefault("rgw_usage_metrics", "default_on" if legacy else "disabled")
-        data["feature_policies"] = policies
-        return data
-
 
     @model_validator(mode="after")
     def validate_bucket_migration_limits(self):
