@@ -36,9 +36,19 @@ const DEFAULT_POLICY_DOCUMENT = JSON.stringify(
 
 export default function PoliciesPage() {
   const { text } = useManagerI18n();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const {
+    accounts = [],
+    selectedS3AccountId = null,
+    selectedS3AccountType,
+    accountIdForApi,
+    requiresS3AccountSelection,
+    accessMode,
+  } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
+  const selectedContext = accounts.find((context) => context.id === selectedS3AccountId) ?? null;
+  const createManagedPolicyUnsupported = selectedContext?.endpoint_provider === "ceph";
+  const canCreateManagedPolicy = !needsS3AccountSelection && !isS3User && !createManagedPolicyUnsupported;
   const [policyFilter, setPolicyFilter] = useState("");
   const {
     error,
@@ -144,7 +154,7 @@ export default function PoliciesPage() {
         description={text("List and create Ceph IAM policies for the selected account.")}
         breadcrumbs={managerPageBreadcrumbs(text, "policies")}
         actions={
-          !needsS3AccountSelection && !isS3User
+          canCreateManagedPolicy
             ? [
                 {
                   label: text("Create policy"),
@@ -157,6 +167,11 @@ export default function PoliciesPage() {
 
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
+      {createManagedPolicyUnsupported && (
+        <PageBanner tone="info">
+          {text("This Ceph endpoint does not support creating managed IAM policies. Attach an existing managed policy or use inline policies on users, groups, and roles.")}
+        </PageBanner>
+      )}
 
       {needsS3AccountSelection ? (
         <PageEmptyState

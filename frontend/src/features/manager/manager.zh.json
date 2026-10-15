@@ -59,6 +59,7 @@
   "Review Manager control and configuration actions for this execution context. S3 object access logs are not included.": "查看此执行上下文的 Manager 控制和配置操作。不包含 S3 对象访问日志。",
   "Search actor, action, or target": "搜索操作者、操作或目标",
   "Success": "成功",
+  "This Ceph endpoint does not support creating managed IAM policies. Attach an existing managed policy or use inline policies on users, groups, and roles.": "此 Ceph 端点不支持创建托管 IAM 策略。请附加现有托管策略，或在用户、组和角色上使用内联策略。",
   "Unable to load activity history.": "无法加载活动历史。",
   "Unable to load older activity.": "无法加载更早的活动。",
   "When": "时间",

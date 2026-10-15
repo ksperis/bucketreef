@@ -59,6 +59,7 @@
   "Review Manager control and configuration actions for this execution context. S3 object access logs are not included.": "Manager-Steuerungs- und Konfigurationsaktionen für diesen Ausführungskontext prüfen. S3-Objektzugriffsprotokolle sind nicht enthalten.",
   "Search actor, action, or target": "Nach Akteur, Aktion oder Ziel suchen",
   "Success": "Erfolgreich",
+  "This Ceph endpoint does not support creating managed IAM policies. Attach an existing managed policy or use inline policies on users, groups, and roles.": "Dieser Ceph-Endpunkt unterstützt das Erstellen verwalteter IAM-Richtlinien nicht. Hängen Sie eine vorhandene verwaltete Richtlinie an oder verwenden Sie Inline-Richtlinien für Benutzer, Gruppen und Rollen.",
   "Unable to load activity history.": "Aktivitätshistorie konnte nicht geladen werden.",
   "Unable to load older activity.": "Ältere Aktivität konnte nicht geladen werden.",
   "When": "Zeitpunkt",

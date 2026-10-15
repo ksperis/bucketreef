@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from typing import Any, Literal, Optional
 
 from sqlalchemy import String, cast, or_
@@ -184,6 +185,7 @@ class AuditService:
         cursor: Optional[int] = None,
         search: Optional[str] = None,
         status: Optional[str] = None,
+        statuses: Optional[Sequence[str]] = None,
         search_mode: Literal["all", "manager_activity"] = "all",
     ) -> list[AuditLog]:
         query = self.db.query(AuditLog)
@@ -199,7 +201,9 @@ class AuditService:
             query = query.filter(AuditLog.context_id == context_id)
         if cursor:
             query = query.filter(AuditLog.id < cursor)
-        if status:
+        if statuses:
+            query = query.filter(AuditLog.status.in_(tuple(statuses)))
+        elif status:
             query = query.filter(AuditLog.status == status)
         if search:
             trimmed = search.strip()
