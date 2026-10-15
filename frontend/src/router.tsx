@@ -95,9 +95,9 @@ const ManagerRoleWorkspacePage = lazy(() => import("./features/manager/ManagerRo
 const ManagerMetricsPage = lazy(() => import("./features/manager/ManagerMetricsPage"));
 const TopicsPage = lazy(() => import("./features/manager/TopicsPage"));
 const ManagerTopicWorkspacePage = lazy(() => import("./features/manager/ManagerTopicWorkspacePage"));
-const ManagerMigrationsPage = lazy(() => import("./features/manager/ManagerMigrationsPage"));
-const ManagerMigrationDetailPage = lazy(() => import("./features/manager/ManagerMigrationDetailPage"));
-const ManagerMigrationWizardPage = lazy(() => import("./features/manager/ManagerMigrationWizardPage"));
+const ManagerMigrationsPage = lazy(() => import("./features/manager/migrations/ManagerMigrationsListPage"));
+const ManagerMigrationDetailPage = lazy(() => import("./features/manager/migrations/ManagerMigrationDetailPage"));
+const ManagerMigrationWizardPage = lazy(() => import("./features/manager/migrations/ManagerMigrationWizardPage"));
 const ManagerBucketComparePage = lazy(() => import("./features/manager/ManagerBucketComparePage"));
 const ManagerBucketIntegrityPage = lazy(() => import("./features/manager/ManagerBucketIntegrityPage"));
 const ManagerBucketPurgePage = lazy(() => import("./features/manager/ManagerBucketPurgePage"));
