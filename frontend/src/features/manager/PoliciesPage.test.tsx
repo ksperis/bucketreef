@@ -4,13 +4,16 @@ import { beforeEach, expect, it, vi } from "vitest";
 import PoliciesPage from "./PoliciesPage";
 
 const api = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn() }));
-vi.mock("./S3AccountContext", () => ({ useS3AccountContext: () => ({
-  selectedS3AccountType: "account", accountIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default",
-}) }));
+const context = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
+vi.mock("./S3AccountContext", () => ({ useS3AccountContext: () => context.value }));
 vi.mock("../../api/managerIamPolicies", () => ({ listIamPolicies: api.list, createIamPolicy: api.create }));
 
 beforeEach(() => {
   vi.resetAllMocks();
+  context.value = {
+    accounts: [], selectedS3AccountId: "acc-7", selectedS3AccountType: "account",
+    accountIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default",
+  };
   api.list.mockResolvedValue([{ name: "ReadOnly", arn: "arn:aws:iam::acc-7:policy/ReadOnly" }]);
   api.create.mockResolvedValue({ name: "New-policy" });
 });
@@ -73,4 +76,19 @@ it("keeps or discards the draft through the shared close confirmation", async ()
   fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Discard changes" }));
   expect(form).not.toBeInTheDocument();
   expect(api.create).not.toHaveBeenCalled();
+});
+
+it("does not offer managed policy creation on Ceph endpoints", async () => {
+  context.value = {
+    ...context.value,
+    accounts: [{ id: "acc-7", endpoint_provider: "ceph" }],
+  };
+
+  render(<MemoryRouter><PoliciesPage /></MemoryRouter>);
+
+  expect(await screen.findByText("ReadOnly")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Create policy" })).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "This Ceph endpoint does not support creating managed IAM policies. Attach an existing managed policy or use inline policies on users, groups, and roles."
+  );
 });

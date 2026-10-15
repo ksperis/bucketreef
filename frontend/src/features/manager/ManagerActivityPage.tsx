@@ -34,9 +34,7 @@ function statusTone(status: string): "success" | "danger" | "warning" | "neutral
 function statusLabel(status: string): string {
   const normalized = status.toLowerCase();
   if (normalized === "success") return "Success";
-  if (normalized === "failure") return "Failure";
-  if (normalized === "failed") return "Failed";
-  if (normalized === "error") return "Error";
+  if (["failure", "failed", "error"].includes(normalized)) return "Failure";
   if (normalized === "partial") return "Partial";
   return status;
 }
@@ -210,8 +208,6 @@ export default function ManagerActivityPage() {
               <option value="">{text("All statuses")}</option>
               <option value="success">{text("Success")}</option>
               <option value="failure">{text("Failure")}</option>
-              <option value="failed">{text("Failed")}</option>
-              <option value="error">{text("Error")}</option>
               <option value="partial">{text("Partial")}</option>
             </UiSelect>
           }
