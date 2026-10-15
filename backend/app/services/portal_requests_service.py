@@ -167,16 +167,7 @@ class PortalRequestsService:
         except Exception as exc:
             detail = sanitize_error_detail(str(exc))
             self.db.rollback()
-            failed = self._load_request(int(row.id))
-            now = utcnow()
-            failed.status = "failed"
-            failed.error_message = detail
-            failed.decided_by_user_id = int(actor.id)
-            failed.decided_by_email = actor.email
-            failed.decided_at = now
-            failed.updated_at = now
-            self.db.add(failed)
-            self.db.commit()
+            failed = self._finalize_failed_request(int(row.id), actor, detail)
             AuditService(self.db).record_action(
                 user=actor,
                 scope="portal",
@@ -194,18 +185,7 @@ class PortalRequestsService:
             )
             raise PortalRequestExecutionError(detail) from exc
 
-        approved = self._load_request(int(row.id))
-        now = utcnow()
-        approved.status = "approved"
-        approved.result_json = self._encode_json(result)
-        approved.error_message = None
-        approved.decided_by_user_id = int(actor.id)
-        approved.decided_by_email = actor.email
-        approved.decided_at = now
-        approved.updated_at = now
-        self.db.add(approved)
-        self.db.commit()
-        self.db.refresh(approved)
+        approved = self._finalize_approved_request(int(row.id), actor, result)
         AuditService(self.db).record_action(
             user=actor,
             scope="portal",
@@ -359,16 +339,7 @@ class PortalRequestsService:
         except Exception as exc:
             detail = sanitize_error_detail(str(exc))
             self.db.rollback()
-            failed = self._load_request(request_id)
-            now = utcnow()
-            failed.status = "failed"
-            failed.error_message = detail
-            failed.decided_by_user_id = int(actor.id)
-            failed.decided_by_email = actor.email
-            failed.decided_at = now
-            failed.updated_at = now
-            self.db.add(failed)
-            self.db.commit()
+            failed = self._finalize_failed_request(request_id, actor, detail)
             self._notify_requester(
                 failed,
                 title="Portal request failed",
@@ -389,20 +360,12 @@ class PortalRequestsService:
             )
             raise PortalRequestExecutionError(detail) from exc
 
-        approved = self._load_request(request_id)
-        now = utcnow()
-        approved.status = "approved"
-        approved.result_json = self._encode_json(result)
-        approved.error_message = None
-        approved.decided_by_user_id = int(actor.id)
-        approved.decided_by_email = actor.email
-        approved.decided_at = now
-        approved.updated_at = now
-        if message:
-            self._add_message(approved, actor, message)
-        self.db.add(approved)
-        self.db.commit()
-        self.db.refresh(approved)
+        approved = self._finalize_approved_request(
+            request_id,
+            actor,
+            result,
+            message=message,
+        )
         self._notify_requester(
             approved,
             title="Portal request approved",
@@ -420,6 +383,48 @@ class PortalRequestsService:
             metadata={"request_type": approved.request_type, "result": result},
         )
         return self.to_out(approved)
+
+    def _finalize_failed_request(
+        self,
+        request_id: int,
+        actor: User,
+        detail: str,
+    ) -> PortalAdminRequest:
+        row = self._load_request(request_id)
+        now = utcnow()
+        row.status = "failed"
+        row.error_message = detail
+        row.decided_by_user_id = int(actor.id)
+        row.decided_by_email = actor.email
+        row.decided_at = now
+        row.updated_at = now
+        self.db.add(row)
+        self.db.commit()
+        return row
+
+    def _finalize_approved_request(
+        self,
+        request_id: int,
+        actor: User,
+        result: dict[str, Any],
+        *,
+        message: Optional[str] = None,
+    ) -> PortalAdminRequest:
+        row = self._load_request(request_id)
+        now = utcnow()
+        row.status = "approved"
+        row.result_json = self._encode_json(result)
+        row.error_message = None
+        row.decided_by_user_id = int(actor.id)
+        row.decided_by_email = actor.email
+        row.decided_at = now
+        row.updated_at = now
+        if message:
+            self._add_message(row, actor, message)
+        self.db.add(row)
+        self.db.commit()
+        self.db.refresh(row)
+        return row
 
     def to_out(self, row: PortalAdminRequest) -> PortalAdminRequestOut:
         return PortalAdminRequestOut(
