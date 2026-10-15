@@ -87,8 +87,10 @@ def test_portal_request_routes_create_and_isolate_by_requester(client: TestClien
         "/api/portal/requests",
         json={
             "request_type": "portal_user_access",
+            "intent": "add",
             "target_name": "Jane Viewer",
             "target_email": "jane@example.org",
+            "portal_role": "portal_user",
         },
     )
 
@@ -107,6 +109,25 @@ def test_portal_request_routes_create_and_isolate_by_requester(client: TestClien
     assert isolated_list.json() == []
 
 
+def test_portal_user_access_request_requires_explicit_intent_and_role(client: TestClient, db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    _install_portal_access_override(account, requester)
+    canonical_payload = {
+        "request_type": "portal_user_access",
+        "intent": "add",
+        "target_name": "Jane Viewer",
+        "target_email": "jane@example.org",
+        "portal_role": "portal_user",
+    }
+
+    for missing_field in ("intent", "portal_role"):
+        payload = dict(canonical_payload)
+        payload.pop(missing_field)
+        response = client.post("/api/portal/requests", json=payload)
+        assert response.status_code == 422
+
+
 def test_portal_request_routes_require_manager_for_creation(client: TestClient, db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
@@ -116,8 +137,10 @@ def test_portal_request_routes_require_manager_for_creation(client: TestClient, 
         "/api/portal/requests",
         json={
             "request_type": "portal_user_access",
+            "intent": "add",
             "target_name": "Jane Viewer",
             "target_email": "jane@example.org",
+            "portal_role": "portal_user",
         },
     )
 
@@ -229,8 +252,10 @@ def test_admin_request_routes_approve_and_conflict(client: TestClient, db_sessio
         "/api/portal/requests",
         json={
             "request_type": "portal_user_access",
+            "intent": "add",
             "target_name": "Jane Viewer",
             "target_email": "jane@example.org",
+            "portal_role": "portal_user",
         },
     )
     request_id = create_response.json()["id"]

@@ -447,6 +447,7 @@ describe("portal storage spaces api", () => {
     await listPortalRequests("101");
     await createPortalRequest("101", {
       request_type: "portal_user_access",
+      intent: "add",
       target_name: "Jane Viewer",
       target_email: "jane@example.org",
       portal_role: "portal_manager",
@@ -481,6 +482,7 @@ describe("portal storage spaces api", () => {
       "/portal/requests",
       {
         request_type: "portal_user_access",
+        intent: "add",
         target_name: "Jane Viewer",
         target_email: "jane@example.org",
         portal_role: "portal_manager",

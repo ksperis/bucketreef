@@ -171,6 +171,7 @@ describe("PortalRequestsPage", () => {
     await waitFor(() => {
       expect(mocks.createPortalRequest).toHaveBeenCalledWith("101", {
         request_type: "portal_user_access",
+        intent: "add",
         target_name: "Jane Viewer",
         target_email: "jane@example.org",
         portal_role: "portal_manager",

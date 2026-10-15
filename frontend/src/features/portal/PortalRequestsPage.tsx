@@ -370,6 +370,7 @@ export default function PortalRequestsPage() {
         collaboratorAction === "add"
           ? {
               request_type: "portal_user_access",
+              intent: "add",
               target_name: cleanName,
               target_email: cleanEmail,
               portal_role: targetPortalRole,

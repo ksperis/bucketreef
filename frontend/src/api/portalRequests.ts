@@ -34,7 +34,7 @@ export type PortalSettingValue = boolean | number | string[];
 
 type PortalUserAccessAddRequestCreate = {
   request_type: "portal_user_access";
-  intent?: "add";
+  intent: "add";
   target_name: string;
   target_email: string;
   portal_role: PortalRequestedRole;

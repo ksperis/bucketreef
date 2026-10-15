@@ -37,6 +37,7 @@ const pendingRequest: PortalAdminRequest = {
   request_type: "portal_user_access",
   status: "pending",
   payload: {
+    intent: "add",
     target_name: "Jane Viewer",
     target_email: "jane@example.org",
     portal_role: "portal_manager",

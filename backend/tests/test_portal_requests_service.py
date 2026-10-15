@@ -121,6 +121,7 @@ def _create_user_request(
         _portal_access(account, requester),
         PortalUserAccessRequestCreate(
             request_type="portal_user_access",
+            intent="add",
             target_name="Jane Viewer",
             target_email="Jane.Viewer@Example.org",
             portal_role=portal_role,
