@@ -114,6 +114,22 @@ Managed workflows may use dedicated technical IAM identities only when:
 
 Internal APIs under `/internal` are non-UI operational endpoints.
 
+### Backend/frontend API evolution
+
+- The application backend API is an internal contract consumed by the
+  BucketReef frontend from the same release. BucketReef currently has no
+  supported third-party client contract for these application routes.
+- Prefer a database migration plus coordinated backend/frontend changes over
+  long-lived route aliases, payload fallbacks, or compatibility branches for
+  older frontend versions.
+- Breaking application-API changes must update the frontend, tests, upgrade
+  notes, and commit metadata in the same change set, and the matching
+  application components must be deployed together.
+- This does not relax compatibility requirements for external protocols and
+  integrations such as S3, IAM, RGW Admin Ops, webhook receivers, or documented
+  operational endpoints. Their contracts remain explicit at their own
+  boundaries.
+
 ### UI access is not storage permission
 
 Access to `/manager`, `/portal`, and `/browser` is controlled by explicit
