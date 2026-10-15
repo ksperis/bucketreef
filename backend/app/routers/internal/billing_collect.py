@@ -2,13 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.routers.billing_common import parse_billing_day
 from app.routers.dependencies import require_internal_cron_token
-from app.core.sensitive_data import sanitize_error_detail
 from app.services.app_settings_service import load_app_settings
 from app.services.billing_collection_service import BillingCollector
 from app.services.operation_lease_service import (
@@ -16,6 +15,7 @@ from app.services.operation_lease_service import (
     billing_daily_operation_name,
     billing_operation_lease_ttl_seconds,
 )
+from app.utils.http_errors import raise_bad_request_from_value_error
 
 router = APIRouter(prefix="/internal/billing", tags=["internal-billing"])
 
@@ -43,6 +43,6 @@ def collect_daily(
         return collector.collect_daily(parsed)
     except ValueError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     finally:
         lease_service.release(lease)

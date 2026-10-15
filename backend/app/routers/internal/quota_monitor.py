@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -13,7 +13,7 @@ from app.services.operation_lease_service import (
     QUOTA_MONITOR_ALERTS_OPERATION,
     default_operation_lease_ttl_seconds,
 )
-from app.core.sensitive_data import sanitize_error_detail
+from app.utils.http_errors import raise_bad_request_from_value_error
 
 router = APIRouter(prefix="/internal/quota-monitor", tags=["internal-quota-monitor"])
 
@@ -36,6 +36,6 @@ def run_quota_monitor(
         return service.run_monitor(include_usage_history=False)
     except ValueError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     finally:
         lease_service.release(lease)
