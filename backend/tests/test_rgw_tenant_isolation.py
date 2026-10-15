@@ -14,6 +14,7 @@ from app.services.buckets_service import BucketsService
 from app.services.portal_service import PortalService
 from app.services.quota_monitoring_service import QuotaMonitoringService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficService, TrafficWindow
 from app.utils.rgw_payloads import require_rgw_user_identity, rgw_user_account_root
@@ -209,12 +210,16 @@ def test_conflicting_tenant_fields_fail_closed():
 def test_root_discovery_accepts_native_ceph_type_and_rejects_a_regular_account_user():
     assert rgw_user_account_root({"type": "root"}) is True
     assert rgw_user_account_root({"type": "rgw"}) is False
-    from app.services.s3_accounts_service import S3AccountsService
     admin = SimpleNamespace(get_user=lambda *args, **kwargs: {
         "user_id": "custom-root", "tenant": "customer01", "type": "rgw", "account_id": "RGW12345678901234567",
     })
     with pytest.raises(ValueError, match="not an account root"):
-        S3AccountsService._load_existing_root_user(admin, "custom-root", "RGW12345678901234567", "customer01")
+        RgwAccountRootService.load_existing_root_user(
+            admin,
+            "custom-root",
+            "RGW12345678901234567",
+            "customer01",
+        )
 
 
 def test_account_import_upstream_failure_is_actionable_and_secret_safe(client, monkeypatch):

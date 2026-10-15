@@ -9,7 +9,6 @@ from app.services.feature_policy_service import (
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from dataclasses import dataclass
 import logging
-import re
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -47,9 +46,9 @@ from app.services.rgw_account_topics_resolver import (
     RgwAccountTopicsResolver,
     normalize_account_key,
 )
+from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
 from app.services.rgw_iam import RGWIAMService, get_iam_service
-from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.tags_service import TagsService
 from app.utils.s3_endpoint import resolve_iam_client_options
@@ -60,13 +59,10 @@ from app.utils.storage_endpoint_features import (
     resolve_admin_endpoint,
     resolve_feature_flags,
 )
-from app.utils.rgw_identifiers import generate_rgw_account_id, normalize_rgw_identifier
+from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_ids,
-    require_rgw_user_identity,
-    rgw_user_account_root,
-    split_rgw_tenant_uid,
 )
 from app.utils.usage_stats import aggregate_bucket_usage
 from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
@@ -89,12 +85,11 @@ class _PreparedAccountImport:
 
 
 class S3AccountsService:
-    _ROOT_UID_SUFFIX = "-admin"
-
     def __init__(self, db: Session) -> None:
         self.db = db
         self.tags = TagsService(db)
         self.account_topics = RgwAccountTopicsResolver()
+        self.account_roots = RgwAccountRootService()
         self.associations = S3AccountAssociationsService(db)
 
     def _get_account(self, account_id: int) -> S3Account:
@@ -232,25 +227,6 @@ class S3AccountsService:
             extract_positive_limit(payload, "max_groups"),
         )
 
-    def _root_uid(self, identifier: Any) -> str:
-        value = str(identifier or "").strip()
-        if not value:
-            raise ValueError("Missing account identifier for RGW root user")
-        normalized = normalize_rgw_identifier(value)
-        if not normalized:
-            raise ValueError("Missing account identifier for RGW root user")
-        return f"{normalized}{self._ROOT_UID_SUFFIX}"
-
-    def _root_display_name(self, account_name: Optional[str], account_identifier: str) -> str:
-        base = (account_name or account_identifier or "").strip()
-        # Ceph RGW Tentacle rejects account-root creation with InvalidArgument
-        # for characters that are valid in an RGW account name but are not
-        # accepted reliably by the account-root user creation path. Keep the
-        # account name itself untouched and normalize only this technical
-        # display name using a conservative ASCII subset.
-        safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", base).strip("-")
-        return safe or "bucketreef-admin-user"
-
     @staticmethod
     def _ensure_account_creation_succeeded(result: Any, expected_id: str) -> None:
         if isinstance(result, dict) and result.get("conflict"):
@@ -307,7 +283,7 @@ class S3AccountsService:
             # while deletion proves that no non-root users remain through IAM.
             return None, None
         cleaned: list[str] = []
-        root_uid = root_uid or self._root_uid(account_identifier)
+        root_uid = root_uid or self.account_roots.root_uid(account_identifier)
         for entry in user_list:
             uid = str(entry.get("uid", entry.get("user_id", ""))) if isinstance(entry, dict) else str(entry or "")
             if not uid:
@@ -455,65 +431,6 @@ class S3AccountsService:
             tags=self.tags.get_account_tags(account),
         )
 
-    @staticmethod
-    def _load_existing_root_user(
-        admin: RGWAdminClient,
-        root_uid: str,
-        account_id: str,
-        tenant: str = "",
-    ) -> Optional[dict[str, Any]]:
-        payload = admin.get_user(root_uid, tenant=tenant or None, allow_not_found=True)
-        if not payload or payload.get("not_found"):
-            return None
-        require_rgw_user_identity(payload, root_uid, tenant)
-        user = payload.get("user") if isinstance(payload.get("user"), dict) else payload
-        account_values = {
-            str(value).strip() for value in (user.get("account_id"), payload.get("account_id"))
-            if value is not None and str(value).strip()
-        }
-        if account_values != {account_id}:
-            raise ValueError("RGW root UID belongs to another account or has no verifiable account")
-        if rgw_user_account_root(payload) is False:
-            raise ValueError("RGW user is not an account root")
-        return payload
-
-    def _import_root_identity(
-        self, admin: RGWAdminClient, info: dict[str, Any], account_id: str, override: str | None,
-    ) -> tuple[str, str]:
-        """Discover a pre-existing account root, including a custom tenant-qualified UID."""
-        account_info = info.get("account") if isinstance(info.get("account"), dict) else info
-        tenant = str(account_info.get("tenant") or "").strip()
-        if override:
-            uid, selected_tenant = split_rgw_tenant_uid(override, tenant)
-            if "tenant" in account_info and selected_tenant != tenant:
-                raise ValueError("Root UID tenant does not match the RGW account tenant")
-            return uid, selected_tenant
-        roots: set[tuple[str, str]] = set()
-        candidates = account_info.get("user_list", account_info.get("users"))
-        if candidates is None:
-            candidates = admin.list_user_ids()
-        for candidate in candidates:
-            raw_uid = candidate.get("uid", candidate.get("user_id")) if isinstance(candidate, dict) else candidate
-            if not isinstance(raw_uid, str) or not raw_uid.strip():
-                continue
-            uid, candidate_tenant = split_rgw_tenant_uid(raw_uid)
-            if "$" not in raw_uid:
-                candidate_tenant = tenant if "user_list" in account_info or "users" in account_info else ""
-            if "tenant" in account_info and candidate_tenant != tenant:
-                continue
-            payload = admin.get_user(uid, tenant=candidate_tenant or None, allow_not_found=True)
-            if not payload:
-                continue
-            user = payload.get("user") if isinstance(payload.get("user"), dict) else payload
-            if user.get("account_id") == account_id and rgw_user_account_root(payload) is True:
-                self._load_existing_root_user(admin, uid, account_id, candidate_tenant)
-                roots.add((uid, candidate_tenant))
-        if len(roots) > 1:
-            raise ValueError("Multiple RGW account roots found; specify the root UID to import")
-        if roots:
-            return next(iter(roots))
-        return split_rgw_tenant_uid(self._root_uid(account_id), tenant)
-
     def _prepare_account_imports(self, imports: list[S3AccountImport]) -> list[_PreparedAccountImport]:
         requested_ids = {item.rgw_account_id for item in imports}
         existing_ids = {
@@ -537,7 +454,12 @@ class S3AccountsService:
                 raise ValueError(f"S3Account {item.rgw_account_id} not found in RGW")
             account_info = rgw_info.get("account") if isinstance(rgw_info.get("account"), dict) else rgw_info
             account_name = account_info.get("name") or item.name or item.rgw_account_id
-            root_uid, rgw_tenant = self._import_root_identity(admin, rgw_info, item.rgw_account_id, item.root_uid)
+            root_uid, rgw_tenant = self.account_roots.resolve_import_identity(
+                admin,
+                rgw_info,
+                item.rgw_account_id,
+                item.root_uid,
+            )
             prepared.append(
                 _PreparedAccountImport(
                     source=item,
@@ -545,7 +467,10 @@ class S3AccountsService:
                     admin=admin,
                     account_name=str(account_name),
                     root_uid=root_uid,
-                    root_display_name=self._root_display_name(str(account_name), item.rgw_account_id),
+                    root_display_name=self.account_roots.root_display_name(
+                        str(account_name),
+                        item.rgw_account_id,
+                    ),
                     rgw_tenant=rgw_tenant,
                 )
             )
@@ -562,62 +487,19 @@ class S3AccountsService:
             seen_names.add(item.account_name)
         return prepared
 
-    def _obtain_import_root_keys(self, prepared: _PreparedAccountImport) -> tuple[str, str]:
-        item = prepared.source
-        admin = prepared.admin
-        existing_root = self._load_existing_root_user(admin, prepared.root_uid, item.rgw_account_id, prepared.rgw_tenant)
-        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-            admin.extract_keys(existing_root or {})
-        )
-        if not access_key or not secret_key:
-            if not existing_root:
-                resp = admin.create_user_with_account_id(
-                    uid=prepared.root_uid,
-                    account_id=item.rgw_account_id,
-                    display_name=prepared.root_display_name,
-                    account_root=True,
-                    **({"tenant": prepared.rgw_tenant} if prepared.rgw_tenant else {}),
-                )
-                if isinstance(resp, dict) and resp.get("conflict"):
-                    resp = self._load_existing_root_user(admin, prepared.root_uid, item.rgw_account_id, prepared.rgw_tenant)
-                    if not resp:
-                        raise ValueError("RGW root UID conflict; account ownership could not be verified")
-                access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                    admin.extract_keys(resp)
-                )
-                if not access_key or not secret_key:
-                    existing_root = self._load_existing_root_user(
-                        admin, prepared.root_uid, item.rgw_account_id, prepared.rgw_tenant,
-                    )
-                    access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                        admin.extract_keys(existing_root or {})
-                    )
-            if not access_key or not secret_key:
-                verified_root = self._load_existing_root_user(
-                    admin, prepared.root_uid, item.rgw_account_id, prepared.rgw_tenant,
-                )
-                if not verified_root:
-                    raise ValueError("RGW account root could not be verified before key creation")
-                try:
-                    resp = admin.create_access_key(
-                        prepared.root_uid,
-                        tenant=prepared.rgw_tenant or None,
-                    )
-                    access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                        admin.extract_keys(resp)
-                    )
-                except RGWAdminError:
-                    pass
-        if not access_key or not secret_key:
-            raise ValueError(f"Unable to obtain root keys for account {item.rgw_account_id}")
-        if not self._load_existing_root_user(admin, prepared.root_uid, item.rgw_account_id, prepared.rgw_tenant):
-            raise ValueError("RGW account root could not be verified after import")
-        return access_key, secret_key
-
     def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
         prepared = self._prepare_account_imports(imports)
         resolved = [
-            (item, *self._obtain_import_root_keys(item))
+            (
+                item,
+                *self.account_roots.obtain_import_credentials(
+                    item.admin,
+                    account_id=item.source.rgw_account_id,
+                    root_uid=item.root_uid,
+                    root_display_name=item.root_display_name,
+                    tenant=item.rgw_tenant,
+                ),
+            )
             for item in prepared
         ]
         accounts: list[tuple[S3Account, StorageEndpoint]] = []
@@ -650,71 +532,6 @@ class S3AccountsService:
         ]
         self.db.commit()
         return created
-
-    def _ensure_provisioned_root_credentials(
-        self,
-        admin: RGWAdminClient,
-        *,
-        rgw_account_id: str,
-        account_name: str,
-        resume: bool,
-    ) -> tuple[str, str, str]:
-        """Create or reconcile the root identity for a provisioned RGW account.
-
-        Fresh provisioning deliberately creates the account and its root user
-        through the same RGW client/session, matching the normal account
-        creation path. Resume mode first reconciles an already-created root so
-        an interrupted onboarding can continue without creating duplicates.
-        """
-        root_uid = self._root_uid(rgw_account_id)
-        root_payload: dict[str, Any] | None = None
-        if resume:
-            root_payload = self._load_existing_root_user(
-                admin,
-                root_uid,
-                rgw_account_id,
-            )
-
-        if not root_payload:
-            try:
-                root_payload = admin.create_user_with_account_id(
-                    uid=root_uid,
-                    account_id=rgw_account_id,
-                    display_name=self._root_display_name(account_name, rgw_account_id),
-                    account_root=True,
-                )
-                if isinstance(root_payload, dict) and root_payload.get("conflict"):
-                    root_payload = self._load_existing_root_user(admin, root_uid, rgw_account_id)
-                    if not root_payload:
-                        raise ValueError("RGW root UID conflict; account ownership could not be verified")
-            except RGWAdminError as exc:
-                raise ValueError(f"RGW root user creation failed: {exc}") from exc
-
-        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-            admin.extract_keys(root_payload or {})
-        )
-        if not access_key or not secret_key:
-            reconciled = self._load_existing_root_user(
-                admin,
-                root_uid,
-                rgw_account_id,
-            )
-            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                admin.extract_keys(reconciled or {})
-            )
-        if not access_key or not secret_key:
-            try:
-                key_payload = admin.create_access_key(
-                    root_uid,
-                )
-            except RGWAdminError as exc:
-                raise ValueError(f"RGW root access key creation failed: {exc}") from exc
-            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                admin.extract_keys(key_payload)
-            )
-        if not access_key or not secret_key:
-            raise ValueError("Unable to obtain root access/secret keys for account")
-        return root_uid, access_key, secret_key
 
     def _persist_provisioned_account(
         self,
@@ -787,7 +604,7 @@ class S3AccountsService:
             remote_ids = extract_rgw_account_ids(remote, nested_account)
             if remote.get("name") != payload.name or remote_ids != {rgw_account_id}:
                 raise ValueError("Provisioned RGW account does not match the requested identity")
-        root_uid, access_key, secret_key = self._ensure_provisioned_root_credentials(
+        root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
             admin,
             rgw_account_id=rgw_account_id,
             account_name=payload.name,
@@ -833,7 +650,7 @@ class S3AccountsService:
         except RGWAdminError as exc:
             raise ValueError(f"RGW account creation failed: {exc}") from exc
 
-        root_uid, access_key, secret_key = self._ensure_provisioned_root_credentials(
+        root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
             admin,
             rgw_account_id=rgw_account_id,
             account_name=payload.name,
@@ -1081,16 +898,13 @@ class S3AccountsService:
 
     def _delete_root_user(self, account: S3Account) -> None:
         admin = self._admin_for_account(account, allow_missing=False)
-        try:
-            if not self._load_existing_root_user(admin, account.rgw_user_uid, account.rgw_account_id, account.rgw_tenant):
-                raise ValueError("RGW root user could not be verified before deletion")
-            admin.delete_user(account.rgw_user_uid, tenant=account.rgw_tenant or None)
-            logger.debug("Deleted RGW root user %s", account.rgw_user_uid)
-        except RGWAdminError as exc:
-            logger.debug("Unable to delete RGW root user %s: %s", account.rgw_user_uid, exc)
-            raise ValueError(
-                f"Unable to delete RGW root user {account.rgw_user_uid} for account {account.id}: {exc}"
-            ) from exc
+        self.account_roots.delete_root_user(
+            admin,
+            root_uid=account.rgw_user_uid,
+            account_id=account.rgw_account_id,
+            tenant=account.rgw_tenant,
+            local_account_id=account.id,
+        )
 
     def _remove_account_entry(self, account: S3Account) -> None:
         self.db.query(AccountIAMUser).filter(AccountIAMUser.account_id == account.id).delete()

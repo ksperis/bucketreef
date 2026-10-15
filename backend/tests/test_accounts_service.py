@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.domain_errors import S3AccountNotFoundError
+from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.s3_accounts_service import S3AccountsService
 from app.db import (
     BillingAssignment,
@@ -96,7 +97,7 @@ def test_import_root_lookup_rejects_conflicting_nested_account_id():
             return {"account_id": "RGW1", "user": {"uid": "root", "account_id": "RGW2"}}
 
     with pytest.raises(ValueError, match="belongs to another account"):
-        S3AccountsService._load_existing_root_user(Admin(), "root", "RGW1")
+        RgwAccountRootService.load_existing_root_user(Admin(), "root", "RGW1")
 
 
 class FakeRGWAdmin:
