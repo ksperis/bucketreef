@@ -876,14 +876,12 @@ class PortalRequestsService:
     ) -> bool:
         if request_type != "portal_user_access":
             return False
-        intent = str(payload_data.get("intent") or "add")
+        intent = str(payload_data["intent"])
         if intent == "role_change":
             return bool(access.account.portal_collaborator_role_management_delegated)
         if intent != "add" or not access.account.portal_collaborator_addition_delegated:
             return False
-        requested_role = str(
-            payload_data.get("portal_role") or PortalAccountRole.PORTAL_USER.value
-        )
+        requested_role = str(payload_data["portal_role"])
         if requested_role == PortalAccountRole.PORTAL_MANAGER.value:
             return bool(access.account.portal_collaborator_role_management_delegated)
         return requested_role == PortalAccountRole.PORTAL_USER.value

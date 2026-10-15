@@ -67,11 +67,11 @@ def _normalize_optional_request_text(value: Optional[str]) -> Optional[str]:
 
 class PortalUserAccessRequestCreate(ApiModel):
     request_type: Literal["portal_user_access"]
-    intent: Literal["add", "role_change"] = "add"
+    intent: Literal["add", "role_change"]
     target_name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     target_email: Optional[EmailStr] = None
     target_user_id: Optional[int] = Field(default=None, gt=0)
-    portal_role: Literal["portal_user", "portal_manager"] = "portal_user"
+    portal_role: Literal["portal_user", "portal_manager"]
     reason: Optional[str] = Field(default=None, max_length=2000)
 
     @field_validator("target_name")

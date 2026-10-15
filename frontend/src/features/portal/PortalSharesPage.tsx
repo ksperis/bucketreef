@@ -414,6 +414,7 @@ export default function PortalSharesPage() {
     try {
       const request = await createPortalRequest(accountIdForApi, {
         request_type: "portal_user_access",
+        intent: "add",
         target_name: targetName,
         target_email: targetEmail,
         portal_role: memberRequestRole,

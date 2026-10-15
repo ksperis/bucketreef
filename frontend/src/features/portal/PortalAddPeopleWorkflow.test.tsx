@@ -139,7 +139,7 @@ it("guards a nested request once, retains failed values and never submits the in
   await user.click(within(dialog).getByRole("button", { name: "Send request" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Request sent.");
   expect(screen.getByRole("button", { name: "Request collaborator access" })).toHaveFocus();
-  expect(mocks.request).toHaveBeenLastCalledWith("101", { request_type: "portal_user_access", target_name: "Missing person", target_email: "partner@example.test", portal_role: "portal_manager" });
+  expect(mocks.request).toHaveBeenLastCalledWith("101", { request_type: "portal_user_access", intent: "add", target_name: "Missing person", target_email: "partner@example.test", portal_role: "portal_manager" });
   expect(mocks.grant).not.toHaveBeenCalled();
   await user.clear(screen.getByRole("textbox", { name: "People" }));
   expect(screen.getByRole("checkbox", { name: /Bob/ })).toBeChecked();

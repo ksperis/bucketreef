@@ -88,7 +88,7 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
           return next;
         })}
         onRequestPerson={async ({ targetName, targetEmail, portalRole }) => {
-          const request = await createPortalRequest(accountId, { request_type: "portal_user_access", target_name: targetName, target_email: targetEmail, portal_role: portalRole });
+          const request = await createPortalRequest(accountId, { request_type: "portal_user_access", intent: "add", target_name: targetName, target_email: targetEmail, portal_role: portalRole });
           if (request.status === "approved") setRevision(value => value + 1);
           setRequestMessage(request.status === "approved"
             ? portalRole === "portal_manager"

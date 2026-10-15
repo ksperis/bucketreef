@@ -1284,6 +1284,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     await waitFor(() => {
       expect(mocks.createPortalRequestMock).toHaveBeenCalledWith("101", {
         request_type: "portal_user_access",
+        intent: "add",
         target_name: "Missing Person",
         target_email: "missing@example.org",
         portal_role: "portal_manager",
