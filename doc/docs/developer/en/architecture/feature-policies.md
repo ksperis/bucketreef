@@ -26,9 +26,13 @@ metadata. Projection booleans must never be written back as configuration.
 Migration `0148_feature_policies` converts only the `default` AppSetting row,
 preserves all existing resource booleans and removes their defaults for future
 rows. Manager true/false settings become targeted/disabled; Portal true/false
-defaults become default_on/targeted. Legacy bootstrap JSON is converted when
-imported, then saved canonically. Normal database reads do not run compatibility
-conversion. Backend and bundled frontend must be upgraded together.
+defaults become default_on/targeted. Migration
+`0151_project_usage_feature_overrides` separately converts the former
+`bucket_usage_stats_enabled` and `manager_rgw_usage_metrics_enabled` fields
+into their canonical project/Manager policy fields. Legacy bootstrap JSON is
+converted only at the explicit disk-import boundary, then saved canonically.
+Normal database reads do not run compatibility conversion and reject removed
+settings fields. Backend and bundled frontend must be upgraded together.
 
 An older version cannot express inheritance or Portal prohibitions. Downgrade
 conservatively converts inherited resource values to explicit false and loses

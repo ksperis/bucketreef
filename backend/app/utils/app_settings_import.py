@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-"""One-time conversion of persisted/bootstrap settings to the canonical policy format."""
+"""One-time conversion of bootstrap settings to the canonical policy format."""
 from copy import deepcopy
 
 from app.models.feature_policy import MANAGER_LEGACY_FIELDS, PORTAL_FEATURE_FIELDS
