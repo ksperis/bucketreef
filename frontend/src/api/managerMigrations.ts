@@ -92,8 +92,7 @@ type BucketMigrationBucketMapping = {
   target_bucket?: string | null;
 };
 
-export type BucketMigrationCreateRequest = {
-  configuration_revision?: number;
+type BucketMigrationDraftRequest = {
   source_context_id: string;
   target_context_id: string;
   buckets: BucketMigrationBucketMapping[];
@@ -106,6 +105,12 @@ export type BucketMigrationCreateRequest = {
   use_same_endpoint_copy?: boolean;
   auto_grant_source_read_for_copy?: boolean;
   parallelism_max?: number;
+};
+
+export type BucketMigrationCreateRequest = BucketMigrationDraftRequest;
+
+type BucketMigrationUpdateRequest = BucketMigrationDraftRequest & {
+  configuration_revision: number;
 };
 
 export type BucketMigrationItemView = {
@@ -168,7 +173,7 @@ export type BucketMigrationView = {
   precheck_report?: BucketMigrationPrecheckReport | null;
   precheck_checked_at?: string | null;
   workflow_version?: number;
-  configuration_revision?: number;
+  configuration_revision: number;
   checked_revision?: number | null;
   preparation_status?: "unverified" | "checking" | "blocked" | "ready" | "stale";
   preparation_active_checks?: boolean;
@@ -325,7 +330,7 @@ export async function createManagerMigration(payload: BucketMigrationCreateReque
 
 export async function updateManagerMigration(
   migrationId: number,
-  payload: BucketMigrationCreateRequest
+  payload: BucketMigrationUpdateRequest
 ): Promise<BucketMigrationDetail> {
   const { data } = await client.patch<BucketMigrationDetail>(`/manager/migrations/${migrationId}`, payload);
   return data;

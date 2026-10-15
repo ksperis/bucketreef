@@ -10,8 +10,9 @@ import pytest
 from botocore.exceptions import ClientError
 from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket_migration import (
-    BucketMigrationCreateRequest,
     BucketMigrationBucketMapping,
+    BucketMigrationCreateRequest,
+    BucketMigrationUpdateRequest,
 )
 from app.services.bucket_migration import maintenance as bucket_migration_maintenance
 from app.services.bucket_migration_service import BucketMigrationService
@@ -96,7 +97,8 @@ def test_active_checks_require_explicit_start_and_current_revision(prepared):
     with pytest.raises(ValueError, match="revision"):
         service.start_migration(migration.id, configuration_revision=2)
     service.update_draft_migration(
-        migration.id, payload.model_copy(update={"configuration_revision": 1})
+        migration.id,
+        BucketMigrationUpdateRequest(**payload.model_dump(), configuration_revision=1),
     )
     assert migration.configuration_revision == 2
     assert migration.checked_revision is None
@@ -293,7 +295,8 @@ def test_failed_restoration_blocks_checks_edits_and_start(prepared):
     assert available_actions(migration)["restore_access"]["enabled"]
     with pytest.raises(ValueError):
         service.update_draft_migration(
-            migration.id, payload.model_copy(update={"configuration_revision": 1})
+            migration.id,
+            BucketMigrationUpdateRequest(**payload.model_dump(), configuration_revision=1),
         )
     with pytest.raises(ValueError):
         service.start_migration(migration.id, configuration_revision=1)
@@ -610,12 +613,14 @@ def test_concurrent_editor_cannot_overwrite_a_saved_revision(prepared, db_sessio
         other = BucketMigrationService(other_db)
         stale = other.get_migration(migration.id)
         service.update_draft_migration(
-            migration.id, payload.model_copy(update={"configuration_revision": 1})
+            migration.id,
+            BucketMigrationUpdateRequest(**payload.model_dump(), configuration_revision=1),
         )
         assert stale.configuration_revision == 1
         with pytest.raises(ValueError, match="changed"):
             other.update_draft_migration(
-                migration.id, payload.model_copy(update={"configuration_revision": 1})
+                migration.id,
+                BucketMigrationUpdateRequest(**payload.model_dump(), configuration_revision=1),
             )
     assert service.get_migration(migration.id).configuration_revision == 2
 

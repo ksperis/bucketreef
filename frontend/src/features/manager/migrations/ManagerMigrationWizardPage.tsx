@@ -176,7 +176,6 @@ export default function ManagerMigrationWizardPage() {
         source_context_id: sourceId,
         target_context_id: targetId,
         buckets: mappings,
-        configuration_revision: revision,
         mode,
         copy_bucket_settings: copySettings,
         lock_target_writes: lockTarget,
@@ -186,9 +185,18 @@ export default function ManagerMigrationWizardPage() {
         delete_source: false,
         strong_integrity_check: true,
       };
-      const detail = savedId
-        ? await updateManagerMigration(savedId, payload)
-        : await createManagerMigration(payload);
+      let detail;
+      if (savedId) {
+        if (revision === undefined) {
+          throw new Error(text("Reload the draft before saving your changes."));
+        }
+        detail = await updateManagerMigration(savedId, {
+          ...payload,
+          configuration_revision: revision,
+        });
+      } else {
+        detail = await createManagerMigration(payload);
+      }
       setSavedId(detail.id);
       setRevision(detail.configuration_revision);
       setDirty(false);

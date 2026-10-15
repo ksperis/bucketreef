@@ -300,8 +300,6 @@ export default function ManagerMigrationDetailPage() {
           await api.runManagerMigrationPrecheck(id, true);
           break;
         case "start":
-          if (!migration.configuration_revision)
-            throw new Error(text("Reload the checked configuration."));
           await api.startManagerMigration(
             id,
             migration.configuration_revision,
@@ -659,7 +657,7 @@ export default function ManagerMigrationDetailPage() {
         <WorkflowSection
           title={text("Reviewed plan")}
           description={text("Configuration revision {revision}. Checked {date}.", {
-            revision: migration.configuration_revision ?? text("unknown"),
+            revision: migration.configuration_revision,
             date: formatDateTime(migration.precheck_checked_at),
           })}
         >
