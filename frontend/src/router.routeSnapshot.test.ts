@@ -90,7 +90,6 @@ describe("route snapshot", () => {
       "/manager/groups/:groupName",
       "/manager/groups/:groupName/members",
       "/manager/groups/:groupName/policies",
-      "/manager/groups/:groupName/users",
       "/manager/roles",
       "/manager/roles/:roleName",
       "/manager/roles/:roleName/trust",

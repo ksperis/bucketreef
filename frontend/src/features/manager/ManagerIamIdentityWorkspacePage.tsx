@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { Navigate, useLocation, useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import ManagerGroupPoliciesPage from "./ManagerGroupPoliciesPage";
@@ -27,10 +27,6 @@ export default function ManagerIamIdentityWorkspacePage({ kind }: { kind: "user"
   const encodedName = encodeURIComponent(name);
   const listRoute = kind === "user" ? "/manager/users" : "/manager/groups";
   const baseRoute = `${listRoute}/${encodedName}`;
-
-  if (kind === "group" && location.pathname.endsWith("/users")) {
-    return <Navigate replace to={`${baseRoute}/members${location.search}${location.hash}`} />;
-  }
 
   if (kind === "user") {
     const activeTab: UserTab = location.pathname.endsWith("/keys")

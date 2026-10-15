@@ -36,18 +36,4 @@ describe("ManagerIamIdentityWorkspacePage", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/manager/users/alice/groups"));
     expect(screen.getByText("user groups")).toBeInTheDocument();
   });
-
-  it("redirects the legacy group users route to the canonical Members tab", async () => {
-    const router = createMemoryRouter([
-      { path: "/manager/groups/:groupName/members", element: <ManagerIamIdentityWorkspacePage kind="group" /> },
-      { path: "/manager/groups/:groupName/users", element: <ManagerIamIdentityWorkspacePage kind="group" /> },
-    ], { initialEntries: ["/manager/groups/research/users?ctx=acc-7#members"] });
-    render(<RouterProvider router={router} />);
-
-    await waitFor(() => expect(router.state.location.pathname).toBe("/manager/groups/research/members"));
-    expect(router.state.location.search).toBe("?ctx=acc-7");
-    expect(router.state.location.hash).toBe("#members");
-    expect(screen.getByRole("tab", { name: "Members" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("group members")).toBeInTheDocument();
-  });
 });
