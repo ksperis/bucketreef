@@ -7,7 +7,6 @@ from typing import Any, Callable, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import BucketMigration, BucketMigrationItem
-from app.services.managed_resource_naming import migration_probe_bucket_name
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
 from app.utils.time import utcnow
@@ -646,47 +645,6 @@ class BucketMigrationItemRunnerMixin:
             raise RuntimeError(
                 f"Unable to restore destination bucket policy after write-lock precheck on '{target_bucket}': {restore_error}"
             ) from restore_error
-
-    def _precheck_target_lock_with_probe_bucket(self, target_ctx: _ResolvedContext, *, migration_id: int) -> None:
-        probe_bucket = migration_probe_bucket_name(migration_id)
-        try:
-            self._buckets.create_bucket(
-                probe_bucket,
-                target_ctx.account,
-                versioning=False,
-                location_constraint=target_ctx.region,
-                object_lock_enabled=False,
-            )
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(
-                "Unable to create temporary destination bucket for target write-lock precheck: "
-                f"{exc}"
-            ) from exc
-
-        roundtrip_error: Optional[Exception] = None
-        try:
-            self._precheck_target_lock_roundtrip(target_ctx, probe_bucket)
-        except Exception as exc:  # noqa: BLE001
-            roundtrip_error = exc
-
-        cleanup_error: Optional[Exception] = None
-        try:
-            self._buckets.delete_bucket(probe_bucket, target_ctx.account, force=True)
-        except Exception as exc:  # noqa: BLE001
-            cleanup_error = exc
-
-        if roundtrip_error is not None and cleanup_error is not None:
-            raise RuntimeError(
-                "Target write-lock precheck failed and temporary probe cleanup also failed: "
-                f"precheck={roundtrip_error}; cleanup={cleanup_error}"
-            ) from roundtrip_error
-        if cleanup_error is not None:
-            raise RuntimeError(
-                "Target write-lock precheck cleanup failed on temporary probe bucket: "
-                f"{cleanup_error}"
-            ) from cleanup_error
-        if roundtrip_error is not None:
-            raise RuntimeError(f"{roundtrip_error}") from roundtrip_error
 
     def _is_bucket_already_exists_error(self, exc: Exception) -> bool:
         text = str(exc).strip().lower()

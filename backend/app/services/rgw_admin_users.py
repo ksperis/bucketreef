@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import re
 from typing import Any, Dict, Optional, Tuple
 
 from app.services.rgw_admin_transport import RGWAdminError, RGWAdminOperationResponse
@@ -22,10 +21,6 @@ class RGWAdminUserOperations:
             for key in extra_params
         ):
             raise ValueError("RGW user identity parameters cannot be overridden")
-
-    @staticmethod
-    def _sanitize_uid(name: str) -> str:
-        return re.sub(r"[^a-z0-9_.-]", "-", name.lower())
 
     @staticmethod
     def _to_rgw_bool(value: bool) -> str:
