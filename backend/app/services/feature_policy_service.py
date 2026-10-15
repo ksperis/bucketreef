@@ -47,11 +47,27 @@ MANAGER_OVERRIDE_FEATURES = {
     **MANAGER_ACCOUNT_POLICY_FIELDS,
 }
 
+RESOURCE_FEATURE_OVERRIDE_FIELDS = {
+    **MANAGER_OVERRIDE_FEATURES,
+    **PROJECT_RESOURCE_FIELDS,
+    **PROJECT_COLLECTION_RESOURCE_FIELDS,
+}
+
 ManagerActivityResource = S3Account | S3User | S3Connection
 
 
 def manager_override_values(payload: ApiModel) -> dict[str, bool | None]:
     return {field: getattr(payload, field) for field in MANAGER_OVERRIDE_FEATURES if field in payload.model_fields_set}
+
+
+def apply_resource_feature_overrides(
+    payload: ApiModel,
+    resource: S3Account | S3User | S3Connection,
+) -> None:
+    """Persist only feature overrides explicitly present in an update payload."""
+    for field in RESOURCE_FEATURE_OVERRIDE_FIELDS:
+        if field in payload.model_fields_set:
+            setattr(resource, field, getattr(payload, field))
 
 
 def validate_manager_overrides(

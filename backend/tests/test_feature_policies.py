@@ -11,11 +11,14 @@ from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.portal_service import PortalService
 from app.services.feature_policy_service import (
+    apply_resource_feature_overrides,
     bucket_usage_stats_collection_state,
     bucket_usage_stats_state,
     manager_resource_states,
     manager_rgw_usage_metrics_state,
 )
+from app.models.s3_account import S3AccountUpdate
+from app.models.s3_user import S3UserUpdate
 from app.models.app_settings import PortalSettingsOverride
 from app.services.portal.exceptions import PortalForbiddenError
 from app.utils.app_settings_import import normalize_settings_import
@@ -140,6 +143,37 @@ def test_account_override_explicit_null_restores_inheritance(client, db_session)
     response = client.put(f"/api/admin/accounts/{account.id}", json={"email": "changed@example.test"})
     assert response.status_code == 200, response.text
     assert response.json()["allow_access_key_metadata"] is None
+
+
+def test_resource_feature_override_application_preserves_patch_semantics(db_session):
+    account = make_s3_account(
+        db_session,
+        name="Policy patch",
+        allow_access_key_metadata=False,
+        allow_rgw_usage_metrics=True,
+    )
+    account_payload = S3AccountUpdate(
+        allow_access_key_metadata=None,
+        allow_bucket_usage_stats=False,
+    )
+    apply_resource_feature_overrides(account_payload, account)
+
+    assert account.allow_access_key_metadata is None
+    assert account.allow_bucket_usage_stats is False
+    assert account.allow_rgw_usage_metrics is True
+
+    s3_user = S3User(
+        name="Policy user",
+        rgw_user_uid="policy-user",
+        storage_endpoint_id=account.storage_endpoint_id,
+        allow_access_key_expiration=True,
+        allow_activity_history=False,
+    )
+    user_payload = S3UserUpdate(allow_activity_history=None)
+    apply_resource_feature_overrides(user_payload, s3_user)
+
+    assert s3_user.allow_activity_history is None
+    assert s3_user.allow_access_key_expiration is True
 
 
 def test_admin_portal_prohibition_returns_forbidden_before_logging_reconciliation(client, db_session, monkeypatch):
