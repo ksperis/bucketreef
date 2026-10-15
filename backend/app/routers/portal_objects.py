@@ -8,7 +8,6 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.access_context import AccountAccess
 from app.models.portal_objects import PortalStorageObjectDeleteResponse, PortalStorageObjectDetail
@@ -32,6 +31,7 @@ from app.routers.portal_streams import (
 from app.routers.s3_download_response import S3DownloadResponse
 from app.services.audit_service import AuditService
 from app.services.portal_service import PortalService
+from app.utils.http_errors import raise_bad_request_from_value_error
 
 router = APIRouter()
 
@@ -56,7 +56,7 @@ def portal_storage_space_version_cleanup_stream(
             confirmation=payload.confirmation,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     except RuntimeError as exc:
         raise_portal_error(exc)
     return stream_portal_storage_space_version_cleanup(
@@ -189,10 +189,7 @@ def portal_restore_deleted_prefix_stream(
             prefix=payload.prefix,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_bad_request_from_value_error(exc)
     except RuntimeError as exc:
         raise_portal_error(exc)
     return stream_portal_deleted_prefix_restore(

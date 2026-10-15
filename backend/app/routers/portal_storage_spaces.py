@@ -7,7 +7,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.access_context import AccountAccess
 from app.models.portal_storage_spaces import (
@@ -32,7 +31,10 @@ from app.routers.portal_common import (
 from app.services.audit_service import AuditService
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.portal_service import PortalService
-from app.utils.http_errors import raise_bad_gateway_from_runtime
+from app.utils.http_errors import (
+    raise_bad_gateway_from_runtime,
+    raise_bad_request_from_value_error,
+)
 
 router = APIRouter()
 
@@ -257,7 +259,7 @@ def update_portal_storage_space_icon(
             preset=payload.preset,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     except RuntimeError as exc:
         raise_portal_error(exc)
     audit_service.record_action(
@@ -297,7 +299,7 @@ async def upload_portal_storage_space_icon(
             file.content_type,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     except RuntimeError as exc:
         raise_portal_error(exc)
     audit_service.record_action(
