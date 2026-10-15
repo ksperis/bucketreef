@@ -59,8 +59,11 @@ from app.utils.s3_connection_endpoint import (
     resolve_connection_details,
 )
 from app.utils.name_ordering import name_order_by
-from app.core.sensitive_data import sanitize_error_detail
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 router = APIRouter(prefix="/admin/s3-connections", tags=["admin-s3-connections"])
 logger = logging.getLogger(__name__)
 
@@ -344,10 +347,7 @@ def create_s3_connection(
             detail="Storage endpoint not found",
         ) from exc
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_bad_request_from_value_error(exc)
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to create S3Connection") from exc
@@ -455,10 +455,7 @@ def delete_s3_connection(
     try:
         service.delete_admin_shared(conn)
     except S3ConnectionConflictError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     audit.record_action(
         user=current_user,
         scope="admin",
