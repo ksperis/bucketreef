@@ -106,7 +106,7 @@ def stream_portal_storage_space_version_cleanup(
                 entity_id=target.storage_space_id,
                 account=access.account,
                 metadata=audit_metadata,
-                status="failed",
+                status="failure",
                 message=safe_message,
             )
             push_message(format_sse_event("error", {"request_id": request_id, "detail": safe_message}))
@@ -202,7 +202,7 @@ def stream_portal_deleted_prefix_restore(
                 entity_id=target.storage_space_id,
                 account=access.account,
                 metadata=audit_metadata,
-                status="failed",
+                status="failure",
                 message=safe_message,
             )
             push_message(format_sse_event("error", {"request_id": request_id, "detail": safe_message}))

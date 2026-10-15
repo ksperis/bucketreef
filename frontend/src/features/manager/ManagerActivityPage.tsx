@@ -23,20 +23,16 @@ import { useS3AccountContext } from "./S3AccountContext";
 
 const PAGE_SIZE = 20;
 
-function statusTone(status: string): "success" | "danger" | "warning" | "neutral" {
-  const normalized = status.toLowerCase();
-  if (normalized === "success") return "success";
-  if (["failure", "failed", "error"].includes(normalized)) return "danger";
-  if (normalized === "partial") return "warning";
-  return "neutral";
+function statusTone(status: ManagerActivityEntry["status"]): "success" | "danger" | "warning" {
+  if (status === "success") return "success";
+  if (status === "failure") return "danger";
+  return "warning";
 }
 
-function statusLabel(status: string): string {
-  const normalized = status.toLowerCase();
-  if (normalized === "success") return "Success";
-  if (["failure", "failed", "error"].includes(normalized)) return "Failure";
-  if (normalized === "partial") return "Partial";
-  return status;
+function statusLabel(status: ManagerActivityEntry["status"]): string {
+  if (status === "success") return "Success";
+  if (status === "failure") return "Failure";
+  return "Partial";
 }
 
 export default function ManagerActivityPage() {

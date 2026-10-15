@@ -115,7 +115,7 @@ def _load_bucket_info(
             action=action,
             entity_type="rgw_bucket",
             entity_id=target,
-            status="failed",
+            status="failure",
             message="RGW bucket was not found.",
             metadata={"validation": "bucket_not_found"},
         )
@@ -209,7 +209,7 @@ def unlink_bucket(
             action=action,
             entity_type="rgw_bucket",
             entity_id=target,
-            status="failed",
+            status="failure",
             message="RGW did not return a current bucket owner.",
             metadata={"validation": "owner_missing"},
         )
@@ -283,7 +283,7 @@ def _validate_link_target(
             action=action,
             entity_type="rgw_bucket",
             entity_id=bucket_target,
-            status="failed",
+            status="failure",
             message="The selected RGW link target could not be verified.",
             metadata={
                 "validation": "target_not_found" if missing else "target_unverified",

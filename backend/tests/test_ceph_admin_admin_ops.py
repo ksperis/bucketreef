@@ -125,7 +125,7 @@ def test_account_delete_requires_exact_confirmation_and_does_not_audit_phrase():
         )
 
     assert raised.value.status_code == 400
-    assert audit.calls[-1]["status"] == "failed"
+    assert audit.calls[-1]["status"] == "failure"
     assert "confirmation" not in audit.calls[-1]["metadata"]
 
 
@@ -212,7 +212,7 @@ def test_bucket_delete_returns_rgw_error_status_and_keeps_cache(monkeypatch):
     assert body["rgw_error_code"] == "BucketNotEmpty"
     assert body["result"] == {"Code": "BucketNotEmpty"}
     assert invalidated == []
-    assert audit.calls[-1]["status"] == "failed"
+    assert audit.calls[-1]["status"] == "failure"
 
 
 def test_successful_bucket_delete_cleans_ui_tags(monkeypatch, db_session):
@@ -455,7 +455,7 @@ def test_network_error_returns_structured_502_and_null_rgw_status():
     assert response.status_code == 502
     assert body["rgw_status_code"] is None
     assert "hidden" not in body["message"]
-    assert audit.calls[-1]["status"] == "failed"
+    assert audit.calls[-1]["status"] == "failure"
 
 
 def test_simple_admin_ops_share_confirmation_openapi_contract():

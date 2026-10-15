@@ -90,21 +90,6 @@ describe("ManagerActivityPage", () => {
     ]);
   });
 
-  it("presents legacy failure statuses with one user-facing label", async () => {
-    listManagerActivityMock.mockResolvedValue([
-      activity(1, { status: "failure" }),
-      activity(2, { status: "failed" }),
-      activity(3, { status: "error" }),
-    ]);
-
-    render(<MemoryRouter><ManagerActivityPage /></MemoryRouter>);
-
-    expect(await screen.findByText("bucket-3")).toBeInTheDocument();
-    expect(screen.getAllByText("Failure", { selector: "span" })).toHaveLength(3);
-    expect(screen.queryByText("Failed", { selector: "span" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Error", { selector: "span" })).not.toBeInTheDocument();
-  });
-
   it("loads older activity using the last audit id as cursor", async () => {
     const user = userEvent.setup();
     const firstPage = Array.from({ length: 20 }, (_, index) => activity(100 - index));

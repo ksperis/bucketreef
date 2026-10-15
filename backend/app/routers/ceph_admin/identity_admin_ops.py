@@ -95,7 +95,7 @@ def delete_user(
             action=action,
             entity_type="rgw_user",
             entity_id=target,
-            status="failed",
+            status="failure",
             message="The active Ceph Admin service identity cannot delete itself.",
             metadata={**metadata, "validation": "active_service_identity"},
         )
