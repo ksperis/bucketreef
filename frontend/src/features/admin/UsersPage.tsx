@@ -2,8 +2,6 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import TableSortControls from "../../components/list/TableSortControls";
-import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateUserPayload,
@@ -32,7 +30,6 @@ import { S3AccountSummary, listMinimalS3Accounts } from "../../api/accounts";
 import { S3UserSummary, listMinimalS3Users } from "../../api/s3Users";
 import { S3ConnectionSummary, listMinimalS3Connections } from "../../api/s3ConnectionsAdmin";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
-import ListPageSection from "../../components/list/ListPageSection";
 import WorkflowPage, {
   WorkflowMetadata,
   workflowPageHostClass,
@@ -40,12 +37,8 @@ import WorkflowPage, {
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageHeader from "../../components/PageHeader";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
-import {
-  CompactAssociationSummary,
-  accountAssociationRoleLabels,
-  type CompactAssociationCategory,
-} from "./AssociationSummary";
 import AdminUserPlatformAccessPanel from "./AdminUserPlatformAccessPanel";
+import AdminUsersList, { type AdminUsersSortField } from "./AdminUsersList";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
   normalizeManagerToolAccess,
@@ -59,16 +52,8 @@ import SettingsNavigationGuard from "../../components/settings/SettingsNavigatio
 import UserAvatarEditor from "../shared/UserAvatarEditor";
 import { UserLanguageField, UserNotificationFields } from "../shared/UserProfilePreferenceFields";
 import { useProfileI18n } from "../shared/profileMessages";
-import DataTableShell, {
-  dataTableDefaultActionProps,
-  type DataTableColumn,
-} from "../../components/list/DataTableShell";
-import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import ToolbarSearchInput from "../../components/ToolbarSearchInput";
-import UserAvatar from "../../components/UserAvatar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
-import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import { isAdminLikeRole, isSuperAdminRole, readStoredUser, setSessionUserCache } from "../../utils/workspaces";
@@ -81,7 +66,6 @@ import type { AccountSelection } from "./UserAccountAssociationsPanel";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
-import { buildAccessAuditHref } from "./accessAuditLink";
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 
@@ -94,8 +78,6 @@ function focusIdentityError(prefix: string, errors: UserIdentityErrors) {
 }
 
 export default function UsersPage() {
-  type SortField = "name" | "role" | "accounts" | "last_login_at";
-
   const { locale, text } = useUsersI18n();
   const { text: adminUserText } = useAdminUserI18n();
   const { text: adminProfileText } = useProfileI18n();
@@ -263,7 +245,7 @@ export default function UsersPage() {
   const [createRoleHelpOpen, setCreateRoleHelpOpen] = useState(false);
   const [editRoleHelpOpen, setEditRoleHelpOpen] = useState(false);
   const [filter, setFilter] = useState(principalEditRequest?.search ?? "");
-  const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>({
+  const [sort, setSort] = useState<{ field: AdminUsersSortField; direction: "asc" | "desc" }>({
     field: "name",
     direction: "asc",
   });
@@ -379,77 +361,7 @@ export default function UsersPage() {
   const editCanGrantCephAdmin = currentIsSuperAdmin && editTargetSupportsCephAdmin;
   const editCanGrantStorageOps = currentIsAdminLike && editTargetSupportsStorageOps;
 
-  const formatLastLogin = (value?: string | null) => {
-    if (!value) return "-";
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return value;
-    }
-    return parsed.toLocaleString(locale);
-  };
-
-  const renderAssociationSummary = (user: User) => {
-    const effectiveAccountLinks = user.effective_access?.account_links ?? [];
-    const displayedAccountLinks = effectiveAccountLinks.length > 0
-      ? effectiveAccountLinks
-      : (user.account_links ?? []);
-    const accountItems = displayedAccountLinks.map((link) => {
-      const id = Number(link.account_id);
-      const label = accountOptionsById.get(id)?.name ?? text("accountFallback", { id });
-      const roleLabels = accountAssociationRoleLabels({
-        id,
-        label,
-        manager_role: link.manager_role,
-        portal_role: link.portal_role,
-      });
-      return {
-        id,
-        label,
-        manager_role: link.manager_role,
-        portal_role: link.portal_role,
-        role_labels: roleLabels,
-      };
-    });
-    const effectiveS3UserDetails = user.effective_access?.s3_user_details ?? [];
-    const s3UserItems =
-      effectiveS3UserDetails.length > 0
-        ? effectiveS3UserDetails.map((entry) => ({
-            id: entry.id,
-            label: entry.name || text("userFallback", { id: entry.id }),
-          }))
-        : (user.s3_user_details ?? []).map((entry) => ({
-            id: entry.id,
-            label: entry.name || text("userFallback", { id: entry.id }),
-          }));
-    const effectiveConnectionDetails = user.effective_access?.s3_connection_details ?? [];
-    const connectionItems =
-      effectiveConnectionDetails.length > 0
-        ? effectiveConnectionDetails.map((entry) => ({
-            id: entry.id,
-            label: entry.name || text("connectionFallback", { id: entry.id }),
-          }))
-        : (user.s3_connection_details ?? []).map((entry) => ({
-            id: entry.id,
-            label: entry.name || text("connectionFallback", { id: entry.id }),
-          }));
-    const categories: CompactAssociationCategory[] = [
-      {
-        id: "accounts",
-        label: text("accounts"),
-        itemLabel: text("rgwAccount"),
-        items: accountItems.map((account) => ({
-          id: account.id,
-          label: account.label,
-          role_labels: account.role_labels,
-        })),
-      },
-      { id: "s3_users", label: text("rgwUsers"), itemLabel: text("rgwUser"), items: s3UserItems },
-      { id: "connections", label: text("s3Connections"), itemLabel: text("s3Connection"), items: connectionItems },
-    ];
-    return <CompactAssociationSummary categories={categories} />;
-  };
-
-  const toggleSort = (field: SortField) => {
+  const toggleSort = (field: AdminUsersSortField) => {
     setSort((prev) => {
       if (prev.field === field) {
         return { field, direction: prev.direction === "asc" ? "desc" : "asc" };
@@ -1183,111 +1095,6 @@ export default function UsersPage() {
     }
   };
 
-  const usersDescription = text("description");
-  const associationLabel = text("storageAssociations");
-  const filterPlaceholder = text("searchPlaceholder");
-  const tableStatus = resolveListTableStatus({
-    loading,
-    error,
-    rowCount: users.length,
-  });
-  const userTableColumns: Array<DataTableColumn<User, SortField>> = [
-    {
-      id: "user",
-      label: text("user"),
-      field: "name",
-      primary: true,
-      render: (user) => {
-        const fullName = user.full_name?.trim();
-        return (
-          <span className="flex min-w-0 items-center gap-2.5">
-            <UserAvatar
-              avatar={user.avatar}
-              name={fullName || user.email}
-              email={user.email}
-              size="md"
-              decorative
-            />
-            <span className="min-w-0">
-              <span className="block break-words">{fullName || user.email}</span>
-              {fullName && (
-                <span className={cx("block break-all text-[11px] font-medium", uiMutedTextClass)}>
-                  {user.email}
-                </span>
-              )}
-            </span>
-          </span>
-        );
-      },
-    },
-    {
-      id: "role",
-      label: text("role"),
-      field: "role",
-      render: (user) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <span>{displayUiRole(user.role)}</span>
-          {cephAdminFeatureEnabled &&
-            (user.role === "ui_admin" || user.role === "ui_superadmin") &&
-            user.can_access_ceph_admin && (
-              <ListBadge tone="warning" className="uppercase tracking-wide">
-                {text("cephAdmin")}
-              </ListBadge>
-            )}
-        </div>
-      ),
-    },
-    {
-      id: "last_login_at",
-      label: text("lastLogin"),
-      field: "last_login_at",
-      render: (user) => formatLastLogin(user.last_login_at),
-    },
-    {
-      id: "associations",
-      label: associationLabel,
-      field: "accounts",
-      mobileLabel: text("links"),
-      render: (user) => renderAssociationSummary(user),
-    },
-    {
-      id: "actions",
-      label: text("actions"),
-      align: "right",
-      field: null,
-      mobileRole: "actions",
-      cellClassName: "min-w-[220px]",
-      render: (user) => {
-        const isCurrentUser = currentUserId !== null && user.id === currentUserId;
-        const canManage = currentIsSuperAdmin || (user.role !== "ui_admin" && user.role !== "ui_superadmin");
-        return (
-          <ListActions>
-            <ListActionButton
-              type="button"
-              onClick={() => startEdit(user)}
-              disabled={!canManage}
-              {...dataTableDefaultActionProps}
-            >
-              {text("edit")}
-            </ListActionButton>
-            <ListActionLink to={buildAccessAuditHref({ userId: user.id })}>
-              {text("reviewAccess")}
-            </ListActionLink>
-            <ListActionButton
-              type="button"
-              onClick={() => handleDeleteRequest(user)}
-               variant="danger"
-              disabled={busyId === user.id || isCurrentUser || !canManage}
-              title={isCurrentUser ? text("cannotDeleteSelf") : !canManage ? text("standardUsersOnly") : undefined}
-            >
-              {busyId === user.id ? text("deleting") : text("delete")}
-            </ListActionButton>
-          </ListActions>
-        );
-      },
-    },
-  ];
-
   return (
     <div className={workflowPageHostClass(showCreateModal || (Boolean(editingUser) && showEditModal))}>
       <SettingsNavigationGuard {...discardLabels} dirty={createDirty || editDirty} onDiscard={() => {
@@ -1296,7 +1103,7 @@ export default function UsersPage() {
       }} />
       <PageHeader actionPresentation="listing"
         title={text("uiUsers")}
-        description={usersDescription}
+        description={text("description")}
         breadcrumbs={usersBreadcrumbs()}
         actions={[
           {
@@ -1466,43 +1273,30 @@ export default function UsersPage() {
         </WorkflowPage>
       )}
 
-      <ListPageSection
-        variant="page"
-        mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
-          labels={{ sortBy: text("sortBy"), direction: text("direction"), ascending: text("ascending"), descending: text("descending") }} />}
-          title={text("users")}
-          countLabel={text(totalUsers === 1 ? "entryCount" : "entriesCount", { count: totalUsers })}
-          search={
-            <ToolbarSearchInput
-              value={filter}
-              onChange={handleFilterChange}
-              placeholder={filterPlaceholder}
-              className="min-w-0 flex-1 sm:w-64 md:w-72"
-            />
-          }
-      >
-        <DataTableShell
-          columns={userTableColumns}
-          rows={users}
-          rowKey={(user) => user.id}
-          status={tableStatus}
-          loadingMessage={text("loadingUsers")}
-          errorMessage={text("loadError")}
-          emptyMessage={filter.trim() ? text("noMatches") : text("noUsers")}
-          primaryColumnId="user"
-          responsiveCards
-          tableClassName="ui-data-table"
-          sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
-          pagination={{
-            page,
-            pageSize,
-            total: totalUsers,
-            onPageChange: handlePageChange,
-            onPageSizeChange: handlePageSizeChange,
-            disabled: loading,
-          }}
-        />
-      </ListPageSection>
+      <AdminUsersList
+        users={users}
+        accountOptionsById={accountOptionsById}
+        locale={locale}
+        text={text}
+        roleLabel={displayUiRole}
+        cephAdminFeatureEnabled={cephAdminFeatureEnabled}
+        currentUserId={currentUserId}
+        currentIsSuperAdmin={currentIsSuperAdmin}
+        busyId={busyId}
+        loading={loading}
+        error={error}
+        totalUsers={totalUsers}
+        filter={filter}
+        onFilterChange={handleFilterChange}
+        sort={sort}
+        onSort={toggleSort}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        onEdit={startEdit}
+        onDelete={handleDeleteRequest}
+      />
 
       {pendingDeleteUser && (
         <ConfirmActionDialog
