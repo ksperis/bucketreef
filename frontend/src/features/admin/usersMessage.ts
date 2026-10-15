@@ -108,7 +108,7 @@ const usersMessage = {
 } satisfies Record<string, I18nMessage>;
 
 type UsersMessageKey = keyof typeof usersMessage;
-type UsersText = (key: UsersMessageKey, values?: Record<string, string | number>) => string;
+export type UsersText = (key: UsersMessageKey, values?: Record<string, string | number>) => string;
 
 export function useUsersI18n() {
   const { locale, t } = useI18n();
