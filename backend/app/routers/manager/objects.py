@@ -2,9 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.models.access_context import ManagerActor
 from app.models.manager_object_listing import ListObjectsResponse
 from app.routers.dependencies import get_account_context, get_current_account_admin
@@ -13,6 +12,7 @@ from app.services.manager_object_listing_service import (
     get_manager_object_listing_service,
 )
 from app.services.s3_execution_context import S3ExecutionContext
+from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(prefix="/manager/buckets/{bucket_name}/objects", tags=["manager-objects"])
 
@@ -29,4 +29,4 @@ def list_objects(
     try:
         return service.list_objects(bucket_name, account, prefix=prefix, continuation_token=continuation_token)
     except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
