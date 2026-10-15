@@ -19,9 +19,9 @@ from app.utils.time import utcnow
 
 def _set_global_feature(monkeypatch, enabled: bool) -> None:
     settings = manager_settings_fixture(
-            manager_access_key_metadata_enabled=enabled,
-            manager_access_key_expiration_enabled=False,
-        )
+        access_key_metadata=enabled,
+        access_key_expiration=False,
+    )
     monkeypatch.setattr(
         access_key_metadata_service,
         "load_app_settings_for_db_readonly",
@@ -261,9 +261,9 @@ def test_expiration_requires_global_resource_and_scheduler_opt_in(db_session, mo
         access_key_metadata_service,
         "load_app_settings_for_db_readonly",
         lambda _db: manager_settings_fixture(
-                manager_access_key_metadata_enabled=True,
-                manager_access_key_expiration_enabled=True,
-            ),
+            access_key_metadata=True,
+            access_key_expiration=True,
+        ),
     )
     assert service.expiration_enabled_for_context(account_context) is True
     assert service.expiration_enabled_for_context(user_context) is True

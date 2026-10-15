@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from app.db import AppSetting
 from app.models.app_settings import AppSettings, PortalEffectiveSettings
-from app.models.feature_policy import FeaturePolicy, MANAGER_LEGACY_FIELDS, PORTAL_FEATURE_FIELDS, PortalFeaturePolicies
+from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS, PortalFeaturePolicies
 
 
 def enable_manager_features(db_session):
@@ -29,6 +29,10 @@ def portal_settings_fixture(**values):
 
 def manager_settings_fixture(**values):
     settings = AppSettings()
-    for field, value in values.items():
-        setattr(settings.manager.feature_policies, MANAGER_LEGACY_FIELDS[field], FeaturePolicy.TARGETED if value else FeaturePolicy.DISABLED)
+    for feature, value in values.items():
+        setattr(
+            settings.manager.feature_policies,
+            feature,
+            FeaturePolicy.TARGETED if value else FeaturePolicy.DISABLED,
+        )
     return settings

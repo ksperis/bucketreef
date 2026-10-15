@@ -67,18 +67,6 @@ def resolve_feature_policy(policy: FeaturePolicy, override: bool | None = None) 
     )
 
 
-MANAGER_LEGACY_FIELDS = {
-    "bucket_compare_enabled": "bucket_compare",
-    "bucket_integrity_check_enabled": "bucket_integrity_check",
-    "bucket_migration_enabled": "bucket_migration",
-    "bucket_purge_enabled": "bucket_purge",
-    "bucket_quota_management_enabled": "bucket_quota_management",
-    "manager_ceph_s3_user_keys_enabled": "ceph_s3_user_keys",
-    "manager_access_key_metadata_enabled": "access_key_metadata",
-    "manager_access_key_expiration_enabled": "access_key_expiration",
-    "managed_private_connection_provisioning_enabled": "managed_private_connection_provisioning",
-}
-
 PORTAL_FEATURE_FIELDS = {
     "browser_access_enabled": "browser_access",
     "allow_private_storage_space_create": "private_storage_space_create",

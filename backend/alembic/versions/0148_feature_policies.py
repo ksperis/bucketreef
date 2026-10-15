@@ -6,8 +6,8 @@ import json
 import sqlalchemy as sa
 from alembic import op
 
-from app.models.feature_policy import MANAGER_LEGACY_FIELDS, PORTAL_FEATURE_FIELDS
-from app.utils.app_settings_import import normalize_settings_import
+from app.models.feature_policy import PORTAL_FEATURE_FIELDS
+from app.utils.app_settings_import import LEGACY_MANAGER_FEATURE_FIELDS, normalize_settings_import
 
 revision = "0148_feature_policies"
 down_revision = "0147_remove_legacy_ceph_admin_system_compat"
@@ -46,7 +46,7 @@ def downgrade():
     for row in bind.execute(sa.select(settings.c.key, settings.c.payload_json).where(settings.c.key == "default")).mappings():
         payload = json.loads(row["payload_json"])
         manager = payload.get("manager", {}).pop("feature_policies", {})
-        for field, feature in MANAGER_LEGACY_FIELDS.items():
+        for field, feature in LEGACY_MANAGER_FEATURE_FIELDS.items():
             if feature in manager:
                 payload.setdefault("general", {})[field] = manager[feature] != "disabled"
         portal = payload.setdefault("portal", {})

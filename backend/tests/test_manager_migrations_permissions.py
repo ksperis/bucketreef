@@ -32,8 +32,8 @@ def _user(db_session, role: str, *, bucket_migration: bool = False) -> User:
 
 def _settings(*, enabled: bool):
     return manager_settings_fixture(
-            bucket_migration_enabled=enabled,
-        )
+        bucket_migration=enabled,
+    )
 
 
 def test_bucket_migration_allowed_for_admin_with_user_tool_access(db_session, monkeypatch):
