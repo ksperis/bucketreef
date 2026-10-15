@@ -12,7 +12,6 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
-  type ReactNode,
 } from "react";
 import {
   useLocation,
@@ -36,6 +35,7 @@ import BrowserObjectSearchHeader from "./BrowserObjectSearchHeader";
 import BrowserFoldersPanel from "./BrowserFoldersPanel";
 import BrowserToolbar from "./BrowserToolbar";
 import BrowserNoticesPanel from "./BrowserNoticesPanel";
+import BrowserObjectsIssueDescription from "./BrowserObjectsIssueDescription";
 import { useBrowserBucketCors } from "./useBrowserBucketCors";
 import { useBrowserBulkAttributes } from "./useBrowserBulkAttributes";
 import { useBrowserBulkRestore } from "./useBrowserBulkRestore";
@@ -899,37 +899,6 @@ export default function BrowserPage({
     prefix,
     requestOptions: browserRequestOptions,
   });
-  const objectsIssueDescription = useMemo<ReactNode>(() => {
-    if (!objectsIssue) {
-      return null;
-    }
-    return (
-      <div className="space-y-2">
-        <p>{text(objectsIssue.description)}</p>
-        <details
-          open={showObjectsIssueTechnicalDetails}
-          onToggle={(event) =>
-            setShowObjectsIssueTechnicalDetails(event.currentTarget.open)
-          }
-          className="mx-auto max-w-xl rounded-md border border-rose-200/70 bg-rose-50/70 px-2 py-1.5 text-left dark:border-rose-500/30 dark:bg-rose-900/20"
-        >
-          <summary className="list-none cursor-pointer ui-caption font-semibold text-rose-700 dark:text-rose-100 [&::-webkit-details-marker]:hidden">
-            {text("Show technical details")}</summary>
-          {showObjectsIssueTechnicalDetails && (
-            <p className="mt-2 break-words ui-caption text-rose-700 dark:text-rose-100">
-              {objectsIssue.technicalDetail}
-            </p>
-          )}
-        </details>
-      </div>
-    );
-  }, [
-    objectsIssue,
-    setShowObjectsIssueTechnicalDetails,
-    showObjectsIssueTechnicalDetails,
-    text,
-  ]);
-
   const displayPrefixForItems = useMemo(() => {
     if (searchScope !== "bucket") {
       return normalizedPrefix;
@@ -2759,7 +2728,14 @@ export default function BrowserPage({
                   objectsIssue
                     ? {
                         title: objectsIssue.title,
-                        description: objectsIssueDescription,
+                        description: (
+                          <BrowserObjectsIssueDescription
+                            description={objectsIssue.description}
+                            technicalDetail={objectsIssue.technicalDetail}
+                            expanded={showObjectsIssueTechnicalDetails}
+                            onExpandedChange={setShowObjectsIssueTechnicalDetails}
+                          />
+                        ),
                       }
                     : null
                 }
