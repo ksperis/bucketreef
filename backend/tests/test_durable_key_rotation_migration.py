@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 import importlib.util
 import os
+import sys
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,6 +11,29 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
+MIGRATION_PATH = Path(__file__).resolve().parents[1] / "alembic/versions/0141_durable_key_rotation.py"
+
+
+def _load_migration():
+    spec = importlib.util.spec_from_file_location("durable_key_rotation_migration", MIGRATION_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_admin_endpoint_resolution_is_frozen_in_migration():
+    module = _load_migration()
+
+    assert module._resolve_rgw_admin_api_endpoint("https://s3.example.test", None) == "https://s3.example.test"
+    assert module._resolve_rgw_admin_api_endpoint(
+        "https://s3.example.test",
+        "features:\n  admin:\n    endpoint: https://admin.example.test///\n",
+    ) == "https://admin.example.test"
+    with pytest.raises(ValueError, match="Unknown endpoint feature"):
+        module._resolve_rgw_admin_api_endpoint(
+            "https://s3.example.test",
+            "features:\n  future_feature:\n    enabled: true\n",
+        )
 
 
 @pytest.mark.parametrize("dialect", ["sqlite", "postgresql"])
@@ -18,10 +42,7 @@ def test_pending_retirements_migrate_without_decrypting_or_losing_pair(monkeypat
     if not url:
         pytest.skip("BUCKETREEF_TEST_POSTGRES_URL is not set for an isolated PostgreSQL database")
     engine = sa.create_engine(url)
-    path = Path(__file__).resolve().parents[1] / "alembic/versions/0141_durable_key_rotation.py"
-    spec = importlib.util.spec_from_file_location("durable_key_rotation_migration", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = _load_migration()
     schema = "rotation_test_" + uuid4().hex
     try:
         with engine.begin() as connection:
@@ -41,6 +62,7 @@ def test_pending_retirements_migrate_without_decrypting_or_losing_pair(monkeypat
             connection.execute(identities.insert().values(id=2, endpoint_id=1, kind="runtime", rgw_uid="owned-runtime",
                 access_key="NEW", secret_key="ciphertext-preserved-verbatim", previous_access_key="OLD"))
             monkeypatch.setattr(module, "op", Operations(MigrationContext.configure(connection)))
+            monkeypatch.setitem(sys.modules, "app.utils.storage_endpoint_features", None)
             module.upgrade()
             assert "previous_access_key" not in {col["name"] for col in sa.inspect(connection).get_columns("endpoint_service_identities")}
             pending = connection.execute(sa.text("SELECT * FROM key_rotation_intents")).mappings().one()

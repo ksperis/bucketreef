@@ -4,6 +4,7 @@
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
+import yaml
 from alembic import op
 from app.db.utc_datetime import UTCDateTime
 
@@ -11,6 +12,85 @@ revision = "0141_durable_key_rotation"
 down_revision = "0140_runtime_identity_mode_source"
 branch_labels = None
 depends_on = None
+
+_FEATURE_KEYS = frozenset({
+    "admin",
+    "account",
+    "sts",
+    "usage",
+    "metrics",
+    "static_website",
+    "iam",
+    "sns",
+    "sse",
+    "replication",
+    "healthcheck",
+})
+_ENDPOINT_FEATURE_KEYS = frozenset({"admin", "iam", "sts"})
+
+
+def _normalize_url(value):
+    if value is None:
+        return None
+    normalized = value.strip().rstrip("/")
+    return normalized or None
+
+
+def _resolve_rgw_admin_api_endpoint(endpoint_url, raw_features_config):
+    if not raw_features_config or not raw_features_config.strip():
+        return endpoint_url
+    try:
+        data = yaml.safe_load(raw_features_config)
+    except yaml.YAMLError as exc:
+        raise ValueError("Invalid endpoint features YAML.") from exc
+    if not isinstance(data, dict):
+        raise ValueError("Endpoint features YAML must be a mapping.")
+    if set(data) != {"features"}:
+        raise ValueError(
+            "Endpoint features YAML must contain only the top-level 'features' mapping."
+        )
+    features = data["features"]
+    if not isinstance(features, dict):
+        raise ValueError("Endpoint features must be a mapping.")
+    unknown_features = set(features).difference(_FEATURE_KEYS)
+    if unknown_features:
+        labels = ", ".join(sorted(str(key) for key in unknown_features))
+        raise ValueError(f"Unknown endpoint feature(s): {labels}.")
+
+    admin_endpoint = None
+    for key, value in features.items():
+        if not isinstance(value, dict):
+            raise ValueError(f"Feature '{key}' must be a mapping.")
+        allowed_fields = {"enabled"}
+        if key in _ENDPOINT_FEATURE_KEYS:
+            allowed_fields.add("endpoint")
+        if key == "healthcheck":
+            allowed_fields.update({"healthcheck_url", "mode"})
+        unknown_fields = set(value).difference(allowed_fields)
+        if unknown_fields:
+            labels = ", ".join(sorted(str(field) for field in unknown_fields))
+            raise ValueError(f"Unknown field(s) for feature '{key}': {labels}.")
+        if "enabled" in value and not isinstance(value.get("enabled"), bool):
+            raise ValueError(f"Feature '{key}.enabled' must be a boolean.")
+        if key in _ENDPOINT_FEATURE_KEYS and "endpoint" in value:
+            configured_endpoint = value.get("endpoint")
+            if configured_endpoint is not None and not isinstance(configured_endpoint, str):
+                raise ValueError(f"Feature '{key}.endpoint' must be a string.")
+            if key == "admin":
+                admin_endpoint = _normalize_url(configured_endpoint)
+        if key == "healthcheck":
+            if "mode" in value:
+                mode = value.get("mode")
+                if not isinstance(mode, str):
+                    raise ValueError("Feature 'healthcheck.mode' must be a string.")
+                if mode.strip().lower() not in {"http", "s3"}:
+                    raise ValueError("Feature 'healthcheck.mode' must be 'http' or 's3'.")
+            if "healthcheck_url" in value:
+                healthcheck_url = value.get("healthcheck_url")
+                if healthcheck_url is not None and not isinstance(healthcheck_url, str):
+                    raise ValueError("Feature 'healthcheck.healthcheck_url' must be a string.")
+
+    return admin_endpoint or endpoint_url
 
 
 def upgrade():
@@ -41,17 +121,13 @@ def upgrade():
     metadata = sa.MetaData()
     identities = sa.Table("endpoint_service_identities", metadata, autoload_with=connection)
     endpoints = sa.Table("storage_endpoints", metadata, autoload_with=connection)
-    # Resolve the same Admin API URL as the runtime without reading any secret.
-    from types import SimpleNamespace
-    from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
     now = datetime.now(UTC)
     for row in connection.execute(sa.select(identities, endpoints.c.endpoint_url, endpoints.c.features_config).join(endpoints, identities.c.endpoint_id == endpoints.c.id).where(identities.c.previous_access_key.is_not(None))).mappings():
         if not row["rgw_uid"] or not row["access_key"] or not row["secret_key"]:
             raise RuntimeError("A pending service rotation has incomplete credentials; repair it before upgrading.")
-        endpoint = SimpleNamespace(endpoint_url=row["endpoint_url"], features_config=row["features_config"], provider="ceph", region=None)
         connection.execute(journal.insert().values(
             endpoint_id=row["endpoint_id"], key_type="ceph_admin" if row["kind"] == "ceph_admin" else f"endpoint_{row['kind']}",
-            target_id=row["id"], rgw_uid=row["rgw_uid"], rgw_endpoint=resolve_rgw_admin_api_endpoint(endpoint),
+            target_id=row["id"], rgw_uid=row["rgw_uid"], rgw_endpoint=_resolve_rgw_admin_api_endpoint(row["endpoint_url"], row["features_config"]),
             old_access_key=row["previous_access_key"], new_access_key=row["access_key"], new_secret_key=row["secret_key"],
             deactivate_only=False, phase="activated", actor_email="system", last_error=row["last_error"], created_at=now, updated_at=now,
         ))
