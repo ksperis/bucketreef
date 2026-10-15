@@ -10,7 +10,6 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from app.models.feature_policy import MANAGER_LEGACY_FIELDS
 from app.db import AppSetting
 from app.models import app_settings as app_settings_models
 from app.models.app_settings import AppSettings, BrandingSettings, GeneralSettingsView, PortalSettingsOverride
@@ -302,17 +301,17 @@ def test_fresh_settings_enable_access_key_extensions_and_preserve_disabled_choic
     _use_settings_db(monkeypatch, db_session)
 
     settings = app_settings_service.load_app_settings()
-    fields = ("manager_access_key_metadata_enabled", "manager_access_key_expiration_enabled")
-    for field in fields:
-        assert getattr(settings.manager.feature_policies, MANAGER_LEGACY_FIELDS[field]) == "targeted"
-        assert _raw_db_settings(db_session)["manager"]["feature_policies"][MANAGER_LEGACY_FIELDS[field]] == "targeted"
-        setattr(settings.manager.feature_policies, MANAGER_LEGACY_FIELDS[field], "disabled")
+    features = ("access_key_metadata", "access_key_expiration")
+    for feature in features:
+        assert getattr(settings.manager.feature_policies, feature) == "targeted"
+        assert _raw_db_settings(db_session)["manager"]["feature_policies"][feature] == "targeted"
+        setattr(settings.manager.feature_policies, feature, "disabled")
 
     app_settings_service.save_app_settings(settings)
     reloaded = app_settings_service.load_app_settings()
-    for field in fields:
-        assert getattr(reloaded.manager.feature_policies, MANAGER_LEGACY_FIELDS[field]) == "disabled"
-        assert _raw_db_settings(db_session)["manager"]["feature_policies"][MANAGER_LEGACY_FIELDS[field]] == "disabled"
+    for feature in features:
+        assert getattr(reloaded.manager.feature_policies, feature) == "disabled"
+        assert _raw_db_settings(db_session)["manager"]["feature_policies"][feature] == "disabled"
 
 
 def test_managed_private_connection_provisioning_flag_default_disabled():
