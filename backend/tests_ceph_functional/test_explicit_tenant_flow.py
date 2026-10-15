@@ -12,7 +12,7 @@ from botocore.client import Config
 
 from app.services.managed_resource_naming import portal_access_log_bucket_name
 
-from .clients import BackendAuthenticator, BackendSession, CephVerifier
+from .clients import BackendSession, CephVerifier
 from .config import CephTestSettings
 from .resources import ResourceTracker
 
@@ -132,7 +132,6 @@ def _purge_bucket_history(client, bucket: str) -> None:
 def test_explicit_tenant_account_user_manager_portal_and_metrics(
     ceph_test_settings: CephTestSettings,
     super_admin_session: BackendSession,
-    backend_authenticator: BackendAuthenticator,
     storage_endpoint_id: int,
     resource_tracker: ResourceTracker,
     ceph_verifier: CephVerifier | None,
@@ -281,10 +280,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
             ],
         },
     )
-    actor = backend_authenticator.login(
-        ceph_test_settings.super_admin_email,
-        ceph_test_settings.super_admin_password,
-    )
+    actor = super_admin_session
 
     account_context = actor.get(
         "/manager/context",

@@ -103,8 +103,9 @@ def test_account_bucket_object_flow(
         entity_type="bucket",
         entity_id=bucket_name,
     )
-    assert create_activity["account_id"] == account_id
-    assert create_activity["account_name"] == provisioned_account.account_name
+    assert create_activity["context_kind"] == "account"
+    assert create_activity["context_id"] == str(account_id)
+    assert create_activity["context_name"] == provisioned_account.account_name
     assert create_activity["status"] == "success"
     assert create_activity["user_email"] == manager_email
 
