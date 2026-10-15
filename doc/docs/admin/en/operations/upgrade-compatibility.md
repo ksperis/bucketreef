@@ -85,8 +85,10 @@ API compatibility changes:
   acknowledges active tests after the UI has displayed their effects.
 - `GET /manager/migrations/{id}` and its existing SSE stream publish progress,
   preparation state, typed diagnostics and backend-authorized actions.
-- `PATCH` draft updates require `configuration_revision`. They increment it and
-  invalidate the report. `POST /start` requires the checked revision and, for
+- `POST /manager/migrations` accepts only draft configuration fields. The update-only
+  `configuration_revision` field is rejected on creation. `PATCH` draft updates require
+  `configuration_revision`; they increment it and invalidate the report. `POST /start`
+  requires the checked revision and, for
   immediate mode, `confirm_write_interruption: true`. Reports expire after 15 minutes.
 - `POST /continue` requires `{ "confirmed": true }` for cutover.
 - `POST /restore-access`, `/cleanup-target` and `/cleanup-source` require explicit

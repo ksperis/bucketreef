@@ -53,7 +53,7 @@ class BucketMigrationBucketMapping(ApiModel):
         return self
 
 
-class BucketMigrationCreateRequest(ApiModel):
+class BucketMigrationDraftRequest(ApiModel):
     source_context_id: str
     target_context_id: str
     buckets: list[BucketMigrationBucketMapping] = Field(default_factory=list, min_length=1)
@@ -67,8 +67,6 @@ class BucketMigrationCreateRequest(ApiModel):
     use_same_endpoint_copy: bool = False
     auto_grant_source_read_for_copy: Optional[bool] = None
     parallelism_max: Optional[int] = Field(default=None, ge=1, le=128)
-    configuration_revision: Optional[int] = Field(default=None, ge=1)
-
     @model_validator(mode="after")
     def validate_payload(self):
         if self.delete_source:
@@ -88,6 +86,14 @@ class BucketMigrationCreateRequest(ApiModel):
                 raise ValueError(f"Duplicate source bucket mapping: {entry.source_bucket}")
             seen_source.add(entry.source_bucket)
         return self
+
+
+class BucketMigrationCreateRequest(BucketMigrationDraftRequest):
+    pass
+
+
+class BucketMigrationUpdateRequest(BucketMigrationDraftRequest):
+    configuration_revision: int = Field(ge=1)
 
 
 class BucketMigrationPrecheckRequest(ApiModel):

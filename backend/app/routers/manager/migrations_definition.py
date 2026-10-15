@@ -13,6 +13,7 @@ from app.models.bucket_migration import (
     BucketMigrationCreateRequest,
     BucketMigrationDetail,
     BucketMigrationPrecheckRequest,
+    BucketMigrationUpdateRequest,
 )
 from app.routers.manager.migrations_common import _build_service, _worker_wake_up
 from app.routers.dependencies import (
@@ -102,7 +103,7 @@ def create_migration(
 @router.patch("/{migration_id}", response_model=BucketMigrationDetail)
 def update_migration(
     migration_id: int,
-    payload: BucketMigrationCreateRequest,
+    payload: BucketMigrationUpdateRequest,
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),

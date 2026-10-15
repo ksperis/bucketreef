@@ -15,7 +15,11 @@ from .workflow import require_action
 
 from app.core.domain_errors import BucketMigrationNotFoundError
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem, User
-from app.models.bucket_migration import BucketMigrationCreateRequest
+from app.models.bucket_migration import (
+    BucketMigrationCreateRequest,
+    BucketMigrationDraftRequest,
+    BucketMigrationUpdateRequest,
+)
 from app.utils.time import utcnow
 
 from ._shared import (
@@ -69,7 +73,7 @@ class BucketMigrationPlanningMixin:
             setattr(migration, name, value)
 
     def _build_bucket_mappings(
-        self, payload: BucketMigrationCreateRequest
+        self, payload: BucketMigrationDraftRequest
     ) -> list[tuple[str, str]]:
         mappings: list[tuple[str, str]] = []
         seen_targets: set[str] = set()
@@ -114,7 +118,7 @@ class BucketMigrationPlanningMixin:
 
     def _resolve_same_endpoint_copy_options(
         self,
-        payload: BucketMigrationCreateRequest,
+        payload: BucketMigrationDraftRequest,
         *,
         same_endpoint: bool,
     ) -> tuple[bool, bool]:
@@ -142,7 +146,7 @@ class BucketMigrationPlanningMixin:
 
     def _resolve_draft_configuration(
         self,
-        payload: BucketMigrationCreateRequest,
+        payload: BucketMigrationDraftRequest,
     ) -> _DraftMigrationConfiguration:
         mappings = self._build_bucket_mappings(payload)
         self._assert_context_authorized_for_mutation(payload.source_context_id)
@@ -186,7 +190,7 @@ class BucketMigrationPlanningMixin:
 
     @staticmethod
     def _configuration_event_metadata(
-        payload: BucketMigrationCreateRequest,
+        payload: BucketMigrationDraftRequest,
         configuration: _DraftMigrationConfiguration,
     ) -> dict[str, object]:
         return {
@@ -339,7 +343,7 @@ class BucketMigrationPlanningMixin:
         return migration
 
     def update_draft_migration(
-        self, migration_id: int, payload: BucketMigrationCreateRequest
+        self, migration_id: int, payload: BucketMigrationUpdateRequest
     ) -> BucketMigration:
         migration = self.get_migration(migration_id)
         if migration.status != "draft":
