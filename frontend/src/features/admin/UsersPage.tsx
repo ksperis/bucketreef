@@ -45,17 +45,10 @@ import {
   accountAssociationRoleLabels,
   type CompactAssociationCategory,
 } from "./AssociationSummary";
-import {
-  AdminAccessToggleSection,
-  BrowserAccessSection,
-  ManagerToolAccessSection,
-  WorkspaceAccessSection,
-} from "./AdminAccessSections";
+import AdminUserPlatformAccessPanel from "./AdminUserPlatformAccessPanel";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
-  buildManagerToolDefinitions,
   normalizeManagerToolAccess,
-  type ManagerToolKey,
 } from "./adminAccessConfig";
 import PageBanner from "../../components/PageBanner";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -74,7 +67,6 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import UserAvatar from "../../components/UserAvatar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
@@ -120,7 +112,6 @@ export default function UsersPage() {
     { id: "authentication", label: adminProfileText("security") },
     ...userWorkflowTabs.filter((tab) => tab.id !== "general"),
   ];
-  const storageOpsAccessDescription = text("storageOpsAccessDescription");
   const closeLabel = locale === "zh" ? text("close") : undefined;
   const usersBreadcrumbs = (action?: string) =>
     adminPageBreadcrumbs("users", ...(action ? [{ label: action }] : [])).map((breadcrumb, index) => ({
@@ -387,10 +378,6 @@ export default function UsersPage() {
   const createCanGrantStorageOps = currentIsAdminLike && createTargetSupportsStorageOps;
   const editCanGrantCephAdmin = currentIsSuperAdmin && editTargetSupportsCephAdmin;
   const editCanGrantStorageOps = currentIsAdminLike && editTargetSupportsStorageOps;
-  const managerToolDefinitions = useMemo(
-    () => buildManagerToolDefinitions(generalSettings),
-    [generalSettings]
-  );
 
   const formatLastLogin = (value?: string | null) => {
     if (!value) return "-";
@@ -1377,103 +1364,17 @@ export default function UsersPage() {
             )}
 
             {createModalTab === "access" && (
-              <>
-                <WorkspaceAccessSection
-                  description={text("operationalWorkspaces")}
-                  cephAdmin={{
-                    title: text("cephAdminAccess"),
-                    description:
-                      text("cephAdminAccessDescription"),
-                    checked: createCanGrantCephAdmin && Boolean(form.can_access_ceph_admin),
-                    disabled: !createCanGrantCephAdmin,
-                    onChange: (value) =>
-                      setForm((f) => ({
-                        ...f,
-                        can_access_ceph_admin: value,
-                      })),
-                    ariaLabel: text("allowCephAdmin"),
-                  }}
-                  storageOps={{
-                    title: text("storageOpsAccess"),
-                    description: storageOpsAccessDescription,
-                    checked: createCanGrantStorageOps && Boolean(form.can_access_storage_ops),
-                    disabled: !createCanGrantStorageOps,
-                    onChange: (value) =>
-                      setForm((f) => ({
-                        ...f,
-                        can_access_storage_ops: value,
-                      })),
-                    ariaLabel: text("allowStorageOps"),
-                  }}
-                />
-                {!createTargetSupportsManagerTools && (
-                  <PageBanner tone="warning">
-                    {text("managerRoleRequirement")}
-                  </PageBanner>
-                )}
-
-                <ManagerToolAccessSection
-                  eligible={createTargetSupportsManagerTools}
-                  title={text("manager")}
-                  additionalItems={[
-                    {
-                      title: text("provisionConnections"),
-                      description: text("provisionConnectionsDescription"),
-                      checked: createTargetSupportsManagerTools && Boolean(form.can_provision_managed_private_connections),
-                      platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
-                      blocked: !isFeaturePolicyAvailable(generalSettings.manager_feature_policies.managed_private_connection_provisioning),
-                      disabled: !createTargetSupportsManagerTools,
-                      onChange: (value) =>
-                        setForm((current) => ({
-                          ...current,
-                          can_provision_managed_private_connections: value,
-                        })),
-                      ariaLabel: text("allowProvisionConnections"),
-                    },
-                  ]}
-                  description={text("managerPermissions")}
-                  tools={managerToolDefinitions}
-                  access={form.manager_tool_access}
-                  isToolDisabled={(tool) => !createTargetSupportsManagerTools || !tool.enabled}
-                  onChange={(key: ManagerToolKey, value) =>
-                    setForm((current) => ({
-                      ...current,
-                      manager_tool_access: {
-                        ...normalizeManagerToolAccess(current.manager_tool_access),
-                        [key]: value,
-                      },
-                    }))
-                  }
-                />
-                <BrowserAccessSection
-                  description={text("browserOptions")}
-                  checked={Boolean(form.browser_advanced_features_enabled)}
-                  onChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      browser_advanced_features_enabled: value,
-                    }))
-                  }
-                />
-                <AdminAccessToggleSection
-                  title={text("connections")}
-                  description={text("privateConnectionPermissions")}
-                  items={[
-                    {
-                      title: text("createManualConnections"),
-                      description: text("manualConnectionsDescription"),
-                      checked: createTargetSupportsManagerTools && Boolean(form.can_create_manual_private_connections),
-                      disabled: !createTargetSupportsManagerTools,
-                      onChange: (value) =>
-                        setForm((current) => ({
-                          ...current,
-                          can_create_manual_private_connections: value,
-                        })),
-                      ariaLabel: text("allowManualConnections"),
-                    },
-                  ]}
-                />
-              </>
+              <AdminUserPlatformAccessPanel
+                value={form}
+                canGrantCephAdmin={createCanGrantCephAdmin}
+                canGrantStorageOps={createCanGrantStorageOps}
+                supportsManagerTools={createTargetSupportsManagerTools}
+                managerFeaturePolicies={generalSettings.manager_feature_policies}
+                text={text}
+                onChange={(patch) =>
+                  setForm((current) => ({ ...current, ...patch }))
+                }
+              />
             )}
 
             {createModalTab === "associations" && (
@@ -1714,105 +1615,31 @@ export default function UsersPage() {
             )}
 
             {editModalTab === "access" && (
-              <>
-                <WorkspaceAccessSection
-                  description={text("operationalWorkspaces")}
-                  cephAdmin={{
-                    title: text("cephAdminAccess"),
-                    description:
-                      text("cephAdminAccessDescription"),
-                    checked: editCanGrantCephAdmin && Boolean(editForm.can_access_ceph_admin),
-                    disabled: !editCanGrantCephAdmin,
-                    onChange: (value) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        can_access_ceph_admin: value,
-                      })),
-                    ariaLabel: text("allowCephAdmin"),
-                  }}
-                  storageOps={{
-                    title: text("storageOpsAccess"),
-                    description: storageOpsAccessDescription,
-                    checked: editCanGrantStorageOps && Boolean(editForm.can_access_storage_ops),
-                    disabled: !editCanGrantStorageOps,
-                    onChange: (value) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        can_access_storage_ops: value,
-                      })),
-                    ariaLabel: text("allowStorageOps"),
-                  }}
-                />
-                {!editTargetSupportsManagerTools && (
-                  <PageBanner tone="warning">
-                    {text("managerRoleRequirement")}
-                  </PageBanner>
+              <AdminUserPlatformAccessPanel
+                value={{
+                  ...editForm,
+                  manager_tool_access:
+                    editForm.manager_tool_access ?? editingUser.manager_tool_access,
+                  browser_advanced_features_enabled:
+                    editForm.browser_advanced_features_enabled ??
+                    editingUser.browser_advanced_features_enabled,
+                }}
+                canGrantCephAdmin={editCanGrantCephAdmin}
+                canGrantStorageOps={editCanGrantStorageOps}
+                supportsManagerTools={editTargetSupportsManagerTools}
+                managerFeaturePolicies={generalSettings.manager_feature_policies}
+                inheritedManagerToolAccess={
+                  editingUser.effective_access?.group_manager_tool_access
+                }
+                inheritedManagedProvisioning={Boolean(
+                  editingUser.effective_access
+                    ?.group_can_provision_managed_private_connections,
                 )}
-
-                <ManagerToolAccessSection
-                  eligible={editTargetSupportsManagerTools}
-                  inheritedAccess={editingUser.effective_access?.group_manager_tool_access}
-                  title={text("manager")}
-                  additionalItems={[
-                    {
-                      title: text("provisionConnections"),
-                      description: text("provisionConnectionsDescription"),
-                      checked: editTargetSupportsManagerTools && Boolean(editForm.can_provision_managed_private_connections),
-                      platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
-                      inherited: Boolean(editingUser.effective_access?.group_can_provision_managed_private_connections),
-                      blocked: !isFeaturePolicyAvailable(generalSettings.manager_feature_policies.managed_private_connection_provisioning),
-                      disabled: !editTargetSupportsManagerTools,
-                      onChange: (value) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          can_provision_managed_private_connections: value,
-                        })),
-                      ariaLabel: text("allowProvisionConnections"),
-                    },
-                  ]}
-                  description={text("managerPermissions")}
-                  tools={managerToolDefinitions}
-                  access={editForm.manager_tool_access ?? editingUser.manager_tool_access}
-                  isToolDisabled={(tool) => !editTargetSupportsManagerTools || !tool.enabled}
-                  onChange={(key: ManagerToolKey, value) =>
-                    setEditForm((f) => ({
-                      ...f,
-                      manager_tool_access: {
-                        ...normalizeManagerToolAccess(f.manager_tool_access ?? editingUser.manager_tool_access),
-                        [key]: value,
-                      },
-                    }))
-                  }
-                />
-                <BrowserAccessSection
-                  description={text("browserOptions")}
-                  checked={Boolean(editForm.browser_advanced_features_enabled ?? editingUser.browser_advanced_features_enabled)}
-                  onChange={(value) =>
-                    setEditForm((current) => ({
-                      ...current,
-                      browser_advanced_features_enabled: value,
-                    }))
-                  }
-                />
-                <AdminAccessToggleSection
-                  title={text("connections")}
-                  description={text("privateConnectionPermissions")}
-                  items={[
-                    {
-                      title: text("createManualConnections"),
-                      description: text("manualConnectionsDescription"),
-                      checked: editTargetSupportsManagerTools && Boolean(editForm.can_create_manual_private_connections),
-                      disabled: !editTargetSupportsManagerTools,
-                      onChange: (value) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          can_create_manual_private_connections: value,
-                        })),
-                      ariaLabel: text("allowManualConnections"),
-                    },
-                  ]}
-                />
-              </>
+                text={text}
+                onChange={(patch) =>
+                  setEditForm((current) => ({ ...current, ...patch }))
+                }
+              />
             )}
 
             {editModalTab === "associations" && (
