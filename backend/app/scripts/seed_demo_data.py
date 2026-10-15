@@ -19,10 +19,7 @@ from app.models.s3_account import S3AccountCreate, S3AccountUpdate
 from app.models.user import UserCreate
 from app.services.buckets_service import BucketsService
 from app.services.s3_accounts_service import get_s3_accounts_service
-from app.services.s3_execution_client import (
-    require_s3_execution_credentials,
-    s3_execution_client_kwargs,
-)
+from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.users_service import UsersService
 from app.services.rgw_iam import get_iam_service
 from app.services import s3_client
@@ -534,15 +531,12 @@ def create_account_data(
                     bucket_client.put_object(Bucket=bucket_plan.name, Key=key, Body=body, ContentType=content_type)
                 else:
                     if account_client is None:
-                        access_key, secret_key = require_s3_execution_credentials(
-                            account,
-                            error_message="Account credentials are required to seed objects",
-                        )
                         account_client = s3_client.get_s3_client(
-                            access_key,
-                            secret_key,
                             request_profile="long_running",
-                            **s3_execution_client_kwargs(account),
+                            **s3_execution_request_kwargs(
+                                account,
+                                error_message="Account credentials are required to seed objects",
+                            ),
                         )
                     account_client.put_object(
                         Bucket=bucket_plan.name,

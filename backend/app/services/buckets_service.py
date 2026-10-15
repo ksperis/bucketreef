@@ -5,10 +5,7 @@ import logging
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.services.s3_execution_client import (
-    require_s3_execution_credentials,
-    s3_execution_client_kwargs,
-)
+from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services import bucket_feature_enrichment
 from app.services import (
@@ -57,14 +54,11 @@ class BucketsService:
             ) from exc
         return extract_bucket_list(payload)
 
-    def _account_credentials(self, account: S3ExecutionTarget) -> tuple[str, str]:
-        return require_s3_execution_credentials(
+    def _client_kwargs(self, account: S3ExecutionTarget) -> dict:
+        return s3_execution_request_kwargs(
             account,
             error_message="S3ExecutionTarget is missing admin credentials",
         )
-
-    def _client_kwargs(self, account: S3ExecutionTarget) -> dict:
-        return s3_execution_client_kwargs(account)
 
     def _extract_quota_from_admin_stats(self, stats: Any) -> tuple[Optional[int], Optional[int]]:
         quota_size: Optional[int] = None
@@ -93,8 +87,7 @@ class BucketsService:
         include: Optional[set[str]] = None,
         with_stats: bool = True,
     ) -> List[Bucket]:
-        access_key, secret_key = self._account_credentials(account)
-        buckets = s3_client.list_buckets(access_key=access_key, secret_key=secret_key, **self._client_kwargs(account))
+        buckets = s3_client.list_buckets(**self._client_kwargs(account))
         account_uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
         admin_by_name: dict[str, dict] = {}
         if account_uid and with_stats:
@@ -156,8 +149,7 @@ class BucketsService:
         if not normalized_bucket:
             raise RuntimeError("Bucket name is required")
 
-        access_key, secret_key = self._account_credentials(account)
-        buckets = s3_client.list_buckets(access_key=access_key, secret_key=secret_key, **self._client_kwargs(account))
+        buckets = s3_client.list_buckets(**self._client_kwargs(account))
         creation_date = None
         bucket_in_scope = False
         for entry in buckets:
@@ -212,11 +204,8 @@ class BucketsService:
         location_constraint: Optional[str] = None,
         object_lock_enabled: bool = False,
     ) -> None:
-        access_key, secret_key = self._account_credentials(account)
         s3_client.create_bucket(
             name,
-            access_key=access_key,
-            secret_key=secret_key,
             location_constraint=location_constraint,
             object_lock_enabled=object_lock_enabled,
             **self._client_kwargs(account),
@@ -226,8 +215,6 @@ class BucketsService:
             s3_client.set_bucket_versioning(
                 name,
                 enabled=True,
-                access_key=access_key,
-                secret_key=secret_key,
                 **self._client_kwargs(account),
             )
         logger.debug(
@@ -240,9 +227,8 @@ class BucketsService:
         )
 
     def delete_bucket(self, name: str, account: S3ExecutionTarget, force: bool = False) -> None:
-        access_key, secret_key = self._account_credentials(account)
         s3_deletion.delete_bucket(
-            name, force=force, access_key=access_key, secret_key=secret_key, **self._client_kwargs(account)
+            name, force=force, **self._client_kwargs(account)
         )
         logger.debug("S3 execution context %s deleted bucket %s force=%s", account.rgw_account_id or account.id, name, force)
 

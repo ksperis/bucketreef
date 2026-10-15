@@ -16,8 +16,11 @@ def test_bucket_tags_preserve_literal_keys_and_values_on_round_trip(monkeypatch)
     client.get_bucket_tagging.return_value = {"TagSet": tag_set}
     monkeypatch.setattr(s3_bucket_metadata, "get_s3_client", lambda *args, **kwargs: client)
     service = BucketConfigurationService()
-    monkeypatch.setattr(service, "_account_credentials", lambda account: ("test-key", "test-secret"))
-    monkeypatch.setattr(service, "_client_kwargs", lambda account: {})
+    monkeypatch.setattr(
+        service,
+        "_client_kwargs",
+        lambda account: {"access_key": "test-key", "secret_key": "test-secret"},
+    )
 
     tags = [tag.model_dump() for tag in service.get_bucket_tags("reports", Mock())]
     assert tags == [{"key": item["Key"], "value": item["Value"]} for item in tag_set]
