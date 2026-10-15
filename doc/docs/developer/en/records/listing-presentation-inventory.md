@@ -55,7 +55,7 @@ menus, association popovers, expansion and Browser column resizing.
 | `features/manager/ManagerBucketSelectionPanel.tsx` | /manager/bucket-compare, /manager/bucket-integrity, /manager/bucket-purge; bucket picker | DataTableShell × 1 | `ManagerBucketSelectionPanel.test.tsx` |
 | `features/manager/ManagerCephKeysPage.tsx` | /manager/ceph/keys | DataTableShell × 1 | `ManagerCephKeysPage.test.tsx` |
 | `features/manager/ManagerEntityPoliciesPage.tsx` | /manager/users/:userName/policies, /manager/groups/:groupName/policies, /manager/roles/:roleName/policies | DataTableShell × 1 | `ManagerEntityPoliciesPages.inlinePolicies.test.tsx` |
-| `features/manager/ManagerGroupUsersPage.tsx` | /manager/groups/:groupName/users | DataTableShell × 1 | `ManagerGroupUsersPage.test.tsx` |
+| `features/manager/ManagerGroupUsersPage.tsx` | /manager/groups/:groupName/members | DataTableShell × 1 | `ManagerGroupUsersPage.test.tsx` |
 | `features/manager/ManagerGroupsPage.tsx` | /manager/groups | DataTableShell × 1 | Shared primitive tests; no dedicated component suite |
 | `features/manager/ManagerRolesPage.tsx` | /manager/roles | DataTableShell × 1 | Shared primitive tests; no dedicated component suite |
 | `features/manager/ManagerUserKeysPage.tsx` | /manager/users/:userName/keys | DataTableShell × 1 | `ManagerUserKeysPage.test.tsx` |

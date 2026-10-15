@@ -33,9 +33,9 @@ vi.mock("../../api/managerIamUsers", async () => {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={["/manager/groups/operators/users"]}>
+      <MemoryRouter initialEntries={["/manager/groups/operators/members"]}>
       <Routes>
-        <Route path="/manager/groups/:groupName/users" element={<ManagerGroupUsersPage />} />
+          <Route path="/manager/groups/:groupName/members" element={<ManagerGroupUsersPage />} />
       </Routes>
     </MemoryRouter>
   );

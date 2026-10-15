@@ -445,7 +445,6 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                       <Route path="groups/:groupName" element={<ManagerGroupDetailPage />} />
                       <Route path="groups/:groupName/members" element={<ManagerGroupDetailPage />} />
                       <Route path="groups/:groupName/policies" element={<ManagerGroupDetailPage />} />
-                      <Route path="groups/:groupName/users" element={<ManagerGroupDetailPage />} />
                       <Route path="roles" element={<ManagerRolesPage />} />
                       <Route path="roles/:roleName" element={<ManagerRoleWorkspacePage />} />
                       <Route path="roles/:roleName/trust" element={<ManagerRoleWorkspacePage />} />
