@@ -63,7 +63,7 @@ before upgrading, as for other schema changes.
 
 Migration `0135_bucket_migration_workflow` adds persisted preparation, revision-bound
 reports, recovery journals, destination provenance and independent cleanup state.
-Deploy backend, worker, frontend and API clients together.
+Deploy backend, worker, and frontend together.
 
 Before upgrading, stop admitting new migration commands. Finish or explicitly stop
 all queued, running, paused and awaiting-cutover operations using the old version.
@@ -265,8 +265,8 @@ The migration maps `account_administrator` and former root links to Manager
 administrator only; `portal_user` and `portal_manager` map to the matching
 Portal role only. It adds database constraints requiring at least one role and
 allowing Manager Browser data access only with a Manager administrator role.
-Backend, frontend, automation clients, and migration must be deployed together
-because the old `role` contract is rejected.
+Backend, frontend, and migration must be deployed together because the old
+`role` contract is rejected.
 
 Alembic does not contact RGW, delete `AccountIAMUser` rows, reconcile Portal IAM,
 or install a post-migration cleanup hook. Historical IAM identities are left
