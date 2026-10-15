@@ -2,11 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
 from app.models.bucket_ui_tags import (
     BucketUiTagCatalogResponse,
     BucketUiTagDefinitionSummary,
@@ -22,6 +21,7 @@ from app.services.ceph_admin_bucket_ui_tags_service import (
     CephAdminBucketUiTagUpstreamError,
     CephAdminBucketUiTagsWorkflow,
 )
+from app.utils.http_errors import raise_http_exception_from_exception
 
 
 router = APIRouter(
@@ -80,20 +80,11 @@ def patch_bucket_ui_tags(
     try:
         return workflow.mutate(payload)
     except CephAdminBucketUiTagConflictError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     except CephAdminBucketUiTagUpstreamError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @router.patch("/{tag_id}", response_model=BucketUiTagDefinitionSummary)
@@ -107,12 +98,6 @@ def patch_bucket_ui_tag_definition(
     try:
         return workflow.update_definition(tag_id, payload)
     except CephAdminBucketUiTagNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     except CephAdminBucketUiTagConflictError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
