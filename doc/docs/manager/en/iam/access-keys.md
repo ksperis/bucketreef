@@ -21,17 +21,17 @@ This is different from:
 - Access to `/manager`.
 - The selected Manager context is a managed S3 User context, not an RGW account
   or S3 connection.
-- `manager_ceph_s3_user_keys_enabled=true` in Manager settings.
+- The Manager feature policy `ceph_s3_user_keys` is not `disabled`.
 - The UI user has effective direct or group access to the selected S3 User
   context.
 - The S3 User record has `allow_access_key_management=true`.
 - The endpoint is a Ceph-compatible endpoint with Admin Ops credentials
   available.
-- Optional names and notes additionally require
-  `manager_access_key_metadata_enabled=true` and the selected S3 User record to
+- Optional names and notes additionally require the Manager feature policy
+  `access_key_metadata` to be available and the selected S3 User record to
   have `allow_access_key_metadata=true`.
-- Optional expiration additionally requires
-  `manager_access_key_expiration_enabled=true`, scheduled jobs to be enabled,
+- Optional expiration additionally requires the Manager feature policy
+  `access_key_expiration` to be available, scheduled jobs to be enabled,
   and the selected S3 User record to have `allow_access_key_expiration=true`.
 
 ## Steps

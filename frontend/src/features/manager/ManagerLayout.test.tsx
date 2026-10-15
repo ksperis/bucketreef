@@ -14,6 +14,7 @@ import userEvent from "@testing-library/user-event";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import UiInput from "../../components/ui/UiInput";
 import { setSessionUserCache } from "../../utils/workspaces";
+import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 
 const useS3AccountContextMock = vi.fn();
 const useGeneralSettingsMock = vi.fn();
@@ -116,6 +117,10 @@ function buildContext(overrides?: Record<string, unknown>) {
 
 function buildGeneralSettings(overrides?: Record<string, unknown>) {
   return {
+    manager_feature_policies: {
+      ...DEFAULT_MANAGER_FEATURE_POLICIES,
+      bucket_integrity_check: "disabled",
+    },
     manager_enabled: true,
     ceph_admin_enabled: false,
     storage_ops_enabled: false,
@@ -127,13 +132,6 @@ function buildGeneralSettings(overrides?: Record<string, unknown>) {
     endpoint_status_enabled: false,
     quota_alerts_enabled: false,
     usage_history_enabled: false,
-    bucket_migration_enabled: false,
-    bucket_purge_enabled: false,
-    bucket_compare_enabled: true,
-    bucket_integrity_check_enabled: false,
-    bucket_usage_stats_enabled: true,
-    bucket_quota_management_enabled: true,
-    manager_ceph_s3_user_keys_enabled: true,
     allow_login_access_keys: false,
     allow_login_endpoint_list: false,
     allow_login_custom_endpoint: false,
@@ -314,8 +312,11 @@ describe("ManagerLayout", () => {
     useS3AccountContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({
       generalSettings: buildGeneralSettings({
-        bucket_compare_enabled: false,
-        bucket_integrity_check_enabled: true,
+        manager_feature_policies: {
+          ...DEFAULT_MANAGER_FEATURE_POLICIES,
+          bucket_compare: "disabled",
+          bucket_integrity_check: "targeted",
+        },
       }),
     });
 
@@ -344,7 +345,11 @@ describe("ManagerLayout", () => {
     useS3AccountContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({
       generalSettings: buildGeneralSettings({
-        bucket_purge_enabled: true,
+        manager_feature_policies: {
+          ...DEFAULT_MANAGER_FEATURE_POLICIES,
+          bucket_integrity_check: "disabled",
+          bucket_purge: "targeted",
+        },
       }),
     });
 
@@ -373,9 +378,12 @@ describe("ManagerLayout", () => {
     useS3AccountContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({
       generalSettings: buildGeneralSettings({
-        bucket_migration_enabled: true,
-        bucket_purge_enabled: true,
-        bucket_integrity_check_enabled: true,
+        manager_feature_policies: {
+          ...DEFAULT_MANAGER_FEATURE_POLICIES,
+          bucket_migration: "targeted",
+          bucket_purge: "targeted",
+          bucket_integrity_check: "targeted",
+        },
       }),
     });
 
@@ -408,9 +416,7 @@ describe("ManagerLayout", () => {
     });
     useS3AccountContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({
-      generalSettings: buildGeneralSettings({
-        bucket_usage_stats_enabled: true,
-      }),
+      generalSettings: buildGeneralSettings(),
     });
 
     render(
@@ -508,7 +514,7 @@ describe("ManagerLayout", () => {
       })
     );
     useGeneralSettingsMock.mockReturnValue({
-      generalSettings: buildGeneralSettings({ bucket_usage_stats_enabled: false }),
+      generalSettings: buildGeneralSettings(),
     });
 
     render(
@@ -527,7 +533,7 @@ describe("ManagerLayout", () => {
   it("uses a default message when Usage & Metrics is disabled without backend reason", () => {
     useS3AccountContextMock.mockReturnValue(buildContext({ managerStatsEnabled: false, managerStatsMessage: null }));
     useGeneralSettingsMock.mockReturnValue({
-      generalSettings: buildGeneralSettings({ bucket_usage_stats_enabled: false }),
+      generalSettings: buildGeneralSettings(),
     });
 
     render(
@@ -557,7 +563,7 @@ describe("ManagerLayout", () => {
       })
     );
     useGeneralSettingsMock.mockReturnValue({
-      generalSettings: buildGeneralSettings({ bucket_usage_stats_enabled: false }),
+      generalSettings: buildGeneralSettings(),
     });
 
     render(

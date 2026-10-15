@@ -89,6 +89,7 @@ import DataTableShell, {
 } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import { extractApiError } from "../../utils/apiError";
 import { nextSortState } from "../../utils/sortValues";
 import {
@@ -1398,7 +1399,7 @@ export default function GroupsPage() {
                       description: text("managedProvisioningDescription"),
                       checked: Boolean(form.can_provision_managed_private_connections),
                       platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
-                      blocked: !generalSettings.managed_private_connection_provisioning_enabled,
+                      blocked: !isFeaturePolicyAvailable(generalSettings.manager_feature_policies.managed_private_connection_provisioning),
                       onChange: (value) =>
                         setForm((current) => ({
                           ...current,

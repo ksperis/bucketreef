@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from app.models.feature_policy import MANAGER_LEGACY_FIELDS
 from app.db import AppSetting
 from app.models import app_settings as app_settings_models
-from app.models.app_settings import AppSettings, BrandingSettings, PortalSettingsOverride
+from app.models.app_settings import AppSettings, BrandingSettings, GeneralSettingsView, PortalSettingsOverride
 from app.services import app_settings_service
 
 
@@ -202,6 +202,26 @@ def test_app_settings_db_payload_is_parsed_strictly():
 def test_app_settings_db_payload_rejects_legacy_usage_flags(payload):
     with pytest.raises(ValidationError):
         app_settings_service._parse_settings_payload(payload)
+
+
+def test_general_settings_view_exposes_only_canonical_feature_policies():
+    payload = GeneralSettingsView.from_settings(AppSettings()).model_dump(mode="json")
+
+    assert payload["project_feature_policies"]["bucket_usage_stats"] == "default_on"
+    assert payload["manager_feature_policies"]["bucket_compare"] == "targeted"
+    for removed_field in (
+        "bucket_usage_stats_enabled",
+        "bucket_compare_enabled",
+        "bucket_integrity_check_enabled",
+        "bucket_migration_enabled",
+        "bucket_purge_enabled",
+        "bucket_quota_management_enabled",
+        "manager_ceph_s3_user_keys_enabled",
+        "manager_access_key_metadata_enabled",
+        "manager_access_key_expiration_enabled",
+        "managed_private_connection_provisioning_enabled",
+    ):
+        assert removed_field not in payload
 
 
 def test_app_settings_disk_import_converts_legacy_usage_flags(tmp_path):

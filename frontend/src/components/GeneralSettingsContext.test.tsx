@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_GENERAL_SETTINGS, GeneralSettingsProvider, useGeneralSettings } from "./GeneralSettingsContext";
 import * as appSettingsApi from "../api/appSettings";
+import { isFeaturePolicyAvailable } from "../api/featurePolicies";
 
 const sessionState = vi.hoisted(() => ({ authenticated: false }));
 
@@ -23,12 +24,12 @@ function Probe() {
   const { generalSettings, loading, runtimeSurfaces, runtimeSurfacesLoading, setGeneralSettings } = useGeneralSettings();
   return (
     <div>
-      <span data-testid="migration">{String(generalSettings.bucket_migration_enabled)}</span>
-      <span data-testid="compare">{String(generalSettings.bucket_compare_enabled)}</span>
+      <span data-testid="migration">{String(isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_migration))}</span>
+      <span data-testid="compare">{String(isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_compare))}</span>
       <span data-testid="endpoint-status">{String(generalSettings.endpoint_status_enabled)}</span>
       <span data-testid="usage-history">{String(generalSettings.usage_history_enabled)}</span>
       <span data-testid="portal-browser">{String(generalSettings.browser_portal_enabled)}</span>
-      <span data-testid="bucket-quota-management">{String(generalSettings.bucket_quota_management_enabled)}</span>
+      <span data-testid="bucket-quota-management">{String(isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_quota_management))}</span>
       <span data-testid="usage-policy">{generalSettings.project_feature_policies.bucket_usage_stats}</span>
       <span data-testid="activity-policy">{generalSettings.manager_feature_policies.activity_history}</span>
       <span data-testid="compare-policy">{generalSettings.manager_feature_policies.bucket_compare}</span>
@@ -37,7 +38,13 @@ function Probe() {
       <span data-testid="runtime-admin">{String(runtimeSurfaces.admin)}</span>
       <button
         type="button"
-        onClick={() => setGeneralSettings({ ...generalSettings, bucket_migration_enabled: true })}
+        onClick={() => setGeneralSettings({
+          ...generalSettings,
+          manager_feature_policies: {
+            ...generalSettings.manager_feature_policies,
+            bucket_migration: "targeted",
+          },
+        })}
       >
         Save locally
       </button>
@@ -68,28 +75,22 @@ describe("GeneralSettingsProvider fallbacks", () => {
   it("uses local defaults when no token is available", async () => {
     const fetchGeneralSettings = vi.mocked(appSettingsApi.fetchGeneralSettings);
     fetchGeneralSettings.mockResolvedValueOnce({
-      manager_enabled: true,
+      ...DEFAULT_GENERAL_SETTINGS,
       ceph_admin_enabled: true,
       storage_ops_enabled: true,
-      browser_enabled: true,
-      browser_root_enabled: true,
       browser_manager_enabled: true,
-      browser_portal_enabled: true,
       browser_ceph_admin_enabled: true,
       portal_enabled: true,
       billing_enabled: true,
-      endpoint_status_enabled: true,
       quota_alerts_enabled: true,
-      usage_history_enabled: true,
-      bucket_migration_enabled: true,
-      bucket_purge_enabled: false,
-      bucket_compare_enabled: true,
-      bucket_integrity_check_enabled: true,
-      bucket_quota_management_enabled: true,
-      manager_ceph_s3_user_keys_enabled: true,
       allow_login_access_keys: true,
       allow_login_endpoint_list: true,
       allow_login_custom_endpoint: true,
+      manager_feature_policies: {
+        ...DEFAULT_GENERAL_SETTINGS.manager_feature_policies,
+        bucket_migration: "targeted",
+        bucket_quota_management: "targeted",
+      },
     });
 
     render(
@@ -150,7 +151,9 @@ describe("GeneralSettingsProvider fallbacks", () => {
 
     expect(screen.getByTestId("migration").textContent).toBe("true");
     expect(JSON.parse(window.localStorage.getItem("settings:general:v2") ?? "{}")).toEqual(
-      expect.objectContaining({ bucket_migration_enabled: true })
+      expect.objectContaining({
+        manager_feature_policies: expect.objectContaining({ bucket_migration: "targeted" }),
+      })
     );
   });
 

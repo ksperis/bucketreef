@@ -8,8 +8,6 @@ from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
 from app.models.feature_policy import (
-    MANAGER_LEGACY_FIELDS,
-    FeaturePolicy,
     ManagerFeaturePolicies,
     PortalFeaturePolicies,
     ProjectCollectionPolicies,
@@ -121,29 +119,14 @@ class GeneralSettings(ApiModel):
 
 
 class GeneralSettingsView(GeneralSettings):
-    """Read-only availability projection for the existing workspace consumers."""
+    """Read-only settings projection for authenticated workspace consumers."""
     manager_feature_policies: ManagerFeaturePolicies = Field(default_factory=ManagerFeaturePolicies)
-    bucket_usage_stats_enabled: bool = True
-    bucket_compare_enabled: bool = True
-    bucket_integrity_check_enabled: bool = True
-    bucket_migration_enabled: bool = False
-    bucket_purge_enabled: bool = False
-    bucket_quota_management_enabled: bool = False
-    manager_ceph_s3_user_keys_enabled: bool = True
-    manager_access_key_metadata_enabled: bool = True
-    manager_access_key_expiration_enabled: bool = True
-    managed_private_connection_provisioning_enabled: bool = False
 
     @classmethod
     def from_settings(cls, settings: "AppSettings") -> "GeneralSettingsView":
-        policies = settings.manager.feature_policies
         return cls(
             **settings.general.model_dump(),
-            manager_feature_policies=policies,
-            bucket_usage_stats_enabled=(
-                settings.general.project_feature_policies.bucket_usage_stats != FeaturePolicy.DISABLED
-            ),
-            **{field: getattr(policies, key) != FeaturePolicy.DISABLED for field, key in MANAGER_LEGACY_FIELDS.items()},
+            manager_feature_policies=settings.manager.feature_policies,
         )
 
 

@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import UsersPage from "./UsersPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { ApiError } from "../../api/client";
+import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 
 const listUsersMock = vi.fn();
 const createUserMock = vi.fn();
@@ -19,6 +20,10 @@ const listMinimalS3UsersMock = vi.fn();
 const listMinimalS3ConnectionsMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
 const generalSettingsState = {
+  manager_feature_policies: {
+    ...DEFAULT_MANAGER_FEATURE_POLICIES,
+    managed_private_connection_provisioning: "targeted" as const,
+  },
   manager_enabled: true,
   ceph_admin_enabled: false,
   storage_ops_enabled: false,
@@ -32,13 +37,6 @@ const generalSettingsState = {
   endpoint_status_enabled: false,
   quota_alerts_enabled: false,
   usage_history_enabled: false,
-  bucket_migration_enabled: false,
-  bucket_purge_enabled: false,
-  bucket_compare_enabled: true,
-  bucket_integrity_check_enabled: true,
-  bucket_quota_management_enabled: true,
-  manager_ceph_s3_user_keys_enabled: true,
-  managed_private_connection_provisioning_enabled: true,
   allow_login_access_keys: false,
   allow_login_endpoint_list: false,
   allow_login_custom_endpoint: false,
@@ -105,7 +103,7 @@ describe("UsersPage modal tabs", () => {
     window.history.replaceState({}, "", "/admin/users");
 
     generalSettingsState.portal_enabled = false;
-    generalSettingsState.managed_private_connection_provisioning_enabled = true;
+    generalSettingsState.manager_feature_policies.managed_private_connection_provisioning = "targeted";
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
 
     listUsersMock.mockResolvedValue({
@@ -1026,7 +1024,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("preserves a managed private provisioning grant while the feature is disabled globally", async () => {
-    generalSettingsState.managed_private_connection_provisioning_enabled = false;
+    generalSettingsState.manager_feature_policies.managed_private_connection_provisioning = "disabled";
     listUsersMock.mockResolvedValue({
       items: [
         {
