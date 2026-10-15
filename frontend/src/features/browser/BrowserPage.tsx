@@ -15,7 +15,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  unstable_usePrompt,
   useLocation,
   useNavigate,
   useSearchParams,
@@ -56,6 +55,7 @@ import { useBrowserLazyColumns } from "./useBrowserLazyColumns";
 import { useBrowserKeyboardShortcuts } from "./useBrowserKeyboardShortcuts";
 import { useBrowserListingRefresh } from "./useBrowserListingRefresh";
 import { useBrowserListingVisibility } from "./useBrowserListingVisibility";
+import { useBrowserLeaveGuard } from "./useBrowserLeaveGuard";
 import { useBrowserMultipartUploads } from "./useBrowserMultipartUploads";
 import {
   buildBrowserLocationPath,
@@ -2442,30 +2442,11 @@ export default function BrowserPage({
     }
   };
 
-  const archiveInventoryActive = archivePreparation?.phase === "inventorying";
-  const shouldConfirmLeave =
-    hasPendingOperations || hasUnsavedDrawerChanges || archiveInventoryActive;
-  const leaveMessage = hasUnsavedDrawerChanges
-    ? hasPendingOperations
-      ? "Operations are in progress and the details drawer contains unapplied changes. Leaving now may interrupt operations and discard changes. Continue?"
-      : "The details drawer contains unapplied changes. Leaving now will discard them. Continue?"
-    : hasPendingOperations
-      ? "Operations are in progress (upload, download, copy, delete). Leaving now may interrupt them. Continue?"
-      : "Archive inventory is in progress. Leaving now will cancel it. Continue?";
-  unstable_usePrompt({
-    when: shouldConfirmLeave,
-    message: leaveMessage,
+  useBrowserLeaveGuard({
+    hasPendingOperations,
+    hasUnsavedChanges: hasUnsavedDrawerChanges,
+    archiveInventoryActive: archivePreparation?.phase === "inventorying",
   });
-  useEffect(() => {
-    if (!shouldConfirmLeave || typeof window === "undefined") return;
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = leaveMessage;
-      return leaveMessage;
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [leaveMessage, shouldConfirmLeave]);
   const showFolderToggle = showPanelToggles && canUseFoldersPanel;
   const isActionBarVisible = selectedCount > 0;
   const showContextToolbarActions = !isActionBarVisible;
