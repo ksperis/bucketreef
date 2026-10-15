@@ -7,7 +7,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.access_context import AccountAccess
 from app.models.portal_access_logs import (
@@ -21,6 +20,7 @@ from app.routers.portal_common import (
     raise_portal_error,
 )
 from app.services.portal_service import PortalService
+from app.utils.http_errors import raise_bad_request_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter()
@@ -58,7 +58,7 @@ def portal_server_access_logs_page(
             advanced_filter=parsed_filter,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     except RuntimeError as exc:
         raise_portal_error(exc)
 
@@ -85,7 +85,7 @@ def portal_server_access_logs_raw(
             timezone_offset_minutes=timezone_offset_minutes,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     except RuntimeError as exc:
         raise_portal_error(exc)
     filename = (

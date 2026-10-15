@@ -6,13 +6,16 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.access_context import AccountAccess
 from app.models.portal_requests import PortalAdminRequestCreate, PortalAdminRequestOut, PortalAdminRequestStatus
 from app.routers.dependencies import get_portal_account_access, require_portal_manager
 from app.routers.portal_common import get_portal_requests_service_dependency
 from app.services.portal_requests_service import PortalRequestExecutionError, PortalRequestsService
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter(prefix="/portal/requests", tags=["portal-requests"])
 
@@ -42,6 +45,6 @@ def create_portal_request(
     try:
         return service.create_request(_portal_actor(access), access, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     except PortalRequestExecutionError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=sanitize_error_detail(str(exc))) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
