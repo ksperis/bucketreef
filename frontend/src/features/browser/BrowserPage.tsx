@@ -39,6 +39,7 @@ import BrowserObjectsIssueDescription from "./BrowserObjectsIssueDescription";
 import { useBrowserBucketCors } from "./useBrowserBucketCors";
 import { useBrowserBulkAttributes } from "./useBrowserBulkAttributes";
 import { useBrowserBulkRestore } from "./useBrowserBulkRestore";
+import { useBrowserBucketPanelViewport } from "./useBrowserBucketPanelViewport";
 import { useBrowserBucketCatalog } from "./useBrowserBucketCatalog";
 import { useBrowserClipboard } from "./useBrowserClipboard";
 import { useBrowserConfirmDialog } from "./useBrowserConfirmDialog";
@@ -183,7 +184,6 @@ import { useBrowserI18n } from "./browserI18n";
 const MOBILE_OBJECT_LIST_MEDIA_QUERY = "(max-width: 767px)";
 
 const DEFAULT_STREAMING_ZIP_THRESHOLD_MB = 200;
-const BUCKET_ACCESS_ROOT_MARGIN = "120px";
 
 const browserShellClasses =
   "flex min-h-0 flex-1 flex-col overflow-hidden";
@@ -640,8 +640,6 @@ export default function BrowserPage({
   const searchOptionsButtonRef = useRef<HTMLButtonElement | null>(null);
   const objectsListViewportRef = useRef<HTMLDivElement | null>(null);
   const bucketMenuFilterRef = useRef<HTMLInputElement | null>(null);
-  const bucketPanelViewportRef = useRef<HTMLDivElement | null>(null);
-  const bucketPanelLoadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const accountIdForApiRef = useRef(accountIdForApi);
   const operationIdsRef = useRef(new Set<string>());
   const storageEndpointCaps = useMemo(() => {
@@ -1082,6 +1080,17 @@ export default function BrowserPage({
       })),
     [bucketAccessByName, bucketMenuItems],
   );
+  const {
+    loadMoreSentinelRef: bucketPanelLoadMoreSentinelRef,
+    panelViewportRef: bucketPanelViewportRef,
+  } = useBrowserBucketPanelViewport({
+    activeBucketName: bucketName,
+    canLoadMore: canLoadMoreBucketResults,
+    enabled: useBucketsPanel,
+    onLoadMore: handleBucketMenuLoadMore,
+    rows: workspaceSidebarRows,
+    scheduleAccessProbe: scheduleBucketAccessProbe,
+  });
   const handleBucketChange = useCallback(
     (value: string) => {
       setShowBucketMenu(false);
@@ -1135,119 +1144,6 @@ export default function BrowserPage({
     }
     return undefined;
   }, [handleOpenWorkspaceAccount, workspaceAccountActionTarget, text]);
-
-  useLayoutEffect(() => {
-    if (!useBucketsPanel) {
-      return;
-    }
-    const scroller = bucketPanelViewportRef.current;
-    if (!scroller) {
-      return;
-    }
-    if (typeof scroller.scrollTo === "function") {
-      scroller.scrollTo({ top: 0, behavior: "auto" });
-      return;
-    }
-    scroller.scrollTop = 0;
-  }, [bucketName, useBucketsPanel]);
-
-  useEffect(() => {
-    if (!useBucketsPanel) {
-      return;
-    }
-    const root = bucketPanelViewportRef.current;
-    if (!root) {
-      return;
-    }
-    const rowNodes = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-bucket-panel-name]"),
-    );
-    if (rowNodes.length === 0) {
-      return;
-    }
-
-    const rootRect = root.getBoundingClientRect();
-    const rootMarginPx = Number.parseInt(BUCKET_ACCESS_ROOT_MARGIN, 10) || 0;
-    const viewportTop = rootRect.top - rootMarginPx;
-    const viewportBottom = rootRect.bottom + rootMarginPx;
-    rowNodes.forEach((node) => {
-      const targetBucketName = node.dataset.bucketPanelName;
-      if (!targetBucketName) {
-        return;
-      }
-      if (rootRect.height <= 0 || rootRect.width <= 0) {
-        scheduleBucketAccessProbe(targetBucketName);
-        return;
-      }
-      const rowRect = node.getBoundingClientRect();
-      const intersectsViewport =
-        rowRect.bottom >= viewportTop && rowRect.top <= viewportBottom;
-      if (intersectsViewport) {
-        scheduleBucketAccessProbe(targetBucketName);
-      }
-    });
-
-    if (typeof window === "undefined" || !("IntersectionObserver" in window)) {
-      rowNodes.forEach((node) => {
-        const targetBucketName = node.dataset.bucketPanelName;
-        if (targetBucketName) {
-          scheduleBucketAccessProbe(targetBucketName);
-        }
-      });
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) {
-            return;
-          }
-          const targetBucketName = (entry.target as HTMLElement).dataset
-            .bucketPanelName;
-          if (targetBucketName) {
-            scheduleBucketAccessProbe(targetBucketName);
-          }
-          observer.unobserve(entry.target);
-        });
-      },
-      { root, rootMargin: BUCKET_ACCESS_ROOT_MARGIN },
-    );
-    rowNodes.forEach((node) => observer.observe(node));
-    return () => {
-      observer.disconnect();
-    };
-  }, [scheduleBucketAccessProbe, useBucketsPanel, workspaceSidebarRows]);
-
-  useEffect(() => {
-    if (!useBucketsPanel || !canLoadMoreBucketResults) {
-      return;
-    }
-    const root = bucketPanelViewportRef.current;
-    const sentinel = bucketPanelLoadMoreSentinelRef.current;
-    if (
-      !root ||
-      !sentinel ||
-      typeof window === "undefined" ||
-      !("IntersectionObserver" in window)
-    ) {
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            handleBucketMenuLoadMore();
-          }
-        });
-      },
-      { root, rootMargin: "160px" },
-    );
-    observer.observe(sentinel);
-    return () => {
-      observer.disconnect();
-    };
-  }, [canLoadMoreBucketResults, handleBucketMenuLoadMore, useBucketsPanel]);
 
   const breadcrumbs = useMemo(() => buildPrefixBreadcrumbs(prefix), [prefix]);
   const parentPrefix = breadcrumbs.at(-2)?.prefix ?? "";
