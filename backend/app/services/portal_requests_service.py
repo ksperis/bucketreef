@@ -613,10 +613,16 @@ class PortalRequestsService:
         }
 
     def _execute_quota_change(self, row: PortalAdminRequest) -> dict[str, Any]:
-        payload = self._decode_json(row.payload_json)
-        direction = str(payload.get("direction") or "")
-        target_value = float(payload.get("target_quota_value"))
-        target_unit = str(payload.get("target_quota_unit") or "GiB")
+        payload = PortalAccountQuotaChangeRequestCreate.model_validate(
+            {
+                "request_type": "account_quota_change",
+                **self._decode_json(row.payload_json),
+            },
+            strict=True,
+        )
+        direction = payload.direction
+        target_value = payload.target_quota_value
+        target_unit = payload.target_quota_unit
         target_bytes = size_to_bytes(target_value, target_unit)
         current_size_gb, current_objects = self.accounts_service.get_account_quota(row.account)
         current_bytes = size_to_bytes(current_size_gb, "GiB") if current_size_gb is not None else None
