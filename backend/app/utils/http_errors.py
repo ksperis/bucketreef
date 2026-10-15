@@ -108,8 +108,12 @@ def raise_http_error_from_value_error(exc: ValueError) -> NoReturn:
     raise_http_exception_from_exception(status_code, exc)
 
 
-def raise_http_exception_from_exception(status_code: int, exc: Exception) -> NoReturn:
-    raise HTTPException(
+def http_exception_from_exception(status_code: int, exc: Exception) -> HTTPException:
+    return HTTPException(
         status_code=status_code,
         detail=_sanitize_error_detail(str(exc)),
-    ) from exc
+    )
+
+
+def raise_http_exception_from_exception(status_code: int, exc: Exception) -> NoReturn:
+    raise http_exception_from_exception(status_code, exc) from exc

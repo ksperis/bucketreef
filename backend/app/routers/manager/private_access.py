@@ -29,23 +29,24 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessNotFound,
 )
 from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.utils.http_errors import http_exception_from_exception
 
 router = APIRouter(prefix="/manager/private-access", tags=["manager-private-access"])
 
 
 def _translate_error(exc: ManagedPrivateAccessError) -> HTTPException:
     if isinstance(exc, ManagedPrivateAccessNotFound):
-        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=sanitize_error_detail(str(exc)))
+        return http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     if isinstance(exc, ManagedPrivateAccessForbidden):
-        return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=sanitize_error_detail(str(exc)))
+        return http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     if isinstance(exc, ManagedPrivateAccessCleanupPending):
         return HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=sanitize_error_detail({"message": str(exc), "provisioning_id": exc.provisioning_id}),
         )
     if isinstance(exc, ManagedPrivateAccessConflict):
-        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=sanitize_error_detail(str(exc)))
-    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc)))
+        return http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+    return http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @router.post("/iam", response_model=ManagedPrivateAccessResult, status_code=status.HTTP_201_CREATED)

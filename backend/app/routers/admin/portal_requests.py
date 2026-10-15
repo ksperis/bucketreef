@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.portal_requests import (
     PortalAdminRequestDecision,
@@ -23,19 +22,19 @@ from app.services.portal_requests_service import (
     PortalRequestNotFound,
     PortalRequestsService,
 )
+from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(prefix="/admin/portal-requests", tags=["admin-portal-requests"])
 
 
 def _raise_portal_request_error(exc: Exception) -> None:
-    detail = sanitize_error_detail(str(exc))
     if isinstance(exc, PortalRequestNotFound):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc
+        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     if isinstance(exc, PortalRequestConflict):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from exc
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     if isinstance(exc, PortalRequestExecutionError):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail) from exc
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail) from exc
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @router.get("", response_model=list[PortalAdminRequestOut])

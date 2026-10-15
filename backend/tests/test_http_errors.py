@@ -16,6 +16,7 @@ from app import main
 from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.sensitive_data import sanitize_error_detail
 from app.utils.http_errors import (
+    http_exception_from_exception,
     raise_bad_gateway_from_runtime,
     raise_http_error_from_value_error,
     raise_bad_request_from_value_error,
@@ -126,6 +127,13 @@ def test_raise_http_exception_from_exception_preserves_status_and_redacts_detail
         assert exc.detail == "missing token=<redacted>"
     else:
         raise AssertionError("Expected HTTPException")
+
+
+def test_http_exception_from_exception_builds_sanitized_exception_without_raising():
+    exc = http_exception_from_exception(409, RuntimeError("busy token=leaked"))
+
+    assert exc.status_code == 409
+    assert exc.detail == "busy token=<redacted>"
 
 
 def test_sanitize_error_detail_redacts_presigned_urls_and_credentials():

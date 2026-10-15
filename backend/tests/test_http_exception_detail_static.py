@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 SANITIZING_HELPERS = {
+    "http_exception_from_exception",
     "raise_bad_gateway_from_runtime",
     "raise_bad_request_from_value_error",
     "raise_http_exception_from_exception",
