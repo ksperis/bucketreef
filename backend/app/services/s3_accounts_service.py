@@ -61,7 +61,13 @@ from app.utils.storage_endpoint_features import (
     resolve_feature_flags,
 )
 from app.utils.rgw_identifiers import generate_rgw_account_id, normalize_rgw_identifier
-from app.utils.rgw_payloads import extract_bucket_list, require_rgw_user_identity, split_rgw_tenant_uid, rgw_user_account_root
+from app.utils.rgw_payloads import (
+    extract_bucket_list,
+    extract_rgw_account_ids,
+    require_rgw_user_identity,
+    rgw_user_account_root,
+    split_rgw_tenant_uid,
+)
 from app.utils.usage_stats import aggregate_bucket_usage
 from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
 from app.utils.size_units import size_to_bytes
@@ -255,12 +261,7 @@ class S3AccountsService:
         if not isinstance(result, dict):
             raise ValueError("RGW did not confirm the created account identity")
         account_payload = result.get("account")
-        returned_ids = {
-            str(value).strip() for item in (result, account_payload)
-            if isinstance(item, dict)
-            for key in ("id", "account_id")
-            if (value := item.get(key)) is not None and str(value).strip()
-        }
+        returned_ids = extract_rgw_account_ids(result, account_payload)
         if returned_ids != {expected_id}:
             raise ValueError("RGW did not confirm the requested account identity")
 
@@ -784,12 +785,7 @@ class S3AccountsService:
             self._ensure_account_creation_succeeded(create_result, rgw_account_id)
         else:
             nested_account = remote.get("account")
-            remote_ids = {
-                str(value).strip() for item in (remote, nested_account)
-                if isinstance(item, dict)
-                for key in ("id", "account_id")
-                if (value := item.get(key)) is not None and str(value).strip()
-            }
+            remote_ids = extract_rgw_account_ids(remote, nested_account)
             if remote.get("name") != payload.name or remote_ids != {rgw_account_id}:
                 raise ValueError("Provisioned RGW account does not match the requested identity")
         root_uid, access_key, secret_key = self._ensure_provisioned_root_credentials(

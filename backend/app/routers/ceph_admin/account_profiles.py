@@ -28,8 +28,8 @@ from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsu
 from app.services.app_settings_service import load_app_settings
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.normalize import normalize_optional_scalar
 from app.utils.rgw_identifiers import generate_rgw_account_id
+from app.utils.rgw_payloads import extract_rgw_account_ids
 from app.utils.usage_stats import summarize_bucket_usage
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/accounts", tags=["ceph-admin-accounts"])
@@ -70,12 +70,7 @@ def create_rgw_account(
     account_id = requested_account_id
     if isinstance(create_result, dict):
         account_payload = create_result.get("account")
-        returned_ids = {
-            value for record in (create_result, account_payload)
-            if isinstance(record, dict)
-            for key in ("id", "account_id")
-            if (value := normalize_optional_scalar(record.get(key)))
-        }
+        returned_ids = extract_rgw_account_ids(create_result, account_payload)
     else:
         returned_ids = set()
     if returned_ids != {requested_account_id}:
@@ -184,12 +179,7 @@ def update_rgw_account_config(
         raise_if_unsupported(update_result, "RGW account update is not supported on this cluster")
         if isinstance(update_result, dict):
             response_account = update_result.get("account")
-            returned_ids = {
-                value for record in (update_result, response_account)
-                if isinstance(record, dict)
-                for key in ("id", "account_id")
-                if (value := normalize_optional_scalar(record.get(key)))
-            }
+            returned_ids = extract_rgw_account_ids(update_result, response_account)
             if returned_ids and returned_ids != {normalized_account_id}:
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
