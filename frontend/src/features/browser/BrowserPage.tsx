@@ -20,14 +20,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import { ListActionButton } from "../../components/list/ListControls";
-import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
-import {
-  cx,
-  uiCardMutedClass,
-  uiMenuClass,
-} from "../../components/ui/styles";
 import {
   CLIENT_STORAGE_KEYS,
   writeClientStorage,
@@ -43,6 +36,7 @@ import BrowserObjectExplorer from "./BrowserObjectExplorer";
 import BrowserObjectSearchHeader from "./BrowserObjectSearchHeader";
 import BrowserFoldersPanel from "./BrowserFoldersPanel";
 import BrowserToolbar from "./BrowserToolbar";
+import BrowserNoticesPanel from "./BrowserNoticesPanel";
 import { useBrowserBucketCors } from "./useBrowserBucketCors";
 import { useBrowserBulkAttributes } from "./useBrowserBulkAttributes";
 import { useBrowserBulkRestore } from "./useBrowserBulkRestore";
@@ -139,7 +133,6 @@ import {
   readStoredBrowserRootUiState,
 } from "./browserRootUiState";
 import { shouldUseStsPresigner } from "./sseBrowserLogic";
-import { InfoIcon } from "./browserIcons";
 import { VERSIONS_LIST_HARD_LIMIT, storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import {
@@ -194,10 +187,6 @@ const BUCKET_ACCESS_ROOT_MARGIN = "120px";
 
 const browserShellClasses =
   "flex min-h-0 flex-1 flex-col overflow-hidden";
-const browserSubtleSurfaceClasses =
-  cx(uiCardMutedClass, "shadow-none");
-const browserFloatingMenuClasses =
-  cx(uiMenuClass, "overflow-hidden p-1.5");
 export default function BrowserPage({
   accountIdForApi: accountIdOverride,
   executionContextKind: executionContextKindOverride,
@@ -2482,7 +2471,6 @@ export default function BrowserPage({
   const showContextToolbarActions = !isActionBarVisible;
   const browserChromeShellClasses =
     "relative z-20 shrink-0 pb-2";
-  const browserNoticeShellClasses = "shrink-0 pb-2";
   const browserContentShellClasses =
     "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
   const toolbarSelectionSummary = text("{count} selected", { count: selectedCount.toLocaleString(intlLocale) });
@@ -2726,82 +2714,20 @@ export default function BrowserPage({
           />
         </div>
 
-        {(bucketError || statusMessage || corsInformation || warnings.length > 0) && (
-          <div className={browserNoticeShellClasses}>
-            <div
-              className={`${browserSubtleSurfaceClasses} px-3 py-2.5 ui-caption text-slate-600 dark:text-slate-300`}
-            >
-              {bucketError && (
-                <p className="font-semibold text-rose-600 dark:text-rose-200">
-                  {text(bucketError)}
-                </p>
-              )}
-              {statusMessage && (
-                <p className="text-slate-500 dark:text-slate-400">
-                  {statusMessage}
-                </p>
-              )}
-              {corsInformation && (
-                <p className="font-medium text-sky-700 dark:text-sky-200">
-                  {hasCorsAction ? (
-                    <span className="inline-flex items-center gap-1">
-                      <span>{corsInformation}</span>
-                      <button
-                        ref={corsActionTriggerRef}
-                        type="button"
-                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-sky-700 transition hover:text-sky-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 dark:text-sky-200 dark:hover:text-sky-100 dark:focus-visible:outline-sky-200"
-                        onClick={toggleCorsActionPopover}
-                        aria-label={text("CORS actions")}
-                        title={text("CORS actions")}
-                        aria-haspopup="dialog"
-                        aria-expanded={showCorsActionPopover}
-                      >
-                        <InfoIcon className="h-3.5 w-3.5" />
-                      </button>
-                      <AnchoredPortalMenu
-                        open={showCorsActionPopover}
-                        anchorRef={corsActionTriggerRef}
-                        placement="bottom-start"
-                        offset={6}
-                        minWidth={288}
-                        className={`w-80 ${browserFloatingMenuClasses}`}
-                      >
-                        <div ref={corsActionPopoverRef}>
-                          <p className="ui-caption text-slate-600 dark:text-slate-300">
-                            {text("Allow direct access from {origin} by adding CORS rules to this bucket.", { origin: uiOrigin ?? "" })}
-                          </p>
-                          <ListActionButton
-                            type="button"
-                            variant="success"
-                            className="mt-2"
-                            onClick={handleEnsureCors}
-                            disabled={corsFixing}
-                            title={text("Add {origin} to bucket CORS rules.", { origin: uiOrigin ?? "" })}
-                            aria-label={text("Add {origin} to CORS", { origin: uiOrigin ?? "" })}
-                          >
-                            {corsFixing
-                              ? text("Adding...")
-                              : text("Add {origin} to CORS", { origin: uiOrigin ?? "" })}
-                          </ListActionButton>
-                        </div>
-                      </AnchoredPortalMenu>
-                    </span>
-                  ) : (
-                    corsInformation
-                  )}
-                </p>
-              )}
-              {warnings.map((warning, index) => (
-                <p
-                  key={`${warning}-${index}`}
-                  className="font-semibold text-amber-600 dark:text-amber-200"
-                >
-                  {warning}
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
+        <BrowserNoticesPanel
+          bucketError={bucketError}
+          statusMessage={statusMessage}
+          corsInformation={corsInformation}
+          warnings={warnings}
+          hasCorsAction={hasCorsAction}
+          corsActionTriggerRef={corsActionTriggerRef}
+          corsActionPopoverRef={corsActionPopoverRef}
+          showCorsActionPopover={showCorsActionPopover}
+          toggleCorsActionPopover={toggleCorsActionPopover}
+          uiOrigin={uiOrigin}
+          corsFixing={corsFixing}
+          onEnsureCors={handleEnsureCors}
+        />
 
         <div className={browserContentShellClasses}>
           <div
