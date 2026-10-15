@@ -14,6 +14,19 @@ The Admin Audit and Manager Activity APIs now expose only `context_kind`,
 webhook event payload keeps its existing optional `account` object so external
 webhook consumers are unaffected by the database/API cleanup.
 
+## 2026-10 canonical Portal collaborator requests
+
+Migration `0156_canonical_portal_user_access_requests` completes the Portal
+collaborator request cutover. Historical `portal_user_access` additions that
+predate explicit collaborator intents and roles are rewritten with
+`intent=add` and `portal_role=portal_user`. Current role-change requests and
+explicit `portal_manager` additions are preserved.
+
+After this migration, the runtime no longer supplies missing intent or role
+defaults when executing a persisted collaborator request. A malformed row is
+failed instead of being interpreted as a Portal User addition. Apply the
+database migration before starting the matching backend version.
+
 ## RGW tenant identity
 
 Migration `0152_rgw_principal_tenants` adds nullable `rgw_tenant` fields to
