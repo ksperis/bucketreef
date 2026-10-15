@@ -83,10 +83,13 @@ emits its own `search/search_index.json`, so a search performed inside French
 Portal stays inside French Portal, a Portal search cannot return a Developer
 page, and a Manager search cannot return backend implementation documentation.
 
-The build orchestrator validates the English guide page sets against the
-[reorganization migration matrix](reorganization-matrix.md), requires the
-French Portal tree to mirror the English Portal Markdown page set, verifies the
-expected search indexes, and assembles one publishable `doc/site/` artifact.
+The build orchestrator derives each guide's expected search scope from its
+current Markdown source tree. It requires the French Portal tree to mirror the
+English Portal Markdown page set, verifies that each search index contains
+exactly that guide/language source tree, and assembles one publishable
+`doc/site/` artifact. The [reorganization migration matrix](reorganization-matrix.md)
+remains a historical cutover record rather than a registry that must be edited
+when new documentation pages are added.
 
 ## Portal translations
 

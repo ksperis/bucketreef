@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
@@ -14,9 +13,6 @@ import sys
 
 DOC_DIR = Path(__file__).resolve().parent
 SITE_DIR = DOC_DIR / "site"
-MIGRATION_MATRIX = (
-    DOC_DIR / "docs" / "developer" / "en" / "documentation" / "reorganization-matrix.md"
-)
 BUILDS = (
     ("root", None, DOC_DIR / "mkdocs.yml", SITE_DIR),
     ("admin", "en", DOC_DIR / "mkdocs.admin.yml", SITE_DIR / "admin" / "en"),
@@ -26,7 +22,6 @@ BUILDS = (
     ("portal", "fr", DOC_DIR / "mkdocs.portal.fr.yml", SITE_DIR / "portal" / "fr"),
     ("browser", "en", DOC_DIR / "mkdocs.browser.yml", SITE_DIR / "browser" / "en"),
 )
-GUIDE_NAMES = {name for name, _language, _config, _output in BUILDS[1:]}
 
 
 def build(config: Path, output: Path, strict: bool) -> None:
@@ -53,26 +48,12 @@ def source_to_location(source: str) -> str:
     return f"{path.with_suffix('').as_posix()}/"
 
 
-def expected_search_locations() -> dict[str, set[str]]:
-    expected = {guide: set() for guide in GUIDE_NAMES}
-    for line in MIGRATION_MATRIX.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("| `"):
-            continue
-
-        cells = [cell.strip() for cell in line.strip("|").split("|")]
-        if len(cells) < 2:
-            continue
-
-        targets = re.findall(r"`([^`]+\.md)`", cells[1])
-        for target in targets:
-            parts = Path(target).parts
-            if len(parts) < 3 or parts[0] not in expected or parts[1] != "en":
-                continue
-            guide = parts[0]
-            relative_target = Path(*parts[2:]).as_posix()
-            expected[guide].add(source_to_location(relative_target))
-
-    return expected
+def expected_search_locations(guide: str, language: str) -> set[str]:
+    source_root = DOC_DIR / "docs" / guide / language
+    return {
+        source_to_location(path.relative_to(source_root).as_posix())
+        for path in source_root.rglob("*.md")
+    }
 
 
 def validate_search_boundaries() -> None:
@@ -80,8 +61,9 @@ def validate_search_boundaries() -> None:
     if global_search.exists():
         raise RuntimeError("Global pages must not expose a search index")
 
-    expected = expected_search_locations()
     for guide, language, _config, output in BUILDS[1:]:
+        if language is None:
+            continue
         search_index = output / "search" / "search_index.json"
         if not search_index.is_file():
             raise RuntimeError(f"Missing search index for {guide}/{language}: {search_index}")
@@ -98,8 +80,9 @@ def validate_search_boundaries() -> None:
         if any(location.startswith("releases/") for location in locations):
             raise RuntimeError(f"Global release history leaked into {guide}/{language} search")
 
-        missing = expected[guide] - locations
-        extra = locations - expected[guide]
+        expected = expected_search_locations(guide, language)
+        missing = expected - locations
+        extra = locations - expected
         if missing or extra:
             details = []
             if missing:
@@ -107,7 +90,7 @@ def validate_search_boundaries() -> None:
             if extra:
                 details.append(f"extra={sorted(extra)}")
             raise RuntimeError(
-                f"Search scope for {guide}/{language} differs from the migration matrix: "
+                f"Search scope for {guide}/{language} differs from its Markdown source tree: "
                 + "; ".join(details)
             )
 
