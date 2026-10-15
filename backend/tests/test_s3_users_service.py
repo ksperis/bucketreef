@@ -212,16 +212,14 @@ def test_tenanted_key_mutation_requires_exact_remote_identity(db_session, monkey
     assert fake.key_creations == [("team_a", "analyst")]
 
 
-def test_import_reconciles_legacy_uid_before_importing_same_uid_in_another_tenant(db_session, monkeypatch):
+def test_import_allows_same_uid_in_another_tenant(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeTenantedRGWAdmin()
     fake.add_principal("analyst", "")
     fake.add_principal("analyst", "team_a")
-    row = S3User(name="Legacy", rgw_user_uid="analyst", rgw_access_key="AK--analyst",
+    row = S3User(name="Default", rgw_user_uid="analyst", rgw_access_key="AK--analyst",
                  rgw_secret_key="SECRET", storage_endpoint_id=endpoint.id)
     db_session.add(row)
-    db_session.commit()
-    row.rgw_tenant = None
     db_session.commit()
     service = _build_service(db_session, monkeypatch, fake)
     imported = service.import_users([S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id)])

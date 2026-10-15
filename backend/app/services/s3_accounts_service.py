@@ -61,7 +61,6 @@ from app.utils.storage_endpoint_features import (
     resolve_feature_flags,
 )
 from app.utils.rgw_identifiers import generate_rgw_account_id, normalize_rgw_identifier
-from app.services.rgw_principal_scope import resolve_principal_tenant
 from app.utils.rgw_payloads import extract_bucket_list, require_rgw_user_identity, split_rgw_tenant_uid, rgw_user_account_root
 from app.utils.usage_stats import aggregate_bucket_usage
 from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
@@ -1098,8 +1097,6 @@ class S3AccountsService:
     def _delete_root_user(self, account: S3Account) -> None:
         admin = self._admin_for_account(account, allow_missing=False)
         try:
-            tenant = resolve_principal_tenant(account, admin)
-            account.rgw_tenant = tenant
             if not self._load_existing_root_user(admin, account.rgw_user_uid, account.rgw_account_id, account.rgw_tenant):
                 raise ValueError("RGW root user could not be verified before deletion")
             admin.delete_user(account.rgw_user_uid, tenant=account.rgw_tenant or None)

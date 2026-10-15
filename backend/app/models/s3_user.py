@@ -38,7 +38,7 @@ class S3User(ApiModel):
     id: int
     name: str
     rgw_user_uid: str
-    rgw_tenant: Optional[str] = None
+    rgw_tenant: str
     email: Optional[str] = None
     created_at: Optional[datetime] = None
     user_links: list[S3UserUserLink] = Field(default_factory=list)
@@ -143,7 +143,7 @@ class S3UserSummary(ApiModel):
     id: int
     name: str
     rgw_user_uid: str
-    rgw_tenant: Optional[str] = None
+    rgw_tenant: str
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str

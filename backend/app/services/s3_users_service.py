@@ -46,7 +46,6 @@ from app.models.s3_user import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
 from app.services.rgw_user_key_parser import RgwUserKeyParser
-from app.services.rgw_principal_scope import resolve_principal_tenant
 from app.services import s3_client
 from app.utils.rgw_payloads import (
     extract_bucket_list, extract_rgw_user_payload, extract_rgw_user_identity,
@@ -102,43 +101,22 @@ class S3UsersService:
         endpoint = self._endpoint_for_user(s3_user)
         return self._admin_for_endpoint(endpoint)
 
-    def _tenant_for_user(self, s3_user: S3UserModel, admin: RGWAdminClient) -> str:
-        """Resolve legacy NULL identities by their stored access key, not a bare UID."""
-        if s3_user.rgw_tenant is not None:
-            return s3_user.rgw_tenant
-        resolved = resolve_principal_tenant(s3_user, admin)
-        uid = s3_user.rgw_user_uid
-        collision = self.db.query(S3UserModel.id).filter(
-            S3UserModel.id != s3_user.id,
-            S3UserModel.storage_endpoint_id == s3_user.storage_endpoint_id,
-            S3UserModel.rgw_user_uid == uid,
-            or_(S3UserModel.rgw_tenant == resolved, S3UserModel.rgw_tenant.is_(None)),
-        ).first()
-        if collision:
-            raise ValueError("RGW identity conflicts with another imported user")
-        return resolved
+    @staticmethod
+    def _tenant_for_user(s3_user: S3UserModel) -> str:
+        return s3_user.rgw_tenant
 
     def _verified_user(self, s3_user: S3UserModel, admin: RGWAdminClient) -> str:
         """Verify the exact remote principal and its stored credential before Admin Ops writes."""
-        tenant = self._tenant_for_user(s3_user, admin)
+        tenant = self._tenant_for_user(s3_user)
         remote = admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=True)
         if not remote:
             raise ValueError("RGW user could not be verified")
         require_rgw_user_identity(remote, s3_user.rgw_user_uid, tenant)
         if not any(key.get("access_key") == s3_user.rgw_access_key for key in admin.extract_keys(remote)):
             raise ValueError("RGW user no longer owns its stored access key")
-        s3_user.rgw_tenant = tenant
         return tenant
 
-    def _existing_identity(self, uid: str, tenant: str, endpoint_id: int, admin: RGWAdminClient):
-        # Reconcile a legacy row before deciding whether a same-UID import is a duplicate.
-        legacy = self.db.query(S3UserModel).filter(
-            S3UserModel.storage_endpoint_id == endpoint_id,
-            S3UserModel.rgw_user_uid == uid,
-            S3UserModel.rgw_tenant.is_(None),
-        ).all()
-        for row in legacy:
-            self._verified_user(row, admin)
+    def _existing_identity(self, uid: str, tenant: str, endpoint_id: int):
         return self.db.query(S3UserModel).filter(
             S3UserModel.storage_endpoint_id == endpoint_id,
             S3UserModel.rgw_user_uid == uid,
@@ -169,7 +147,7 @@ class S3UsersService:
         try:
             endpoint = self._endpoint_for_user(s3_user)
             admin = get_endpoint_runtime_rgw_client(endpoint)
-            tenant = self._tenant_for_user(s3_user, admin)
+            tenant = self._tenant_for_user(s3_user)
             payload = admin.get_all_buckets(uid=s3_user.rgw_user_uid, with_stats=True, **({"tenant": tenant} if tenant else {}))
         except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to list buckets with stats for user %s: %s", s3_user.rgw_user_uid, exc)
@@ -187,7 +165,7 @@ class S3UsersService:
             logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None
         try:
-            tenant = self._tenant_for_user(s3_user, rgw_admin)
+            tenant = self._tenant_for_user(s3_user)
             max_size_bytes, max_objects = rgw_admin.get_user_quota(s3_user.rgw_user_uid, tenant=tenant or None)
         except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to fetch S3 user quota for %s: %s", s3_user.rgw_user_uid, exc)
@@ -201,7 +179,7 @@ class S3UsersService:
             logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None, None
         try:
-            tenant = self._tenant_for_user(s3_user, rgw_admin)
+            tenant = self._tenant_for_user(s3_user)
             payload = rgw_admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=True) or {}
             if payload:
                 require_rgw_user_identity(payload, s3_user.rgw_user_uid, tenant)
@@ -406,7 +384,7 @@ class S3UsersService:
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
         require_endpoint_permissions(endpoint, "users_write")
         admin = self._admin_for_endpoint(endpoint)
-        if self._existing_identity(uid, tenant, endpoint.id, admin):
+        if self._existing_identity(uid, tenant, endpoint.id):
             raise ValueError("An S3 user with this UID already exists in this tenant")
         try:
             response = admin.create_user(
@@ -475,7 +453,7 @@ class S3UsersService:
                 raise ValueError("uid is required")
             endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
             admin = self._admin_for_endpoint(endpoint)
-            exists = self._existing_identity(uid, tenant, endpoint.id, admin)
+            exists = self._existing_identity(uid, tenant, endpoint.id)
             if exists:
                 continue
             try:
@@ -597,7 +575,7 @@ class S3UsersService:
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
         s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
-        tenant = self._tenant_for_user(s3_user, admin)
+        tenant = self._tenant_for_user(s3_user)
         try:
             user_info = admin.get_user(
                 s3_user.rgw_user_uid,

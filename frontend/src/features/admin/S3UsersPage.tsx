@@ -787,7 +787,7 @@ export default function S3UsersPage() {
       id: "tenant",
       label: "Ceph tenant",
       cellClassName: "min-w-[125px]",
-      render: (user) => user.rgw_tenant === null || user.rgw_tenant === undefined ? "Unverified" : (user.rgw_tenant || "Default"),
+      render: (user) => user.rgw_tenant || "Default",
     },
     {
       id: "endpoint",
@@ -1008,7 +1008,7 @@ export default function S3UsersPage() {
                   label: "UID",
                   value: editingUser.rgw_user_uid,
                 },
-                { label: "Ceph tenant", value: editingUser.rgw_tenant == null ? "Unverified" : (editingUser.rgw_tenant || "Default") },
+                { label: "Ceph tenant", value: editingUser.rgw_tenant || "Default" },
                 {
                   label: "Endpoint",
                   value: editingUser.storage_endpoint_name,

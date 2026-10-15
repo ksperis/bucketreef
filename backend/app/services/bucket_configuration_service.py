@@ -16,7 +16,7 @@ from app.services import (
     s3_bucket_security,
     s3_client,
 )
-from app.services.rgw_principal_scope import resolve_principal_tenant
+from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.models.bucket import (
@@ -82,13 +82,10 @@ class BucketConfigurationService:
         self,
         name: str,
         account: S3ExecutionTarget,
-        client: RGWAdminClient,
     ) -> tuple[Optional[str], Optional[str], str]:
         account_id, tenant = resolve_account_scope(account.rgw_account_id)
-        if account.rgw_tenant is not None:
-            tenant = account.rgw_tenant or None
-        elif getattr(account, "context_kind", None) != "ceph_admin" and account.rgw_user_uid and "$" not in account.rgw_user_uid:
-            tenant = resolve_principal_tenant(account, client) or None
+        if getattr(account, "context_kind", None) != "ceph_admin":
+            tenant = resolve_target_tenant(account) or None
         root_identifier = account_id or tenant
         root_uid = resolve_admin_uid(root_identifier, account.rgw_user_uid)
         if root_uid:
@@ -315,7 +312,7 @@ class BucketConfigurationService:
         rgw_admin: Optional[RGWAdminClient] = None,
     ) -> None:
         client = rgw_admin or self._rgw_bucket_quota_admin_for_account(account)
-        _account_id, tenant, root_uid = self._resolve_bucket_quota_scope(name, account, client)
+        _account_id, tenant, root_uid = self._resolve_bucket_quota_scope(name, account)
         max_size_bytes = None
         if payload.max_size_gb is not None:
             try:

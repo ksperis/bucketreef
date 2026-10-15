@@ -262,7 +262,7 @@ class DurableKeyRotationService:
             expected = intent.new_access_key if intent.phase == "activated" else intent.old_access_key
             if isinstance(target, (S3Account, S3User)) and target.rgw_user_uid != intent.rgw_uid:
                 raise ValueError("Rotation principal changed; restore the original target before retrying.")
-            if isinstance(target, (S3Account, S3User)) and target.rgw_tenant is not None and target.rgw_tenant != (intent.tenant or ""):
+            if isinstance(target, (S3Account, S3User)) and target.rgw_tenant != (intent.tenant or ""):
                 raise ValueError("Rotation tenant changed; restore the original target before retrying.")
             current_access, _ = self._credentials(target)
             if current_access != expected:

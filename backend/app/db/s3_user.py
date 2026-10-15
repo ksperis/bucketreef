@@ -3,7 +3,7 @@
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, String, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.core.security import EncryptedString
@@ -24,7 +24,7 @@ class S3User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     rgw_user_uid = Column(String, nullable=False)
-    rgw_tenant = Column(String, nullable=True, default="")
+    rgw_tenant = Column(String, nullable=False, default="", server_default="")
     email = Column(String, nullable=True)
     rgw_access_key = Column(String, nullable=False)
     rgw_secret_key = Column(EncryptedString, nullable=False)
@@ -55,16 +55,6 @@ class S3User(Base):
     )
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
     tag_links = relationship("S3UserTag", back_populates="s3_user", cascade="all, delete-orphan")
-
-
-Index(
-    "uq_s3_users_endpoint_effective_tenant_uid",
-    S3User.storage_endpoint_id,
-    func.coalesce(S3User.rgw_tenant, ""),
-    S3User.rgw_user_uid,
-    unique=True,
-)
-
 
 class UserS3User(Base):
     __tablename__ = "user_s3_users"

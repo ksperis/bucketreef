@@ -74,7 +74,7 @@ export function governance(c: DemoRequest): Response | undefined {
       const id = state.nextId++;
       const prefix = settings.general.rgw_account_id_prefix;
       const suffixLength = 17 - prefix.length;
-      account = { id, name: textField(body, "name"), rgw_account_id: `RGW${prefix}${String(id).padStart(suffixLength, "0").slice(-suffixLength)}`, user_links: [], group_links: [], tags: [],
+      account = { id, name: textField(body, "name"), rgw_account_id: `RGW${prefix}${String(id).padStart(suffixLength, "0").slice(-suffixLength)}`, rgw_tenant: "", user_links: [], group_links: [], tags: [],
         storage_endpoint_id: endpoint.id, storage_endpoint_name: endpoint.name, storage_endpoint_url: endpoint.endpoint_url,
         storage_endpoint_is_default: endpoint.is_default, storage_endpoint_capabilities: endpoint.capabilities ?? {}, allow_bucket_quota_management: true };
       state.accounts.push(account); state.iam[id] = emptyIam();

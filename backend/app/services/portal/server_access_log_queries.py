@@ -34,7 +34,7 @@ from app.services.portal.server_access_log_records import (
     utc_dates_for_local_day,
     utc_dates_for_local_range,
 )
-from app.services.rgw_principal_scope import resolve_principal_tenant
+from app.services.rgw_principal_scope import resolve_target_tenant
 from app.utils.rgw_payloads import require_rgw_user_identity
 from app.services.rgw_admin import RGWAdminClient, get_rgw_admin_client
 from app.utils.aws_errors import aws_error_code
@@ -274,7 +274,7 @@ class PortalServerAccessLogQueriesMixin:
                         if "$" in requester:
                             tenant, uid = requester.split("$", 1)
                         else:
-                            tenant, uid = resolve_principal_tenant(account, rgw_admin), requester
+                            tenant, uid = resolve_target_tenant(account), requester
                         payload = rgw_admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
                         if payload:
                             require_rgw_user_identity(payload, uid, tenant)
