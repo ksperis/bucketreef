@@ -42,19 +42,20 @@ matching backend version.
 
 ## RGW tenant identity
 
-Migration `0152_rgw_principal_tenants` adds nullable `rgw_tenant` fields to
-`s3_accounts` and `s3_users`. An empty string identifies the default tenant;
-`NULL` means the legacy identity has not been verified. Existing values are left
-unknown rather than deriving a tenant from an Account ID or a bare UID.
+Migration `0152_rgw_principal_tenants` adds non-null `rgw_tenant` fields to
+`s3_accounts` and `s3_users`, with the empty string as the canonical
+representation of the default RGW tenant. Existing pre-tenant BucketReef
+identities are migrated directly to that default tenant instead of retaining an
+unknown runtime state.
 
-Legacy account tenants are discovered by Account ID through Runtime Read Ops.
-Legacy user tenants are discovered by their stored access key. Ordinary reads
-do not persist this discovery; administrative user mutations and key rotations
-retain the verified tenant. A failed lookup leaves the measurement unavailable
-and does not retry another tenant.
+Migration `0153_rgw_tenant_default_compat` repairs development databases that
+may already have executed an earlier, nullable draft of `0152`. It converts
+remaining `NULL` tenant values to `''`, restores the non-null/default schema,
+and removes the obsolete expression index used by that draft. Current
+installations still run the revision in sequence, but normal runtime code does
+not keep a nullable-tenant compatibility path.
 
-S3 user uniqueness now covers endpoint, effective tenant and UID. Legacy `NULL`
-and known default `''` collide until reconciled. Downgrade is refused if UIDs
+S3 user uniqueness covers endpoint, tenant and UID. Downgrade is refused if UIDs
 would violate the former global uniqueness constraint. Back up the database
 before upgrading, as for other schema changes.
 
