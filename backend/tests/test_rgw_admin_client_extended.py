@@ -383,18 +383,31 @@ def test_get_account_quota_and_set_user_caps(monkeypatch):
     monkeypatch.setattr(client, "get_account", lambda *args, **kwargs: {"not_found": True})
     assert client.get_account_quota("RGW1") == (None, None)
 
-    recorded: list[list[tuple[str, str]]] = []
+    recorded: list[dict[str, object]] = []
 
     def fake_request(method: str, path: str, **kwargs):
         params = kwargs.get("params")
-        recorded.append(list(params))
+        recorded.append({"method": method, "path": path, "params": list(params)})
         return {"done": params}
 
     monkeypatch.setattr(client, "_request", fake_request)
     result = client.set_user_caps("user-a", ["users=read", "buckets=write"], tenant="RGW1")
     assert recorded and len(recorded) == 2
-    assert any(item == ("tenant", "RGW1") for item in recorded[0])
+    assert all(call["method"] == "PUT" for call in recorded)
+    assert all(call["path"] == "/admin/user" for call in recorded)
+    assert any(item == ("tenant", "RGW1") for item in recorded[0]["params"])
+    assert all(("caps-op", "add") not in call["params"] for call in recorded)
     assert "done" in result
+
+    recorded.clear()
+    client.set_user_caps("user-a", "users=read", tenant="RGW1", op="rm")
+    assert recorded[0]["method"] == "DELETE"
+    assert ("caps", "") in recorded[0]["params"]
+    assert ("user-caps", "users=read") in recorded[0]["params"]
+    assert all(item[0] != "caps-op" for item in recorded[0]["params"])
+
+    with pytest.raises(ValueError, match="must be 'add' or 'rm'"):
+        client.set_user_caps("user-a", "users=read", op="replace")
 
 
 def test_request_empty_body_and_write_headers(monkeypatch):
@@ -436,7 +449,8 @@ def test_create_user_extra_params_and_conflict_without_existing(monkeypatch):
     params = captured["params"]
     assert isinstance(params, dict)
     assert params["tenant"] == "RGW1"
-    assert params["caps"] == "users=*"
+    assert params["user-caps"] == "users=*"
+    assert "caps" not in params
     assert params["foo"] == "bar"
     assert "" not in params
     assert "empty" not in params
@@ -573,7 +587,6 @@ def test_update_user_helpers_and_bucket_usage_paths(monkeypatch):
         suspended=True,
         max_buckets=5,
         op_mask="read, write",
-        admin=True,
         system=False,
         account_root=True,
         extra_params={"foo": "bar", "": "x", "none": None},
@@ -584,7 +597,9 @@ def test_update_user_helpers_and_bucket_usage_paths(monkeypatch):
     assert params["tenant"] == "RGW1"
     assert params["display-name"] == "Alice"
     assert params["suspended"] == "true"
-    assert params["admin"] == "true"
+    assert params["max-buckets"] == 5
+    assert "max_buckets" not in params
+    assert "admin" not in params
     assert params["system"] == "false"
     assert params["account-root"] == "true"
     assert params["foo"] == "bar"
@@ -710,10 +725,10 @@ def test_create_and_delete_access_key_parameter_paths(monkeypatch):
         return {"ok": True}
 
     monkeypatch.setattr(client, "_request", fake_request)
-    payload = client.create_access_key("alice", tenant="RGW1", key_name="main-key")
+    payload = client.create_access_key("alice", tenant="RGW1")
     assert payload == {"ok": True}
     assert captured[0]["params"]["tenant"] == "RGW1"
-    assert captured[0]["params"]["key-name"] == "main-key"
+    assert "key-name" not in captured[0]["params"]
 
     client.delete_access_key("alice", "AKIA1", tenant="RGW1")
     assert captured[1]["method"] == "DELETE"

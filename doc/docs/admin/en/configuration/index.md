@@ -349,7 +349,7 @@ resources. Current generated names include:
 - bucket-migration probe buckets: `bkr-mig-precheck-*`;
 - migration probe objects: `__bkr__/migration/...`;
 - guided-onboarding sample accounts: `bkr-sample-*`;
-- generated RGW account-root access-key name: `bkr-account-root`.
+- generated RGW account-root access keys are unnamed RGW S3 keys; BucketReef does not send a key name to Admin Ops.
 
 Portal-owned lifecycle rule IDs and policy `Sid` values use the `BucketReef`
 namespace. The RGW account-root user name remains `<RGW_ACCOUNT_ID>-admin` as an

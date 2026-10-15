@@ -50,7 +50,6 @@ USER_UPDATE_FIELDS = (
     "suspended",
     "max_buckets",
     "op_mask",
-    "admin",
     "system",
     "account_root",
 )

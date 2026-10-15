@@ -326,7 +326,6 @@ class CephAdminRgwUserCreate(ApiModel):
     suspended: Optional[bool] = None
     max_buckets: Optional[int] = Field(default=None, ge=0)
     op_mask: Optional[str] = None
-    admin: Optional[bool] = None
     system: Optional[bool] = None
     account_root: Optional[bool] = None
     generate_key: bool = True
@@ -394,7 +393,6 @@ class CephAdminRgwUserConfigUpdate(ApiModel):
     suspended: Optional[bool] = None
     max_buckets: Optional[int] = Field(default=None, ge=0)
     op_mask: Optional[str] = None
-    admin: Optional[bool] = None
     system: Optional[bool] = None
     account_root: Optional[bool] = None
     quota_enabled: Optional[bool] = None

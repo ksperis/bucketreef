@@ -362,7 +362,6 @@ class FakeRGWAdminProvisioning(FakeRGWAdmin):
         self,
         uid: str,
         tenant: Optional[str] = None,
-        key_name: Optional[str] = None,
     ):
         self.calls.append(("create_access_key", tenant))
         return {"keys": [{"access_key": "RECOVERED", "secret_key": "RECOVERED-SECRET"}]}
@@ -705,7 +704,7 @@ def test_import_account_identifier_is_normalized_and_strictly_validated():
 class FakeRGWAdminImportSplitKeys(FakeRGWAdminImportCreatesRoot):
     def __init__(self):
         super().__init__(account_name="SplitKeysAccount")
-        self.created_keys: list[tuple[str, Optional[str], Optional[str]]] = []
+        self.created_keys: list[tuple[str, Optional[str]]] = []
 
     def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
         return {
@@ -714,8 +713,8 @@ class FakeRGWAdminImportSplitKeys(FakeRGWAdminImportCreatesRoot):
             "keys": [{"access_key": "ACCESS-ONLY"}, {"secret_key": "SECRET-ONLY"}],
         }
 
-    def create_access_key(self, uid: str, tenant: Optional[str] = None, key_name: Optional[str] = None):
-        self.created_keys.append((uid, tenant, key_name))
+    def create_access_key(self, uid: str, tenant: Optional[str] = None):
+        self.created_keys.append((uid, tenant))
         return {"keys": [{"access_key": "MATCHED-ACCESS", "secret_key": "MATCHED-SECRET"}]}
 
 
@@ -733,7 +732,7 @@ def test_import_account_never_combines_credentials_from_different_keys(db_sessio
     db_account = db_session.query(S3Account).filter(S3Account.rgw_account_id == account_id).one()
     assert db_account.rgw_access_key == "MATCHED-ACCESS"
     assert db_account.rgw_secret_key == "MATCHED-SECRET"
-    assert fake_admin.created_keys == [(f"{account_id}-admin", None, "bkr-account-root")]
+    assert fake_admin.created_keys == [(f"{account_id}-admin", None)]
 
 
 class FakeRGWAdminImportBatch(FakeRGWAdminImportCreatesRoot):

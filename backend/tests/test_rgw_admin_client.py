@@ -291,7 +291,7 @@ def test_set_account_quota_uses_id_only(monkeypatch):
 
 
 
-def test_update_user_uses_snake_case_max_buckets_only(monkeypatch):
+def test_update_user_uses_ceph_max_buckets_parameter(monkeypatch):
     client = RGWAdminClient(
         access_key="AKIA-TEST",
         secret_key="SECRET-TEST",
@@ -316,5 +316,5 @@ def test_update_user_uses_snake_case_max_buckets_only(monkeypatch):
     assert captured["path"] == "/admin/user"
     assert isinstance(params, dict)
     assert params["uid"] == "alice"
-    assert params["max_buckets"] == 7
-    assert "max-buckets" not in params
+    assert params["max-buckets"] == 7
+    assert "max_buckets" not in params

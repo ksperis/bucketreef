@@ -450,7 +450,6 @@ def test_create_rgw_user_with_account_scope_returns_generated_key():
         display_name="Billing user",
         email="billing@example.test",
         account_root=True,
-        admin=True,
         system=False,
         suspended=False,
         max_buckets=15,
@@ -481,7 +480,6 @@ def test_create_rgw_user_with_account_scope_returns_generated_key():
         "suspended": False,
         "max_buckets": 15,
         "op_mask": None,
-        "admin": True,
         "system": False,
         "account_root": True,
     }
@@ -648,7 +646,6 @@ def test_update_rgw_user_config_preserves_null_clearing_semantics():
             email=None,
             max_buckets=None,
             op_mask=None,
-            admin=False,
         ),
         tenant="tenant-a",
         ctx=ctx,
@@ -662,11 +659,19 @@ def test_update_rgw_user_config_preserves_null_clearing_semantics():
         "suspended": None,
         "max_buckets": 0,
         "op_mask": "",
-        "admin": False,
         "system": None,
         "account_root": None,
         "extra_params": None,
     }
+
+
+@pytest.mark.parametrize("model,fields", [
+    (CephAdminRgwUserCreate, {"uid": "new-user", "admin": True}),
+    (CephAdminRgwUserConfigUpdate, {"admin": True}),
+])
+def test_user_mutation_rejects_unsupported_admin_flag(model, fields):
+    with pytest.raises(ValidationError):
+        model(**fields)
 
 
 def test_update_rgw_user_quota_clears_object_limit_with_explicit_null():

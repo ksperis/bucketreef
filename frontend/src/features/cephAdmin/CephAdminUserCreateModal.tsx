@@ -66,7 +66,6 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
   const [maxBuckets, setMaxBuckets] = useState("");
   const [opMask, setOpMask] = useState("");
   const [suspended, setSuspended] = useState(false);
-  const [adminFlag, setAdminFlag] = useState(false);
   const [systemFlag, setSystemFlag] = useState(false);
   const [generateKey, setGenerateKey] = useState(true);
   const [quotaEnabled, setQuotaEnabled] = useState(false);
@@ -92,7 +91,6 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         maxBuckets,
         opMask,
         suspended,
-        adminFlag,
         systemFlag,
         generateKey,
         quotaEnabled,
@@ -103,7 +101,6 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         capsText,
       }),
     [
-      adminFlag,
       capsMode,
       capsText,
       displayName,
@@ -200,7 +197,6 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
       suspended,
       max_buckets: parsedMaxBuckets ?? undefined,
       op_mask: opMask.trim() || undefined,
-      admin: adminFlag,
       system: systemFlag,
       account_root: normalizedAccountId ? true : undefined,
       generate_key: generateKey,
@@ -298,8 +294,11 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
             maxBucketsError={fieldErrors.maxBuckets} />
         </div>
       </SettingsSection>
-      <CephAdminUserFlags values={{ suspended, admin: adminFlag, system: systemFlag }}
-        onChange={(field, value) => ({ suspended: setSuspended, admin: setAdminFlag, system: setSystemFlag })[field](value)}>
+      <CephAdminUserFlags values={{ suspended, admin: false, system: systemFlag }} readOnlyFields={["admin"]}
+        onChange={(field, value) => {
+          if (field === "suspended") setSuspended(value);
+          if (field === "system") setSystemFlag(value);
+        }}>
         <UiCheckboxField checked={generateKey} onChange={(event) => setGenerateKey(event.target.checked)} className="settings-choice">
           Generate access key
         </UiCheckboxField>
