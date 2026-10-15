@@ -18,8 +18,6 @@ from app.db import (
     PortalAdminRequestMessage,
     S3Account,
     User,
-    UserNotification,
-    UserRole,
 )
 from app.models.portal_requests import (
     PortalAccountQuotaChangeRequestCreate,
@@ -37,6 +35,7 @@ from app.models.s3_account import S3AccountUpdate
 from app.core.sensitive_data import sanitize_error_detail
 from app.services.audit_service import AuditService
 from app.services.portal_collaborator_requests_service import PortalCollaboratorRequestsService
+from app.services.portal_request_notification_service import PortalRequestNotificationService
 from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
 from app.services.portal_service import PortalService
 from app.services.users_service import UsersService, get_users_service
@@ -45,7 +44,6 @@ from app.utils.time import utcnow
 
 
 REQUEST_FINAL_STATUSES = {"approved", "rejected", "failed"}
-ADMIN_ROLES = {UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value}
 logger = logging.getLogger(__name__)
 
 PORTAL_DIRECT_SETTING_KEYS = {
@@ -93,6 +91,7 @@ class PortalRequestsService:
             db,
             users_service=self.users_service,
         )
+        self.notifications = PortalRequestNotificationService(db)
 
     def create_request(
         self,
@@ -153,7 +152,7 @@ class PortalRequestsService:
         )
         if delegated_execution:
             return self._execute_delegated_request(row, actor)
-        self._notify_admins(row)
+        self.notifications.notify_admins(row)
         self.db.commit()
         return self.to_out(row)
 
@@ -263,7 +262,7 @@ class PortalRequestsService:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
-        self._notify_requester(
+        self.notifications.notify_requester(
             row,
             title="Message on your Portal request",
             message=f"{actor.email} replied to your Portal request.",
@@ -301,7 +300,7 @@ class PortalRequestsService:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
-        self._notify_requester(
+        self.notifications.notify_requester(
             row,
             title="Portal request rejected",
             message="Your Portal request was rejected by a storage admin.",
@@ -340,7 +339,7 @@ class PortalRequestsService:
             detail = sanitize_error_detail(str(exc))
             self.db.rollback()
             failed = self._finalize_failed_request(request_id, actor, detail)
-            self._notify_requester(
+            self.notifications.notify_requester(
                 failed,
                 title="Portal request failed",
                 message="Your Portal request could not be completed after approval.",
@@ -366,7 +365,7 @@ class PortalRequestsService:
             result,
             message=message,
         )
-        self._notify_requester(
+        self.notifications.notify_requester(
             approved,
             title="Portal request approved",
             message="Your Portal request was approved and applied.",
@@ -608,72 +607,6 @@ class PortalRequestsService:
                 author_email=actor.email,
                 author_role=actor.role,
                 message=clean_message,
-                created_at=utcnow(),
-            )
-        )
-
-    def _notify_admins(self, row: PortalAdminRequest) -> None:
-        admins = (
-            self.db.query(User)
-            .filter(User.is_active.is_(True), User.role.in_(ADMIN_ROLES))
-            .all()
-        )
-        for admin in admins:
-            self._add_notification(
-                user_id=int(admin.id),
-                title="New Portal request",
-                message=f"{row.requester_email} submitted a Portal request.",
-                event_key=f"portal_request:{row.id}:created:{admin.id}",
-                severity="info",
-                payload={"request_id": row.id, "request_type": row.request_type, "account_id": row.account_id},
-            )
-
-    def _notify_requester(
-        self,
-        row: PortalAdminRequest,
-        *,
-        title: str,
-        message: str,
-        event_suffix: str,
-    ) -> None:
-        if not row.requester_user_id:
-            return
-        self._add_notification(
-            user_id=int(row.requester_user_id),
-            title=title,
-            message=message,
-            event_key=f"portal_request:{row.id}:{event_suffix}",
-            severity="info" if row.status != "failed" else "warning",
-            payload={"request_id": row.id, "request_type": row.request_type, "status": row.status},
-        )
-
-    def _add_notification(
-        self,
-        *,
-        user_id: int,
-        title: str,
-        message: str,
-        event_key: str,
-        severity: str,
-        payload: dict[str, Any],
-    ) -> None:
-        exists = (
-            self.db.query(UserNotification.id)
-            .filter(UserNotification.user_id == int(user_id), UserNotification.event_key == event_key)
-            .first()
-        )
-        if exists:
-            return
-        self.db.add(
-            UserNotification(
-                user_id=int(user_id),
-                notification_type="portal_request",
-                severity=severity,
-                title=title,
-                message=message,
-                subject_type=None,
-                event_key=event_key,
-                payload_json=self._encode_json(payload),
                 created_at=utcnow(),
             )
         )
