@@ -112,7 +112,7 @@ class PortalAccountQuotaChangeRequestCreate(ApiModel):
     request_type: Literal["account_quota_change"]
     direction: PortalQuotaDirection
     target_quota_value: float = Field(gt=0)
-    target_quota_unit: PortalQuotaUnit = "GiB"
+    target_quota_unit: PortalQuotaUnit
     reason: Optional[str] = Field(default=None, max_length=2000)
 
     _normalize_reason = field_validator("reason")(_normalize_optional_request_text)

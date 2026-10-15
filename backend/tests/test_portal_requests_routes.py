@@ -128,6 +128,23 @@ def test_portal_user_access_request_requires_explicit_intent_and_role(client: Te
         assert response.status_code == 422
 
 
+def test_portal_quota_request_requires_explicit_unit(client: TestClient, db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    _install_portal_access_override(account, requester)
+
+    response = client.post(
+        "/api/portal/requests",
+        json={
+            "request_type": "account_quota_change",
+            "direction": "increase",
+            "target_quota_value": 20,
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_portal_request_routes_require_manager_for_creation(client: TestClient, db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
