@@ -107,6 +107,7 @@ ALLOWLISTED_UNAUDITED_ROUTES: dict[tuple[str, str, str, str], str] = {
     ("POST", "app/routers/ceph_admin/usage_stats.py", "stream_ceph_admin_usage_stats_aggregate", "/ceph-admin/endpoints/{endpoint_id}/usage-stats/stream"): "read-only stream",
     ("POST", "app/routers/connections.py", "validate_connection_credentials", "/validate-credentials"): "credential validation probe",
     ("POST", "app/routers/internal/billing_collect.py", "collect_daily", "/collect/daily"): "internal token-protected job",
+    ("POST", "app/routers/internal/bucket_usage_stats.py", "collect_bucket_usage_stats", "/collect"): "internal token-protected operational collection",
     ("POST", "app/routers/internal/healthchecks.py", "run_healthchecks", "/run"): "internal token-protected job",
     ("POST", "app/routers/internal/quota_monitor.py", "run_quota_monitor", "/run"): "internal token-protected job",
     ("POST", "app/routers/internal/usage_history.py", "collect_usage_history", "/collect"): "internal token-protected job",
