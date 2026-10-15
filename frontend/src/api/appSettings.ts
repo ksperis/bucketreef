@@ -89,16 +89,6 @@ export type GeneralConfiguration = {
 
 export type GeneralSettings = GeneralConfiguration & {
   manager_feature_policies: ManagerFeaturePolicies;
-  bucket_usage_stats_enabled: boolean;
-  bucket_compare_enabled: boolean;
-  bucket_integrity_check_enabled: boolean;
-  bucket_migration_enabled: boolean;
-  bucket_purge_enabled: boolean;
-  bucket_quota_management_enabled: boolean;
-  manager_ceph_s3_user_keys_enabled: boolean;
-  manager_access_key_metadata_enabled: boolean;
-  manager_access_key_expiration_enabled: boolean;
-  managed_private_connection_provisioning_enabled: boolean;
 };
 
 export type RuntimeSurfaces = {

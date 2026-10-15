@@ -10,6 +10,7 @@ import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import {
   createBucket,
   deleteBucket,
@@ -291,7 +292,7 @@ export default function BucketsPage() {
       : sessionS3AccountName || "S3 session";
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const canDeleteBucketWithPurge =
-    Boolean(generalSettings.bucket_purge_enabled) && Boolean(managerToolAccess?.bucket_purge);
+    isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge) && Boolean(managerToolAccess?.bucket_purge);
 
   const includeParams = useMemo(() => {
     const include: string[] = [];

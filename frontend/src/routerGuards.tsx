@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import type { GeneralSettings } from "./api/appSettings";
+import { isFeaturePolicyAvailable } from "./api/featurePolicies";
 import { getWorkspaceAccess } from "./api/executionContexts";
 import { fetchCurrentUser } from "./api/users";
 import { useGeneralSettings } from "./components/GeneralSettingsContext";
@@ -257,27 +258,27 @@ export function RequireManagerIamFeature() {
 }
 
 function canAccessManagerMigration(generalSettings: GeneralSettings, user: SessionUser | null): boolean {
-  if (!generalSettings.bucket_migration_enabled || !user?.role) return false;
+  if (!isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_migration) || !user?.role) return false;
   if (!(isAdminLikeRole(user.role) || user.role === USER_ROLE)) return false;
   return Boolean(getManagerToolAccess(user)?.bucket_migration);
 }
 
 function canAccessManagerBucketCompare(generalSettings: GeneralSettings, user: SessionUser | null): boolean {
-  if (!generalSettings.bucket_compare_enabled || !user?.role) return false;
+  if (!isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_compare) || !user?.role) return false;
   if (!(isAdminLikeRole(user.role) || user.role === USER_ROLE)) return false;
   if (!getManagerToolAccess(user)?.bucket_compare) return false;
   return user.capabilities?.can_manage_buckets !== false;
 }
 
 function canAccessManagerBucketIntegrity(generalSettings: GeneralSettings, user: SessionUser | null): boolean {
-  if (!generalSettings.bucket_integrity_check_enabled || !user?.role) return false;
+  if (!isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_integrity_check) || !user?.role) return false;
   if (!(isAdminLikeRole(user.role) || user.role === USER_ROLE)) return false;
   if (!getManagerToolAccess(user)?.bucket_integrity_check) return false;
   return user.capabilities?.can_manage_buckets !== false;
 }
 
 function canAccessManagerBucketPurge(generalSettings: GeneralSettings, user: SessionUser | null): boolean {
-  if (!generalSettings.bucket_purge_enabled || !user?.role) return false;
+  if (!isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge) || !user?.role) return false;
   if (!(isAdminLikeRole(user.role) || user.role === USER_ROLE)) return false;
   if (!getManagerToolAccess(user)?.bucket_purge) return false;
   return user.capabilities?.can_manage_buckets !== false;
@@ -295,7 +296,7 @@ export function RequireManagerMigrationFeature() {
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
-    generalSettings.bucket_migration_enabled,
+    isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_migration),
     "Bucket Migration",
     canAccessManagerMigration(generalSettings, user),
   );
@@ -307,7 +308,7 @@ export function RequireManagerBucketCompareFeature() {
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
-    generalSettings.bucket_compare_enabled,
+    isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_compare),
     "Bucket Compare",
     canAccessManagerBucketCompare(generalSettings, user),
     requiresS3AccountSelection,
@@ -320,7 +321,7 @@ export function RequireManagerBucketIntegrityFeature() {
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
-    generalSettings.bucket_integrity_check_enabled,
+    isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_integrity_check),
     "Bucket Integrity",
     canAccessManagerBucketIntegrity(generalSettings, user),
     requiresS3AccountSelection,
@@ -333,7 +334,7 @@ export function RequireManagerBucketPurgeFeature() {
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
-    generalSettings.bucket_purge_enabled,
+    isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge),
     "Bucket Purge",
     canAccessManagerBucketPurge(generalSettings, user),
     requiresS3AccountSelection,

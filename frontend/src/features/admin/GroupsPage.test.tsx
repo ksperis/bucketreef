@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import GroupsPage from "./GroupsPage";
+import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 
 const listGroupsMock = vi.fn();
 const createGroupMock = vi.fn();
@@ -15,6 +16,10 @@ const listMinimalS3UsersMock = vi.fn();
 const listMinimalS3ConnectionsMock = vi.fn();
 
 const generalSettingsState = {
+  manager_feature_policies: {
+    ...DEFAULT_MANAGER_FEATURE_POLICIES,
+    managed_private_connection_provisioning: "targeted" as const,
+  },
   manager_enabled: true,
   ceph_admin_enabled: true,
   storage_ops_enabled: true,
@@ -28,13 +33,6 @@ const generalSettingsState = {
   endpoint_status_enabled: false,
   quota_alerts_enabled: false,
   usage_history_enabled: false,
-  bucket_migration_enabled: true,
-  bucket_purge_enabled: false,
-  bucket_compare_enabled: true,
-  bucket_integrity_check_enabled: true,
-  bucket_quota_management_enabled: true,
-  manager_ceph_s3_user_keys_enabled: true,
-  managed_private_connection_provisioning_enabled: true,
   allow_login_access_keys: false,
   allow_login_endpoint_list: false,
   allow_login_custom_endpoint: false,
@@ -83,7 +81,7 @@ describe("GroupsPage", () => {
     vi.clearAllMocks();
     window.history.replaceState({}, "", "/admin/groups");
     generalSettingsState.portal_enabled = false;
-    generalSettingsState.managed_private_connection_provisioning_enabled = true;
+    generalSettingsState.manager_feature_policies.managed_private_connection_provisioning = "targeted";
 
     listGroupsMock.mockResolvedValue({
       items: [],
@@ -545,7 +543,7 @@ describe("GroupsPage", () => {
   });
 
   it("preserves an inherited managed private provisioning grant while disabled globally", async () => {
-    generalSettingsState.managed_private_connection_provisioning_enabled = false;
+    generalSettingsState.manager_feature_policies.managed_private_connection_provisioning = "disabled";
     listGroupsMock.mockResolvedValue({
       items: [
         {

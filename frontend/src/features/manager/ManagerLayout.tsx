@@ -14,6 +14,7 @@ import { S3AccountProvider, useS3AccountContext } from "./S3AccountContext";
 import { SidebarSection } from "../../components/Sidebar";
 import { formatAccountLabel } from "../shared/storageEndpointLabel";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import type { TopbarControlDescriptor } from "../../components/topbarControlsLayout";
 import {
   TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS,
@@ -77,15 +78,15 @@ function ManagerShell() {
   const canViewActivityHistory = managerFeatureStates?.activity_history?.enabled === true;
   const canManageBuckets = capabilities.can_manage_buckets !== false;
   const canAccessBucketCompare =
-    canManageBuckets && Boolean(generalSettings.bucket_compare_enabled) && Boolean(requiresS3AccountSelection);
+    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_compare) && Boolean(requiresS3AccountSelection);
   const canAccessBucketIntegrity =
-    canManageBuckets && Boolean(generalSettings.bucket_integrity_check_enabled) && Boolean(requiresS3AccountSelection);
+    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_integrity_check) && Boolean(requiresS3AccountSelection);
   const canAccessBucketPurge =
-    canManageBuckets && Boolean(generalSettings.bucket_purge_enabled) && Boolean(requiresS3AccountSelection);
+    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge) && Boolean(requiresS3AccountSelection);
   const userRole = storedUser?.role ?? null;
   const managerToolAccess = getManagerToolAccess(storedUser);
   const canAccessMigration =
-    Boolean(generalSettings.bucket_migration_enabled) &&
+    isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_migration) &&
     Boolean(managerToolAccess?.bucket_migration) &&
     (userRole === "ui_admin" || userRole === "ui_superadmin" || userRole === "ui_user");
   const canAccessBucketCompareForUser = Boolean(managerToolAccess?.bucket_compare);

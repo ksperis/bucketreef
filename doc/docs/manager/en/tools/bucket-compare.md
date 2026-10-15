@@ -7,7 +7,7 @@ Use this guide when you need to compare bucket states before migration or remedi
 ## Prerequisites
 
 - Access to `/manager/bucket-compare`.
-- `bucket_compare_enabled` set to true.
+- The Manager feature policy `bucket_compare` is not `disabled`.
 - A UI user with **Manager > Bucket compare** access enabled.
 - Context with bucket management capability.
 
@@ -43,7 +43,8 @@ The result summary is reviewed, the relevant rows are expanded, and any remediat
 
 ## If you do not see this action
 
-Check `bucket_compare_enabled`, your Manager tool access, and whether the selected context can manage buckets.
+Check the `bucket_compare` Manager feature policy, your Manager tool access, and
+whether the selected context can manage buckets.
 
 ## Limits / feature flags
 

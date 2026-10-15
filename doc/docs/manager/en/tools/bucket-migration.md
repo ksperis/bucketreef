@@ -9,7 +9,8 @@ destination is rejected, including an empty bucket. Use
 
 ## Prerequisites
 
-- `bucket_migration_enabled` enabled and **Manager > Bucket migration** access.
+- The Manager feature policy `bucket_migration` is not `disabled`, and the UI
+  user has **Manager > Bucket migration** access.
 - Access to both execution contexts; cross-account migrations require account
   administrator access on both accounts.
 - Source read/list/content/tag permissions, destination creation/write/read/delete

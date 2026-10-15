@@ -123,7 +123,6 @@ const mocks = vi.hoisted(() => {
     usageStatsMock: vi.fn(),
     generalSettings: {
       billing_enabled: true,
-      bucket_usage_stats_enabled: true,
       usage_history_enabled: true,
     },
     hookArgs: [] as unknown[],
@@ -274,7 +273,6 @@ describe("PortalUsagePage", () => {
     vi.clearAllMocks();
     mocks.hookArgs.length = 0;
     mocks.generalSettings.billing_enabled = true;
-    mocks.generalSettings.bucket_usage_stats_enabled = true;
     mocks.generalSettings.usage_history_enabled = true;
     mocks.hookResult.workspace = {
       accountName: "Research Project",

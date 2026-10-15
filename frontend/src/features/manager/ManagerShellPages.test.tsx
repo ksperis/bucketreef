@@ -9,6 +9,7 @@ import BucketsPage from "./BucketsPage";
 import ManagerBrowserPage from "./ManagerBrowserPage";
 import ManagerDashboard from "./ManagerDashboard";
 import { setSessionUserCache } from "../../utils/workspaces";
+import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 
 const useS3AccountContextMock = vi.fn();
 const useManagerStatsMock = vi.fn();
@@ -23,7 +24,6 @@ const fetchManagerUsageTrendsMock = vi.fn();
 const getManagerUsageStatsAggregateMock = vi.fn();
 const fetchManagerContextMock = vi.fn();
 const listExecutionContextsMock = vi.fn();
-let bucketUsageStatsEnabled = false;
 let bucketPurgeEnabled = false;
 const MANAGER_BUCKET_COLUMNS_SESSION_STORAGE_KEY = "manager.bucket_list.columns.session.v1";
 const ACTIVITY_FEATURE_STATES = { activity_history: { enabled: true, source: "platform" } };
@@ -48,8 +48,10 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     generalSettings: {
       endpoint_status_enabled: false,
-      bucket_usage_stats_enabled: bucketUsageStatsEnabled,
-      bucket_purge_enabled: bucketPurgeEnabled,
+      manager_feature_policies: {
+        ...DEFAULT_MANAGER_FEATURE_POLICIES,
+        bucket_purge: bucketPurgeEnabled ? "targeted" : "disabled",
+      },
     },
   }),
 }));
@@ -312,7 +314,6 @@ describe("manager shell pages", () => {
       manager_stats_enabled: true,
     });
     listExecutionContextsMock.mockResolvedValue([]);
-    bucketUsageStatsEnabled = false;
     bucketPurgeEnabled = false;
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -475,7 +476,6 @@ describe("manager shell pages", () => {
   });
 
   it("renders the compact data types card when bucket usage stats are enabled", async () => {
-    bucketUsageStatsEnabled = true;
     setManagerUser();
     useS3AccountContextMock.mockReturnValue({
       accounts: [
@@ -532,7 +532,6 @@ describe("manager shell pages", () => {
   });
 
   it("keeps the compact data types card quiet when usage stats fail to load", async () => {
-    bucketUsageStatsEnabled = true;
     getManagerUsageStatsAggregateMock.mockRejectedValue(new Error("Network Error"));
     setManagerUser();
     useS3AccountContextMock.mockReturnValue({
@@ -572,7 +571,6 @@ describe("manager shell pages", () => {
   });
 
   it("hides the dashboard data types card when bucket usage stats are disabled", async () => {
-    bucketUsageStatsEnabled = false;
     setManagerUser();
     useS3AccountContextMock.mockReturnValue({
       accounts: [

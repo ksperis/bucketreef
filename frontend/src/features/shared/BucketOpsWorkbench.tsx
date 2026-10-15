@@ -38,6 +38,7 @@ import { useCephAdminEndpoint } from "../cephAdmin/CephAdminEndpointContext";
 import CephAdminBucketCompareModal from "../cephAdmin/CephAdminBucketCompareModal";
 import CephAdminBucketIndexCheckPage from "../cephAdmin/CephAdminBucketIndexCheckPage";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import BucketConfigBackupModal from "./BucketConfigBackupModal";
 import type { BucketConfigBackupFeatureOption } from "./BucketConfigBackupModal";
 import BucketOpsBulkUpdatePage from "./BucketOpsBulkUpdatePage";
@@ -1201,7 +1202,9 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
             onShowIndexCheckModal={!isDemo && !isStorageOps ? () => void openSelectedBucketIndexChecks() : undefined}
             onShowIntegrityModal={() => setShowIntegrityModal(true)}
             onShowPurgeModal={
-              generalSettings.bucket_purge_enabled ? () => setShowPurgeModal(true) : undefined
+              isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge)
+                ? () => setShowPurgeModal(true)
+                : undefined
             }
             onShowUsageStatsModal={() => setShowUsageStatsModal(true)}
             openBulkUpdateModal={openBulkUpdateModal}

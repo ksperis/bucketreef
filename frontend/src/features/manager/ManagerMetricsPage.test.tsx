@@ -35,7 +35,6 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     generalSettings: {
       usage_history_enabled: usageHistoryEnabled,
-      bucket_usage_stats_enabled: bucketUsageStatsEnabled,
     },
   }),
 }));

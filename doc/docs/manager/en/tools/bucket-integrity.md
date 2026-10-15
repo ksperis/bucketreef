@@ -6,8 +6,8 @@ Use this diagnostic tool when you need to verify that selected buckets can be li
 
 ## Prerequisites
 
-- `bucket_integrity_check_enabled` set to true, plus the per-user or inherited
-  Manager tool right `bucket_integrity_check`.
+- The Manager feature policy `bucket_integrity_check` is not `disabled`, plus
+  the per-user or inherited Manager tool right `bucket_integrity_check`.
 - S3 permissions to list the bucket and run `HeadObject` on the objects being checked.
 - S3 `GetObject` permission only when using **GET body** mode.
 
@@ -41,8 +41,8 @@ and whether the selected context has bucket-management capability.
 ## Limits / feature flags
 
 !!! note
-    Manager visibility is controlled by `bucket_integrity_check_enabled` and the
-    per-user or inherited Manager tool right `bucket_integrity_check`.
+    Manager visibility is controlled by the `bucket_integrity_check` feature
+    policy and the per-user or inherited Manager tool right of the same name.
 
 !!! warning
     **HEAD only** is the default mode. It checks object metadata access through `HeadObject` and does not read object bodies.

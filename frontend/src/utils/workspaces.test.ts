@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_RUNTIME_SURFACES, type GeneralSettings } from "../api/appSettings";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
 import type { SessionUser } from "./workspaces";
 import { resolveAvailableWorkspacesWithFlags, resolvePostLoginPath } from "./workspaces";
 
 const baseSettings: GeneralSettings = {
+  project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
+  project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,
+  manager_feature_policies: DEFAULT_MANAGER_FEATURE_POLICIES,
+  rgw_account_id_prefix: "80",
+  documentation_base_url: "https://docs.bucketreef.ksperis.com",
   manager_enabled: true,
   ceph_admin_enabled: true,
   storage_ops_enabled: false,
@@ -17,16 +23,13 @@ const baseSettings: GeneralSettings = {
   endpoint_status_enabled: false,
   quota_alerts_enabled: false,
   usage_history_enabled: false,
-  bucket_migration_enabled: true,
-  bucket_purge_enabled: false,
-  bucket_compare_enabled: true,
-  bucket_integrity_check_enabled: false,
-  bucket_quota_management_enabled: true,
-  manager_ceph_s3_user_keys_enabled: false,
-  managed_private_connection_provisioning_enabled: false,
   allow_login_access_keys: false,
   allow_login_endpoint_list: false,
   allow_login_custom_endpoint: false,
+  require_passkey_for_admins: false,
+  require_passkey_for_users: false,
+  allow_user_profile_name_edit: false,
+  allow_user_external_identity_unlink: false,
 };
 
 const adminUser: SessionUser = {

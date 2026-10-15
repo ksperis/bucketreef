@@ -109,6 +109,7 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
     generalSettings: {
       browser_enabled: false,
       browser_ceph_admin_enabled: false,
+      manager_feature_policies: { bucket_purge: "disabled" },
     },
   }),
 }));

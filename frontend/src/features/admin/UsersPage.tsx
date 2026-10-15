@@ -74,6 +74,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import UserAvatar from "../../components/UserAvatar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
@@ -1420,7 +1421,7 @@ export default function UsersPage() {
                       description: text("provisionConnectionsDescription"),
                       checked: createTargetSupportsManagerTools && Boolean(form.can_provision_managed_private_connections),
                       platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
-                      blocked: !generalSettings.managed_private_connection_provisioning_enabled,
+                      blocked: !isFeaturePolicyAvailable(generalSettings.manager_feature_policies.managed_private_connection_provisioning),
                       disabled: !createTargetSupportsManagerTools,
                       onChange: (value) =>
                         setForm((current) => ({
@@ -1759,7 +1760,7 @@ export default function UsersPage() {
                       checked: editTargetSupportsManagerTools && Boolean(editForm.can_provision_managed_private_connections),
                       platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
                       inherited: Boolean(editingUser.effective_access?.group_can_provision_managed_private_connections),
-                      blocked: !generalSettings.managed_private_connection_provisioning_enabled,
+                      blocked: !isFeaturePolicyAvailable(generalSettings.manager_feature_policies.managed_private_connection_provisioning),
                       disabled: !editTargetSupportsManagerTools,
                       onChange: (value) =>
                         setEditForm((current) => ({

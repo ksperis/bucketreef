@@ -1,4 +1,5 @@
 import type { ManagerFeaturePolicies } from "../../api/appSettings";
+import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import type { ManagerToolAccess } from "../../api/users";
 
 export type ManagerToolKey = keyof ManagerToolAccess;
@@ -30,47 +31,44 @@ export function normalizeManagerToolAccess(access?: ManagerToolAccess | null): M
 }
 
 export function buildManagerToolDefinitions(settings: {
-  manager_feature_policies?: ManagerFeaturePolicies;
-  bucket_compare_enabled?: boolean | null;
-  bucket_integrity_check_enabled?: boolean | null;
-  bucket_migration_enabled?: boolean | null;
-  bucket_purge_enabled?: boolean | null;
+  manager_feature_policies: ManagerFeaturePolicies;
 }): ManagerToolDefinition[] {
+  const policies = settings.manager_feature_policies;
   return [
     {
       key: "bucket_compare",
       title: "Bucket compare",
       description: "Allow access to Manager > Tools > Compare.",
-      enabled: Boolean(settings.bucket_compare_enabled),
-      platformDefault: settings.manager_feature_policies?.bucket_compare === "default_on",
+      enabled: isFeaturePolicyAvailable(policies.bucket_compare),
+      platformDefault: policies.bucket_compare === "default_on",
     },
     {
       key: "bucket_integrity_check",
       title: "Bucket integrity check",
       description: "Allow access to Manager > Tools > Integrity.",
-      enabled: Boolean(settings.bucket_integrity_check_enabled),
-      platformDefault: settings.manager_feature_policies?.bucket_integrity_check === "default_on",
+      enabled: isFeaturePolicyAvailable(policies.bucket_integrity_check),
+      platformDefault: policies.bucket_integrity_check === "default_on",
     },
     {
       key: "bucket_migration",
       title: "Bucket migration",
       description: "Allow access to Manager > Tools > Migration.",
-      enabled: Boolean(settings.bucket_migration_enabled),
-      platformDefault: settings.manager_feature_policies?.bucket_migration === "default_on",
+      enabled: isFeaturePolicyAvailable(policies.bucket_migration),
+      platformDefault: policies.bucket_migration === "default_on",
     },
     {
       key: "bucket_purge",
       title: "Bucket purge",
       description: "Allow access to Manager > Tools > Purge.",
-      enabled: Boolean(settings.bucket_purge_enabled),
-      platformDefault: settings.manager_feature_policies?.bucket_purge === "default_on",
+      enabled: isFeaturePolicyAvailable(policies.bucket_purge),
+      platformDefault: policies.bucket_purge === "default_on",
     },
     {
       key: "feature_rules",
       title: "Feature rule inventory",
       description: "Allow access to Manager > Tools > Feature rules.",
-      enabled: settings.manager_feature_policies?.feature_rules !== "disabled",
-      platformDefault: settings.manager_feature_policies?.feature_rules === "default_on",
+      enabled: isFeaturePolicyAvailable(policies.feature_rules),
+      platformDefault: policies.feature_rules === "default_on",
     },
   ];
 }

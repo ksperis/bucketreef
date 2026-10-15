@@ -65,20 +65,13 @@ export const DEFAULT_PORTAL_FEATURE_POLICIES: PortalFeaturePolicies = {
   storage_space_version_cleanup: "default_on",
 };
 
+export function isFeaturePolicyAvailable(policy: FeaturePolicy): boolean {
+  return policy !== "disabled";
+}
+
 export function projectGeneralSettings(settings: AppSettings): GeneralSettings {
   const policies = settings.manager.feature_policies;
-  return { ...settings.general, manager_feature_policies: policies,
-    bucket_usage_stats_enabled: settings.general.project_feature_policies.bucket_usage_stats !== "disabled",
-    bucket_compare_enabled: policies.bucket_compare !== "disabled",
-    bucket_integrity_check_enabled: policies.bucket_integrity_check !== "disabled",
-    bucket_migration_enabled: policies.bucket_migration !== "disabled",
-    bucket_purge_enabled: policies.bucket_purge !== "disabled",
-    bucket_quota_management_enabled: policies.bucket_quota_management !== "disabled",
-    manager_ceph_s3_user_keys_enabled: policies.ceph_s3_user_keys !== "disabled",
-    manager_access_key_metadata_enabled: policies.access_key_metadata !== "disabled",
-    manager_access_key_expiration_enabled: policies.access_key_expiration !== "disabled",
-    managed_private_connection_provisioning_enabled: policies.managed_private_connection_provisioning !== "disabled",
-  };
+  return { ...settings.general, manager_feature_policies: policies };
 }
 
 export function resolvePortalSettings(configuration: PortalConfiguration, override: PortalSettingsOverride = {}): PortalSettings {
