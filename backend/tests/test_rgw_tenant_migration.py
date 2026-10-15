@@ -5,6 +5,8 @@ from io import StringIO
 
 from alembic import command
 from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 import pytest
 import sqlalchemy as sa
 
@@ -65,6 +67,57 @@ def test_tenant_migration_backfills_default_scope_and_enforces_uniqueness(tmp_pa
         with engine.connect() as conn:
             assert "rgw_tenant" not in {column["name"] for column in sa.inspect(conn).get_columns("s3_users")}
             assert conn.execute(sa.text("SELECT COUNT(*) FROM s3_users")).scalar() == 1
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
+
+
+def test_compat_migration_repairs_databases_that_already_ran_original_0152(tmp_path, monkeypatch):
+    url = f"sqlite:///{tmp_path / 'tenant-compat.sqlite'}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    get_settings.cache_clear()
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.attributes["configure_logger"] = False
+    engine = sa.create_engine(url)
+    try:
+        command.upgrade(config, "0151_project_usage_feature_overrides")
+        with Session(engine) as session:
+            session.add(StorageEndpoint(id=1, name="test", endpoint_url="https://rgw.invalid", provider="ceph"))
+            session.commit()
+        with engine.begin() as conn:
+            conn.execute(sa.text("INSERT INTO s3_users (name, rgw_user_uid, rgw_access_key, rgw_secret_key, storage_endpoint_id, created_at, updated_at) VALUES ('Legacy', 'analyst', 'KEY', 'SECRET', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
+            conn.execute(sa.text("INSERT INTO s3_accounts (name, rgw_account_id, rgw_user_uid, storage_endpoint_id, created_at, updated_at) VALUES ('Legacy account', 'RGW12345678901234567', 'account-root', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
+        command.upgrade(config, "0152_rgw_principal_tenants")
+
+        # Recreate the schema produced by the original development-only 0152.
+        with engine.begin() as conn:
+            operations = Operations(MigrationContext.configure(conn))
+            with operations.batch_alter_table("s3_accounts") as batch:
+                batch.alter_column("rgw_tenant", existing_type=sa.String(), nullable=True, server_default=None)
+            with operations.batch_alter_table("s3_users") as batch:
+                batch.alter_column("rgw_tenant", existing_type=sa.String(), nullable=True, server_default=None)
+            conn.execute(sa.text(
+                "CREATE UNIQUE INDEX uq_s3_users_endpoint_effective_tenant_uid "
+                "ON s3_users (storage_endpoint_id, coalesce(rgw_tenant, ''), rgw_user_uid)"
+            ))
+            conn.execute(sa.text("UPDATE s3_accounts SET rgw_tenant = NULL"))
+            conn.execute(sa.text("UPDATE s3_users SET rgw_tenant = NULL"))
+
+        command.upgrade(config, "head")
+        with engine.connect() as conn:
+            inspector = sa.inspect(conn)
+            account_tenant = next(c for c in inspector.get_columns("s3_accounts") if c["name"] == "rgw_tenant")
+            user_tenant = next(c for c in inspector.get_columns("s3_users") if c["name"] == "rgw_tenant")
+            assert not account_tenant["nullable"]
+            assert not user_tenant["nullable"]
+            assert account_tenant["default"] is not None
+            assert user_tenant["default"] is not None
+            assert conn.execute(sa.text("SELECT rgw_tenant FROM s3_accounts")).scalar() == ""
+            assert conn.execute(sa.text("SELECT rgw_tenant FROM s3_users")).scalar() == ""
+            assert conn.execute(sa.text(
+                "SELECT COUNT(*) FROM sqlite_master "
+                "WHERE type = 'index' AND name = 'uq_s3_users_endpoint_effective_tenant_uid'"
+            )).scalar() == 0
     finally:
         engine.dispose()
         get_settings.cache_clear()
