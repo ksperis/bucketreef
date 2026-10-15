@@ -18,7 +18,6 @@ from app.models.healthcheck import (
     WorkspaceEndpointHealthOverviewResponse,
 )
 from app.routers.dependencies import get_current_super_admin
-from app.core.sensitive_data import sanitize_error_detail
 from app.services.app_settings_service import load_app_settings
 from app.services.healthcheck_common import HealthWindow
 from app.services.healthcheck_query_service import HealthCheckQueryService
@@ -28,7 +27,10 @@ from app.services.operation_lease_service import (
     OperationLeaseService,
     default_operation_lease_ttl_seconds,
 )
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_error_from_value_error,
+)
 
 router = APIRouter(prefix="/admin/health", tags=["admin-healthchecks"])
 
@@ -175,7 +177,7 @@ def run_healthchecks(
         result = service.run_checks()
     except ValueError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     finally:
         lease_service.release(lease)
     return result

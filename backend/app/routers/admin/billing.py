@@ -10,7 +10,6 @@ from app.db import StorageEndpoint, StorageProvider, User
 from app.models.billing import BillingSubjectDetail, BillingSubjectsResponse, BillingSummary
 from app.routers.billing_common import parse_billing_day
 from app.routers.dependencies import get_current_super_admin
-from app.core.sensitive_data import sanitize_error_detail
 from app.services.billing_collection_service import BillingCollector
 from app.services.billing_service import BillingService
 from app.services.app_settings_service import load_app_settings
@@ -19,7 +18,10 @@ from app.services.operation_lease_service import (
     billing_daily_operation_name,
     billing_operation_lease_ttl_seconds,
 )
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_error_from_value_error,
+)
 from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
@@ -54,7 +56,7 @@ def billing_summary(
     try:
         return service.summary(month, endpoint_id)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
 
 
 @router.post("/collect/daily")
@@ -82,7 +84,7 @@ def billing_collect_daily(
         result = collector.collect_daily(parsed)
     except ValueError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     finally:
         lease_service.release(lease)
     return result
@@ -106,7 +108,7 @@ def billing_subjects(
     try:
         return service.list_subjects(month, endpoint_id, subject_type, page, page_size, sort_by, sort_dir)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
 
 
 @router.get("/subject/{subject_type}/{subject_id}", response_model=BillingSubjectDetail)
@@ -140,6 +142,6 @@ def billing_export_csv(
     try:
         filename, payload = service.export_csv(month, endpoint_id)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_from_value_error(exc)
     headers = {"Content-Disposition": build_attachment_content_disposition(filename)}
     return Response(content=payload, media_type="text/csv", headers=headers)
