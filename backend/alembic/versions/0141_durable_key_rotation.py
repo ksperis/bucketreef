@@ -1,10 +1,11 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 """Move pending retirements to an encrypted rotation journal without decrypting."""
+from datetime import UTC, datetime
+
 import sqlalchemy as sa
 from alembic import op
 from app.db.utc_datetime import UTCDateTime
-from app.utils.time import utcnow
 
 revision = "0141_durable_key_rotation"
 down_revision = "0140_runtime_identity_mode_source"
@@ -43,7 +44,7 @@ def upgrade():
     # Resolve the same Admin API URL as the runtime without reading any secret.
     from types import SimpleNamespace
     from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
-    now = utcnow()
+    now = datetime.now(UTC)
     for row in connection.execute(sa.select(identities, endpoints.c.endpoint_url, endpoints.c.features_config).join(endpoints, identities.c.endpoint_id == endpoints.c.id).where(identities.c.previous_access_key.is_not(None))).mappings():
         if not row["rgw_uid"] or not row["access_key"] or not row["secret_key"]:
             raise RuntimeError("A pending service rotation has incomplete credentials; repair it before upgrading.")
