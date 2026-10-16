@@ -48,6 +48,17 @@ def _browser_boundary_findings(
     *,
     production: bool,
 ) -> list[DeploymentCheckFinding]:
+    return [
+        *_browser_origin_findings(settings, production=production),
+        _trusted_proxy_finding(settings, production=production),
+    ]
+
+
+def _browser_origin_findings(
+    settings: Settings,
+    *,
+    production: bool,
+) -> list[DeploymentCheckFinding]:
     origin_problem = _origin_problem(settings)
     non_local_origin = any(
         not is_local_origin(origin) for origin in settings.effective_public_origins()
@@ -66,7 +77,7 @@ def _browser_boundary_findings(
         if str(origin or "").strip()
     }
 
-    findings = [
+    return [
         finding(
             "trusted-origins",
             "Trusted browser origins",
@@ -114,39 +125,39 @@ def _browser_boundary_findings(
         ),
     ]
 
+
+def _trusted_proxy_finding(
+    settings: Settings,
+    *,
+    production: bool,
+) -> DeploymentCheckFinding:
     broad_proxy = any(
         ipaddress.ip_network(cidr, strict=False).prefixlen == 0
         for cidr in settings.trusted_proxy_cidrs
     )
     if broad_proxy:
-        findings.append(
-            finding(
-                "trusted-proxies",
-                "Trusted proxy boundary",
-                passed=False,
-                severity="blocker",
-                pass_message="Trusted proxies are narrowly scoped.",
-                fail_message="TRUSTED_PROXY_CIDRS trusts an entire address space; configure only direct proxy peers.",
-                docs_anchor="trusted-proxies",
-                blocks_startup=production,
-            )
+        return finding(
+            "trusted-proxies",
+            "Trusted proxy boundary",
+            passed=False,
+            severity="blocker",
+            pass_message="Trusted proxies are narrowly scoped.",
+            fail_message="TRUSTED_PROXY_CIDRS trusts an entire address space; configure only direct proxy peers.",
+            docs_anchor="trusted-proxies",
+            blocks_startup=production,
         )
-    else:
-        findings.append(
-            finding(
-                "trusted-proxies",
-                "Trusted proxy boundary",
-                passed=bool(settings.trusted_proxy_cidrs),
-                severity="warning",
-                pass_message="Trusted proxy CIDRs are explicitly configured.",
-                fail_message=(
-                    "No trusted proxy CIDR is configured. This is safe when clients connect directly, but forwarded client "
-                    "addresses will be ignored behind a reverse proxy."
-                ),
-                docs_anchor="trusted-proxies",
-            )
-        )
-    return findings
+    return finding(
+        "trusted-proxies",
+        "Trusted proxy boundary",
+        passed=bool(settings.trusted_proxy_cidrs),
+        severity="warning",
+        pass_message="Trusted proxy CIDRs are explicitly configured.",
+        fail_message=(
+            "No trusted proxy CIDR is configured. This is safe when clients connect directly, but forwarded client "
+            "addresses will be ignored behind a reverse proxy."
+        ),
+        docs_anchor="trusted-proxies",
+    )
 
 
 def _secret_findings(
