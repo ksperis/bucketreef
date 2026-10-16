@@ -76,8 +76,8 @@ def test_run_item_dispatches_step_handlers_in_order(db_session):
     service = BucketMigrationService(db_session)
     migration = _migration()
     item = _item(step="copy_bucket_settings")
-    source_ctx = SimpleNamespace(account=object())
-    target_ctx = SimpleNamespace(account=object())
+    source_ctx = SimpleNamespace(execution_context=object())
+    target_ctx = SimpleNamespace(execution_context=object())
     calls: list[object] = []
 
     service._copy_bucket_settings = (  # type: ignore[method-assign]
@@ -137,8 +137,8 @@ def test_run_item_turns_interrupted_sync_into_paused_state(db_session):
     service._run_item(
         migration,
         item,
-        SimpleNamespace(account=object()),
-        SimpleNamespace(account=object()),
+        SimpleNamespace(execution_context=object()),
+        SimpleNamespace(execution_context=object()),
         control_check=lambda: next(control_states),
     )
 
@@ -155,8 +155,8 @@ def test_run_item_rejects_unknown_step(db_session):
         service._run_item(
             _migration(id=103, parallelism_max=1),
             _item(step="unknown"),
-            SimpleNamespace(account=object()),
-            SimpleNamespace(account=object()),
+            SimpleNamespace(execution_context=object()),
+            SimpleNamespace(execution_context=object()),
             control_check=lambda: "run",
         )
 
@@ -176,8 +176,8 @@ def test_verify_step_fails_non_clean_diff(db_session):
     should_continue = service._run_verify_step(
         migration,
         item,
-        SimpleNamespace(account=object()),
-        SimpleNamespace(account=object()),
+        SimpleNamespace(execution_context=object()),
+        SimpleNamespace(execution_context=object()),
         strategy="current_only",
         control_check=lambda: "run",
     )
@@ -205,7 +205,7 @@ def test_verify_step_completes_clean_item_without_source_deletion(db_session):
     service = BucketMigrationService(db_session)
     migration = _migration(delete_source=False)
     item = _item(step="verify")
-    target_account = object()
+    target_execution_context = object()
     finalized: list[tuple[object, str]] = []
     events: list[str] = []
     service._compare_buckets_streamed = (  # type: ignore[method-assign]
@@ -221,8 +221,8 @@ def test_verify_step_completes_clean_item_without_source_deletion(db_session):
     should_continue = service._run_verify_step(
         migration,
         item,
-        SimpleNamespace(account=object()),
-        SimpleNamespace(account=target_account),
+        SimpleNamespace(execution_context=object()),
+        SimpleNamespace(execution_context=target_execution_context),
         strategy="current_only",
         control_check=lambda: "run",
     )
@@ -231,5 +231,5 @@ def test_verify_step_completes_clean_item_without_source_deletion(db_session):
     assert item.status == "completed"
     assert item.step == "completed"
     assert item.finished_at is not None
-    assert finalized == [(target_account, "bucket-b")]
+    assert finalized == [(target_execution_context, "bucket-b")]
     assert events == ["Item completed with clean diff."]

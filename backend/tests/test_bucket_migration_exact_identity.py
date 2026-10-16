@@ -29,7 +29,7 @@ def storage(db_session, monkeypatch):
     contexts = [
         _ResolvedContext(
             context_id=str(index),
-            account=make_s3_execution_context(id=index, context_id=str(index)),
+            execution_context=make_s3_execution_context(id=index, context_id=str(index)),
             endpoint="https://s3.example.test", region="us-east-1",
             force_path_style=True, verify_tls=True,
         )

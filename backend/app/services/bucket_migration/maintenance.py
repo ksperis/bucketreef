@@ -272,16 +272,16 @@ class BucketMigrationMaintenanceMixin:
             client.delete_bucket(Bucket=bucket)
         if self._precheck_bucket_exists(context, bucket) is not False:
             raise RuntimeError("Bucket removal could not be verified")
-        invalidate_bucket_listing_cache_for_context(context.account)
-        BrowserService().invalidate_bucket_list_cache_for_context(context.account)
+        invalidate_bucket_listing_cache_for_context(context.execution_context)
+        BrowserService().invalidate_bucket_list_cache_for_context(context.execution_context)
 
     def _remove_deleted_bucket_ui_tags(self, context, bucket: str) -> None:
-        endpoint_id = int(context.account.storage_endpoint_id or 0)
+        endpoint_id = int(context.execution_context.storage_endpoint_id or 0)
         if endpoint_id > 0:
             BucketUiTagsService(self.db).remove_all_namespaces_for_bucket(
                 PhysicalBucketTarget.create(
                     endpoint_id,
-                    resolve_storage_ops_context_tenant(context.account),
+                    resolve_storage_ops_context_tenant(context.execution_context),
                     bucket,
                 )
             )
@@ -302,7 +302,7 @@ class BucketMigrationMaintenanceMixin:
         else:
             self._configuration.put_policy(
                 item.target_bucket,
-                target.account,
+                target.execution_context,
                 self._build_target_write_lock_policy(
                     item.target_bucket, _json_loads(item.target_policy_backup_json)
                 ),
@@ -318,7 +318,7 @@ class BucketMigrationMaintenanceMixin:
         else:
             item.cleanup_status = "verifying"
             self._commit()
-            self._apply_read_only_policy(source.account, item.source_bucket, item)
+            self._apply_read_only_policy(source.execution_context, item.source_bucket, item)
             source_hash = self._cleanup_fingerprint(
                 source, item.source_bucket, strategy=strategy, check=check
             )
@@ -360,13 +360,13 @@ class BucketMigrationMaintenanceMixin:
             )
             if receipt:
                 current_policy = self._configuration.get_policy(
-                    item.source_bucket, source.account
+                    item.source_bucket, source.execution_context
                 )
                 if current_policy != policy:
                     raise RuntimeError(
                         "Source protection changed after deletion began. Restore access and review the remaining source before proceeding."
                     )
-            self._configuration.put_policy(item.source_bucket, source.account, policy)
+            self._configuration.put_policy(item.source_bucket, source.execution_context, policy)
             check()
             self._delete_maintenance_bucket(source, item.source_bucket, check)
         if self._precheck_bucket_exists(source, item.source_bucket) is not False:
@@ -377,7 +377,7 @@ class BucketMigrationMaintenanceMixin:
         item.source_policy_backup_json = None
         self._commit()
         self._restore_checked_policy(
-            target.account,
+            target.execution_context,
             item.target_bucket,
             _json_loads(item.target_policy_backup_json),
         )

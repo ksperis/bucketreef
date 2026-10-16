@@ -50,7 +50,7 @@ class _MigrationControlRequested(RuntimeError):
 @dataclass
 class _ResolvedContext:
     context_id: str
-    account: S3ExecutionTarget
+    execution_context: S3ExecutionTarget
     endpoint: Optional[str]
     region: Optional[str]
     force_path_style: bool

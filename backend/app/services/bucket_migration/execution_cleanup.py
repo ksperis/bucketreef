@@ -19,17 +19,21 @@ logger = logging.getLogger(__name__)
 
 
 class BucketMigrationCleanupMixin:
-    def _delete_source_bucket_with_retry(self, source_bucket: str, source_account: S3ExecutionTarget) -> None:
+    def _delete_source_bucket_with_retry(
+        self,
+        source_bucket: str,
+        source_execution_context: S3ExecutionTarget,
+    ) -> None:
         last_exc: Optional[RuntimeError] = None
         for attempt in range(1, 4):
             try:
-                self._buckets.delete_bucket(source_bucket, source_account, force=True)
-                endpoint_id = int(source_account.storage_endpoint_id or 0)
+                self._buckets.delete_bucket(source_bucket, source_execution_context, force=True)
+                endpoint_id = int(source_execution_context.storage_endpoint_id or 0)
                 if endpoint_id > 0:
                     BucketUiTagsService(self.db).remove_all_namespaces_for_bucket(
                         PhysicalBucketTarget.create(
                             endpoint_id,
-                            resolve_storage_ops_context_tenant(source_account),
+                            resolve_storage_ops_context_tenant(source_execution_context),
                             source_bucket,
                         )
                     )

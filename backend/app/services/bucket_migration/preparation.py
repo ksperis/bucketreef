@@ -243,15 +243,15 @@ class BucketMigrationPreparationMixin:
                         )
                     if exists:
                         if effect.get("policy_tested"):
-                            self._configuration.delete_policy(bucket, context.account)
-                        self._buckets.delete_bucket(bucket, context.account, force=True)
+                            self._configuration.delete_policy(bucket, context.execution_context)
+                        self._buckets.delete_bucket(bucket, context.execution_context, force=True)
                     if self._precheck_bucket_exists(context, bucket) is not False:
                         raise RuntimeError(
                             "Temporary bucket removal could not be verified"
                         )
                 else:
                     self._restore_checked_policy(
-                        context.account, bucket, effect.get("policy")
+                        context.execution_context, bucket, effect.get("policy")
                     )
                 self._clear_preparation_effect(item, name)
 
@@ -286,26 +286,26 @@ class BucketMigrationPreparationMixin:
         try:
             self._buckets.create_bucket(
                 probe,
-                target_ctx.account,
+                target_ctx.execution_context,
                 versioning=strategy == "version_aware",
                 location_constraint=target_ctx.region,
                 object_lock_enabled=False,
             )
             if migration.copy_bucket_settings:
                 self._copy_bucket_settings(
-                    source_ctx.account,
+                    source_ctx.execution_context,
                     item.source_bucket,
-                    target_ctx.account,
+                    target_ctx.execution_context,
                     probe,
                     migration,
                     item,
                     strategy=strategy,
                 )
             if migration.lock_target_writes:
-                policy = self._configuration.get_policy(probe, target_ctx.account)
+                policy = self._configuration.get_policy(probe, target_ctx.execution_context)
                 self._configuration.put_policy(
                     probe,
-                    target_ctx.account,
+                    target_ctx.execution_context,
                     self._build_target_write_lock_policy(probe, policy),
                 )
             client = self._context_client(target_ctx)
@@ -410,8 +410,8 @@ class BucketMigrationPreparationMixin:
                 raise RuntimeError("Temporary bucket existence is unknown")
             if exists:
                 if migration.lock_target_writes or migration.copy_bucket_settings:
-                    self._configuration.delete_policy(probe, target_ctx.account)
-                self._buckets.delete_bucket(probe, target_ctx.account, force=True)
+                    self._configuration.delete_policy(probe, target_ctx.execution_context)
+                self._buckets.delete_bucket(probe, target_ctx.execution_context, force=True)
             if self._precheck_bucket_exists(target_ctx, probe) is not False:
                 raise RuntimeError("Temporary bucket removal could not be verified")
             self._clear_preparation_effect(item, "probe_bucket")

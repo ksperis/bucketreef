@@ -268,7 +268,7 @@ def test_policy_intent_precedes_mutation_and_survives_interruption(
     assert item.preparation_effects_json is None
     configuration.put_policy.assert_called_with(
         item.source_bucket,
-        service._resolve_context(migration.source_context_id).account,
+        service._resolve_context(migration.source_context_id).execution_context,
         policy,
     )
 
@@ -356,7 +356,7 @@ def test_pause_tolerates_worker_transition_from_queued_to_running(prepared):
 def test_maintenance_bucket_delete_invalidates_bucket_list_caches(prepared, monkeypatch):
     service, _, _ = prepared
     account = SimpleNamespace(id=17)
-    context = SimpleNamespace(account=account)
+    context = SimpleNamespace(execution_context=account)
     client = Mock()
     service._context_client = Mock(return_value=client)
     service._precheck_bucket_exists = Mock(return_value=False)
