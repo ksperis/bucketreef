@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, TYPE_CHECKING
 
 from app.db import AuditLog, PortalAccountRole, PortalPublicLink as DBPortalPublicLink, User
@@ -142,24 +142,61 @@ class PortalActivityMixin:
         limit: int = 50,
     ) -> list[PortalAlert]:
         alerts: list[PortalAlert] = []
+
+        quota_alert = self._portal_quota_alert(user, access)
+        if quota_alert is not None:
+            alerts.append(quota_alert)
+        alerts.extend(self._public_storage_space_alerts(user, access))
+
+        now = utcnow()
+        link_cutoff = now + timedelta(days=7)
+        visible_spaces = self._visible_storage_space_lookup(user, access)
+        active_link_alert = self._active_public_link_alert(
+            access,
+            visible_spaces,
+            now=now,
+        )
+        if active_link_alert is not None:
+            alerts.append(active_link_alert)
+        expiring_link_alert = self._expiring_public_link_alert(
+            access,
+            visible_spaces,
+            now=now,
+            link_cutoff=link_cutoff,
+        )
+        if expiring_link_alert is not None:
+            alerts.append(expiring_link_alert)
+
+        return self.dedupe_portal_alerts(alerts)[: min(max(limit, 1), 100)]
+
+    def _portal_quota_alert(
+        self,
+        user: User,
+        access: "AccountAccess",
+    ) -> PortalAlert | None:
         try:
             usage = self.get_usage(user, access)
             if usage.used_bytes is not None and usage.quota_max_size_bytes and usage.quota_max_size_bytes > 0:
                 ratio = usage.used_bytes / usage.quota_max_size_bytes
                 if ratio >= 0.8:
                     percent_used = round(ratio * 100)
-                    alerts.append(
-                        PortalAlert(
-                            id="quota-near",
-                            tone="danger" if ratio >= 0.95 else "warning",
-                            title="Quota is getting close",
-                            description=f"{percent_used}% of workspace storage is used.",
-                            severity_label="Critical" if ratio >= 0.95 else "Warning",
-                        )
+                    return PortalAlert(
+                        id="quota-near",
+                        tone="danger" if ratio >= 0.95 else "warning",
+                        title="Quota is getting close",
+                        description=f"{percent_used}% of workspace storage is used.",
+                        severity_label="Critical" if ratio >= 0.95 else "Warning",
                     )
         except RuntimeError:
             pass
+        return None
 
+    def _public_storage_space_alerts(
+        self,
+        user: User,
+        access: "AccountAccess",
+    ) -> list[PortalAlert]:
+        alerts: list[PortalAlert] = []
         for space in self.list_storage_spaces(user, access):
             bucket_name = (space.internal_bucket_name or space.id).lower()
             if "public" in bucket_name or "website" in bucket_name:
@@ -173,10 +210,15 @@ class PortalActivityMixin:
                         storage_space_id=space.id,
                     )
                 )
+        return alerts
 
-        now = utcnow()
-        link_cutoff = now + timedelta(days=7)
-        visible_spaces = self._visible_storage_space_lookup(user, access)
+    def _active_public_link_alert(
+        self,
+        access: "AccountAccess",
+        visible_spaces: dict[str, PortalStorageSpaceSummary],
+        *,
+        now: datetime,
+    ) -> PortalAlert | None:
         active_public_links = (
             self.db.query(DBPortalPublicLink)
             .filter(
@@ -192,19 +234,25 @@ class PortalActivityMixin:
             storage_space = visible_spaces.get(link.bucket_name)
             if storage_space is None:
                 continue
-            alerts.append(
-                PortalAlert(
-                    id=f"public-link-{link.id}",
-                    tone="warning",
-                    title="Public link active",
-                    description=f"{self._object_name(link.object_key)} is shared through a public link.",
-                    severity_label="Warning",
-                    storage_space_id=storage_space.id,
-                    created_at=link.created_at,
-                )
+            return PortalAlert(
+                id=f"public-link-{link.id}",
+                tone="warning",
+                title="Public link active",
+                description=f"{self._object_name(link.object_key)} is shared through a public link.",
+                severity_label="Warning",
+                storage_space_id=storage_space.id,
+                created_at=link.created_at,
             )
-            break
+        return None
 
+    def _expiring_public_link_alert(
+        self,
+        access: "AccountAccess",
+        visible_spaces: dict[str, PortalStorageSpaceSummary],
+        *,
+        now: datetime,
+        link_cutoff: datetime,
+    ) -> PortalAlert | None:
         public_links = (
             self.db.query(DBPortalPublicLink)
             .filter(
@@ -224,20 +272,16 @@ class PortalActivityMixin:
                 continue
             expires_at = self._normalize_storage_space_datetime(link.expires_at)
             if expires_at is not None:
-                alerts.append(
-                    PortalAlert(
-                        id=f"link-expiring-{link.id}",
-                        tone="warning",
-                        title="Shared link expiring",
-                        description=f"{self._object_name(link.object_key)} expires soon.",
-                        severity_label="Warning",
-                        storage_space_id=storage_space.id,
-                        created_at=link.created_at,
-                    )
+                return PortalAlert(
+                    id=f"link-expiring-{link.id}",
+                    tone="warning",
+                    title="Shared link expiring",
+                    description=f"{self._object_name(link.object_key)} expires soon.",
+                    severity_label="Warning",
+                    storage_space_id=storage_space.id,
+                    created_at=link.created_at,
                 )
-                break
-
-        return self.dedupe_portal_alerts(alerts)[: min(max(limit, 1), 100)]
+        return None
 
     @staticmethod
     def dedupe_portal_alerts(alerts: list[PortalAlert]) -> list[PortalAlert]:
