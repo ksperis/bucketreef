@@ -180,6 +180,9 @@ class BackendAuthenticator:
             return None
         session = requests.Session()
         cookie_domain = urlsplit(self.base_url).hostname
+        # CookieJar expands single-label hosts (including localhost) to .local.
+        if cookie_domain and "." not in cookie_domain and ":" not in cookie_domain:
+            cookie_domain += ".local"
         cookie_scope = {"domain": cookie_domain} if cookie_domain else {}
         session.cookies.set(self.access_cookie_name, self.bootstrap_access_cookie, path="/api", **cookie_scope)
         if self.bootstrap_refresh_cookie:

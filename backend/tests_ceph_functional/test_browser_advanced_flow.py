@@ -49,7 +49,7 @@ def _get_object_acl(
     *,
     version_id: str | None = None,
 ) -> dict[str, Any]:
-    params: dict[str, Any] = {"account_id": account_id, "key": key}
+    params: dict[str, Any] = {"context_id": account_id, "key": key}
     if version_id:
         params["version_id"] = version_id
     return session.get(f"/browser/buckets/{bucket_name}/object-acl", params=params)

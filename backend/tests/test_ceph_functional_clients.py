@@ -5,6 +5,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+import requests
+
 from tests_ceph_functional.clients import BackendAuthenticator
 
 
@@ -124,9 +127,10 @@ def test_backend_authenticator_uses_bootstrap_session_for_super_admin(monkeypatc
     assert fake_session.request_call["headers"]["X-CSRF-Token"] == "bootstrap-csrf"
 
 
-def test_bootstrap_cookie_scope_allows_refresh_cookie_replacement():
+@pytest.mark.parametrize("host", ["127.0.0.1", "localhost"])
+def test_bootstrap_cookie_scope_allows_refresh_cookie_replacement(host):
     settings = SimpleNamespace(
-        backend_base_url="http://127.0.0.1:8765/api",
+        backend_base_url=f"http://{host}:8765/api",
         backend_ca_bundle=None,
         verify_tls=False,
         request_timeout=5.0,
@@ -143,7 +147,10 @@ def test_bootstrap_cookie_scope_allows_refresh_cookie_replacement():
     )
 
     session = BackendAuthenticator(settings).login("admin@example.test", "unused")
-    session.session.cookies.set("csrf_token", "refreshed-csrf", domain="127.0.0.1", path="/")
+    prepared = session.session.prepare_request(requests.Request("GET", settings.backend_base_url + "/admin/users"))
+    assert "ui_access=bootstrap-access" in prepared.headers.get("Cookie", "")
+    domain = "localhost.local" if host == "localhost" else host
+    session.session.cookies.set("csrf_token", "refreshed-csrf", domain=domain, path="/")
 
     assert session.session.cookies.get("csrf_token") == "refreshed-csrf"
     session.session.close()

@@ -304,7 +304,7 @@ def _download_bytes(
         "GET",
         f"/browser/buckets/{bucket_name}/download",
         params={
-            "account_id": account_id,
+            "context_id": account_id,
             "key": key,
             **({"version_id": version_id} if version_id else {}),
         },
@@ -323,7 +323,7 @@ def _list_current_objects(
     objects: list[dict[str, Any]] = []
     continuation_token: str | None = None
     while True:
-        params: dict[str, Any] = {"account_id": account_id}
+        params: dict[str, Any] = {"context_id": account_id}
         if continuation_token:
             params["continuation_token"] = continuation_token
         payload = manager_session.get(
@@ -406,7 +406,7 @@ def _list_all_versions(
     key_marker: str | None = None
     version_id_marker: str | None = None
     while True:
-        params: dict[str, Any] = {"account_id": account_id, "max_keys": 1000}
+        params: dict[str, Any] = {"context_id": account_id, "max_keys": 1000}
         if key:
             params["key"] = key
         if key_marker:

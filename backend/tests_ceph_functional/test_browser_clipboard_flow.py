@@ -261,7 +261,7 @@ def _list_all_objects(
     continuation_token: str | None = None
     while True:
         params: dict[str, Any] = {
-            "account_id": account_id,
+            "context_id": account_id,
             "prefix": prefix,
             "recursive": "true",
             "max_keys": 1000,
@@ -304,7 +304,7 @@ def _list_all_prefixes(
     continuation_token: str | None = None
     while True:
         params: dict[str, Any] = {
-            "account_id": account_id,
+            "context_id": account_id,
             "prefix": prefix,
             "recursive": "true",
             "max_keys": 1000,
