@@ -47,12 +47,18 @@ as required by Squid bucket statistics. Ownerless bucket identifiers and index
 operations use `tenant/bucket`. Account-ID operations keep the Account ID as
 their scope.
 
-Runtime Read Ops resolves legacy Account metadata and access-key identities.
-Supervision collectors never acquire Admin Ops credentials for this discovery.
-Reads do not persist legacy discovery; administrative mutations verify the exact
-principal and stored key before changing it. Rotation journals preserve the
-tenant and reject a changed tenant on resume. Physical bucket identities and
-metric aggregation keys include the tenant instead of dropping UID prefixes.
+S3 Connections persist an optional structured RGW identity. `rgw_user_uid`
+stores an unqualified RGW user UID and `rgw_tenant` stores its Ceph tenant
+(`''` for the default tenant); `rgw_account_id` independently stores an RGW
+Account ID when one is known. A connection may carry user identity, Account
+identity, or both. User-scoped Admin Ops use `tenant$uid`; an Account-only
+identity uses the Account ID for account-scoped IAM and metrics. When persisted
+identity is absent, Runtime Read Ops may resolve it from the connection access
+key. Supervision collectors never acquire Admin Ops credentials for this
+discovery. Administrative mutations verify the exact principal and stored key
+before changing it. Rotation journals preserve the tenant and reject a changed
+tenant on resume. Physical bucket identities and metric aggregation keys
+include the tenant instead of dropping UID prefixes.
 
 Native S3/IAM execution continues to use the selected identity's credentials.
 Ceph applies its implicit tenant to bucket names and policy resources; Portal's
@@ -188,11 +194,14 @@ never a fabricated expiration or a cached invalid session.
 Connection RGW identity lookups use a separate 60-second monotonic cache, bounded
 to 512 entries with expired-entry pruning and least-recently-used eviction.
 Identity and metrics eligibility have distinct cache scopes. Keys fingerprint
-the connection metadata and full endpoint lookup configuration, including exact
-update timestamps and credentials, without retaining raw credentials in cache
-keys. Endpoint or credential changes therefore do not reuse an older resolution
-even when updates occur within one second. Identical concurrent lookups share a
-single result or error, and pending coordination is released on completion.
+the canonical persisted RGW identity and full endpoint lookup configuration,
+including exact update timestamps and credentials, without retaining raw
+credentials in cache keys. Endpoint or credential changes therefore do not
+reuse an older resolution even when updates occur within one second. The
+connection service also clears a persisted RGW identity when its endpoint or
+access key changes unless the same update supplies a replacement identity.
+Identical concurrent lookups share a single result or error, and pending
+coordination is released on completion.
 
 Connection identity lookup, Portal requester enrichment, live account/user quotas
 and scoped bucket stats use a ready Runtime Read Ops identity exclusively. Its
@@ -356,11 +365,17 @@ new secret to the frontend:
 - an assigned RGW User with Ceph key-management permission creates a distinct
   RGW key and immediately stores it in an owned private S3 Connection.
 
-S3 Connection identity metadata uses only `iam_user`, `account_user`, or
-`s3_user` as `credential_owner_type`. The durable provisioning saga may retain
-the storage-side principal kind `rgw_user`, but the resulting connection always
-uses the canonical `s3_user` API and database value. Migration `0073` converts
-existing rows and removes the frontend fallback for unknown owner types.
+S3 Connection identity is stored only in the structured
+`rgw_user_uid` / `rgw_tenant` / `rgw_account_id` fields. Managed RGW-user
+access stores the actual RGW UID and tenant. Managed IAM access never treats its
+IAM username as an RGW UID; it stores the source RGW Account ID when that
+identity is known. The durable provisioning saga may retain its storage-side
+principal kind (`iam_user` or `rgw_user`) because that field describes the
+remote resource that must later be cleaned up; it is not copied into the
+connection identity. Migration `0158` performs the one-time conservative
+conversion from historical `credential_owner_type` /
+`credential_owner_identifier` shapes and drops those columns. Runtime code
+does not parse the historical syntaxes.
 
 The identity is independent of `AccountIAMUser` and every Portal identity. A
 shared connection is only an administration context; its credentials,

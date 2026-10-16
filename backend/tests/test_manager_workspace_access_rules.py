@@ -680,8 +680,8 @@ def test_manager_context_connection_exposes_detected_identity_and_stats_enabled(
         access_manager=True,
         access_browser=True,
         storage_endpoint=endpoint,
-        credential_owner_type="s3_user",
-        credential_owner_identifier="rgw-account$analytics-user",
+        rgw_user_uid="analytics-user",
+        rgw_tenant="rgw_account",
         capabilities_json=json.dumps({"can_manage_iam": False}),
         access_key_id="AK-CONN-IDENTITY",
         secret_access_key="SK-CONN-IDENTITY",
@@ -699,7 +699,7 @@ def test_manager_context_connection_exposes_detected_identity_and_stats_enabled(
     )
     payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
     assert payload.access_mode == "connection"
-    assert payload.iam_identity == "rgw-account$analytics-user"
+    assert payload.iam_identity == "rgw_account$analytics-user"
     assert payload.manager_stats_enabled is True
     assert payload.manager_stats_message is None
     assert payload.manager_ceph_keys_enabled is False
@@ -723,8 +723,8 @@ def test_manager_context_reports_global_rgw_metrics_disablement(db_session, monk
         access_manager=True,
         access_browser=True,
         storage_endpoint=endpoint,
-        credential_owner_type="s3_user",
-        credential_owner_identifier="rgw-account$analytics-disabled",
+        rgw_user_uid="analytics-disabled",
+        rgw_tenant="rgw_account",
         capabilities_json=json.dumps({"can_manage_iam": False}),
         access_key_id="AK-CONN-RGW-METRICS-DISABLED",
         secret_access_key="SK-CONN-RGW-METRICS-DISABLED",
@@ -742,7 +742,7 @@ def test_manager_context_reports_global_rgw_metrics_disablement(db_session, monk
     )
     payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
 
-    assert payload.iam_identity == "rgw-account$analytics-disabled"
+    assert payload.iam_identity == "rgw_account$analytics-disabled"
     assert payload.manager_stats_enabled is False
     assert payload.manager_stats_message == "RGW traffic and usage metrics are disabled."
 
@@ -810,8 +810,8 @@ def test_manager_context_connection_reports_reason_for_non_ceph_endpoint(db_sess
         access_manager=True,
         access_browser=True,
         storage_endpoint=endpoint,
-        credential_owner_type="s3_user",
-        credential_owner_identifier="rgw-account$reporter",
+        rgw_user_uid="reporter",
+        rgw_tenant="rgw_account",
         capabilities_json=json.dumps({"can_manage_iam": False}),
         access_key_id="AK-CONN-NON-CEPH",
         secret_access_key="SK-CONN-NON-CEPH",

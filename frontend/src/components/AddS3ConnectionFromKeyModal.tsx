@@ -7,7 +7,6 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createConnection,
   listPrivateConnectionStorageEndpoints,
-  type CredentialOwnerType,
   type PrivateConnectionStorageEndpoint,
 } from "../api/connections";
 import { notifyExecutionContextsRefresh } from "../utils/executionContextRefresh";
@@ -36,8 +35,9 @@ type Props = {
   defaultProviderHint?: string | null;
   defaultAccessManager?: boolean;
   defaultAccessBrowser?: boolean;
-  defaultOwnerType?: CredentialOwnerType | null;
-  defaultOwnerIdentifier?: string | null;
+  defaultRgwUserUid?: string | null;
+  defaultRgwTenant?: string | null;
+  defaultRgwAccountId?: string | null;
   onClose: () => void;
   onCreated?: () => void;
 };
@@ -97,8 +97,9 @@ function ConnectionFromKeyForm({
   defaultProviderHint,
   defaultAccessManager = false,
   defaultAccessBrowser = true,
-  defaultOwnerType,
-  defaultOwnerIdentifier,
+  defaultRgwUserUid,
+  defaultRgwTenant,
+  defaultRgwAccountId,
   onClose,
   onCreated,
 }: Omit<Props, "isOpen">) {
@@ -178,11 +179,14 @@ function ConnectionFromKeyForm({
     if (errorField) setFieldErrors((current) => ({ ...current, [errorField]: undefined }));
   };
 
-  const ownerSummary = useMemo(() => {
-    if (!defaultOwnerType && !defaultOwnerIdentifier) return null;
-    if (defaultOwnerType && defaultOwnerIdentifier) return `${defaultOwnerType}: ${defaultOwnerIdentifier}`;
-    return defaultOwnerType || defaultOwnerIdentifier || null;
-  }, [defaultOwnerIdentifier, defaultOwnerType]);
+  const identitySummary = useMemo(() => {
+    const userUid = defaultRgwUserUid?.trim() || "";
+    const tenant = defaultRgwTenant?.trim() || "";
+    const accountId = defaultRgwAccountId?.trim() || "";
+    if (!userUid && !accountId) return null;
+    const userIdentity = userUid ? (tenant ? `${tenant}$${userUid}` : userUid) : "";
+    return accountId && userIdentity ? `${userIdentity} · account ${accountId}` : accountId ? `account ${accountId}` : userIdentity;
+  }, [defaultRgwAccountId, defaultRgwTenant, defaultRgwUserUid]);
   const showEndpointSection = !endpointLocked;
   const currentSignature = useMemo(
     () => draftSignature(form, endpointMode, selectedEndpointId, endpointLocked),
@@ -250,8 +254,9 @@ function ConnectionFromKeyForm({
         secret_access_key: secretAccessKey.trim(),
         access_manager: Boolean(form.access_manager),
         access_browser: Boolean(form.access_browser),
-        credential_owner_type: defaultOwnerType || null,
-        credential_owner_identifier: defaultOwnerIdentifier || null,
+        rgw_user_uid: defaultRgwUserUid?.trim() || null,
+        rgw_tenant: defaultRgwUserUid?.trim() ? defaultRgwTenant?.trim() || "" : null,
+        rgw_account_id: defaultRgwAccountId?.trim() || null,
       });
       notifyExecutionContextsRefresh();
       onCreated?.();
@@ -299,7 +304,7 @@ function ConnectionFromKeyForm({
                 accessBrowser={form.access_browser}
                 onAccessManagerChange={(checked) => changeForm("access_manager", checked)}
                 onAccessBrowserChange={(checked) => changeForm("access_browser", checked)}
-                ownerSummary={ownerSummary}
+                identitySummary={identitySummary}
                 error={fieldErrors.access}
                 className="settings-fields"
               />

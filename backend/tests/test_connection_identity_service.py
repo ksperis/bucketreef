@@ -58,8 +58,9 @@ def _ceph_endpoint(
 def _connection(
     endpoint: StorageEndpoint,
     *,
-    owner_type: str | None = None,
-    owner_identifier: str | None = None,
+    rgw_user_uid: str | None = None,
+    rgw_tenant: str | None = None,
+    rgw_account_id: str | None = None,
 ) -> S3Connection:
     return S3Connection(
         id=42,
@@ -69,8 +70,9 @@ def _connection(
         storage_endpoint=endpoint,
         access_key_id="AKIA-CONN-TEST",
         secret_access_key="SECRET-CONN-TEST",
-        credential_owner_type=owner_type,
-        credential_owner_identifier=owner_identifier,
+        rgw_user_uid=rgw_user_uid,
+        rgw_tenant=rgw_tenant,
+        rgw_account_id=rgw_account_id,
         capabilities_json=json.dumps({"can_manage_iam": False}),
     )
 
@@ -118,7 +120,7 @@ def test_identity_cache_has_a_size_limit(monkeypatch):
     monkeypatch.setattr(identity_service, "_CACHE_MAX_ENTRIES", 2)
     service = ConnectionIdentityService()
     for connection_id in range(3):
-        connection = _connection(_ceph_endpoint(), owner_type="s3_user", owner_identifier=f"user-{connection_id}")
+        connection = _connection(_ceph_endpoint(), rgw_user_uid=f"user-{connection_id}")
         connection.id = connection_id
         service.resolve_rgw_identity(connection)
 
@@ -154,7 +156,7 @@ def test_identity_cache_prunes_expired_entries_and_evicts_least_recently_used(mo
     monkeypatch.setattr(identity_service, "monotonic", lambda: clock[0])
     monkeypatch.setattr(identity_service, "_CACHE_MAX_ENTRIES", 2)
     service = ConnectionIdentityService()
-    connections = [_connection(_ceph_endpoint(), owner_type="s3_user", owner_identifier=f"user-{index}") for index in range(4)]
+    connections = [_connection(_ceph_endpoint(), rgw_user_uid=f"user-{index}") for index in range(4)]
     first, second, third, fourth = connections
     first_result = service.resolve_rgw_identity(first)
     second_result = service.resolve_rgw_identity(second)
@@ -171,7 +173,7 @@ def test_identity_cache_prunes_expired_entries_and_evicts_least_recently_used(mo
 
 def test_identity_and_metrics_scopes_do_not_share_feature_eligibility():
     endpoint = _ceph_endpoint(metrics_enabled=False, usage_enabled=False)
-    connection = _connection(endpoint, owner_type="s3_user", owner_identifier="owner")
+    connection = _connection(endpoint, rgw_user_uid="owner")
     service = ConnectionIdentityService()
 
     assert service.resolve_rgw_identity(connection).eligible is True
@@ -184,7 +186,7 @@ def test_identity_cache_keys_do_not_retain_credentials():
     endpoint = _ceph_endpoint()
     endpoint.admin_access_key = "PRIVATE-ADMIN-AK"
     endpoint.admin_secret_key = "PRIVATE-ADMIN-SK"
-    connection = _connection(endpoint, owner_type="s3_user", owner_identifier="owner")
+    connection = _connection(endpoint, rgw_user_uid="owner")
     ConnectionIdentityService().resolve_metrics_identity(connection)
     keys = repr(list(identity_service._CACHE))
     supervision = endpoint.service_identity("supervision")
@@ -328,25 +330,45 @@ def test_cache_reset_detaches_old_lookups_without_displacing_new_results(monkeyp
     assert identity_service._INFLIGHT == {}
 
 
-def test_resolve_metrics_identity_uses_owner_metadata_first():
+def test_resolve_metrics_identity_uses_persisted_rgw_identity_first():
     endpoint = _ceph_endpoint()
     connection = _connection(
         endpoint,
-        owner_type="s3_user",
-        owner_identifier="rgw-account$portal-user",
+        rgw_user_uid="portal-user",
+        rgw_tenant="team_a",
+        rgw_account_id="RGW12345678901234567",
     )
 
     resolved = ConnectionIdentityService().resolve_metrics_identity(connection)
 
     assert resolved.eligible is True
-    assert resolved.iam_identity == "rgw-account$portal-user"
-    assert resolved.rgw_account_id is None
+    assert resolved.iam_identity == "team_a$portal-user"
+    assert resolved.rgw_user_uid == "portal-user"
+    assert resolved.rgw_tenant == "team_a"
+    assert resolved.rgw_account_id == "RGW12345678901234567"
+    assert resolved.reason is None
+
+
+def test_resolve_metrics_identity_accepts_persisted_account_only_identity():
+    endpoint = _ceph_endpoint()
+    connection = _connection(
+        endpoint,
+        rgw_account_id="RGW12345678901234567",
+    )
+
+    resolved = ConnectionIdentityService().resolve_metrics_identity(connection)
+
+    assert resolved.eligible is True
+    assert resolved.iam_identity == "RGW12345678901234567"
+    assert resolved.rgw_user_uid is None
+    assert resolved.rgw_tenant is None
+    assert resolved.rgw_account_id == "RGW12345678901234567"
     assert resolved.reason is None
 
 
 def test_resolve_metrics_identity_uses_runtime_lookup_and_caches(monkeypatch):
     endpoint = _ceph_endpoint(name="ceph-cache")
-    connection = _connection(endpoint, owner_type=None, owner_identifier=None)
+    connection = _connection(endpoint)
     calls = {"count": 0}
 
     class _FakeAdmin:
@@ -373,7 +395,7 @@ def test_resolve_metrics_identity_uses_runtime_lookup_and_caches(monkeypatch):
 
 def test_metrics_identity_cache_rechecks_when_supervision_leaves_ready(monkeypatch):
     endpoint = _ceph_endpoint(name="ceph-supervision-state")
-    connection = _connection(endpoint, owner_type=None, owner_identifier=None)
+    connection = _connection(endpoint)
     calls = {"count": 0}
 
     class _FakeAdmin:
@@ -401,7 +423,7 @@ def test_metrics_identity_cache_rechecks_when_supervision_leaves_ready(monkeypat
 
 def test_resolve_metrics_identity_returns_reason_when_identity_missing(monkeypatch):
     endpoint = _ceph_endpoint(name="ceph-missing-id")
-    connection = _connection(endpoint, owner_type="account_user", owner_identifier="RGW00000000000000099")
+    connection = _connection(endpoint)
 
     class _FakeAdmin:
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = False):

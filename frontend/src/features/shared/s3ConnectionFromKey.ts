@@ -2,11 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { CredentialOwnerType } from "../../api/connections";
-
-type S3ConnectionOwnerDefaults = {
-  ownerType: CredentialOwnerType;
-  ownerIdentifier: string;
+type S3ConnectionRgwIdentityDefaults = {
+  userUid: string;
+  tenant: string;
+  accountId: string | null;
 };
 
 const accessKeySuffix = (accessKey: string): string => accessKey.trim().slice(-4);
@@ -23,18 +22,17 @@ export const buildCephConnectionDefaults = (
   options?: { accountId?: string | null; tenant?: string | null }
 ): {
   name: string;
-  owner: S3ConnectionOwnerDefaults;
+  rgwIdentity: S3ConnectionRgwIdentityDefaults;
 } => {
   const normalizedUid = uid.trim() || "user";
   const accountId = options?.accountId?.trim() || "";
   const tenant = options?.tenant?.trim() || "";
-  const ownerType = accountId ? "account_user" : "s3_user";
-  const ownerIdentifier = accountId || (tenant ? `${tenant}$${normalizedUid}` : normalizedUid);
   return {
     name: `ceph-${withAccessKeySuffix(normalizedUid, accessKey)}`,
-    owner: {
-      ownerType,
-      ownerIdentifier,
+    rgwIdentity: {
+      userUid: normalizedUid,
+      tenant,
+      accountId: accountId || null,
     },
   };
 };

@@ -154,7 +154,7 @@ Legend: {
   }
   "s3_connections": {
     class: table
-    tooltip: "PK: id\\nCheck: ck_s3_connections_credential_owner_type: credential_owner_type IS NULL OR credential_owner_type IN ('iam_user', 'account_user', 's3_user')\\nIndexes: ix_s3_connections_created_by_user_id(created_by_user_id) [index]; ix_s3_connections_id(id) [index]; ix_s3_connections_storage_endpoint_id(storage_endpoint_id) [index]; uq_s3_connections_private_creator_name(created_by_user_id, name) [unique]; uq_s3_connections_shared_name(name) [unique]"
+    tooltip: "PK: id\\nIndexes: ix_s3_connections_created_by_user_id(created_by_user_id) [index]; ix_s3_connections_id(id) [index]; ix_s3_connections_storage_endpoint_id(storage_endpoint_id) [index]; uq_s3_connections_private_creator_name(created_by_user_id, name) [unique]; uq_s3_connections_shared_name(name) [unique]"
   }
   "user_s3_connections": {
     class: table

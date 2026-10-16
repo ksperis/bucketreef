@@ -26,6 +26,7 @@ from app.services.s3_connection_endpoint_planner import S3ConnectionEndpointPlan
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.feature_policy_service import validate_manager_overrides
 from app.services.tags_service import TagsService
+from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
 from app.utils.s3_connection_capabilities import (
     parse_s3_connection_capabilities,
     s3_connection_can_manage_iam,
@@ -45,8 +46,9 @@ ACTIVE_MANAGED_SOURCE_CREDENTIALS_ERROR = (
 )
 _ADMIN_SHARED_SOURCE_IMMUTABLE_FIELDS = S3_CONNECTION_ENDPOINT_FIELDS | {
     "is_active",
-    "credential_owner_type",
-    "credential_owner_identifier",
+    "rgw_user_uid",
+    "rgw_tenant",
+    "rgw_account_id",
 }
 
 
@@ -113,6 +115,11 @@ class S3ConnectionsService:
                 enforce_manual_endpoint_policy=False,
             )
         )
+        rgw_user_uid, rgw_tenant, rgw_account_id = normalize_connection_rgw_identity(
+            payload.rgw_user_uid,
+            payload.rgw_tenant,
+            payload.rgw_account_id,
+        )
         row = DBS3Connection(
             created_by_user_id=created_by_user_id,
             name=payload.name,
@@ -124,8 +131,9 @@ class S3ConnectionsService:
             access_browser=False,
             remediation_required=False,
             remediation_reason=None,
-            credential_owner_type=payload.credential_owner_type,
-            credential_owner_identifier=payload.credential_owner_identifier,
+            rgw_user_uid=rgw_user_uid,
+            rgw_tenant=rgw_tenant,
+            rgw_account_id=rgw_account_id,
             access_key_id=payload.access_key_id,
             secret_access_key=payload.secret_access_key,
             created_at=utcnow(),
@@ -156,6 +164,10 @@ class S3ConnectionsService:
             update_credentials=update_credentials,
         )
         payload_data = payload.model_dump(exclude_unset=True)
+        endpoint_changed = endpoint_plan is not None and endpoint_plan != (
+            row.storage_endpoint_id,
+            row.custom_endpoint_config,
+        )
         if payload.name is not None:
             row.name = payload.name
         if "is_active" in payload_data:
@@ -168,10 +180,12 @@ class S3ConnectionsService:
             row.remediation_required = False
             row.remediation_reason = None
             row.is_active = True
-        if "credential_owner_type" in payload_data:
-            row.credential_owner_type = payload.credential_owner_type
-        if "credential_owner_identifier" in payload_data:
-            row.credential_owner_identifier = payload.credential_owner_identifier
+        self._apply_rgw_identity_update(row, payload, payload_data)
+        identity_fields = {"rgw_user_uid", "rgw_tenant", "rgw_account_id"}
+        if endpoint_changed and not identity_fields.intersection(payload_data):
+            row.rgw_user_uid = None
+            row.rgw_tenant = None
+            row.rgw_account_id = None
         if "allow_activity_history" in payload_data:
             row.allow_activity_history = payload.allow_activity_history
         if "tags" in payload_data:
@@ -182,8 +196,13 @@ class S3ConnectionsService:
             user_ids=user_ids,
         )
         if payload.credentials is not None:
+            access_key_changed = row.access_key_id != payload.credentials.access_key_id
             row.access_key_id = payload.credentials.access_key_id
             row.secret_access_key = payload.credentials.secret_access_key
+            if access_key_changed and not identity_fields.intersection(payload_data):
+                row.rgw_user_uid = None
+                row.rgw_tenant = None
+                row.rgw_account_id = None
         probe_fields = {
             "storage_endpoint_id",
             "endpoint_url",
@@ -221,6 +240,11 @@ class S3ConnectionsService:
             access_manager=payload.access_manager,
             access_browser=payload.access_browser,
         )
+        rgw_user_uid, rgw_tenant, rgw_account_id = normalize_connection_rgw_identity(
+            payload.rgw_user_uid,
+            payload.rgw_tenant,
+            payload.rgw_account_id,
+        )
         row = DBS3Connection(
             created_by_user_id=user_id,
             name=payload.name,
@@ -230,8 +254,9 @@ class S3ConnectionsService:
             is_active=True,
             access_manager=access_manager,
             access_browser=access_browser,
-            credential_owner_type=payload.credential_owner_type,
-            credential_owner_identifier=payload.credential_owner_identifier,
+            rgw_user_uid=rgw_user_uid,
+            rgw_tenant=rgw_tenant,
+            rgw_account_id=rgw_account_id,
             access_key_id=payload.access_key_id,
             secret_access_key=payload.secret_access_key,
             created_at=utcnow(),
@@ -255,8 +280,9 @@ class S3ConnectionsService:
             immutable_fields = {
                 "provider_hint",
                 "storage_endpoint_id",
-                "credential_owner_type",
-                "credential_owner_identifier",
+                "rgw_user_uid",
+                "rgw_tenant",
+                "rgw_account_id",
                 "endpoint_url",
                 "region",
                 "access_key_id",
@@ -296,6 +322,10 @@ class S3ConnectionsService:
                 payload,
                 enforce_manual_endpoint_policy=True,
             )
+        endpoint_changed = endpoint_plan is not None and endpoint_plan != (
+            row.storage_endpoint_id,
+            row.custom_endpoint_config,
+        )
         should_probe_iam = False
         if payload.name is not None:
             row.name = payload.name
@@ -310,6 +340,7 @@ class S3ConnectionsService:
                 "verify_tls",
             }
             should_probe_iam = bool(probe_fields & payload_data.keys())
+        access_key_changed = payload.access_key_id is not None and row.access_key_id != payload.access_key_id
         if payload.access_key_id is not None:
             row.access_key_id = payload.access_key_id
             should_probe_iam = True
@@ -323,10 +354,12 @@ class S3ConnectionsService:
             )
             row.access_manager = access_manager
             row.access_browser = access_browser
-        if "credential_owner_type" in payload_data:
-            row.credential_owner_type = payload.credential_owner_type
-        if "credential_owner_identifier" in payload_data:
-            row.credential_owner_identifier = payload.credential_owner_identifier
+        self._apply_rgw_identity_update(row, payload, payload_data)
+        identity_fields = {"rgw_user_uid", "rgw_tenant", "rgw_account_id"}
+        if (access_key_changed or endpoint_changed) and not identity_fields.intersection(payload_data):
+            row.rgw_user_uid = None
+            row.rgw_tenant = None
+            row.rgw_account_id = None
         if "tags" in payload_data:
             self.tags.replace_connection_tags(row, payload.tags)
         if should_probe_iam:
@@ -400,6 +433,24 @@ class S3ConnectionsService:
 
     def _refresh_detected_capabilities(self, row: DBS3Connection) -> None:
         refresh_connection_detected_capabilities(row)
+
+    @staticmethod
+    def _apply_rgw_identity_update(
+        row: DBS3Connection,
+        payload: S3ConnectionUpdate | S3ConnectionAdminUpdate,
+        payload_data: dict[str, Any],
+    ) -> None:
+        identity_fields = {"rgw_user_uid", "rgw_tenant", "rgw_account_id"}
+        if not identity_fields.intersection(payload_data):
+            return
+        user_uid, tenant, account_id = normalize_connection_rgw_identity(
+            payload.rgw_user_uid if "rgw_user_uid" in payload_data else row.rgw_user_uid,
+            payload.rgw_tenant if "rgw_tenant" in payload_data else row.rgw_tenant,
+            payload.rgw_account_id if "rgw_account_id" in payload_data else row.rgw_account_id,
+        )
+        row.rgw_user_uid = user_uid
+        row.rgw_tenant = tenant
+        row.rgw_account_id = account_id
 
     def _capabilities(self, row: DBS3Connection) -> dict[str, Any]:
         return parse_s3_connection_capabilities(row.capabilities_json)

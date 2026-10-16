@@ -15,7 +15,7 @@ type S3ConnectionAccessFieldsProps = {
   hint?: string;
   className?: string;
   variant?: "plain" | "panel";
-  ownerSummary?: string | null;
+  identitySummary?: string | null;
   error?: string;
 };
 
@@ -28,7 +28,7 @@ export default function S3ConnectionAccessFields({
   hint = "At least one access must be enabled.",
   className,
   variant = "plain",
-  ownerSummary,
+  identitySummary,
   error,
 }: S3ConnectionAccessFieldsProps) {
   const id = useId();
@@ -60,7 +60,7 @@ export default function S3ConnectionAccessFields({
       </div>
       <p id={hintId} className={cx("ui-caption", uiMutedTextClass)}>{hint}</p>
       {error && <p id={errorId} role="alert" className="ui-caption text-rose-600 dark:text-rose-200">{error}</p>}
-      {ownerSummary ? <p className={cx("ui-caption [overflow-wrap:anywhere]", uiMutedTextClass)}>Owner metadata: {ownerSummary}</p> : null}
+      {identitySummary ? <p className={cx("ui-caption [overflow-wrap:anywhere]", uiMutedTextClass)}>RGW identity: {identitySummary}</p> : null}
     </section>
   );
 }

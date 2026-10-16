@@ -17,9 +17,7 @@ from app.db import S3Connection, StorageProvider
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client
-from app.utils.normalize import (
-    normalize_optional_string,
-)
+from app.utils.normalize import normalize_optional_string
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
@@ -144,15 +142,13 @@ class ConnectionIdentityService:
         metrics_enabled = bool(flags.metrics_enabled)
         usage_enabled = bool(flags.usage_enabled)
 
-        uid, account_id = _identity_from_metadata(
-            connection.credential_owner_type,
-            connection.credential_owner_identifier,
-        )
-        if uid:
-            parsed_uid, tenant = extract_rgw_user_identity({"uid": uid})
+        user_uid = normalize_optional_string(connection.rgw_user_uid)
+        tenant = normalize_optional_string(connection.rgw_tenant) if user_uid else None
+        account_id = normalize_optional_string(connection.rgw_account_id)
+        if user_uid or account_id:
             return ConnectionIdentityResolution(
-                rgw_user_uid=parsed_uid,
-                rgw_tenant=tenant or "",
+                rgw_user_uid=user_uid,
+                rgw_tenant=(tenant or "") if user_uid else None,
                 rgw_account_id=account_id,
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
@@ -216,7 +212,7 @@ class ConnectionIdentityService:
         uid, account_id = _identity_from_rgw_payload(payload)
         parsed_uid, tenant = extract_rgw_user_identity(payload)
         uid = parsed_uid or uid
-        if not uid:
+        if not uid and not account_id:
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
                 rgw_account_id=None,
@@ -226,7 +222,7 @@ class ConnectionIdentityService:
             )
         return ConnectionIdentityResolution(
             rgw_user_uid=uid,
-            rgw_tenant=tenant or "",
+            rgw_tenant=(tenant or "") if uid else None,
             rgw_account_id=account_id,
             metrics_enabled=metrics_enabled,
             usage_enabled=usage_enabled,
@@ -325,52 +321,12 @@ class ConnectionIdentityService:
             connection.updated_at.isoformat() if connection.updated_at is not None else None,
             connection.access_key_id.strip(),
             connection.storage_endpoint_id,
-            connection.credential_owner_type,
-            connection.credential_owner_identifier,
+            connection.rgw_user_uid,
+            connection.rgw_tenant,
+            connection.rgw_account_id,
             endpoint_configuration,
         ], separators=(",", ":"))
         return _CacheKey(scope=scope, fingerprint=sha256(payload.encode("utf-8")).hexdigest())
-
-
-def _identity_from_metadata(owner_type: Optional[str], owner_identifier: Optional[str]) -> tuple[Optional[str], Optional[str]]:
-    type_slug = (normalize_optional_string(owner_type) or "").lower()
-    identifier = normalize_optional_string(owner_identifier)
-    if not identifier:
-        return None, None
-
-    if "$" in identifier:
-        account_hint = identifier.split("$", 1)[0].strip()
-        account_id = account_hint if is_rgw_account_id(account_hint) else None
-        return identifier, account_id
-
-    if type_slug == "account_user":
-        if ":" in identifier:
-            account_id, principal = [part.strip() for part in identifier.split(":", 1)]
-            if is_rgw_account_id(account_id) and principal:
-                return f"{account_id}${principal}", account_id
-        return None, None
-
-    if type_slug == "s3_user":
-        candidate = identifier
-        if candidate.lower().startswith("iam:"):
-            candidate = candidate.split(":", 1)[1].strip()
-        if candidate and ":" not in candidate:
-            return candidate, None
-        return None, None
-
-    if type_slug == "iam_user":
-        candidate = identifier
-        if candidate.lower().startswith("iam:"):
-            candidate = candidate.split(":", 1)[1].strip()
-        if ":" in candidate:
-            account_id, principal = [part.strip() for part in candidate.split(":", 1)]
-            if is_rgw_account_id(account_id) and principal:
-                return f"{account_id}${principal}", account_id
-        if candidate and ":" not in candidate:
-            return candidate, None
-        return None, None
-
-    return None, None
 
 
 def _identity_from_rgw_payload(payload: object) -> tuple[Optional[str], Optional[str]]:
@@ -398,6 +354,6 @@ def _identity_from_rgw_payload(payload: object) -> tuple[Optional[str], Optional
         )
         if account_id:
             break
-    if not uid and account_id and is_rgw_account_id(account_id):
-        return None, account_id
+    if account_id:
+        account_id = account_id.upper() if is_rgw_account_id(account_id) else None
     return uid, account_id

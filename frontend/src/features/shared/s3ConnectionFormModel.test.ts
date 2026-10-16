@@ -17,7 +17,6 @@ import {
   createDefaultPrivateConnectionForm,
   createEmptyConnectionCredentialDraft,
   normalizeS3ConnectionLinkedIds,
-  parseS3ConnectionCredentialOwnerType,
   parsePrivateConnectionSortDate,
   prepareCreateAdminS3ConnectionPayload,
   prepareCreatePrivateConnectionPayload,
@@ -149,8 +148,9 @@ describe("s3ConnectionFormModel", () => {
       name: "Archive",
       tags: adminForm.tags,
       provider_hint: "",
-      credential_owner_type: "" as const,
-      credential_owner_identifier: "",
+      rgw_user_uid: "",
+      rgw_tenant: "",
+      rgw_account_id: "",
       endpoint_url: "https://s3.example.test",
       region: "",
       force_path_style: false,
@@ -317,8 +317,9 @@ describe("s3ConnectionFormModel", () => {
         name: " Shared archive ",
         tags: connection.tags ?? [],
         provider_hint: " aws ",
-        credential_owner_type: "iam_user",
-        credential_owner_identifier: " owner-1 ",
+        rgw_user_uid: " owner-1 ",
+        rgw_tenant: " tenant-a ",
+        rgw_account_id: " RGW00000000000000001 ",
         endpoint_url: " https://updated.example.test ",
         region: " eu-west-3 ",
         force_path_style: true,
@@ -338,8 +339,9 @@ describe("s3ConnectionFormModel", () => {
           expect.objectContaining({ label: "Beta" }),
           expect.objectContaining({ label: "Alpha" }),
         ],
-        credential_owner_type: "iam_user",
-        credential_owner_identifier: "owner-1",
+        rgw_user_uid: "owner-1",
+        rgw_tenant: "tenant-a",
+        rgw_account_id: "RGW00000000000000001",
         credentials: {
           access_key_id: "replacement-access",
           secret_access_key: "replacement-secret",
@@ -364,8 +366,9 @@ describe("s3ConnectionFormModel", () => {
           name: "Shared archive",
           tags: [],
           provider_hint: "",
-          credential_owner_type: "",
-          credential_owner_identifier: "",
+          rgw_user_uid: "",
+          rgw_tenant: "",
+          rgw_account_id: "",
           endpoint_url: "",
           region: "",
           force_path_style: false,
@@ -380,7 +383,6 @@ describe("s3ConnectionFormModel", () => {
       payload: null,
     });
     expect(normalizeS3ConnectionLinkedIds([4, Number.NaN, 2, 4, 0])).toEqual([2, 4]);
-    expect(parseS3ConnectionCredentialOwnerType("invalid")).toBe("");
   });
 
   it("prepares editable and server-managed private connection updates", () => {

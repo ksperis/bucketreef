@@ -16,10 +16,7 @@ from app.models.tagging import (
     RequiredTagDefinitionList,
     TagDefinitionSummary,
 )
-from app.models.s3_connection import (
-    CredentialOwnerType,
-    S3ConnectionCredentialsUpdate,
-)
+from app.models.s3_connection import S3ConnectionCredentialsUpdate
 from app.models.ui_group import UiGroupAvatar
 from app.models.user import UserAssociationDetail, UserAvatar
 
@@ -38,8 +35,9 @@ class S3ConnectionAdminItem(ApiModel):
     is_active: bool = True
     execution_status: Literal["ready", "remediation_required"] = "ready"
     remediation_reason: Optional[str] = None
-    credential_owner_type: Optional[CredentialOwnerType] = None
-    credential_owner_identifier: Optional[str] = None
+    rgw_user_uid: Optional[str] = None
+    rgw_tenant: Optional[str] = None
+    rgw_account_id: Optional[str] = None
     provider_hint: Optional[str] = None
     region: Optional[str] = None
     force_path_style: bool = False
@@ -71,8 +69,9 @@ class S3ConnectionAdminCreate(ApiModel):
     name: str
     provider_hint: Optional[str] = None
     storage_endpoint_id: Optional[int] = None
-    credential_owner_type: Optional[CredentialOwnerType] = None
-    credential_owner_identifier: Optional[str] = None
+    rgw_user_uid: Optional[str] = None
+    rgw_tenant: Optional[str] = None
+    rgw_account_id: Optional[str] = None
     endpoint_url: Optional[str] = None
     region: Optional[str] = None
     access_key_id: str
@@ -90,8 +89,9 @@ class S3ConnectionAdminUpdate(ApiModel):
     provider_hint: Optional[str] = None
     storage_endpoint_id: Optional[int] = None
     is_active: Optional[bool] = None
-    credential_owner_type: Optional[CredentialOwnerType] = None
-    credential_owner_identifier: Optional[str] = None
+    rgw_user_uid: Optional[str] = None
+    rgw_tenant: Optional[str] = None
+    rgw_account_id: Optional[str] = None
     endpoint_url: Optional[str] = None
     region: Optional[str] = None
     force_path_style: Optional[bool] = None

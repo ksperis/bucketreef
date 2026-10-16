@@ -4,7 +4,6 @@
  */
 import type {
   CreateConnectionPayload,
-  CredentialOwnerType,
   PrivateConnectionStorageEndpoint,
   S3Connection,
   UpdateConnectionPayload,
@@ -53,8 +52,9 @@ export type EditAdminS3ConnectionForm = {
   name: string;
   tags: UiTagDefinition[];
   provider_hint: string;
-  credential_owner_type: CredentialOwnerType | "";
-  credential_owner_identifier: string;
+  rgw_user_uid: string;
+  rgw_tenant: string;
+  rgw_account_id: string;
   endpoint_url: string;
   region: string;
   force_path_style: boolean;
@@ -406,19 +406,6 @@ export function normalizeS3ConnectionLinkedIds(
     .sort((left, right) => left - right);
 }
 
-export function parseS3ConnectionCredentialOwnerType(
-  value: string,
-): CredentialOwnerType | "" {
-  switch (value) {
-    case "iam_user":
-    case "account_user":
-    case "s3_user":
-      return value;
-    default:
-      return "";
-  }
-}
-
 export function prepareUpdateAdminS3ConnectionPayload({
   credentialDraft,
   endpointId,
@@ -465,9 +452,9 @@ export function prepareUpdateAdminS3ConnectionPayload({
       group_ids: normalizeS3ConnectionLinkedIds(linkedGroupIds),
       user_ids: normalizeS3ConnectionLinkedIds(linkedUserIds),
       tags: normalizeUiTags(form.tags),
-      credential_owner_type: form.credential_owner_type || null,
-      credential_owner_identifier:
-        form.credential_owner_identifier.trim() || null,
+      rgw_user_uid: form.rgw_user_uid.trim() || null,
+      rgw_tenant: form.rgw_user_uid.trim() ? form.rgw_tenant.trim() : null,
+      rgw_account_id: form.rgw_account_id.trim() || null,
       allow_activity_history: form.allow_activity_history,
       credentials:
         accessKeyId && secretAccessKey

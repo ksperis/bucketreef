@@ -24,7 +24,6 @@ import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
-import UiSelect from "../../components/ui/UiSelect";
 
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
@@ -62,7 +61,6 @@ import {
   buildS3CredentialsValidationPayload,
   createDefaultAdminS3ConnectionForm,
   normalizeS3ConnectionLinkedIds,
-  parseS3ConnectionCredentialOwnerType,
   preferredS3ConnectionEndpointId,
   prepareCreateAdminS3ConnectionPayload,
   prepareUpdateAdminS3ConnectionPayload,
@@ -72,12 +70,6 @@ import {
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { buildAccessAuditHref } from "./accessAuditLink";
 
-const credentialOwnerTypeOptions = [
-  { value: "", label: "(none)" },
-  { value: "iam_user", label: "IAM user" },
-  { value: "account_user", label: "Account user" },
-  { value: "s3_user", label: "S3 user" },
-];
 type EditTab = "general" | "users" | "groups";
 
 function getConnectionSearchCandidates(connection: S3ConnectionAdminItem): Array<string | number | null | undefined> {
@@ -125,8 +117,9 @@ export default function S3ConnectionsPage() {
     name: "",
     tags: [],
     provider_hint: "",
-    credential_owner_type: "",
-    credential_owner_identifier: "",
+    rgw_user_uid: "",
+    rgw_tenant: "",
+    rgw_account_id: "",
     endpoint_url: "",
     region: "",
     force_path_style: false,
@@ -598,8 +591,9 @@ export default function S3ConnectionsPage() {
       name: conn.name,
       tags: normalizeUiTags(conn.tags),
       provider_hint: conn.provider_hint || "",
-      credential_owner_type: conn.credential_owner_type || "",
-      credential_owner_identifier: conn.credential_owner_identifier || "",
+      rgw_user_uid: conn.rgw_user_uid || "",
+      rgw_tenant: conn.rgw_tenant || "",
+      rgw_account_id: conn.rgw_account_id || "",
       endpoint_url: conn.endpoint_url,
       region: conn.region || "",
       force_path_style: Boolean(conn.force_path_style),
@@ -1182,36 +1176,31 @@ export default function S3ConnectionsPage() {
 
               </div>
             </SettingsSection>
-                <SettingsSection title="Access and credential metadata" presentation="compact"
-                  description="Store owner context for keys imported from manager/ceph-admin flows.">
+                <SettingsSection title="Access and RGW identity" presentation="compact"
+                  description="Persist the canonical RGW principal used for metrics and identity resolution when it is known.">
                   <div className="settings-stack">
                     <div><p className="settings-label">Visibility: Shared</p>
                       <p className="settings-description mt-1 [overflow-wrap:anywhere]">Created by: {editing.created_by_email || editing.created_by_user_id}</p></div>
                     <div><p className="settings-label">Manager-only execution</p>
                       <p className="settings-description mt-1">Browser access is disabled for all shared connections.</p></div>
-                    <div className="settings-fields sm:grid-cols-2">
-                    <UiSelect
-                      label="Owner type"
-                      value={editForm.credential_owner_type}
-                      onChange={(e) =>
-                        setEditForm((previous) => ({
-                          ...previous,
-                          credential_owner_type:
-                            parseS3ConnectionCredentialOwnerType(e.target.value),
-                        }))
-                      }
-                    >
-                      {credentialOwnerTypeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </UiSelect>
+                    <div className="settings-fields sm:grid-cols-3">
                     <UiInput
-                      label="Owner identifier"
-                      value={editForm.credential_owner_identifier}
-                      onChange={(e) => setEditForm((p) => ({ ...p, credential_owner_identifier: e.target.value }))}
-                      placeholder="account-id / user-id"
+                      label="RGW user UID"
+                      value={editForm.rgw_user_uid}
+                      onChange={(e) => setEditForm((p) => ({ ...p, rgw_user_uid: e.target.value }))}
+                      placeholder="alice"
+                    />
+                    <UiInput
+                      label="RGW tenant"
+                      value={editForm.rgw_tenant}
+                      onChange={(e) => setEditForm((p) => ({ ...p, rgw_tenant: e.target.value }))}
+                      placeholder="Optional tenant"
+                    />
+                    <UiInput
+                      label="RGW account ID"
+                      value={editForm.rgw_account_id}
+                      onChange={(e) => setEditForm((p) => ({ ...p, rgw_account_id: e.target.value }))}
+                      placeholder="RGW00000000000000000"
                     />
                     </div>
                   </div>

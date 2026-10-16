@@ -323,8 +323,9 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         defaultProviderHint="ceph"
         defaultAccessManager={false}
         defaultAccessBrowser
-        defaultOwnerType={addConnectionDefaults.owner.ownerType}
-        defaultOwnerIdentifier={addConnectionDefaults.owner.ownerIdentifier}
+        defaultRgwUserUid={addConnectionDefaults.rgwIdentity.userUid}
+        defaultRgwTenant={addConnectionDefaults.rgwIdentity.tenant}
+        defaultRgwAccountId={addConnectionDefaults.rgwIdentity.accountId}
         onClose={() => setShowAddConnectionModal(false)}
         onCreated={() => {
           setStatus("S3 connection created.");

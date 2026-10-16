@@ -18,10 +18,6 @@ from .base import Base
 class S3Connection(Base):
     __tablename__ = "s3_connections"
     __table_args__ = (
-        CheckConstraint(
-            "credential_owner_type IS NULL OR credential_owner_type IN ('iam_user', 'account_user', 's3_user')",
-            name="ck_s3_connections_credential_owner_type",
-        ),
         Index(
             "uq_s3_connections_private_creator_name",
             "created_by_user_id",
@@ -56,8 +52,9 @@ class S3Connection(Base):
     remediation_required = Column(Boolean, nullable=False, default=False, server_default="0")
     remediation_reason = Column(String, nullable=True)
     server_managed = Column(Boolean, nullable=False, default=False, server_default="0")
-    credential_owner_type = Column(String, nullable=True)
-    credential_owner_identifier = Column(String, nullable=True)
+    rgw_user_uid = Column(String, nullable=True)
+    rgw_tenant = Column(String, nullable=True)
+    rgw_account_id = Column(String, nullable=True)
 
     # S3 target
     storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=True, index=True)

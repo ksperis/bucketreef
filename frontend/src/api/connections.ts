@@ -9,8 +9,6 @@ import type {
 } from "./s3CredentialsValidation";
 import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 
-export type CredentialOwnerType = "iam_user" | "account_user" | "s3_user";
-
 export type S3Connection = {
   id: number;
   name: string;
@@ -23,8 +21,9 @@ export type S3Connection = {
   access_browser?: boolean | null;
   server_managed?: boolean | null;
   managed_access_state?: string | null;
-  credential_owner_type?: CredentialOwnerType | null;
-  credential_owner_identifier?: string | null;
+  rgw_user_uid?: string | null;
+  rgw_tenant?: string | null;
+  rgw_account_id?: string | null;
   endpoint_url: string;
   region?: string | null;
   provider_hint?: string | null;
@@ -51,8 +50,9 @@ export type CreateConnectionPayload = {
   is_active?: boolean | null;
   access_manager?: boolean | null;
   access_browser?: boolean | null;
-  credential_owner_type?: CredentialOwnerType | null;
-  credential_owner_identifier?: string | null;
+  rgw_user_uid?: string | null;
+  rgw_tenant?: string | null;
+  rgw_account_id?: string | null;
   endpoint_url?: string | null;
   region?: string | null;
   access_key_id: string;
@@ -69,8 +69,9 @@ export type UpdateConnectionPayload = {
   is_active?: boolean | null;
   access_manager?: boolean | null;
   access_browser?: boolean | null;
-  credential_owner_type?: CredentialOwnerType | null;
-  credential_owner_identifier?: string | null;
+  rgw_user_uid?: string | null;
+  rgw_tenant?: string | null;
+  rgw_account_id?: string | null;
   endpoint_url?: string | null;
   region?: string | null;
   access_key_id?: string | null;

@@ -40,7 +40,7 @@ describe("S3ConnectionAccessFields", () => {
     expect(onAccessBrowserChange).toHaveBeenCalledWith(false);
   });
 
-  it("supports panel framing and owner metadata", () => {
+  it("supports panel framing and RGW identity metadata", () => {
     render(
       <S3ConnectionAccessFields
         accessManager
@@ -48,13 +48,13 @@ describe("S3ConnectionAccessFields", () => {
         onAccessManagerChange={() => undefined}
         onAccessBrowserChange={() => undefined}
         title="Access"
-        ownerSummary="IAM user: researcher"
+        identitySummary="RGW00000000000000001$researcher"
         variant="panel"
       />
     );
 
     expect(screen.getByText("Access").closest("section")).toHaveClass("rounded-lg");
-    expect(screen.getByText("Owner metadata: IAM user: researcher")).toBeInTheDocument();
+    expect(screen.getByText("RGW identity: RGW00000000000000001$researcher")).toBeInTheDocument();
   });
   it("associates a workspace error with both choices and removes it after correction", () => {
     const props = { accessManager: false, accessBrowser: false, onAccessManagerChange: vi.fn(), onAccessBrowserChange: vi.fn() };
