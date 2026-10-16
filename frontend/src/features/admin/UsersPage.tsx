@@ -25,10 +25,6 @@ import {
   hasAccountAccessRole,
   type AccountAccessGrant,
 } from "../../api/accountAccess";
-import { UiGroupSummary, listMinimalGroups } from "../../api/groups";
-import { S3AccountSummary, listMinimalS3Accounts } from "../../api/accounts";
-import { S3UserSummary, listMinimalS3Users } from "../../api/s3Users";
-import { S3ConnectionSummary, listMinimalS3Connections } from "../../api/s3ConnectionsAdmin";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import WorkflowPage, {
   WorkflowMetadata,
@@ -64,11 +60,11 @@ import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
 import AdminUserProfilePanel from "./AdminUserProfilePanel";
+import useAdminUserAssociationOptions from "./useAdminUserAssociationOptions";
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 
 type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
-type AuxiliaryLoadState = "idle" | "loading" | "loaded" | "error";
 
 function focusIdentityError(prefix: string, errors: UserIdentityErrors) {
   const field = errors.email ? "email" : "password";
@@ -129,16 +125,22 @@ export default function UsersPage() {
   const requestedEditHandledRef = useRef(false);
   const startEditRef = useRef<(user: User) => void>(() => undefined);
   const [users, setUsers] = useState<User[]>([]);
-  const [accounts, setS3Accounts] = useState<S3AccountSummary[]>([]);
-  const [s3AccountsLoaded, setS3AccountsLoaded] = useState(false);
-  const [s3AccountsLoading, setS3AccountsLoading] = useState(false);
-  const [s3Users, setS3Users] = useState<S3UserSummary[]>([]);
-  const [s3UsersLoading, setS3UsersLoading] = useState(false);
-  const [s3Connections, setS3Connections] = useState<S3ConnectionSummary[]>([]);
-  const [s3ConnectionsLoading, setS3ConnectionsLoading] = useState(false);
-  const [groups, setGroups] = useState<UiGroupSummary[]>([]);
-  const [groupsLoaded, setGroupsLoaded] = useState(false);
-  const [groupsLoading, setGroupsLoading] = useState(false);
+  const {
+    accounts,
+    s3AccountsLoaded,
+    s3AccountsLoading,
+    refreshS3Accounts,
+    ensureS3Accounts,
+    s3Users,
+    s3UsersLoading,
+    s3Connections,
+    s3ConnectionsLoading,
+    groups,
+    groupsLoaded,
+    groupsLoading,
+    ensureGroups,
+    ensureAssociationOptionsForTab,
+  } = useAdminUserAssociationOptions();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -250,18 +252,11 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalUsers, setTotalUsers] = useState(0);
-  const s3AccountsLoadStateRef = useRef<AuxiliaryLoadState>("idle");
-  const s3UsersLoadStateRef = useRef<AuxiliaryLoadState>("idle");
-  const s3ConnectionsLoadStateRef = useRef<AuxiliaryLoadState>("idle");
-  const groupsLoadStateRef = useRef<AuxiliaryLoadState>("idle");
   const accountOptions = useMemo(() => accounts.map((a) => ({ id: a.id, label: a.name })), [accounts]);
-  const accountOptionsById = useMemo(() => {
-    const map = new Map<number, S3AccountSummary>();
-    accounts.forEach((a) => {
-      map.set(a.id, a);
-    });
-    return map;
-  }, [accounts]);
+  const accountOptionsById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account] as const)),
+    [accounts],
+  );
   const s3UserOptions = useMemo(() => s3Users.map((u) => ({ id: u.id, label: u.name })), [s3Users]);
   const s3UserLabelById = useMemo(() => {
     const map = new Map<number, string>();
@@ -410,122 +405,9 @@ export default function UsersPage() {
     }
   }, [filter, page, pageSize, sort.direction, sort.field]);
 
-  const fetchS3Accounts = useCallback(async () => {
-    if (s3AccountsLoadStateRef.current === "loading") return;
-    s3AccountsLoadStateRef.current = "loading";
-    setS3AccountsLoading(true);
-    try {
-      const data = await listMinimalS3Accounts();
-      setS3Accounts(data);
-      setS3AccountsLoaded(true);
-      s3AccountsLoadStateRef.current = "loaded";
-    } catch (err) {
-      s3AccountsLoadStateRef.current = "error";
-      console.error(err);
-    } finally {
-      setS3AccountsLoading(false);
-    }
-  }, []);
-
-  const fetchS3Users = useCallback(async () => {
-    if (s3UsersLoadStateRef.current === "loading") return;
-    s3UsersLoadStateRef.current = "loading";
-    setS3UsersLoading(true);
-    try {
-      const data = await listMinimalS3Users();
-      setS3Users(data);
-      s3UsersLoadStateRef.current = "loaded";
-    } catch (err) {
-      s3UsersLoadStateRef.current = "error";
-      console.error(err);
-    } finally {
-      setS3UsersLoading(false);
-    }
-  }, []);
-
-  const fetchS3Connections = useCallback(async () => {
-    if (s3ConnectionsLoadStateRef.current === "loading") return;
-    s3ConnectionsLoadStateRef.current = "loading";
-    setS3ConnectionsLoading(true);
-    try {
-      const data = await listMinimalS3Connections();
-      setS3Connections(data);
-      s3ConnectionsLoadStateRef.current = "loaded";
-    } catch (err) {
-      s3ConnectionsLoadStateRef.current = "error";
-      console.error(err);
-    } finally {
-      setS3ConnectionsLoading(false);
-    }
-  }, []);
-
-  const ensureS3Accounts = useCallback(async (options?: { retryOnError?: boolean }) => {
-    const loadState = s3AccountsLoadStateRef.current;
-    if (loadState === "loaded" || loadState === "loading") return;
-    if (loadState === "error" && !options?.retryOnError) return;
-    await fetchS3Accounts();
-  }, [fetchS3Accounts]);
-
-  const ensureS3Users = useCallback(async (options?: { retryOnError?: boolean }) => {
-    const loadState = s3UsersLoadStateRef.current;
-    if (loadState === "loaded" || loadState === "loading") return;
-    if (loadState === "error" && !options?.retryOnError) return;
-    await fetchS3Users();
-  }, [fetchS3Users]);
-
-  const ensureS3Connections = useCallback(async (options?: { retryOnError?: boolean }) => {
-    const loadState = s3ConnectionsLoadStateRef.current;
-    if (loadState === "loaded" || loadState === "loading") return;
-    if (loadState === "error" && !options?.retryOnError) return;
-    await fetchS3Connections();
-  }, [fetchS3Connections]);
-
-  const fetchGroups = useCallback(async () => {
-    if (groupsLoadStateRef.current === "loading") return;
-    groupsLoadStateRef.current = "loading";
-    setGroupsLoading(true);
-    try {
-      const data = await listMinimalGroups();
-      setGroups(data);
-      setGroupsLoaded(true);
-      groupsLoadStateRef.current = "loaded";
-    } catch (err) {
-      groupsLoadStateRef.current = "error";
-      console.error(err);
-    } finally {
-      setGroupsLoading(false);
-    }
-  }, []);
-
-  const ensureGroups = useCallback(async (options?: { retryOnError?: boolean }) => {
-    const loadState = groupsLoadStateRef.current;
-    if (loadState === "loaded" || loadState === "loading") return;
-    if (loadState === "error" && !options?.retryOnError) return;
-    await fetchGroups();
-  }, [fetchGroups]);
-
-  const ensureAssociationOptionsForTab = useCallback(
-    async (tab: AssociationTab, options?: { retryOnError?: boolean }) => {
-      if (tab === "accounts") {
-        await ensureS3Accounts(options);
-        return;
-      }
-      if (tab === "s3_users") {
-        await ensureS3Users(options);
-        return;
-      }
-      await ensureS3Connections(options);
-    },
-    [ensureS3Accounts, ensureS3Connections, ensureS3Users]
-  );
-
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  useEffect(() => {
-    ensureS3Accounts();
-  }, [ensureS3Accounts]);
 
   useEffect(() => {
     if ((showCreateModal && createModalTab === "groups") || (showEditModal && editModalTab === "groups")) {
@@ -820,7 +702,7 @@ export default function UsersPage() {
       resetCreateModalState();
       await fetchUsers();
       if (s3AccountsLoaded) {
-        await fetchS3Accounts();
+        await refreshS3Accounts();
       }
       setShowCreateModal(false);
     } catch (err) {
@@ -1051,7 +933,7 @@ export default function UsersPage() {
       setActionMessage(text("userUpdated"));
       await fetchUsers();
       if (s3AccountsLoaded) {
-        await fetchS3Accounts();
+        await refreshS3Accounts();
       }
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
