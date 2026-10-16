@@ -13,7 +13,7 @@ from threading import Lock
 from time import monotonic
 from typing import Callable, Literal, Optional
 
-from app.db import S3Connection, StorageProvider
+from app.db import S3Connection, StorageEndpoint, StorageProvider
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client
@@ -118,71 +118,100 @@ class ConnectionIdentityService:
                 if _INFLIGHT.get(key) is in_flight:
                     _INFLIGHT.pop(key, None)
 
-    def _resolve_identity_uncached(self, connection: S3Connection) -> ConnectionIdentityResolution:
-        endpoint = connection.storage_endpoint
-        if connection.storage_endpoint_id is None or endpoint is None:
-            return ConnectionIdentityResolution(
-                rgw_user_uid=None,
-                rgw_account_id=None,
-                metrics_enabled=False,
-                usage_enabled=False,
-                reason="RGW identity is unavailable: this connection must target a configured storage endpoint.",
-            )
+    @staticmethod
+    def _identity_unavailable(
+        reason: str,
+        *,
+        metrics_enabled: bool,
+        usage_enabled: bool,
+    ) -> ConnectionIdentityResolution:
+        return ConnectionIdentityResolution(
+            rgw_user_uid=None,
+            rgw_account_id=None,
+            metrics_enabled=metrics_enabled,
+            usage_enabled=usage_enabled,
+            reason=reason,
+        )
 
-        if endpoint.provider != StorageProvider.CEPH.value:
-            return ConnectionIdentityResolution(
-                rgw_user_uid=None,
-                rgw_account_id=None,
-                metrics_enabled=False,
-                usage_enabled=False,
-                reason="RGW identity is unavailable: this connection endpoint is not a Ceph provider.",
-            )
-
-        flags = resolve_feature_flags(endpoint)
-        metrics_enabled = bool(flags.metrics_enabled)
-        usage_enabled = bool(flags.usage_enabled)
-
+    @staticmethod
+    def _persisted_identity(
+        connection: S3Connection,
+        *,
+        metrics_enabled: bool,
+        usage_enabled: bool,
+    ) -> ConnectionIdentityResolution | None:
         user_uid = normalize_optional_string(connection.rgw_user_uid)
         tenant = normalize_optional_string(connection.rgw_tenant) if user_uid else None
         account_id = normalize_optional_string(connection.rgw_account_id)
-        if user_uid or account_id:
-            return ConnectionIdentityResolution(
-                rgw_user_uid=user_uid,
-                rgw_tenant=(tenant or "") if user_uid else None,
-                rgw_account_id=account_id,
+        if not user_uid and not account_id:
+            return None
+        return ConnectionIdentityResolution(
+            rgw_user_uid=user_uid,
+            rgw_tenant=(tenant or "") if user_uid else None,
+            rgw_account_id=account_id,
+            metrics_enabled=metrics_enabled,
+            usage_enabled=usage_enabled,
+            reason=None,
+        )
+
+    @classmethod
+    def _identity_from_lookup_payload(
+        cls,
+        payload: object,
+        *,
+        metrics_enabled: bool,
+        usage_enabled: bool,
+    ) -> ConnectionIdentityResolution:
+        uid, account_id = _identity_from_rgw_payload(payload)
+        parsed_uid, tenant = extract_rgw_user_identity(payload)
+        uid = parsed_uid or uid
+        if not uid and not account_id:
+            return cls._identity_unavailable(
+                "RGW identity is unavailable: unable to resolve RGW identity for this connection.",
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
-                reason=None,
             )
+        return ConnectionIdentityResolution(
+            rgw_user_uid=uid,
+            rgw_tenant=(tenant or "") if uid else None,
+            rgw_account_id=account_id,
+            metrics_enabled=metrics_enabled,
+            usage_enabled=usage_enabled,
+            reason=None,
+        )
+
+    @classmethod
+    def _lookup_identity(
+        cls,
+        connection: S3Connection,
+        endpoint: StorageEndpoint,
+        *,
+        metrics_enabled: bool,
+        usage_enabled: bool,
+    ) -> ConnectionIdentityResolution:
 
         access_key = connection.access_key_id.strip()
         if not access_key:
-            return ConnectionIdentityResolution(
-                rgw_user_uid=None,
-                rgw_account_id=None,
+            return cls._identity_unavailable(
+                "RGW identity is unavailable: connection access key is missing.",
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
-                reason="RGW identity is unavailable: connection access key is missing.",
             )
 
         admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
         if not admin_endpoint:
-            return ConnectionIdentityResolution(
-                rgw_user_uid=None,
-                rgw_account_id=None,
+            return cls._identity_unavailable(
+                "RGW identity is unavailable: admin endpoint is not configured for this endpoint.",
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
-                reason="RGW identity is unavailable: admin endpoint is not configured for this endpoint.",
             )
 
         credentials = resolve_endpoint_read_credentials(endpoint)
         if credentials is None:
-            return ConnectionIdentityResolution(
-                rgw_user_uid=None,
-                rgw_account_id=None,
+            return cls._identity_unavailable(
+                "RGW identity is unavailable: lookup credentials are not configured for this endpoint.",
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
-                reason="RGW identity is unavailable: lookup credentials are not configured for this endpoint.",
             )
         lookup_access_key, lookup_secret_key = credentials
 
@@ -201,32 +230,48 @@ class ConnectionIdentityService:
                 connection.id,
                 sanitized_error_log_detail(exc),
             )
-            return ConnectionIdentityResolution(
-                rgw_user_uid=None,
-                rgw_account_id=None,
+            return cls._identity_unavailable(
+                "RGW identity is unavailable: unable to resolve RGW identity for this connection.",
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
-                reason="RGW identity is unavailable: unable to resolve RGW identity for this connection.",
             )
 
-        uid, account_id = _identity_from_rgw_payload(payload)
-        parsed_uid, tenant = extract_rgw_user_identity(payload)
-        uid = parsed_uid or uid
-        if not uid and not account_id:
-            return ConnectionIdentityResolution(
-                rgw_user_uid=None,
-                rgw_account_id=None,
-                metrics_enabled=metrics_enabled,
-                usage_enabled=usage_enabled,
-                reason="RGW identity is unavailable: unable to resolve RGW identity for this connection.",
-            )
-        return ConnectionIdentityResolution(
-            rgw_user_uid=uid,
-            rgw_tenant=(tenant or "") if uid else None,
-            rgw_account_id=account_id,
+        return cls._identity_from_lookup_payload(
+            payload,
             metrics_enabled=metrics_enabled,
             usage_enabled=usage_enabled,
-            reason=None,
+        )
+
+    def _resolve_identity_uncached(self, connection: S3Connection) -> ConnectionIdentityResolution:
+        endpoint = connection.storage_endpoint
+        if connection.storage_endpoint_id is None or endpoint is None:
+            return self._identity_unavailable(
+                "RGW identity is unavailable: this connection must target a configured storage endpoint.",
+                metrics_enabled=False,
+                usage_enabled=False,
+            )
+        if endpoint.provider != StorageProvider.CEPH.value:
+            return self._identity_unavailable(
+                "RGW identity is unavailable: this connection endpoint is not a Ceph provider.",
+                metrics_enabled=False,
+                usage_enabled=False,
+            )
+
+        flags = resolve_feature_flags(endpoint)
+        metrics_enabled = bool(flags.metrics_enabled)
+        usage_enabled = bool(flags.usage_enabled)
+        persisted = self._persisted_identity(
+            connection,
+            metrics_enabled=metrics_enabled,
+            usage_enabled=usage_enabled,
+        )
+        if persisted is not None:
+            return persisted
+        return self._lookup_identity(
+            connection,
+            endpoint,
+            metrics_enabled=metrics_enabled,
+            usage_enabled=usage_enabled,
         )
 
     def _resolve_metrics_uncached(self, connection: S3Connection) -> ConnectionIdentityResolution:
