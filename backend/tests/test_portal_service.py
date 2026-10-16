@@ -7609,6 +7609,34 @@ def test_portal_access_key_route_audits_external_metadata_without_secret(db_sess
                 permission="read_write",
             )
 
+        def update_access_key_status(self, user_obj, access_obj, access_key_id, active):
+            assert user_obj == user
+            assert access_obj == access
+            assert access_key_id == "AK-EXT"
+            assert active is False
+            return PortalAccessKey(
+                access_key_id="AK-EXT",
+                target_type="external",
+                external_email="partner@example.org",
+                storage_space_name="Research Data",
+                bucket_name="research-data",
+                permission="read_write",
+                is_active=False,
+            )
+
+        def delete_access_key(self, user_obj, access_obj, access_key_id):
+            assert user_obj == user
+            assert access_obj == access
+            assert access_key_id == "AK-EXT"
+            return PortalAccessKey(
+                access_key_id="AK-EXT",
+                target_type="external",
+                external_email="partner@example.org",
+                storage_space_name="Research Data",
+                bucket_name="research-data",
+                permission="read_write",
+            )
+
     class FakeAuditService:
         def __init__(self):
             self.actions = []
@@ -7624,16 +7652,34 @@ def test_portal_access_key_route_audits_external_metadata_without_secret(db_sess
         audit_service=audit_service,
         service=FakeService(),
     )
+    updated = portal_access_keys_router.update_portal_access_key_status(
+        "AK-EXT",
+        PortalAccessKeyStatusChange(active=False),
+        access=access,
+        audit_service=audit_service,
+        service=FakeService(),
+    )
+    deleted = portal_access_keys_router.delete_portal_access_key(
+        "AK-EXT",
+        access=access,
+        audit_service=audit_service,
+        service=FakeService(),
+    )
 
     assert created.secret_access_key == "SK-EXT"
-    assert audit_service.actions[0]["metadata"] == {
+    assert updated.is_active is False
+    assert deleted.status_code == 204
+    external_metadata = {
         "access_key_id": "AK-EXT",
         "target_type": "external",
         "storage_space_id": "research-data",
         "permission": "read_write",
         "external_email": "partner@example.org",
     }
-    assert "SK-EXT" not in json.dumps(audit_service.actions[0]["metadata"])
+    assert audit_service.actions[0]["metadata"] == external_metadata
+    assert audit_service.actions[1]["metadata"] == {**external_metadata, "active": False}
+    assert audit_service.actions[2]["metadata"] == external_metadata
+    assert "SK-EXT" not in json.dumps([action["metadata"] for action in audit_service.actions])
 
 
 def test_portal_access_key_routes_translate_disabled_management(db_session):

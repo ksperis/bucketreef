@@ -49,16 +49,6 @@ def create_portal_access_key(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         key = service.create_access_key(actor, access, payload)
-        audit_metadata = {"access_key_id": key.access_key_id}
-        if key.target_type == "external":
-            audit_metadata.update(
-                {
-                    "target_type": key.target_type,
-                    "storage_space_id": key.bucket_name,
-                    "permission": key.permission,
-                    "external_email": key.external_email,
-                }
-            )
         audit_service.record_action(
             user=actor,
             scope="portal",
@@ -66,7 +56,7 @@ def create_portal_access_key(
             entity_type="portal_access_key",
             entity_id=key.access_key_id,
             account=access.account,
-            metadata=audit_metadata,
+            metadata=_access_key_audit_metadata(key.access_key_id, key=key),
         )
         return key
     except RuntimeError as exc:
@@ -86,16 +76,6 @@ def update_portal_access_key_status(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         key = service.update_access_key_status(actor, access, access_key_id, payload.active)
-        audit_metadata = {"access_key_id": access_key_id, "active": payload.active}
-        if key.target_type == "external":
-            audit_metadata.update(
-                {
-                    "target_type": key.target_type,
-                    "storage_space_id": key.bucket_name,
-                    "permission": key.permission,
-                    "external_email": key.external_email,
-                }
-            )
         audit_service.record_action(
             user=actor,
             scope="portal",
@@ -103,7 +83,7 @@ def update_portal_access_key_status(
             entity_type="portal_access_key",
             entity_id=access_key_id,
             account=access.account,
-            metadata=audit_metadata,
+            metadata=_access_key_audit_metadata(access_key_id, key=key, active=payload.active),
         )
         return key
     except RuntimeError as exc:
@@ -122,16 +102,6 @@ def delete_portal_access_key(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         key = service.delete_access_key(actor, access, access_key_id)
-        audit_metadata = {"access_key_id": access_key_id}
-        if key is not None and key.target_type == "external":
-            audit_metadata.update(
-                {
-                    "target_type": key.target_type,
-                    "storage_space_id": key.bucket_name,
-                    "permission": key.permission,
-                    "external_email": key.external_email,
-                }
-            )
         audit_service.record_action(
             user=actor,
             scope="portal",
@@ -139,8 +109,29 @@ def delete_portal_access_key(
             entity_type="portal_access_key",
             entity_id=access_key_id,
             account=access.account,
-            metadata=audit_metadata,
+            metadata=_access_key_audit_metadata(access_key_id, key=key),
         )
     except RuntimeError as exc:
         raise_portal_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _access_key_audit_metadata(
+    access_key_id: str,
+    *,
+    key: Optional[PortalAccessKey] = None,
+    active: Optional[bool] = None,
+) -> dict[str, object]:
+    metadata: dict[str, object] = {"access_key_id": access_key_id}
+    if active is not None:
+        metadata["active"] = active
+    if key is not None and key.target_type == "external":
+        metadata.update(
+            {
+                "target_type": key.target_type,
+                "storage_space_id": key.bucket_name,
+                "permission": key.permission,
+                "external_email": key.external_email,
+            }
+        )
+    return metadata
