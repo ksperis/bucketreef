@@ -191,6 +191,286 @@ class DurableKeyRotationService:
             if not permissions.users_read or not permissions.accounts_read or not permissions.users_write:
                 raise ValueError("Replacement Admin Ops key lacks required rotation permissions.")
 
+    def _prepare_intent(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target: RotationTarget,
+        admin: RGWAdminClient,
+        *,
+        deactivate_only: bool,
+    ) -> KeyRotationIntent:
+        old_access, old_secret = self._credentials(target)
+        if not old_access or not old_secret:
+            raise ValueError("Rotation credentials are not configured.")
+
+        uid, preferred_tenant = self._principal_hint(target)
+        tenant = None
+        if uid is None:
+            from app.services.key_rotation_rgw import RgwAccessKeyRotator
+
+            uid, tenant = RgwAccessKeyRotator().resolve_identity_from_access_key(
+                admin, old_access
+            )
+        elif isinstance(target, (S3Account, S3User)):
+            tenant = preferred_tenant or None
+        elif key_type not in SERVICE_TYPES:
+            from app.services.key_rotation_rgw import RgwAccessKeyRotator
+
+            tenant = RgwAccessKeyRotator().detect_user_tenant(
+                admin,
+                uid=uid,
+                preferred_tenant=preferred_tenant,
+            )
+
+        payload = (
+            admin.get_user(uid, tenant=tenant, allow_not_found=True)
+            if tenant
+            else admin.get_user(uid, allow_not_found=True)
+        )
+        if isinstance(target, (S3Account, S3User)):
+            require_rgw_user_identity(payload, uid, tenant or "")
+        if key_type in SERVICE_TYPES:
+            provenance = (
+                f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
+            )
+            if target.provenance != provenance or not self.identities._owns(
+                target, payload
+            ):
+                raise ReplacementValidationError(
+                    "Cannot rotate an identity without ownership proof."
+                )
+            self.identities._validate_managed_keys(target, payload)
+        if not any(
+            item.get("access_key") == old_access
+            for item in admin.extract_keys(payload)
+        ):
+            raise ValueError("Current key does not belong to the expected principal.")
+
+        intent = KeyRotationIntent(
+            endpoint_id=endpoint.id,
+            key_type=key_type,
+            target_id=target.id,
+            rgw_uid=uid,
+            tenant=tenant,
+            rgw_endpoint=resolve_rgw_admin_api_endpoint(endpoint),
+            old_access_key=old_access,
+            new_access_key=secrets.token_hex(10).upper(),
+            new_secret_key=secrets.token_urlsafe(32),
+            deactivate_only=deactivate_only,
+            phase="prepared",
+            actor_email=self.actor.email if self.actor else "system",
+        )
+        self.db.add(intent)
+        self.db.commit()
+        self._audit(endpoint, intent, "prepared")
+        return intent
+
+    def _validate_pending_intent(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target: RotationTarget,
+        intent: KeyRotationIntent,
+        admin: RGWAdminClient,
+        *,
+        deactivate_only: bool,
+    ) -> tuple[dict[str, str], object]:
+        if (
+            intent.rgw_endpoint != resolve_rgw_admin_api_endpoint(endpoint)
+            or intent.deactivate_only != deactivate_only
+        ):
+            raise ValueError(
+                "Resume rotation using its original RGW target and retirement mode."
+            )
+        expected = (
+            intent.new_access_key if intent.phase == "activated" else intent.old_access_key
+        )
+        if (
+            isinstance(target, (S3Account, S3User))
+            and target.rgw_user_uid != intent.rgw_uid
+        ):
+            raise ValueError(
+                "Rotation principal changed; restore the original target before retrying."
+            )
+        if (
+            isinstance(target, (S3Account, S3User))
+            and target.rgw_tenant != (intent.tenant or "")
+        ):
+            raise ValueError(
+                "Rotation tenant changed; restore the original target before retrying."
+            )
+        current_access, _ = self._credentials(target)
+        if current_access != expected:
+            raise ValueError(
+                "Rotation target credentials changed; resolve the pending rotation before retrying."
+            )
+        if key_type in SERVICE_TYPES:
+            provenance = (
+                f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
+            )
+            if target.provenance != provenance or target.rgw_uid != intent.rgw_uid:
+                raise ReplacementValidationError(
+                    "Cannot rotate an identity without ownership proof."
+                )
+
+        kwargs = {"tenant": intent.tenant} if intent.tenant else {}
+        payload = admin.get_user(intent.rgw_uid, **kwargs)
+        if isinstance(target, (S3Account, S3User)):
+            require_rgw_user_identity(payload, intent.rgw_uid, intent.tenant or "")
+        if key_type in SERVICE_TYPES:
+            if not self.identities._owns(target, payload):
+                raise ReplacementValidationError(
+                    "Cannot rotate an identity without ownership proof."
+                )
+            self.identities._validate_managed_keys(target, payload)
+        return kwargs, payload
+
+    def _activate_replacement(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target: RotationTarget,
+        intent: KeyRotationIntent,
+        admin: RGWAdminClient,
+        kwargs: dict[str, str | None],
+        payload: object,
+    ) -> RGWAdminClient:
+        if intent.phase != "prepared":
+            return admin
+
+        if not any(
+            item.get("access_key") == intent.new_access_key
+            for item in admin.extract_keys(payload)
+        ):
+            admin.create_access_key(
+                intent.rgw_uid,
+                **kwargs,
+                access_key=intent.new_access_key,
+                secret_key=intent.new_secret_key,
+            )
+            payload = admin.get_user(intent.rgw_uid, **kwargs)
+        self._validate(
+            endpoint,
+            key_type,
+            target,
+            admin,
+            payload,
+            intent.new_access_key,
+            intent.new_secret_key,
+        )
+        self._replace_credentials(
+            target,
+            intent.new_access_key,
+            intent.new_secret_key,
+        )
+        intent.phase, intent.last_error = "activated", None
+        self.db.commit()
+        self._audit(endpoint, intent, "activated")
+        if key_type == "endpoint_admin":
+            return self.identities.client_factory(endpoint)
+        return admin
+
+    def _retire_previous_key(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target: RotationTarget,
+        intent: KeyRotationIntent,
+        admin: RGWAdminClient,
+        kwargs: dict[str, str | None],
+    ) -> tuple[str, str, str]:
+        # Every retry must prove the replacement still works before retirement.
+        payload = admin.get_user(intent.rgw_uid, **kwargs)
+        self._validate(
+            endpoint,
+            key_type,
+            target,
+            admin,
+            payload,
+            intent.new_access_key,
+            intent.new_secret_key,
+        )
+        if any(
+            item.get("access_key") == intent.old_access_key
+            for item in admin.extract_keys(payload)
+        ):
+            if intent.deactivate_only:
+                admin.set_access_key_status(
+                    intent.rgw_uid,
+                    intent.old_access_key,
+                    enabled=False,
+                    **kwargs,
+                )
+            else:
+                admin.delete_access_key(
+                    intent.rgw_uid,
+                    intent.old_access_key,
+                    **kwargs,
+                )
+
+        payload = admin.get_user(intent.rgw_uid, **kwargs)
+        self._validate(
+            endpoint,
+            key_type,
+            target,
+            admin,
+            payload,
+            intent.new_access_key,
+            intent.new_secret_key,
+        )
+        old = next(
+            (
+                key
+                for key in RgwUserKeyParser.to_access_keys(
+                    admin.extract_keys(payload),
+                    ui_managed_access_key=None,
+                )
+                if key.access_key_id == intent.old_access_key
+            ),
+            None,
+        )
+        if old is not None and (not intent.deactivate_only or old.is_active):
+            raise ValueError("RGW did not confirm retirement of the previous key.")
+        return (
+            intent.old_access_key,
+            intent.new_access_key,
+            "disabled" if intent.deactivate_only else "deleted",
+        )
+
+    def _record_rotation_failure(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target_id: int,
+        exc: BaseException,
+    ) -> None:
+        self.db.rollback()
+        persisted = pending_rotation(self.db, endpoint.id, key_type, target_id)
+        if persisted is not None:
+            persisted.last_error = (
+                "Rotation pending; check credentials, permissions and RGW connectivity, "
+                "then retry rotation."
+            )
+            self.db.commit()
+
+        from app.services.endpoint_service_identities import ManagedIdentityKeyDriftError
+
+        if key_type not in SERVICE_TYPES:
+            return
+        target = self.db.get(EndpointServiceIdentity, target_id)
+        if target is None:
+            return
+        if isinstance(exc, ManagedIdentityKeyDriftError):
+            self.identities._record_key_drift(endpoint, target, exc)
+        elif isinstance(exc, ReplacementValidationError):
+            target.last_error = (
+                "Service rotation validation failed; check credentials and permissions, "
+                "then retry."
+            )
+            target.status = "error"
+            self.db.commit()
+
     def rotate(
         self,
         endpoint: StorageEndpoint,
@@ -220,83 +500,38 @@ class DurableKeyRotationService:
             if not permissions.users_write:
                 raise ValueError("Key rotation requires Admin Ops users=write.")
             if intent is None:
-                old_access, old_secret = self._credentials(target)
-                if not old_access or not old_secret:
-                    raise ValueError("Rotation credentials are not configured.")
-                uid, preferred_tenant = self._principal_hint(target)
-                tenant = None
-                if uid is None:
-                    from app.services.key_rotation_rgw import RgwAccessKeyRotator
-                    uid, tenant = RgwAccessKeyRotator().resolve_identity_from_access_key(admin, old_access)
-                elif isinstance(target, (S3Account, S3User)):
-                    tenant = preferred_tenant or None
-                elif key_type not in SERVICE_TYPES:
-                    from app.services.key_rotation_rgw import RgwAccessKeyRotator
-                    tenant = RgwAccessKeyRotator().detect_user_tenant(admin, uid=uid, preferred_tenant=preferred_tenant)
-                payload = admin.get_user(uid, tenant=tenant, allow_not_found=True) if tenant else admin.get_user(uid, allow_not_found=True)
-                if isinstance(target, (S3Account, S3User)):
-                    require_rgw_user_identity(payload, uid, tenant or "")
-                if key_type in SERVICE_TYPES:
-                    provenance = f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
-                    if target.provenance != provenance or not self.identities._owns(target, payload):
-                        raise ReplacementValidationError("Cannot rotate an identity without ownership proof.")
-                    self.identities._validate_managed_keys(target, payload)
-                if not any(item.get("access_key") == old_access for item in admin.extract_keys(payload)):
-                    raise ValueError("Current key does not belong to the expected principal.")
-                intent = KeyRotationIntent(endpoint_id=endpoint.id, key_type=key_type, target_id=target.id,
-                    rgw_uid=uid, tenant=tenant, rgw_endpoint=resolve_rgw_admin_api_endpoint(endpoint), old_access_key=old_access,
-                    new_access_key=secrets.token_hex(10).upper(), new_secret_key=secrets.token_urlsafe(32),
-                    deactivate_only=deactivate_only, phase="prepared", actor_email=self.actor.email if self.actor else "system")
-                self.db.add(intent)
-                self.db.commit()
-                self._audit(endpoint, intent, "prepared")
-            if intent.rgw_endpoint != resolve_rgw_admin_api_endpoint(endpoint) or intent.deactivate_only != deactivate_only:
-                raise ValueError("Resume rotation using its original RGW target and retirement mode.")
-            expected = intent.new_access_key if intent.phase == "activated" else intent.old_access_key
-            if isinstance(target, (S3Account, S3User)) and target.rgw_user_uid != intent.rgw_uid:
-                raise ValueError("Rotation principal changed; restore the original target before retrying.")
-            if isinstance(target, (S3Account, S3User)) and target.rgw_tenant != (intent.tenant or ""):
-                raise ValueError("Rotation tenant changed; restore the original target before retrying.")
-            current_access, _ = self._credentials(target)
-            if current_access != expected:
-                raise ValueError("Rotation target credentials changed; resolve the pending rotation before retrying.")
-            if key_type in SERVICE_TYPES:
-                provenance = f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
-                if target.provenance != provenance or target.rgw_uid != intent.rgw_uid:
-                    raise ReplacementValidationError("Cannot rotate an identity without ownership proof.")
-            kwargs = {"tenant": intent.tenant} if intent.tenant else {}
-            payload = admin.get_user(intent.rgw_uid, **kwargs)
-            if isinstance(target, (S3Account, S3User)):
-                require_rgw_user_identity(payload, intent.rgw_uid, intent.tenant or "")
-            if key_type in SERVICE_TYPES:
-                if not self.identities._owns(target, payload):
-                    raise ReplacementValidationError("Cannot rotate an identity without ownership proof.")
-                self.identities._validate_managed_keys(target, payload)
-            if intent.phase == "prepared":
-                if not any(item.get("access_key") == intent.new_access_key for item in admin.extract_keys(payload)):
-                    admin.create_access_key(intent.rgw_uid, **kwargs, access_key=intent.new_access_key, secret_key=intent.new_secret_key)
-                    payload = admin.get_user(intent.rgw_uid, **kwargs)
-                self._validate(endpoint, key_type, target, admin, payload, intent.new_access_key, intent.new_secret_key)
-                self._replace_credentials(target, intent.new_access_key, intent.new_secret_key)
-                intent.phase, intent.last_error = "activated", None
-                self.db.commit()
-                self._audit(endpoint, intent, "activated")
-                if key_type == "endpoint_admin":
-                    admin = self.identities.client_factory(endpoint)
-            # Every retry must prove the replacement still works before retirement.
-            payload = admin.get_user(intent.rgw_uid, **kwargs)
-            self._validate(endpoint, key_type, target, admin, payload, intent.new_access_key, intent.new_secret_key)
-            if any(item.get("access_key") == intent.old_access_key for item in admin.extract_keys(payload)):
-                if intent.deactivate_only:
-                    admin.set_access_key_status(intent.rgw_uid, intent.old_access_key, enabled=False, **kwargs)
-                else:
-                    admin.delete_access_key(intent.rgw_uid, intent.old_access_key, **kwargs)
-            payload = admin.get_user(intent.rgw_uid, **kwargs)
-            self._validate(endpoint, key_type, target, admin, payload, intent.new_access_key, intent.new_secret_key)
-            old = next((key for key in RgwUserKeyParser.to_access_keys(admin.extract_keys(payload), ui_managed_access_key=None) if key.access_key_id == intent.old_access_key), None)
-            if old is not None and (not intent.deactivate_only or old.is_active):
-                raise ValueError("RGW did not confirm retirement of the previous key.")
-            result = intent.old_access_key, intent.new_access_key, "disabled" if intent.deactivate_only else "deleted"
+                intent = self._prepare_intent(
+                    endpoint,
+                    key_type,
+                    target,
+                    admin,
+                    deactivate_only=deactivate_only,
+                )
+            kwargs, payload = self._validate_pending_intent(
+                endpoint,
+                key_type,
+                target,
+                intent,
+                admin,
+                deactivate_only=deactivate_only,
+            )
+            admin = self._activate_replacement(
+                endpoint,
+                key_type,
+                target,
+                intent,
+                admin,
+                kwargs,
+                payload,
+            )
+            result = self._retire_previous_key(
+                endpoint,
+                key_type,
+                target,
+                intent,
+                admin,
+                kwargs,
+            )
             self._audit(endpoint, intent, "completed")
             self.db.delete(intent)
             if key_type in IDENTITY_TYPES:
@@ -306,21 +541,7 @@ class DurableKeyRotationService:
             self.db.commit()
             return result
         except (ValueError, RGWAdminError, SQLAlchemyError) as exc:
-            self.db.rollback()
-            persisted = pending_rotation(self.db, endpoint.id, key_type, target_id)
-            if persisted is not None:
-                persisted.last_error = "Rotation pending; check credentials, permissions and RGW connectivity, then retry rotation."
-                self.db.commit()
-            from app.services.endpoint_service_identities import ManagedIdentityKeyDriftError
-            if key_type in SERVICE_TYPES:
-                target = self.db.get(EndpointServiceIdentity, target_id)
-                if target is not None:
-                    if isinstance(exc, ManagedIdentityKeyDriftError):
-                        self.identities._record_key_drift(endpoint, target, exc)
-                    elif isinstance(exc, ReplacementValidationError):
-                        target.last_error = "Service rotation validation failed; check credentials and permissions, then retry."
-                        target.status = "error"
-                        self.db.commit()
+            self._record_rotation_failure(endpoint, key_type, target_id, exc)
             if isinstance(exc, SQLAlchemyError):
                 raise ValueError("Rotation persistence failed; retry the pending rotation.") from None
             raise
