@@ -10,6 +10,7 @@ import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { uiLabelClass, uiMutedTextClass } from "../../components/ui/styles";
 import type { CephAdminBucketConfigBackupFeature } from "../../api/cephAdminBuckets";
 import { extractApiError } from "../../utils/apiError";
+import { useSharedI18n } from "./sharedI18n";
 
 export type BucketConfigBackupFeatureOption = {
   key: CephAdminBucketConfigBackupFeature;
@@ -31,6 +32,7 @@ export default function BucketConfigBackupModal({
   onClose,
   onCreate,
 }: BucketConfigBackupModalProps) {
+  const { text: surfaceText } = useSharedI18n();
   const [selected, setSelected] = useState<Set<CephAdminBucketConfigBackupFeature>>(
     () => new Set(featureOptions.filter((feature) => feature.available).map((feature) => feature.key))
   );
@@ -70,16 +72,17 @@ export default function BucketConfigBackupModal({
   };
 
   return (
-    <SettingsFormDialog title="Backup bucket configs" onClose={onClose} maxWidthClass="max-w-xl"
+    <SettingsFormDialog title={surfaceText("Backup bucket configs")} onClose={onClose} maxWidthClass="max-w-xl"
       draftKey={JSON.stringify([...selected].sort())} busy={loading} error={error}
-      disabled={selectedFeatures.length === 0} submitLabel="Download JSON" onSubmit={submit}>
+      disabled={selectedFeatures.length === 0} submitLabel={surfaceText("Download JSON")} onSubmit={submit}>
       <p className={`ui-caption ${uiMutedTextClass}`}>
-        {bucketCount} bucket{bucketCount > 1 ? "s" : ""} selected.
-      </p>
+        {surfaceText(
+          bucketCount === 1 ? "{count} bucket selected." : "{count} buckets selected.",
+          { count: bucketCount },
+        )}</p>
       <fieldset className="min-w-0 space-y-2">
         <legend className={uiLabelClass}>
-          Configurations
-        </legend>
+          {surfaceText("Configurations")}</legend>
         <ModalOptions className="sm:grid-cols-2">
           {featureOptions.map((feature) => (
             <UiCheckboxField

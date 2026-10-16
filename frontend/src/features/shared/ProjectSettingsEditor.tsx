@@ -33,6 +33,7 @@ import {
   ProjectSettingsConflict,
   type ProjectSettingsForm,
 } from "./projectSettingsForm";
+import { useSharedI18n } from "./sharedI18n";
 
 type FlagField = {
   [K in keyof ProjectSettingsForm]: ProjectSettingsForm[K] extends
@@ -64,6 +65,7 @@ export default function ProjectSettingsEditor({
   disabled?: boolean;
   navigationGuard?: boolean;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const { draft, setDraft, baseline, accept, cancel, dirty } =
     useSettingsDraft(emptyForm);
   const [settings, setSettings] = useState<PortalProjectSettings | null>(null);
@@ -503,20 +505,20 @@ export default function ProjectSettingsEditor({
           }}
         >
           <fieldset disabled={saving || disabled} className="min-w-0">
-            {admin && <SettingsSection presentation="compact" title="Delegation">
-              <SettingsItem compact title="Project settings access"
-                description="Allow this project's Portal managers to edit the same settings from Portal."
-                action={<SettingsSwitch ariaLabel="Delegate Portal overrides to Portal managers"
+            {admin && <SettingsSection presentation="compact" title={surfaceText("Delegation")}>
+              <SettingsItem compact title={surfaceText("Project settings access")}
+                description={surfaceText("Allow this project's Portal managers to edit the same settings from Portal.")}
+                action={<SettingsSwitch ariaLabel={surfaceText("Delegate Portal overrides to Portal managers")}
                   checked={draft.delegatedToPortalManagers}
                   onChange={(value) => update("delegatedToPortalManagers", value)} />} />
-              <SettingsItem compact title="Collaborator addition"
-                description="Allow Portal managers to add Portal users directly. Adding a Portal manager also requires role management delegation."
-                action={<SettingsSwitch ariaLabel="Delegate collaborator addition to Portal managers"
+              <SettingsItem compact title={surfaceText("Collaborator addition")}
+                description={surfaceText("Allow Portal managers to add Portal users directly. Adding a Portal manager also requires role management delegation.")}
+                action={<SettingsSwitch ariaLabel={surfaceText("Delegate collaborator addition to Portal managers")}
                   checked={draft.collaboratorAdditionDelegated}
                   onChange={(value) => update("collaboratorAdditionDelegated", value)} />} />
-              <SettingsItem compact title="Collaborator role management"
-                description="Allow Portal managers to promote or demote direct project members between Portal user and Portal manager."
-                action={<SettingsSwitch ariaLabel="Delegate collaborator role management to Portal managers"
+              <SettingsItem compact title={surfaceText("Collaborator role management")}
+                description={surfaceText("Allow Portal managers to promote or demote direct project members between Portal user and Portal manager.")}
+                action={<SettingsSwitch ariaLabel={surfaceText("Delegate collaborator role management to Portal managers")}
                   checked={draft.collaboratorRoleManagementDelegated}
                   onChange={(value) => update("collaboratorRoleManagementDelegated", value)} />} />
             </SettingsSection>}

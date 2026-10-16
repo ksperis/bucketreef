@@ -30,6 +30,7 @@ import BucketOpsMetricFilterFields from "./BucketOpsMetricFilterFields";
 import BucketOpsStorageScopeFilterFields from "./BucketOpsStorageScopeFilterFields";
 import type { useBucketOpsFilterController } from "./useBucketOpsFilterController";
 import type { useBucketOpsStorageScopeFilters } from "./useBucketOpsStorageScopeFilters";
+import { useSharedI18n } from "./sharedI18n";
 
 type FilterController = ReturnType<typeof useBucketOpsFilterController>;
 type StorageScopeFilterController = ReturnType<
@@ -79,6 +80,7 @@ function AdvancedFilterSection({
   open,
   title,
 }: AdvancedFilterSectionProps) {
+  const { text: surfaceText } = useSharedI18n();
   const contentId = `advanced-filter-${id}-content`;
   return (
     <section className={advancedFilterAccordionClass}>
@@ -104,8 +106,7 @@ function AdvancedFilterSection({
         <span className="flex shrink-0 items-center gap-2">
           {badge}
           <span className="ui-caption text-slate-500 dark:text-slate-400">
-            {activeCount} active
-          </span>
+            {activeCount} {surfaceText("active")}</span>
         </span>
       </button>
       {open && (
@@ -130,6 +131,7 @@ export default function BucketOpsAdvancedFilterDrawer({
   usageUnavailableBadge,
   usageUnavailableDescription,
 }: BucketOpsAdvancedFilterDrawerProps) {
+  const { text: surfaceText } = useSharedI18n();
   const {
     advancedDraftActiveCount,
     advancedDraftFeatureCount,
@@ -162,17 +164,18 @@ export default function BucketOpsAdvancedFilterDrawer({
   return (
     <>
       <AdvancedFilterDrawerShell
-        title="Advanced filter"
-        subtitle="Buckets listing"
+        title={surfaceText("Advanced filter")}
+        subtitle={surfaceText("Buckets listing")}
         badges={
           <>
-            {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount)}
+            {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount, surfaceText)}
             {renderAdvancedFilterCostBadge(
               advancedDraftGlobalCostLevel,
               advancedDraftGlobalCostTooltip,
+              surfaceText,
             )}
             <span className={advancedFilterSyncBadgeClass(hasPendingAdvancedChanges)}>
-              {formatAdvancedFilterSyncLabel(hasPendingAdvancedChanges)}
+              {formatAdvancedFilterSyncLabel(hasPendingAdvancedChanges, surfaceText)}
             </span>
           </>
         }
@@ -181,10 +184,10 @@ export default function BucketOpsAdvancedFilterDrawer({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="ui-caption text-slate-500 dark:text-slate-400">
               {hasPendingAdvancedChanges
-                ? "Draft has unapplied changes."
+                ? surfaceText("Draft has unapplied changes.")
                 : advancedDraftActiveCount > 0
-                  ? "Draft matches applied filters."
-                  : "No advanced filter configured."}
+                  ? surfaceText("Draft matches applied filters.")
+                  : surfaceText("No advanced filter configured.")}
             </p>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <UiButton
@@ -194,16 +197,14 @@ export default function BucketOpsAdvancedFilterDrawer({
                 variant="secondary"
                 size="sm"
               >
-                Clear
-              </UiButton>
+                {surfaceText("Clear")}</UiButton>
               <UiButton
                 type="button"
                 onClick={advancedFilterCloseGuard.requestClose}
                 variant="secondary"
                 size="sm"
               >
-                Close
-              </UiButton>
+                {surfaceText("Close")}</UiButton>
               <UiButton
                 type="button"
                 onClick={applyAdvancedFilter}
@@ -211,19 +212,18 @@ export default function BucketOpsAdvancedFilterDrawer({
                 variant="primary"
                 size="sm"
               >
-                Apply filters
-              </UiButton>
+                {surfaceText("Apply filters")}</UiButton>
             </div>
           </div>
         }
       >
         <div className="space-y-4">
-              {renderAdvancedFilterDraftSummary(draftSummaryItems)}
+              {renderAdvancedFilterDraftSummary(draftSummaryItems, surfaceText)}
 
               <section className={advancedFilterSectionClass}>
                 <div className="mb-3 flex items-center justify-between">
                   <p className="inline-flex items-center gap-1 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    <span>Identity and tags</span>
+                    <span>{surfaceText("Identity and tags")}</span>
                   </p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -245,9 +245,9 @@ export default function BucketOpsAdvancedFilterDrawer({
 
               <AdvancedFilterSection
                 id="metrics"
-                title="Storage Metrics and Quota"
+                title={surfaceText("Storage Metrics and Quota")}
                 costLevel="medium"
-                costTooltip="Medium cost: owner quota filters require owner metadata lookups; usage and percentage filters also require bucket stats."
+                costTooltip={surfaceText("Medium cost: owner quota filters require owner metadata lookups; usage and percentage filters also require bucket stats.")}
                 activeCount={advancedDraftRangeCount}
                 badge={
                   !usageFeatureEnabled ? (
@@ -270,9 +270,9 @@ export default function BucketOpsAdvancedFilterDrawer({
 
               <AdvancedFilterSection
                 id="featureStates"
-                title="Feature states"
+                title={surfaceText("Feature states")}
                 costLevel="high"
-                costTooltip="High cost: feature-state filters may trigger extra checks."
+                costTooltip={surfaceText("High cost: feature-state filters may trigger extra checks.")}
                 activeCount={advancedDraftFeatureCount}
                 open={advancedFilterSecondarySections.featureStates}
                 onToggle={toggleAdvancedFilterSecondarySection}
@@ -287,9 +287,9 @@ export default function BucketOpsAdvancedFilterDrawer({
 
               <AdvancedFilterSection
                 id="featureDetails"
-                title="Feature details"
+                title={surfaceText("Feature details")}
                 costLevel="high"
-                costTooltip="High cost: feature-detail filters may trigger additional per-bucket data retrieval."
+                costTooltip={surfaceText("High cost: feature-detail filters may trigger additional per-bucket data retrieval.")}
                 activeCount={advancedDraftFeatureDetailCount}
                 open={advancedFilterSecondarySections.featureDetails}
                 onToggle={toggleAdvancedFilterSecondarySection}

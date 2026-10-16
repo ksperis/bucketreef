@@ -8,6 +8,7 @@ import { ToolbarAdvancedFilterButton, ToolbarMatchModeButton } from "../../compo
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import { UiTagBadge } from "../../components/UiTagSettings";
 import type { useBucketOpsFilterController } from "./useBucketOpsFilterController";
+import { useSharedI18n } from "./sharedI18n";
 
 type FilterController = ReturnType<typeof useBucketOpsFilterController>;
 
@@ -38,6 +39,7 @@ export function BucketOpsQuickFilter({
   controller: QuickFilterController;
   value: string;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const {
     quickFilterDraftForcesExact,
     quickFilterFieldState,
@@ -48,11 +50,11 @@ export function BucketOpsQuickFilter({
   } = controller;
   return (
     <ToolbarSearchTextarea
-      label="Quick filter"
+      label={surfaceText("Quick filter")}
       value={value}
       onChange={updateQuickFilterDraft}
       onKeyDown={(event) => event.stopPropagation()}
-      placeholder="Bucket name(s)"
+      placeholder={surfaceText("Bucket name(s)")}
       className="w-full min-w-[16rem] sm:w-72"
       inputClassName={quickFilterFieldState.fieldClass}
       trailingControl={
@@ -61,7 +63,7 @@ export function BucketOpsQuickFilter({
           pending={quickFilterPending}
           locked={quickFilterDraftForcesExact}
           onClick={toggleQuickFilterMode}
-          aria-label="Toggle quick filter match mode"
+          aria-label={surfaceText("Toggle quick filter match mode")}
         />
       }
     />
@@ -82,6 +84,7 @@ export function BucketOpsTagAndAdvancedFilters({
   tagFilterMode: "any" | "all";
   tagFilters: readonly number[];
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const {
     addTagFilter,
     advancedFiltersApplied,
@@ -113,10 +116,10 @@ export function BucketOpsTagAndAdvancedFilters({
                   visibility={tag.visibility}
                   selectionState="selected"
                   className="text-xs"
-                  ariaLabel={`Selected UI tag filter ${tag.label}, ${visibility}`}
-                  title={`Selected UI tag filter: ${tag.label}, ${visibility}`}
+                  ariaLabel={surfaceText("Selected UI tag filter {tag}, {visibility}", { tag: tag.label, visibility })}
+                  title={surfaceText("Selected UI tag filter: {tag}, {visibility}", { tag: tag.label, visibility })}
                   onRemove={() => removeTagFilter(tag.id)}
-                  removeAriaLabel={`Remove UI tag filter ${tag.label}, ${visibility}`}
+                  removeAriaLabel={surfaceText("Remove UI tag filter {tag}, {visibility}", { tag: tag.label, visibility })}
                 />
               );
             })}
@@ -130,21 +133,21 @@ export function BucketOpsTagAndAdvancedFilters({
                   visibility={tag.visibility}
                   selectionState="available"
                   onClick={() => addTagFilter(tag.id)}
-                  ariaLabel={`Add UI tag filter ${tag.label}, ${visibility}`}
-                  title={`Available UI tag filter: ${tag.label}, ${visibility}. Click to add.`}
+                  ariaLabel={surfaceText("Add UI tag filter {tag}, {visibility}", { tag: tag.label, visibility })}
+                  title={surfaceText("Available UI tag filter: {tag}, {visibility}. Click to add.", { tag: tag.label, visibility })}
                 />
               );
             })}
           </div>
-          <UiSelect label="Tags" size="compact"
-            aria-label="UI tag filter match mode"
+          <UiSelect label={surfaceText("Tags")} size="compact"
+            aria-label={surfaceText("UI tag filter match mode")}
             value={tagFilterMode}
             onChange={(event) =>
               updateTagFilterMode(event.target.value as "any" | "all")
             }
           >
-            <option value="any">OR</option>
-            <option value="all">AND</option>
+            <option value="any">{surfaceText("OR")}</option>
+            <option value="all">{surfaceText("AND")}</option>
           </UiSelect>
         </div>
       ) : null}
@@ -152,7 +155,7 @@ export function BucketOpsTagAndAdvancedFilters({
         active={showAdvancedFilter || advancedFiltersApplied}
         onClick={openAdvancedFilterDrawer}
       >
-        Advanced filter{advancedFiltersApplied ? " · Active" : ""}
+        {surfaceText("Advanced filter")}{advancedFiltersApplied ? ` · ${surfaceText("Active")}` : ""}
       </ToolbarAdvancedFilterButton>
     </>
   );

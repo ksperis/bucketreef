@@ -4,6 +4,14 @@
  */
 import type { ReactNode } from "react";
 import UiProgressBar from "../../components/ui/UiProgressBar";
+import type { SharedText } from "./sharedI18n";
+
+const identityText: SharedText = (message, values) => {
+  if (!values) return message;
+  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
+  );
+};
 
 export type TextMatchMode = "contains" | "exact";
 export type FilterCostLevel = "none" | "low" | "medium" | "high";
@@ -67,13 +75,18 @@ type AdvancedFilterSummaryItem = {
   label: ReactNode;
 };
 
-export const renderAdvancedFilterDraftSummary = (items: AdvancedFilterSummaryItem[]) => (
+export const renderAdvancedFilterDraftSummary = (
+  items: AdvancedFilterSummaryItem[],
+  text: SharedText = identityText,
+) => (
   <section className={advancedFilterSummaryClass}>
     <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-      Draft summary
+      {text("Draft summary")}
     </p>
     {items.length === 0 ? (
-      <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">No advanced rule in draft.</p>
+      <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
+        {text("No advanced rule in draft.")}
+      </p>
     ) : (
       <div className="mt-2 flex flex-wrap gap-1.5">
         {items.map((item) => (
@@ -96,20 +109,30 @@ export const advancedFilterSyncBadgeClass = (pending: boolean) => {
   return "ui-list-badge border border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-500/50 dark:bg-emerald-500/20 dark:text-emerald-200";
 };
 
-export const renderAdvancedFilterRuleCountBadge = (count: number) => (
+export const renderAdvancedFilterRuleCountBadge = (
+  count: number,
+  text: SharedText = identityText,
+) => (
   <span className={advancedFilterHeaderBadgeClass}>
-    {count} rule{count > 1 ? "s" : ""}
+    {text(count === 1 ? "{count} rule" : "{count} rules", { count })}
   </span>
 );
 
-export const renderAdvancedFilterCostBadge = (level: FilterCostLevel, tooltip: string) => (
+export const renderAdvancedFilterCostBadge = (
+  level: FilterCostLevel,
+  tooltip: string,
+  text: SharedText = identityText,
+) => (
   <span className={`${advancedFilterHeaderBadgeClass} inline-flex items-center gap-1`} title={tooltip}>
-    Global draft cost
+    {text("Global draft cost")}
     {renderFilterCostIndicator(level, tooltip)}
   </span>
 );
 
-export const formatAdvancedFilterSyncLabel = (pending: boolean) => (pending ? "Unsaved changes" : "In sync");
+export const formatAdvancedFilterSyncLabel = (
+  pending: boolean,
+  text: SharedText = identityText,
+) => text(pending ? "Unsaved changes" : "In sync");
 
 export const FILTER_COST_LABEL: Record<FilterCostLevel, string> = {
   none: "No additional cost",
@@ -172,7 +195,10 @@ export const progressFromAdvancedSearchEvent = (event: AdvancedSearchProgressEve
   };
 };
 
-export const renderAdvancedSearchProgress = (progress: AdvancedSearchProgress) => {
+export const renderAdvancedSearchProgress = (
+  progress: AdvancedSearchProgress,
+  text: SharedText = identityText,
+) => {
   if (!progress.active) return null;
   const percent = Math.max(0, Math.min(100, Math.round(progress.percent)));
   const progressDetails = progress.total > 0 ? ` · ${progress.processed} / ${progress.total}` : "";
@@ -180,18 +206,20 @@ export const renderAdvancedSearchProgress = (progress: AdvancedSearchProgress) =
     <div className="mb-3 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-          {progress.determinate ? `Advanced search in progress · ${percent}%` : "Advanced search in progress..."}
+          {progress.determinate
+            ? text("Advanced search in progress · {percent}%", { percent })
+            : text("Advanced search in progress...")}
         </p>
         {(progress.message || progress.stage) && (
           <p className="ui-caption text-slate-500 dark:text-slate-400">
-            {progress.message || formatAdvancedSearchStage(progress.stage)}
+            {text(progress.message || formatAdvancedSearchStage(progress.stage))}
             {progressDetails}
           </p>
         )}
       </div>
       <UiProgressBar
         value={progress.determinate ? percent : 100}
-        label="Advanced search progress"
+        label={text("Advanced search progress")}
         className="mt-2 h-2 bg-slate-200 dark:bg-slate-800"
         barClassName={progress.determinate ? "bg-primary transition-[width] duration-150 ease-out" : "animate-pulse bg-primary/70"}
       />

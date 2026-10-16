@@ -19,6 +19,7 @@ import {
   type BucketCompareRunPresentationItem,
 } from "./bucketCompareShared";
 import "./bucketOperationRun.css";
+import { useSharedI18n } from "./sharedI18n";
 
 export type BucketCompareFeedbackTone = "neutral" | "info" | "success" | "warning" | "danger";
 
@@ -53,43 +54,47 @@ export function BucketCompareResultFilters({
   onDifferencesChange: (value: BucketCompareRunFilters["differences"]) => void;
   onReset: () => void;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   return (
     <ListToolbar
       variant="section"
-      title="Comparison results"
-      countLabel={`Showing ${visible} / ${total} result(s).`}
+      title={surfaceText("Comparison results")}
+      countLabel={surfaceText(total === 1 ? "Showing {visible} / {total} result." : "Showing {visible} / {total} results.", {
+        visible,
+        total,
+      })}
       search={
         <ToolbarSearchInput
-          label="Filter comparison results"
+          label={surfaceText("Filter comparison results")}
           value={search}
           onChange={onSearchChange}
-          placeholder="Filter by source/target bucket or error"
+          placeholder={surfaceText("Filter by source/target bucket or error")}
         />
       }
       filters={
         <>
           <UiSelect
-            label="Status"
-            aria-label="Filter comparison status"
+            label={surfaceText("Status")}
+            aria-label={surfaceText("Filter comparison status")}
             value={status}
             onChange={(event) => onStatusChange(event.target.value as BucketCompareRunFilters["status"])}
           >
-            <option value="all">All statuses</option>
-            <option value="pending">Pending</option>
-            <option value="running">Running</option>
-            <option value="success">Done</option>
-            <option value="failed">Failed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="all">{surfaceText("All statuses")}</option>
+            <option value="pending">{surfaceText("Pending")}</option>
+            <option value="running">{surfaceText("Running")}</option>
+            <option value="success">{surfaceText("Done")}</option>
+            <option value="failed">{surfaceText("Failed")}</option>
+            <option value="cancelled">{surfaceText("Cancelled")}</option>
           </UiSelect>
           <UiSelect
-            label="Differences"
-            aria-label="Filter comparison differences"
+            label={surfaceText("Differences")}
+            aria-label={surfaceText("Filter comparison differences")}
             value={differences}
             onChange={(event) => onDifferencesChange(event.target.value as BucketCompareRunFilters["differences"])}
           >
-            <option value="all">All diff states</option>
-            <option value="with_diff">With differences</option>
-            <option value="no_diff">No differences</option>
+            <option value="all">{surfaceText("All diff states")}</option>
+            <option value="with_diff">{surfaceText("With differences")}</option>
+            <option value="no_diff">{surfaceText("No differences")}</option>
           </UiSelect>
         </>
       }
@@ -99,8 +104,7 @@ export function BucketCompareResultFilters({
           onClick={onReset}
           disabled={!search && status === "all" && differences === "all"}
         >
-          Reset filters
-        </ListActionButton>
+          {surfaceText("Reset filters")}</ListActionButton>
       }
     />
   );
@@ -119,6 +123,7 @@ export function BucketCompareResult({ item, content, children }: {
   content?: ContentMetrics | null;
   children: ReactNode;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const progress = item.status === "running" ? null : item.status === "pending" ? 0 : 100;
   return (
     <UiDetails className="bucket-operation-result">
@@ -127,20 +132,26 @@ export function BucketCompareResult({ item, content, children }: {
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
             <p className="min-w-0 break-all font-medium text-[var(--ui-text)]">{item.sourceBucket} → {item.targetBucket}</p>
-            <ListBadge tone={getRunStatusTone(item)}>{getRunStatusLabel(item)}</ListBadge>
+            <ListBadge tone={getRunStatusTone(item)}>{surfaceText(getRunStatusLabel(item))}</ListBadge>
             {content && (
               <InlineSummary items={[
-                { label: "Matched", value: content.matched_count },
-                { label: "Different", value: content.different_count },
-                { label: "Source only", value: content.only_source_count },
-                { label: "Target only", value: content.only_target_count },
-                ...(content.ignored_after_cutoff_count ? [{ label: "Ignored after cutoff", value: content.ignored_after_cutoff_count }] : []),
+                { label: surfaceText("Matched"), value: content.matched_count },
+                { label: surfaceText("Different"), value: content.different_count },
+                { label: surfaceText("Source only"), value: content.only_source_count },
+                { label: surfaceText("Target only"), value: content.only_target_count },
+                ...(content.ignored_after_cutoff_count ? [{
+                  label: surfaceText("Ignored after cutoff"),
+                  value: content.ignored_after_cutoff_count,
+                }] : []),
               ]} />
             )}
           </div>
           <UiProgressBar
             value={progress}
-            label={`Comparison progress for ${item.sourceBucket} to ${item.targetBucket}`}
+            label={surfaceText("Comparison progress for {source} to {target}", {
+              source: item.sourceBucket,
+              target: item.targetBucket,
+            })}
             className="!bg-[var(--ui-surface-muted)]"
             barClassName="bg-primary transition-[width] duration-150 motion-reduce:transition-none"
           />

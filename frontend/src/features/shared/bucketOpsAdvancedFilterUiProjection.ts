@@ -20,6 +20,7 @@ import {
   type FeatureKey,
 } from "./bucketOpsAdvancedFilterModel";
 import { buildBucketOpsAdvancedFilterComparison } from "./bucketOpsFilterSummary";
+import type { SharedText } from "./sharedI18n";
 
 type BuildBucketOpsAdvancedFilterUiProjectionOptions = {
   advancedApplied: AdvancedFilterState | null;
@@ -28,6 +29,7 @@ type BuildBucketOpsAdvancedFilterUiProjectionOptions = {
   isStorageOps: boolean;
   quickFilterApplied: string;
   quickFilterDraft: string;
+  text?: SharedText;
   usageFeatureEnabled: boolean;
 };
 
@@ -81,7 +83,7 @@ function buildCostProjection({
   ownerPrefilterActive,
   rangeCount,
   s3TagsLookupActive,
-}: CostProjectionOptions): { level: FilterCostLevel; tooltip: string } {
+}: CostProjectionOptions, text: SharedText): { level: FilterCostLevel; tooltip: string } {
   const multipleFeatureFiltersActive = featureCount > 1;
   const featureCostReducedByPrefilter =
     featureCount === 1 &&
@@ -113,24 +115,26 @@ function buildCostProjection({
     if (featureDetailFiltersActive) {
       return {
         level,
-        tooltip: `${FILTER_COST_LABEL.high}: feature detail filters require additional per-bucket configuration reads.`,
+        tooltip: text("High cost: feature detail filters require additional per-bucket configuration reads."),
       };
     }
     if (s3TagsLookupActive) {
       return {
         level,
-        tooltip: `${FILTER_COST_LABEL.high}: S3 tag filters require bucket tag retrieval.`,
+        tooltip: text("High cost: S3 tag filters require bucket tag retrieval."),
       };
     }
     if (multipleFeatureFiltersActive) {
       return {
         level,
-        tooltip: `${FILTER_COST_LABEL.high}: ${featureCount} feature-state filters are active, which increases per-bucket checks even with prefilters.`,
+        tooltip: text("{count} feature-state filters are active, which increases per-bucket checks even with prefilters.", {
+          count: featureCount,
+        }),
       };
     }
     return {
       level,
-      tooltip: `${FILTER_COST_LABEL.high}: feature-state filters are active and may require additional checks.`,
+      tooltip: text("High cost: feature-state filters are active and may require additional checks."),
     };
   }
 
@@ -138,46 +142,46 @@ function buildCostProjection({
     if (ownerNameLookupActive) {
       return {
         level,
-        tooltip: `${FILTER_COST_LABEL.medium}: owner-name filters require owner identity lookups.`,
+        tooltip: text("Medium cost: owner-name filters require owner identity lookups."),
       };
     }
     if (ownerSuspendedLookupActive) {
       return {
         level,
-        tooltip: `${FILTER_COST_LABEL.medium}: owner-suspended filters require owner status lookups.`,
+        tooltip: text("Medium cost: owner-suspended filters require owner status lookups."),
       };
     }
     if (ownerQuotaLookupActive && !ownerUsageLookupActive) {
       return {
         level,
-        tooltip: `${FILTER_COST_LABEL.medium}: owner quota filters require owner metadata lookups.`,
+        tooltip: text("Medium cost: owner quota filters require owner metadata lookups."),
       };
     }
     if (ownerUsageLookupActive) {
       return {
         level,
-        tooltip: `${FILTER_COST_LABEL.medium}: owner usage filters require owner metadata lookups and bucket stats.`,
+        tooltip: text("Medium cost: owner usage filters require owner metadata lookups and bucket stats."),
       };
     }
     if (featureCostReducedByPrefilter) {
       return {
         level,
-        tooltip: `${FILTER_COST_LABEL.medium}: feature-state filters are active, but owner/tenant prefilters reduce buckets to inspect.`,
+        tooltip: text("Medium cost: feature-state filters are active, but owner/tenant prefilters reduce buckets to inspect."),
       };
     }
     return {
       level,
-      tooltip: `${FILTER_COST_LABEL.medium}: usage/quota filters are active and require stats retrieval.`,
+      tooltip: text("Medium cost: usage/quota filters are active and require stats retrieval."),
     };
   }
 
   if (level === "low") {
     return {
       level,
-      tooltip: `${FILTER_COST_LABEL.low}: identity filters use already available bucket fields.`,
+      tooltip: text("Low cost: identity filters use already available bucket fields."),
     };
   }
-  return { level, tooltip: FILTER_COST_LABEL.none };
+  return { level, tooltip: text(FILTER_COST_LABEL.none) };
 }
 
 export function buildBucketOpsAdvancedFilterUiProjection({
@@ -187,6 +191,12 @@ export function buildBucketOpsAdvancedFilterUiProjection({
   isStorageOps,
   quickFilterApplied,
   quickFilterDraft,
+  text = (message, values) => {
+    if (!values) return message;
+    return message.replace(/\{(\w+)\}/g, (match, key: string) =>
+      Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
+    );
+  },
   usageFeatureEnabled,
 }: BuildBucketOpsAdvancedFilterUiProjectionOptions) {
   const comparison = buildBucketOpsAdvancedFilterComparison(
@@ -279,7 +289,7 @@ export function buildBucketOpsAdvancedFilterUiProjection({
     ownerPrefilterActive,
     rangeCount: advancedDraftRangeCount,
     s3TagsLookupActive,
-  });
+  }, text);
   const trimmedQuickFilterApplied = quickFilterApplied.trim();
   const quickFilterPending = quickFilterDraft.trim() !== trimmedQuickFilterApplied;
 

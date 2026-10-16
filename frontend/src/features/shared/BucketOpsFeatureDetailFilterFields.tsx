@@ -22,6 +22,7 @@ import {
   LIFECYCLE_TYPE_OPTIONS,
   NOTIFICATION_TYPE_OPTIONS,
 } from "./bucketConfigMerge";
+import { useSharedI18n } from "./sharedI18n";
 
 type FieldChangeHandler = (
   field: FeatureDetailFilterKey,
@@ -269,18 +270,19 @@ function TextFilterField({
   label: string;
   placeholder: string;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const id = fieldId(field);
   return (
     <div>
       <label htmlFor={id} className={FIELD_LABEL_CLASS}>
-        {label}
+        {surfaceText(label)}
       </label>
       <UiInput
         id={id}
         type="text"
         value={filters[field]}
         onChange={(event) => onFieldChange(field, event.target.value)}
-        placeholder={placeholder}
+        placeholder={surfaceText(placeholder)}
         disabled={disabled}
         size="compact"
         className={className}
@@ -304,11 +306,12 @@ function SelectFilterField({
   label: string;
   options: SelectOption[];
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const id = fieldId(field);
   return (
     <div>
       <label htmlFor={id} className={FIELD_LABEL_CLASS}>
-        {label}
+        {surfaceText(label)}
       </label>
       <UiSelect
         id={id}
@@ -320,7 +323,7 @@ function SelectFilterField({
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
-            {option.label}
+            {surfaceText(option.label)}
           </option>
         ))}
       </UiSelect>
@@ -339,13 +342,15 @@ function PresenceTextFilterField({
 }: FilterControlProps & PresenceTextFilterDefinition & {
   modeOptions?: SelectOption[];
 }) {
+  const { text: surfaceText } = useSharedI18n();
+  const translatedLabel = surfaceText(label);
   return (
     <div>
-      <p className={FIELD_LABEL_CLASS}>{label}</p>
+      <p className={FIELD_LABEL_CLASS}>{translatedLabel}</p>
       <div className="mt-1 grid grid-cols-5 gap-2">
         <UiSelect
           id={fieldId(modeField)}
-          aria-label={label + " mode"}
+          aria-label={surfaceText("{label} mode", { label: translatedLabel })}
           value={filters[modeField]}
           onChange={(event) => onFieldChange(modeField, event.target.value)}
           size="compact"
@@ -354,17 +359,17 @@ function PresenceTextFilterField({
         >
           {modeOptions.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {surfaceText(option.label)}
             </option>
           ))}
         </UiSelect>
         <UiInput
           id={fieldId(valueField)}
-          aria-label={label + " value"}
+          aria-label={surfaceText("{label} value", { label: translatedLabel })}
           type="text"
           value={filters[valueField]}
           onChange={(event) => onFieldChange(valueField, event.target.value)}
-          placeholder={placeholder}
+          placeholder={surfaceText(placeholder)}
           size="compact"
           fieldClassName={PAIR_VALUE_FIELD_CLASS}
           className="ui-list-control"
@@ -389,14 +394,16 @@ function PresenceSelectFilterField({
   valueField: FeatureDetailFilterKey;
   valueOptions: SelectOption[];
 }) {
+  const { text: surfaceText } = useSharedI18n();
+  const translatedLabel = surfaceText(label);
   const valueDisabled = filters[modeField] === "any";
   return (
     <div>
-      <p className={FIELD_LABEL_CLASS}>{label}</p>
+      <p className={FIELD_LABEL_CLASS}>{translatedLabel}</p>
       <div className="mt-1 grid grid-cols-5 gap-2">
         <UiSelect
           id={fieldId(modeField)}
-          aria-label={label + " mode"}
+          aria-label={surfaceText("{label} mode", { label: translatedLabel })}
           value={filters[modeField]}
           onChange={(event) => onFieldChange(modeField, event.target.value)}
           size="compact"
@@ -405,13 +412,13 @@ function PresenceSelectFilterField({
         >
           {modeOptions.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {surfaceText(option.label)}
             </option>
           ))}
         </UiSelect>
         <UiSelect
           id={fieldId(valueField)}
-          aria-label={label + " value"}
+          aria-label={surfaceText("{label} value", { label: translatedLabel })}
           value={filters[valueField]}
           onChange={(event) => onFieldChange(valueField, event.target.value)}
           disabled={valueDisabled}
@@ -421,7 +428,7 @@ function PresenceSelectFilterField({
         >
           {valueOptions.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {surfaceText(option.label)}
             </option>
           ))}
         </UiSelect>
@@ -438,13 +445,15 @@ function NumericComparisonField({
   placeholder,
   valueField,
 }: FilterControlProps & NumericFilterDefinition) {
+  const { text: surfaceText } = useSharedI18n();
+  const translatedLabel = surfaceText(label);
   return (
     <div>
-      <p className={FIELD_LABEL_CLASS}>{label}</p>
+      <p className={FIELD_LABEL_CLASS}>{translatedLabel}</p>
       <div className="mt-1 grid grid-cols-5 gap-2">
         <UiSelect
           id={fieldId(opField)}
-          aria-label={label + " operator"}
+          aria-label={surfaceText("{label} operator", { label: translatedLabel })}
           value={filters[opField]}
           onChange={(event) => onFieldChange(opField, event.target.value)}
           size="compact"
@@ -459,12 +468,12 @@ function NumericComparisonField({
         </UiSelect>
         <UiInput
           id={fieldId(valueField)}
-          aria-label={label + " value"}
+          aria-label={surfaceText("{label} value", { label: translatedLabel })}
           type="number"
           min="0"
           value={filters[valueField]}
           onChange={(event) => onFieldChange(valueField, event.target.value)}
-          placeholder={placeholder}
+          placeholder={surfaceText(placeholder)}
           size="compact"
           fieldClassName={PAIR_VALUE_FIELD_CLASS}
           className="ui-list-control"
@@ -496,31 +505,32 @@ export default function BucketOpsFeatureDetailFilterFields({
   onFieldChange,
   sseFeatureEnabled,
 }: BucketOpsFeatureDetailFilterFieldsProps) {
+  const { text: surfaceText } = useSharedI18n();
   const controls = { filters, onFieldChange };
 
   return (
     <div className="grid gap-3 lg:grid-cols-2">
       <FeatureDetailCard
-        title="Lifecycle"
-        description="Rule name, status, type and lifecycle day conditions are evaluated on the same lifecycle rule."
+        title={surfaceText("Lifecycle")}
+        description={surfaceText("Rule name, status, type and lifecycle day conditions are evaluated on the same lifecycle rule.")}
       >
         <PresenceTextFilterField
           {...controls}
-          label="Rule name"
+          label={surfaceText("Rule name")}
           modeField="lifecycleRuleNameMode"
           modeOptions={LIFECYCLE_RULE_NAME_MODE_OPTIONS}
           valueField="lifecycleRuleName"
-          placeholder="rule-id"
+          placeholder={surfaceText("rule-id")}
         />
         <SelectFilterField
           {...controls}
           field="lifecycleRuleStatus"
-          label="Rule status"
+          label={surfaceText("Rule status")}
           options={LIFECYCLE_RULE_STATUS_OPTIONS}
         />
         <PresenceSelectFilterField
           {...controls}
-          label="Rule type"
+          label={surfaceText("Rule type")}
           modeField="lifecycleRuleTypeMode"
           modeOptions={LIFECYCLE_RULE_TYPE_MODE_OPTIONS}
           valueField="lifecycleRuleTypeValue"
@@ -536,18 +546,18 @@ export default function BucketOpsFeatureDetailFilterFields({
       </FeatureDetailCard>
 
       <FeatureDetailCard
-        title="Notifications"
-        description="Rule ID, type, topic, events and key filters are evaluated on the same notification rule."
+        title={surfaceText("Notifications")}
+        description={surfaceText("Rule ID, type, topic, events and key filters are evaluated on the same notification rule.")}
       >
         <TextFilterField
           {...controls}
           field="notificationRuleId"
-          label="Rule ID"
-          placeholder="rule-id"
+          label={surfaceText("Rule ID")}
+          placeholder={surfaceText("rule-id")}
         />
         <PresenceSelectFilterField
           {...controls}
-          label="Rule type"
+          label={surfaceText("Rule type")}
           modeField="notificationRuleTypeMode"
           modeOptions={PRESENCE_FILTER_OPTIONS}
           valueField="notificationRuleTypeValue"
@@ -556,8 +566,8 @@ export default function BucketOpsFeatureDetailFilterFields({
         <TextFilterField
           {...controls}
           field="notificationTopicName"
-          label="Topic name or ARN"
-          placeholder="bucket-events"
+          label={surfaceText("Topic name or ARN")}
+          placeholder={surfaceText("bucket-events")}
         />
         {NOTIFICATION_PRESENCE_FILTERS.map((definition) => (
           <PresenceTextFilterField
@@ -569,15 +579,15 @@ export default function BucketOpsFeatureDetailFilterFields({
         <BooleanFilterField
           {...controls}
           field="notificationEventBridgePresent"
-          label="EventBridge present"
+          label={surfaceText("EventBridge present")}
         />
       </FeatureDetailCard>
 
-      <FeatureDetailCard title="Object Lock and BPA">
+      <FeatureDetailCard title={surfaceText("Object Lock and BPA")}>
         <SelectFilterField
           {...controls}
           field="objectLockMode"
-          label="Object Lock mode"
+          label={surfaceText("Object Lock mode")}
           options={OBJECT_LOCK_MODE_OPTIONS}
         />
         {OBJECT_LOCK_NUMERIC_FILTERS.map((definition) => (
@@ -598,7 +608,7 @@ export default function BucketOpsFeatureDetailFilterFields({
         </div>
       </FeatureDetailCard>
 
-      <FeatureDetailCard title="CORS and Logging">
+      <FeatureDetailCard title={surfaceText("CORS and Logging")}>
         {CORS_PRESENCE_FILTERS.map((definition) => (
           <PresenceTextFilterField
             key={definition.valueField}
@@ -609,23 +619,23 @@ export default function BucketOpsFeatureDetailFilterFields({
         <BooleanFilterField
           {...controls}
           field="loggingEnabled"
-          label="Logging enabled"
+          label={surfaceText("Logging enabled")}
         />
         <TextFilterField
           {...controls}
           field="loggingTargetBucket"
-          label="Logging target bucket"
-          placeholder="audit-bucket"
+          label={surfaceText("Logging target bucket")}
+          placeholder={surfaceText("audit-bucket")}
         />
         <TextFilterField
           {...controls}
           field="loggingTargetPrefix"
-          label="Logging target prefix"
-          placeholder="logs/"
+          label={surfaceText("Logging target prefix")}
+          placeholder={surfaceText("logs/")}
         />
       </FeatureDetailCard>
 
-      <FeatureDetailCard title="Website and Policy">
+      <FeatureDetailCard title={surfaceText("Website and Policy")}>
         <div className="grid grid-cols-2 gap-2">
           {WEBSITE_BOOLEAN_FILTERS.map((definition) => (
             <BooleanFilterField
@@ -639,21 +649,21 @@ export default function BucketOpsFeatureDetailFilterFields({
           <TextFilterField
             {...controls}
             field="websiteIndexDocument"
-            label="Website index document"
-            placeholder="index.html"
+            label={surfaceText("Website index document")}
+            placeholder={surfaceText("index.html")}
           />
           <TextFilterField
             {...controls}
             field="websiteErrorDocument"
-            label="Website error document"
-            placeholder="error.html"
+            label={surfaceText("Website error document")}
+            placeholder={surfaceText("error.html")}
           />
         </div>
         <TextFilterField
           {...controls}
           field="websiteRedirectHost"
-          label="Website redirect host"
-          placeholder="www.example.test"
+          label={surfaceText("Website redirect host")}
+          placeholder={surfaceText("www.example.test")}
         />
         {WEBSITE_NUMERIC_FILTERS.map((definition) => (
           <NumericComparisonField
@@ -665,31 +675,30 @@ export default function BucketOpsFeatureDetailFilterFields({
         <BooleanFilterField
           {...controls}
           field="policyHasConditions"
-          label="Policy has conditions"
+          label={surfaceText("Policy has conditions")}
         />
       </FeatureDetailCard>
 
       <FeatureDetailCard
-        title="Server-side encryption"
+        title={surfaceText("Server-side encryption")}
         disabled={!sseFeatureEnabled}
       >
         {!sseFeatureEnabled && (
           <p className="ui-caption text-slate-500 dark:text-slate-400">
-            Server-side encryption is disabled on this endpoint.
-          </p>
+            {surfaceText("Server-side encryption is disabled on this endpoint.")}</p>
         )}
         <TextFilterField
           {...controls}
           field="sseAlgorithm"
-          label="SSE algorithm"
-          placeholder="AES256"
+          label={surfaceText("SSE algorithm")}
+          placeholder={surfaceText("AES256")}
           disabled={!sseFeatureEnabled}
         />
         <TextFilterField
           {...controls}
           field="sseKmsKeyId"
-          label="SSE KMS key ID"
-          placeholder="key-id or ARN"
+          label={surfaceText("SSE KMS key ID")}
+          placeholder={surfaceText("key-id or ARN")}
           disabled={!sseFeatureEnabled}
         />
       </FeatureDetailCard>

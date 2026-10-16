@@ -24,6 +24,7 @@ import {
   type QuotaSizeUnit,
 } from "./bucketBulkOperationsModel";
 import type { useBucketOpsBulkForm } from "./useBucketOpsBulkForm";
+import { useSharedI18n } from "./sharedI18n";
 
 type BulkFormController = ReturnType<typeof useBucketOpsBulkForm>;
 
@@ -142,6 +143,7 @@ function DeleteCriteriaFields<Key extends string>({
 }
 
 function QuotaFields({ controller }: { controller: BulkFormController }) {
+  const { text: surfaceText } = useSharedI18n();
   const {
     bulkQuotaApplyObjects,
     bulkQuotaApplySize,
@@ -164,31 +166,29 @@ function QuotaFields({ controller }: { controller: BulkFormController }) {
           onChange={(event) => setBulkQuotaApplySize(event.target.checked)}
           className="ui-caption text-slate-600 dark:text-slate-300"
         >
-          Update storage quota
-        </UiCheckboxField>
+          {surfaceText("Update storage quota")}</UiCheckboxField>
         <UiCheckboxField
           checked={bulkQuotaApplyObjects}
           onChange={(event) => setBulkQuotaApplyObjects(event.target.checked)}
           className="ui-caption text-slate-600 dark:text-slate-300"
         >
-          Update object quota
-        </UiCheckboxField>
+          {surfaceText("Update object quota")}</UiCheckboxField>
       </div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
         <UiInput
           id="bucket-ops-bulk-quota-size"
-          label="Storage quota"
+          label={surfaceText("Storage quota")}
           type="number"
           min={0}
           step="any"
           value={bulkQuotaSizeValue}
           onChange={(event) => setBulkQuotaSizeValue(event.target.value)}
-          placeholder="Leave empty to clear"
+          placeholder={surfaceText("Leave empty to clear")}
           disabled={!bulkQuotaApplySize}
         />
         <UiSelect
           id="bucket-ops-bulk-quota-unit"
-          label="Unit"
+          label={surfaceText("Unit")}
           value={bulkQuotaSizeUnit}
           onChange={(event) =>
             setBulkQuotaSizeUnit(event.target.value as QuotaSizeUnit)
@@ -202,13 +202,13 @@ function QuotaFields({ controller }: { controller: BulkFormController }) {
       </div>
       <UiInput
         id="bucket-ops-bulk-quota-objects"
-        label="Object quota"
+        label={surfaceText("Object quota")}
         type="number"
         min={0}
         step={1}
         value={bulkQuotaObjects}
         onChange={(event) => setBulkQuotaObjects(event.target.value)}
-        placeholder="Leave empty to clear"
+        placeholder={surfaceText("Leave empty to clear")}
         disabled={!bulkQuotaApplyObjects}
       />
       <UiCheckboxField
@@ -216,11 +216,9 @@ function QuotaFields({ controller }: { controller: BulkFormController }) {
         onChange={(event) => setBulkQuotaSkipConfigured(event.target.checked)}
         className="ui-caption text-slate-600 dark:text-slate-300"
       >
-        Do not change buckets that already have a quota.
-      </UiCheckboxField>
+        {surfaceText("Do not change buckets that already have a quota.")}</UiCheckboxField>
       <p className="ui-caption text-slate-500 dark:text-slate-400">
-        Leave both fields empty to remove quotas from the selected buckets.
-      </p>
+        {surfaceText("Leave both fields empty to remove quotas from the selected buckets.")}</p>
     </div>
   );
 }
@@ -230,6 +228,7 @@ function PublicAccessBlockFields({
 }: {
   controller: BulkFormController;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const {
     bulkOperation,
     bulkPublicAccessBlockTargets,
@@ -238,7 +237,9 @@ function PublicAccessBlockFields({
   return (
     <div className="space-y-3">
       <p className={uiLabelClass}>
-        Options to {bulkOperation === "add_public_access_block" ? "block" : "unblock"}
+        {surfaceText(
+          bulkOperation === "add_public_access_block" ? "Options to block" : "Options to unblock",
+        )}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {PUBLIC_ACCESS_BLOCK_OPTIONS.map((option) => (
@@ -259,8 +260,7 @@ function PublicAccessBlockFields({
         ))}
       </div>
       <p className="ui-caption text-slate-500 dark:text-slate-400">
-        Only selected options are updated. Unselected options remain unchanged.
-      </p>
+        {surfaceText("Only selected options are updated. Unselected options remain unchanged.")}</p>
     </div>
   );
 }
@@ -270,6 +270,7 @@ export default function BucketOpsBulkConfigurationFields({
 }: {
   controller: BulkFormController;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const {
     bulkCorsDeleteIds,
     bulkCorsDeleteTypes,
@@ -317,14 +318,14 @@ export default function BucketOpsBulkConfigurationFields({
     return (
       <JsonConfigurationFields
         fieldId="bucket-ops-bulk-lifecycle-rules"
-        label="Lifecycle rules (JSON)"
+        label={surfaceText("Lifecycle rules (JSON)")}
         value={bulkLifecycleRuleText}
         onChange={setBulkLifecycleRuleText}
-        placeholder='{"ID":"rule-1","Status":"Enabled","Filter":{"Prefix":"logs/"}}'
-        description="Provide a JSON object or array. Rules will be appended, or will replace existing rules with the same ID."
+        placeholder={surfaceText("{\"ID\":\"rule-1\",\"Status\":\"Enabled\",\"Filter\":{\"Prefix\":\"logs/\"}}")}
+        description={surfaceText("Provide a JSON object or array. Rules will be appended, or will replace existing rules with the same ID.")}
         updateOnlyExisting={{
           checked: bulkLifecycleUpdateOnlyExisting,
-          label: "Only update rules that already exist (do not add new rules).",
+          label: surfaceText("Only update rules that already exist (do not add new rules)."),
           onChange: setBulkLifecycleUpdateOnlyExisting,
         }}
       />
@@ -334,11 +335,11 @@ export default function BucketOpsBulkConfigurationFields({
     return (
       <DeleteCriteriaFields
         fieldId="bucket-ops-bulk-lifecycle-delete-ids"
-        idLabel="Rule IDs (comma, newline, or JSON array)"
+        idLabel={surfaceText("Rule IDs (comma, newline, or JSON array)")}
         ids={bulkLifecycleDeleteIds}
         onIdsChange={setBulkLifecycleDeleteIds}
         idPlaceholder='rule-1, rule-2 or ["rule-1","rule-2"]'
-        typeLabel="Rule types"
+        typeLabel={surfaceText("Rule types")}
         options={LIFECYCLE_TYPE_OPTIONS}
         selectedTypes={bulkLifecycleDeleteTypes}
         onTypeChange={(key, checked) =>
@@ -347,7 +348,7 @@ export default function BucketOpsBulkConfigurationFields({
             [key]: checked,
           }))
         }
-        description="Rules are deleted if the ID matches or if any selected type is present in the rule."
+        description={surfaceText("Rules are deleted if the ID matches or if any selected type is present in the rule.")}
       />
     );
   }
@@ -355,11 +356,11 @@ export default function BucketOpsBulkConfigurationFields({
     return (
       <JsonConfigurationFields
         fieldId="bucket-ops-bulk-notification-configuration"
-        label="Notification configuration (JSON)"
+        label={surfaceText("Notification configuration (JSON)")}
         value={bulkNotificationText}
         onChange={setBulkNotificationText}
         placeholder={`{"${NOTIFICATION_CONFIGURATION_ARRAY_KEYS.topic}":[{"Id":"topic-created","TopicArn":"arn:aws:sns:default:ACCOUNT:topic","Events":["s3:ObjectCreated:*"]}],"${NOTIFICATION_EVENTBRIDGE_KEY}":{}}`}
-        description="Provide a bucket notification configuration object. Entries replace existing entries with the same ID; anonymous entries are appended when they are not already present."
+        description={surfaceText("Provide a bucket notification configuration object. Entries replace existing entries with the same ID; anonymous entries are appended when they are not already present.")}
       />
     );
   }
@@ -367,11 +368,11 @@ export default function BucketOpsBulkConfigurationFields({
     return (
       <DeleteCriteriaFields
         fieldId="bucket-ops-bulk-notification-delete-ids"
-        idLabel="Notification IDs (comma, newline, or JSON array)"
+        idLabel={surfaceText("Notification IDs (comma, newline, or JSON array)")}
         ids={bulkNotificationDeleteIds}
         onIdsChange={setBulkNotificationDeleteIds}
         idPlaceholder='topic-created, queue-created or ["topic-created","queue-created"]'
-        typeLabel="Notification types"
+        typeLabel={surfaceText("Notification types")}
         options={NOTIFICATION_TYPE_OPTIONS}
         selectedTypes={bulkNotificationDeleteTypes}
         onTypeChange={(key, checked) =>
@@ -380,7 +381,7 @@ export default function BucketOpsBulkConfigurationFields({
             [key]: checked,
           }))
         }
-        description="Entries are deleted if the ID matches or if their notification type is selected."
+        description={surfaceText("Entries are deleted if the ID matches or if their notification type is selected.")}
       />
     );
   }
@@ -388,14 +389,14 @@ export default function BucketOpsBulkConfigurationFields({
     return (
       <JsonConfigurationFields
         fieldId="bucket-ops-bulk-cors-rules"
-        label="CORS rules (JSON)"
+        label={surfaceText("CORS rules (JSON)")}
         value={bulkCorsRuleText}
         onChange={setBulkCorsRuleText}
-        placeholder='{"AllowedOrigins":["*"],"AllowedMethods":["GET","HEAD"]}'
-        description="Provide a JSON object or array. Rules are merged by rule ID (if present) or by AllowedOrigins + AllowedMethods."
+        placeholder={surfaceText("{\"AllowedOrigins\":[\"*\"],\"AllowedMethods\":[\"GET\",\"HEAD\"]}")}
+        description={surfaceText("Provide a JSON object or array. Rules are merged by rule ID (if present) or by AllowedOrigins + AllowedMethods.")}
         updateOnlyExisting={{
           checked: bulkCorsUpdateOnlyExisting,
-          label: "Only update rules that already exist (do not add new rules).",
+          label: surfaceText("Only update rules that already exist (do not add new rules)."),
           onChange: setBulkCorsUpdateOnlyExisting,
         }}
       />
@@ -405,11 +406,11 @@ export default function BucketOpsBulkConfigurationFields({
     return (
       <DeleteCriteriaFields
         fieldId="bucket-ops-bulk-cors-delete-ids"
-        idLabel="Rule IDs (comma, newline, or JSON array)"
+        idLabel={surfaceText("Rule IDs (comma, newline, or JSON array)")}
         ids={bulkCorsDeleteIds}
         onIdsChange={setBulkCorsDeleteIds}
         idPlaceholder='rule-1, rule-2 or ["rule-1","rule-2"]'
-        typeLabel="Rule types"
+        typeLabel={surfaceText("Rule types")}
         options={CORS_TYPE_OPTIONS}
         selectedTypes={bulkCorsDeleteTypes}
         onTypeChange={(key, checked) =>
@@ -418,7 +419,7 @@ export default function BucketOpsBulkConfigurationFields({
             [key]: checked,
           }))
         }
-        description="Rules are deleted if the ID matches or if any selected type is present in the rule."
+        description={surfaceText("Rules are deleted if the ID matches or if any selected type is present in the rule.")}
       />
     );
   }
@@ -426,15 +427,14 @@ export default function BucketOpsBulkConfigurationFields({
     return (
       <JsonConfigurationFields
         fieldId="bucket-ops-bulk-policy"
-        label="Policy (JSON)"
+        label={surfaceText("Policy (JSON)")}
         value={bulkPolicyText}
         onChange={setBulkPolicyText}
-        placeholder='{"Version":"2012-10-17","Statement":[{"Sid":"AllowRead","Effect":"Allow","Action":["s3:GetObject"],"Resource":"*","Principal":"*"}]}'
-        description="Provide a policy object, a statement array, or a single statement. Statements are merged by Sid or by Effect/Action/Principal/Resource."
+        placeholder={surfaceText("{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AllowRead\",\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":\"*\",\"Principal\":\"*\"}]}")}
+        description={surfaceText("Provide a policy object, a statement array, or a single statement. Statements are merged by Sid or by Effect/Action/Principal/Resource.")}
         updateOnlyExisting={{
           checked: bulkPolicyUpdateOnlyExisting,
-          label:
-            "Only update statements that already exist (do not add new statements).",
+          label: surfaceText("Only update statements that already exist (do not add new statements)."),
           onChange: setBulkPolicyUpdateOnlyExisting,
         }}
       />
@@ -444,11 +444,11 @@ export default function BucketOpsBulkConfigurationFields({
     return (
       <DeleteCriteriaFields
         fieldId="bucket-ops-bulk-policy-delete-ids"
-        idLabel="Statement IDs (Sid) (comma, newline, or JSON array)"
+        idLabel={surfaceText("Statement IDs (Sid) (comma, newline, or JSON array)")}
         ids={bulkPolicyDeleteIds}
         onIdsChange={setBulkPolicyDeleteIds}
         idPlaceholder='AllowRead, DenyWrite or ["AllowRead","DenyWrite"]'
-        typeLabel="Statement types"
+        typeLabel={surfaceText("Statement types")}
         options={POLICY_TYPE_OPTIONS}
         selectedTypes={bulkPolicyDeleteTypes}
         onTypeChange={(key, checked) =>
@@ -457,7 +457,7 @@ export default function BucketOpsBulkConfigurationFields({
             [key]: checked,
           }))
         }
-        description="Statements are deleted if the Sid matches or if any selected type is present."
+        description={surfaceText("Statements are deleted if the Sid matches or if any selected type is present.")}
       />
     );
   }

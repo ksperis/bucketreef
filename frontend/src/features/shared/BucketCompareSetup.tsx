@@ -11,6 +11,7 @@ import UiSelect from "../../components/ui/UiSelect";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS } from "./bucketCompareShared";
 import { BucketOperationProgress, BucketOperationSetup } from "./bucketOperationRunUi";
+import { useSharedI18n } from "./sharedI18n";
 
 type ConfigFeature = (typeof BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS)[number]["key"];
 
@@ -47,69 +48,71 @@ export default function BucketCompareSetup({
   onIgnoreModifiedAfterChange, ignoreModifiedAfterInvalid, selectedConfigFeatures,
   onConfigFeaturesChange, onConfigFeatureChange, running, children,
 }: BucketCompareSetupProps) {
+  const { text: surfaceText } = useSharedI18n();
   return (
     <BucketOperationSetup
-      targetLabel={`Compare ${sourceCount} source bucket${sourceCount > 1 ? "s" : ""}`}
-      contextLabel={<span className="break-all">Source: {sourceName}</span>}
+      targetLabel={surfaceText(
+        sourceCount === 1 ? "Compare {count} source bucket" : "Compare {count} source buckets",
+        { count: sourceCount },
+      )}
+      contextLabel={<span className="break-all">{surfaceText("Source:")}{sourceName}</span>}
       actions={actions}
     >
       <div className="grid gap-3 sm:grid-cols-2">
         {targetSelector}
-        <UiSelect label="Mapping mode" value={mappingMode} disabled={running}
+        <UiSelect label={surfaceText("Mapping mode")} value={mappingMode} disabled={running}
           onChange={(event) => onMappingModeChange(event.target.value as "by_name" | "manual")}>
           <option value="by_name" disabled={sameTarget}>
-            1:1 by bucket name{sameTarget ? ` (disabled on same ${targetKind})` : ""}
+            {sameTarget
+              ? surfaceText("1:1 by bucket name (disabled on same {target})", { target: targetKind })
+              : surfaceText("1:1 by bucket name")}
           </option>
-          <option value="manual">Manual mapping</option>
+          <option value="manual">{surfaceText("Manual mapping")}</option>
         </UiSelect>
       </div>
       {sameTarget && (
         <UiInlineMessage tone="warning">
-          Same-{targetKind} comparison is enabled: manual mapping is required, and selected source buckets are excluded from targets.
-        </UiInlineMessage>
+          {surfaceText("Same-")}{targetKind} {surfaceText("comparison is enabled: manual mapping is required, and selected source buckets are excluded from targets.")}</UiInlineMessage>
       )}
       <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_8rem_minmax(15rem,1fr)]">
         <fieldset className="min-w-0 space-y-1">
-          <legend className="ui-field-label">Comparison scope</legend>
+          <legend className="ui-field-label">{surfaceText("Comparison scope")}</legend>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <UiCheckboxField className="bucket-operation-checkbox" checked={includeContent}
               onChange={(event) => onIncludeContentChange(event.target.checked)} disabled={running}>
-              Compare bucket content
-            </UiCheckboxField>
+              {surfaceText("Compare bucket content")}</UiCheckboxField>
             <UiCheckboxField className="bucket-operation-checkbox" checked={includeConfig}
               onChange={(event) => onIncludeConfigChange(event.target.checked)} disabled={running}>
-              Compare bucket configuration
-            </UiCheckboxField>
+              {surfaceText("Compare bucket configuration")}</UiCheckboxField>
           </div>
         </fieldset>
-        <UiInput label="Parallelism" type="number" min={1} max={20}
+        <UiInput label={surfaceText("Parallelism")} type="number" min={1} max={20}
           value={parallelism} onChange={(event) => onParallelismChange(Number(event.target.value))} disabled={running} />
-        <UiInput label="Ignore objects modified after" type="datetime-local"
+        <UiInput label={surfaceText("Ignore objects modified after")} type="datetime-local"
           value={ignoreModifiedAfter} onChange={(event) => onIgnoreModifiedAfterChange(event.target.value)} disabled={running}
-          error={ignoreModifiedAfterInvalid ? "Enter a valid modified-after cutoff or clear the field." : undefined} />
+          error={ignoreModifiedAfterInvalid ? surfaceText("Enter a valid modified-after cutoff or clear the field.") : undefined} />
       </div>
-      {!includeContent && !includeConfig && <UiInlineMessage tone="warning">Select at least one comparison scope to run.</UiInlineMessage>}
+      {!includeContent && !includeConfig && <UiInlineMessage tone="warning">{surfaceText("Select at least one comparison scope to run.")}</UiInlineMessage>}
       {includeConfig && (
         <UiDetails className="bucket-operation-disclosure">
           <summary>
-            Configuration features to compare
-          </summary>
+            {surfaceText("Configuration features to compare")}</summary>
           <div className="space-y-3 border-t border-[var(--ui-border-soft)] p-3">
             <div className="flex flex-wrap gap-2">
               <UiButton variant="secondary" disabled={running}
-                onClick={() => onConfigFeaturesChange(BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS.map((option) => option.key))}>Select all</UiButton>
-              <UiButton variant="secondary" disabled={running} onClick={() => onConfigFeaturesChange([])}>Clear</UiButton>
+                onClick={() => onConfigFeaturesChange(BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS.map((option) => option.key))}>{surfaceText("Select all")}</UiButton>
+              <UiButton variant="secondary" disabled={running} onClick={() => onConfigFeaturesChange([])}>{surfaceText("Clear")}</UiButton>
             </div>
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               {BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS.map((option) => (
                 <UiCheckboxField key={option.key} className="bucket-operation-checkbox"
                   checked={selectedConfigFeatures.includes(option.key)} disabled={running}
                   onChange={(event) => onConfigFeatureChange(option.key, event.target.checked)}>
-                  {option.label}
+                  {surfaceText(option.label)}
                 </UiCheckboxField>
               ))}
             </div>
-            {selectedConfigFeatures.length === 0 && <UiInlineMessage tone="warning">Select at least one configuration feature.</UiInlineMessage>}
+            {selectedConfigFeatures.length === 0 && <UiInlineMessage tone="warning">{surfaceText("Select at least one configuration feature.")}</UiInlineMessage>}
           </div>
         </UiDetails>
       )}
@@ -123,11 +126,12 @@ export function BucketCompareProgress({ running, progress, percent }: {
   progress: { completed: number; total: number; failed: number; cancelled: number };
   percent: number;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   return (
-    <BucketOperationProgress label="Bucket comparison progress" value={percent}
+    <BucketOperationProgress label={surfaceText("Bucket comparison progress")} value={percent}
       stage={`${running ? "Processing" : "Completed"} ${progress.completed} / ${progress.total} mappings`}
       metrics={`${percent}%`}>
-      Failures so far: {progress.failed} · Cancelled so far: {progress.cancelled}
+      {surfaceText("Failures so far:")}{progress.failed} {surfaceText("· Cancelled so far:")}{progress.cancelled}
     </BucketOperationProgress>
   );
 }

@@ -5,6 +5,7 @@
 import { useId } from "react";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { cx, uiMutedTextClass, uiPanelMutedClass, uiTitleTextClass } from "../../components/ui/styles";
+import { useSharedI18n } from "./sharedI18n";
 
 type S3ConnectionAccessFieldsProps = {
   accessManager: boolean;
@@ -31,6 +32,7 @@ export default function S3ConnectionAccessFields({
   identitySummary,
   error,
 }: S3ConnectionAccessFieldsProps) {
+  const { text: surfaceText } = useSharedI18n();
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -46,8 +48,7 @@ export default function S3ConnectionAccessFields({
           aria-invalid={Boolean(error)}
           className="settings-choice ui-body text-[var(--ui-text)]"
         >
-          Access manager
-        </UiCheckboxField>
+          {surfaceText("Access manager")}</UiCheckboxField>
         <UiCheckboxField
           checked={accessBrowser}
           onChange={(event) => onAccessBrowserChange(event.target.checked)}
@@ -55,12 +56,11 @@ export default function S3ConnectionAccessFields({
           aria-invalid={Boolean(error)}
           className="settings-choice ui-body text-[var(--ui-text)]"
         >
-          Access browser
-        </UiCheckboxField>
+          {surfaceText("Access browser")}</UiCheckboxField>
       </div>
       <p id={hintId} className={cx("ui-caption", uiMutedTextClass)}>{hint}</p>
       {error && <p id={errorId} role="alert" className="ui-caption text-rose-600 dark:text-rose-200">{error}</p>}
-      {identitySummary ? <p className={cx("ui-caption [overflow-wrap:anywhere]", uiMutedTextClass)}>RGW identity: {identitySummary}</p> : null}
+      {identitySummary ? <p className={cx("ui-caption [overflow-wrap:anywhere]", uiMutedTextClass)}>{surfaceText("RGW identity:")}{identitySummary}</p> : null}
     </section>
   );
 }

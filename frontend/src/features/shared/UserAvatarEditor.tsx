@@ -9,6 +9,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { profileError, type ProfileText } from "./profileMessages";
+import { useSharedI18n } from "./sharedI18n";
 
 type UserAvatarDraft = { preference: UserAvatarPreference; file: File | null; remove: boolean };
 
@@ -18,6 +19,7 @@ export default function UserAvatarEditor({ avatar, name, email, text, disabled, 
   onSave: (draft: UserAvatarDraft) => Promise<void>;
   onDirtyChange: (dirty: boolean) => void; onBusyChange: (busy: boolean) => void;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<UserAvatarDraft>({ preference: "auto", file: null, remove: false });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export default function UserAvatarEditor({ avatar, name, email, text, disabled, 
           <p className="settings-body text-[var(--ui-text-muted)]">{text("imageHelp")}</p></div>
         <UiSelect ref={sourceInput} label={text("imageSource")} value={draft.preference} disabled={busy}
           onChange={event => { setDraft(previous => ({ ...previous, preference: event.target.value as UserAvatarPreference, remove: false })); setError(null); }}>
-          <option value="auto">{text("auto")}</option><option value="gravatar">Gravatar</option><option value="initials">{text("initials")}</option>
+          <option value="auto">{text("auto")}</option><option value="gravatar">{surfaceText("Gravatar")}</option><option value="initials">{text("initials")}</option>
           {(avatar?.source === "uploaded" || draft.file) && <option value="uploaded">{text("uploaded")}</option>}
         </UiSelect>
         <p className="settings-body text-[var(--ui-text-muted)]">{text("autoImageHelp")}</p>

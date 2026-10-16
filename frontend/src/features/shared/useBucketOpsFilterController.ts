@@ -36,6 +36,7 @@ import {
 } from "./bucketOpsAdvancedFilterModel";
 import { buildBucketOpsAdvancedFilterUiProjection } from "./bucketOpsAdvancedFilterUiProjection";
 import type { BucketListState } from "./bucketOpsListState";
+import type { SharedText } from "./sharedI18n";
 
 type StateSetter<Value> = Dispatch<SetStateAction<Value>>;
 type AdvancedFilterRemoveAction = Exclude<
@@ -91,6 +92,7 @@ type UseBucketOpsFilterControllerOptions = {
   setQuickFilterMode: StateSetter<TextMatchMode>;
   setTagFilterMode: StateSetter<BucketListState["tagFilterMode"]>;
   setTagFilters: StateSetter<number[]>;
+  text?: SharedText;
   usageFeatureEnabled: boolean;
 };
 
@@ -110,6 +112,7 @@ export function useBucketOpsFilterController({
   setQuickFilterMode,
   setTagFilterMode,
   setTagFilters,
+  text,
   usageFeatureEnabled,
 }: UseBucketOpsFilterControllerOptions) {
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
@@ -241,6 +244,7 @@ export function useBucketOpsFilterController({
         isStorageOps,
         quickFilterApplied: filterValue,
         quickFilterDraft: filter,
+        text,
         usageFeatureEnabled,
       }),
     [
@@ -250,6 +254,7 @@ export function useBucketOpsFilterController({
       filter,
       filterValue,
       isStorageOps,
+      text,
       usageFeatureEnabled,
     ],
   );

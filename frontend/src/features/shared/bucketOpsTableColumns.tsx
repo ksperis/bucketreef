@@ -35,6 +35,7 @@ type BuildBucketOpsDataColumnsInput = {
   renderOwnerCell: (bucket: CephAdminBucket) => ReactNode;
   renderS3Tags: (bucket: CephAdminBucket) => ReactNode;
   renderUiTags: (bucket: CephAdminBucket) => ReactNode;
+  text?: (message: string, values?: Record<string, string | number>) => string;
   visibleColumns: readonly ColumnId[];
 };
 
@@ -53,6 +54,7 @@ export function buildBucketOpsDataColumns({
   renderOwnerCell,
   renderS3Tags,
   renderUiTags,
+  text = (message) => message,
   visibleColumns,
 }: BuildBucketOpsDataColumnsInput): BucketOpsTableColumn[] {
   const dataColumns: BucketOpsDataColumn[] = [
@@ -70,9 +72,9 @@ export function buildBucketOpsDataColumns({
       field: null,
       headerClassName: "w-28",
       render: (bucket) => {
-        if (bucket.context_kind === "account") return "Account";
-        if (bucket.context_kind === "connection") return "Connection";
-        if (bucket.context_kind === "s3_user") return "S3 user";
+        if (bucket.context_kind === "account") return text("Account");
+        if (bucket.context_kind === "connection") return text("Connection");
+        if (bucket.context_kind === "s3_user") return text("S3 user");
         return "-";
       },
     },
@@ -90,7 +92,6 @@ export function buildBucketOpsDataColumns({
       id: "ui_tags",
       label: "UI tags",
       field: null,
-      header: <span>UI tags</span>,
       headerClassName: "min-w-[12rem] max-w-[24rem]",
       cellClassName: "min-w-[12rem] max-w-[24rem]",
       render: renderUiTags,
@@ -126,7 +127,7 @@ export function buildBucketOpsDataColumns({
       field: null,
       expensive: true,
       headerClassName: "w-36",
-      render: (bucket) => formatOwnerSuspended(bucket.owner_suspended),
+      render: (bucket) => text(formatOwnerSuspended(bucket.owner_suspended)),
     },
     {
       id: "owner_used_bytes",
@@ -268,13 +269,13 @@ export function buildBucketOpsDataColumns({
       headerClassName: "w-32",
       render: (bucket) => {
         const configured = isBucketQuotaConfigured(bucket);
-        const state = configured ? "Configured" : "Not set";
+        const state = text(configured ? "Configured" : "Not set");
         return (
           <PropertySummaryChip
             compact
             state={state}
             tone={configured ? "active" : "inactive"}
-            title={`Quota: ${state}`}
+            title={text("Quota: {state}", { state })}
           />
         );
       },

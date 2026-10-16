@@ -128,6 +128,7 @@ import {
   ownerFilterFromSearch,
   sanitizeExportFilenamePart,
 } from "./bucketOpsPresentation";
+import { useSharedI18n } from "./sharedI18n";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -160,6 +161,7 @@ type BucketOpsWorkbenchProps = {
 };
 
 export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchProps) {
+  const { text: surfaceText } = useSharedI18n();
   const location = useLocation();
   const { generalSettings } = useGeneralSettings();
   const {
@@ -311,6 +313,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
     setQuickFilterMode,
     setTagFilterMode,
     setTagFilters,
+    text: surfaceText,
     usageFeatureEnabled,
   });
   const {
@@ -1006,6 +1009,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
 
   const bucketTableColumns = buildBucketOpsTableColumns({
     featureColumns: featureColumnOptions,
+    text: surfaceText,
     renderActions: (bucket) => (
       <BucketOpsRowActionsMenu
         bucket={bucket}
@@ -1089,13 +1093,13 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       )}
     >
       <PageHeader
-        title="Buckets"
+        title={surfaceText("Buckets")}
         description={shell.pageDescription}
-        breadcrumbs={[surface.breadcrumb, { label: "Buckets" }]}
+        breadcrumbs={[surface.breadcrumb, { label: surfaceText("Buckets") }]}
       />
 
       {error && <PageBanner tone="error">{error}</PageBanner>}
-      {uiTagsError && <PageBanner tone="error">Bucket UI tags: {uiTagsError}</PageBanner>}
+      {uiTagsError && <PageBanner tone="error">{surfaceText("Bucket UI tags:")}{uiTagsError}</PageBanner>}
       {statsWarning && <PageBanner tone="warning">{statsWarning}</PageBanner>}
       {!statsWarning && storageOpsStatsWarning && (
         <PageBanner tone="warning">{storageOpsStatsWarning}</PageBanner>
@@ -1103,7 +1107,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
 
       {!selectedEndpointId && shell.emptyState ? <PageEmptyState {...shell.emptyState} /> : null}
       <ListPageSection variant="page"
-          title="Buckets"
+          title={surfaceText("Buckets")}
           countLabel={`${total} result(s)`}
           search={
             <BucketOpsQuickFilter controller={filterController} value={filter} />
@@ -1138,11 +1142,10 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
                 advancedProgress.active
               }
               className={cx(toolbarCompactButtonClasses, "inline-flex items-center gap-2")}
-              title="Flush cached bucket listings and reload"
+              title={surfaceText("Flush cached bucket listings and reload")}
             >
               <RefreshIcon className={`h-3.5 w-3.5 ${cacheRefreshLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
+              {surfaceText("Refresh")}</button>
           }
           secondaryContent={
             showAdvancedFilter || showActiveFiltersCard ? (
@@ -1213,7 +1216,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
         {(selectAllProgress || advancedProgress.active) && (
           <div className="px-3 pt-3">
             {selectAllProgress && <ActionProgressCard progress={selectAllProgress} busy className="mb-3" />}
-            {renderAdvancedSearchProgress(advancedProgress)}
+            {renderAdvancedSearchProgress(advancedProgress, surfaceText)}
           </div>
         )}
 

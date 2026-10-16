@@ -14,6 +14,7 @@ import {
   type FilterCostLevel,
   type TextMatchMode,
 } from "./advancedFilterShared";
+import { useSharedI18n } from "./sharedI18n";
 
 type AdvancedFilterTextMatchFieldProps = {
   children?: ReactNode;
@@ -56,6 +57,7 @@ export default function AdvancedFilterTextMatchField({
   textareaClassName,
   value,
 }: AdvancedFilterTextMatchFieldProps) {
+  const { text: surfaceText } = useSharedI18n();
   const controlId = useId();
 
   return (
@@ -69,7 +71,7 @@ export default function AdvancedFilterTextMatchField({
           label={label}
         />
         <UiSegmentedControl
-          ariaLabel="Match mode"
+          ariaLabel={surfaceText("Match mode")}
           value={matchMode}
           onChange={onMatchModeChange}
           options={[

@@ -11,6 +11,7 @@ import {
   type AdvancedFilterState,
 } from "./bucketOpsAdvancedFilterModel";
 import type { useBucketOpsFilterController } from "./useBucketOpsFilterController";
+import { useSharedI18n } from "./sharedI18n";
 
 type FilterController = ReturnType<typeof useBucketOpsFilterController>;
 
@@ -44,6 +45,7 @@ export default function BucketOpsIdentityFilterFields({
   advancedDraft,
   controller,
 }: BucketOpsIdentityFilterFieldsProps) {
+  const { text: surfaceText } = useSharedI18n();
   const {
     ownerDraftEffectiveMatchMode,
     ownerDraftForcesExact,
@@ -71,13 +73,13 @@ export default function BucketOpsIdentityFilterFields({
         costTooltip="Low cost: tenant filter runs on direct bucket metadata."
         fieldState={tenantFieldState}
         forcesExact={tenantDraftForcesExact}
-        label="Tenant"
+        label={surfaceText("Tenant")}
         matchMode={tenantDraftEffectiveMatchMode}
         onChange={(value) => updateAdvancedField("tenant", value)}
         onMatchModeChange={(value) =>
           updateAdvancedMatchMode("tenantMatchMode", value)
         }
-        placeholder="tenant-a, tenant-b"
+        placeholder={surfaceText("tenant-a, tenant-b")}
         value={advancedDraft.tenant}
       />
 
@@ -86,13 +88,13 @@ export default function BucketOpsIdentityFilterFields({
         costTooltip="Low cost: owner filter runs on direct bucket metadata."
         fieldState={ownerFieldState}
         forcesExact={ownerDraftForcesExact}
-        label="Owner"
+        label={surfaceText("Owner")}
         matchMode={ownerDraftEffectiveMatchMode}
         onChange={(value) => updateAdvancedField("owner", value)}
         onMatchModeChange={(value) =>
           updateAdvancedMatchMode("ownerMatchMode", value)
         }
-        placeholder="owner uid(s)"
+        placeholder={surfaceText("owner uid(s)")}
         value={advancedDraft.owner}
       />
 
@@ -102,19 +104,19 @@ export default function BucketOpsIdentityFilterFields({
         costTooltip="Medium cost: owner-name filters require owner identity lookups."
         fieldState={ownerNameFieldState}
         forcesExact={ownerNameDraftForcesExact}
-        label="Owner name"
+        label={surfaceText("Owner name")}
         matchMode={ownerNameDraftEffectiveMatchMode}
         onChange={(value) => updateAdvancedField("ownerName", value)}
         onMatchModeChange={(value) =>
           updateAdvancedMatchMode("ownerNameMatchMode", value)
         }
-        placeholder="display name(s)"
+        placeholder={surfaceText("display name(s)")}
         value={advancedDraft.ownerName}
       >
         <div className="mt-2 max-w-xs">
           <UiSelect
-            label="Owner type"
-            title="Owner entity scope"
+            label={surfaceText("Owner type")}
+            title={surfaceText("Owner entity scope")}
             size="compact"
             value={advancedDraft.ownerNameScope}
             onChange={(event) =>
@@ -124,15 +126,15 @@ export default function BucketOpsIdentityFilterFields({
             }
             className={cx("ui-list-control", ownerNameFieldState.fieldClass)}
           >
-            <option value="any">Accounts + Users</option>
-            <option value="account">Accounts only</option>
-            <option value="user">Users only</option>
+            <option value="any">{surfaceText("Accounts + Users")}</option>
+            <option value="account">{surfaceText("Accounts only")}</option>
+            <option value="user">{surfaceText("Users only")}</option>
           </UiSelect>
         </div>
       </AdvancedFilterTextMatchField>
 
       <AdvancedFilterSelectField
-        label="Owner suspended"
+        label={surfaceText("Owner suspended")}
         costLevel="medium"
         costTooltip="Medium cost: owner-suspended filters require owner status lookups."
         fieldState={ownerSuspendedFieldState}
@@ -156,18 +158,18 @@ export default function BucketOpsIdentityFilterFields({
         costTooltip="High cost: S3 tag filters require bucket tag retrieval."
         fieldState={s3TagsFieldState}
         forcesExact={s3TagsDraftForcesExact}
-        label="S3 tags"
+        label={surfaceText("S3 tags")}
         matchMode={s3TagsDraftEffectiveMatchMode}
         onChange={(value) => updateAdvancedField("s3Tags", value)}
         onMatchModeChange={(value) =>
           updateAdvancedMatchMode("s3TagsMatchMode", value)
         }
-        placeholder="env=prod, team=storage"
+        placeholder={surfaceText("env=prod, team=storage")}
         value={advancedDraft.s3Tags}
       >
         <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-          Comma or newline separated expressions. Format examples:{" "}
-          <code>key=value</code>, <code>env</code>.
+          {surfaceText("Comma or newline separated expressions. Format examples:")}{" "}
+          <code>{surfaceText("key=value")}</code>, <code>{surfaceText("env")}</code>.
         </p>
       </AdvancedFilterTextMatchField>
     </>

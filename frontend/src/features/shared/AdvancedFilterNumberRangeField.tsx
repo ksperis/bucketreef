@@ -12,6 +12,7 @@ import {
   type AdvancedFilterFieldState,
   type FilterCostLevel,
 } from "./advancedFilterShared";
+import { useSharedI18n } from "./sharedI18n";
 
 type AdvancedFilterNumberRangeFieldProps = {
   accessibleLabel?: string;
@@ -46,6 +47,7 @@ export default function AdvancedFilterNumberRangeField({
   onMaxChange,
   onMinChange,
 }: AdvancedFilterNumberRangeFieldProps) {
+  const { text: surfaceText } = useSharedI18n();
   const fieldId = useId();
   const minId = `${fieldId}-min`;
   const maxId = `${fieldId}-max`;
@@ -68,8 +70,8 @@ export default function AdvancedFilterNumberRangeField({
           min={inputMin}
           value={minValue}
           onChange={(event) => onMinChange(event.target.value)}
-          aria-label={`${controlLabel} minimum`}
-          placeholder="Min"
+          aria-label={surfaceText("{label} minimum", { label: controlLabel })}
+          placeholder={surfaceText("Min")}
           disabled={disabled}
           size="compact"
           fieldClassName="min-w-0"
@@ -82,8 +84,8 @@ export default function AdvancedFilterNumberRangeField({
           min={inputMin}
           value={maxValue}
           onChange={(event) => onMaxChange(event.target.value)}
-          aria-label={`${controlLabel} maximum`}
-          placeholder="Max"
+          aria-label={surfaceText("{label} maximum", { label: controlLabel })}
+          placeholder={surfaceText("Max")}
           disabled={disabled}
           size="compact"
           fieldClassName="min-w-0"

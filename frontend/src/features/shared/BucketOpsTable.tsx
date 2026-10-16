@@ -10,6 +10,7 @@ import TableEmptyState from "../../components/TableEmptyState";
 import type { SortField } from "./bucketOpsListState";
 import { isStatsSortField } from "./bucketOpsPresentation";
 import "./bucketOpsTable.css";
+import { useSharedI18n } from "./sharedI18n";
 
 export type BucketOpsTableColumn = {
   id: string;
@@ -99,10 +100,11 @@ export default function BucketOpsTable({
   status,
   usageFeatureEnabled,
 }: BucketOpsTableProps) {
+  const { text: surfaceText } = useSharedI18n();
   return (
     <div
       role="region"
-      aria-label="Bucket list"
+      aria-label={surfaceText("Bucket list")}
       tabIndex={showAdvancedFilter ? -1 : 0}
       className={`bucket-ops-table-scroll ${showAdvancedFilter ? "overflow-x-hidden" : "overflow-x-auto"}`}
     >
@@ -128,7 +130,7 @@ export default function BucketOpsTable({
                     } ${column.id === "select" ? "w-10" : ""} ${className}`}
                   >
                     <div className="flex items-start">
-                      {column.header ?? column.label}
+                      {column.header ?? surfaceText(column.label)}
                     </div>
                   </th>
                 );
@@ -136,13 +138,13 @@ export default function BucketOpsTable({
               return (
                 <SortableHeader
                   key={column.id}
-                  label={column.label}
+                  label={surfaceText(column.label)}
                   field={column.field}
                   activeField={sort.field}
                   direction={sort.direction}
                   align={
                     column.align ??
-                    (column.label === "Actions" ? "right" : "left")
+                    (column.id === "actions" ? "right" : "left")
                   }
                   className={className}
                   onSort={
@@ -159,18 +161,18 @@ export default function BucketOpsTable({
           {status === "loading" && (
             <TableEmptyState
               colSpan={columns.length}
-              message="Loading buckets..."
+              message={surfaceText("Loading buckets...")}
             />
           )}
           {status === "error" && (
             <TableEmptyState
               colSpan={columns.length}
-              message="Unable to load buckets."
+              message={surfaceText("Unable to load buckets.")}
               tone="error"
             />
           )}
           {status === "empty" && (
-            <TableEmptyState colSpan={columns.length} message="No buckets." />
+            <TableEmptyState colSpan={columns.length} message={surfaceText("No buckets.")} />
           )}
           {items.map((bucket) => (
             <tr
@@ -187,7 +189,7 @@ export default function BucketOpsTable({
                   )}
                   data-label={
                     responsiveCards && !["select", "name", "actions"].includes(column.id)
-                      ? column.label
+                      ? surfaceText(column.label)
                       : undefined
                   }
                   data-mobile-actions={

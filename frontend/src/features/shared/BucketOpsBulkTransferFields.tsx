@@ -14,6 +14,7 @@ import {
 } from "./bucketBulkOperationsModel";
 import { normalizeBucketName } from "./bucketOpsPresentation";
 import type { useBucketOpsBulkForm } from "./useBucketOpsBulkForm";
+import { useSharedI18n } from "./sharedI18n";
 
 type BulkFormController = Pick<
   ReturnType<typeof useBucketOpsBulkForm>,
@@ -50,6 +51,7 @@ export default function BucketOpsBulkTransferFields({
   selectedCount,
   snsFeatureEnabled,
 }: BucketOpsBulkTransferFieldsProps) {
+  const { text: surfaceText } = useSharedI18n();
   const {
     bulkCopyFeatures,
     bulkOperation,
@@ -78,76 +80,79 @@ export default function BucketOpsBulkTransferFields({
   return (
     <>
       <p className="ui-body text-slate-700 dark:text-slate-200">
-        Apply configuration to{" "}
-        <span className="font-semibold">
-          {selectedCount} bucket{selectedCount > 1 ? "s" : ""}
-        </span>
-        .
+        {surfaceText(
+          selectedCount === 1
+            ? "Apply configuration to {count} bucket."
+            : "Apply configuration to {count} buckets.",
+          { count: selectedCount },
+        )}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <UiSelect
           id="bucket-ops-bulk-operation"
-          label="Operation"
+          label={surfaceText("Operation")}
           value={bulkOperation}
           onChange={(event) =>
             setBulkOperation(event.target.value as BulkOperation)
           }
         >
-            <option value="">Select an S3 API operation</option>
-            <optgroup label="Configuration transfer">
-              <option value="copy_configs">Copy configurations</option>
+            <option value="">{surfaceText("Select an S3 API operation")}</option>
+            <optgroup label={surfaceText("Configuration transfer")}>
+              <option value="copy_configs">{surfaceText("Copy configurations")}</option>
               <option value="paste_configs" disabled={!clipboard}>
-                {clipboard
-                  ? "Paste copied configurations"
-                  : "Paste copied configurations (nothing copied)"}
+                {surfaceText(
+                  clipboard
+                    ? "Paste copied configurations"
+                    : "Paste copied configurations (nothing copied)",
+                )}
               </option>
             </optgroup>
-            <optgroup label="Access and quota">
+            <optgroup label={surfaceText("Access and quota")}>
               {!isStorageOps && (
                 <option
                   value="set_quota"
                   disabled={Boolean(quotaDisabledReason)}
                 >
                   {quotaDisabledReason
-                    ? `Set bucket quota (${quotaDisabledReason})`
-                    : "Set bucket quota"}
+                    ? surfaceText("Set bucket quota ({reason})", { reason: quotaDisabledReason })
+                    : surfaceText("Set bucket quota")}
                 </option>
               )}
               <option value="add_public_access_block">
-                Add block public access
-              </option>
+                {surfaceText("Add block public access")}</option>
               <option value="remove_public_access_block">
-                Remove block public access
-              </option>
+                {surfaceText("Remove block public access")}</option>
             </optgroup>
-            <optgroup label="Versioning">
-              <option value="enable_versioning">Enable versioning</option>
-              <option value="disable_versioning">Disable versioning</option>
+            <optgroup label={surfaceText("Versioning")}>
+              <option value="enable_versioning">{surfaceText("Enable versioning")}</option>
+              <option value="disable_versioning">{surfaceText("Disable versioning")}</option>
             </optgroup>
-            <optgroup label="Rules and policies">
+            <optgroup label={surfaceText("Rules and policies")}>
               <option value="add_lifecycle">
-                Add or update lifecycle rules
-              </option>
-              <option value="delete_lifecycle">Delete lifecycle rules</option>
+                {surfaceText("Add or update lifecycle rules")}</option>
+              <option value="delete_lifecycle">{surfaceText("Delete lifecycle rules")}</option>
               <option value="add_notifications" disabled={!snsFeatureEnabled}>
-                {snsFeatureEnabled
-                  ? "Add or update notification configurations"
-                  : "Add or update notification configurations (SNS unavailable)"}
+                {surfaceText(
+                  snsFeatureEnabled
+                    ? "Add or update notification configurations"
+                    : "Add or update notification configurations (SNS unavailable)",
+                )}
               </option>
               <option
                 value="delete_notifications"
                 disabled={!snsFeatureEnabled}
               >
-                {snsFeatureEnabled
-                  ? "Delete notification configurations"
-                  : "Delete notification configurations (SNS unavailable)"}
+                {surfaceText(
+                  snsFeatureEnabled
+                    ? "Delete notification configurations"
+                    : "Delete notification configurations (SNS unavailable)",
+                )}
               </option>
-              <option value="add_cors">Add or update CORS rules</option>
-              <option value="delete_cors">Delete CORS rules</option>
+              <option value="add_cors">{surfaceText("Add or update CORS rules")}</option>
+              <option value="delete_cors">{surfaceText("Delete CORS rules")}</option>
               <option value="add_policy">
-                Add or update policy statements
-              </option>
-              <option value="delete_policy">Delete policy statements</option>
+                {surfaceText("Add or update policy statements")}</option>
+              <option value="delete_policy">{surfaceText("Delete policy statements")}</option>
             </optgroup>
         </UiSelect>
       </div>
@@ -156,8 +161,7 @@ export default function BucketOpsBulkTransferFields({
         <div className="space-y-4">
           <div className="space-y-2">
             <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Configurations to copy
-            </p>
+              {surfaceText("Configurations to copy")}</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {(Object.keys(BULK_COPY_FEATURE_LABELS) as BulkCopyFeatureKey[])
                 .filter((feature) => !isStorageOps || feature !== "quota")
@@ -182,21 +186,24 @@ export default function BucketOpsBulkTransferFields({
           {clipboard && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/40">
               <p className="ui-caption text-slate-600 dark:text-slate-300">
-                Clipboard currently contains config from{" "}
-                <span className="font-semibold">{clipboard.buckets.length}</span>{" "}
-                bucket{clipboard.buckets.length > 1 ? "s" : ""} on{" "}
+                {surfaceText(
+                  clipboard.buckets.length === 1
+                    ? "Clipboard contains configuration from {count} bucket on"
+                    : "Clipboard contains configuration from {count} buckets on",
+                  { count: clipboard.buckets.length },
+                )}{" "}
                 <span className="font-semibold">
                   {clipboard.sourceEndpointName ??
                     `${scopeDisplayName} #${clipboard.sourceEndpointId}`}
                 </span>
                 {clipboardCopiedAtLabel
-                  ? ` (copied ${clipboardCopiedAtLabel})`
+                  ? surfaceText(" (copied {date})", { date: clipboardCopiedAtLabel })
                   : ""}
                 .
               </p>
               {clipboardFeatureLabels.length > 0 && (
                 <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                  Features: {clipboardFeatureLabels.join(", ")}.
+                  {surfaceText("Features:")}{clipboardFeatureLabels.join(", ")}.
                 </p>
               )}
             </div>
@@ -208,40 +215,44 @@ export default function BucketOpsBulkTransferFields({
         <div className="space-y-4">
           {!clipboard ? (
             <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
-              No copied configuration available. Use "Copy configs" first.
-            </p>
+              {surfaceText("No copied configuration available. Use \"Copy configs\" first.")}</p>
           ) : (
             <>
               <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/40">
                 <p className="ui-caption text-slate-700 dark:text-slate-200">
-                  Source:{" "}
+                  {surfaceText("Source:")}{" "}
                   <span className="font-semibold">
                     {clipboard.sourceEndpointName ??
                       `${scopeDisplayName} #${clipboard.sourceEndpointId}`}
                   </span>{" "}
-                  · {clipboard.buckets.length} bucket
-                  {clipboard.buckets.length > 1 ? "s" : ""} ·
+                  · {surfaceText(
+                    clipboard.buckets.length === 1 ? "{count} bucket" : "{count} buckets",
+                    { count: clipboard.buckets.length },
+                  )} ·
                   {clipboardCopiedAtLabel
-                    ? ` copied ${clipboardCopiedAtLabel}`
-                    : " copied recently"}
+                    ? surfaceText(" copied {date}", { date: clipboardCopiedAtLabel })
+                    : surfaceText(" copied recently")}
                 </p>
                 <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                  Destination selection: {selectedBucketNames.length} bucket
-                  {selectedBucketNames.length > 1 ? "s" : ""}.
+                  {surfaceText(
+                    selectedBucketNames.length === 1
+                      ? "Destination selection: {count} bucket."
+                      : "Destination selection: {count} buckets.",
+                    { count: selectedBucketNames.length },
+                  )}
                 </p>
                 {clipboardFeatureLabels.length > 0 && (
                   <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                    Pasted features: {clipboardFeatureLabels.join(", ")}.
+                    {surfaceText("Pasted features:")}{clipboardFeatureLabels.join(", ")}.
                   </p>
                 )}
               </div>
               {pastePlan.mode === "one_to_many" && (
                 <div className="space-y-1 rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
                   <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                    Proposed mapping: 1 source to all selected destinations.
-                  </p>
+                    {surfaceText("Proposed mapping: 1 source to all selected destinations.")}</p>
                   <p className="ui-caption text-slate-500 dark:text-slate-400">
-                    Source bucket:{" "}
+                    {surfaceText("Source bucket:")}{" "}
                     <span className="font-semibold">
                       {clipboard.buckets[0]?.name ?? "-"}
                     </span>
@@ -251,18 +262,15 @@ export default function BucketOpsBulkTransferFields({
               {pastePlan.mode === "one_to_one" && (
                 <div className="space-y-2">
                   <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Proposed mapping (1:1)
-                  </p>
+                    {surfaceText("Proposed mapping (1:1)")}</p>
                   <div className="overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
                     <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800">
                       <thead className="bg-slate-100 dark:bg-slate-900/60">
                         <tr>
                           <th className="text-left">
-                            Source bucket
-                          </th>
+                            {surfaceText("Source bucket")}</th>
                           <th className="text-left">
-                            Destination bucket
-                          </th>
+                            {surfaceText("Destination bucket")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -285,7 +293,7 @@ export default function BucketOpsBulkTransferFields({
                               </td>
                               <td>
                                 <UiSelect
-                                  aria-label={`Destination bucket for ${sourceBucket}`}
+                                  aria-label={surfaceText("Destination bucket for {bucket}", { bucket: sourceBucket })}
                                   value={bulkPasteMapping[sourceBucket] ?? ""}
                                   onChange={(event) => {
                                     const destination = event.target.value;
@@ -297,8 +305,7 @@ export default function BucketOpsBulkTransferFields({
                                   size="compact"
                                 >
                                   <option value="">
-                                    Select destination bucket
-                                  </option>
+                                    {surfaceText("Select destination bucket")}</option>
                                   {selectedBucketNames.map(
                                     (destinationBucket) => {
                                       const normalizedDestination =
@@ -339,8 +346,7 @@ export default function BucketOpsBulkTransferFields({
               )}
               {!pastePlan.mode && (
                 <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
-                  Mapping impossible with current source/destination selections.
-                </p>
+                  {surfaceText("Mapping impossible with current source/destination selections.")}</p>
               )}
             </>
           )}
