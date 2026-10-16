@@ -13,10 +13,10 @@ def test_bucket_management_context_accepts_explicitly_capable_context():
 
 
 def test_bucket_management_context_rejects_missing_capability():
-    account = make_s3_execution_context()
+    context = make_s3_execution_context()
 
     with pytest.raises(HTTPException) as exc_info:
-        require_bucket_management_context(account)
+        require_bucket_management_context(context)
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "Bucket management is not allowed for this context"
