@@ -5,7 +5,7 @@
 import { useBrowserI18n } from "./browserI18n";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   fetchBrowserSettings,
   fetchBrowserUsageSummary,
@@ -17,7 +17,7 @@ import type {
 import { extractApiError } from "../../utils/apiError";
 
 type UseBrowserRuntimeDataOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   enabled: boolean;
   requestOptions?: BrowserRequestOptions;
   showUsage: boolean;
@@ -47,7 +47,7 @@ const EMPTY_USAGE_STATE: UsageState = {
   error: null,
 };
 
-const hasAccountSelector = (accountId: S3AccountSelector) =>
+const hasAccountSelector = (accountId: S3ExecutionContextSelector) =>
   accountId !== null && accountId !== undefined && accountId !== "";
 
 export function useBrowserRuntimeData({

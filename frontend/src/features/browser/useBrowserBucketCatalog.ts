@@ -13,7 +13,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { searchBrowserBuckets } from "../../api/browserBuckets";
 import type { BrowserBucket } from "../../api/browserContracts";
 import { BUCKET_MENU_LIMIT } from "./browserConstants";
@@ -30,7 +30,7 @@ import { normalizePrefix } from "./browserUtils";
 import { useBrowserBucketAccess } from "./useBrowserBucketAccess";
 
 type UseBrowserBucketCatalogOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   accessContextKey: string | null;
   browserRootContextId: string | null;
   enabled: boolean;

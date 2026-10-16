@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { listBrowserObjects } from "../../api/browserObjects";
 import {
   normalizeBrowserListingIssue,
@@ -18,7 +18,7 @@ import { isAbortError } from "./browserUtils";
 const BUCKET_ACCESS_PROBE_CONCURRENCY = 4;
 
 type UseBrowserBucketAccessOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   activeBucketName: string;
   contextKey: string | null;
   enabled: boolean;

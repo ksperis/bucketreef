@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { MULTIPART_THRESHOLD } from "./browserConstants";
 
 import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
@@ -10,7 +10,7 @@ import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
 export type ClipboardTransferMode = "direct" | "proxy";
 
 type ClipboardTransferObjectRef = {
-  selector: S3AccountSelector;
+  selector: S3ExecutionContextSelector;
   bucket: string;
   key: string;
   sseCustomerKeyBase64?: string | null;
@@ -45,7 +45,7 @@ type TransferClipboardObjectParams = {
   signal?: AbortSignal;
   multipartThresholdBytes?: number;
   resolveMode: (
-    selector: S3AccountSelector,
+    selector: S3ExecutionContextSelector,
     bucket: string,
   ) => Promise<ClipboardTransferMode>;
   downloadBlob: (params: ClipboardTransferDownloadRef) => Promise<Blob>;

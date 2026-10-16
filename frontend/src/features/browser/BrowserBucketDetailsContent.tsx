@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { browserBucketDetails } from "../../api/bucketDetails";
 import type {
   Bucket,
@@ -25,7 +25,7 @@ import { formatDateTime } from "./browserUtils";
 import { useBrowserI18n } from "./browserI18n";
 
 type BrowserBucketDetailsContentProps = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   includeStaticWebsite: boolean;
   includeUsage: boolean;

@@ -4,7 +4,7 @@
  */
 import { useCallback } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { fetchObjectMetadata } from "../../api/browserObjects";
 import {
   proxyDownload,
@@ -15,7 +15,7 @@ import type { ObjectPreviewLoadResult } from "../shared/ObjectPreview";
 import { buildInlinePreviewDisposition } from "./browserObjectDetailsModel";
 
 type UseBrowserObjectPreviewOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   metadataContentType?: string | null;
   metadataLoaded: boolean;

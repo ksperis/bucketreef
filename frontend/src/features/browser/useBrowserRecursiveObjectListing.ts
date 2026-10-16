@@ -4,7 +4,7 @@
  */
 import { useCallback } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { listBrowserObjects } from "../../api/browserObjects";
 import type { BrowserObject } from "../../api/browserContracts";
 
@@ -13,12 +13,12 @@ const RECURSIVE_LIST_PAGE_SIZE = 1000;
 export type ListAllBrowserObjectsForPrefix = (
   prefix: string,
   bucketName?: string,
-  accountId?: S3AccountSelector,
+  accountId?: S3ExecutionContextSelector,
   signal?: AbortSignal,
 ) => Promise<BrowserObject[]>;
 
 type UseBrowserRecursiveObjectListingOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   requestOptions?: BrowserRequestOptions;
@@ -34,7 +34,7 @@ export function useBrowserRecursiveObjectListing({
     async (
       prefix: string,
       targetBucketName?: string,
-      targetAccountId?: S3AccountSelector,
+      targetAccountId?: S3ExecutionContextSelector,
       signal?: AbortSignal,
     ) => {
       const resolvedBucketName = targetBucketName ?? bucketName;

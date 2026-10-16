@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { fetchBrowserObjectColumns } from "../../api/browserObjects";
 import {
   createLazyColumnCacheEntry,
@@ -30,7 +30,7 @@ type LazyColumnLoadPlan = {
 };
 
 type UseBrowserLazyColumnsOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   items: BrowserItem[];

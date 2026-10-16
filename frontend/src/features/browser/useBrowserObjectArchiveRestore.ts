@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { restoreObject } from "../../api/browserObjects";
 import type { ObjectRestoreRequest } from "../../api/browserContracts";
 import { runBrowserScopedSave } from "./browserScopedSave";
@@ -13,7 +13,7 @@ export type ObjectRestoreTier = "Standard" | "Bulk" | "Expedited";
 type RestoreArchiveResult = "restored" | "invalid" | "skipped";
 
 type UseBrowserObjectArchiveRestoreOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   loadProperties: (force?: boolean) => Promise<unknown>;
   objectKey: string;

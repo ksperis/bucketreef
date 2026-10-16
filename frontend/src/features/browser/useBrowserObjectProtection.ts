@@ -5,7 +5,7 @@
 import { useBrowserI18n } from "./browserI18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   getObjectLegalHold,
   getObjectRetention,
@@ -25,7 +25,7 @@ export type ObjectRetentionMode = "" | "GOVERNANCE" | "COMPLIANCE";
 type SaveObjectRetentionResult = "saved" | "invalid" | "skipped";
 
 type UseBrowserObjectProtectionOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   objectKey: string;

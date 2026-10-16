@@ -5,7 +5,7 @@
 import { useBrowserI18n } from "./browserI18n";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   fetchObjectMetadata,
   getObjectTags,
@@ -41,7 +41,7 @@ export type BrowserObjectDirtySections = Record<PropertySection, boolean>;
 type SavedDraft = { section: PropertySection; signature: string };
 
 type UseBrowserObjectPropertiesOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   isDeleted: boolean;
   item: BrowserItem;

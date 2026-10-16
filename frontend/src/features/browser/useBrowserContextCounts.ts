@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { listObjectVersions } from "../../api/browserObjects";
 import { VERSIONS_PAGE_SIZE } from "./browserConstants";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
@@ -17,7 +17,7 @@ type BrowserContextCounts = {
 };
 
 type UseBrowserContextCountsOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   listAllObjectsForPrefix: ListAllBrowserObjectsForPrefix;

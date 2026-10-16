@@ -4,7 +4,7 @@
  */
 import { useCallback } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { deleteObjects } from "../../api/browserObjects";
 import { runWithConcurrency } from "../../utils/concurrency";
 import { formatBrowserOperationError } from "./browserOperationErrors";
@@ -35,7 +35,7 @@ type DeleteConfirmation = {
 };
 
 type UseBrowserDeleteItemsOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   cancelDeleteDetails: OperationRegistry["cancelDeleteDetails"];
   clearOperationController: OperationRegistry["clearOperationController"];

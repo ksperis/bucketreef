@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { type BrowserObjectVersion } from "../../api/browserContracts";
 import { runBrowserScopedSave } from "./browserScopedSave";
 import { useBrowserVersionListing } from "./useBrowserVersionListing";
@@ -12,7 +12,7 @@ import { useBrowserVersionListing } from "./useBrowserVersionListing";
 type ObjectVersionAction = "restore" | "delete";
 
 type UseBrowserObjectVersionsOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   onDeleteVersion: (version: BrowserObjectVersion) => Promise<void> | void;

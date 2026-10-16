@@ -52,7 +52,7 @@ describe("useBrowserStsSession", () => {
   it("prefetches and reuses unexpired credentials for the active scope", async () => {
     const { result } = renderHook(() =>
       useBrowserStsSession({
-        accountIdForApi: "acc-1",
+        contextIdForApi: "acc-1",
         enabled: true,
         hasContext: true,
       }),
@@ -74,7 +74,7 @@ describe("useBrowserStsSession", () => {
   it("retranslates fallback errors without repeating STS requests when the language changes", async () => {
     apiMocks.getBrowserStsCredentials.mockRejectedValue({});
     const { result } = renderHook(() => ({
-      session: useBrowserStsSession({ accountIdForApi: "acc-1", enabled: true, hasContext: true }),
+      session: useBrowserStsSession({ contextIdForApi: "acc-1", enabled: true, hasContext: true }),
       language: useLanguage(),
     }), { wrapper: LanguageProvider });
     await waitFor(() => expect(result.current.session.credentialsError).toBe("Unable to load STS credentials."));
@@ -98,7 +98,7 @@ describe("useBrowserStsSession", () => {
     const { result, rerender } = renderHook(
       ({ accountId }) =>
         useBrowserStsSession({
-          accountIdForApi: accountId,
+          contextIdForApi: accountId,
           enabled: true,
           hasContext: true,
         }),

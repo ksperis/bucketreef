@@ -4,7 +4,7 @@
  */
 import { useCallback, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { createFolder } from "../../api/browserObjects";
 import { useBrowserI18n } from "./browserI18n";
 
@@ -14,7 +14,7 @@ type CreatedFolder = {
 };
 
 type UseBrowserCreateFolderOptions = {
-  accountIdForApi: S3AccountSelector;
+  contextIdForApi: S3ExecutionContextSelector;
   bucketName: string;
   hasContext: boolean;
   parentPrefix: string;
@@ -23,7 +23,7 @@ type UseBrowserCreateFolderOptions = {
 };
 
 export function useBrowserCreateFolder({
-  accountIdForApi,
+  contextIdForApi,
   bucketName,
   hasContext,
   parentPrefix,
@@ -66,7 +66,7 @@ export function useBrowserCreateFolder({
     setError(null);
     try {
       await createFolder(
-        accountIdForApi,
+        contextIdForApi,
         bucketName,
         folderPrefix,
         requestOptions,

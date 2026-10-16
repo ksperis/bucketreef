@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { createContext, useContext, ReactNode } from "react";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { ExecutionContext, ExecutionContextKind } from "../../api/executionContexts";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
@@ -17,7 +17,7 @@ type BrowserContextState = {
   selectedContext: ExecutionContext | null;
   requiresContextSelection: boolean;
   hasContext: boolean;
-  selectorForApi: S3AccountSelector;
+  contextIdForApi: S3ExecutionContextSelector;
   selectedKind: ExecutionContextKind | null;
   sessionAccountName: string | null;
   accessError?: string | null;
@@ -30,7 +30,7 @@ const Ctx = createContext<BrowserContextState>({
   selectedContext: null,
   requiresContextSelection: true,
   hasContext: false,
-  selectorForApi: null,
+  contextIdForApi: null,
   selectedKind: null,
   sessionAccountName: null,
   accessError: null,
@@ -55,7 +55,7 @@ export function BrowserContextProvider({ children }: { children: ReactNode }) {
   });
   const selectedKind = selectedContext?.kind ?? null;
   const hasContext = requiresContextSelection ? selectedContext !== null : true;
-  const selectorForApi: S3AccountSelector = requiresContextSelection ? selectedContextId : null;
+  const contextIdForApi: S3ExecutionContextSelector = requiresContextSelection ? selectedContextId : null;
 
   return (
     <Ctx.Provider
@@ -66,7 +66,7 @@ export function BrowserContextProvider({ children }: { children: ReactNode }) {
         selectedContext,
         requiresContextSelection,
         hasContext,
-        selectorForApi,
+        contextIdForApi,
         selectedKind,
         sessionAccountName,
         accessError,

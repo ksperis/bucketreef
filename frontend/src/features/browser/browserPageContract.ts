@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserWorkspaceSurface } from "../../api/browserWorkspace";
 import type { ExecutionContextKind } from "../../api/executionContexts";
 import type {
@@ -49,7 +49,7 @@ export type BrowserTransferReporter = {
 };
 
 export type BrowserPageProps = {
-  accountIdForApi?: S3AccountSelector;
+  contextIdForApi?: S3ExecutionContextSelector;
   executionContextKind?: BrowserExecutionContextKind | null;
   hasContext?: boolean;
   workspaceSurface?: BrowserWorkspaceSurface;

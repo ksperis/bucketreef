@@ -97,7 +97,7 @@ const browserContextMock = vi.hoisted(() => ({
     setSelectedContextId: vi.fn(),
     requiresContextSelection: false,
     hasContext: true,
-    selectorForApi: "acc-1",
+    contextIdForApi: "acc-1",
     selectedKind: null,
     sessionAccountName: null,
     accessError: null,
@@ -108,7 +108,7 @@ const browserContextMock = vi.hoisted(() => ({
     setSelectedContextId: (id: string | null) => void;
     requiresContextSelection: boolean;
     hasContext: boolean;
-    selectorForApi: string | null;
+    contextIdForApi: string | null;
     selectedKind: ExecutionContext["kind"] | null;
     sessionAccountName: string | null;
     accessError: string | null;
@@ -332,7 +332,7 @@ function setBrowserContext(overrides: Partial<typeof browserContextMock.value> =
     setSelectedContextId: vi.fn(),
     requiresContextSelection: false,
     hasContext: true,
-    selectorForApi: "acc-1",
+    contextIdForApi: "acc-1",
     selectedKind: null,
     sessionAccountName: null,
     accessError: null,
@@ -344,7 +344,7 @@ type RenderPageOptions = {
   defaultShowFolders?: boolean;
   initialEntry?: string;
   allowFoldersPanel?: boolean;
-  accountIdForApi?: string;
+  contextIdForApi?: string;
   hasContext?: boolean;
   executionContextKind?: ComponentProps<typeof BrowserPage>["executionContextKind"];
   workspaceSurface?: ComponentProps<typeof BrowserPage>["workspaceSurface"];
@@ -361,7 +361,7 @@ function renderPageElement({
   defaultShowFolders = false,
   initialEntry = "/browser",
   allowFoldersPanel = true,
-  accountIdForApi,
+  contextIdForApi,
   hasContext,
   executionContextKind,
   workspaceSurface,
@@ -377,7 +377,7 @@ function renderPageElement({
     <BrowserSidebarTestHost>
       <MemoryRouter initialEntries={[initialEntry]}>
         <BrowserPage
-          accountIdForApi={accountIdForApi}
+          contextIdForApi={contextIdForApi}
           hasContext={hasContext}
           executionContextKind={executionContextKind}
           defaultShowFolders={defaultShowFolders}
@@ -419,17 +419,17 @@ function renderPage(options: RenderPageOptions = {}) {
 
 function renderEmbeddedPage({
   initialEntry = "/manager/browser",
-  accountIdForApi = "acc-1",
+  contextIdForApi = "acc-1",
   executionContextKind = "account",
 }: {
   initialEntry?: string;
-  accountIdForApi?: string;
+  contextIdForApi?: string;
   executionContextKind?: ComponentProps<typeof BrowserPage>["executionContextKind"];
 } = {}) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <BrowserEmbed
-        accountIdForApi={accountIdForApi}
+        contextIdForApi={contextIdForApi}
         executionContextKind={executionContextKind}
         hasContext
         workspaceSurface="manager"
@@ -960,7 +960,7 @@ describe("BrowserPage interactions", () => {
       expected:
         "/manager/browser?ctx=101&bucket=bucket-1&prefix=docs%2F",
       options: {
-        accountIdForApi: "101",
+        contextIdForApi: "101",
         executionContextKind: "account" as const,
         workspaceSurface: "manager" as const,
         functionalProfile: "advanced" as const,
@@ -973,7 +973,7 @@ describe("BrowserPage interactions", () => {
       expected:
         "/ceph-admin/browser?ep=9&bucket=bucket-1&prefix=docs%2F",
       options: {
-        accountIdForApi: "ceph-admin-9",
+        contextIdForApi: "ceph-admin-9",
         executionContextKind: "ceph_admin" as const,
         workspaceSurface: "ceph-admin" as const,
         functionalProfile: "advanced" as const,
@@ -986,7 +986,7 @@ describe("BrowserPage interactions", () => {
       expected:
         "/portal/spaces/7?project=101&bucket=bucket-1&prefix=docs%2F",
       options: {
-        accountIdForApi: "101",
+        contextIdForApi: "101",
         executionContextKind: "portal_account" as const,
         workspaceSurface: "portal" as const,
         functionalProfile: "portal" as const,
@@ -1094,7 +1094,7 @@ describe("BrowserPage interactions", () => {
   it("uses the explicit connection kind for transfer guidance", async () => {
     const user = userEvent.setup();
     renderPage({
-      accountIdForApi: "selector-without-prefix",
+      contextIdForApi: "selector-without-prefix",
       executionContextKind: "connection",
     });
 
@@ -1253,7 +1253,7 @@ describe("BrowserPage interactions", () => {
     const openObjectDetailsRoute = vi.fn();
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      accountIdForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1365,7 +1365,7 @@ describe("BrowserPage interactions", () => {
 
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      accountIdForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1439,7 +1439,7 @@ describe("BrowserPage interactions", () => {
 
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      accountIdForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1556,7 +1556,7 @@ describe("BrowserPage interactions", () => {
 
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      accountIdForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1585,7 +1585,7 @@ describe("BrowserPage interactions", () => {
   it("keeps the Portal profile on the imposed Standard layout", async () => {
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      accountIdForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1615,7 +1615,7 @@ describe("BrowserPage interactions", () => {
       has_next: false,
     });
     setBrowserContext({
-      selectorForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       selectedContextId: "portal-101",
       selectedContext: makeExecutionContext({
         id: "portal-101",
@@ -1704,7 +1704,7 @@ describe("BrowserPage interactions", () => {
       },
     ]);
     setBrowserContext({
-      selectorForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       selectedContextId: "portal-101",
       selectedContext: makeExecutionContext({
         id: "portal-101",
@@ -1797,7 +1797,7 @@ describe("BrowserPage interactions", () => {
     const createPublicLinkForObject = vi.fn();
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      accountIdForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       canCreatePublicLinks: true,
@@ -2741,7 +2741,7 @@ describe("BrowserPage interactions", () => {
       selectedContextId: portalContext.id,
       selectedContext: portalContext,
       requiresContextSelection: true,
-      selectorForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       selectedKind: "portal_account",
     });
 
@@ -3021,7 +3021,7 @@ describe("BrowserPage interactions", () => {
 
     const cephAdminRender = renderEmbeddedPage({
       initialEntry: "/ceph-admin/browser",
-      accountIdForApi: "ceph-admin-1",
+      contextIdForApi: "ceph-admin-1",
       executionContextKind: "ceph_admin",
     });
     await findRowByLabel("a.txt");
@@ -3036,7 +3036,7 @@ describe("BrowserPage interactions", () => {
 
     const portalRender = renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      accountIdForApi: "acc-portal",
+      contextIdForApi: "acc-portal",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -3262,7 +3262,7 @@ describe("BrowserPage interactions", () => {
       },
     );
 
-    const firstRender = renderPage({ accountIdForApi: "acc-1" });
+    const firstRender = renderPage({ contextIdForApi: "acc-1" });
     await user.click(
       within(getContextToolbar()).getByRole("button", {
         name: "Select bucket",
@@ -3291,7 +3291,7 @@ describe("BrowserPage interactions", () => {
 
     firstRender.unmount();
 
-    const secondRender = renderPage({ accountIdForApi: "acc-2" });
+    const secondRender = renderPage({ contextIdForApi: "acc-2" });
     await findRowByLabel("a.txt");
 
     expect(within(getContextPanel()).getByText("bucket-a")).toBeInTheDocument();
@@ -3301,7 +3301,7 @@ describe("BrowserPage interactions", () => {
 
     secondRender.unmount();
 
-    renderPage({ accountIdForApi: "acc-1" });
+    renderPage({ contextIdForApi: "acc-1" });
     await screen.findByText("readme.txt");
 
     await waitFor(() => {
@@ -3408,7 +3408,7 @@ describe("BrowserPage interactions", () => {
       },
     });
 
-    renderPage({ accountIdForApi: "acc-1" });
+    renderPage({ contextIdForApi: "acc-1" });
 
     await waitFor(() => {
       expect(listBrowserObjectsMock).toHaveBeenCalledWith(
@@ -3452,7 +3452,7 @@ describe("BrowserPage interactions", () => {
     });
 
     renderPage({
-      accountIdForApi: "acc-1",
+      contextIdForApi: "acc-1",
       initialEntry: "/browser?bucket=bucket-1",
     });
     await findRowByLabel("a.txt");
@@ -3592,7 +3592,7 @@ describe("BrowserPage interactions", () => {
     );
 
     renderPage({
-      accountIdForApi: "acc-1",
+      contextIdForApi: "acc-1",
       defaultShowFolders: true,
       initialEntry: "/browser?bucket=bucket-2",
     });
@@ -3636,7 +3636,7 @@ describe("BrowserPage interactions", () => {
       ),
     );
 
-    renderPage({ accountIdForApi: "acc-1" });
+    renderPage({ contextIdForApi: "acc-1" });
 
     const sidebar = await screen.findByTestId("browser-workspace-sidebar");
     expect(await screen.findByText(friendlyMessage)).toBeInTheDocument();
@@ -3681,7 +3681,7 @@ describe("BrowserPage interactions", () => {
       selectedContextId: "101",
       selectedContext: portalContext,
       requiresContextSelection: true,
-      selectorForApi: "101",
+      contextIdForApi: "101",
       selectedKind: "portal_account",
     });
 
@@ -3708,7 +3708,7 @@ describe("BrowserPage interactions", () => {
       selectedContextId: "101",
       selectedContext: portalContext,
       requiresContextSelection: true,
-      selectorForApi: "101",
+      contextIdForApi: "101",
       selectedKind: "portal_account",
     });
 
@@ -3735,11 +3735,11 @@ describe("BrowserPage interactions", () => {
       selectedContextId: "s3u-21215",
       selectedContext: s3UserContext,
       requiresContextSelection: true,
-      selectorForApi: "s3u-21215",
+      contextIdForApi: "s3u-21215",
       selectedKind: "s3_user",
     });
 
-    renderPage({ accountIdForApi: "s3u-21215" });
+    renderPage({ contextIdForApi: "s3u-21215" });
 
     const sidebar = await screen.findByTestId("browser-workspace-sidebar");
     await user.click(await within(sidebar).findByRole("button", { name: "Open in Manager" }));
@@ -4048,7 +4048,7 @@ describe("BrowserPage interactions", () => {
   it("uses shared controls and English labels in the SSE-C key modal", async () => {
     const user = userEvent.setup();
     renderPage({
-      accountIdForApi: "acc-1",
+      contextIdForApi: "acc-1",
       initialEntry: "/browser?bucket=bucket-1",
       storageEndpointCapabilities: { sse: true },
     });
@@ -4082,7 +4082,7 @@ describe("BrowserPage interactions", () => {
   it("activates an SSE-C key for the current browser scope", async () => {
     const user = userEvent.setup();
     renderPage({
-      accountIdForApi: "acc-1",
+      contextIdForApi: "acc-1",
       initialEntry: "/browser?bucket=bucket-1",
       storageEndpointCapabilities: { sse: true },
     });
@@ -4936,11 +4936,11 @@ describe("BrowserPage interactions", () => {
 
   it("keeps paste enabled after switching execution context when clipboard exists", async () => {
     const user = userEvent.setup();
-    const view = renderPage({ accountIdForApi: "acc-1" });
+    const view = renderPage({ contextIdForApi: "acc-1" });
 
     await copyOrCutItem(user, "a.txt", "Copy");
 
-    view.rerender(renderPageElement({ accountIdForApi: "acc-2" }));
+    view.rerender(renderPageElement({ contextIdForApi: "acc-2" }));
 
     await findRowByLabel("a.txt");
     const menu = await openContextMoreMenu(user);
@@ -4949,7 +4949,7 @@ describe("BrowserPage interactions", () => {
 
   it("keeps same-context paste on the existing server-side copy path", async () => {
     const user = userEvent.setup();
-    renderPage({ accountIdForApi: "acc-1" });
+    renderPage({ contextIdForApi: "acc-1" });
 
     await copyOrCutItem(user, "a.txt", "Copy");
     await user.click(await findRowByLabel("docs"));
@@ -4975,7 +4975,7 @@ describe("BrowserPage interactions", () => {
 
   it("copies across execution contexts through frontend-directed transfers", async () => {
     const user = userEvent.setup();
-    const view = renderPage({ accountIdForApi: "acc-1" });
+    const view = renderPage({ contextIdForApi: "acc-1" });
 
     fetchObjectMetadataMock.mockImplementation(
       async (selector: string, _bucket: string, key: string) => ({
@@ -4988,7 +4988,7 @@ describe("BrowserPage interactions", () => {
 
     await copyOrCutItem(user, "a.txt", "Copy");
 
-    view.rerender(renderPageElement({ accountIdForApi: "acc-2" }));
+    view.rerender(renderPageElement({ contextIdForApi: "acc-2" }));
 
     await findRowByLabel("a.txt");
     await pasteFromCurrentPath(user);
@@ -5029,7 +5029,7 @@ describe("BrowserPage interactions", () => {
 
   it("refreshes the current object listing after cross-context paste", async () => {
     const user = userEvent.setup();
-    const view = renderPage({ accountIdForApi: "acc-1" });
+    const view = renderPage({ contextIdForApi: "acc-1" });
     let destinationDocsUpdated = false;
 
     listBrowserObjectsMock.mockImplementation(
@@ -5131,7 +5131,7 @@ describe("BrowserPage interactions", () => {
 
     await copyOrCutItem(user, "a.txt", "Copy");
 
-    view.rerender(renderPageElement({ accountIdForApi: "acc-2" }));
+    view.rerender(renderPageElement({ contextIdForApi: "acc-2" }));
 
     await user.click(await findRowByLabel("docs"));
     await findRowByLabel("readme.txt");
@@ -5179,7 +5179,7 @@ describe("BrowserPage interactions", () => {
         }),
     );
 
-    renderPage({ accountIdForApi: "acc-1" });
+    renderPage({ contextIdForApi: "acc-1" });
 
     await copyOrCutSelection(user, ["a.txt", "b.txt"], "Copy");
     await user.click(await findRowByLabel("docs"));
@@ -5342,7 +5342,7 @@ describe("BrowserPage interactions", () => {
       return Promise.resolve();
     });
 
-    renderPage({ accountIdForApi: "acc-1" });
+    renderPage({ contextIdForApi: "acc-1" });
     await findRowByLabel("a.txt");
     const menu = await openContextMoreMenu(user);
     expect(await within(menu).findByText("Proxy")).toBeInTheDocument();
@@ -5388,7 +5388,7 @@ describe("BrowserPage interactions", () => {
     const file = new File(["small direct payload"], "small-direct.txt", {
       type: "text/plain",
     });
-    renderPage({ accountIdForApi: "acc-1" });
+    renderPage({ contextIdForApi: "acc-1" });
     await findRowByLabel("a.txt");
 
     const fileInput = document.querySelector(
@@ -5472,12 +5472,12 @@ describe("BrowserPage interactions", () => {
       },
     );
 
-    const view = renderPage({ accountIdForApi: "acc-1" });
+    const view = renderPage({ contextIdForApi: "acc-1" });
 
     await copyOrCutSelection(user, ["a.txt", "b.txt"], "Cut");
 
     view.rerender(
-      renderPageElement({ accountIdForApi: "acc-2" }),
+      renderPageElement({ contextIdForApi: "acc-2" }),
     );
 
     await user.click(await findRowByLabel("docs"));
@@ -5526,7 +5526,7 @@ describe("BrowserPage interactions", () => {
 
   it("verifies the destination before deleting the source on cross-context move", async () => {
     const user = userEvent.setup();
-    const view = renderPage({ accountIdForApi: "acc-1" });
+    const view = renderPage({ contextIdForApi: "acc-1" });
     const callOrder: string[] = [];
 
     fetchObjectMetadataMock.mockImplementation(
@@ -5563,7 +5563,7 @@ describe("BrowserPage interactions", () => {
 
     await copyOrCutItem(user, "a.txt", "Cut");
 
-    view.rerender(renderPageElement({ accountIdForApi: "acc-2" }));
+    view.rerender(renderPageElement({ contextIdForApi: "acc-2" }));
 
     await findRowByLabel("a.txt");
     await pasteFromCurrentPath(user);
@@ -5587,7 +5587,7 @@ describe("BrowserPage interactions", () => {
 
   it("keeps the source when cross-context move verification fails", async () => {
     const user = userEvent.setup();
-    const view = renderPage({ accountIdForApi: "acc-1" });
+    const view = renderPage({ contextIdForApi: "acc-1" });
 
     fetchObjectMetadataMock.mockImplementation(
       async (selector: string, _bucket: string, key: string) => ({
@@ -5601,7 +5601,7 @@ describe("BrowserPage interactions", () => {
 
     await copyOrCutItem(user, "a.txt", "Cut");
 
-    view.rerender(renderPageElement({ accountIdForApi: "acc-2" }));
+    view.rerender(renderPageElement({ contextIdForApi: "acc-2" }));
 
     await findRowByLabel("a.txt");
     await pasteFromCurrentPath(user);
@@ -5619,7 +5619,7 @@ describe("BrowserPage interactions", () => {
 
   it("lists folder contents from the source context and recreates the destination folder", async () => {
     const user = userEvent.setup();
-    const view = renderPage({ accountIdForApi: "acc-1" });
+    const view = renderPage({ contextIdForApi: "acc-1" });
 
     fetchObjectMetadataMock.mockImplementation(
       async (_selector: string, _bucket: string, key: string) => ({
@@ -5633,7 +5633,7 @@ describe("BrowserPage interactions", () => {
 
     await copyOrCutItem(user, "docs", "Copy");
 
-    view.rerender(renderPageElement({ accountIdForApi: "acc-2" }));
+    view.rerender(renderPageElement({ contextIdForApi: "acc-2" }));
 
     await findRowByLabel("a.txt");
     await pasteFromCurrentPath(user);
@@ -5674,11 +5674,11 @@ describe("BrowserPage interactions", () => {
       streaming_zip_threshold_mb: 200,
     });
     getBrowserBucketCorsStatusMock.mockResolvedValue({ enabled: false, rules: [] });
-    const view = renderPage({ accountIdForApi: "acc-1" });
+    const view = renderPage({ contextIdForApi: "acc-1" });
 
     await copyOrCutItem(user, "a.txt", "Copy");
 
-    view.rerender(renderPageElement({ accountIdForApi: "acc-2" }));
+    view.rerender(renderPageElement({ contextIdForApi: "acc-2" }));
 
     await findRowByLabel("a.txt");
     await pasteFromCurrentPath(user);

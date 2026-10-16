@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   normalizeS3SelectorId,
-  type S3AccountSelector,
+  type S3ExecutionContextSelector,
 } from "../../api/accountParams";
 import { stableSignature } from "../../utils/stableSignature";
 import {
@@ -24,7 +24,7 @@ function resolveActionError(error: unknown, fallback: string): string {
 }
 
 type UseBrowserSseCustomerKeysOptions = {
-  accountIdForApi: S3AccountSelector;
+  contextIdForApi: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   onManualCopyRequired: (keyBase64: string) => void;
@@ -32,7 +32,7 @@ type UseBrowserSseCustomerKeysOptions = {
 };
 
 export function useBrowserSseCustomerKeys({
-  accountIdForApi,
+  contextIdForApi,
   bucketName,
   enabled,
   onManualCopyRequired,
@@ -50,10 +50,10 @@ export function useBrowserSseCustomerKeys({
   const [visible, setVisible] = useState(false);
 
   const scopeKey = useMemo(() => {
-    const accountId = normalizeS3SelectorId(accountIdForApi);
+    const accountId = normalizeS3SelectorId(contextIdForApi);
     if (!accountId || !bucketName) return null;
     return `${accountId}::${bucketName}`;
-  }, [accountIdForApi, bucketName]);
+  }, [contextIdForApi, bucketName]);
   const storedKeyBase64 = useMemo(() => {
     if (!scopeKey) return null;
     return keysByScope[scopeKey] ?? null;
@@ -61,7 +61,7 @@ export function useBrowserSseCustomerKeys({
   const keyBase64 = enabled ? storedKeyBase64 : null;
 
   const getKeyForScope = useCallback(
-    (selector: S3AccountSelector, bucket: string) => {
+    (selector: S3ExecutionContextSelector, bucket: string) => {
       const accountId = normalizeS3SelectorId(selector);
       if (!accountId || !bucket) return null;
       return keysByScope[`${accountId}::${bucket}`] ?? null;

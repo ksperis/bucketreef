@@ -4,7 +4,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 import type { BrowserWorkspaceSurface } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
 import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -28,7 +28,7 @@ import BrowserBucketDetailsContent from "./BrowserBucketDetailsContent";
 import { useBrowserI18n } from "./browserI18n";
 
 type BrowserBucketConfigurationDrawerProps = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   includeStaticWebsite: boolean;
   includeUsage: boolean;

@@ -15,7 +15,7 @@ import type {
   PresignedUrl,
   PresignRequest,
 } from "../../api/browserTransfers";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { BrowserCopyValueModal } from "./BrowserDialogModals";
 import BrowserObjectArchiveTab from "./BrowserObjectArchiveTab";
 import BrowserObjectReadOnlyDetailsTab, {
@@ -50,7 +50,7 @@ type BrowserObjectDetailsStatus = {
 
 type BrowserObjectDetailsDrawerProps = {
   navigation?: ObjectPreviewNavigation;
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   item: BrowserItem;
   initialTab: ObjectDetailsTabId;

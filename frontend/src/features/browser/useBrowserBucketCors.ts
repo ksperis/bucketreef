@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import {
   ensureBrowserBucketCors,
@@ -20,7 +20,7 @@ type ScopedValue<T> = {
 };
 
 type UseBrowserBucketCorsOptions = {
-  accountIdForApi: S3AccountSelector;
+  contextIdForApi: S3ExecutionContextSelector;
   allowAction: boolean;
   bucketName: string;
   enabled: boolean;
@@ -30,13 +30,13 @@ type UseBrowserBucketCorsOptions = {
 };
 
 function createScopeKey(
-  accountIdForApi: S3AccountSelector,
+  contextIdForApi: S3ExecutionContextSelector,
   bucketName: string,
   origin: string | undefined,
   requestOptions: BrowserRequestOptions | undefined,
 ): string {
   return [
-    String(accountIdForApi ?? ""),
+    String(contextIdForApi ?? ""),
     requestOptions?.workspaceSurface ?? "browser",
     bucketName,
     origin ?? "",
@@ -44,7 +44,7 @@ function createScopeKey(
 }
 
 export function useBrowserBucketCors({
-  accountIdForApi,
+  contextIdForApi,
   allowAction,
   bucketName,
   enabled,
@@ -54,7 +54,7 @@ export function useBrowserBucketCors({
 }: UseBrowserBucketCorsOptions) {
   const { text } = useBrowserI18n();
   const scopeKey = enabled
-    ? createScopeKey(accountIdForApi, bucketName, origin, requestOptions)
+    ? createScopeKey(contextIdForApi, bucketName, origin, requestOptions)
     : null;
   const activeScopeRef = useRef(scopeKey);
   activeScopeRef.current = scopeKey;
@@ -100,7 +100,7 @@ export function useBrowserBucketCors({
     setStatusMessage(null);
     try {
       const nextStatus = await ensureBrowserBucketCors(
-        accountIdForApi,
+        contextIdForApi,
         bucketName,
         origin,
         requestOptions,
@@ -130,7 +130,7 @@ export function useBrowserBucketCors({
       }
     }
   }, [
-    accountIdForApi,
+    contextIdForApi,
     bucketName,
     origin,
     requestOptions,
@@ -148,7 +148,7 @@ export function useBrowserBucketCors({
 
     let active = true;
     getBrowserBucketCorsStatus(
-      accountIdForApi,
+      contextIdForApi,
       bucketName,
       origin,
       requestOptions,
@@ -172,7 +172,7 @@ export function useBrowserBucketCors({
     return () => {
       active = false;
     };
-  }, [accountIdForApi, bucketName, origin, requestOptions, scopeKey]);
+  }, [contextIdForApi, bucketName, origin, requestOptions, scopeKey]);
 
   useDismissibleLayer({
     open: popoverOpen,
