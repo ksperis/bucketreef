@@ -80,8 +80,6 @@ def stream_bucket_index_check_batch(
         result = service.run(
             ctx.rgw_admin,
             payload.targets,
-            endpoint_id=int(ctx.endpoint.id),
-            endpoint_name=ctx.endpoint.name,
             parallelism=payload.parallelism,
             progress_callback=progress_callback,
             cancel_check=cancel_check,
