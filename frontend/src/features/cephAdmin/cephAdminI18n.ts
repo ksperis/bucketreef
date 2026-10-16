@@ -15,7 +15,7 @@ import cephAdminDe from "./cephAdmin.de.json";
 import cephAdminFr from "./cephAdmin.fr.json";
 import cephAdminZh from "./cephAdmin.zh.json";
 
-export type CephAdminTextValues = Record<string, string | number>;
+type CephAdminTextValues = Record<string, string | number>;
 
 const catalogs = {
   fr: [cephAdminFr, adminFr, managerFr, browserFr],

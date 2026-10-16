@@ -43,7 +43,7 @@ function interpolate(message: string, values?: SharedTextValues): string {
   );
 }
 
-export function sharedText(
+function sharedText(
   message: string,
   locale: UiLanguage = "en",
   values?: SharedTextValues,
