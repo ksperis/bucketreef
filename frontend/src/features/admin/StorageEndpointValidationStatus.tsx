@@ -6,6 +6,7 @@ import type {
   StorageEndpointHttpCheck,
 } from "../../api/storageEndpoints";
 import UiBadge from "../../components/ui/UiBadge";
+import { useAdminI18n } from "./adminI18n";
 
 type CredentialCheckViewStatus = StorageEndpointCredentialCheckStatus | "checking";
 export type CredentialCheckView = { status: CredentialCheckViewStatus; message?: string | null };
@@ -128,11 +129,11 @@ export function EndpointHttpStatusBadge({
   checking: boolean;
   check?: StorageEndpointHttpCheck | null;
 }) {
+  const { text: adminText } = useAdminI18n();
   if (checking) {
     return (
       <UiBadge tone="info" role="status">
-        Checking endpoint…
-      </UiBadge>
+        {adminText("Checking endpoint…")}</UiBadge>
     );
   }
   if (!check || check.status === "not_checked") return null;
@@ -152,8 +153,7 @@ export function EndpointHttpStatusBadge({
       role="status"
       title={check.message ?? "Endpoint unavailable"}
     >
-      × Endpoint unavailable
-    </UiBadge>
+      {adminText("× Endpoint unavailable")}</UiBadge>
   );
 }
 

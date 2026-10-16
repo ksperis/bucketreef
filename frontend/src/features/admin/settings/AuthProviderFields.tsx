@@ -3,6 +3,7 @@ import { useId } from "react";
 import { SettingsItem, SettingsSection, SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiField from "../../../components/ui/UiField";
 import UiInput from "../../../components/ui/UiInput";
+import { useAdminI18n } from "../adminI18n";
 
 type FieldLocks = { field_locks: Record<string, { forced: boolean; source?: string | null }> };
 
@@ -42,17 +43,18 @@ export function AuthProviderIdentityFields({ form, state, errors, prefix = "", o
   onNameChange: (value: string) => void;
   onEnabledChange: (value: boolean) => void;
 }) {
-  return <SettingsSection title="Identity" description="Identify the provider and control its availability on the login page." presentation="compact">
+  const { text: adminText } = useAdminI18n();
+  return <SettingsSection title={adminText("Identity")} description={adminText("Identify the provider and control its availability on the login page.")} presentation="compact">
     <div className="settings-fields">
       <div className="settings-fields sm:grid-cols-2">
-        <UiInput label="Provider ID" aria-label={`${prefix}Provider ID`} value={form.provider_id} required
+        <UiInput label={adminText("Provider ID")} aria-label={`${prefix}Provider ID`} value={form.provider_id} required
           disabled={state.locked("provider_id")} hint={state.hint("provider_id")} error={errors.provider_id}
           onChange={event => onIdChange(event.target.value)} />
-        <UiInput label="Display name" aria-label={`${prefix}Display name`} value={form.display_name} required
+        <UiInput label={adminText("Display name")} aria-label={`${prefix}Display name`} value={form.display_name} required
           disabled={state.locked("display_name")} hint={state.hint("display_name")} error={errors.display_name}
           onChange={event => onNameChange(event.target.value)} />
       </div>
-      <AuthProviderToggle label="Enabled" field="enabled" checked={form.enabled} onChange={onEnabledChange} state={state} />
+      <AuthProviderToggle label={adminText("Enabled")} field="enabled" checked={form.enabled} onChange={onEnabledChange} state={state} />
     </div>
   </SettingsSection>;
 }

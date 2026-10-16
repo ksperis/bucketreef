@@ -12,6 +12,7 @@ import {
   type FieldErrors,
   type SettingsPath,
 } from "./settings/appSettingsDraft";
+import { useAdminI18n } from "./adminI18n";
 
 const paths = [
   "general.browser_root_enabled",
@@ -27,13 +28,13 @@ const paths = [
   "browser.streaming_zip_threshold_mb",
 ] as const satisfies readonly SettingsPath[];
 
-function validate(values: AppSettingsValues): FieldErrors {
+function validate(values: AppSettingsValues, text: (message: string) => string): FieldErrors {
   const errors: FieldErrors = {};
   for (const path of paths.filter((path) => path.endsWith("parallelism")))
-    errors[path] = validateInteger(values[path], "Parallelism", 1, 20);
+    errors[path] = validateInteger(values[path], text("Parallelism"), 1, 20);
   errors["browser.streaming_zip_threshold_mb"] = validateInteger(
     values["browser.streaming_zip_threshold_mb"],
-    "Streaming threshold",
+    text("Streaming threshold"),
     0,
     10240,
   );
@@ -41,110 +42,111 @@ function validate(values: AppSettingsValues): FieldErrors {
 }
 
 export default function BrowserSettingsPage() {
-  const form = useAppSettingsDraft(paths, validate);
+  const { text } = useAdminI18n();
+  const form = useAppSettingsDraft(paths, (values) => validate(values, text));
   return (
     <AdminSettingsFrame
-      title="Browser settings"
-      description="Choose where Browser is available and configure transfers."
+      title={text("Browser settings")}
+      description={text("Choose where Browser is available and configure transfers.")}
       page="browser-settings"
-      resetTitle="Reset Browser settings draft?"
+      resetTitle={text("Reset Browser settings draft?")}
       form={form}
     >
       <SettingsSection
         presentation="compact"
-        title="Workspace availability"
-        description="These options enable the surface. Storage permissions still apply."
+        title={text("Workspace availability")}
+        description={text("These options enable the surface. Storage permissions still apply.")}
       >
         <AppSettingsToggle
           form={form}
           field="general.browser_root_enabled"
-          title="Browser workspace"
-          description="Standalone object and bucket explorer."
-          ariaLabel="Enable standalone Browser"
+          title={text("Browser workspace")}
+          description={text("Standalone object and bucket explorer.")}
+          ariaLabel={text("Enable standalone Browser")}
         />
         <AppSettingsToggle
           form={form}
           field="general.browser_manager_enabled"
-          title="Manager"
-          description="Embedded Browser for administration. Avoid using admin or root identities for day-to-day object operations."
-          ariaLabel="Enable Browser in Manager"
+          title={text("Manager")}
+          description={text("Embedded Browser for administration. Avoid using admin or root identities for day-to-day object operations.")}
+          ariaLabel={text("Enable Browser in Manager")}
         />
         <AppSettingsToggle
           form={form}
           field="general.browser_portal_enabled"
-          title="Portal Storage Spaces"
-          description="File browsing within a selected Storage Space."
-          ariaLabel="Enable Browser in Portal Storage Spaces"
+          title={text("Portal Storage Spaces")}
+          description={text("File browsing within a selected Storage Space.")}
+          ariaLabel={text("Enable Browser in Portal Storage Spaces")}
         />
         <AppSettingsToggle
           form={form}
           field="general.browser_ceph_admin_enabled"
-          title="Ceph Admin"
-          description="Uses endpoint-wide credentials. Object ownership may differ; prefer a connection with the expected owner for daily work."
-          ariaLabel="Enable Browser in Ceph Admin"
+          title={text("Ceph Admin")}
+          description={text("Uses endpoint-wide credentials. Object ownership may differ; prefer a connection with the expected owner for daily work.")}
+          ariaLabel={text("Enable Browser in Ceph Admin")}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Direct transfers"
-        description="Concurrent browser-to-storage operations. Limits are between 1 and 20."
+        title={text("Direct transfers")}
+        description={text("Concurrent browser-to-storage operations. Limits are between 1 and 20.")}
       >
         <AppSettingsNumber
           form={form}
           field="browser.direct_upload_parallelism"
-          title="Direct uploads"
+          title={text("Direct uploads")}
           max={20}
         />
         <AppSettingsNumber
           form={form}
           field="browser.direct_download_parallelism"
-          title="Direct downloads"
+          title={text("Direct downloads")}
           max={20}
         />
         <AppSettingsNumber
           form={form}
           field="browser.other_operations_parallelism"
-          title="Other operations"
-          description="Recursive deletes and server-side copies."
+          title={text("Other operations")}
+          description={text("Recursive deletes and server-side copies.")}
           max={20}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Server relay"
-        description="Proxy transfers through the application server when direct transfers are unavailable."
+        title={text("Server relay")}
+        description={text("Proxy transfers through the application server when direct transfers are unavailable.")}
       >
         <AppSettingsToggle
           form={form}
           field="browser.allow_proxy_transfers"
-          title="Allow proxy transfers"
-          ariaLabel="Enable proxy mode"
+          title={text("Allow proxy transfers")}
+          ariaLabel={text("Enable proxy mode")}
         />
         <AppSettingsNumber
           form={form}
           field="browser.proxy_upload_parallelism"
-          title="Proxy uploads"
+          title={text("Proxy uploads")}
           max={20}
           disabled={!form.draft["browser.allow_proxy_transfers"]}
         />
         <AppSettingsNumber
           form={form}
           field="browser.proxy_download_parallelism"
-          title="Proxy downloads"
+          title={text("Proxy downloads")}
           max={20}
           disabled={!form.draft["browser.allow_proxy_transfers"]}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="ZIP downloads"
-        description="Stream larger archives when the browser supports it."
+        title={text("ZIP downloads")}
+        description={text("Stream larger archives when the browser supports it.")}
       >
         <AppSettingsNumber
           form={form}
           field="browser.streaming_zip_threshold_mb"
-          title="Streaming threshold (MB)"
-          description="Set to 0 to always stream. Maximum: 10,240 MB."
+          title={text("Streaming threshold (MB)")}
+          description={text("Set to 0 to always stream. Maximum: 10,240 MB.")}
           min={0}
           max={10240}
         />

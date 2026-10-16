@@ -12,6 +12,7 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { AdminAssociationAccessPickerTable, AdminAssociationSectionHeader, AdminAssociationPickerPanel, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
 import { AccountAccessRoleValidationMessage, ManagerAccountRoleSelect, PortalAccountRoleSelect } from "./AccountAccessRoleSelectors";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
+import { useAdminI18n } from "./adminI18n";
 
 type Principal = { id: number; label: string };
 type Adapter<T extends AccountAccessGrant> = {
@@ -45,6 +46,7 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
   disabled: boolean;
   onPendingChange: (pending: boolean) => void;
 }) {
+  const { text: adminText } = useAdminI18n();
   const catalogue = useSettingsRemoteDraft<Principal[]>(() => [], adapter.load, `Unable to load UI ${adapter.kind}.`);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -84,7 +86,7 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
       {link.manager_role && <AdminAssociationAdvancedSettings targetLabel={label(link)} associationKind="account"
         allowManagerBrowserDataAccess={Boolean(link.allow_manager_browser_data_access)} disabled={disabled} onDirtyChange={setAdvancedDirty}
         onApply={allowed => changeAccess(link, { ...link, allow_manager_browser_data_access: allowed })} />}
-      <ListActionButton variant="danger" onClick={() => onChange(links.filter(item => adapter.id(item) !== adapter.id(link)))}>Remove</ListActionButton>
+      <ListActionButton variant="danger" onClick={() => onChange(links.filter(item => adapter.id(item) !== adapter.id(link)))}>{adminText("Remove")}</ListActionButton>
     </ListActions> },
   ];
   return <fieldset disabled={disabled} className="min-w-0 space-y-3 border-0 p-0">
@@ -96,7 +98,7 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
       containerClassName={adminAssociationTableContainerClass} status={links.length ? "ready" : "empty"}
       loadingMessage="Loading associations..." errorMessage="Unable to load associations." emptyMessage={`No linked ${adapter.kind} yet.`} />
     {open ? <>
-      {catalogue.loadError && <UiInlineMessage tone="error" role="alert">{catalogue.loadError} <SettingsButton variant="secondary" onClick={catalogue.retry}>Retry</SettingsButton></UiInlineMessage>}
+      {catalogue.loadError && <UiInlineMessage tone="error" role="alert">{catalogue.loadError} <SettingsButton variant="secondary" onClick={catalogue.retry}>{adminText("Retry")}</SettingsButton></UiInlineMessage>}
       <AdminAssociationPickerPanel title={`Add UI ${adapter.kind}`} search={search} onSearchChange={setSearch}
         searchAriaLabel={`Search UI ${adapter.kind}`} loading={catalogue.loading || Boolean(catalogue.loadError)}
         loadingLabel={catalogue.loadError ? "The catalogue is unavailable." : `Loading UI ${adapter.kind}...`}

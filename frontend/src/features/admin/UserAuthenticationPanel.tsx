@@ -78,7 +78,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
     title: text("verifyWithPasskey"),
     description: text("verificationDescription"),
     cancel: text("cancel"),
-    close: locale === "zh" ? text("close") : undefined,
+    close: locale === "en" ? undefined : text("close"),
     cancelled: text("verificationCancelled"),
     failure: (failure: unknown) => extractApiError(failure, text("verificationFailed")),
   }), [locale, text]);
@@ -306,7 +306,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
         cancelLabel={text("cancel")}
         processingLabel={text("processing")}
         impactLabel={text("impact")}
-        closeLabel={locale === "zh" ? text("close") : undefined}
+        closeLabel={locale === "en" ? undefined : text("close")}
         tone={pending.kind === "restore-identity" ? "primary" : "danger"}
         error={error}
         loading={busy}

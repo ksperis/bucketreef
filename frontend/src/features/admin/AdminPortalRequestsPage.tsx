@@ -44,15 +44,18 @@ import {
   portalRequestReason,
   portalRequestTypeLabel,
 } from "../shared/portalRequestsPresentation";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { AssociationRoleTooltip, uiPrincipalRoleLabel } from "./AssociationSummary";
 import { buildAdminPrincipalEditHref } from "./adminPrincipalEditLink";
+import { useAdminI18n } from "./adminI18n";
 
 type StatusFilter = PortalAdminRequestStatus | "all";
 type TypeFilter = PortalAdminRequestType | "all";
 type BusyAction = string | null;
 
 export default function AdminPortalRequestsPage() {
+  const { text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const [requests, setRequests] = useState<PortalAdminRequest[]>([]);
   const [accounts, setAccounts] = useState<S3AccountSummary[]>([]);
   const [requesters, setRequesters] = useState<UserSummary[]>([]);
@@ -108,11 +111,11 @@ export default function AdminPortalRequestsPage() {
       setExpandedId((current) => (current && data.some((request) => request.id === current) ? current : null));
     } catch (err) {
       console.error(err);
-      setError(extractApiError(err, "Unable to load Portal requests."));
+      setError(extractApiError(err, adminText("Unable to load Portal requests.")));
     } finally {
       setLoading(false);
     }
-  }, [accountFilter, search, statusFilter, typeFilter]);
+  }, [accountFilter, adminText, search, statusFilter, typeFilter]);
 
   useEffect(() => {
     void loadRequests();
@@ -140,15 +143,15 @@ export default function AdminPortalRequestsPage() {
             : await addAdminPortalRequestMessage(request.id, { message: draft });
       updateRequest(updated);
       setMessageDrafts((current) => ({ ...current, [request.id]: "" }));
-      setNotice("Request updated.");
+      setNotice(adminText("Request updated."));
     } catch (err) {
       console.error(err);
-      setError(extractApiError(err, "Unable to update Portal request."));
+      setError(extractApiError(err, adminText("Unable to update Portal request.")));
       await loadRequests();
     } finally {
       setBusy(null);
     }
-  }, [loadRequests, messageDrafts]);
+  }, [adminText, loadRequests, messageDrafts]);
 
   const columns = useMemo<Array<DataTableColumn<PortalAdminRequest>>>(
     () => [
@@ -198,7 +201,7 @@ export default function AdminPortalRequestsPage() {
           if (request.requester_user_id == null) {
             return (
               <AssociationRoleTooltip
-                label="Requester"
+                label={adminText("Requester")}
                 entries={[{ key: request.requester_email, identity: `${label} · ${request.requester_email}`, roles: [roleLabel] }]}
                 ariaLabel={`${request.requester_email}, role ${roleLabel}`}
                 focusable
@@ -209,7 +212,7 @@ export default function AdminPortalRequestsPage() {
           }
           return (
             <AssociationRoleTooltip
-              label="Requester"
+              label={adminText("Requester")}
               entries={[{ key: String(request.requester_user_id), identity: `${label} · ${request.requester_email}`, roles: [roleLabel] }]}
               ariaLabel={`${request.requester_email}, role ${roleLabel}`}
             >
@@ -245,54 +248,51 @@ export default function AdminPortalRequestsPage() {
               onClick={() => setExpandedId((current) => (current === request.id ? null : request.id))}
               {...dataTableDefaultActionProps}
             >
-              Details
-            </ListActionButton>
+              {adminText("Details")}</ListActionButton>
             {request.status === "pending" ? (
               <>
                 <ListActionButton variant="primary"
                   onClick={() => void runAction(request, "approve")}
                   loading={busy === `approve:${request.id}`}
                 >
-                  Approve
-                </ListActionButton>
+                  {adminText("Approve")}</ListActionButton>
                 <ListActionButton
                   variant="danger"
                   onClick={() => void runAction(request, "reject")}
                   loading={busy === `reject:${request.id}`}
                 >
-                  Reject
-                </ListActionButton>
+                  {adminText("Reject")}</ListActionButton>
               </>
             ) : null}
           </div>
         ),
       },
     ],
-    [busy, requestersById, runAction]
+    [adminText, busy, requestersById, runAction]
   );
 
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: requests.length });
 
   return (
     <PageShell actionPresentation="listing"
-      title="Portal requests"
-      description="Review Portal membership and quota requests submitted by storage workspace users."
-      breadcrumbs={adminPageBreadcrumbs("portal-requests")}
+      title={adminText("Portal requests")}
+      description={adminText("Review Portal membership and quota requests submitted by storage workspace users.")}
+      breadcrumbs={adminBreadcrumbs("portal-requests")}
     >
       {notice ? <PageBanner tone="success">{notice}</PageBanner> : null}
       {error ? <PageBanner tone="error">{error}</PageBanner> : null}
 
       <ListPageSection
-          title="Request queue"
+          title={adminText("Request queue")}
           variant="page"
           countLabel={`${requests.length} request(s)`}
           search={
             <UiInput
-              aria-label="Search Portal requests"
+              aria-label={adminText("Search Portal requests")}
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search requester, account, or payload"
+              placeholder={adminText("Search requester, account, or payload")}
               size="compact"
               fieldClassName="min-w-[220px]"
             />
@@ -300,40 +300,40 @@ export default function AdminPortalRequestsPage() {
           filters={
             <>
               <UiSelect
-                label="Status"
-                aria-label="Filter by status"
+                label={adminText("Status")}
+                aria-label={adminText("Filter by status")}
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
                 size="compact"
               >
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="failed">Failed</option>
-                <option value="all">All statuses</option>
+                <option value="pending">{adminText("Pending")}</option>
+                <option value="processing">{adminText("Processing")}</option>
+                <option value="approved">{adminText("Approved")}</option>
+                <option value="rejected">{adminText("Rejected")}</option>
+                <option value="failed">{adminText("Failed")}</option>
+                <option value="all">{adminText("All statuses")}</option>
               </UiSelect>
               <UiSelect
-                label="Type"
-                aria-label="Filter by type"
+                label={adminText("Type")}
+                aria-label={adminText("Filter by type")}
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
                 size="compact"
               >
-                <option value="all">All types</option>
-                <option value="portal_user_access">Add Portal collaborator</option>
-                <option value="portal_user_removal">Remove Portal user</option>
-                <option value="account_quota_change">Storage quota</option>
-                <option value="portal_setting_change">Project setting</option>
+                <option value="all">{adminText("All types")}</option>
+                <option value="portal_user_access">{adminText("Add Portal collaborator")}</option>
+                <option value="portal_user_removal">{adminText("Remove Portal user")}</option>
+                <option value="account_quota_change">{adminText("Storage quota")}</option>
+                <option value="portal_setting_change">{adminText("Project setting")}</option>
               </UiSelect>
               <UiSelect
-                label="Account"
-                aria-label="Filter by account"
+                label={adminText("Account")}
+                aria-label={adminText("Filter by account")}
                 value={accountFilter}
                 onChange={(event) => setAccountFilter(event.target.value)}
                 size="compact"
               >
-                <option value="all">All accounts</option>
+                <option value="all">{adminText("All accounts")}</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.name}
@@ -344,8 +344,7 @@ export default function AdminPortalRequestsPage() {
           }
           actions={
             <ListActionButton  variant="secondary" onClick={() => void loadRequests()} loading={loading}>
-              Refresh
-            </ListActionButton>
+              {adminText("Refresh")}</ListActionButton>
           }
       >
         <DataTableShell
@@ -387,18 +386,19 @@ function AdminPortalRequestDetails({
   onDraftChange: (value: string) => void;
   onAction: (action: "approve" | "reject" | "message") => void;
 }) {
+  const { text: adminText } = useAdminI18n();
   const reason = portalRequestReason(request);
   return (
     <div className="grid gap-4">
       <div className="grid gap-3 md:grid-cols-3">
-        <DetailItem label="Type" value={portalRequestTypeLabel(request.request_type)} />
-        <DetailItem label="Payload" value={portalRequestPayloadSummary(request)} />
-        <DetailItem label="Decision" value={request.decided_by_email ? `${request.decided_by_email} · ${formatLocalDateTime(request.decided_at)}` : "-"} />
+        <DetailItem label={adminText("Type")} value={portalRequestTypeLabel(request.request_type)} />
+        <DetailItem label={adminText("Payload")} value={portalRequestPayloadSummary(request)} />
+        <DetailItem label={adminText("Decision")} value={request.decided_by_email ? `${request.decided_by_email} · ${formatLocalDateTime(request.decided_at)}` : "-"} />
       </div>
-      {reason ? <DetailItem label="Reason" value={reason} /> : null}
+      {reason ? <DetailItem label={adminText("Reason")} value={reason} /> : null}
       {request.error_message ? <PageBanner tone="error">{request.error_message}</PageBanner> : null}
       <div className={cx("border-t pt-3", uiDividerClass)}>
-        <p className={uiLabelClass}>Messages</p>
+        <p className={uiLabelClass}>{adminText("Messages")}</p>
         {request.messages.length > 0 ? (
           <div className="mt-2 grid gap-2">
             {request.messages.map((message) => (
@@ -411,28 +411,25 @@ function AdminPortalRequestDetails({
             ))}
           </div>
         ) : (
-          <p className={cx("mt-2 ui-body", uiMutedTextClass)}>No messages yet.</p>
+          <p className={cx("mt-2 ui-body", uiMutedTextClass)}>{adminText("No messages yet.")}</p>
         )}
       </div>
       <div className={cx("grid gap-3 border-t pt-3", uiDividerClass)}>
         <UiTextarea
-          label="Message"
+          label={adminText("Message")}
           className="min-h-[84px]"
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
         />
         <div className="flex flex-wrap justify-end gap-2">
           <UiButton size="sm" variant="secondary" onClick={() => onAction("message")} disabled={!draft.trim()} loading={busy === `message:${request.id}`}>
-            Send message
-          </UiButton>
+            {adminText("Send message")}</UiButton>
           {request.status === "pending" ? (
             <>
               <UiButton size="sm" onClick={() => onAction("approve")} loading={busy === `approve:${request.id}`}>
-                Approve
-              </UiButton>
+                {adminText("Approve")}</UiButton>
               <UiButton size="sm" variant="danger" onClick={() => onAction("reject")} loading={busy === `reject:${request.id}`}>
-                Reject
-              </UiButton>
+                {adminText("Reject")}</UiButton>
             </>
           ) : null}
         </div>

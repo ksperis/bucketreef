@@ -3,8 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { Suspense, lazy, useMemo } from "react";
-import { Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useLocation } from "react-router-dom";
-import Layout from "./components/Layout";
+import { Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements } from "react-router-dom";
 import { useGeneralSettings } from "./components/GeneralSettingsContext";
 import FeatureDisabledPage from "./features/shared/FeatureDisabledPage";
 import RouteErrorPage from "./features/shared/RouteErrorPage";
@@ -28,20 +27,9 @@ import {
   RoleRedirect,
 } from "./routerGuards";
 import {
-  isSuperAdminRole,
-  readStoredUser,
-} from "./utils/workspaces";
-import {
-  ADMIN_PAGE_CONTRACTS,
-  workspacePageLink,
-} from "./navigation/workspacePages";
-import { useAdminPendingRequestCounts } from "./hooks/useAdminPendingRequestCounts";
-import type { AdminPendingRequestCounts } from "./api/adminNavigation";
-import {
   DEFAULT_RUNTIME_SURFACES,
   type RuntimeSurfaces,
 } from "./api/appSettings";
-import { useOnboardingStatus } from "./features/admin/useOnboardingStatus";
 
 export { RequireManagerFeatureRulesTool, RequirePortalAccess } from "./routerGuards";
 
@@ -128,202 +116,63 @@ const StorageOpsDashboard = lazy(() => import("./features/storageOps/StorageOpsD
 const StorageOpsBucketsPage = lazy(() => import("./features/storageOps/StorageOpsBucketsPage"));
 const StorageOpsBucketDetailPage = lazy(() => import("./features/storageOps/StorageOpsBucketDetailPage"));
 const AccountProfilePage = lazy(() => import("./features/shared/AccountProfilePage"));
+const AdminLayout = lazy(() => import("./features/admin/AdminLayout"));
 
 const SUPERADMIN_ROLE = "ui_superadmin";
 const ADMIN_ROLE = "ui_admin";
 const USER_ROLE = "ui_user";
-const ADMIN_SETTINGS_PATHS = [
-  "/admin/general-settings",
-  "/admin/authentication-settings",
-  "/admin/manager-settings",
-  "/admin/browser-settings",
-  "/admin/portal-settings",
-  "/admin/webhook-settings",
-  "/admin/production-readiness",
-  "/admin/key-rotation",
-];
-
-function isAdminSettingsPath(pathname: string): boolean {
-  return ADMIN_SETTINGS_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-}
-
-export const buildAdminNav = (
-  portalEnabled: boolean,
-  browserEnabled: boolean,
-  billingEnabled: boolean,
-  usageHistoryEnabled: boolean,
-  endpointStatusEnabled: boolean,
-  isSuperAdmin: boolean,
-  settingsExpanded = false,
-  pendingRequestCounts: AdminPendingRequestCounts | null = null,
-  showOnboarding = true,
-) => {
-  const identityRequestCount = pendingRequestCounts?.identity_link_requests ?? 0;
-  const portalRequestCount = pendingRequestCounts?.portal_requests ?? 0;
-  const settingsLinks = [
-    workspacePageLink(ADMIN_PAGE_CONTRACTS["general-settings"]),
-    workspacePageLink(ADMIN_PAGE_CONTRACTS["authentication-settings"]),
-    workspacePageLink(ADMIN_PAGE_CONTRACTS["manager-settings"]),
-    {
-      ...workspacePageLink(ADMIN_PAGE_CONTRACTS["browser-settings"]),
-      disabled: !browserEnabled,
-      disabledHint: !browserEnabled ? "Browser feature is disabled in General settings." : undefined,
-    },
-    {
-      ...workspacePageLink(ADMIN_PAGE_CONTRACTS["portal-settings"]),
-      disabled: !portalEnabled,
-      disabledHint: !portalEnabled ? "Portal feature is disabled in General settings." : undefined,
-    },
-    workspacePageLink(ADMIN_PAGE_CONTRACTS["webhook-settings"]),
-    {
-      ...workspacePageLink(ADMIN_PAGE_CONTRACTS["production-readiness"]),
-      iconName: "shield" as const,
-    },
-    workspacePageLink(ADMIN_PAGE_CONTRACTS["key-rotation"]),
-  ];
-
-  return [
-    {
-      links: [{ ...workspacePageLink(ADMIN_PAGE_CONTRACTS.dashboard), end: true }],
-    },
-    ...(showOnboarding
-      ? [
-          {
-            label: "Setup",
-            links: [
-              {
-                ...workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding),
-                iconName: "tools" as const,
-              },
-            ],
-          },
-        ]
-      : []),
-    {
-      label: "Identity & Access",
-      links: [
-        workspacePageLink(ADMIN_PAGE_CONTRACTS.users),
-        workspacePageLink(ADMIN_PAGE_CONTRACTS.groups),
-        {
-          ...workspacePageLink(ADMIN_PAGE_CONTRACTS["identity-security"]),
-          iconName: "shield" as const,
-          badge: identityRequestCount > 0 ? String(identityRequestCount) : undefined,
-          badgeAriaLabel:
-            identityRequestCount > 0
-              ? `${identityRequestCount} pending identity link request${identityRequestCount === 1 ? "" : "s"}`
-              : undefined,
-          badgeTone: "attention" as const,
-        },
-      ],
-    },
-    {
-      label: "Managed Tenants",
-      links: [
-        workspacePageLink(ADMIN_PAGE_CONTRACTS.accounts),
-        workspacePageLink(ADMIN_PAGE_CONTRACTS["rgw-users"]),
-        workspacePageLink(ADMIN_PAGE_CONTRACTS.metrics),
-      ],
-    },
-    {
-      label: "Connections",
-      links: [workspacePageLink(ADMIN_PAGE_CONTRACTS["shared-connections"])],
-    },
-    {
-      label: "Storage Backends",
-      links: [
-        workspacePageLink(ADMIN_PAGE_CONTRACTS["storage-endpoints"]),
-        ...(endpointStatusEnabled ? [workspacePageLink(ADMIN_PAGE_CONTRACTS["endpoint-status"])] : []),
-      ],
-    },
-    {
-      label: "Audit & Reporting",
-      links: [
-        ...(portalEnabled
-          ? [
-              {
-                ...workspacePageLink(ADMIN_PAGE_CONTRACTS["portal-requests"]),
-                badge: portalRequestCount > 0 ? String(portalRequestCount) : undefined,
-                badgeAriaLabel:
-                  portalRequestCount > 0
-                    ? `${portalRequestCount} pending Portal request${portalRequestCount === 1 ? "" : "s"}`
-                    : undefined,
-                badgeTone: "attention" as const,
-              },
-            ]
-          : []),
-        ...(billingEnabled ? [workspacePageLink(ADMIN_PAGE_CONTRACTS.billing)] : []),
-        ...(usageHistoryEnabled ? [workspacePageLink(ADMIN_PAGE_CONTRACTS["usage-history"])] : []),
-        workspacePageLink(ADMIN_PAGE_CONTRACTS["access-audit"]),
-        workspacePageLink(ADMIN_PAGE_CONTRACTS.audit),
-      ],
-    },
-    ...(isSuperAdmin
-      ? [
-          {
-            label: "Settings",
-            links: settingsLinks,
-            collapsed: !settingsExpanded,
-          },
-        ]
-      : []),
-  ];
-};
-
-function AdminLayoutShell() {
-  const { generalSettings } = useGeneralSettings();
-  const { status: onboardingStatus } = useOnboardingStatus();
-  const location = useLocation();
-  const pendingRequestCounts = useAdminPendingRequestCounts();
-  const currentUser = readStoredUser();
-  const canConfigureApp = isSuperAdminRole(currentUser?.role);
-  const adminNav = buildAdminNav(
-    generalSettings.portal_enabled,
-    generalSettings.browser_enabled,
-    generalSettings.billing_enabled,
-    generalSettings.usage_history_enabled,
-    generalSettings.endpoint_status_enabled,
-    canConfigureApp,
-    isAdminSettingsPath(location.pathname),
-    pendingRequestCounts,
-    Boolean(onboardingStatus && !onboardingStatus.complete && !onboardingStatus.dismissed),
-  );
-  return (
-    <Layout
-      navSections={adminNav}
-      headerTitle="Administration"
-      sidebarTitle="ADMIN"
-      hideHeader
-    />
-  );
-}
-
 function AdminBillingRoute() {
   const { generalSettings } = useGeneralSettings();
-  return generalSettings.billing_enabled ? <BillingPage /> : <FeatureDisabledPage feature="Billing" />;
+  return generalSettings.billing_enabled ? <BillingPage /> : <FeatureDisabledPage feature={{
+    en: "Billing",
+    fr: "Facturation",
+    de: "Abrechnung",
+    zh: "计费",
+  }} />;
 }
 
 function AdminUsageHistoryRoute() {
   const { generalSettings } = useGeneralSettings();
-  return generalSettings.usage_history_enabled ? <UsageHistoryPage /> : <FeatureDisabledPage feature="Usage history" />;
+  return generalSettings.usage_history_enabled ? <UsageHistoryPage /> : <FeatureDisabledPage feature={{
+    en: "Usage history",
+    fr: "Historique d'utilisation",
+    de: "Nutzungsverlauf",
+    zh: "用量历史",
+  }} />;
 }
 
 function AdminPortalSettingsRoute() {
   const { generalSettings } = useGeneralSettings();
-  return generalSettings.portal_enabled ? <AdminPortalSettingsPage /> : <FeatureDisabledPage feature="Portal" />;
+  return generalSettings.portal_enabled ? <AdminPortalSettingsPage /> : <FeatureDisabledPage feature={{
+    en: "Portal",
+    fr: "Portail",
+    de: "Portal",
+    zh: "Portal",
+  }} />;
 }
 
 function AdminEndpointStatusRoute() {
   const { generalSettings } = useGeneralSettings();
   return generalSettings.endpoint_status_enabled
     ? <EndpointStatusPage />
-    : <FeatureDisabledPage feature="Endpoint Status" />;
+    : <FeatureDisabledPage feature={{
+        en: "Endpoint Status",
+        fr: "État des endpoints",
+        de: "Endpoint-Status",
+        zh: "端点状态",
+      }} />;
 }
 
 function AdminEndpointStatusDetailRoute() {
   const { generalSettings } = useGeneralSettings();
   return generalSettings.endpoint_status_enabled
     ? <EndpointStatusDetailPage />
-    : <FeatureDisabledPage feature="Endpoint Status" />;
+    : <FeatureDisabledPage feature={{
+        en: "Endpoint Status",
+        fr: "État des endpoints",
+        de: "Endpoint-Status",
+        zh: "端点状态",
+      }} />;
 }
 
 export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTIME_SURFACES) {
@@ -334,7 +183,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
 
         {runtimeSurfaces.admin ? (
           <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE]} />}>
-            <Route path="/admin" element={<AdminLayoutShell />}>
+            <Route path="/admin" element={<AdminLayout />}>
               <Route element={<Outlet />} errorElement={<RouteErrorPage />}>
                 <Route index element={<AdminDashboard />} />
                 <Route path="onboarding" element={<OnboardingPage />} />

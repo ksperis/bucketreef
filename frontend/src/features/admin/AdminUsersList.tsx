@@ -20,13 +20,15 @@ import {
 } from "./AssociationSummary";
 import { buildAccessAuditHref } from "./accessAuditLink";
 import type { UsersText } from "./usersMessage";
+import type { UiLanguage } from "../../components/language";
+import { adminIntlLocale } from "./adminI18n";
 
 export type AdminUsersSortField = "name" | "role" | "accounts" | "last_login_at";
 
 type Props = {
   users: User[];
   accountOptionsById: ReadonlyMap<number, S3AccountSummary>;
-  locale: string;
+  locale: UiLanguage;
   text: UsersText;
   roleLabel: (role: User["role"]) => string;
   cephAdminFeatureEnabled: boolean;
@@ -75,7 +77,7 @@ export default function AdminUsersList({
   const formatLastLogin = (value?: string | null) => {
     if (!value) return "-";
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(locale);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(adminIntlLocale(locale));
   };
 
   const renderAssociationSummary = (user: User) => {

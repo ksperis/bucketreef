@@ -20,7 +20,7 @@ import DataTableShell, {
 import ListToolbar from "../../components/ListToolbar";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import UiBadge from "../../components/ui/UiBadge";
 import {
   SettingsButton,
@@ -34,6 +34,7 @@ import {
 } from "../../components/settings/SettingsLayout";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
+import { useAdminI18n } from "./adminI18n";
 
 type RotationTypeOption = {
   value: KeyRotationType;
@@ -115,26 +116,27 @@ function isEndpointEligible(endpoint: StorageEndpoint, types: KeyRotationType[])
   });
 }
 
-const resultTableColumns: Array<DataTableColumn<KeyRotationResultRow>> = [
+function resultTableColumns(adminText: ReturnType<typeof useAdminI18n>["text"]): Array<DataTableColumn<KeyRotationResultRow>> {
+  return [
   {
     id: "endpoint",
-    label: "Endpoint",
+    label: adminText("Endpoint"),
     primary: true,
     render: (item) => item.endpoint_name,
   },
   {
     id: "type",
-    label: "Type",
+    label: adminText("Type"),
     render: (item) => KEY_TYPE_LABEL[item.key_type],
   },
   {
     id: "target",
-    label: "Target",
+    label: adminText("Target"),
     render: (item) => item.target_label || item.target_type,
   },
   {
     id: "status",
-    label: "Status",
+    label: adminText("Status"),
     render: (item) => (
       <UiBadge
         tone={
@@ -151,14 +153,20 @@ const resultTableColumns: Array<DataTableColumn<KeyRotationResultRow>> = [
   },
   {
     id: "details",
-    label: "Details",
+    label: adminText("Details"),
     render: (item) => (
       <>
         {item.message}
-        {item.rotation_pending && <p>Rotation pending · {item.rotation_phase}. Retry the same category to resume.</p>}
+        {item.rotation_pending && (
+          <p>
+            {adminText("Rotation pending · {phase}. Retry the same category to resume.", {
+              phase: item.rotation_phase ?? "-",
+            })}
+          </p>
+        )}
         {item.old_access_key && item.new_access_key ? (
           <details className="text-[var(--ui-text-muted)]">
-            <summary className="cursor-pointer">Key identifiers</summary>
+            <summary className="cursor-pointer">{adminText("Key identifiers")}</summary>
             <span className="break-all font-mono text-xs">
               {item.old_access_key} → {item.new_access_key}
             </span>
@@ -167,9 +175,12 @@ const resultTableColumns: Array<DataTableColumn<KeyRotationResultRow>> = [
       </>
     ),
   },
-];
+  ];
+}
 
 export default function KeyRotationPage() {
+  const { text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -212,7 +223,7 @@ export default function KeyRotationPage() {
         setSelectedEndpointIds(eligibleIds);
       } catch (err) {
         if (!mounted) return;
-        setError(extractApiError(err, "Unable to run key rotation."));
+        setError(extractApiError(err, adminText("Unable to run key rotation.")));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -221,7 +232,7 @@ export default function KeyRotationPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [adminText]);
 
   const eligibleEndpoints = useMemo(
     () => endpoints.filter((endpoint) => isEndpointEligible(endpoint, selectedTypes)),
@@ -310,19 +321,21 @@ export default function KeyRotationPage() {
       setPreviousResult(false);
       if (response.summary.failed > 0) {
         setActionMessage(
-          "Rotation completed with errors. Review details below.",
+          adminText("Rotation completed with errors. Review details below."),
         );
       } else if (response.summary.skipped > 0) {
         setActionMessage(
-          "Rotation completed with skipped items. Review details below.",
+          adminText("Rotation completed with skipped items. Review details below."),
         );
       } else {
-        setActionMessage("Rotation completed successfully.");
+        setActionMessage(adminText("Rotation completed successfully."));
       }
     } catch (err) {
       if (active.current)
         setError(
-          `${extractApiError(err, "Unable to run key rotation.")} The outcome may be incomplete. Retry the same categories to resume their persisted rotations.`,
+          adminText("{error} The outcome may be incomplete. Retry the same categories to resume their persisted rotations.", {
+            error: extractApiError(err, adminText("Unable to run key rotation.")),
+          }),
         );
     } finally {
       pending.current = false;
@@ -332,12 +345,12 @@ export default function KeyRotationPage() {
 
   return (
     <PageShell actionPresentation="listing"
-      title="S3 key rotation"
-      description="Replace RGW keys managed by BucketReef on selected Ceph endpoints."
-      breadcrumbs={adminPageBreadcrumbs("key-rotation")}
+      title={adminText("S3 key rotation")}
+      description={adminText("Replace RGW keys managed by BucketReef on selected Ceph endpoints.")}
+      breadcrumbs={adminBreadcrumbs("key-rotation")}
     >
       <div className="settings-compact">
-        {loading && <PageBanner tone="info">Loading endpoints...</PageBanner>}
+        {loading && <PageBanner tone="info">{adminText("Loading endpoints...")}</PageBanner>}
         {error && <PageBanner tone="error">{error}</PageBanner>}
         {actionMessage && (
           <PageBanner
@@ -353,16 +366,14 @@ export default function KeyRotationPage() {
         <fieldset disabled={running || loading} className="min-w-0">
           <SettingsSection
             presentation="compact"
-            title="Endpoints"
-            description="Select endpoints eligible for at least one selected category. Ready managed service identities do not require the Admin feature."
+            title={adminText("Endpoints")}
+            description={adminText("Select endpoints eligible for at least one selected category. Ready managed service identities do not require the Admin feature.")}
           >
             <div className="flex flex-wrap justify-end gap-2">
               <SettingsButton variant="ghost" onClick={selectAllEndpoints}>
-                Select all endpoints
-              </SettingsButton>
+                {adminText("Select all endpoints")}</SettingsButton>
               <SettingsButton variant="ghost" onClick={clearAllEndpoints}>
-                Clear endpoints
-              </SettingsButton>
+                {adminText("Clear endpoints")}</SettingsButton>
             </div>
             {endpoints.map((endpoint) => (
               <SettingsChoiceRow
@@ -375,36 +386,31 @@ export default function KeyRotationPage() {
               >
                 {!isEndpointEligible(endpoint, selectedTypes) ? (
                   <span className="block text-amber-700 dark:text-amber-300">
-                    Unavailable for the selected categories.
-                  </span>
+                    {adminText("Unavailable for the selected categories.")}</span>
                 ) : endpoint.is_editable === false ? (
                   <span className="block text-[var(--ui-text-muted)]">
-                    Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS. Managed service keys remain stored in the database.
-                  </span>
+                    {adminText("Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS. Managed service keys remain stored in the database.")}</span>
                 ) : null}
               </SettingsChoiceRow>
             ))}
             {!loading && !endpoints.length && (
-              <p className="settings-readonly">No storage endpoints found.</p>
+              <p className="settings-readonly">{adminText("No storage endpoints found.")}</p>
             )}
             {!loading && !selectedEndpointIds.length && (
               <p className="text-sm text-[var(--ui-text-muted)]">
-                Select at least one eligible endpoint.
-              </p>
+                {adminText("Select at least one eligible endpoint.")}</p>
             )}
           </SettingsSection>
           <SettingsSection
             presentation="compact"
-            title="Key categories"
-            description="Only the selected categories will be processed."
+            title={adminText("Key categories")}
+            description={adminText("Only the selected categories will be processed.")}
           >
             <div className="flex flex-wrap justify-end gap-2">
               <SettingsButton variant="ghost" onClick={selectAllTypes}>
-                Select all categories
-              </SettingsButton>
+                {adminText("Select all categories")}</SettingsButton>
               <SettingsButton variant="ghost" onClick={clearAllTypes}>
-                Clear categories
-              </SettingsButton>
+                {adminText("Clear categories")}</SettingsButton>
             </div>
             {ROTATION_TYPE_OPTIONS.map((option) => (
               <SettingsChoiceRow
@@ -416,21 +422,19 @@ export default function KeyRotationPage() {
               >
                 {option.manuallyProvisioned && (
                   <span className="block text-[var(--ui-text-muted)]">
-                    Manually provisioned keys may also be used outside BucketReef.
-                  </span>
+                    {adminText("Manually provisioned keys may also be used outside BucketReef.")}</span>
                 )}
               </SettingsChoiceRow>
             ))}
             {!selectedTypes.length && (
               <p className="settings-readonly">
-                Select at least one key category.
-              </p>
+                {adminText("Select at least one key category.")}</p>
             )}
           </SettingsSection>
-          <SettingsSection presentation="compact" title="Previous keys">
+          <SettingsSection presentation="compact" title={adminText("Previous keys")}>
             <SettingsItem
               compact
-              title="Disable old keys only"
+              title={adminText("Disable old keys only")}
               description={
                 technicalSelected
                   ? "Managed technical identities require deletion of previous keys. Deselect these categories to use disable mode."
@@ -440,7 +444,7 @@ export default function KeyRotationPage() {
               }
               action={
                 <SettingsSwitch
-                  ariaLabel="Disable old keys only"
+                  ariaLabel={adminText("Disable old keys only")}
                   disabled={technicalSelected}
                   checked={deactivateOnly}
                   onChange={value => { if (!technicalSelected) setDeactivateOnly(value); }}
@@ -451,15 +455,12 @@ export default function KeyRotationPage() {
         </fieldset>
         <SettingsSection
           presentation="compact"
-          title="Execution"
-          description="Review the scope before starting. Rotation can return partial results."
+          title={adminText("Execution")}
+          description={adminText("Review the scope before starting. Rotation can return partial results.")}
         >
           {hasSelectedEnvManagedEndpointKeys && (
             <PageBanner tone="warning">
-              Admin Ops and Ceph Admin keys supplied by ENV_STORAGE_ENDPOINTS will be skipped.
-              Rotate them externally and update the environment values. Managed service identities,
-              account keys and S3 user keys remain eligible. Other external service identities are rotated by their operator.
-            </PageBanner>
+              {adminText("Admin Ops and Ceph Admin keys supplied by ENV_STORAGE_ENDPOINTS will be skipped. Rotate them externally and update the environment values. Managed service identities, account keys and S3 user keys remain eligible. Other external service identities are rotated by their operator.")}</PageBanner>
           )}
           <SettingsItem
             compact
@@ -481,7 +482,7 @@ export default function KeyRotationPage() {
         </SettingsSection>
         {result && (
           <section
-            aria-label="Rotation results"
+            aria-label={adminText("Rotation results")}
             className="border-t border-[var(--ui-border-soft)] pt-5"
           >
             <ListToolbar variant="section"
@@ -494,21 +495,21 @@ export default function KeyRotationPage() {
               countLabel={`${result.results.length} detailed result${result.results.length === 1 ? "" : "s"}`}
             />
             <div className="my-3 flex flex-wrap gap-2">
-              <UiBadge>Total: {result.summary.total}</UiBadge>
+              <UiBadge>{adminText("Total:")}{result.summary.total}</UiBadge>
               <UiBadge tone="success">
-                Rotated: {result.summary.rotated}
+                {adminText("Rotated:")}{result.summary.rotated}
               </UiBadge>
-              <UiBadge tone="danger">Failed: {result.summary.failed}</UiBadge>
-              <UiBadge>Skipped: {result.summary.skipped}</UiBadge>
+              <UiBadge tone="danger">{adminText("Failed:")}{result.summary.failed}</UiBadge>
+              <UiBadge>{adminText("Skipped:")}{result.summary.skipped}</UiBadge>
               <UiBadge>
-                Old keys deleted: {result.summary.deleted_old_keys}
+                {adminText("Old keys deleted:")}{result.summary.deleted_old_keys}
               </UiBadge>
               <UiBadge>
-                Old keys disabled: {result.summary.disabled_old_keys}
+                {adminText("Old keys disabled:")}{result.summary.disabled_old_keys}
               </UiBadge>
             </div>
             <DataTableShell
-              columns={resultTableColumns}
+              columns={resultTableColumns(adminText)}
               rows={resultRows}
               rowKey={(item) => item.rowKey}
               status={resultTableStatus}
@@ -524,9 +525,9 @@ export default function KeyRotationPage() {
       </div>
       {confirmOpen && (
         <ConfirmActionDialog
-          title="Run key rotation?"
-          description="New keys will replace the selected managed credentials. Applications using old keys may lose access."
-          confirmLabel="Confirm rotation"
+          title={adminText("Run key rotation?")}
+          description={adminText("New keys will replace the selected managed credentials. Applications using old keys may lose access.")}
+          confirmLabel={adminText("Confirm rotation")}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={() => void runRotation()}
           details={[
@@ -559,9 +560,9 @@ export default function KeyRotationPage() {
       )}
       <SettingsNavigationGuard
         dirty={running}
-        title="Leave this rotation?"
-        description="The server operation will continue. You may lose access to its detailed results on this page."
-        confirmLabel="Leave page"
+        title={adminText("Leave this rotation?")}
+        description={adminText("The server operation will continue. You may lose access to its detailed results on this page.")}
+        confirmLabel={adminText("Leave page")}
         cancelLabel="Wait for results"
       />
     </PageShell>

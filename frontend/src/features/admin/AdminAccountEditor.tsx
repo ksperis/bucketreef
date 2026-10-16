@@ -22,7 +22,7 @@ import { extractApiError } from "../../utils/apiError";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import ProjectSettingsEditor, { type ProjectSettingsAdapter } from "../shared/ProjectSettingsEditor";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminAccountStats } from "./useAdminAccountStats";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
@@ -30,6 +30,7 @@ import AdminQuotaFields from "./AdminQuotaFields";
 import { adminQuotaErrors } from "./useAdminRgwFormValidation";
 import { adminAccountForm, adminAccountPayload, accountQuotaChanged, type AdminAccountForm } from "./adminAccountForm";
 import AdminAccountAssociations, { accountUserAssociations, accountGroupAssociations } from "./AdminAccountAssociations";
+import { useAdminI18n } from "./adminI18n";
 
 type EditTab = "general" | "users" | "groups" | "manager" | "portal";
 type EditorState = { dirty: boolean; busy: boolean };
@@ -46,23 +47,30 @@ const portalAdapter: ProjectSettingsAdapter = {
   load: async id => settingsSnapshot(await fetchAccountPortalSettings(Number(id))),
   save: async (id, payload) => settingsSnapshot(await updateAccountPortalSettings(Number(id), payload)),
 };
-const pageDescription = "Manage quotas, usage, UI associations, Manager features, and Portal overrides for this account.";
-
 /** Mount by account ID so a late read or save cannot replace another account's draft. */
 export default function AdminAccountEditor(props: Props) {
+  const { text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const load = useCallback(() => getS3Account(props.account.id), [props.account.id]);
-  const remote = useSettingsRemoteDraft<S3Account | null>(() => null, load, "Unable to load account configuration.");
+  const remote = useSettingsRemoteDraft<S3Account | null>(
+    () => null,
+    load,
+    adminText("Unable to load account configuration."),
+  );
   if (remote.draft && !remote.loading && !remote.loadError) return <LoadedAccountEditor {...props} account={remote.draft} />;
-  return <WorkflowPage title={`Edit ${props.account.name}`} description={pageDescription}
-    breadcrumbs={adminPageBreadcrumbs("accounts", { label: "Edit" })} onBack={props.onClose} backLabel="Back to accounts"
+  return <WorkflowPage title={adminText("Edit {name}", { name: props.account.name })}
+    description={adminText("Manage quotas, usage, UI associations, Manager features, and Portal overrides for this account.")}
+    breadcrumbs={adminBreadcrumbs("accounts", { label: adminText("Edit") })} onBack={props.onClose} backLabel={adminText("Back to accounts")}
     width="wide" contentVariant="plain" contentClassName="settings-compact settings-form">
-    {remote.loading ? <p role="status">Loading account configuration...</p> : <UiInlineMessage tone="error" role="alert">
-      {remote.loadError} <SettingsButton variant="secondary" onClick={remote.retry}>Retry</SettingsButton>
+    {remote.loading ? <p role="status">{adminText("Loading account configuration...")}</p> : <UiInlineMessage tone="error" role="alert">
+      {remote.loadError} <SettingsButton variant="secondary" onClick={remote.retry}>{adminText("Retry")}</SettingsButton>
     </UiInlineMessage>}
   </WorkflowPage>;
 }
 
 function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
+  const { intlLocale, text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const form = useSettingsDraft(() => adminAccountForm(account));
   const [tab, setTab] = useState<EditTab>("general");
   const [portalDirty, setPortalDirty] = useState(false);
@@ -76,7 +84,11 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const loadPermissions = useCallback(() => getStorageEndpoint(account.storage_endpoint_id, { include_admin_ops_permissions: true }), [account.storage_endpoint_id]);
-  const permissions = useSettingsRemoteDraft<StorageEndpoint | null>(() => null, loadPermissions, "Unable to check endpoint permissions.");
+  const permissions = useSettingsRemoteDraft<StorageEndpoint | null>(
+    () => null,
+    loadPermissions,
+    adminText("Unable to check endpoint permissions."),
+  );
   const allowQuotaUpdates = Boolean(account.storage_endpoint_capabilities?.admin && account.rgw_account_id && permissions.draft?.admin_ops_permissions?.accounts_write);
   const { generalSettings } = useGeneralSettings();
   const allowBucketQuotas = Boolean(permissions.draft?.admin_ops_permissions?.buckets_write);
@@ -96,8 +108,11 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
     const invalidGroups = form.draft.group_links.some(link => !hasAccountAccessRole(link));
     if (invalidUsers || invalidGroups || userPending || groupPending) {
       setTab(invalidUsers || userPending ? "users" : "groups");
-      setError(invalidUsers || invalidGroups ? getAccountAccessRequiredMessage(portalEnabled)
-        : `Add the selected UI ${userPending ? "users" : "groups"}, or cancel their selection, before saving.`);
+      setError(invalidUsers || invalidGroups
+        ? adminText(getAccountAccessRequiredMessage(portalEnabled))
+        : adminText("Add the selected UI {kind}, or cancel their selection, before saving.", {
+            kind: adminText(userPending ? "users" : "groups"),
+          }));
       focusFirstInvalidField(event.currentTarget);
       return;
     }
@@ -108,7 +123,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
     }
     if (accountQuotaChanged(form.draft, form.baseline) && !allowQuotaUpdates) {
       setTab("general");
-      setError("Quota changes require verified accounts=write permission on this endpoint.");
+      setError(adminText("Quota changes require verified accounts=write permission on this endpoint."));
       return;
     }
     const snapshot = form.draft;
@@ -119,7 +134,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
       setSaved(true);
       await onSaved();
     } catch (cause) {
-      if (active.current) setError(extractApiError(cause, "Unable to save account configuration."));
+      if (active.current) setError(extractApiError(cause, adminText("Unable to save account configuration.")));
     }
   };
   const dirty = form.dirty || portalDirty || userPending || groupPending;
@@ -132,76 +147,81 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
   useEffect(() => { if (!portalEnabled && tab === "portal") setTab("general"); }, [portalEnabled, tab]);
 
   return <>
-    <WorkflowPage title={`Edit ${account.name}`} description={pageDescription}
-      breadcrumbs={adminPageBreadcrumbs("accounts", { label: "Edit" })} onBack={controller.requestClose} backDisabled={controller.locked}
-      backLabel="Back to accounts" width="wide" contentVariant="plain" contentClassName="settings-compact settings-form"
-      metaContent={<WorkflowMetadata items={[{ label: "RGW ID", value: account.rgw_account_id }, { label: "Ceph tenant", value: account.rgw_tenant || "Default" }, { label: "Endpoint", value: account.storage_endpoint_name ?? "—", title: account.storage_endpoint_url }]} />}>
+    <WorkflowPage title={adminText("Edit {name}", { name: account.name })}
+      description={adminText("Manage quotas, usage, UI associations, Manager features, and Portal overrides for this account.")}
+      breadcrumbs={adminBreadcrumbs("accounts", { label: adminText("Edit") })} onBack={controller.requestClose} backDisabled={controller.locked}
+      backLabel={adminText("Back to accounts")} width="wide" contentVariant="plain" contentClassName="settings-compact settings-form"
+      metaContent={<WorkflowMetadata items={[
+        { label: adminText("RGW ID"), value: account.rgw_account_id },
+        { label: adminText("Ceph tenant"), value: account.rgw_tenant || adminText("Default") },
+        { label: adminText("Endpoint"), value: account.storage_endpoint_name ?? "—", title: account.storage_endpoint_url },
+      ]} />}>
       <WorkflowTabs<EditTab> activeTab={tab} onTabChange={next => { if (!controller.locked) setTab(next); }}
-        ariaLabel="RGW account configuration sections" idPrefix="admin-rgw-account-edit" panelClassName="mt-3 min-w-0"
-        tabs={[{ id: "general", label: "General" }, { id: "users", label: "Linked UI users" }, { id: "groups", label: "Linked UI groups" },
-          { id: "manager", label: "Manager features", visible: canManageManagerFeatures }, { id: "portal", label: "Portal settings", visible: portalEnabled }]
+        ariaLabel={adminText("RGW account configuration sections")} idPrefix="admin-rgw-account-edit" panelClassName="mt-3 min-w-0"
+        tabs={[{ id: "general", label: adminText("General") }, { id: "users", label: adminText("Linked UI users") }, { id: "groups", label: adminText("Linked UI groups") },
+          { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures }, { id: "portal", label: adminText("Portal settings"), visible: portalEnabled }]
           .map(item => ({ ...item, id: item.id as EditTab, disabled: controller.locked }))}>
         <div hidden={tab === "portal"}>
-          <SettingsForm label="Edit RGW account" formRef={formRef} onSubmit={controller.submit} busy={controller.locked}
-            submitDisabled={!saveableDirty} onCancel={controller.requestClose} submitLabel="Save changes" busyLabel="Saving..."
+          <SettingsForm label={adminText("Edit RGW account")} formRef={formRef} onSubmit={controller.submit} busy={controller.locked}
+            submitDisabled={!saveableDirty} onCancel={controller.requestClose} submitLabel={adminText("Save changes")} busyLabel={adminText("Saving...")}
             actions={<SettingsPersistentEditActions dirty={dirty} busy={controller.locked} disabled={!saveableDirty}
-              onCancel={controller.requestClose} saveLabel="Save changes" savingLabel="Saving..."
+              onCancel={controller.requestClose} saveLabel={adminText("Save changes")} savingLabel={adminText("Saving...")}
               cancelLabel={controller.labels.cancel} doneLabel={controller.labels.done} />}>
             {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
-            {saved && <UiInlineMessage tone="success" role="status">Account settings saved.{portalDirty ? " Portal changes remain unsaved." : ""}</UiInlineMessage>}
+            {saved && <UiInlineMessage tone="success" role="status">{adminText("Account settings saved.")}{portalDirty ? adminText(" Portal changes remain unsaved.") : ""}</UiInlineMessage>}
             <div hidden={tab !== "general"}><div className="settings-stack">
-              <SettingsSection title="Account details" description="Use administrative tags to make this account easier to find and organize." presentation="compact">
+              <SettingsSection title={adminText("Account details")} description={adminText("Use administrative tags to make this account easier to find and organize.")} presentation="compact">
                 {tags.error && <UiInlineMessage tone="warning">{tags.error}</UiInlineMessage>}
-                <UiTagEditor label="Tags" tags={form.draft.tags} catalog={tags.catalog} disabled={controller.locked}
-                  onChange={value => update("tags", value)} placeholder="Add a tag for this account" hint={tags.loading ? "Loading existing tag catalog..." : undefined} />
+                <UiTagEditor label={adminText("Tags")} tags={form.draft.tags} catalog={tags.catalog} disabled={controller.locked}
+                  onChange={value => update("tags", value)} placeholder={adminText("Add a tag for this account")} hint={tags.loading ? adminText("Loading existing tag catalog...") : undefined} />
               </SettingsSection>
-              <SettingsSection title="Usage" description="Observed storage use and the currently saved limits." presentation="compact">
-                {!usageEnabled ? <UiInlineMessage tone="info">Storage metrics are not available for this account.</UiInlineMessage>
-                  : usage.loading ? <p role="status">Loading storage usage...</p>
-                    : usage.error ? <UiInlineMessage tone="error">{usage.error} <SettingsButton variant="secondary" onClick={() => void usage.reload()}>Retry usage</SettingsButton></UiInlineMessage>
+              <SettingsSection title={adminText("Usage")} description={adminText("Observed storage use and the currently saved limits.")} presentation="compact">
+                {!usageEnabled ? <UiInlineMessage tone="info">{adminText("Storage metrics are not available for this account.")}</UiInlineMessage>
+                  : usage.loading ? <p role="status">{adminText("Loading storage usage...")}</p>
+                    : usage.error ? <UiInlineMessage tone="error">{usage.error} <SettingsButton variant="secondary" onClick={() => void usage.reload()}>{adminText("Retry usage")}</SettingsButton></UiInlineMessage>
                       : <>
                         <div className="grid gap-2 sm:grid-cols-2">
                           <UsageTile
-                            label="Storage"
+                            label={adminText("Storage")}
                             used={usage.stats?.total_bytes ?? null}
                             quota={account.quota_max_size_gb != null ? account.quota_max_size_gb * 1024 ** 3 : null}
                             formatter={formatBytes}
                             quotaFormatter={formatBytes}
-                            emptyHint="No storage quota defined."
+                            emptyHint={adminText("No storage quota defined.")}
                           />
                           <UsageTile
-                            label="Objects"
+                            label={adminText("Objects")}
                             used={usage.stats?.total_objects ?? null}
                             quota={account.quota_max_objects ?? null}
                             formatter={formatCompactNumber}
-                            quotaFormatter={value => value != null ? value.toLocaleString() : "-"}
-                            unitHint="objects"
-                            emptyHint="No object quota defined."
+                            quotaFormatter={value => value != null ? value.toLocaleString(intlLocale) : "-"}
+                            unitHint={adminText("objects")}
+                            emptyHint={adminText("No object quota defined.")}
                           />
                         </div>
                         {usage.stats?.bucket_overview && <InlineSummary items={[
-                          { label: "Active buckets", value: `${usage.stats.bucket_overview.non_empty_buckets}/${usage.stats.bucket_overview.bucket_count}` },
-                          { label: "Empty buckets", value: String(usage.stats.bucket_overview.empty_buckets) },
-                          { label: "Average size", value: usage.stats.bucket_overview.avg_bucket_size_bytes == null ? "—" : formatBytes(usage.stats.bucket_overview.avg_bucket_size_bytes) },
-                          { label: "Average objects", value: usage.stats.bucket_overview.avg_objects_per_bucket == null ? "—" : formatCompactNumber(usage.stats.bucket_overview.avg_objects_per_bucket) },
+                          { label: adminText("Active buckets"), value: `${usage.stats.bucket_overview.non_empty_buckets}/${usage.stats.bucket_overview.bucket_count}` },
+                          { label: adminText("Empty buckets"), value: String(usage.stats.bucket_overview.empty_buckets) },
+                          { label: adminText("Average size"), value: usage.stats.bucket_overview.avg_bucket_size_bytes == null ? "—" : formatBytes(usage.stats.bucket_overview.avg_bucket_size_bytes) },
+                          { label: adminText("Average objects"), value: usage.stats.bucket_overview.avg_objects_per_bucket == null ? "—" : formatCompactNumber(usage.stats.bucket_overview.avg_objects_per_bucket) },
                         ]} />}
                       </>}
               </SettingsSection>
-              <SettingsSection title="Services and monitoring" description="Account-specific overrides for shared project services." presentation="compact">
-                <FeatureOverrideField title="Bucket composition statistics" value={form.draft.allow_bucket_usage_stats}
+              <SettingsSection title={adminText("Services and monitoring")} description={adminText("Account-specific overrides for shared project services.")} presentation="compact">
+                <FeatureOverrideField title={adminText("Bucket composition statistics")} value={form.draft.allow_bucket_usage_stats}
                   policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
                   triState
-                  help="Shared project capability used by both Manager and Portal."
+                  help={adminText("Shared project capability used by both Manager and Portal.")}
                   onChange={value => update("allow_bucket_usage_stats", value)} />
-                <FeatureOverrideField title="Automatic bucket composition collection" value={form.draft.allow_bucket_usage_stats_collection}
+                <FeatureOverrideField title={adminText("Automatic bucket composition collection")} value={form.draft.allow_bucket_usage_stats_collection}
                   policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={controller.locked}
                   triState
-                  help="Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled."
+                  help={adminText("Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled.")}
                   onChange={value => update("allow_bucket_usage_stats_collection", value)} />
               </SettingsSection>
-              {permissions.loading ? <p role="status">Checking endpoint permissions...</p> : permissions.loadError ? <UiInlineMessage tone="error" role="alert">
-                {permissions.loadError} <SettingsButton variant="secondary" onClick={permissions.retry}>Retry permissions</SettingsButton>
-              </UiInlineMessage> : !allowQuotaUpdates && <UiInlineMessage tone="info">Quota editing requires Admin Ops support and accounts=write on the endpoint.</UiInlineMessage>}
+              {permissions.loading ? <p role="status">{adminText("Checking endpoint permissions...")}</p> : permissions.loadError ? <UiInlineMessage tone="error" role="alert">
+                {permissions.loadError} <SettingsButton variant="secondary" onClick={permissions.retry}>{adminText("Retry permissions")}</SettingsButton>
+              </UiInlineMessage> : !allowQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and accounts=write on the endpoint.")}</UiInlineMessage>}
               <AdminQuotaFields compact storageValue={form.draft.quota_max_size_gb} storageUnit={form.draft.quota_max_size_unit}
                 objectValue={form.draft.quota_max_objects} disabled={!allowQuotaUpdates} errors={attempted ? quotaErrors : {}}
                 onStorageValueChange={value => update("quota_max_size_gb", value)} onStorageUnitChange={value => update("quota_max_size_unit", value)}
@@ -216,37 +236,37 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                 portalEnabled={portalEnabled} disabled={controller.locked} onPendingChange={setGroupPending} />
             </div>
             {canManageManagerFeatures && <div hidden={tab !== "manager"}><div className="settings-stack">
-              <SettingsSection presentation="compact" title="Usage and metrics">
-                <FeatureOverrideField title="RGW traffic and usage metrics" value={form.draft.allow_rgw_usage_metrics}
+              <SettingsSection presentation="compact" title={adminText("Usage and metrics")}>
+                <FeatureOverrideField title={adminText("RGW traffic and usage metrics")} value={form.draft.allow_rgw_usage_metrics}
                   policy={generalSettings.manager_feature_policies.rgw_usage_metrics} disabled={controller.locked}
                   triState
-                  help="Controls traffic and usage metrics for this RGW Account. Endpoint capabilities and supervision credentials still apply."
+                  help={adminText("Controls traffic and usage metrics for this RGW Account. Endpoint capabilities and supervision credentials still apply.")}
                   onChange={value => update("allow_rgw_usage_metrics", value)} />
               </SettingsSection>
-              <SettingsSection presentation="compact" title="Access-key extensions">
-                <FeatureOverrideField title="Access-key names and notes" value={form.draft.allow_access_key_metadata}
+              <SettingsSection presentation="compact" title={adminText("Access-key extensions")}>
+                <FeatureOverrideField title={adminText("Access-key names and notes")} value={form.draft.allow_access_key_metadata}
                   policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={controller.locked}
                   triState
-                  help="Optional. Name and notes are stored in BucketReef." onChange={value => update("allow_access_key_metadata", value)} />
-                <FeatureOverrideField title="Access-key expiration" value={form.draft.allow_access_key_expiration}
+                  help={adminText("Optional. Name and notes are stored in BucketReef.")} onChange={value => update("allow_access_key_metadata", value)} />
+                <FeatureOverrideField title={adminText("Access-key expiration")} value={form.draft.allow_access_key_expiration}
                   policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={controller.locked}
                   triState
-                  help="Schedules provider-side key disabling. Requires scheduled jobs; recorded expirations remain scheduled after opt-out."
+                  help={adminText("Schedules provider-side key disabling. Requires scheduled jobs; recorded expirations remain scheduled after opt-out.")}
                   onChange={value => update("allow_access_key_expiration", value)} />
               </SettingsSection>
-              <SettingsSection presentation="compact" title="Activity history">
-                <FeatureOverrideField title="Manager activity history" value={form.draft.allow_activity_history}
+              <SettingsSection presentation="compact" title={adminText("Activity history")}>
+                <FeatureOverrideField title={adminText("Manager activity history")} value={form.draft.allow_activity_history}
                   policy={generalSettings.manager_feature_policies.activity_history} disabled={controller.locked}
                   triState
-                  help="Shows account-scoped Manager control and configuration actions. It does not include S3 object access logs."
+                  help={adminText("Shows account-scoped Manager control and configuration actions. It does not include S3 object access logs.")}
                   onChange={value => update("allow_activity_history", value)} />
               </SettingsSection>
-              <SettingsSection presentation="compact" title="Privileged Ceph operations">
-                <FeatureOverrideField title="Bucket quota management" value={form.draft.allow_bucket_quota_management}
+              <SettingsSection presentation="compact" title={adminText("Privileged Ceph operations")}>
+                <FeatureOverrideField title={adminText("Bucket quota management")} value={form.draft.allow_bucket_quota_management}
                   policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={controller.locked}
                   triState
-                  unavailable={!allowBucketQuotas ? "Endpoint permission required" : undefined}
-                  help="Requires buckets=write on the endpoint Admin Ops identity. Storage authorization remains required."
+                  unavailable={!allowBucketQuotas ? adminText("Endpoint permission required") : undefined}
+                  help={adminText("Requires buckets=write on the endpoint Admin Ops identity. Storage authorization remains required.")}
                   onChange={value => update("allow_bucket_quota_management", value)} />
               </SettingsSection>
             </div></div>}

@@ -38,6 +38,7 @@ import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/
 import { useUsageHistoryI18n, type UsageHistoryText } from "../../components/usageHistoryMessage";
 import type { UiLanguage } from "../../components/language";
 import { ADMIN_PAGE_CONTRACTS, WORKSPACE_CONTRACTS } from "../../navigation/workspacePages";
+import { adminIntlLocale } from "./adminI18n";
 
 function dateDaysAgo(days: number): string {
   const now = new Date();
@@ -56,7 +57,7 @@ function formatDateTime(value: string | null | undefined, locale: UiLanguage): s
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString(locale === "zh" ? "zh-CN" : locale, {
+  return parsed.toLocaleString(adminIntlLocale(locale), {
     year: "numeric",
     month: "short",
     day: "2-digit",

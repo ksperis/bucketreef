@@ -24,11 +24,13 @@ import {
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../../utils/apiError";
+import { useAdminI18n } from "../adminI18n";
 
 const isDemo = import.meta.env.MODE === "demo";
 
 type Provider = OidcProviderAdminItem | LdapProviderAdminItem;
 export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
+  const { text: adminText } = useAdminI18n();
   const navigate = useNavigate();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
     <SettingsSection
       presentation="compact"
       title={`${name} providers`}
-      description="Login providers. Environment-managed settings remain locked."
+      description={adminText("Login providers. Environment-managed settings remain locked.")}
     >
       <div className="mb-2 flex justify-end">
         <SettingsButton
@@ -101,18 +103,16 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
           disabled={isDemo || busy}
           onClick={() => navigate(`${path}/new`)}
         >
-          Add {name} provider
-        </SettingsButton>
+          {adminText("Add")}{name} {adminText("provider")}</SettingsButton>
       </div>
       {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
       {message && <p role="status">{message}</p>}
       {loading ? (
-        <p role="status">Loading {name} providers...</p>
+        <p role="status">{adminText("Loading")}{name} {adminText("providers...")}</p>
       ) : (
         providers.length === 0 && (
           <p className="py-3 settings-readonly">
-            No {name} providers configured.
-          </p>
+            {adminText("No")}{name} {adminText("providers configured.")}</p>
         )
       )}
       {providers.map((provider) => (
@@ -152,8 +152,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
                   aria-label={`Delete ${name} provider ${provider.provider_id}`}
                   onClick={() => setSelected(provider)}
                 >
-                  Delete
-                </SettingsButton>
+                  {adminText("Delete")}</SettingsButton>
               )}
             </div>
           }
@@ -163,7 +162,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
         <ConfirmActionDialog
           title={`Delete ${name} provider?`}
           description={`Remove ${selected.display_name} (${selected.provider_id}) from sign-in options.`}
-          confirmLabel="Delete provider"
+          confirmLabel={adminText("Delete provider")}
           loading={busy}
           warning={error ? <span role="alert">{error}</span> : undefined}
           impacts={[

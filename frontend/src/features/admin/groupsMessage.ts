@@ -2,8 +2,9 @@
 import { useCallback } from "react";
 
 import { useI18n, type I18nMessage } from "../../i18n";
+import { adminMessage } from "./adminI18n";
 
-const m = (en: string, zh: string): I18nMessage => ({ en, zh });
+const m = (en: string, zh: string) => adminMessage(en, zh);
 
 export const groupsMessage = {
   team: m("Team", "团队"),

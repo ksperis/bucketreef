@@ -3,11 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { PageBreadcrumb } from "../../components/PageHeader";
+import { useCallback } from "react";
 import {
   ADMIN_PAGE_CONTRACTS as ADMIN_NAVIGATION_CONTRACTS,
   buildWorkspacePageBreadcrumbs,
   type WorkspacePageContract,
 } from "../../navigation/workspacePages";
+import { useAdminI18n } from "./adminI18n";
 
 type AdminPageId = keyof typeof ADMIN_NAVIGATION_CONTRACTS;
 type GovernedAdminPageId =
@@ -65,5 +67,16 @@ export function adminPageBreadcrumbs(
     "admin",
     ADMIN_NAVIGATION_CONTRACTS[pageId],
     ...trailingBreadcrumbs,
+  );
+}
+
+export function useAdminPageBreadcrumbs() {
+  const { text } = useAdminI18n();
+  return useCallback(
+    (pageId: AdminPageId, ...trailingBreadcrumbs: PageBreadcrumb[]) =>
+      adminPageBreadcrumbs(pageId, ...trailingBreadcrumbs).map((breadcrumb, index) =>
+        index < 2 ? { ...breadcrumb, label: text(breadcrumb.label) } : breadcrumb,
+      ),
+    [text],
   );
 }

@@ -31,6 +31,7 @@ import { toolbarCompactToggleClasses } from "../../components/toolbarControlClas
 import { extractApiError } from "../../utils/apiError";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import { stableSignature } from "../../utils/stableSignature";
+import { useAdminI18n } from "./adminI18n";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -48,11 +49,11 @@ const API_SCOPES = [
   "storage-ops:read", "storage-ops:write",
 ];
 
-function formatDate(value?: string | null): string {
+function formatDate(value: string | null | undefined, intlLocale: string): string {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString();
+  return parsed.toLocaleString(intlLocale);
 }
 
 function resolveTokenStatus(token: ApiTokenInfo): TokenStatus {
@@ -75,6 +76,7 @@ type ApiTokensPageProps = {
 };
 
 export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageProps) {
+  const { intlLocale, text: adminText } = useAdminI18n();
   const [tokens, setTokens] = useState<ApiTokenInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -136,11 +138,11 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
       const data = await listApiTokens(includeRevoked);
       if (generation === loadGeneration.current) setTokens(data);
     } catch (loadError) {
-      if (generation === loadGeneration.current) setLoadError(extractApiError(loadError, "Unable to complete request."));
+      if (generation === loadGeneration.current) setLoadError(extractApiError(loadError, adminText("Unable to complete request.")));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);
     }
-  }, [includeRevoked]);
+  }, [adminText, includeRevoked]);
 
   useEffect(() => {
     void loadTokens();
@@ -183,11 +185,11 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
     disabled: creating,
   });
 
-  const nameError = !tokenName.trim() ? "Token name is required." : undefined;
-  const scopesError = scopes.length === 0 ? "Select at least one scope." : undefined;
+  const nameError = !tokenName.trim() ? adminText("Token name is required.") : undefined;
+  const scopesError = scopes.length === 0 ? adminText("Select at least one scope.") : undefined;
   const normalizedDays = expiresInDays.trim();
   const expiryError = invalidExpiryInput || (normalizedDays && (!Number.isSafeInteger(Number(normalizedDays)) || Number(normalizedDays) < 1))
-    ? "Expiry must be a positive integer (days)." : undefined;
+    ? adminText("Expiry must be a positive integer (days).") : undefined;
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
@@ -213,12 +215,12 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
         }));
       setRevealedToken({ value: created.access_token, token: created.api_token });
       setCopyMessage(null);
-      setActionMessage("API token created.");
+      setActionMessage(adminText("API token created."));
       setShowCreateModal(false);
       await loadTokens();
     } catch (createError) {
       if (!isRecentWebAuthnVerificationCancelled(createError)) {
-        setFormError(extractApiError(createError, "Unable to complete request."));
+        setFormError(extractApiError(createError, adminText("Unable to complete request.")));
       }
     } finally {
       creatingRef.current = false;
@@ -234,11 +236,11 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
     setActionError(null);
     try {
       await revokeApiToken(token.id);
-      setActionMessage("API token revoked.");
+      setActionMessage(adminText("API token revoked."));
       await loadTokens();
     } catch (revokeError) {
       if (!isRecentWebAuthnVerificationCancelled(revokeError)) {
-        setActionError(extractApiError(revokeError, "Unable to complete request."));
+        setActionError(extractApiError(revokeError, adminText("Unable to complete request.")));
       }
     } finally {
       setBusyTokenId(null);
@@ -248,14 +250,14 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
   const handleRevoke = (token: ApiTokenInfo) => {
     if (resolveTokenStatus(token) !== "active") return;
     revokeConfirmation.requestConfirmation({
-      title: "Revoke API token?",
-      description: "Immediately invalidate this automation token.",
-      confirmLabel: "Revoke token",
+      title: adminText("Revoke API token?"),
+      description: adminText("Immediately invalidate this automation token."),
+      confirmLabel: adminText("Revoke token"),
       details: [
-        { label: "Token", value: token.name },
-        { label: "Scopes", value: token.scopes.join(", "), mono: true },
+        { label: adminText("Token"), value: token.name },
+        { label: adminText("Scopes"), value: token.scopes.join(", "), mono: true },
       ],
-      impacts: ["Existing scripts and integrations using this token will stop authenticating."],
+      impacts: [adminText("Existing scripts and integrations using this token will stop authenticating.")],
       onConfirm: () => revokeToken(token),
     });
   };
@@ -266,7 +268,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
       setCopyMessage(message);
       window.setTimeout(() => setCopyMessage(null), 2500);
     } catch (copyError) {
-      setActionError(extractApiError(copyError, "Unable to complete request."));
+      setActionError(extractApiError(copyError, adminText("Unable to complete request.")));
     }
   };
 
@@ -294,17 +296,17 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
     {
       id: "created",
       label: "Created",
-      render: (token) => formatDate(token.created_at),
+      render: (token) => formatDate(token.created_at, intlLocale),
     },
     {
       id: "expires",
       label: "Expires",
-      render: (token) => formatDate(token.expires_at),
+      render: (token) => formatDate(token.expires_at, intlLocale),
     },
     {
       id: "last-used",
       label: "Last used",
-      render: (token) => formatDate(token.last_used_at),
+      render: (token) => formatDate(token.last_used_at, intlLocale),
     },
     {
       id: "status",
@@ -345,7 +347,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
       {revealedToken && (
         <OneTimeSecretPanel
           title={`New API token: ${revealedToken.token.name}`}
-          description="This token is shown only once. Store it securely now."
+          description={adminText("This token is shown only once. Store it securely now.")}
           badge="One-time display"
           values={[{ label: "Token", value: revealedToken.value }]}
           actions={
@@ -353,32 +355,28 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
             <SettingsButton variant="secondary"
               onClick={() => copyAndNotify(revealedToken.value, "Token copied to clipboard.")}
             >
-              Copy token
-            </SettingsButton>
+              {adminText("Copy token")}</SettingsButton>
             <SettingsButton variant="secondary"
               onClick={() => copyAndNotify(authHeaderSnippet, "Authorization header copied.")}
             >
-              Copy auth header
-            </SettingsButton>
+              {adminText("Copy auth header")}</SettingsButton>
             <SettingsButton variant="secondary"
               onClick={() => copyAndNotify(curlSnippet, "cURL example copied.")}
             >
-              Copy cURL
-            </SettingsButton>
+              {adminText("Copy cURL")}</SettingsButton>
             <SettingsButton variant="secondary"
               onClick={() => copyAndNotify(ansibleSnippet, "Ansible header snippet copied.")}
             >
-              Copy Ansible
-            </SettingsButton>
-            <SettingsButton variant="secondary" onClick={() => { setRevealedToken(null); setCopyMessage(null); }}>Hide token</SettingsButton>
+              {adminText("Copy Ansible")}</SettingsButton>
+            <SettingsButton variant="secondary" onClick={() => { setRevealedToken(null); setCopyMessage(null); }}>{adminText("Hide token")}</SettingsButton>
             </>
           }
         />
       )}
 
       <ListPageSection
-          title="API tokens"
-          description="Manage personal API tokens linked to your account for automation and integrations."
+          title={adminText("API tokens")}
+          description={adminText("Manage personal API tokens linked to your account for automation and integrations.")}
           variant="section"
           countLabel={`${sortedTokens.length} token${sortedTokens.length === 1 ? "" : "s"}${includeRevoked ? " (including revoked/expired)" : ""}`}
           filters={
@@ -387,11 +385,10 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
               checked={includeRevoked}
               onChange={(event) => setIncludeRevoked(event.target.checked)}
             >
-              Show revoked/expired
-            </UiCheckboxField>
+              {adminText("Show revoked/expired")}</UiCheckboxField>
           }
-          actions={<ListActionButton onClick={() => void loadTokens()} loading={loading}>Refresh</ListActionButton>}
-          headingActions={<ListActionButton variant="primary" disabled={isDemo} onClick={openCreateModal}>Create token</ListActionButton>}
+          actions={<ListActionButton onClick={() => void loadTokens()} loading={loading}>{adminText("Refresh")}</ListActionButton>}
+          headingActions={<ListActionButton variant="primary" disabled={isDemo} onClick={openCreateModal}>{adminText("Create token")}</ListActionButton>}
       >
         <DataTableShell
           columns={tokenTableColumns}
@@ -409,16 +406,15 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
       {revokeConfirmation.confirmationDialog}
 
       {showCreateModal && (
-        <SettingsDialog title="Create API token" onClose={createCloseGuard.requestClose} closeDisabled={creating} initialFocusRef={nameRef} maxWidthClass="max-w-xl">
-          <form aria-label="Create API token" className="settings-stack" onSubmit={handleCreate} noValidate>
+        <SettingsDialog title={adminText("Create API token")} onClose={createCloseGuard.requestClose} closeDisabled={creating} initialFocusRef={nameRef} maxWidthClass="max-w-xl">
+          <form aria-label={adminText("Create API token")} className="settings-stack" onSubmit={handleCreate} noValidate>
             <p className="settings-description">
-              Create a token for automation (Ansible, CI, scripts). Its secret will be shown once.
-            </p>
+              {adminText("Create a token for automation (Ansible, CI, scripts). Its secret will be shown once.")}</p>
             <fieldset disabled={isDemo || creating} className="settings-fields">
               <div className="settings-fields sm:grid-cols-2">
                 <UiInput
                   ref={nameRef}
-                  label="Token name"
+                  label={adminText("Token name")}
                   type="text"
                   value={tokenName}
                   onChange={(event) => setTokenName(event.target.value)}
@@ -429,19 +425,19 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
                 />
                 <UiInput
                   ref={expiryRef}
-                  label="Expiry (days)"
+                  label={adminText("Expiry (days)")}
                   type="number"
                   min={1}
                   step={1}
                   value={expiresInDays}
                   onChange={(event) => setExpiresInDays(event.target.value)}
                   onInput={(event) => setInvalidExpiryInput(event.currentTarget.validity.badInput)}
-                  hint="Leave blank to use the server default."
+                  hint={adminText("Leave blank to use the server default.")}
                   error={createAttempted ? expiryError : undefined}
                 />
               </div>
               <fieldset ref={scopesRef} aria-invalid={createAttempted && Boolean(scopesError)} aria-describedby={createAttempted && scopesError ? scopesErrorId : undefined} className="min-w-0">
-                <legend className="settings-label mb-1">Scopes</legend>
+                <legend className="settings-label mb-1">{adminText("Scopes")}</legend>
                 <div className="grid grid-cols-2 gap-x-2">
                   {API_SCOPES.map((scope) => (
                     <UiCheckboxField key={scope} className="settings-choice settings-description [overflow-wrap:anywhere]"
@@ -465,8 +461,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
                 variant="secondary"
                 disabled={isDemo || creating}
               >
-                Cancel
-              </SettingsButton>
+                {adminText("Cancel")}</SettingsButton>
               <SettingsButton
                 type="submit"
                 disabled={isDemo || creating}

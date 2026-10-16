@@ -29,21 +29,22 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import UiInput from "../../components/ui/UiInput";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { extractApiError } from "../../utils/apiError";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminI18n } from "./adminI18n";
 
 const isDemo = import.meta.env.MODE === "demo";
 
-function formatDate(value?: string | null): string {
+function formatDate(value: string | null | undefined, intlLocale: string): string {
   if (!value) return "-";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(intlLocale);
 }
 
-function targetHost(value: string): string {
+function targetHost(value: string, text: (message: string) => string): string {
   try {
     return new URL(value).host;
   } catch {
-    return "Invalid target";
+    return text("Invalid target");
   }
 }
 
@@ -54,13 +55,15 @@ function deliveryTone(status: WebhookDeliveryStatus): "success" | "warning" | "d
   return "neutral";
 }
 
-function eventSummary(endpoint: WebhookEndpoint): string {
-  if (endpoint.event_types.includes("*")) return "All events";
+function eventSummary(endpoint: WebhookEndpoint, text: (message: string, values?: Record<string, string | number>) => string): string {
+  if (endpoint.event_types.includes("*")) return text("All events");
   const count = endpoint.event_types.length;
-  return `${count} event${count === 1 ? "" : "s"}`;
+  return text(count === 1 ? "{count} event" : "{count} events", { count });
 }
 
 export default function WebhookSettingsPage() {
+  const { intlLocale, text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,11 +79,11 @@ export default function WebhookSettingsPage() {
     try {
       setEndpoints(await listWebhookEndpoints());
     } catch (loadError) {
-      setError(extractApiError(loadError, "Unable to load webhook endpoints."));
+      setError(extractApiError(loadError, adminText("Unable to load webhook endpoints.")));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [adminText]);
 
   useEffect(() => {
     void load();
@@ -102,11 +105,11 @@ export default function WebhookSettingsPage() {
     setMessage(null);
     try {
       const deliveryId = await runWithStepUp(() => sendWebhookTest(endpoint.id));
-      setMessage(`Test delivery queued (${deliveryId}).`);
+      setMessage(adminText("Test delivery queued ({id}).", { id: deliveryId }));
       await load();
     } catch (testError) {
       if (!isRecentWebAuthnVerificationCancelled(testError)) {
-        setError(extractApiError(testError, "Unable to queue webhook test delivery."));
+        setError(extractApiError(testError, adminText("Unable to queue webhook test delivery.")));
       }
     } finally {
       setBusyId(null);
@@ -121,10 +124,10 @@ export default function WebhookSettingsPage() {
     try {
       await runWithStepUp(() => deleteWebhookEndpoint(endpoint.id));
       setEndpoints((current) => current.filter((item) => item.id !== endpoint.id));
-      setMessage(`Webhook endpoint “${endpoint.name}” deleted.`);
+      setMessage(adminText("Webhook endpoint “{name}” deleted.", { name: endpoint.name }));
     } catch (deleteError) {
       if (!isRecentWebAuthnVerificationCancelled(deleteError)) {
-        setError(extractApiError(deleteError, "Unable to delete webhook endpoint."));
+        setError(extractApiError(deleteError, adminText("Unable to delete webhook endpoint.")));
       }
     } finally {
       setBusyId(null);
@@ -133,14 +136,14 @@ export default function WebhookSettingsPage() {
 
   const requestDelete = (endpoint: WebhookEndpoint) => {
     confirmation.requestConfirmation({
-      title: "Delete webhook endpoint?",
-      description: "Remove this webhook configuration and its delivery history.",
-      confirmLabel: "Delete endpoint",
+      title: adminText("Delete webhook endpoint?"),
+      description: adminText("Remove this webhook configuration and its delivery history."),
+      confirmLabel: adminText("Delete endpoint"),
       details: [
-        { label: "Name", value: endpoint.name },
-        { label: "Target", value: targetHost(endpoint.url) },
+        { label: adminText("Name"), value: endpoint.name },
+        { label: adminText("Target"), value: targetHost(endpoint.url, adminText) },
       ],
-      impacts: ["Future BucketReef events will no longer be sent to this endpoint."],
+      impacts: [adminText("Future BucketReef events will no longer be sent to this endpoint.")],
       onConfirm: () => remove(endpoint),
     });
   };
@@ -148,49 +151,49 @@ export default function WebhookSettingsPage() {
   const columns: Array<DataTableColumn<WebhookEndpoint>> = [
     {
       id: "name",
-      label: "Name",
+      label: adminText("Name"),
       primary: true,
       render: (endpoint) => (
         <div className="min-w-0">
           <p className="font-medium">{endpoint.name}</p>
           {!endpoint.has_signing_secret && (
-            <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-300">Signing secret required</p>
+            <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-300">{adminText("Signing secret required")}</p>
           )}
         </div>
       ),
     },
     {
       id: "target",
-      label: "Target",
-      render: (endpoint) => <span className="font-mono">{targetHost(endpoint.url)}</span>,
+      label: adminText("Target"),
+      render: (endpoint) => <span className="font-mono">{targetHost(endpoint.url, adminText)}</span>,
     },
     {
       id: "status",
-      label: "Status",
+      label: adminText("Status"),
       render: (endpoint) => (
         <ListBadge tone={endpoint.enabled ? "success" : "neutral"}>
-          {endpoint.enabled ? "Enabled" : "Disabled"}
+          {adminText(endpoint.enabled ? "Enabled" : "Disabled")}
         </ListBadge>
       ),
     },
     {
       id: "events",
-      label: "Events",
-      render: (endpoint) => eventSummary(endpoint),
+      label: adminText("Events"),
+      render: (endpoint) => eventSummary(endpoint, adminText),
     },
     {
       id: "last-delivery",
-      label: "Last delivery",
+      label: adminText("Last delivery"),
       render: (endpoint) => endpoint.last_delivery ? (
         <div className="flex flex-wrap items-center gap-2">
           <ListBadge tone={deliveryTone(endpoint.last_delivery.status)}>{endpoint.last_delivery.status}</ListBadge>
-          <span>{formatDate(endpoint.last_delivery.delivered_at ?? endpoint.last_delivery.updated_at)}</span>
+          <span>{formatDate(endpoint.last_delivery.delivered_at ?? endpoint.last_delivery.updated_at, intlLocale)}</span>
         </div>
-      ) : "Never",
+      ) : adminText("Never"),
     },
     {
       id: "actions",
-      label: "Actions",
+      label: adminText("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (endpoint) => (
@@ -199,22 +202,19 @@ export default function WebhookSettingsPage() {
             {...dataTableDefaultActionProps}
             to={`/admin/webhook-settings/${endpoint.id}`}
           >
-            Edit
-          </ListActionLink>
+            {adminText("Edit")}</ListActionLink>
           <ListActionButton
             onClick={() => void sendTest(endpoint)}
             disabled={isDemo || !endpoint.has_signing_secret || busyId !== null}
-            title={!endpoint.has_signing_secret ? "Generate a signing secret first." : undefined}
+            title={!endpoint.has_signing_secret ? adminText("Generate a signing secret first.") : undefined}
           >
-            Test
-          </ListActionButton>
+            {adminText("Test")}</ListActionButton>
           <ListActionButton
             variant="danger"
             onClick={() => requestDelete(endpoint)}
             disabled={isDemo || busyId !== null}
           >
-            Delete
-          </ListActionButton>
+            {adminText("Delete")}</ListActionButton>
         </ListActions>
       ),
     },
@@ -226,10 +226,10 @@ export default function WebhookSettingsPage() {
     <div className="space-y-4">
       <PageHeader
         actionPresentation="listing"
-        title="Webhooks"
-        description="Notify external systems when BucketReef control-plane events occur."
-        breadcrumbs={adminPageBreadcrumbs("webhook-settings")}
-        actions={isDemo ? [] : [{ label: "Add endpoint", to: "/admin/webhook-settings/new" }]}
+        title={adminText("Webhooks")}
+        description={adminText("Notify external systems when BucketReef control-plane events occur.")}
+        breadcrumbs={adminBreadcrumbs("webhook-settings")}
+        actions={isDemo ? [] : [{ label: adminText("Add endpoint"), to: "/admin/webhook-settings/new" }]}
       />
 
       {error && endpoints.length > 0 && <PageBanner tone="error">{error}</PageBanner>}
@@ -237,18 +237,18 @@ export default function WebhookSettingsPage() {
 
       <ListPageSection
         variant="page"
-        title="Webhook endpoints"
-        countLabel={`${filtered.length} endpoint${filtered.length === 1 ? "" : "s"}`}
+        title={adminText("Webhook endpoints")}
+        countLabel={adminText(filtered.length === 1 ? "{count} endpoint" : "{count} endpoints", { count: filtered.length })}
         search={(
           <UiInput
             size="compact"
-            aria-label="Search webhook endpoints"
-            placeholder="Search webhooks"
+            aria-label={adminText("Search webhook endpoints")}
+            placeholder={adminText("Search webhooks")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         )}
-        actions={<ListActionButton onClick={() => void load()} loading={loading}>Refresh</ListActionButton>}
+        actions={<ListActionButton onClick={() => void load()} loading={loading}>{adminText("Refresh")}</ListActionButton>}
       >
         <DataTableShell
           columns={columns}

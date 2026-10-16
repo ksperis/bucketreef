@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAdminNav } from "./router";
+import { buildAdminNav } from "./features/admin/AdminLayout";
 
 function getSettingsLink(label: string, options: Parameters<typeof buildAdminNav>) {
   const settingsSection = buildAdminNav(...options).find((section) => section.label === "Settings");

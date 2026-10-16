@@ -23,7 +23,7 @@ import { SettingsButton } from "../../../components/settings/SettingsControls";
 import { useSettingsDraft } from "../../../components/settings/useSettingsDraft";
 import { extractApiError } from "../../../utils/apiError";
 import { focusFirstInvalidField } from "../../../utils/focusFirstInvalidField";
-import { adminPageBreadcrumbs } from "../adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "../adminBreadcrumbs";
 import {
   emptyOidcForm,
   emptyLdapForm,
@@ -36,6 +36,7 @@ import {
 } from "./authProviderForms";
 import OidcProviderFields from "./OidcProviderFields";
 import LdapProviderFields from "./LdapProviderFields";
+import { useAdminI18n } from "../adminI18n";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -124,6 +125,8 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
 }: {
   adapter: Adapter<T, P>;
 }) {
+  const { text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { providerId } = useParams();
   const navigate = useNavigate();
   const form = useSettingsDraft(adapter.empty);
@@ -159,7 +162,7 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
           (item) => item.provider_id === providerId,
         );
         if (!selected) {
-          setError("Provider not found.");
+          setError(adminText("Provider not found."));
           return;
         }
         setProvider(selected);
@@ -174,9 +177,12 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
     return () => {
       active = false;
     };
-  }, [adapter, providerId, accept, loadAttempt]);
+  }, [adapter, providerId, accept, loadAttempt, adminText]);
   const readOnly = isDemo || Boolean(provider && !provider.editable);
-  const title = `${providerId ? (readOnly ? "View" : "Edit") : "Add"} ${adapter.kind} provider`;
+  const title = adminText(
+    providerId ? (readOnly ? "View {kind} provider" : "Edit {kind} provider") : "Add {kind} provider",
+    { kind: adapter.kind.toUpperCase() },
+  );
   const close = (reason?: "navigation") => {
     form.cancel();
     if (reason !== "navigation") navigate(backPath);
@@ -197,38 +203,38 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
       if (providerId) {
         setProvider(saved);
         form.accept(adapter.toForm(saved));
-        setSuccess(`${adapter.kind} provider saved.`);
+        setSuccess(adminText("{kind} provider saved.", { kind: adapter.kind.toUpperCase() }));
       } else {
         // Remove the saved form and its pending navigation guard before redirecting.
         flushSync(() => { form.accept(adapter.empty()); setCompleted(true); });
         navigate(backPath, {
-          state: { providerSaved: `${adapter.kind} provider saved.` },
+          state: { providerSaved: adminText("{kind} provider saved.", { kind: adapter.kind.toUpperCase() }) },
         });
       }
     } catch (err) {
       if (active.current && !isRecentWebAuthnVerificationCancelled(err))
-        setError(extractApiError(err, "Unable to save provider."));
+        setError(extractApiError(err, adminText("Unable to save provider.")));
     }
   };
   if (completed) return null;
   if (!loading && providerId && !provider) {
     return <ErrorState kind={loadFailure ? undefined : "not_found"} error={loadFailure}
       onRetry={() => setLoadAttempt((attempt) => attempt + 1)}
-      secondaryAction={{ label: "Back to authentication", to: backPath }} />;
+      secondaryAction={{ label: adminText("Back to authentication"), to: backPath }} />;
   }
   return (
     <>
       <SettingsWorkflowForm
       title={title}
-      description="Configure the connection, identity mapping and security options."
-      formLabel={`${adapter.kind} provider configuration`}
-      contentVariant="plain" width="wide" backLabel="Back to authentication"
+      description={adminText("Configure the connection, identity mapping and security options.")}
+      formLabel={adminText("{kind} provider configuration", { kind: adapter.kind.toUpperCase() })}
+      contentVariant="plain" width="wide" backLabel={adminText("Back to authentication")}
       dirty={form.dirty} loading={loading} readOnly={readOnly || Boolean(providerId && !provider && !loading)}
       disabled={!form.dirty || Boolean(providerId && !provider)} error={error}
       persistentEdit={Boolean(providerId)}
-      submitLabel={`Save ${adapter.kind} provider`} busyLabel="Saving..." onSubmit={save} onClose={close}
+      submitLabel={adminText("Save {kind} provider", { kind: adapter.kind.toUpperCase() })} busyLabel={adminText("Saving...")} onSubmit={save} onClose={close}
       breadcrumbs={[
-        ...adminPageBreadcrumbs("authentication-settings").map(
+        ...adminBreadcrumbs("authentication-settings").map(
           (crumb, index, items) =>
             index === items.length - 1 ? { ...crumb, to: backPath } : crumb,
         ),
@@ -236,16 +242,14 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
       ]}
     >
         {loading ? (
-          <p role="status">Loading provider...</p>
+          <p role="status">{adminText("Loading provider...")}</p>
         ) : (
           (!providerId || provider) && (
             <>
               {success && <UiInlineMessage tone="success" role="status">{success}</UiInlineMessage>}
               {readOnly && (
                 <UiInlineMessage tone="info">
-                  This provider is managed by environment variables and cannot
-                  be edited here.
-                </UiInlineMessage>
+                  {adminText("This provider is managed by environment variables and cannot be edited here.")}</UiInlineMessage>
               )}
               {adapter.render({
                 form: form.draft,
@@ -261,7 +265,7 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
           )
         )}
         {!loading && providerId && !provider && error && <div>
-          <SettingsButton variant="secondary" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Retry</SettingsButton>
+          <SettingsButton variant="secondary" onClick={() => setLoadAttempt(attempt => attempt + 1)}>{adminText("Retry")}</SettingsButton>
         </div>}
       </SettingsWorkflowForm>
       {verificationDialog}
