@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Literal, Optional
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings
 
+from app.utils.identity_provider_ids import normalize_identity_provider_map
 from app.utils.ldap_validation import (
     LDAP_PROVIDER_DEFAULT_USER_FILTER,
-    LDAP_PROVIDER_ID_PATTERN,
     normalize_optional_ldap_string,
     normalize_required_ldap_string,
     validate_ldap_url,
@@ -605,18 +605,11 @@ class Settings(BaseSettings):
             return [str(item).strip().lower() for item in value if str(item).strip()]
         return value
 
-    @field_validator("ldap_providers")
+    @field_validator("oidc_providers", "ldap_providers")
     @classmethod
-    def normalize_ldap_provider_ids(cls, value):
-        normalized = {}
-        for key, provider in (value or {}).items():
-            provider_id = str(key or "").strip().lower()
-            if not provider_id or not LDAP_PROVIDER_ID_PATTERN.fullmatch(provider_id):
-                raise ValueError("LDAP provider keys must match [a-z0-9_-]+")
-            if provider_id in normalized:
-                raise ValueError(f"Duplicate LDAP provider key after normalization: {provider_id}")
-            normalized[provider_id] = provider
-        return normalized
+    def normalize_identity_provider_ids(cls, value, info: ValidationInfo):
+        provider_type = "OIDC" if info.field_name == "oidc_providers" else "LDAP"
+        return normalize_identity_provider_map(value, provider_type=provider_type)
 
     @field_validator("log_level", mode="before")
     @classmethod

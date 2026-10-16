@@ -6,9 +6,9 @@ from typing import Literal, Optional
 from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
+from app.utils.identity_provider_ids import normalize_identity_provider_id
 
 
-OIDC_PROVIDER_ID_PATTERN = re.compile(r"^[a-z0-9_-]+$")
 OIDC_PROVIDER_DEFAULT_SCOPES = ["openid", "email", "profile"]
 
 
@@ -96,17 +96,7 @@ class OIDCProviderAdminPayload(ApiModel):
     client_secret: Optional[str] = None
     clear_client_secret: bool = False
 
-    @field_validator("provider_id", mode="before")
-    @classmethod
-    def normalize_provider_id(cls, value: str) -> str:
-        if not isinstance(value, str):
-            raise ValueError("provider_id must be a string")
-        normalized = value.strip().lower()
-        if not normalized:
-            raise ValueError("provider_id is required")
-        if not OIDC_PROVIDER_ID_PATTERN.fullmatch(normalized):
-            raise ValueError("provider_id may contain only lowercase letters, numbers, underscores, and hyphens")
-        return normalized
+    normalize_provider_id = field_validator("provider_id", mode="before")(normalize_identity_provider_id)
 
     @field_validator("display_name", "discovery_url", "client_id", "redirect_uri", mode="before")
     @classmethod

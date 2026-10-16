@@ -89,8 +89,13 @@ def test_ldap_provider_allows_anonymous_search_and_rejects_partial_bind_credenti
 
 
 def test_settings_rejects_invalid_ldap_provider_ids():
+    settings = Settings(ldap_providers={"  Corp  ": _provider()})
+    assert list(settings.ldap_providers) == ["corp"]
+
     with pytest.raises(ValidationError, match="LDAP provider keys"):
         Settings(ldap_providers={"corp/prod": _provider()})
+    with pytest.raises(ValidationError, match="Duplicate LDAP provider key"):
+        Settings(ldap_providers={"Corp": _provider(), "corp": _provider()})
 
 
 def test_search_filter_escapes_username():

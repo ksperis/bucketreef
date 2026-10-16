@@ -1,11 +1,9 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-import re
 from urllib.parse import urlparse
 
 
-LDAP_PROVIDER_ID_PATTERN = re.compile(r"^[a-z0-9_-]+$")
 LDAP_PROVIDER_DEFAULT_USER_FILTER = (
     "(|(mail={username})(uid={username})(sAMAccountName={username})"
     "(userPrincipalName={username}))"
