@@ -27,8 +27,8 @@ class BucketsService:
     def __init__(self, configuration: BucketConfigurationService | None = None) -> None:
         self.configuration = configuration or BucketConfigurationService()
 
-    def _rgw_runtime_for_account(self, account: S3ExecutionTarget):
-        endpoint = account.storage_endpoint
+    def _rgw_runtime_for_context(self, execution_context: S3ExecutionTarget):
+        endpoint = execution_context.storage_endpoint
         if endpoint is None:
             raise RuntimeError("Runtime Read Ops credentials are not configured for this endpoint")
         try:
@@ -40,13 +40,13 @@ class BucketsService:
                 f"Unable to initialize admin client: {sanitized_error_log_detail(exc)}"
             ) from exc
 
-    def _admin_bucket_list(self, account: S3ExecutionTarget, with_stats: bool = True) -> list[dict]:
-        uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
+    def _admin_bucket_list(self, execution_context: S3ExecutionTarget, with_stats: bool = True) -> list[dict]:
+        uid = resolve_admin_uid(execution_context.rgw_account_id, execution_context.rgw_user_uid)
         if not uid:
             return []
-        rgw_admin = self._rgw_runtime_for_account(account)
+        rgw_admin = self._rgw_runtime_for_context(execution_context)
         try:
-            tenant = resolve_target_tenant(account)
+            tenant = resolve_target_tenant(execution_context)
             payload = rgw_admin.get_all_buckets(uid=uid, with_stats=with_stats, **({"tenant": tenant} if tenant else {}))
         except (RGWAdminError, ValueError) as exc:
             raise RuntimeError(
@@ -54,9 +54,9 @@ class BucketsService:
             ) from exc
         return extract_bucket_list(payload)
 
-    def _client_kwargs(self, account: S3ExecutionTarget) -> dict:
+    def _client_kwargs(self, execution_context: S3ExecutionTarget) -> dict:
         return s3_execution_request_kwargs(
-            account,
+            execution_context,
             error_message="S3ExecutionTarget is missing admin credentials",
         )
 
@@ -83,19 +83,19 @@ class BucketsService:
 
     def list_buckets(
         self,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         include: Optional[set[str]] = None,
         with_stats: bool = True,
     ) -> List[Bucket]:
-        buckets = s3_client.list_buckets(**self._client_kwargs(account))
-        account_uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
+        buckets = s3_client.list_buckets(**self._client_kwargs(execution_context))
+        account_uid = resolve_admin_uid(execution_context.rgw_account_id, execution_context.rgw_user_uid)
         admin_by_name: dict[str, dict] = {}
         if account_uid and with_stats:
             try:
-                admin_list = self._admin_bucket_list(account, with_stats=True)
+                admin_list = self._admin_bucket_list(execution_context, with_stats=True)
                 logger.debug(
                     "S3 execution context %s fetched %s bucket stats via RGW admin",
-                    account.rgw_account_id or account.id,
+                    execution_context.rgw_account_id or execution_context.id,
                     len(admin_list),
                 )
                 admin_by_name = {
@@ -104,10 +104,21 @@ class BucketsService:
                     if isinstance(entry, dict) and (entry.get("bucket") or entry.get("name"))
                 }
             except RuntimeError as exc:
-                logger.warning("Unable to fetch admin bucket stats for %s: %s", account.rgw_account_id or account.id, exc)
+                logger.warning(
+                    "Unable to fetch admin bucket stats for %s: %s",
+                    execution_context.rgw_account_id or execution_context.id,
+                    exc,
+                )
         elif account_uid and not with_stats:
-            logger.debug("S3 execution context %s skipped RGW admin stats enrichment", account.rgw_account_id or account.id)
-        logger.debug("S3 execution context %s listed %s buckets", account.rgw_account_id or account.id, len(buckets))
+            logger.debug(
+                "S3 execution context %s skipped RGW admin stats enrichment",
+                execution_context.rgw_account_id or execution_context.id,
+            )
+        logger.debug(
+            "S3 execution context %s listed %s buckets",
+            execution_context.rgw_account_id or execution_context.id,
+            len(buckets),
+        )
         enriched: list[Bucket] = []
         for b in buckets:
             bucket_name = None
@@ -137,19 +148,24 @@ class BucketsService:
         if not include:
             return enriched
 
-        return bucket_feature_enrichment.enrich_bucket_features(self.configuration, enriched, account, include)
+        return bucket_feature_enrichment.enrich_bucket_features(
+            self.configuration,
+            enriched,
+            execution_context,
+            include,
+        )
 
     def get_bucket_stats(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         with_stats: bool = True,
     ) -> Bucket:
         normalized_bucket = (bucket_name or "").strip()
         if not normalized_bucket:
             raise RuntimeError("Bucket name is required")
 
-        buckets = s3_client.list_buckets(**self._client_kwargs(account))
+        buckets = s3_client.list_buckets(**self._client_kwargs(execution_context))
         creation_date = None
         bucket_in_scope = False
         for entry in buckets:
@@ -167,11 +183,14 @@ class BucketsService:
         quota_objects: Optional[int] = None
 
         if with_stats and bucket_in_scope:
-            account_uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
+            account_uid = resolve_admin_uid(
+                execution_context.rgw_account_id,
+                execution_context.rgw_user_uid,
+            )
             if account_uid:
                 try:
-                    rgw_admin = self._rgw_runtime_for_account(account)
-                    tenant = resolve_target_tenant(account)
+                    rgw_admin = self._rgw_runtime_for_context(execution_context)
+                    tenant = resolve_target_tenant(execution_context)
                     stats = rgw_admin.get_bucket_info(
                         normalized_bucket, uid=account_uid, allow_not_found=True,
                         **({"tenant": tenant} if tenant else {}),
@@ -183,7 +202,7 @@ class BucketsService:
                     logger.warning(
                         "Unable to fetch bucket stats for %s on %s: %s",
                         normalized_bucket,
-                        account.rgw_account_id or account.id,
+                        execution_context.rgw_account_id or execution_context.id,
                         exc,
                     )
 
@@ -199,7 +218,7 @@ class BucketsService:
     def create_bucket(
         self,
         name: str,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         versioning: bool = False,
         location_constraint: Optional[str] = None,
         object_lock_enabled: bool = False,
@@ -208,29 +227,39 @@ class BucketsService:
             name,
             location_constraint=location_constraint,
             object_lock_enabled=object_lock_enabled,
-            **self._client_kwargs(account),
+            **self._client_kwargs(execution_context),
         )
         effective_versioning = bool(versioning or object_lock_enabled)
         if effective_versioning:
             s3_client.set_bucket_versioning(
                 name,
                 enabled=True,
-                **self._client_kwargs(account),
+                **self._client_kwargs(execution_context),
             )
         logger.debug(
             "S3 execution context %s created bucket %s (versioning=%s object_lock=%s location=%s)",
-            account.rgw_account_id or account.id,
+            execution_context.rgw_account_id or execution_context.id,
             name,
             effective_versioning,
             object_lock_enabled,
             location_constraint,
         )
 
-    def delete_bucket(self, name: str, account: S3ExecutionTarget, force: bool = False) -> None:
+    def delete_bucket(
+        self,
+        name: str,
+        execution_context: S3ExecutionTarget,
+        force: bool = False,
+    ) -> None:
         s3_deletion.delete_bucket(
-            name, force=force, **self._client_kwargs(account)
+            name, force=force, **self._client_kwargs(execution_context)
         )
-        logger.debug("S3 execution context %s deleted bucket %s force=%s", account.rgw_account_id or account.id, name, force)
+        logger.debug(
+            "S3 execution context %s deleted bucket %s force=%s",
+            execution_context.rgw_account_id or execution_context.id,
+            name,
+            force,
+        )
 
 
 def get_buckets_service() -> BucketsService:

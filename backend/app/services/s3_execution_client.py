@@ -9,49 +9,49 @@ from app.utils.s3_endpoint import resolve_s3_client_kwargs
 
 
 def require_s3_execution_credentials(
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     error_message: str,
 ) -> tuple[str, str]:
-    access_key, secret_key = account.effective_rgw_credentials()
+    access_key, secret_key = execution_context.effective_rgw_credentials()
     if not access_key or not secret_key:
         raise RuntimeError(error_message)
     return access_key, secret_key
 
 
-def s3_execution_client_kwargs(account: S3ExecutionTarget) -> dict[str, Any]:
+def s3_execution_client_kwargs(execution_context: S3ExecutionTarget) -> dict[str, Any]:
     return {
-        **resolve_s3_client_kwargs(account),
-        "session_token": account.session_token(),
+        **resolve_s3_client_kwargs(execution_context),
+        "session_token": execution_context.session_token(),
     }
 
 
 def s3_execution_request_kwargs(
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     error_message: str,
 ) -> dict[str, Any]:
     access_key, secret_key = require_s3_execution_credentials(
-        account,
+        execution_context,
         error_message=error_message,
     )
     return {
         "access_key": access_key,
         "secret_key": secret_key,
-        **s3_execution_client_kwargs(account),
+        **s3_execution_client_kwargs(execution_context),
     }
 
 
-def s3_execution_cache_key(account: S3ExecutionTarget) -> str:
+def s3_execution_cache_key(execution_context: S3ExecutionTarget) -> str:
     """Fingerprint the explicit execution identity and full S3 client configuration."""
     identity = (
-        (account.context_kind, account.context_id)
-        if isinstance(account, S3ExecutionContext)
-        else ("account", str(account.id))
+        (execution_context.context_kind, execution_context.context_id)
+        if isinstance(execution_context, S3ExecutionContext)
+        else ("account", str(execution_context.id))
     )
     payload = json.dumps(
-        [identity, account.rgw_tenant,
-         account.effective_rgw_credentials(), s3_execution_client_kwargs(account)],
+        [identity, execution_context.rgw_tenant,
+         execution_context.effective_rgw_credentials(), s3_execution_client_kwargs(execution_context)],
         sort_keys=True,
         separators=(",", ":"),
     )
