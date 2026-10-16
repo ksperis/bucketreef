@@ -264,6 +264,64 @@ def test_complete_login_token_endpoint_errors(db_session, monkeypatch):
         service.complete_login("google", "code-4xx", "state-token-4xx")
 
 
+def test_oidc_token_exchange_refuses_redirect_with_client_secret(db_session, monkeypatch):
+    service, _ = _service(db_session)
+    db_session.add(
+        OidcLoginState(
+            state="state-redirect",
+            provider="google",
+            code_verifier="verifier",
+            nonce="nonce",
+            redirect_path="/",
+        )
+    )
+    db_session.commit()
+    monkeypatch.setattr(service, "_get_metadata", lambda *_args: {"token_endpoint": "https://issuer/token"})
+    captured = {}
+
+    def fake_post(_url, **kwargs):
+        captured.update(kwargs)
+        return _Response(status_code=307)
+
+    monkeypatch.setattr("app.services.oidc_service.requests.post", fake_post)
+    with pytest.raises(OIDCAuthenticationError, match="token exchange failed"):
+        service.complete_login("google", "auth-code", "state-redirect")
+    assert captured["allow_redirects"] is False
+    assert captured["data"]["client_secret"] == "client-secret-123"
+
+
+@pytest.mark.parametrize("resource", ["discovery", "jwks"])
+def test_oidc_metadata_downloads_refuse_redirects(db_session, monkeypatch, resource):
+    service, _ = _service(db_session)
+    captured = {}
+
+    def fake_get(_url, **kwargs):
+        captured.update(kwargs)
+        return _Response(status_code=302)
+
+    monkeypatch.setattr("app.services.oidc_service.requests.get", fake_get)
+    with pytest.raises(OIDCConfigurationError, match="redirected"):
+        if resource == "discovery":
+            service._get_metadata("google", _provider())
+        else:
+            service._get_jwks("https://issuer.example.test/jwks")
+    assert captured["allow_redirects"] is False
+
+
+def test_oidc_userinfo_refuses_redirect_with_bearer_token(db_session, monkeypatch):
+    service, _ = _service(db_session)
+    captured = {}
+
+    def fake_get(_url, **kwargs):
+        captured.update(kwargs)
+        return _Response(status_code=307)
+
+    monkeypatch.setattr("app.services.oidc_service.requests.get", fake_get)
+    assert service._fetch_userinfo_email("https://issuer.example.test/userinfo", "token") is None
+    assert captured["allow_redirects"] is False
+    assert captured["headers"]["Authorization"] == "Bearer token"
+
+
 def test_complete_login_missing_id_token_and_unverified_email(db_session, monkeypatch):
     service, _ = _service(db_session)
     monkeypatch.setattr(service, "_get_metadata", lambda *args, **kwargs: {"token_endpoint": "https://issuer/token"})
@@ -378,7 +436,8 @@ def test_metadata_and_jwks_caching(db_session, monkeypatch):
     provider = _provider()
     calls = {"count": 0}
 
-    def fake_get(url, timeout=0, headers=None):
+    def fake_get(url, timeout=0, headers=None, allow_redirects=None):
+        assert allow_redirects is False
         calls["count"] += 1
         if "jwks" in url:
             return _Response(payload={"keys": [{"kid": "k1", "kty": "RSA", "use": "sig"}]})

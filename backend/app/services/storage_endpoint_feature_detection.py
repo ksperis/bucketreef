@@ -226,7 +226,7 @@ class StorageEndpointFeatureDetector:
                 context.endpoint_url,
                 timeout=settings.healthcheck_timeout_seconds,
                 verify=context.verify_tls,
-                allow_redirects=True,
+                allow_redirects=False,
                 headers={"User-Agent": "bucketreef-endpoint-validation"},
             )
             result.http_check = StorageEndpointHttpCheck(

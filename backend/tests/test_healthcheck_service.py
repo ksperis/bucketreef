@@ -75,6 +75,7 @@ def test_http_healthcheck_honors_endpoint_insecure_tls(monkeypatch):
 
     def fake_get(url: str, **kwargs):
         captured["verify"] = kwargs.get("verify")
+        captured["allow_redirects"] = kwargs.get("allow_redirects")
         if kwargs.get("verify"):
             raise requests.exceptions.SSLError("SSLCertVerificationError")
         return FakeResponse()
@@ -84,6 +85,7 @@ def test_http_healthcheck_honors_endpoint_insecure_tls(monkeypatch):
     result = service._check_endpoint(target, profile=profile, baseline_latency_ms=None)
 
     assert captured["verify"] is False
+    assert captured["allow_redirects"] is False
     assert result.status == HealthCheckStatus.UP
     assert result.error_message is None
 

@@ -69,6 +69,7 @@ enroll a passkey and enable the Admin passkey policy before production.
 ## Federation
 
 - OIDC always uses PKCE S256 and nonce. Discovery, authorization, token, JWKS, issuer, and optional UserInfo endpoints must be HTTPS and use an allowed host. ID tokens require a `kid`, an asymmetric signing key, an explicitly allowed algorithm (`RS256` by default), the configured issuer and audience, and `email_verified is true` before an email is used.
+- OIDC discovery, token, JWKS, and UserInfo requests reject HTTP redirects. Configure the provider's final HTTPS endpoint directly; this prevents redirects from forwarding client credentials or access tokens to an untrusted destination.
 - LDAP production providers require LDAPS or StartTLS, certificate verification, modern TLS, escaped filters, and bounded timeouts.
 - OIDC providers default to `linking_policy=manual`. In `trusted_email` mode, BucketReef links only a verified email in an exact configured domain to one active standard local-password account that has no active or revoked external identity. Privileged, inactive, already federated, unverified, out-of-domain, or unsafe matches remain manual. Unknown emails keep the existing JIT behavior and create a `ui_none` account.
 - Admins decide requests only for standard users; Superadmins can also decide requests for privileged accounts. The immutable mapping key remains `(provider_type, provider_id, subject)`. Subjects are not written to audit metadata.

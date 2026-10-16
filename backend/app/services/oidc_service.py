@@ -179,11 +179,12 @@ class OidcService:
                 data=token_request,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
                 timeout=REQUEST_TIMEOUT,
+                allow_redirects=False,
             )
         except requests.RequestException as exc:
             raise OIDCAuthenticationError("Unable to reach token endpoint") from exc
 
-        if response.status_code >= 400:
+        if response.status_code >= 300:
             LOGGER.warning("OIDC token endpoint rejected the exchange status=%s", response.status_code)
             raise OIDCAuthenticationError("OIDC token exchange failed")
         try:
@@ -269,10 +270,12 @@ class OidcService:
         if cached and cached[1] > now:
             return cached[0]
         try:
-            response = requests.get(provider.discovery_url, timeout=REQUEST_TIMEOUT)
+            response = requests.get(provider.discovery_url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
             response.raise_for_status()
         except requests.RequestException as exc:
             raise OIDCConfigurationError("Failed to fetch OIDC discovery document") from exc
+        if response.status_code >= 300:
+            raise OIDCConfigurationError("OIDC discovery endpoint redirected")
         try:
             metadata = response.json()
         except (TypeError, ValueError) as exc:
@@ -289,10 +292,12 @@ class OidcService:
         if cached and cached[1] > now:
             return cached[0]
         try:
-            response = requests.get(jwks_uri, timeout=REQUEST_TIMEOUT)
+            response = requests.get(jwks_uri, timeout=REQUEST_TIMEOUT, allow_redirects=False)
             response.raise_for_status()
         except requests.RequestException as exc:
             raise OIDCConfigurationError("Failed to download provider keys") from exc
+        if response.status_code >= 300:
+            raise OIDCConfigurationError("OIDC JWKS endpoint redirected")
         try:
             jwks_data = response.json()
         except (TypeError, ValueError) as exc:
@@ -360,9 +365,12 @@ class OidcService:
                 userinfo_endpoint,
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=REQUEST_TIMEOUT,
+                allow_redirects=False,
             )
             response.raise_for_status()
         except requests.RequestException:
+            return None
+        if response.status_code >= 300:
             return None
         try:
             payload = response.json()
