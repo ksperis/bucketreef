@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional
 
 from sqlalchemy import and_, func, or_
@@ -40,6 +41,18 @@ from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
 from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
+
+
+@dataclass(frozen=True)
+class _UiGroupOutputPreload:
+    users: list[User]
+    account_links: list[UiGroupS3Account]
+    s3_user_links: list[UiGroupS3User]
+    s3_connection_ids: list[int]
+    account_names: dict[int, tuple[str, str]]
+    s3_user_names: dict[int, str]
+    s3_connection_names: dict[int, str]
+
 
 class UiGroupsService:
     def __init__(self, db: Session) -> None:
@@ -259,30 +272,30 @@ class UiGroupsService:
         rows = query.order_by(order_column).offset(offset).limit(page_size).all()
         return [self.group_to_out(group) for group in rows], total
 
-    def group_to_out(self, group: UiGroup) -> UiGroupOut:
+    def _preload_group_output(self, group_id: int) -> _UiGroupOutputPreload:
         user_rows = (
             self.db.query(User)
             .join(UserUiGroup, UserUiGroup.user_id == User.id)
-            .filter(UserUiGroup.group_id == group.id)
+            .filter(UserUiGroup.group_id == group_id)
             .order_by(User.email.asc())
             .all()
         )
         account_rows = (
             self.db.query(UiGroupS3Account)
-            .filter(UiGroupS3Account.group_id == group.id)
+            .filter(UiGroupS3Account.group_id == group_id)
             .order_by(UiGroupS3Account.account_id.asc())
             .all()
         )
         s3_user_rows = (
             self.db.query(UiGroupS3User)
-            .filter(UiGroupS3User.group_id == group.id)
+            .filter(UiGroupS3User.group_id == group_id)
             .all()
         )
         s3_connection_rows = (
             self.db.query(UiGroupS3Connection.s3_connection_id)
             .join(S3Connection, S3Connection.id == UiGroupS3Connection.s3_connection_id)
             .filter(
-                UiGroupS3Connection.group_id == group.id,
+                UiGroupS3Connection.group_id == group_id,
                 S3Connection.is_shared.is_(True),
             )
             .all()
@@ -290,12 +303,94 @@ class UiGroupsService:
         s3_user_ids = sorted(row.s3_user_id for row in s3_user_rows)
         s3_connection_ids = sorted(row[0] for row in s3_connection_rows)
         account_ids = sorted(link.account_id for link in account_rows)
-        account_names = self._load_account_names(account_ids)
-        s3_user_names = load_s3_user_names(self.db, s3_user_ids)
-        s3_connection_names = load_shared_s3_connection_names(
-            self.db,
-            s3_connection_ids,
+        return _UiGroupOutputPreload(
+            users=user_rows,
+            account_links=account_rows,
+            s3_user_links=s3_user_rows,
+            s3_connection_ids=s3_connection_ids,
+            account_names=self._load_account_names(account_ids),
+            s3_user_names=load_s3_user_names(self.db, s3_user_ids),
+            s3_connection_names=load_shared_s3_connection_names(
+                self.db,
+                s3_connection_ids,
+            ),
         )
+
+    def _group_user_details(self, users: list[User]) -> list[UserSummary]:
+        avatar_service = UserAvatarService(self.db)
+        return [
+            UserSummary(
+                id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+                avatar=avatar_service.descriptor(user),
+                role=user.role,
+            )
+            for user in users
+        ]
+
+    @staticmethod
+    def _group_account_details(
+        links: list[UiGroupS3Account],
+        names: dict[int, tuple[str, str]],
+    ) -> list[LinkedS3Account]:
+        return [
+            LinkedS3Account(
+                id=link.account_id,
+                name=names[link.account_id][0],
+                rgw_account_id=names[link.account_id][1],
+            )
+            for link in links
+        ]
+
+    @staticmethod
+    def _group_account_links(links: list[UiGroupS3Account]) -> list[AccountMembership]:
+        return [
+            AccountMembership(
+                account_id=link.account_id,
+                manager_role=link.manager_role,
+                portal_role=link.portal_role,
+                allow_manager_browser_data_access=bool(link.allow_manager_browser_data_access),
+            )
+            for link in links
+        ]
+
+    @staticmethod
+    def _group_s3_user_links(links: list[UiGroupS3User]) -> list[S3UserMembership]:
+        return [
+            S3UserMembership(
+                s3_user_id=link.s3_user_id,
+                allow_manager_browser_data_access=bool(link.allow_manager_browser_data_access),
+            )
+            for link in links
+        ]
+
+    @staticmethod
+    def _group_s3_user_details(
+        links: list[UiGroupS3User],
+        names: dict[int, str],
+    ) -> list[LinkedS3User]:
+        ids = sorted(link.s3_user_id for link in links)
+        return [
+            LinkedS3User(id=s3_id, name=names.get(s3_id) or f"S3 User #{s3_id}")
+            for s3_id in ids
+        ]
+
+    @staticmethod
+    def _group_s3_connection_details(
+        connection_ids: list[int],
+        names: dict[int, str],
+    ) -> list[LinkedS3Connection]:
+        return [
+            LinkedS3Connection(
+                id=connection_id,
+                name=names.get(connection_id) or f"Connection #{connection_id}",
+            )
+            for connection_id in connection_ids
+        ]
+
+    def group_to_out(self, group: UiGroup) -> UiGroupOut:
+        preload = self._preload_group_output(int(group.id))
         return UiGroupOut(
             id=group.id,
             name=group.name,
@@ -307,56 +402,15 @@ class UiGroupsService:
             can_provision_managed_private_connections=bool(group.can_provision_managed_private_connections),
             manager_tool_access=read_manager_tool_access(group),
             browser_advanced_features_enabled=bool(group.browser_advanced_features_enabled),
-            user_details=[
-                UserSummary(
-                    id=row.id,
-                    email=row.email,
-                    full_name=row.full_name,
-                    avatar=UserAvatarService(self.db).descriptor(row),
-                    role=row.role,
-                )
-                for row in user_rows
-            ],
-            account_details=[
-                LinkedS3Account(
-                    id=account_id,
-                    name=account_names[account_id][0],
-                    rgw_account_id=account_names[account_id][1],
-                )
-                for account_id in account_ids
-            ],
-            account_links=[
-                AccountMembership(
-                    account_id=link.account_id,
-                    manager_role=link.manager_role,
-                    portal_role=link.portal_role,
-                    allow_manager_browser_data_access=bool(
-                        link.allow_manager_browser_data_access
-                    ),
-                )
-                for link in account_rows
-            ],
-            s3_user_links=[
-                S3UserMembership(
-                    s3_user_id=row.s3_user_id,
-                    allow_manager_browser_data_access=bool(
-                        row.allow_manager_browser_data_access
-                    ),
-                )
-                for row in s3_user_rows
-            ],
-            s3_user_details=[
-                LinkedS3User(id=s3_id, name=s3_user_names.get(s3_id) or f"S3 User #{s3_id}")
-                for s3_id in s3_user_ids
-            ],
-            s3_connection_details=[
-                LinkedS3Connection(
-                    id=conn_id,
-                    name=(details if details else f"Connection #{conn_id}"),
-                )
-                for conn_id in s3_connection_ids
-                for details in [s3_connection_names.get(conn_id)]
-            ],
+            user_details=self._group_user_details(preload.users),
+            account_details=self._group_account_details(preload.account_links, preload.account_names),
+            account_links=self._group_account_links(preload.account_links),
+            s3_user_links=self._group_s3_user_links(preload.s3_user_links),
+            s3_user_details=self._group_s3_user_details(preload.s3_user_links, preload.s3_user_names),
+            s3_connection_details=self._group_s3_connection_details(
+                preload.s3_connection_ids,
+                preload.s3_connection_names,
+            ),
             created_at=group.created_at,
             updated_at=group.updated_at,
         )
