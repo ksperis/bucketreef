@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback } from "react";
-import { useI18n } from "../../i18n";
 import type { UiLanguage } from "../../components/language";
+import { interpolateText, intlLocale, lookupCatalogMessage, useI18n } from "../../i18n";
 import managerDe from "./manager.de.json";
 import managerFr from "./manager.fr.json";
 import managerZh from "./manager.zh.json";
@@ -1596,28 +1596,22 @@ const MANAGER_ZH: Record<string, string> = {
   ...MANAGER_ZH_OVERRIDES,
 };
 
-function interpolate(message: string, values?: ManagerTextValues): string {
-  if (!values) return message;
-  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-  );
-}
+const MANAGER_CATALOGS = {
+  fr: [MANAGER_FR],
+  de: [MANAGER_DE],
+  zh: [MANAGER_ZH],
+} as const;
 
 export function managerText(
   message: string,
   locale: UiLanguage = "en",
   values?: ManagerTextValues,
 ): string {
-  const catalog = locale === "fr" ? MANAGER_FR : locale === "de" ? MANAGER_DE : locale === "zh" ? MANAGER_ZH : null;
-  const translated = catalog?.[message] ?? message;
-  return interpolate(translated, values);
+  return interpolateText(lookupCatalogMessage(message, locale, MANAGER_CATALOGS) ?? message, values);
 }
 
 export function managerIntlLocale(locale: UiLanguage): string {
-  if (locale === "fr") return "fr-FR";
-  if (locale === "de") return "de-DE";
-  if (locale === "zh") return "zh-CN";
-  return "en-US";
+  return intlLocale(locale);
 }
 
 export function useManagerI18n() {

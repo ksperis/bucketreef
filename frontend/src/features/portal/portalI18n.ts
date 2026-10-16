@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { I18nMessage } from "../../i18n";
+import { intlLocale, type I18nMessage } from "../../i18n";
 import type { UiLanguage } from "../../components/language";
 import type {
   PortalStorageSpaceVisibility,
@@ -14,13 +14,6 @@ import type {
 } from "./portalWorkspaceModel";
 
 type TFunction = (message: I18nMessage) => string;
-
-function portalIntlLocale(locale: UiLanguage): string {
-  if (locale === "fr") return "fr-FR";
-  if (locale === "de") return "de-DE";
-  if (locale === "zh") return "zh-CN";
-  return "en-US";
-}
 
 export function portalRoleLabel(role: PortalWorkspaceRole, t: TFunction): string {
   if (role === "Manager") return t({ en: "Manager", fr: "Gestionnaire", de: "Manager", zh: "管理员" });
@@ -129,7 +122,7 @@ export function portalTimeAgoLabel(value?: string | null, locale: UiLanguage = "
   if (hours < 24) return t?.({ en: `${hours}h ago`, fr: `il y a ${hours} h`, de: `vor ${hours} Std.`, zh: `${hours} 小时前` }) ?? `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return t?.({ en: `${days}d ago`, fr: `il y a ${days} j`, de: `vor ${days} Tg.`, zh: `${days} 天前` }) ?? `${days}d ago`;
-  return parsed.toLocaleDateString(portalIntlLocale(locale), { month: "short", day: "numeric" });
+  return parsed.toLocaleDateString(intlLocale(locale), { month: "short", day: "numeric" });
 }
 
 export function portalDateLabel(
@@ -140,14 +133,14 @@ export function portalDateLabel(
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleDateString(portalIntlLocale(locale), options);
+  return parsed.toLocaleDateString(intlLocale(locale), options);
 }
 
 export function portalDateTimeLabel(value?: string | null, locale: UiLanguage = "en"): string {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString(portalIntlLocale(locale), {
+  return parsed.toLocaleString(intlLocale(locale), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -159,7 +152,7 @@ export function portalDateTimeLabel(value?: string | null, locale: UiLanguage = 
 export function formatPortalCurrency(value: number | null | undefined, currency: string | null | undefined, locale: UiLanguage): string {
   if (value == null) return "-";
   try {
-    return new Intl.NumberFormat(portalIntlLocale(locale), {
+    return new Intl.NumberFormat(intlLocale(locale), {
       style: "currency",
       currency: currency || "EUR",
       maximumFractionDigits: 2,

@@ -4,7 +4,7 @@
  */
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
-import { useI18n } from "../../i18n";
+import { interpolateText, intlLocale, lookupCatalogMessage, useI18n } from "../../i18n";
 import browserDe from "./browser.de.json";
 import browserFr from "./browser.fr.json";
 import browserZh from "./browser.zh.json";
@@ -12,35 +12,24 @@ import browserZh from "./browser.zh.json";
 export type BrowserTextValues = Record<string, string | number>;
 export type BrowserTextFn = (message: string, values?: BrowserTextValues) => string;
 
-const BROWSER_CATALOGS: Partial<Record<UiLanguage, Record<string, string>>> = {
-  fr: browserFr,
-  de: browserDe,
-  zh: browserZh,
-};
-
-function interpolate(message: string, values?: BrowserTextValues): string {
-  if (!values) return message;
-  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-  );
-}
+const BROWSER_CATALOGS = {
+  fr: [browserFr],
+  de: [browserDe],
+  zh: [browserZh],
+} as const;
 
 export function browserText(
   message: string,
   locale: UiLanguage = "en",
   values?: BrowserTextValues,
 ): string {
-  const translated = BROWSER_CATALOGS[locale]?.[message] ?? message;
-  return interpolate(translated, values);
+  return interpolateText(lookupCatalogMessage(message, locale, BROWSER_CATALOGS) ?? message, values);
 }
 
 export const defaultBrowserText: BrowserTextFn = (message, values) => browserText(message, "en", values);
 
 export function browserIntlLocale(locale: UiLanguage): string {
-  if (locale === "fr") return "fr-FR";
-  if (locale === "de") return "de-DE";
-  if (locale === "zh") return "zh-CN";
-  return "en-US";
+  return intlLocale(locale);
 }
 
 export function useBrowserI18n() {
