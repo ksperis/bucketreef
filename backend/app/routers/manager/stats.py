@@ -14,8 +14,8 @@ from app.models.usage_trends import UsageTrendsResponse
 from app.models.usage_history import UsageHistoryTrendResponse, UsageHistoryTrendWindow
 from app.routers.dependencies import (
     get_s3_execution_context,
-    require_metrics_capable_manager,
-    require_usage_capable_manager,
+    require_usage_logs_capable_manager,
+    require_storage_metrics_capable_manager,
 )
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.app_settings_service import load_app_settings
@@ -37,14 +37,14 @@ settings = get_settings()
 
 @router.get("/overview")
 def account_stats(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     bucket_service: BucketsService = Depends(get_buckets_service),
-    _: ManagerActor = Depends(require_usage_capable_manager),
+    _: ManagerActor = Depends(require_storage_metrics_capable_manager),
 ) -> dict:
-    if not account.rgw_account_id and not account.rgw_user_uid:
-        raise HTTPException(status_code=400, detail="Storage metrics not available for this account")
+    if not context.rgw_account_id and not context.rgw_user_uid:
+        raise HTTPException(status_code=400, detail="Storage metrics not available for this context")
     try:
-        buckets = bucket_service.list_buckets(account)
+        buckets = bucket_service.list_buckets(context)
         total_buckets = len(buckets)
     except Exception as exc:
         raise HTTPException(
@@ -75,26 +75,26 @@ def account_stats(
 
 @router.get("/usage-trends", response_model=UsageTrendsResponse, response_model_exclude_none=True)
 def account_usage_trends(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
-    _: ManagerActor = Depends(require_usage_capable_manager),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    _: ManagerActor = Depends(require_storage_metrics_capable_manager),
     db: Session = Depends(get_db),
 ) -> UsageTrendsResponse:
     if not load_app_settings().general.usage_history_enabled:
         return UsageTrendsResponse()
-    return build_account_usage_trends(db, account, reference_date=utcnow().date())
+    return build_account_usage_trends(db, context, reference_date=utcnow().date())
 
 
 @router.get("/usage-history-trends", response_model=UsageHistoryTrendResponse)
 def account_usage_history_trends(
     window: UsageHistoryTrendWindow = Query("month"),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
-    _: ManagerActor = Depends(require_usage_capable_manager),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    _: ManagerActor = Depends(require_storage_metrics_capable_manager),
     db: Session = Depends(get_db),
 ) -> UsageHistoryTrendResponse:
     service = UsageHistoryService(db)
     if not load_app_settings().general.usage_history_enabled:
         return service.empty_trends(window=window, unavailable_reason="Usage history is disabled.")
-    if account.context_kind == "connection":
+    if context.context_kind == "connection":
         return service.empty_trends(
             window=window,
             unavailable_reason=(
@@ -102,11 +102,11 @@ def account_usage_history_trends(
                 "for RGW accounts and S3 users."
             ),
         )
-    if account_usage_trend_filters(account, QuotaUsageDaily) is None:
+    if account_usage_trend_filters(context, QuotaUsageDaily) is None:
         return service.empty_trends(window=window, unavailable_reason="Usage history trends are unavailable for this context.")
     return service.aggregate_trends(
         window=window,
-        extra_filter_builder=lambda model: account_usage_trend_filters(account, model) or [],
+        extra_filter_builder=lambda model: account_usage_trend_filters(context, model) or [],
     )
 
 
@@ -114,11 +114,11 @@ def account_usage_history_trends(
 def account_traffic(
     window: TrafficWindow = Query(TrafficWindow.WEEK),
     bucket: Optional[str] = Query(None),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
-    _: ManagerActor = Depends(require_metrics_capable_manager),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    _: ManagerActor = Depends(require_usage_logs_capable_manager),
 ) -> dict:
     try:
-        service = TrafficService(account)
+        service = TrafficService(context)
     except ValueError as exc:
         raise_http_exception_from_exception(502, exc)
     try:
@@ -134,13 +134,13 @@ def account_traffic(
 
 @router.get("/endpoint-health", response_model=WorkspaceEndpointHealthOverviewResponse)
 def endpoint_health_overview(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> WorkspaceEndpointHealthOverviewResponse:
     app_settings = load_app_settings()
     if not app_settings.general.endpoint_status_enabled:
         raise HTTPException(status_code=403, detail="Endpoint Status feature is disabled.")
-    endpoint_id = account.storage_endpoint_id
+    endpoint_id = context.storage_endpoint_id
     if endpoint_id is None:
         return WorkspaceEndpointHealthOverviewResponse(
             generated_at=utcnow().isoformat(),

@@ -61,8 +61,8 @@ def _usage_history_settings(enabled: bool) -> AppSettings:
 @pytest.mark.parametrize(
     "dependency",
     [
-        dependencies.require_usage_capable_manager,
-        dependencies.require_metrics_capable_manager,
+        dependencies.require_storage_metrics_capable_manager,
+        dependencies.require_usage_logs_capable_manager,
     ],
 )
 @pytest.mark.parametrize(
@@ -99,7 +99,7 @@ def test_manager_rgw_metrics_kill_switch_blocks_every_actor(monkeypatch, db_sess
 
     with pytest.raises(HTTPException) as exc:
         dependency(
-            account=make_s3_execution_context(
+            context=make_s3_execution_context(
                 can_manage_buckets=True,
                 context_kind="session" if isinstance(actor, ManagerSessionPrincipal) else "account",
                 name="rgw-metrics-disabled",
@@ -117,8 +117,8 @@ def test_manager_rgw_metrics_kill_switch_blocks_every_actor(monkeypatch, db_sess
 @pytest.mark.parametrize(
     "dependency",
     [
-        dependencies.require_usage_capable_manager,
-        dependencies.require_metrics_capable_manager,
+        dependencies.require_storage_metrics_capable_manager,
+        dependencies.require_usage_logs_capable_manager,
     ],
 )
 def test_manager_rgw_metrics_ignore_bucket_composition_kill_switch(monkeypatch, db_session, dependency):
@@ -136,7 +136,7 @@ def test_manager_rgw_metrics_ignore_bucket_composition_kill_switch(monkeypatch, 
 
     assert (
         dependency(
-            account=make_s3_execution_context(
+            context=make_s3_execution_context(
                 can_manage_buckets=True,
                 name="rgw-metrics-enabled",
                 rgw_account_id="rgw-metrics-enabled",
@@ -180,7 +180,7 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
         actor=user,
         db=db_session,
     )
-    dependencies.require_usage_capable_manager(account=account, actor=user, db=db_session)
+    dependencies.require_storage_metrics_capable_manager(context=account, actor=user, db=db_session)
     assert account.rgw_user_uid == "reporting"
     assert account.rgw_tenant == "rgw_account"
 
@@ -190,7 +190,7 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
             assert target_account.rgw_tenant == "rgw_account"
             return []
 
-    payload = manager_stats_router.account_stats(account=account, bucket_service=_FakeBucketsService(), _={})
+    payload = manager_stats_router.account_stats(context=account, bucket_service=_FakeBucketsService(), _={})
     assert payload["total_buckets"] == 0
     assert payload["total_bytes"] == 0
     assert payload["total_objects"] == 0
@@ -212,7 +212,7 @@ def test_manager_stats_overview_sanitizes_bucket_error_details():
             )
 
     with pytest.raises(HTTPException) as exc:
-        manager_stats_router.account_stats(account=account, bucket_service=_LeakyBucketsService(), _={})
+        manager_stats_router.account_stats(context=account, bucket_service=_LeakyBucketsService(), _={})
 
     detail = str(exc.value.detail)
     assert exc.value.status_code == 502
@@ -256,7 +256,7 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
         actor=user,
         db=db_session,
     )
-    dependencies.require_metrics_capable_manager(account=account, actor=user, db=db_session)
+    dependencies.require_usage_logs_capable_manager(context=account, actor=user, db=db_session)
     assert account.rgw_user_uid == "traffic"
     assert account.rgw_tenant == "rgw_account"
 
@@ -286,7 +286,7 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
     payload = manager_stats_router.account_traffic(
         window=TrafficWindow.WEEK,
         bucket=None,
-        account=account,
+        context=account,
         _={},
     )
     assert captured["uid"] == "traffic"
@@ -316,7 +316,7 @@ def test_manager_stats_traffic_sanitizes_rgw_error_details(monkeypatch):
     monkeypatch.setattr(manager_stats_router, "TrafficService", _LeakyTrafficService)
 
     with pytest.raises(HTTPException) as exc:
-        manager_stats_router.account_traffic(window=TrafficWindow.WEEK, bucket=None, account=account, _={})
+        manager_stats_router.account_traffic(window=TrafficWindow.WEEK, bucket=None, context=account, _={})
 
     detail = str(exc.value.detail)
     assert exc.value.status_code == 502
@@ -364,7 +364,7 @@ def test_manager_stats_dependency_rejects_connection_without_resolved_identity(d
         db=db_session,
     )
     with pytest.raises(HTTPException) as exc:
-        dependencies.require_usage_capable_manager(account=account, actor=user, db=db_session)
+        dependencies.require_storage_metrics_capable_manager(context=account, actor=user, db=db_session)
     assert exc.value.status_code == 403
     assert "unable to resolve rgw identity" in str(exc.value.detail).lower()
 
@@ -422,7 +422,7 @@ def test_manager_usage_trends_falls_back_per_metric(db_session, monkeypatch):
     )
     db_session.commit()
 
-    payload = manager_stats_router.account_usage_trends(account=account, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_trends(context=account, _={}, db=db_session)
 
     assert payload.storage is not None
     assert payload.storage.window == "month"
@@ -449,7 +449,7 @@ def test_manager_usage_trends_returns_empty_when_history_disabled(db_session, mo
     db_session.add_all([endpoint, account])
     db_session.commit()
 
-    payload = manager_stats_router.account_usage_trends(account=account, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_trends(context=account, _={}, db=db_session)
 
     assert payload.model_dump(exclude_none=True) == {}
 
@@ -507,7 +507,7 @@ def test_manager_usage_trends_are_scoped_to_s3_user_subject(db_session, monkeypa
 
     legacy_context = S3ExecutionContext.from_s3_user(s3_user)
 
-    payload = manager_stats_router.account_usage_trends(account=legacy_context, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_trends(context=legacy_context, _={}, db=db_session)
 
     assert payload.storage is not None
     assert payload.storage.used_bytes == 111
@@ -530,7 +530,7 @@ def test_manager_usage_trends_return_empty_for_connection_context(db_session, mo
         s3_connection_id=1,
     )
 
-    payload = manager_stats_router.account_usage_trends(account=account, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_trends(context=account, _={}, db=db_session)
 
     assert payload.model_dump(exclude_none=True) == {}
 
@@ -599,7 +599,7 @@ def test_manager_usage_history_trends_are_scoped_to_account(db_session, monkeypa
     db_session.commit()
 
     payload = manager_stats_router.account_usage_history_trends(
-        window="day", account=S3ExecutionContext.from_account(account), _={}, db=db_session,
+        window="day", context=S3ExecutionContext.from_account(account), _={}, db=db_session,
     )
 
     assert payload.available is True
@@ -667,7 +667,7 @@ def test_manager_usage_history_trends_are_scoped_to_s3_user_subject(db_session, 
 
     legacy_context = S3ExecutionContext.from_s3_user(s3_user)
 
-    payload = manager_stats_router.account_usage_history_trends(window="month", account=legacy_context, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_history_trends(window="month", context=legacy_context, _={}, db=db_session)
 
     assert payload.available is True
     assert payload.granularity == "daily"
@@ -691,7 +691,7 @@ def test_manager_usage_history_trends_return_unavailable_for_connection_context(
         s3_connection_id=1,
     )
 
-    payload = manager_stats_router.account_usage_history_trends(window="month", account=account, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_history_trends(window="month", context=account, _={}, db=db_session)
 
     assert payload.available is False
     assert "private connection contexts" in (payload.unavailable_reason or "")

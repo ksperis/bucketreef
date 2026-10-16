@@ -24,10 +24,10 @@ from tests.service_identity_helpers import service_identity
 GATES = [
     feature_gates.require_iam_capable_manager,
     feature_gates.require_sns_capable_manager,
-    partial(feature_gates.require_usage_capable_manager, db=SimpleNamespace()),
-    partial(feature_gates.require_metrics_capable_manager, db=SimpleNamespace()),
+    partial(feature_gates.require_storage_metrics_capable_manager, db=SimpleNamespace()),
+    partial(feature_gates.require_usage_logs_capable_manager, db=SimpleNamespace()),
 ]
-METRIC_GATES = GATES[2:]
+SUPERVISION_GATES = GATES[2:]
 
 
 @pytest.fixture(autouse=True)
@@ -72,7 +72,7 @@ def test_manager_guards_reject_context_without_explicit_capabilities(gate, inval
         context = S3Account(name="legacy", storage_endpoint=context.storage_endpoint)
 
     with pytest.raises(HTTPException) as caught:
-        gate(account=context, actor=_actor())
+        gate(context=context, actor=_actor())
 
     assert caught.value.status_code == 403
 
@@ -92,7 +92,7 @@ def test_bucket_operations_require_explicit_permission(capabilities):
 @pytest.mark.parametrize("kind", ["account", "s3_user", "session"])
 def test_manager_guards_preserve_authorized_execution_kinds(gate, kind):
     actor = _actor(kind)
-    assert gate(account=_context(kind), actor=actor) is actor
+    assert gate(context=_context(kind), actor=actor) is actor
 
 
 def _connection_context():
@@ -115,21 +115,21 @@ def _record_lookup(monkeypatch):
     return calls
 
 
-@pytest.mark.parametrize("gate", METRIC_GATES)
+@pytest.mark.parametrize("gate", SUPERVISION_GATES)
 def test_denied_bucket_capability_stops_before_connection_identity_lookup(monkeypatch, gate):
     context = _connection_context()
     context.manager_capabilities.can_manage_buckets = False
     calls = _record_lookup(monkeypatch)
 
     with pytest.raises(HTTPException) as caught:
-        gate(account=context, actor=_actor())
+        gate(context=context, actor=_actor())
 
     assert caught.value.status_code == 403
     assert calls == []
     assert context.rgw_user_uid == "selected-user"
 
 
-@pytest.mark.parametrize("gate", METRIC_GATES)
+@pytest.mark.parametrize("gate", SUPERVISION_GATES)
 @pytest.mark.parametrize("missing", ["source", "id", "mismatched-id"])
 def test_connection_metrics_require_complete_matching_source(monkeypatch, gate, missing):
     context = _connection_context()
@@ -143,14 +143,14 @@ def test_connection_metrics_require_complete_matching_source(monkeypatch, gate, 
     calls = _record_lookup(monkeypatch)
 
     with pytest.raises(HTTPException) as caught:
-        gate(account=context, actor=_actor())
+        gate(context=context, actor=_actor())
 
     assert caught.value.status_code == 403
     assert "incomplete" in caught.value.detail
     assert calls == []
 
 
-@pytest.mark.parametrize("gate", METRIC_GATES)
+@pytest.mark.parametrize("gate", SUPERVISION_GATES)
 @pytest.mark.parametrize("kind", ["account", "s3_user", "session"])
 def test_connection_source_metadata_does_not_override_execution_kind(monkeypatch, gate, kind):
     context = _connection_context()
@@ -158,24 +158,24 @@ def test_connection_source_metadata_does_not_override_execution_kind(monkeypatch
     actor = _actor(kind)
     calls = _record_lookup(monkeypatch)
 
-    assert gate(account=context, actor=actor) is actor
+    assert gate(context=context, actor=actor) is actor
     assert calls == []
     assert context.rgw_user_uid == "selected-user"
 
 
-@pytest.mark.parametrize("gate", METRIC_GATES)
+@pytest.mark.parametrize("gate", SUPERVISION_GATES)
 def test_complete_connection_still_resolves_identity(monkeypatch, gate):
     context = _connection_context()
     actor = _actor()
     calls = _record_lookup(monkeypatch)
 
-    assert gate(account=context, actor=actor) is actor
+    assert gate(context=context, actor=actor) is actor
     assert calls == [context.source_connection]
     assert context.rgw_user_uid == "resolved-user"
     assert context.rgw_account_id == "resolved-account"
 
 
-@pytest.mark.parametrize("gate", METRIC_GATES)
+@pytest.mark.parametrize("gate", SUPERVISION_GATES)
 @pytest.mark.parametrize("buckets, traffic", [(False, False), (False, True), (True, False), (True, True)])
 def test_direct_session_metrics_keep_both_capability_checks(gate, buckets, traffic):
     context = _context("session")
@@ -183,10 +183,10 @@ def test_direct_session_metrics_keep_both_capability_checks(gate, buckets, traff
     actor = _actor("session", traffic=traffic)
 
     if buckets and traffic:
-        assert gate(account=context, actor=actor) is actor
+        assert gate(context=context, actor=actor) is actor
     else:
         with pytest.raises(HTTPException) as caught:
-            gate(account=context, actor=actor)
+            gate(context=context, actor=actor)
         assert caught.value.status_code == 403
 
 
@@ -196,7 +196,7 @@ def test_endpoint_feature_flags_still_apply(gate, feature):
     context.storage_endpoint.features_config = f"features:\n  {feature}:\n    enabled: false\n"
 
     with pytest.raises(HTTPException) as caught:
-        gate(account=context, actor=_actor())
+        gate(context=context, actor=_actor())
 
     assert caught.value.status_code == 403
     assert "disabled" in caught.value.detail.lower()
@@ -206,7 +206,7 @@ def test_endpoint_feature_flags_still_apply(gate, feature):
 def test_stats_overview_is_storage_only(can_manage_iam):
     context = _context()
     context.manager_capabilities.can_manage_iam = can_manage_iam
-    result = stats.account_stats(account=context, bucket_service=SimpleNamespace(list_buckets=lambda _account: []))
+    result = stats.account_stats(context=context, bucket_service=SimpleNamespace(list_buckets=lambda _account: []))
 
     for key in ["total_iam_users", "total_iam_groups", "total_iam_roles", "total_iam_policies"]:
         assert key not in result
@@ -246,6 +246,6 @@ def test_http_routes_reject_missing_or_denied_capabilities_before_storage_work(c
         assert response.json()["detail"] == "Account context unavailable"
     else:
         assert response.json()["detail"] in {
-            "Metrics are not available for this account",
+            "Metrics are not available for this context",
             "Bucket management is not allowed for this context",
         }
