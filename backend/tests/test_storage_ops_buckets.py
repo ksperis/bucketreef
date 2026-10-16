@@ -1360,19 +1360,18 @@ def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
         "get_cached_bucket_listing_for_context",
         lambda **kwargs: kwargs["builder"](),
     )
+    query = storage_ops_listing_service.prepare_storage_ops_bucket_listing_request(
+        filter=None,
+        advanced_filter=parsed_filter.model_dump_json(),
+        include=[],
+        with_stats=False,
+        sort_by="name",
+    )
 
     result = storage_ops_listing_service.list_storage_ops_context_buckets(
         context=context,
         service=FakeBucketsService(),
-        needs_stats=False,
-        requested_features={"notifications"},
-        include_tags=False,
-        parsed_filter=parsed_filter,
-        normalized_search="",
-        filter_requires_owner_name=False,
-        filter_requires_owner_suspended=False,
-        filter_requires_owner_quota=False,
-        owner_usage_required=False,
+        query=query,
     )
 
     assert captured["requested_features"] == {"notifications"}
@@ -1431,19 +1430,18 @@ def test_storage_ops_notification_param_filter_uses_shared_snapshot_matching(mon
         "get_cached_bucket_listing_for_context",
         lambda **kwargs: kwargs["builder"](),
     )
+    query = storage_ops_listing_service.prepare_storage_ops_bucket_listing_request(
+        filter=None,
+        advanced_filter=parsed_filter.model_dump_json(),
+        include=[],
+        with_stats=False,
+        sort_by="name",
+    )
 
     result = storage_ops_listing_service.list_storage_ops_context_buckets(
         context=context,
         service=FakeBucketsService(),
-        needs_stats=False,
-        requested_features=set(),
-        include_tags=False,
-        parsed_filter=parsed_filter,
-        normalized_search="",
-        filter_requires_owner_name=False,
-        filter_requires_owner_suspended=False,
-        filter_requires_owner_quota=False,
-        owner_usage_required=False,
+        query=query,
     )
 
     assert [bucket.bucket_name for bucket in result] == ["alpha"]
@@ -1508,7 +1506,17 @@ def test_storage_ops_owner_quota_and_usage_use_context_principal_and_resolve_con
             reason=None,
         )
 
-    def fake_enrich_buckets(self, buckets, *, include_name=False, include_quota=False, include_usage=False, usage_by_key=None):  # noqa: ANN001, ARG002
+    def fake_enrich_buckets(
+        self,
+        buckets,
+        *,
+        include_name=False,
+        include_suspended=False,
+        include_quota=False,
+        include_usage=False,
+        usage_by_key=None,
+    ):  # noqa: ANN001, ARG002
+        assert include_suspended is False
         if include_usage:
             total_bytes = sum(int(bucket.used_bytes or 0) for bucket in buckets)
             total_objects = sum(int(bucket.object_count or 0) for bucket in buckets)
