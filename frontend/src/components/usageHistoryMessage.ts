@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
 
-import { useI18n, type I18nMessage } from "../i18n";
+import { interpolateText, useI18n, type I18nMessage } from "../i18n";
 
 const m = (en: string, zh: string) => ({ en, zh });
 
@@ -91,7 +91,7 @@ export type UsageHistoryText = (key: UsageHistoryMessageKey, values?: Record<str
 export function useUsageHistoryI18n() {
   const { locale, t } = useI18n();
   const text: UsageHistoryText = useCallback(
-    (key, values) => t(usageHistoryMessage[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)),
+    (key, values) => interpolateText(t(usageHistoryMessage[key]), values),
     [t],
   );
   return { locale, text };

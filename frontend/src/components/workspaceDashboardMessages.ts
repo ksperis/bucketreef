@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
-import { useI18n, type I18nMessage } from "../i18n";
+import { interpolateText, useI18n, type I18nMessage } from "../i18n";
 
 const m = (en: string, zh: string) => ({ en, zh });
 
@@ -28,7 +28,7 @@ export function useWorkspaceDashboardI18n() {
   const { t } = useI18n();
   const text = useCallback(
     (key: WorkspaceDashboardMessageKey, values?: Record<string, string | number>) =>
-      t(workspaceDashboardMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)),
+      interpolateText(t(workspaceDashboardMessages[key]), values),
     [t],
   );
   return { text };

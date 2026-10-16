@@ -16,7 +16,7 @@ import TopbarDropdownSelect, {
 } from "./TopbarDropdownSelect";
 import UiTagBadgeList from "./UiTagBadgeList";
 import { TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS } from "./topbarControlWidths";
-import { translate } from "../i18n";
+import { interpolateText, translate } from "../i18n";
 import { shellMessages, useShellI18n, type ShellText } from "./shellMessages";
 
 export type ContextAccessMode =
@@ -27,7 +27,7 @@ export type ContextAccessMode =
   | null;
 
 const defaultShellText: ShellText = (key, values) =>
-  translate(shellMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match));
+  interpolateText(translate(shellMessages[key]), values);
 
 export function getContextAccessModeVisual(mode: ContextAccessMode, text: ShellText = defaultShellText): {
   label: string;

@@ -7,6 +7,7 @@ import {
   uiFeatureStateHighlightLabelClasses,
   type UiFeatureStateTone,
 } from "../../components/ui/styles";
+import { interpolateText } from "../../i18n";
 import { featureDetailSummary } from "../cephAdmin/filtering/bucketAdvancedFilter";
 import {
   FILTER_COST_LABEL,
@@ -191,12 +192,7 @@ export function buildBucketOpsAdvancedFilterUiProjection({
   isStorageOps,
   quickFilterApplied,
   quickFilterDraft,
-  text = (message, values) => {
-    if (!values) return message;
-    return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-      Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-    );
-  },
+  text = interpolateText,
   usageFeatureEnabled,
 }: BuildBucketOpsAdvancedFilterUiProjectionOptions) {
   const comparison = buildBucketOpsAdvancedFilterComparison(
