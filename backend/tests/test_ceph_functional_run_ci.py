@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+from app.models.app_settings import AppSettings
+from app.models.feature_policy import FeaturePolicy
 from app.services.storage_endpoint_normalization import (
     normalize_env_storage_endpoint_states,
     parse_env_storage_endpoints,
@@ -51,6 +53,14 @@ def test_ci_app_settings_payload_enables_portal_features():
 
     assert payload["general"]["portal_enabled"] is True
     assert payload["general"]["browser_portal_enabled"] is True
+
+
+def test_ci_app_settings_payload_matches_current_schema_and_enables_suite_features():
+    settings = AppSettings.model_validate_json(run_ci._build_app_settings_payload())
+
+    for feature in ("bucket_migration", "bucket_compare", "bucket_integrity_check", "ceph_s3_user_keys"):
+        assert getattr(settings.manager.feature_policies, feature) == FeaturePolicy.DEFAULT_ON
+    assert settings.general.project_feature_policies.bucket_usage_stats == FeaturePolicy.DEFAULT_ON
 
 
 def test_functional_bootstrap_grants_all_suite_access():
