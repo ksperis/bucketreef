@@ -17,6 +17,7 @@ import {
   type BucketUiTagDefinitionPatch,
   type BucketUiTagVisibility,
 } from "../../api/bucketUiTags";
+import { extractApiError } from "../../utils/apiError";
 import type { BucketOpsMode } from "./bucketOpsSurface";
 
 const STATE_KEY_SEPARATOR = "\u001e";
@@ -124,11 +125,7 @@ export function useBucketUiTags(
     } catch (catalogError) {
       if (requestId === requestSequenceRef.current) {
         setCatalog(EMPTY_BUCKET_UI_TAG_CATALOG);
-        setError(
-          catalogError instanceof Error
-            ? catalogError.message
-            : "Unable to load bucket UI tags."
-        );
+        setError(extractApiError(catalogError, "Unable to load bucket UI tags."));
       }
     } finally {
       if (requestId === requestSequenceRef.current) setLoading(false);
@@ -212,7 +209,7 @@ export function useBucketUiTags(
           onMutated?.();
         }
         if (requestId === requestSequenceRef.current) {
-          setError(err instanceof Error ? err.message : "Unable to update bucket UI tags.");
+          setError(extractApiError(err, "Unable to update bucket UI tags."));
         }
         throw err;
       } finally {
@@ -245,11 +242,7 @@ export function useBucketUiTags(
         onMutated?.();
         return updated;
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to update bucket UI tag settings."
-        );
+        setError(extractApiError(err, "Unable to update bucket UI tag settings."));
         throw err;
       } finally {
         setUpdatingDefinitionIds((current) => {
