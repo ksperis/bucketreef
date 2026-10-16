@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { HealthCheckStatus } from "../../api/healthchecks";
 import type { UiLanguage } from "../../components/language";
 import { endpointStatusText, useEndpointStatusText } from "./endpointStatusMessages";
+import { adminIntlLocale } from "./adminI18n";
 
 export function formatStatusLabel(status: HealthCheckStatus, locale: UiLanguage = "en") {
   return endpointStatusText(`status_${status}`, locale);
@@ -32,19 +33,19 @@ export function formatLatency(value?: number | null) {
 export function formatTimestamp(value: string, locale?: UiLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(locale === "zh" ? "zh-CN" : undefined);
+  return date.toLocaleString(adminIntlLocale(locale ?? "en"));
 }
 
 export function formatChartTime(value: number, locale?: UiLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(adminIntlLocale(locale ?? "en"), { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
 export function formatChartDay(value: number | string, locale?: UiLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : undefined, { day: "2-digit", month: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(adminIntlLocale(locale ?? "en"), { day: "2-digit", month: "2-digit" }).format(date);
 }
 
 export function formatPercent(value?: number | null) {

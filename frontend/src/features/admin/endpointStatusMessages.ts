@@ -1,9 +1,10 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
-import { translate, useI18n, type I18nMessage } from "../../i18n";
+import { translate, useI18n } from "../../i18n";
+import { adminMessage } from "./adminI18n";
 
-const m = (en: string, zh: string): I18nMessage => ({ en, zh });
+const m = (en: string, zh: string) => adminMessage(en, zh);
 
 const messages = {
   admin: m("Admin", "管理"),

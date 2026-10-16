@@ -18,7 +18,7 @@ import {
 } from "../../api/s3Users";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageShell from "../../components/PageShell";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
 import ListPageSection from "../../components/list/ListPageSection";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
@@ -27,8 +27,11 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
+import { useAdminI18n } from "./adminI18n";
 
 export default function S3UserKeysPage() {
+  const { intlLocale, text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { userId } = useParams<{ userId: string }>();
   const numericUserId = userId ? Number(userId) : NaN;
   const [user, setUser] = useState<S3User | null>(null);
@@ -43,7 +46,7 @@ export default function S3UserKeysPage() {
   const formatDate = (value?: string | null) => {
     if (!value) return "-";
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(intlLocale);
   };
 
   const loadUser = useCallback(async () => {
@@ -52,9 +55,9 @@ export default function S3UserKeysPage() {
       const data = await getS3User(numericUserId);
       setUser(data);
     } catch (err) {
-      setError(extractApiError(err, "Unexpected error"));
+      setError(extractApiError(err, adminText("Unexpected error")));
     }
-  }, [numericUserId]);
+  }, [adminText, numericUserId]);
 
   const loadKeys = useCallback(async () => {
     if (!Number.isFinite(numericUserId)) return;
@@ -64,20 +67,20 @@ export default function S3UserKeysPage() {
       const data = await listS3UserKeys(numericUserId);
       setKeys(data);
     } catch (err) {
-      setError(extractApiError(err, "Unexpected error"));
+      setError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setLoading(false);
     }
-  }, [numericUserId]);
+  }, [adminText, numericUserId]);
 
   useEffect(() => {
     if (!Number.isFinite(numericUserId)) {
-      setError("Invalid user id.");
+      setError(adminText("Invalid user id."));
       return;
     }
     loadUser();
     loadKeys();
-  }, [loadKeys, loadUser, numericUserId]);
+  }, [adminText, loadKeys, loadUser, numericUserId]);
 
   const handleCreateKey = async () => {
     if (!Number.isFinite(numericUserId)) return;
@@ -88,9 +91,9 @@ export default function S3UserKeysPage() {
       const key = await createS3UserKey(numericUserId);
       setCreatedKey(key);
       await loadKeys();
-      setActionMessage("Access key created.");
+      setActionMessage(adminText("Access key created."));
     } catch (err) {
-      setError(extractApiError(err, "Unexpected error"));
+      setError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -104,9 +107,9 @@ export default function S3UserKeysPage() {
     try {
       await deleteS3UserKey(numericUserId, accessKeyId);
       await loadKeys();
-      setActionMessage("Access key deleted.");
+      setActionMessage(adminText("Access key deleted."));
     } catch (err) {
-      setError(extractApiError(err, "Unexpected error"));
+      setError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -120,9 +123,9 @@ export default function S3UserKeysPage() {
     try {
       await updateS3UserKeyStatus(numericUserId, accessKeyId, nextActive);
       await loadKeys();
-      setActionMessage(nextActive ? "Access key enabled." : "Access key disabled.");
+      setActionMessage(adminText(nextActive ? "Access key enabled." : "Access key disabled."));
     } catch (err) {
-      setError(extractApiError(err, "Unexpected error"));
+      setError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -130,14 +133,14 @@ export default function S3UserKeysPage() {
 
   const handleDeleteKey = (accessKeyId: string) => {
     keyConfirmation.requestConfirmation({
-      title: "Delete access key?",
-      description: "Permanently remove this RGW access key from the selected user.",
-      confirmLabel: "Delete key",
+      title: adminText("Delete access key?"),
+      description: adminText("Permanently remove this RGW access key from the selected user."),
+      confirmLabel: adminText("Delete key"),
       details: [
-        { label: "User", value: pageTitle },
-        { label: "Access key", value: accessKeyId, mono: true },
+        { label: adminText("User"), value: pageTitle },
+        { label: adminText("Access key"), value: accessKeyId, mono: true },
       ],
-      impacts: ["Applications using this key will immediately lose access."],
+      impacts: [adminText("Applications using this key will immediately lose access.")],
       onConfirm: () => deleteKey(accessKeyId),
     });
   };
@@ -148,14 +151,14 @@ export default function S3UserKeysPage() {
       return;
     }
     keyConfirmation.requestConfirmation({
-      title: "Disable access key?",
-      description: "Temporarily prevent this RGW access key from authenticating.",
-      confirmLabel: "Disable key",
+      title: adminText("Disable access key?"),
+      description: adminText("Temporarily prevent this RGW access key from authenticating."),
+      confirmLabel: adminText("Disable key"),
       details: [
-        { label: "User", value: pageTitle },
-        { label: "Access key", value: accessKeyId, mono: true },
+        { label: adminText("User"), value: pageTitle },
+        { label: adminText("Access key"), value: accessKeyId, mono: true },
       ],
-      impacts: ["Applications using this key will lose access until the key is enabled again."],
+      impacts: [adminText("Applications using this key will lose access until the key is enabled again.")],
       onConfirm: () => toggleKey(accessKeyId, false),
     });
   };
@@ -168,9 +171,9 @@ export default function S3UserKeysPage() {
     try {
       await rotateS3UserKeys(numericUserId);
       await Promise.all([loadUser(), loadKeys()]);
-      setActionMessage("Interface key rotated.");
+      setActionMessage(adminText("Interface key rotated."));
     } catch (err) {
-      setError(extractApiError(err, "Unexpected error"));
+      setError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -178,9 +181,9 @@ export default function S3UserKeysPage() {
 
   const pageTitle = useMemo(() => {
     if (user?.name) return user.name;
-    if (userId) return `User #${userId}`;
-    return "User";
-  }, [user?.name, userId]);
+    if (userId) return adminText("User #{id}", { id: userId });
+    return adminText("User");
+  }, [adminText, user?.name, userId]);
 
   const interfaceKey = keys.find((k) => k.is_ui_managed);
   const tableStatus = resolveListTableStatus({
@@ -191,7 +194,7 @@ export default function S3UserKeysPage() {
   const keyTableColumns: Array<DataTableColumn<S3UserAccessKey>> = [
     {
       id: "access-key",
-      label: "Access key",
+      label: adminText("Access key"),
       primary: true,
       mobileRole: "primary",
       cellClassName: "font-mono",
@@ -199,26 +202,25 @@ export default function S3UserKeysPage() {
     },
     {
       id: "status",
-      label: "Status",
+      label: adminText("Status"),
       cellClassName: "text-slate-700 dark:text-slate-200",
-      render: (key) => (key.is_active ? "Active" : "Disabled"),
+      render: (key) => adminText(key.is_active ? "Active" : "Disabled"),
     },
-    { id: "created", label: "Created on", render: (key) => formatDate(key.created_at) },
+    { id: "created", label: adminText("Created on"), render: (key) => formatDate(key.created_at) },
     {
       id: "usage",
-      label: "Usage",
+      label: adminText("Usage"),
       render: (key) =>
         key.is_ui_managed ? (
           <ListBadge tone="neutral">
-            Interface key
-          </ListBadge>
+            {adminText("Interface key")}</ListBadge>
         ) : (
-          <span className="ui-caption text-slate-500 dark:text-slate-400">Custom</span>
+          <span className="ui-caption text-slate-500 dark:text-slate-400">{adminText("Custom")}</span>
         ),
     },
     {
       id: "actions",
-      label: "Actions",
+      label: adminText("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (key) =>
@@ -228,7 +230,7 @@ export default function S3UserKeysPage() {
             onClick={handleRotateUiKey}
             disabled={busy === "rotate"}
           >
-            {busy === "rotate" ? "Rotating..." : "Rotate"}
+            {adminText(busy === "rotate" ? "Rotating..." : "Rotate")}
           </ListActionButton>
         ) : (
           <ListActions>
@@ -237,7 +239,7 @@ export default function S3UserKeysPage() {
               onClick={() => handleToggleKey(key.access_key_id, !key.is_active)}
               disabled={Boolean(busy)}
             >
-              {busy === `toggle:${key.access_key_id}` ? "Saving..." : key.is_active ? "Disable" : "Enable"}
+              {adminText(busy === `toggle:${key.access_key_id}` ? "Saving..." : key.is_active ? "Disable" : "Enable")}
             </ListActionButton>
             <ListActionButton
               type="button"
@@ -245,7 +247,7 @@ export default function S3UserKeysPage() {
                variant="danger"
               disabled={Boolean(busy)}
             >
-              {busy === `delete:${key.access_key_id}` ? "Deleting..." : "Delete"}
+              {adminText(busy === `delete:${key.access_key_id}` ? "Deleting..." : "Delete")}
             </ListActionButton>
           </ListActions>
         ),
@@ -255,28 +257,28 @@ export default function S3UserKeysPage() {
   if (!userId || Number.isNaN(numericUserId)) {
     return (
       <PageShell actionPresentation="listing"
-        title="User access keys"
-        description="Manage RGW keys for the selected user."
-        breadcrumbs={adminPageBreadcrumbs("rgw-users", { label: "Access keys" })}
+        title={adminText("User access keys")}
+        description={adminText("Manage RGW keys for the selected user.")}
+        breadcrumbs={adminBreadcrumbs("rgw-users", { label: adminText("Access keys") })}
       >
-        <PageBanner tone="error">Invalid user id provided.</PageBanner>
+        <PageBanner tone="error">{adminText("Invalid user id provided.")}</PageBanner>
       </PageShell>
     );
   }
 
   return (
     <PageShell actionPresentation="listing"
-      title="User access keys"
+      title={adminText("User access keys")}
       description={
         <>
-          Manage keys for <span className="font-semibold text-slate-700 dark:text-slate-100">{pageTitle}</span>.
+          {adminText("Manage keys for")}<span className="font-semibold text-slate-700 dark:text-slate-100">{pageTitle}</span>.
         </>
       }
-      breadcrumbs={adminPageBreadcrumbs("rgw-users", { label: pageTitle }, { label: "Access keys" })}
+      breadcrumbs={adminBreadcrumbs("rgw-users", { label: pageTitle }, { label: adminText("Access keys") })}
       actions={[
-        { label: "← Back to users", to: "/admin/s3-users", variant: "ghost" },
+        { label: adminText("← Back to users"), to: "/admin/s3-users", variant: "ghost" },
         {
-          label: busy === "create" ? "Creating..." : "New key",
+          label: adminText(busy === "create" ? "Creating..." : "New key"),
           onClick: handleCreateKey,
           variant: "primary",
         },
@@ -285,8 +287,7 @@ export default function S3UserKeysPage() {
 
       {interfaceKey && (
         <PageBanner tone="info">
-          The interface key is reserved for the console. Delete other keys as needed, and rotate the interface key instead of deleting it.
-        </PageBanner>
+          {adminText("The interface key is reserved for the console. Delete other keys as needed, and rotate the interface key instead of deleting it.")}</PageBanner>
       )}
 
       {error && <PageBanner tone="error">{error}</PageBanner>}
@@ -294,19 +295,19 @@ export default function S3UserKeysPage() {
 
       {createdKey && createdKey.secret_access_key && (
         <OneTimeSecretPanel
-          title={`Key created for ${pageTitle}`}
-          description="The secret is shown only once."
-          badge="Copy these values now"
+          title={adminText("Key created for {name}", { name: pageTitle })}
+          description={adminText("The secret is shown only once.")}
+          badge={adminText("Copy these values now")}
           values={[
-            { label: "Access key", value: createdKey.access_key_id, copyLabel: "Copy" },
-            { label: "Secret key", value: createdKey.secret_access_key, copyLabel: "Copy" },
+            { label: adminText("Access key"), value: createdKey.access_key_id, copyLabel: adminText("Copy") },
+            { label: adminText("Secret key"), value: createdKey.secret_access_key, copyLabel: adminText("Copy") },
           ]}
         />
       )}
 
       <ListPageSection variant="page"
-        title="Keys"
-        countLabel={`${keys.length} key${keys.length === 1 ? "" : "s"}`}
+        title={adminText("Keys")}
+        countLabel={adminText(keys.length === 1 ? "{count} key" : "{count} keys", { count: keys.length })}
       >
         <DataTableShell
           responsiveCards
@@ -317,9 +318,9 @@ export default function S3UserKeysPage() {
             cx("hover:bg-slate-50 dark:hover:bg-slate-800/50", !key.is_active && "bg-slate-50/70 dark:bg-slate-900/40")
           }
           status={tableStatus}
-          loadingMessage="Loading keys..."
-          errorMessage="Unable to load keys."
-          emptyMessage="No keys for this user."
+          loadingMessage={adminText("Loading keys...")}
+          errorMessage={adminText("Unable to load keys.")}
+          emptyMessage={adminText("No keys for this user.")}
           tableLayout="fixed"
         />
       </ListPageSection>

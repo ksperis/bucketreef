@@ -21,7 +21,7 @@ import DataTableShell, {
 } from "../../components/list/DataTableShell";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageShell from "../../components/PageShell";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
 import InlineSummary from "../../components/InlineSummary";
 import MobileTableSort from "../../components/list/MobileTableSort";
@@ -53,6 +53,7 @@ import {
   downloadBillingCsv,
   collectBillingDaily,
 } from "../../api/billing";
+import { useAdminI18n } from "./adminI18n";
 
 // QA checklist:
 // - Verify summary loads with selected month/endpoint.
@@ -81,22 +82,32 @@ function defaultCollectDay(): string {
   return utc.toISOString().slice(0, 10);
 }
 
-function formatCurrency(value?: number | null, currency?: string | null): string {
+function formatCurrency(value: number | null | undefined, currency: string | null | undefined, intlLocale: string): string {
   if (value === undefined || value === null) return "-";
   const code = currency || "EUR";
-  return `${value.toFixed(2)} ${code}`;
+  return `${new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} ${code}`;
 }
 
-function formatCoverage(coverage?: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null): string {
+function formatCoverage(
+  coverage: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null | undefined,
+  text: ReturnType<typeof useAdminI18n>["text"],
+): string {
   if (!coverage) return "-";
-  return `${Math.round(coverage.coverage_ratio * 100)}% (${coverage.days_collected}/${coverage.days_in_month} days)`;
+  return text("{percent}% ({collected}/{total} days)", {
+    percent: Math.round(coverage.coverage_ratio * 100),
+    collected: coverage.days_collected,
+    total: coverage.days_in_month,
+  });
 }
 
-function formatCoverageBreakdown(coverage?: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null): string {
-  if (!coverage) return "Coverage unavailable";
+function formatCoverageBreakdown(
+  coverage: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null | undefined,
+  text: ReturnType<typeof useAdminI18n>["text"],
+): string {
+  if (!coverage) return text("Coverage unavailable");
   const storageDays = coverage.storage_days_collected ?? coverage.days_collected;
   const usageDays = coverage.usage_days_collected ?? coverage.days_collected;
-  return `Storage ${storageDays}d · Usage ${usageDays}d`;
+  return text("Storage {storage}d · Usage {usage}d", { storage: storageDays, usage: usageDays });
 }
 
 function hasPartialBillingSources(coverage?: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null): boolean {
@@ -141,6 +152,8 @@ function isBillingDisabledMessage(message: string): boolean {
 }
 
 export default function BillingPage() {
+  const { intlLocale, text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const [month, setMonth] = useState<string>(currentUtcMonthInputValue());
   const [collectDay, setCollectDay] = useState<string>(defaultCollectDay());
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
@@ -182,7 +195,7 @@ export default function BillingPage() {
         setEndpoints(cephEndpoints);
         if (cephEndpoints.length === 0) {
           setSelectedEndpointId(null);
-          setPageError("No Ceph endpoint available for billing.");
+          setPageError(adminText("No Ceph endpoint available for billing"));
         } else {
           const preferred = cephEndpoints.find((ep) => ep.is_default) || cephEndpoints[0];
           setSelectedEndpointId((current) => current ?? preferred.id);
@@ -192,7 +205,7 @@ export default function BillingPage() {
         if (!cancelled) {
           setEndpoints([]);
           setSelectedEndpointId(null);
-          setPageError(extractApiError(err, "Unable to retrieve the endpoint list."));
+          setPageError(extractApiError(err, adminText("Unable to retrieve the endpoint list.")));
         }
       }
     }
@@ -200,7 +213,7 @@ export default function BillingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [adminText]);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,7 +232,7 @@ export default function BillingPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          const message = extractApiError(err, "Unable to load billing summary.");
+          const message = extractApiError(err, adminText("Unable to load billing summary."));
           setSummary(null);
           setSummaryError(message);
           setBillingDisabled(isBillingDisabledMessage(message));
@@ -234,7 +247,7 @@ export default function BillingPage() {
     return () => {
       cancelled = true;
     };
-  }, [month, selectedEndpointId, reloadToken]);
+  }, [adminText, month, selectedEndpointId, reloadToken]);
 
   useEffect(() => {
     setPage(1);
@@ -262,7 +275,7 @@ export default function BillingPage() {
         if (!cancelled) {
           setSubjects([]);
           setSubjectsTotal(0);
-          setSubjectsError(extractApiError(err, "Unable to load billing subjects."));
+          setSubjectsError(extractApiError(err, adminText("Unable to load billing subjects.")));
         }
       } finally {
         if (!cancelled) {
@@ -274,7 +287,7 @@ export default function BillingPage() {
     return () => {
       cancelled = true;
     };
-  }, [month, page, pageSize, selectedEndpointId, subjectType, sortBy, sortDir, reloadToken]);
+  }, [adminText, month, page, pageSize, selectedEndpointId, subjectType, sortBy, sortDir, reloadToken]);
 
   useEffect(() => {
     if (!subjects.length) {
@@ -308,7 +321,7 @@ export default function BillingPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setDetailError(extractApiError(err, "Unable to load billing detail."));
+          setDetailError(extractApiError(err, adminText("Unable to load billing detail.")));
         }
       } finally {
         if (!cancelled) {
@@ -320,7 +333,7 @@ export default function BillingPage() {
     return () => {
       cancelled = true;
     };
-  }, [detailSubjectId, detailSubjectType, month, selectedEndpointId, reloadToken]);
+  }, [adminText, detailSubjectId, detailSubjectType, month, selectedEndpointId, reloadToken]);
 
   const stats = useMemo(() => {
     const storageAvg = summary?.storage?.avg_bytes ?? null;
@@ -330,33 +343,35 @@ export default function BillingPage() {
     const coverage = summary?.coverage?.coverage_ratio ?? null;
     return [
       {
-        label: "Avg storage",
+        label: adminText("Avg storage"),
         value: storageAvg !== null ? formatBytes(storageAvg) : "-",
       },
       {
-        label: "Egress",
+        label: adminText("Egress"),
         value: egress !== null ? formatBytes(egress) : "-",
       },
       {
-        label: "Ingress",
+        label: adminText("Ingress"),
         value: ingress !== null ? formatBytes(ingress) : "-",
       },
       {
-        label: "Requests",
+        label: adminText("Requests"),
         value: requests != null ? formatCompactNumber(requests) : "-",
       },
       {
-        label: "Coverage",
+        label: adminText("Coverage"),
         value: coverage != null ? `${Math.round(coverage * 100)}%` : "-",
-        hint: formatCoverageBreakdown(summary?.coverage),
+        hint: formatCoverageBreakdown(summary?.coverage, adminText),
       },
       {
-        label: "Estimated cost",
-        value: summary?.cost?.total_cost != null ? formatCurrency(summary.cost.total_cost, summary.cost.currency) : "-",
-        hint: summary?.cost?.rate_card_name ? `Rate card: ${summary.cost.rate_card_name}` : "No rate card",
+        label: adminText("Estimated cost"),
+        value: summary?.cost?.total_cost != null ? formatCurrency(summary.cost.total_cost, summary.cost.currency, intlLocale) : "-",
+        hint: summary?.cost?.rate_card_name
+          ? adminText("Rate card: {name}", { name: summary.cost.rate_card_name })
+          : adminText("No rate card"),
       },
     ];
-  }, [summary]);
+  }, [adminText, intlLocale, summary]);
 
   const selectedEndpoint = useMemo(
     () => endpoints.find((endpoint) => endpoint.id === selectedEndpointId) ?? null,
@@ -379,7 +394,7 @@ export default function BillingPage() {
       setDetail(data);
     } catch (err) {
       setDetail(null);
-      setDetailError(extractApiError(err, "Unable to load billing detail."));
+      setDetailError(extractApiError(err, adminText("Unable to load billing detail.")));
     } finally {
       setDetailLoading(false);
     }
@@ -404,7 +419,7 @@ export default function BillingPage() {
         blob,
       );
     } catch (err) {
-      setPageError(extractApiError(err, "Unable to export CSV."));
+      setPageError(extractApiError(err, adminText("Unable to export CSV.")));
     }
   }
 
@@ -420,7 +435,7 @@ export default function BillingPage() {
       setCollectMessage(formatCollectionResult(result, collectDay));
       setReloadToken((prev) => prev + 1);
     } catch (err) {
-      setCollectError(extractApiError(err, "Unable to trigger billing collection."));
+      setCollectError(extractApiError(err, adminText("Unable to trigger billing collection.")));
     } finally {
       setCollectLoading(false);
     }
@@ -478,7 +493,7 @@ export default function BillingPage() {
       id: "cost",
       label: "Cost",
       field: "cost",
-      render: (subject) => (subject.cost?.total_cost != null ? formatCurrency(subject.cost.total_cost, subject.cost.currency) : "-"),
+      render: (subject) => (subject.cost?.total_cost != null ? formatCurrency(subject.cost.total_cost, subject.cost.currency, intlLocale) : "-"),
     },
     {
       id: "actions",
@@ -491,21 +506,20 @@ export default function BillingPage() {
           onClick={() => void handleRowClick(subject)}
           {...dataTableDefaultActionProps}
         >
-          View
-        </ListActionButton>
+          {adminText("View")}</ListActionButton>
       ),
     },
   ];
 
   return (
     <PageShell actionPresentation="listing"
-      title="Billing"
-      description="Monthly usage and cost overview."
-      breadcrumbs={adminPageBreadcrumbs("billing")}
+      title={adminText("Billing")}
+      description={adminText("Monthly usage and cost overview.")}
+      breadcrumbs={adminBreadcrumbs("billing")}
       rightContent={
         <>
           <UiInput
-            label="Month"
+            label={adminText("Month")}
             type="month"
             value={month}
             onChange={(event) => setMonth(event.target.value)}
@@ -513,13 +527,13 @@ export default function BillingPage() {
             className="ui-list-control"
           />
           <UiSelect
-            label="Endpoint"
+            label={adminText("Endpoint")}
             value={selectedEndpointId ?? ""}
             onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
             size="compact"
             className="ui-list-control"
           >
-            {endpoints.length === 0 ? <option value="">No Ceph endpoint</option> : null}
+            {endpoints.length === 0 ? <option value="">{adminText("No Ceph endpoint")}</option> : null}
             {endpoints.map((endpoint) => (
               <option key={endpoint.id} value={endpoint.id}>
                 {endpoint.name}
@@ -533,20 +547,18 @@ export default function BillingPage() {
             title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with billing data before exporting"}
           >
             <DownloadIcon aria-hidden="true" className="h-3.5 w-3.5" />
-            Export CSV
-          </ListActionButton>
+            {adminText("Export CSV")}</ListActionButton>
         </>
       }
     >
       {pageError && selectedEndpointId != null ? <PageBanner tone="error">{pageError}</PageBanner> : null}
       {billingDisabled ? (
         <PageBanner tone="warning">
-          Billing is disabled. Enable it in General settings to use this page.
-        </PageBanner>
+          {adminText("Billing is disabled. Enable it in General settings to use this page.")}</PageBanner>
       ) : null}
       {!selectedEndpointId ? (
         <PageEmptyState
-          title="No Ceph endpoint available for billing"
+          title={adminText("No Ceph endpoint available for billing")}
           description={pageError || "Add or enable a Ceph endpoint before loading billing analytics."}
           primaryAction={{ label: "Open endpoints", to: "/admin/endpoints" }}
           tone="warning"
@@ -555,23 +567,22 @@ export default function BillingPage() {
         <>
           <UiDetails className="text-xs">
             <summary className="ui-list-control w-fit cursor-pointer rounded-md py-2 font-medium text-[var(--ui-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-focus-ring)]">
-              Manual daily collection
-            </summary>
-            <p className="mb-2 text-[var(--ui-text-muted)]">Run the billing collector for one UTC day when scheduler data is missing or stale.</p>
+              {adminText("Manual daily collection")}</summary>
+            <p className="mb-2 text-[var(--ui-text-muted)]">{adminText("Run the billing collector for one UTC day when scheduler data is missing or stale.")}</p>
             <div className="ui-list-toolbar flex flex-wrap items-end gap-2 pb-2">
-              <UiInput label="Collect day" type="date" value={collectDay} onChange={(event) => setCollectDay(event.target.value)} size="compact" />
+              <UiInput label={adminText("Collect day")} type="date" value={collectDay} onChange={(event) => setCollectDay(event.target.value)} size="compact" />
               <ListActionButton variant="primary" onClick={() => void handleCollectDaily()} loading={collectLoading} disabled={!canCollect}>
                 <RefreshIcon aria-hidden="true" className={cx("h-3.5 w-3.5", collectLoading && "animate-spin")} />
                 {collectLoading ? "Collecting..." : "Collect daily"}
               </ListActionButton>
             </div>
           </UiDetails>
-          {collectLoading ? <PageBanner tone="info">Collecting daily billing usage...</PageBanner> : null}
+          {collectLoading ? <PageBanner tone="info">{adminText("Collecting daily billing usage...")}</PageBanner> : null}
           {collectMessage ? <PageBanner tone={collectionErrors.length > 0 ? "warning" : "success"}>{collectMessage}</PageBanner> : null}
           {collectError ? <PageBanner tone="error">{collectError}</PageBanner> : null}
           {collectionErrors.length > 0 ? (
             <div className={cx(uiCardMutedClass, "px-3 py-2")}>
-              <p className={cx("ui-caption font-semibold", uiTitleTextClass)}>Collection issues</p>
+              <p className={cx("ui-caption font-semibold", uiTitleTextClass)}>{adminText("Collection issues")}</p>
               <ul className={cx("mt-2 space-y-1 ui-caption", uiMutedTextClass)}>
                 {collectionErrors.slice(0, 5).map((entry, index) => (
                   <li key={index}>{formatCollectionIssue(entry)}</li>
@@ -583,29 +594,27 @@ export default function BillingPage() {
           {summaryError ? <PageBanner tone={billingDisabled ? "warning" : "error"}>{summaryError}</PageBanner> : null}
           {lowCoverage ? (
             <PageBanner tone="warning">
-              Billing coverage is partial for this month: {formatCoverage(summary?.coverage)}. Treat estimated cost as provisional.
-            </PageBanner>
+              {adminText("Billing coverage is partial for this month:")}{formatCoverage(summary?.coverage, adminText)}{adminText(". Treat estimated cost as provisional.")}</PageBanner>
           ) : null}
           {partialSources ? (
             <PageBanner tone="warning">
-              Storage and usage sources do not cover the same number of days ({formatCoverageBreakdown(summary?.coverage)}).
+              {adminText("Storage and usage sources do not cover the same number of days (")}{formatCoverageBreakdown(summary?.coverage, adminText)}).
             </PageBanner>
           ) : null}
           {noRateCard ? (
             <PageBanner tone="warning">
-              No matching rate card is attached for this scope. Usage totals are available, but estimated cost stays unavailable.
-            </PageBanner>
+              {adminText("No matching rate card is attached for this scope. Usage totals are available, but estimated cost stays unavailable.")}</PageBanner>
           ) : null}
-          {summaryLoading ? <PageBanner tone="info">Loading summary...</PageBanner> : <InlineSummary label={`Monthly totals · ${selectedEndpoint?.name ?? ""} · ${month}`} items={stats} />}
+          {summaryLoading ? <PageBanner tone="info">{adminText("Loading summary...")}</PageBanner> : <InlineSummary label={`Monthly totals · ${selectedEndpoint?.name ?? ""} · ${month}`} items={stats} />}
 
           <ListPageSection variant="section"
-            title="Subjects"
+            title={adminText("Subjects")}
             mobileSort={<MobileTableSort options={SORT_OPTIONS} field={sortBy} direction={sortDir} onFieldChange={setSortBy} onDirectionChange={setSortDir} />}
             countLabel={`${subjectsTotal} subject${subjectsTotal === 1 ? "" : "s"}`}
             filters={
               <div className="flex min-w-0 flex-wrap items-end gap-2">
                 <UiSelect
-                  label="Subject"
+                  label={adminText("Subject")}
                   value={subjectType}
                   onChange={(event) => setSubjectType(event.target.value as "account" | "s3_user")}
                   size="compact"
@@ -662,27 +671,27 @@ export default function BillingPage() {
           <section className="ui-surface-card p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className={cx("ui-body font-semibold", uiTitleTextClass)}>Subject detail</h2>
-                <p className={cx("ui-caption", uiMutedTextClass)}>Daily storage, traffic, requests, coverage, and cost for the selected subject.</p>
+                <h2 className={cx("ui-body font-semibold", uiTitleTextClass)}>{adminText("Subject detail")}</h2>
+                <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Daily storage, traffic, requests, coverage, and cost for the selected subject.")}</p>
               </div>
               {detail?.name ? <div className={cx("ui-caption", uiMutedTextClass)}>{detail.name}</div> : null}
             </div>
-            {detailLoading ? <PageBanner tone="info" className="mt-3">Loading detail...</PageBanner> : null}
+            {detailLoading ? <PageBanner tone="info" className="mt-3">{adminText("Loading detail...")}</PageBanner> : null}
             {detailError ? <PageBanner tone="error" className="mt-3">{detailError}</PageBanner> : null}
-            {!detailLoading && !detail ? <PageBanner tone="info" className="mt-3">Select a subject to view charts.</PageBanner> : null}
+            {!detailLoading && !detail ? <PageBanner tone="info" className="mt-3">{adminText("Select a subject to view charts.")}</PageBanner> : null}
             {!detailLoading && detail ? (
               <div className="mt-4 space-y-4">
                 {hasPartialBillingSources(detail.coverage) ? (
-                  <PageBanner tone="warning">This subject has partial source coverage: {formatCoverageBreakdown(detail.coverage)}.</PageBanner>
+                  <PageBanner tone="warning">{adminText("This subject has partial source coverage:")}{formatCoverageBreakdown(detail.coverage, adminText)}.</PageBanner>
                 ) : null}
                 {!detail.cost ? (
-                  <PageBanner tone="warning">No rate card matched this subject, so cost is unavailable.</PageBanner>
+                  <PageBanner tone="warning">{adminText("No rate card matched this subject, so cost is unavailable.")}</PageBanner>
                 ) : null}
                 <div className="grid gap-4 lg:grid-cols-3">
                   {dailySeries.length > 0 ? (
                     <>
                       <div className={cx(uiCardMutedClass, "p-3")}>
-                        <h3 className={cx("ui-caption font-semibold", uiTitleTextClass)}>Storage (daily)</h3>
+                        <h3 className={cx("ui-caption font-semibold", uiTitleTextClass)}>{adminText("Storage (daily)")}</h3>
                         <div className="mt-3 h-48">
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={dailySeries}>
@@ -702,7 +711,7 @@ export default function BillingPage() {
                         </div>
                       </div>
                       <div className={cx(uiCardMutedClass, "p-3")}>
-                        <h3 className={cx("ui-caption font-semibold", uiTitleTextClass)}>Traffic (daily)</h3>
+                        <h3 className={cx("ui-caption font-semibold", uiTitleTextClass)}>{adminText("Traffic (daily)")}</h3>
                         <div className="mt-3 h-48">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={dailySeries}>
@@ -716,7 +725,7 @@ export default function BillingPage() {
                         </div>
                       </div>
                       <div className={cx(uiCardMutedClass, "p-3")}>
-                        <h3 className={cx("ui-caption font-semibold", uiTitleTextClass)}>Requests (daily)</h3>
+                        <h3 className={cx("ui-caption font-semibold", uiTitleTextClass)}>{adminText("Requests (daily)")}</h3>
                         <div className="mt-3 h-48">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={dailySeries}>
@@ -732,37 +741,37 @@ export default function BillingPage() {
                     </>
                   ) : (
                     <div className="lg:col-span-3">
-                      <PageBanner tone="info">No daily billing points are available for this subject and month.</PageBanner>
+                      <PageBanner tone="info">{adminText("No daily billing points are available for this subject and month.")}</PageBanner>
                     </div>
                   )}
                   <div className={cx(uiCardMutedClass, "p-3 lg:col-span-3")}>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                       <div>
-                        <p className={cx("ui-caption", uiMutedTextClass)}>Avg storage</p>
+                        <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Avg storage")}</p>
                         <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{formatBytes(detail.storage.avg_bytes)}</p>
                       </div>
                       <div>
-                        <p className={cx("ui-caption", uiMutedTextClass)}>Egress</p>
+                        <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Egress")}</p>
                         <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{formatBytes(detail.usage.bytes_out)}</p>
                       </div>
                       <div>
-                        <p className={cx("ui-caption", uiMutedTextClass)}>Ingress</p>
+                        <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Ingress")}</p>
                         <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{formatBytes(detail.usage.bytes_in)}</p>
                       </div>
                       <div>
-                        <p className={cx("ui-caption", uiMutedTextClass)}>Requests</p>
+                        <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Requests")}</p>
                         <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{formatCompactNumber(detail.usage.ops_total)}</p>
                       </div>
                       <div>
-                        <p className={cx("ui-caption", uiMutedTextClass)}>Cost</p>
+                        <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Cost")}</p>
                         <p className={cx("ui-body font-semibold", uiTitleTextClass)}>
-                          {detail.cost?.total_cost != null ? formatCurrency(detail.cost.total_cost, detail.cost.currency) : "-"}
+                          {detail.cost?.total_cost != null ? formatCurrency(detail.cost.total_cost, detail.cost.currency, intlLocale) : "-"}
                         </p>
                       </div>
                       <div>
-                        <p className={cx("ui-caption", uiMutedTextClass)}>Coverage</p>
-                        <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{formatCoverage(detail.coverage)}</p>
-                        <p className={cx("ui-caption", uiMutedTextClass)}>{formatCoverageBreakdown(detail.coverage)}</p>
+                        <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Coverage")}</p>
+                        <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{formatCoverage(detail.coverage, adminText)}</p>
+                        <p className={cx("ui-caption", uiMutedTextClass)}>{formatCoverageBreakdown(detail.coverage, adminText)}</p>
                       </div>
                     </div>
                   </div>

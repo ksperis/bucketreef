@@ -71,6 +71,7 @@ import {
 } from "./storageEndpointCredentialHelp";
 import { useOnboardingStatus } from "./useOnboardingStatus";
 import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
+import { useAdminI18n } from "./adminI18n";
 
 type Step = "connect" | "prepare" | "credentials" | "review";
 
@@ -263,6 +264,7 @@ function SelectionCount({ count, label }: { count: number; label: string }) {
 }
 
 export default function OnboardingPage() {
+  const { text: adminText } = useAdminI18n();
   const { t } = useI18n();
   const navigate = useNavigate();
   const labels = settingsLabels(t);
@@ -544,14 +546,14 @@ export default function OnboardingPage() {
       .catch((cause) => {
         if (active) {
           setEndpointListError(
-            extractApiError(cause, "Unable to load configured endpoints."),
+            extractApiError(cause, adminText("Unable to load configured endpoints.")),
           );
         }
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [adminText]);
 
   useEffect(() => {
     if (step === "connect" || journey?.configured || busy) return;
@@ -1129,12 +1131,12 @@ export default function OnboardingPage() {
                   />
                 )}
 
-                {needsServiceIdentities && <WorkflowSection title="Service identities" description="Runtime Read Ops supports Manager and Portal. Supervision Ops supports monitoring. Only selected workflows require these identities.">
-                  <UiSelect label="Identity management" value={identityMode} onChange={event => setIdentityMode(event.target.value as "managed" | "external")}>
-                    <option value="managed" disabled={adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !managedServicesReady}>Managed by BucketReef</option>
-                    <option value="external">Provided externally</option>
+                {needsServiceIdentities && <WorkflowSection title={adminText("Service identities")} description={adminText("Runtime Read Ops supports Manager and Portal. Supervision Ops supports monitoring. Only selected workflows require these identities.")}>
+                  <UiSelect label={adminText("Identity management")} value={identityMode} onChange={event => setIdentityMode(event.target.value as "managed" | "external")}>
+                    <option value="managed" disabled={adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !managedServicesReady}>{adminText("Managed by BucketReef")}</option>
+                    <option value="external">{adminText("Provided externally")}</option>
                   </UiSelect>
-                  {identityMode === "managed" && <UiInlineMessage tone="info">The identities required by selected workflows are created and functionally validated when you apply this setup. Generated secrets remain hidden. Usage is checked with Supervision when monitoring is selected.</UiInlineMessage>}
+                  {identityMode === "managed" && <UiInlineMessage tone="info">{adminText("The identities required by selected workflows are created and functionally validated when you apply this setup. Generated secrets remain hidden. Usage is checked with Supervision when monitoring is selected.")}</UiInlineMessage>}
                 </WorkflowSection>}
                 {needsSupervision && identityMode === "external" && (
                   <CredentialSection
@@ -1177,8 +1179,8 @@ export default function OnboardingPage() {
 
                 {needsRuntime && identityMode === "external" && (
                   <CredentialSection
-                    title="Runtime Read Ops"
-                    description="accounts=read;user-info-without-keys=read;buckets=read, without admin/system flags."
+                    title={adminText("Runtime Read Ops")}
+                    description={adminText("accounts=read;user-info-without-keys=read;buckets=read, without admin/system flags.")}
                     accessLabel="Runtime access key"
                     secretLabel="Runtime secret key"
                     accessKey={runtimeAccessKey}
@@ -1204,7 +1206,7 @@ export default function OnboardingPage() {
                 )}
 
                 {draft.ceph_admin && <CredentialSection
-                  title="Ceph Admin" description="Keys from an externally configured RGW user with admin=true and system=false."
+                  title="Ceph Admin" description={adminText("Keys from an externally configured RGW user with admin=true and system=false.")}
                   accessLabel="Ceph Admin access key" secretLabel="Ceph Admin secret key"
                   accessKey={cephAdminAccessKey} secretKey={cephAdminSecretKey}
                   required={!storedCephAdminCredentials} stored={storedCephAdminCredentials}
@@ -1299,8 +1301,7 @@ export default function OnboardingPage() {
                     {draft.ceph_admin && (
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="ui-caption font-semibold text-[var(--ui-text)]">
-                          Ceph Admin credentials
-                        </span>
+                          {adminText("Ceph Admin credentials")}</span>
                         <CredentialStatusBadge
                           status={cephAdminCredentialCheck.status}
                           message={cephAdminCredentialCheck.message}

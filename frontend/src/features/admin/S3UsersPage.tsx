@@ -27,7 +27,7 @@ import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsButton, SettingsDialog, SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
@@ -72,6 +72,7 @@ import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
 import { buildAccessAuditHref } from "./accessAuditLink";
+import { useAdminI18n } from "./adminI18n";
 
 type SortField = "name" | "uid";
 type EditTab = "general" | "users" | "groups" | "manager";
@@ -91,6 +92,8 @@ function getS3UserSearchCandidates(user: S3User): Array<string | number | null |
 }
 
 export default function S3UsersPage() {
+  const { intlLocale, text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { generalSettings } = useGeneralSettings();
   const [users, setUsers] = useState<S3User[]>([]);
   const [portalUsers, setPortalUsers] = useState<UserSummary[]>([]);
@@ -278,11 +281,11 @@ export default function S3UsersPage() {
         setTotalUsers(response.total);
       }
     } catch (err) {
-      setError(extractApiError(err, "Unexpected error"));
+      setError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setLoading(false);
     }
-  }, [filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
+  }, [adminText, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
 
   useEffect(() => {
     fetchUsers();
@@ -350,12 +353,12 @@ export default function S3UsersPage() {
       } catch (err) {
         setEndpointUsersWrite((prev) => ({ ...prev, [endpointId]: false }));
         setEndpointBucketsWrite((prev) => ({ ...prev, [endpointId]: false }));
-        setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: extractApiError(err, "Unexpected error") }));
+        setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: extractApiError(err, adminText("Unexpected error")) }));
       } finally {
         setEndpointPermissionLoading((prev) => ({ ...prev, [endpointId]: false }));
       }
     },
-    [endpointPermissionLoading]
+    [adminText, endpointPermissionLoading]
   );
 
   const portalUserOptions = useMemo(() => portalUsers.map((u) => ({ id: u.id, label: u.email })), [portalUsers]);
@@ -590,9 +593,9 @@ export default function S3UsersPage() {
       setEditGroupSelections([]);
       setEditInitialSignature(stableSignature({ editForm: { ...savedForm, tags: normalizeUiTags(savedForm.tags) } }));
       await fetchUsers();
-      setActionMessage("User updated.");
+      setActionMessage(adminText("User updated."));
     } catch (err) {
-      setEditError(extractApiError(err, "Unexpected error"));
+      setEditError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setEditBusy(false);
     }
@@ -602,7 +605,7 @@ export default function S3UsersPage() {
   const importEntries = rgwImportEntries(importText, "user");
   const importValidation = useAdminRgwFormValidation({importText, storage_endpoint_id: importEndpointId}, {
     ...(importEntries.error ? {importText: importEntries.error} : {}),
-    ...(!importEndpointId ? {storage_endpoint_id: "Select a Ceph endpoint."} : {}),
+    ...(!importEndpointId ? {storage_endpoint_id: adminText("Select a Ceph endpoint.")} : {}),
   });
   const createPending = useRef(false);
   const importPending = useRef(false);
@@ -611,11 +614,11 @@ export default function S3UsersPage() {
     e.preventDefault();
     if (createPending.current || !createValidation.validate(e.currentTarget)) return;
     if (createPermissionLoading) {
-      setCreateError("Checking endpoint permissions. Please wait.");
+      setCreateError(adminText("Checking endpoint permissions. Please wait."));
       return;
     }
     if (!createEndpointCanWrite) {
-      setCreateError("Selected endpoint does not allow this operation (missing users=write).");
+      setCreateError(adminText("Selected endpoint does not allow this operation (missing users=write)."));
       return;
     }
     createPending.current = true;
@@ -644,10 +647,10 @@ export default function S3UsersPage() {
         quota_max_size_gb: "",
         quota_max_objects: "",
       }));
-      setActionMessage("User created.");
+      setActionMessage(adminText("User created."));
       await fetchUsers();
     } catch (err) {
-      setCreateError(extractApiError(err, "Unexpected error"));
+      setCreateError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       createPending.current = false;
       setCreating(false);
@@ -667,13 +670,13 @@ export default function S3UsersPage() {
         uid: identifier,
         storage_endpoint_id: Number(importEndpointId),
       })));
-      setImportMessage("Users imported.");
+      setImportMessage(adminText("RGW users imported."));
       importValidation.reset();
       setImportText("");
       setImportInitialSignature(stableSignature({ importText: "", importEndpointId }));
       await fetchUsers();
     } catch (err) {
-      setImportError(extractApiError(err, "Unexpected error"));
+      setImportError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       importPending.current = false;
       setImportBusy(false);
@@ -690,7 +693,7 @@ export default function S3UsersPage() {
     } catch (err) {
       setUserToDelete(user);
       setDeleteFromRgw(false);
-      setDeleteModalError(extractApiError(err, "Unexpected error"));
+      setDeleteModalError(extractApiError(err, adminText("Unexpected error")));
     }
   };
 
@@ -821,17 +824,14 @@ export default function S3UsersPage() {
 
               {...dataTableDefaultActionProps}
             >
-              Edit
-            </ListActionButton>
+              {adminText("Edit")}</ListActionButton>
             <ListActionLink to={buildAccessAuditHref({
               scope: "rgw_user",
               targetId: user.id,
             })}>
-              Review access
-            </ListActionLink>
+              {adminText("Review access")}</ListActionLink>
             <ListActionLink to={`/admin/s3-users/${user.id}/keys`}>
-              Keys
-            </ListActionLink>
+              {adminText("Keys")}</ListActionLink>
             <ListActionButton type="button" onClick={() => startDeleteUser(user)}  variant="danger" disabled={deleteBusy}>
               {deleteBusy ? "Deleting..." : "Delete"}
             </ListActionButton>
@@ -858,7 +858,7 @@ export default function S3UsersPage() {
       setUserToDelete(null);
       setDeleteFromRgw(false);
     } catch (err) {
-      setDeleteModalError(extractApiError(err, "Unexpected error"));
+      setDeleteModalError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setDeleteBusyId(null);
     }
@@ -867,9 +867,9 @@ export default function S3UsersPage() {
   return (
     <div className={workflowPageHostClass(showImportModal || Boolean(editingUser))}>
       <PageHeader actionPresentation="listing"
-        title="RGW Users"
-        description="Manage standalone RGW users for direct access to Manager."
-        breadcrumbs={adminPageBreadcrumbs("rgw-users")}
+        title={adminText("RGW Users")}
+        description={adminText("Manage standalone RGW users for direct access to Manager.")}
+        breadcrumbs={adminBreadcrumbs("rgw-users")}
         actions={[
           {
             label: "Import",
@@ -902,13 +902,13 @@ export default function S3UsersPage() {
       <ListPageSection
         variant="page"
         mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-          title="RGW Users"
+          title={adminText("RGW Users")}
           countLabel={`${totalUsers} entr${totalUsers === 1 ? "y" : "ies"}`}
           search={
             <ToolbarSearchInput
               value={filter}
               onChange={handleFilterChange}
-              placeholder="Search by name, UID, email, group, or tag"
+              placeholder={adminText("Search by name, UID, email, group, or tag")}
               className="w-full sm:w-64"
               active={quickFilterActive}
               matchMode={quickFilterMode}
@@ -918,7 +918,7 @@ export default function S3UsersPage() {
           secondaryContent={
             quickFilterActive ? (
               <ActiveFiltersBar
-                label="Active filters summary"
+                label={adminText("Active filters summary")}
                 items={[
                   {
                     id: "search",
@@ -935,9 +935,9 @@ export default function S3UsersPage() {
           rows={users}
           rowKey={(user) => user.id}
           status={tableStatus}
-          loadingMessage="Loading users..."
-          errorMessage="Unable to load users."
-          emptyMessage="No users."
+          loadingMessage={adminText("Loading users...")}
+          errorMessage={adminText("Unable to load users.")}
+          emptyMessage={adminText("No users.")}
           sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
           primaryColumnId="name"
           responsiveCards
@@ -954,13 +954,13 @@ export default function S3UsersPage() {
       </ListPageSection>
 
       {showCreateModal && (
-        <SettingsDialog title="Create user" onClose={createCloseGuard.requestClose} closeDisabled={creating} maxWidthClass="max-w-2xl">
-          <SettingsForm label="Create RGW user" presentation="dialog" busy={creating} onSubmit={submitCreate}
+        <SettingsDialog title={adminText("Create user")} onClose={createCloseGuard.requestClose} closeDisabled={creating} maxWidthClass="max-w-2xl">
+          <SettingsForm label={adminText("Create RGW user")} presentation="dialog" busy={creating} onSubmit={submitCreate}
             submitDisabled={createPermissionLoading || !createEndpointCanWrite}
-            onCancel={createCloseGuard.requestClose} submitLabel="Create user" busyLabel="Creating...">
+            onCancel={createCloseGuard.requestClose} submitLabel={adminText("Create user")} busyLabel={adminText("Creating...")}>
             <AdminRgwCreateFields kind="user" value={createForm} onChange={patch => setCreateForm(current => ({...current, ...patch}))}
               errors={createValidation.errors} busy={creating}
-              endpoint={{label: "Ceph endpoint *", endpoints: adminCephEndpoints, loading: loadingEndpoints,
+              endpoint={{label: adminText("Ceph endpoint *"), endpoints: adminCephEndpoints, loading: loadingEndpoints,
                 operation: "users", permissionLoading: createPermissionLoading, permissionError: createPermissionError, canWrite: createEndpointCanWrite}}
               tags={{catalog: adminTagCatalog, loading: adminTagCatalogLoading, error: adminTagCatalogError}} />
             {createError && <UiInlineMessage tone="error" role="alert">{createError}</UiInlineMessage>}
@@ -970,16 +970,16 @@ export default function S3UsersPage() {
       )}
 
       {showImportModal && (
-        <WorkflowPage title="Import RGW users" description="Import existing standalone RGW users from a Ceph endpoint." breadcrumbs={adminPageBreadcrumbs("rgw-users", {label: "Import"})} backLabel="Back to RGW users" backDisabled={importBusy} onBack={importCloseGuard.requestClose} contentVariant="plain" width="standard">
-          <SettingsForm label="Import RGW users" busy={importBusy} onSubmit={submitImport}
+        <WorkflowPage title={adminText("Import RGW users")} description={adminText("Import existing standalone RGW users from a Ceph endpoint.")} breadcrumbs={adminBreadcrumbs("rgw-users", {label: adminText("Import")})} backLabel={adminText("Back to RGW users")} backDisabled={importBusy} onBack={importCloseGuard.requestClose} contentVariant="plain" width="standard">
+          <SettingsForm label={adminText("Import RGW users")} busy={importBusy} onSubmit={submitImport}
             submitDisabled={importPermissionLoading || !importEndpointCanWrite}
-            onCancel={importCloseGuard.requestClose} submitLabel="Import" busyLabel="Importing...">
+            onCancel={importCloseGuard.requestClose} submitLabel={adminText("Import")} busyLabel={adminText("Importing...")}>
             <div className="settings-fields settings-form">
-              <p className="settings-body text-[var(--ui-text-muted)]">Enter RGW user IDs, one per line. Use tenant$uid for an explicit tenant, or uid for the default tenant. The platform creates a dedicated access key.</p>
-              <UiTextarea label="RGW user IDs" name="importText" rows={6} required value={importText}
+              <p className="settings-body text-[var(--ui-text-muted)]">{adminText("Enter RGW user IDs, one per line. Use tenant$uid for an explicit tenant, or uid for the default tenant. The platform creates a dedicated access key.")}</p>
+              <UiTextarea label={adminText("RGW user IDs")} name="importText" rows={6} required value={importText}
                 error={importValidation.errors.importText} placeholder="user-alpha"
                 onChange={event => setImportText(event.target.value)} />
-              <AdminRgwEndpointField label="Ceph endpoint *" value={importEndpointId}
+              <AdminRgwEndpointField label={adminText("Ceph endpoint *")} value={importEndpointId}
                 onChange={setImportEndpointId} endpoints={adminCephEndpoints}
                 error={importValidation.errors.storage_endpoint_id} loading={loadingEndpoints} operation="users"
                 permissionLoading={importPermissionLoading} permissionError={importPermissionError} canWrite={importEndpointCanWrite} />
@@ -993,10 +993,10 @@ export default function S3UsersPage() {
 
       {editingUser && (
         <WorkflowPage
-          title={`Edit ${editingUser.name}`}
-          description="Manage quotas, usage, UI associations, and Manager features for this RGW user."
-          breadcrumbs={adminPageBreadcrumbs("rgw-users", { label: "Edit" })}
-          backLabel="Back to RGW users"
+          title={adminText("Edit {name}", { name: editingUser.name })}
+          description={adminText("Manage quotas, usage, UI associations, and Manager features for this RGW user.")}
+          breadcrumbs={adminBreadcrumbs("rgw-users", { label: adminText("Edit") })}
+          backLabel={adminText("Back to RGW users")}
           onBack={editCloseGuard.requestClose}
           contentVariant="plain"
           width="wide"
@@ -1005,12 +1005,12 @@ export default function S3UsersPage() {
             <WorkflowMetadata
               items={[
                 {
-                  label: "UID",
+                  label: adminText("UID"),
                   value: editingUser.rgw_user_uid,
                 },
-                { label: "Ceph tenant", value: editingUser.rgw_tenant || "Default" },
+                { label: adminText("Ceph tenant"), value: editingUser.rgw_tenant || adminText("Default") },
                 {
-                  label: "Endpoint",
+                  label: adminText("Endpoint"),
                   value: editingUser.storage_endpoint_name,
                   title: editingUser.storage_endpoint_url,
                 },
@@ -1032,41 +1032,41 @@ export default function S3UsersPage() {
                 }
                 setEditTab(tab);
               }}
-              ariaLabel="RGW user configuration sections"
+              ariaLabel={adminText("RGW user configuration sections")}
               idPrefix="admin-rgw-user-edit"
               tabs={[
-                { id: "general", label: "General" },
-                { id: "users", label: "Linked UI users" },
-                { id: "groups", label: "Linked UI groups" },
-                { id: "manager", label: "Manager features", visible: canManageManagerFeatures },
+                { id: "general", label: adminText("General") },
+                { id: "users", label: adminText("Linked UI users") },
+                { id: "groups", label: adminText("Linked UI groups") },
+                { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures },
               ].map((item) => ({ ...item, id: item.id as EditTab, disabled: editBusy }))}
             >
               <SettingsForm
-                label="Edit RGW user"
+                label={adminText("Edit RGW user")}
                 busy={editBusy}
                 onSubmit={submitEdit}
                 onCancel={editCloseGuard.requestClose}
-                submitLabel="Save changes"
-                busyLabel="Saving..."
+                submitLabel={adminText("Save changes")}
+                busyLabel={adminText("Saving...")}
                 actions={<SettingsPersistentEditActions dirty={editDirty} busy={editBusy}
-                  onCancel={editCloseGuard.requestClose} saveLabel="Save changes" savingLabel="Saving..." />}
+                  onCancel={editCloseGuard.requestClose} saveLabel={adminText("Save changes")} savingLabel={adminText("Saving...")} />}
               >
                 {editError && <UiInlineMessage tone="error" role="alert">{editError}</UiInlineMessage>}
                 {showEditGeneralTab && (
                   <div className="settings-stack">
                     <SettingsSection
-                      title="User details"
-                      description="Update the display information and administrative tags for this RGW user."
+                      title={adminText("User details")}
+                      description={adminText("Update the display information and administrative tags for this RGW user.")}
                       presentation="compact"
                     >
                       <div className="settings-fields sm:grid-cols-2">
                     <UiInput
-                      label="Display name"
+                      label={adminText("Display name")}
                       value={editForm.name}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
                     />
                     <UiInput
-                      label="Email"
+                      label={adminText("Email")}
                       type="email"
                       value={editForm.email}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
@@ -1074,52 +1074,52 @@ export default function S3UsersPage() {
                     <div className="sm:col-span-2">
                       {adminTagCatalogError && <UiInlineMessage tone="warning">{adminTagCatalogError}</UiInlineMessage>}
                       <UiTagEditor
-                        label="Tags"
+                        label={adminText("Tags")}
                         tags={editForm.tags}
                         catalog={adminTagCatalog}
                         onChange={(tags) => setEditForm((prev) => ({ ...prev, tags }))}
-                        placeholder="Add a tag for this RGW user"
-                        hint={adminTagCatalogLoading ? "Loading existing tag catalog..." : undefined}
+                        placeholder={adminText("Add a tag for this RGW user")}
+                        hint={adminTagCatalogLoading ? adminText("Loading existing tag catalog...") : undefined}
                       />
                     </div>
                       </div>
                     </SettingsSection>
-                    <SettingsSection title="Usage" description="Observed storage use and the currently saved limits." presentation="compact">
-                      {editingUsageLoading ? <p role="status">Loading storage usage...</p>
-                        : editingUsageError ? <UiInlineMessage tone="error">{editingUsageError} <SettingsButton variant="secondary" onClick={() => void editingUsageReload()}>Retry usage</SettingsButton></UiInlineMessage>
+                    <SettingsSection title={adminText("Usage")} description={adminText("Observed storage use and the currently saved limits.")} presentation="compact">
+                      {editingUsageLoading ? <p role="status">{adminText("Loading storage usage...")}</p>
+                        : editingUsageError ? <UiInlineMessage tone="error">{editingUsageError} <SettingsButton variant="secondary" onClick={() => void editingUsageReload()}>{adminText("Retry usage")}</SettingsButton></UiInlineMessage>
                           : <>
                             <div className="grid gap-2 sm:grid-cols-2">
                               <UsageTile
-                                label="Storage"
+                                label={adminText("Storage")}
                                 used={editingUsageStats?.total_bytes ?? null}
                                 quota={editingUser.quota_max_size_gb != null ? editingUser.quota_max_size_gb * 1024 ** 3 : null}
                                 formatter={formatBytes}
                                 quotaFormatter={formatBytes}
-                                emptyHint="No storage quota defined."
+                                emptyHint={adminText("No storage quota defined.")}
                               />
                               <UsageTile
-                                label="Objects"
+                                label={adminText("Objects")}
                                 used={editingUsageStats?.total_objects ?? null}
                                 quota={editingUser.quota_max_objects ?? null}
                                 formatter={formatCompactNumber}
-                                quotaFormatter={value => value != null ? value.toLocaleString() : "-"}
-                                unitHint="objects"
-                                emptyHint="No object quota defined."
+                                quotaFormatter={value => value != null ? value.toLocaleString(intlLocale) : "-"}
+                                unitHint={adminText("objects")}
+                                emptyHint={adminText("No object quota defined.")}
                               />
                             </div>
                             {editingUsageStats?.bucket_overview && <InlineSummary items={[
-                              { label: "Active buckets", value: `${editingUsageStats.bucket_overview.non_empty_buckets}/${editingUsageStats.bucket_overview.bucket_count}` },
-                              { label: "Empty buckets", value: String(editingUsageStats.bucket_overview.empty_buckets) },
-                              { label: "Average size", value: editingUsageStats.bucket_overview.avg_bucket_size_bytes == null ? "—" : formatBytes(editingUsageStats.bucket_overview.avg_bucket_size_bytes) },
-                              { label: "Average objects", value: editingUsageStats.bucket_overview.avg_objects_per_bucket == null ? "—" : formatCompactNumber(editingUsageStats.bucket_overview.avg_objects_per_bucket) },
+                              { label: adminText("Active buckets"), value: `${editingUsageStats.bucket_overview.non_empty_buckets}/${editingUsageStats.bucket_overview.bucket_count}` },
+                              { label: adminText("Empty buckets"), value: String(editingUsageStats.bucket_overview.empty_buckets) },
+                              { label: adminText("Average size"), value: editingUsageStats.bucket_overview.avg_bucket_size_bytes == null ? "—" : formatBytes(editingUsageStats.bucket_overview.avg_bucket_size_bytes) },
+                              { label: adminText("Average objects"), value: editingUsageStats.bucket_overview.avg_objects_per_bucket == null ? "—" : formatCompactNumber(editingUsageStats.bucket_overview.avg_objects_per_bucket) },
                             ]} />}
                           </>}
                     </SettingsSection>
-                    {editPermissionLoading ? <p role="status">Checking endpoint permissions...</p>
+                    {editPermissionLoading ? <p role="status">{adminText("Checking endpoint permissions...")}</p>
                       : editPermissionError ? <UiInlineMessage tone="error" role="alert">
-                        {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void fetchEndpointUsersWritePermission(editingEndpointId)}>Retry permissions</SettingsButton>
+                        {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void fetchEndpointUsersWritePermission(editingEndpointId)}>{adminText("Retry permissions")}</SettingsButton>
                       </UiInlineMessage>
-                        : !allowUserQuotaUpdates && <UiInlineMessage tone="info">Quota editing requires Admin Ops support and users=write on the endpoint.</UiInlineMessage>}
+                        : !allowUserQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and users=write on the endpoint.")}</UiInlineMessage>}
                 <AdminQuotaFields
                   compact
                   storageValue={editForm.quota_max_size_gb}
@@ -1142,7 +1142,7 @@ export default function S3UsersPage() {
             {showEditUsersTab && (
               <div className={`${adminAssociationPanelClass} space-y-3`}>
                 <AdminAssociationSectionHeader
-                  title="Linked UI users"
+                  title={adminText("Linked UI users")}
                   countLabel={`${editForm.user_links.length} linked`}
                   actionLabel={showEditPortalUserPanel ? "Close" : "Add UI users"}
                   onAction={() => setShowEditPortalUserPanel((prev) => !prev)}
@@ -1152,19 +1152,16 @@ export default function S3UsersPage() {
                     <thead>
                       <tr>
                         <th className="text-left">
-                          User
-                        </th>
+                          {adminText("User")}</th>
                         <th className="w-px whitespace-nowrap text-right">
-                          Actions
-                        </th>
+                          {adminText("Actions")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {editForm.user_links.length === 0 ? (
                         <tr>
                           <td colSpan={2} className="ui-table-secondary">
-                            No linked users yet.
-                          </td>
+                            {adminText("No linked users yet.")}</td>
                         </tr>
                       ) : (
                         editForm.user_links.map((link) => (
@@ -1198,8 +1195,7 @@ export default function S3UsersPage() {
                                 }
                                  variant="danger"
                               >
-                                Remove
-                              </ListActionButton>
+                                {adminText("Remove")}</ListActionButton>
                             </td>
                           </tr>
                         ))
@@ -1209,8 +1205,8 @@ export default function S3UsersPage() {
                 </div>
                 {showEditPortalUserPanel && (
                   <AdminAssociationPickerPanel
-                    title="Add UI users"
-                    hint="(filter by email)"
+                    title={adminText("Add UI users")}
+                    hint={adminText("(filter by email)")}
                     search={portalUserSearch}
                     onSearchChange={setPortalUserSearch}
                     searchAriaLabel="Search UI users"
@@ -1256,7 +1252,7 @@ export default function S3UsersPage() {
             {showEditGroupsTab && (
               <div className={`${adminAssociationPanelClass} space-y-3`}>
                 <AdminAssociationSectionHeader
-                  title="Linked UI groups"
+                  title={adminText("Linked UI groups")}
                   countLabel={`${editForm.group_links.length} linked${uiGroupsLoading ? " · loading..." : ""}`}
                   actionLabel={showEditGroupPanel ? "Close" : "Add UI groups"}
                   onAction={() => {
@@ -1271,19 +1267,16 @@ export default function S3UsersPage() {
                     <thead>
                       <tr>
                         <th className="text-left">
-                          Group
-                        </th>
+                          {adminText("Group")}</th>
                         <th className="w-px whitespace-nowrap text-right">
-                          Actions
-                        </th>
+                          {adminText("Actions")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {editForm.group_links.length === 0 ? (
                         <tr>
                           <td colSpan={2} className="ui-table-secondary">
-                            No linked groups yet.
-                          </td>
+                            {adminText("No linked groups yet.")}</td>
                         </tr>
                       ) : (
                         editForm.group_links.map((link) => (
@@ -1317,8 +1310,7 @@ export default function S3UsersPage() {
                                 }
                                  variant="danger"
                               >
-                                Remove
-                              </ListActionButton>
+                                {adminText("Remove")}</ListActionButton>
                             </td>
                           </tr>
                         ))
@@ -1328,8 +1320,8 @@ export default function S3UsersPage() {
                 </div>
                 {showEditGroupPanel && (
                   <AdminAssociationPickerPanel
-                    title="Add UI groups"
-                    hint="(filter by name)"
+                    title={adminText("Add UI groups")}
+                    hint={adminText("(filter by name)")}
                     search={groupSearch}
                     onSearchChange={setGroupSearch}
                     searchAriaLabel="Search UI groups"
@@ -1374,37 +1366,37 @@ export default function S3UsersPage() {
 
             {showEditManagerTab && (
               <div className="settings-stack">
-                <SettingsSection presentation="compact" title="Access-key extensions">
-                  <FeatureOverrideField title="Access-key names and notes" value={editForm.allow_access_key_metadata}
+                <SettingsSection presentation="compact" title={adminText("Access-key extensions")}>
+                  <FeatureOverrideField title={adminText("Access-key names and notes")} value={editForm.allow_access_key_metadata}
                     policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={editBusy}
                     triState
-                    help="Name and notes are stored in BucketReef." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_metadata: value }))} />
-                  <FeatureOverrideField title="Access-key expiration" value={editForm.allow_access_key_expiration}
+                    help={adminText("Name and notes are stored in BucketReef.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_metadata: value }))} />
+                  <FeatureOverrideField title={adminText("Access-key expiration")} value={editForm.allow_access_key_expiration}
                     policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={editBusy}
                     triState
-                    help="Requires Ceph, key management and scheduled jobs. Existing expirations remain scheduled." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_expiration: value }))} />
+                    help={adminText("Requires Ceph, key management and scheduled jobs. Existing expirations remain scheduled.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_expiration: value }))} />
                 </SettingsSection>
-                <SettingsSection presentation="compact" title="Activity history">
-                  <FeatureOverrideField title="Manager activity history" value={editForm.allow_activity_history}
+                <SettingsSection presentation="compact" title={adminText("Activity history")}>
+                  <FeatureOverrideField title={adminText("Manager activity history")} value={editForm.allow_activity_history}
                     policy={generalSettings.manager_feature_policies.activity_history} disabled={editBusy}
                     triState
-                    help="Shows RGW User Manager control and configuration actions. It does not include S3 object access logs."
+                    help={adminText("Shows RGW User Manager control and configuration actions. It does not include S3 object access logs.")}
                     onChange={value => setEditForm(prev => ({ ...prev, allow_activity_history: value }))} />
                 </SettingsSection>
-                <SettingsSection presentation="compact" title="Privileged Ceph operations">
-                  <FeatureOverrideField title="Bucket quota management" value={editForm.allow_bucket_quota_management}
+                <SettingsSection presentation="compact" title={adminText("Privileged Ceph operations")}>
+                  <FeatureOverrideField title={adminText("Bucket quota management")} value={editForm.allow_bucket_quota_management}
                     policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={editBusy}
                     triState
-                    unavailable={!editingEndpointCanWriteBuckets ? "Endpoint permission required" : undefined}
-                    help="Requires buckets=write on the endpoint Admin Ops identity." onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_quota_management: value }))} />
-                  <FeatureOverrideField title="Ceph S3 User keys" value={editForm.allow_access_key_management}
+                    unavailable={!editingEndpointCanWriteBuckets ? adminText("Endpoint permission required") : undefined}
+                    help={adminText("Requires buckets=write on the endpoint Admin Ops identity.")} onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_quota_management: value }))} />
+                  <FeatureOverrideField title={adminText("Ceph S3 User keys")} value={editForm.allow_access_key_management}
                     policy={generalSettings.manager_feature_policies.ceph_s3_user_keys} disabled={editBusy}
                     triState
-                    help="Manages RGW User keys in Manager; storage and endpoint permissions remain required." onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_management: value }))} />
-                  <FeatureOverrideField title="Managed private connection provisioning" value={editForm.allow_managed_private_connection_provisioning}
+                    help={adminText("Manages RGW User keys in Manager; storage and endpoint permissions remain required.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_management: value }))} />
+                  <FeatureOverrideField title={adminText("Managed private connection provisioning")} value={editForm.allow_managed_private_connection_provisioning}
                     policy={generalSettings.manager_feature_policies.managed_private_connection_provisioning} disabled={editBusy}
                     triState
-                    help="Requires an eligible UI user and compatible endpoint. Generated secrets remain managed by BucketReef." onChange={value => setEditForm(prev => ({ ...prev, allow_managed_private_connection_provisioning: value }))} />
+                    help={adminText("Requires an eligible UI user and compatible endpoint. Generated secrets remain managed by BucketReef.")} onChange={value => setEditForm(prev => ({ ...prev, allow_managed_private_connection_provisioning: value }))} />
                 </SettingsSection>
               </div>
             )}
@@ -1417,16 +1409,16 @@ export default function S3UsersPage() {
       {userToDelete && (
         <ConfirmActionDialog
           title={`Delete ${userToDelete.name}`}
-          description="This removes the standalone RGW user from the UI and deletes the access key used by this interface. You can also delete the underlying RGW user once it no longer owns buckets."
-          confirmLabel="Delete user"
+          description={adminText("This removes the standalone RGW user from the UI and deletes the access key used by this interface. You can also delete the underlying RGW user once it no longer owns buckets.")}
+          confirmLabel={adminText("Delete user")}
           processingLabel="Deleting..."
           loading={deleteModalBusy}
           error={deleteModalError}
           warningTone="warning"
           warning={deleteModalHasResources && (
             <div className="space-y-2">
-              <p>This RGW user still has linked resources. Remove owned buckets before deleting it from RGW.</p>
-              <p className="settings-label">Buckets: {userToDelete.bucket_count ?? "unknown"}</p>
+              <p>{adminText("This RGW user still has linked resources. Remove owned buckets before deleting it from RGW.")}</p>
+              <p className="settings-label">{adminText("Buckets:")}{userToDelete.bucket_count ?? "unknown"}</p>
             </div>
           )}
           options={
@@ -1436,7 +1428,7 @@ export default function S3UsersPage() {
               onChange={(event) => setDeleteFromRgw(event.target.checked)}
             >
               <span className="modal-option-copy">
-                Also delete RGW user <code className="break-all font-mono">{userToDelete.rgw_user_uid}</code>
+                {adminText("Also delete RGW user")}<code className="break-all font-mono">{userToDelete.rgw_user_uid}</code>
               </span>
             </UiCheckboxField>
           }

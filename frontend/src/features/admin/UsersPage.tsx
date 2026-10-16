@@ -89,7 +89,7 @@ export default function UsersPage() {
     { id: "authentication", label: adminProfileText("security") },
     ...userWorkflowTabs.filter((tab) => tab.id !== "general"),
   ];
-  const closeLabel = locale === "zh" ? text("close") : undefined;
+  const closeLabel = locale === "en" ? undefined : text("close");
   const usersBreadcrumbs = (action?: string) =>
     adminPageBreadcrumbs("users", ...(action ? [{ label: action }] : [])).map((breadcrumb, index) => ({
       ...breadcrumb,

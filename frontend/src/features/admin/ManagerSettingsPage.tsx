@@ -21,6 +21,7 @@ import {
   type FieldErrors,
   type SettingsPath,
 } from "./settings/appSettingsDraft";
+import { useAdminI18n } from "./adminI18n";
 
 const migrationFields = [
   {
@@ -55,12 +56,12 @@ const paths = [
   ...migrationFields.map((field) => field.path),
 ] as const satisfies readonly SettingsPath[];
 
-function validate(values: AppSettingsValues): FieldErrors {
+function validate(values: AppSettingsValues, text: (message: string) => string): FieldErrors {
   const errors: FieldErrors = {};
   for (const field of migrationFields)
     errors[field.path] = validateInteger(
       values[field.path],
-      field.label,
+      text(field.label),
       1,
       field.max,
     );
@@ -70,26 +71,27 @@ function validate(values: AppSettingsValues): FieldErrors {
       Number(values[migrationFields[1].path])
   )
     errors[migrationFields[0].path] =
-      "Default parallelism must not exceed the maximum per migration.";
+      text("Default parallelism must not exceed the maximum per migration.");
   return errors;
 }
 
 export default function ManagerSettingsPage() {
-  const form = useAppSettingsDraft(paths, validate);
+  const { text } = useAdminI18n();
+  const form = useAppSettingsDraft(paths, (values) => validate(values, text));
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [dialogDirty, setDialogDirty] = useState(false);
   return (
     <AdminSettingsFrame
-      title="Manager settings"
-      description="Configure measurements, administrative access and bucket tools."
+      title={text("Manager settings")}
+      description={text("Configure measurements, administrative access and bucket tools.")}
       page="manager-settings"
-      resetTitle="Reset Manager settings draft?"
+      resetTitle={text("Reset Manager settings draft?")}
       form={form}
       dialogDirty={dialogDirty}
       dialogs={
         migrationOpen && (
           <SettingsDraftDialog
-            title="Bucket migration controls"
+            title={text("Bucket migration controls")}
             initialValue={
               Object.fromEntries(
                 migrationFields.map((field) => [
@@ -98,7 +100,7 @@ export default function ManagerSettingsPage() {
                 ]),
               ) as AppSettingsValues
             }
-            validate={validate}
+            validate={(values) => validate(values, text)}
             onDirtyChange={setDialogDirty}
             onClose={() => setMigrationOpen(false)}
             onApply={(values) =>
@@ -111,9 +113,9 @@ export default function ManagerSettingsPage() {
               <>
                 {migrationFields.map((field) => (
                   <label key={field.path}>
-                    <span>{field.label}</span>
+                    <span>{text(field.label)}</span>
                     <SettingsField
-                      label={field.label}
+                      label={text(field.label)}
                       type="number"
                       min={1}
                       max={field.max}
@@ -137,100 +139,104 @@ export default function ManagerSettingsPage() {
     >
       <SettingsSection
         presentation="compact"
-        title="Usage and metrics"
-        description={FEATURE_POLICY_SECTION_DESCRIPTION}
+        title={text("Usage and metrics")}
+        description={text(FEATURE_POLICY_SECTION_DESCRIPTION)}
       >
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.rgw_usage_metrics"
-          title="RGW traffic and usage metrics"
-          description="Available when the selected context and endpoint meet the prerequisites."
+          title={text("RGW traffic and usage metrics")}
+          description={text("Available when the selected context and endpoint meet the prerequisites.")}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Administration and access"
-        description={FEATURE_POLICY_SECTION_DESCRIPTION}
+        title={text("Administration and access")}
+        description={text(FEATURE_POLICY_SECTION_DESCRIPTION)}
       >
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.activity_history"
-          title="Manager activity history"
-          description="Control and configuration history for supported Manager execution contexts. Enabled by default; each RGW Account, RGW User, or shared S3 Connection can inherit, enable, or disable it."
+          title={text("Manager activity history")}
+          description={text("Control and configuration history for supported Manager execution contexts. Enabled by default; each RGW Account, RGW User, or shared S3 Connection can inherit, enable, or disable it.")}
         />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.bucket_quota_management"
-          title="Bucket quota management"
-          description="Ceph account and RGW user contexts require buckets=write on the endpoint Admin Ops identity."
+          title={text("Bucket quota management")}
+          description={text("Ceph account and RGW user contexts require buckets=write on the endpoint Admin Ops identity.")}
         />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.ceph_s3_user_keys"
-          title="Ceph S3 User access-key management"
-          description="RGW key management for eligible S3 User contexts."
+          title={text("Ceph S3 User access-key management")}
+          description={text("RGW key management for eligible S3 User contexts.")}
         />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.access_key_metadata"
-          title="Access-key names and notes"
-          description="Allow selected RGW Accounts and Users to add BucketReef-managed labels and notes to access keys."
+          title={text("Access-key names and notes")}
+          description={text("Allow selected RGW Accounts and Users to add BucketReef-managed labels and notes to access keys.")}
         />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.access_key_expiration"
-          title="Access-key expiration"
-          description="Allow selected RGW Accounts and Users to schedule provider-side access-key disabling. Requires scheduled jobs."
+          title={text("Access-key expiration")}
+          description={text("Allow selected RGW Accounts and Users to schedule provider-side access-key disabling. Requires scheduled jobs.")}
         />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.managed_private_connection_provisioning"
-          title="Provision managed private connections"
-          description="Provision credentials for eligible users without revealing generated secrets."
+          title={text("Provision managed private connections")}
+          description={text("Provision credentials for eligible users without revealing generated secrets.")}
           experimental
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Manager tools"
-        description={FEATURE_POLICY_SECTION_DESCRIPTION}
+        title={text("Manager tools")}
+        description={text(FEATURE_POLICY_SECTION_DESCRIPTION)}
       >
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.bucket_migration"
-          title="Bucket migration tool"
+          title={text("Bucket migration tool")}
           experimental
         />
         <SettingsItem
           compact
-          title="Bucket migration controls"
-          description={`Default: ${form.draft[migrationFields[0].path]} · Maximum: ${form.draft[migrationFields[1].path]} · Active per endpoint: ${form.draft[migrationFields[2].path]}`}
+          title={text("Bucket migration controls")}
+          description={text("Default: {default} · Maximum: {maximum} · Active per endpoint: {active}", {
+            default: String(form.draft[migrationFields[0].path]),
+            maximum: String(form.draft[migrationFields[1].path]),
+            active: String(form.draft[migrationFields[2].path]),
+          })}
           action={
             <SettingsButton
               variant="secondary"
               onClick={() => setMigrationOpen(true)}
             >
-              Configure migration
+              {text("Configure migration")}
             </SettingsButton>
           }
         />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.bucket_compare"
-          title="Bucket compare tool"
+          title={text("Bucket compare tool")}
         />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.bucket_integrity_check"
-          title="Bucket integrity check tool"
+          title={text("Bucket integrity check tool")}
         />
         <AppSettingsPolicy
           form={form}
           field="manager.feature_policies.bucket_purge"
-          title="Bucket purge tool"
-          description="Also controls purge actions in Ceph Admin and Storage Ops."
+          title={text("Bucket purge tool")}
+          description={text("Also controls purge actions in Ceph Admin and Storage Ops.")}
         />
-        <AppSettingsPolicy form={form} field="manager.feature_policies.feature_rules" title="Feature rule inventory" description="Access to the Manager feature-rule inventory. Requires an eligible Manager role and storage context." />
+        <AppSettingsPolicy form={form} field="manager.feature_policies.feature_rules" title={text("Feature rule inventory")} description={text("Access to the Manager feature-rule inventory. Requires an eligible Manager role and storage context.")} />
       </SettingsSection>
     </AdminSettingsFrame>
   );

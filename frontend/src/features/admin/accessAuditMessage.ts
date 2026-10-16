@@ -2,8 +2,9 @@
 import { useCallback } from "react";
 import type { AccessAuditRightCode, AccessAuditScope } from "../../api/accessAudit";
 import { useI18n, type I18nMessage } from "../../i18n";
+import { adminMessage } from "./adminI18n";
 
-const m = (en: string, zh: string): I18nMessage => ({ en, zh });
+const m = (en: string, zh: string) => adminMessage(en, zh);
 
 const accessAuditMessage = {
   admin: m("Admin", "管理员"),
@@ -97,19 +98,19 @@ const rightMessageKeys: Record<AccessAuditRightCode, AccessAuditMessageKey> = {
 };
 
 export function useAccessAuditI18n() {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const text = useCallback<AccessAuditText>(
     (key, values) => t(accessAuditMessage[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)),
     [t],
   );
   const scopeLabel = useCallback((scope: AccessAuditScope, fallback?: string) => {
     const key = Object.hasOwn(scopeMessageKeys, scope) ? scopeMessageKeys[scope] : undefined;
-    if (key && (locale === "zh" || fallback == null)) return text(key);
+    if (key) return text(key);
     return fallback ?? scope;
-  }, [locale, text]);
+  }, [text]);
   const rightLabel = useCallback((code: AccessAuditRightCode, fallback: string) => {
     const key = Object.hasOwn(rightMessageKeys, code) ? rightMessageKeys[code] : undefined;
-    return locale === "zh" && key ? text(key) : fallback;
-  }, [locale, text]);
+    return key ? text(key) : fallback;
+  }, [text]);
   return { text, scopeLabel, rightLabel };
 }

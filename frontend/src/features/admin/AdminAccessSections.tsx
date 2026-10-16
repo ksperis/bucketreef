@@ -12,6 +12,7 @@ import {
   normalizeManagerToolAccess,
 } from "./adminAccessConfig";
 import type { UiTone } from "../../components/ui/styles";
+import { useAdminI18n } from "./adminI18n";
 
 type WorkspaceAccessToggle = {
   checked: boolean;
@@ -101,9 +102,10 @@ export function WorkspaceAccessSection({
   cephAdmin: WorkspaceAccessToggle;
   storageOps: WorkspaceAccessToggle;
 }) {
+  const { text: adminText } = useAdminI18n();
   return (
     <AdminAccessToggleSection
-      title="Mass management workspaces"
+      title={adminText("Mass management workspaces")}
       description={description}
       items={[cephAdmin, storageOps]}
     />

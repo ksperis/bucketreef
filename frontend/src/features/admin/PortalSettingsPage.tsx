@@ -21,6 +21,7 @@ import {
   type FieldErrors,
   type SettingsPath,
 } from "./settings/appSettingsDraft";
+import { useAdminI18n } from "./adminI18n";
 
 const paths = [
   "portal.feature_policies.browser_access",
@@ -39,44 +40,45 @@ const paths = [
   "portal.bucket_defaults.cors_allowed_origins",
 ] as const satisfies readonly SettingsPath[];
 const originsPath = "portal.bucket_defaults.cors_allowed_origins";
-function validate(values: AppSettingsValues): FieldErrors {
+function validate(values: AppSettingsValues, text: (message: string) => string): FieldErrors {
   return {
     "portal.max_portal_user_access_keys": validateInteger(
       values["portal.max_portal_user_access_keys"],
-      "Max S3 access keys per portal user",
+      text("Max S3 access keys per portal user"),
       1,
     ),
     "portal.server_access_log_retention_days": validateInteger(
       values["portal.server_access_log_retention_days"],
-      "Server access log retention",
+      text("Server access log retention"),
       1,
     ),
     "portal.bucket_defaults.noncurrent_version_expiration_days":
       validateInteger(
         values["portal.bucket_defaults.noncurrent_version_expiration_days"],
-        "Version history retention",
+        text("Version history retention"),
         1,
       ),
   };
 }
 
 export default function PortalSettingsPage() {
-  const form = useAppSettingsDraft(paths, validate);
+  const { text } = useAdminI18n();
+  const form = useAppSettingsDraft(paths, (values) => validate(values, text));
   const [corsOpen, setCorsOpen] = useState(false);
   const [dialogDirty, setDialogDirty] = useState(false);
   const origins = form.draft[originsPath] as string[] | undefined;
   return (
     <AdminSettingsFrame
-      title="Portal settings"
-      description="Platform capabilities and defaults for Portal projects."
+      title={text("Portal settings")}
+      description={text("Platform capabilities and defaults for Portal projects.")}
       page="portal-settings"
-      resetTitle="Reset Portal settings draft?"
+      resetTitle={text("Reset Portal settings draft?")}
       form={form}
       dialogDirty={dialogDirty}
       dialogs={
         corsOpen && (
           <SettingsDraftDialog
-            title="CORS allowed origins"
+            title={text("CORS allowed origins")}
             initialValue={(origins ?? []).join("\n")}
             onDirtyChange={setDialogDirty}
             onClose={() => setCorsOpen(false)}
@@ -93,9 +95,9 @@ export default function PortalSettingsPage() {
           >
             {(value, setValue) => (
               <UiTextarea
-                label="One origin per line"
-                hint="These origins are added to the Portal CORS rule for new Storage Spaces."
-                aria-label="CORS allowed origins"
+                label={text("One origin per line")}
+                hint={text("These origins are added to the Portal CORS rule for new Storage Spaces.")}
+                aria-label={text("CORS allowed origins")}
                 className="min-h-[96px]"
                 rows={5}
                 value={value}
@@ -108,117 +110,117 @@ export default function PortalSettingsPage() {
     >
       <SettingsSection
         presentation="compact"
-        title="Access and creation"
-        description={FEATURE_POLICY_SECTION_DESCRIPTION}
+        title={text("Access and creation")}
+        description={text(FEATURE_POLICY_SECTION_DESCRIPTION)}
       >
         <AppSettingsPolicy
           form={form}
           field="portal.feature_policies.browser_access"
-          title="Browser workspace access"
-          ariaLabel="Portal Browser workspace access"
-          description="Show Portal projects in standalone Browser. File browsing inside Portal remains independent."
+          title={text("Browser workspace access")}
+          ariaLabel={text("Portal Browser workspace access")}
+          description={text("Show Portal projects in standalone Browser. File browsing inside Portal remains independent.")}
         />
         <AppSettingsPolicy
           form={form}
           field="portal.feature_policies.private_storage_space_create"
-          title="Private Storage Space creation"
-          description="Team Storage Spaces remain manager-only."
+          title={text("Private Storage Space creation")}
+          description={text("Team Storage Spaces remain manager-only.")}
         />
         <AppSettingsPolicy
           form={form}
           field="portal.feature_policies.named_bucket_create"
-          title="Named storage creation"
-          description="Allow a backing storage name based on the name supplied during creation."
+          title={text("Named storage creation")}
+          description={text("Allow a backing storage name based on the name supplied during creation.")}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Personal access keys"
+        title={text("Personal access keys")}
       >
         <AppSettingsPolicy
           form={form}
           field="portal.feature_policies.user_access_key_create"
-          title="Access key management"
+          title={text("Access key management")}
         />
         <AppSettingsNumber
           form={form}
           field="portal.max_portal_user_access_keys"
-          title="Max S3 access keys per portal user"
+          title={text("Max S3 access keys per portal user")}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="External sharing"
+        title={text("External sharing")}
       >
         <AppSettingsPolicy
           form={form}
           field="portal.feature_policies.user_external_sharing"
-          title="External sharing by Portal users"
-          description="Allow Portal users to create public links and external S3 tool access only for Storage Spaces they own. Portal managers keep their existing project-wide capabilities."
+          title={text("External sharing by Portal users")}
+          description={text("Allow Portal users to create public links and external S3 tool access only for Storage Spaces they own. Portal managers keep their existing project-wide capabilities.")}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Logging and history"
+        title={text("Logging and history")}
       >
         <AppSettingsPolicy
           form={form}
           field="portal.feature_policies.server_access_logging"
-          title="Server access logging"
-          description="Object-level audit. Without it, there is no exhaustive object history. Changing this reconciles existing Portal logging."
+          title={text("Server access logging")}
+          description={text("Object-level audit. Without it, there is no exhaustive object history. Changing this reconciles existing Portal logging.")}
         />
         <AppSettingsNumber
           form={form}
           field="portal.server_access_log_retention_days"
-          title="Server access log retention"
-          description="Days; applies to newly created technical log buckets."
+          title={text("Server access log retention")}
+          description={text("Days; applies to newly created technical log buckets.")}
         />
         <AppSettingsPolicy
           form={form}
           field="portal.feature_policies.storage_space_version_cleanup"
-          title="Storage Space history cleanup"
-          description="Expose cleanup actions; storage permissions still determine who can execute them."
+          title={text("Storage Space history cleanup")}
+          description={text("Expose cleanup actions; storage permissions still determine who can execute them.")}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="New Storage Space defaults"
-        description="Applied at creation."
+        title={text("New Storage Space defaults")}
+        description={text("Applied at creation.")}
       >
         <AppSettingsToggle
           form={form}
           field="portal.bucket_defaults.versioning"
-          title="Versioning"
+          title={text("Versioning")}
         />
         <AppSettingsToggle
           form={form}
           field="portal.bucket_defaults.enable_lifecycle"
-          title="Lifecycle baseline"
-          description="Remove obsolete delete markers and expire older versions."
+          title={text("Lifecycle baseline")}
+          description={text("Remove obsolete delete markers and expire older versions.")}
         />
         <AppSettingsNumber
           form={form}
           field="portal.bucket_defaults.noncurrent_version_expiration_days"
-          title="Version history retention"
-          description="Days to retain older versions."
+          title={text("Version history retention")}
+          description={text("Days to retain older versions.")}
         />
         <AppSettingsToggle
           form={form}
           field="portal.bucket_defaults.enable_cors"
-          title="Portal CORS"
+          title={text("Portal CORS")}
         />
         <SettingsItem
           compact
-          title="CORS allowed origins"
+          title={text("CORS allowed origins")}
           description={
-            origins?.length ? origins.join(", ") : "No additional origins."
+            origins?.length ? origins.join(", ") : text("No additional origins.")
           }
           action={
             <SettingsButton
               variant="secondary"
               onClick={() => setCorsOpen(true)}
             >
-              Configure origins
+              {text("Configure origins")}
             </SettingsButton>
           }
         />

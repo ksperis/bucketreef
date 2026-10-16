@@ -30,7 +30,7 @@ import { workflowPageHostClass } from "../../components/WorkflowPage";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
-import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
 import { useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import DataTableShell, {
@@ -54,9 +54,12 @@ import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textM
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
+import { useAdminI18n } from "./adminI18n";
 
 type SortField = "name" | "rgw_account_id";
 export default function S3AccountsPage() {
+  const { text: adminText } = useAdminI18n();
+  const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { generalSettings } = useGeneralSettings();
   const portalEnabled = generalSettings.portal_enabled;
   const [accounts, setS3Accounts] = useState<S3Account[]>([]);
@@ -148,7 +151,7 @@ export default function S3AccountsPage() {
     [defaultAccountEndpointId]
   );
 
-  const extractError = useCallback((err: unknown) => extractApiError(err, "Unexpected error"), []);
+  const extractError = useCallback((err: unknown) => extractApiError(err, adminText("Unexpected error")), [adminText]);
 
   const fetchS3Accounts = useCallback(async () => {
     setLoading(true);
@@ -214,14 +217,14 @@ export default function S3AccountsPage() {
       console.error(err);
       const msg = extractError(err);
       if (msg.toLowerCase().includes("not authorized") || msg.includes("403")) {
-        setError("Access restricted to super-admin.");
+        setError(adminText("Access restricted to super-admin."));
       } else {
-        setError("Unable to load accounts.");
+        setError(adminText("Unable to load accounts."));
       }
     } finally {
       setLoading(false);
     }
-  }, [extractError, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
+  }, [adminText, extractError, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
 
   const toggleSort = (field: SortField) => {
     setSort((current) => nextSortState(current, field, "desc"));
@@ -413,14 +416,12 @@ export default function S3AccountsPage() {
 
               {...dataTableDefaultActionProps}
             >
-              Edit
-            </ListActionButton>
+              {adminText("Edit")}</ListActionButton>
             <ListActionLink to={buildAccessAuditHref({
               scope: "rgw_account",
               targetId: account.id,
             })}>
-              Review access
-            </ListActionLink>
+              {adminText("Review access")}</ListActionLink>
             <ListActionButton
               type="button"
               onClick={() => openDeleteS3AccountModal(account)}
@@ -446,7 +447,7 @@ export default function S3AccountsPage() {
   const importEntries = rgwAccountImportEntries(importText);
   const importValidation = useAdminRgwFormValidation({importText, storage_endpoint_id: importTenantEndpointId}, {
     ...(importEntries.error ? {importText: importEntries.error} : {}),
-    ...(!importTenantEndpointId ? {storage_endpoint_id: "Select a Ceph endpoint."} : {}),
+    ...(!importTenantEndpointId ? {storage_endpoint_id: adminText("Select a Ceph endpoint.")} : {}),
   });
   const createPending = useRef(false);
   const importPending = useRef(false);
@@ -455,11 +456,11 @@ export default function S3AccountsPage() {
     e.preventDefault();
     if (createPending.current || !createValidation.validate(e.currentTarget)) return;
     if (createPermissionLoading) {
-      setActionError("Checking endpoint permissions. Please wait.");
+      setActionError(adminText("Checking endpoint permissions. Please wait."));
       return;
     }
     if (!createEndpointCanWrite) {
-      setActionError("Selected endpoint does not allow this operation (missing accounts=write).");
+      setActionError(adminText("Selected endpoint does not allow this operation (missing accounts=write)."));
       return;
     }
     createPending.current = true;
@@ -476,7 +477,7 @@ export default function S3AccountsPage() {
         quota_max_objects: form.quota_max_objects ? Number(form.quota_max_objects) : undefined,
         storage_endpoint_id: Number(form.storage_endpoint_id),
       });
-      setActionMessage("S3Account created");
+      setActionMessage(adminText("RGW account created."));
       const defaultCeph =
         accountCephEndpoints.find((ep) => ep.is_default) || accountCephEndpoints[0];
       setForm({
@@ -512,7 +513,7 @@ export default function S3AccountsPage() {
         root_uid: entry.root_uid,
         storage_endpoint_id: Number(importTenantEndpointId),
       })));
-      setImportMessage("S3Accounts imported.");
+      setImportMessage(adminText("RGW accounts imported."));
       importValidation.reset();
       setImportText("");
       setImportInitialSignature(buildImportSignature({ importText: "", importTenantEndpointId }));
@@ -530,7 +531,7 @@ export default function S3AccountsPage() {
       return {
         id: link.user_id,
         kind: "user",
-        label: link.user_full_name || link.user_email || `User #${link.user_id}`,
+        label: link.user_full_name || link.user_email || adminText("User #{id}", { id: link.user_id }),
         email: link.user_email,
         avatar: link.user_avatar,
         manager_role: link.manager_role,
@@ -541,7 +542,7 @@ export default function S3AccountsPage() {
       return {
         id: link.group_id,
         kind: "group",
-        label: link.group_name || `Group #${link.group_id}`,
+        label: link.group_name || adminText("Group #{id}", { id: link.group_id }),
         avatar: link.group_avatar,
         manager_role: link.manager_role,
         portal_role: link.portal_role,
@@ -591,8 +592,8 @@ export default function S3AccountsPage() {
   const closeAccountEditor = useCallback(() => setEditingS3Account(null), []);
   const accountSaved = useCallback(async () => {
     await fetchS3Accounts();
-    setActionMessage("S3Account updated");
-  }, [fetchS3Accounts]);
+    setActionMessage(adminText("RGW account updated."));
+  }, [adminText, fetchS3Accounts]);
   const pendingAccount = useRef<S3AccountSummary | null>(null);
   const accountSwitchGuard = useSettingsCloseGuard({
     hasUnsavedChanges: editorState.dirty,
@@ -632,7 +633,7 @@ export default function S3AccountsPage() {
     try {
       await deleteS3Account(targetId, { deleteRgw: deleteFromRgw });
       await fetchS3Accounts();
-      setActionMessage("S3Account deleted");
+      setActionMessage(adminText("RGW account deleted."));
       closeDeleteModal();
     } catch (err) {
       setActionError(extractError(err));
@@ -644,14 +645,14 @@ export default function S3AccountsPage() {
   return (
     <div className={workflowPageHostClass(Boolean(editingS3Account))}>
       <PageHeader actionPresentation="listing"
-        title="RGW Accounts"
-        description="Provision Ceph RGW accounts, quotas, and root users."
-        breadcrumbs={adminPageBreadcrumbs("accounts")}
+        title={adminText("RGW Accounts")}
+        description={adminText("Provision Ceph RGW accounts, quotas, and root users.")}
+        breadcrumbs={adminBreadcrumbs("accounts")}
         actions={
           isSuperAdmin
             ? [
                 {
-                  label: "Import",
+                  label: adminText("Import"),
                   onClick: () => {
                     importValidation.reset();
                     setImportText("");
@@ -664,7 +665,7 @@ export default function S3AccountsPage() {
                   variant: "ghost",
                 },
                 {
-                  label: "Create account",
+                  label: adminText("Create account"),
                   onClick: () => {
                     createValidation.reset();
                     setActionError(null);
@@ -683,13 +684,13 @@ export default function S3AccountsPage() {
       {actionMessage && <UiInlineMessage tone="success" role="status">{actionMessage}</UiInlineMessage>}
 
       {isSuperAdmin && showCreateModal && (
-        <SettingsDialog title="Create an account" onClose={createCloseGuard.requestClose} closeDisabled={creating} maxWidthClass="max-w-2xl">
-          <SettingsForm label="Create RGW account" presentation="dialog" busy={creating} onSubmit={handleSubmit}
+        <SettingsDialog title={adminText("Create an account")} onClose={createCloseGuard.requestClose} closeDisabled={creating} maxWidthClass="max-w-2xl">
+          <SettingsForm label={adminText("Create RGW account")} presentation="dialog" busy={creating} onSubmit={handleSubmit}
             submitDisabled={createPermissionLoading || !createEndpointCanWrite}
-            onCancel={createCloseGuard.requestClose} submitLabel="Create account" busyLabel="Creating...">
+            onCancel={createCloseGuard.requestClose} submitLabel={adminText("Create account")} busyLabel={adminText("Creating...")}>
             <AdminRgwCreateFields kind="account" value={form} onChange={patch => setForm(current => ({...current, ...patch}))}
               errors={createValidation.errors} busy={creating}
-              endpoint={{label: "Storage endpoint (Ceph) *", endpoints: accountCephEndpoints, loading: loadingEndpoints,
+              endpoint={{label: adminText("Storage endpoint (Ceph) *"), endpoints: accountCephEndpoints, loading: loadingEndpoints,
                 operation: "accounts", permissionLoading: createPermissionLoading, permissionError: createPermissionError, canWrite: createEndpointCanWrite}}
               tags={{catalog: adminTagCatalog, loading: adminTagCatalogLoading, error: adminTagCatalogError}} />
             {actionError && <UiInlineMessage tone="error" role="alert">{actionError}</UiInlineMessage>}
@@ -700,10 +701,10 @@ export default function S3AccountsPage() {
 
       {isSuperAdmin && accountToDelete && (
         <ConfirmActionDialog
-          title={`Delete ${accountToDelete.name}`}
-          description="Removing this account deletes the UI entry. Optionally delete the backing RGW account if it no longer contains resources."
-          confirmLabel="Delete account"
-          processingLabel="Deleting..."
+          title={adminText("Delete {name}", { name: accountToDelete.name })}
+          description={adminText("Removing this account deletes the UI entry. Optionally delete the backing RGW account if it no longer contains resources.")}
+          confirmLabel={adminText("Delete account")}
+          processingLabel={adminText("Deleting...")}
           loading={deleteModalBusy}
           error={actionError}
           warningTone="warning"
@@ -713,13 +714,13 @@ export default function S3AccountsPage() {
                 ? "Unable to verify linked RGW resources. RGW deletion is disabled until counts are available."
                 : "This RGW account still has attached resources. Remove buckets, RGW users (excluding the admin user), and notification topics before deleting it from RGW."}</p>
               <p className="settings-label">
-                Buckets: {accountToDelete.bucket_count ?? "unknown"} · IAM users (excl. admin):{" "}
-                {accountToDelete.rgw_user_count ?? "unknown"} · RGW topics:{" "}
+                {adminText("Buckets:")}{accountToDelete.bucket_count ?? "unknown"} {adminText("· IAM users (excl. admin):")}{" "}
+                {accountToDelete.rgw_user_count ?? "unknown"} {adminText("· RGW topics:")}{" "}
                 {accountToDelete.rgw_topic_count ?? "unknown"}
               </p>
               {accountToDelete.rgw_user_uids && accountToDelete.rgw_user_uids.length > 0 && (
                 <div>
-                  <p className="settings-label">RGW users to remove:</p>
+                  <p className="settings-label">{adminText("RGW users to remove:")}</p>
                   <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto">
                     {accountToDelete.rgw_user_uids.map((uid) => <li key={uid}>{uid}</li>)}
                   </ul>
@@ -727,7 +728,7 @@ export default function S3AccountsPage() {
               )}
               {accountToDelete.rgw_topics && accountToDelete.rgw_topics.length > 0 && (
                 <div>
-                  <p className="settings-label">Notification topics to remove:</p>
+                  <p className="settings-label">{adminText("Notification topics to remove:")}</p>
                   <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto">
                     {accountToDelete.rgw_topics.map((topic) => <li key={topic}>{topic}</li>)}
                   </ul>
@@ -742,7 +743,7 @@ export default function S3AccountsPage() {
               onChange={(event) => setDeleteFromRgw(event.target.checked)}
             >
               <span className="modal-option-copy">
-                Also delete RGW account <code className="break-all font-mono">{accountToDelete.rgw_account_id ?? accountToDelete.id}</code>
+                {adminText("Also delete RGW account")}<code className="break-all font-mono">{accountToDelete.rgw_account_id ?? accountToDelete.id}</code>
               </span>
             </UiCheckboxField>
           }
@@ -752,16 +753,16 @@ export default function S3AccountsPage() {
       )}
 
       {isSuperAdmin && showImportModal && (
-        <SettingsDialog title="Import RGW accounts" onClose={importCloseGuard.requestClose} closeDisabled={importBusy} maxWidthClass="max-w-xl">
-          <SettingsForm label="Import RGW accounts" presentation="dialog" busy={importBusy} onSubmit={submitImport}
+        <SettingsDialog title={adminText("Import RGW accounts")} onClose={importCloseGuard.requestClose} closeDisabled={importBusy} maxWidthClass="max-w-xl">
+          <SettingsForm label={adminText("Import RGW accounts")} presentation="dialog" busy={importBusy} onSubmit={submitImport}
             submitDisabled={importPermissionLoading || !importEndpointCanWrite}
-            onCancel={importCloseGuard.requestClose} submitLabel="Import" busyLabel="Importing...">
+            onCancel={importCloseGuard.requestClose} submitLabel={adminText("Import")} busyLabel={adminText("Importing...")}>
             <div className="settings-fields settings-form">
-              <p className="settings-body text-[var(--ui-text-muted)]">Enter RGW account IDs, one per line. Optionally add an existing root UID after a space (e.g. customer01$customer01-root). The Ceph tenant is read from RGW.</p>
-              <UiTextarea label="RGW account IDs" name="importText" rows={6} required value={importText}
+              <p className="settings-body text-[var(--ui-text-muted)]">{adminText("Enter RGW account IDs, one per line. Optionally add an existing root UID after a space (e.g. customer01$customer01-root). The Ceph tenant is read from RGW.")}</p>
+              <UiTextarea label={adminText("RGW account IDs")} name="importText" rows={6} required value={importText}
                 error={importValidation.errors.importText} placeholder="RGW00000000000000001"
                 onChange={event => setImportText(event.target.value)} />
-              <AdminRgwEndpointField label="Ceph endpoint" value={importTenantEndpointId}
+              <AdminRgwEndpointField label={adminText("Ceph endpoint")} value={importTenantEndpointId}
                 onChange={setImportTenantEndpointId} endpoints={accountCephEndpoints}
                 error={importValidation.errors.storage_endpoint_id} loading={loadingEndpoints} operation="accounts"
                 permissionLoading={importPermissionLoading} permissionError={importPermissionError} canWrite={importEndpointCanWrite} />
@@ -782,13 +783,13 @@ export default function S3AccountsPage() {
       <ListPageSection
         variant="page"
         mobileSort={<TableSortControls columns={accountTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-          title="RGW Accounts"
-          countLabel={`${totalAccounts} entr${totalAccounts === 1 ? "y" : "ies"}`}
+          title={adminText("RGW Accounts")}
+          countLabel={adminText(totalAccounts === 1 ? "{count} entry" : "{count} entries", { count: totalAccounts })}
           search={
             <ToolbarSearchInput
               value={filter}
               onChange={handleFilterChange}
-              placeholder="Search by name, RGW ID, user email, group, or tag"
+              placeholder={adminText("Search by name, RGW ID, user email, group, or tag")}
               className="w-full sm:w-64 md:w-72"
               active={quickFilterActive}
               matchMode={quickFilterMode}
@@ -798,7 +799,7 @@ export default function S3AccountsPage() {
           secondaryContent={
             quickFilterActive ? (
               <ActiveFiltersBar
-                label="Active filters summary"
+                label={adminText("Active filters summary")}
                 items={[
                   {
                     id: "search",

@@ -95,7 +95,7 @@ export default function IdentitySecurityPage() {
     title: text("verifyPasskey"),
     description: text("verifyDescription"),
     cancel: text("cancel"),
-    close: locale === "zh" ? text("close") : undefined,
+    close: locale === "en" ? undefined : text("close"),
     cancelled: text("verificationCancelled"),
     failure: (error: unknown) => extractApiError(error, text("verificationFailed")),
   }), [locale, text]);
@@ -371,7 +371,7 @@ export default function IdentitySecurityPage() {
         <ConfirmActionDialog
           cancelLabel={text("cancel")}
           processingLabel={text("processing")}
-          closeLabel={locale === "zh" ? text("close") : undefined}
+          closeLabel={locale === "en" ? undefined : text("close")}
           title={text(pendingLinkDecision.approve ? "approveTitle" : "rejectTitle")}
           description={text(pendingLinkDecision.approve ? "approveDescription" : "rejectDescription")}
           confirmLabel={text(pendingLinkDecision.approve ? "approveLink" : "rejectRequest")}
@@ -391,7 +391,7 @@ export default function IdentitySecurityPage() {
         <ConfirmActionDialog
           cancelLabel={text("cancel")}
           processingLabel={text("processing")}
-          closeLabel={locale === "zh" ? text("close") : undefined}
+          closeLabel={locale === "en" ? undefined : text("close")}
           title={text("revokeSession")}
           description={text("revokeDescription")}
           confirmLabel={text("revokeSession")}

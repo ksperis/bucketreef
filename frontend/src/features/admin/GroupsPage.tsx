@@ -177,7 +177,7 @@ export default function GroupsPage() {
     title: text("verifyWithPasskey"),
     description: text("verificationDescription"),
     cancel: text("cancel"),
-    close: locale === "zh" ? text("close") : undefined,
+    close: locale === "en" ? undefined : text("close"),
     cancelled: text("verificationCancelled"),
     failure: (error: unknown) => extractApiError(error, text("verificationFailed")),
   }), [locale, text]);
@@ -423,7 +423,7 @@ export default function GroupsPage() {
     description: text("unsavedChanges"),
     cancelLabel: text("keepEditing"),
     confirmLabel: text("discardChanges"),
-    closeLabel: locale === "zh" ? text("close") : undefined,
+    closeLabel: locale === "en" ? undefined : text("close"),
     onClose: closeModal,
     disabled: saving,
   });
@@ -1194,7 +1194,7 @@ export default function GroupsPage() {
       <SettingsNavigationGuard dirty={hasUnsavedChanges} onDiscard={closeModal}
         title={text("discardTitle")} description={text("unsavedChanges")}
         confirmLabel={text("discardChanges")} cancelLabel={text("keepEditing")}
-        closeLabel={locale === "zh" ? text("close") : undefined} />
+        closeLabel={locale === "en" ? undefined : text("close")} />
       <PageHeader actionPresentation="listing"
         title={text("uiGroups")}
         description={text("pageDescription")}
@@ -1447,7 +1447,7 @@ export default function GroupsPage() {
           cancelLabel={text("cancel")}
           processingLabel={text("processing")}
           impactLabel={text("impact")}
-          closeLabel={locale === "zh" ? text("close") : undefined}
+          closeLabel={locale === "en" ? undefined : text("close")}
           details={[{ label: text("group"), value: pendingDeleteGroup.name }]}
           impacts={[
             text("directPermissionsRemain"),

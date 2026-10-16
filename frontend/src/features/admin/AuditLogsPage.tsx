@@ -16,6 +16,8 @@ import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
 import { useAuditLogsI18n, type AuditLogsText } from "./auditLogsMessage";
+import { adminIntlLocale } from "./adminI18n";
+import type { UiLanguage } from "../../components/language";
 
 type RoleFilter = "all" | "ui_superadmin" | "ui_admin" | "ui_user" | "ui_none";
 type ScopeFilter = "all" | "admin" | "manager" | "portal";
@@ -86,10 +88,10 @@ function StatusBadge({ status, text }: { status: string; text: AuditLogsText }) 
   return <UiBadge tone={tone}>{formatAuditStatus(status, text)}</UiBadge>;
 }
 
-function formatAuditDate(value: string, locale: string) {
+function formatAuditDate(value: string, locale: UiLanguage) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString(locale);
+  return parsed.toLocaleString(adminIntlLocale(locale));
 }
 
 function executionContextKindLabel(kind: string | null | undefined, text: AuditLogsText): string {

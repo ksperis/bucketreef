@@ -36,6 +36,7 @@ import {
   type FieldErrors,
   type SettingsPath,
 } from "./settings/appSettingsDraft";
+import { useAdminI18n } from "./adminI18n";
 
 const featureFields = [
   "manager_enabled",
@@ -158,6 +159,7 @@ function validate(values: AppSettingsValues): FieldErrors {
 }
 
 export default function GeneralSettingsPage() {
+  const { text: adminText } = useAdminI18n();
   const navigate = useNavigate();
   const { status: onboardingStatus } = useOnboardingStatus();
   const [locks, setLocks] = useState<GeneralFeatureLocks | null>(null);
@@ -191,13 +193,13 @@ export default function GeneralSettingsPage() {
       .catch((err) => {
         if (active)
           setLockError(
-            extractApiError(err, "Unable to load environment locks."),
+            extractApiError(err, adminText("Unable to load environment locks.")),
           );
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [adminText]);
   const feature = (
     key: (typeof featureFields)[number],
     title: string,
@@ -219,7 +221,7 @@ export default function GeneralSettingsPage() {
             {description}
             {lock?.forced && (
               <span className="block">
-                Forced by environment ({lock.source ? `${lock.source}=` : ""}
+                {adminText("Forced by environment (")}{lock.source ? `${lock.source}=` : ""}
                 {String(lock.value)}).
               </span>
             )}
@@ -257,7 +259,7 @@ export default function GeneralSettingsPage() {
       const result = await sendQuotaNotificationTestEmail(settings);
       setTestMessage(`Test email sent to ${result.recipient}.`);
     } catch (err) {
-      setTestError(extractApiError(err, "Unable to send test email."));
+      setTestError(extractApiError(err, adminText("Unable to send test email.")));
     } finally {
       setSending(false);
     }
@@ -270,7 +272,7 @@ export default function GeneralSettingsPage() {
       if (onboardingStatus.dismissed) await resumeOnboarding();
       navigate("/admin/onboarding");
     } catch (err) {
-      setOnboardingError(extractApiError(err, "Unable to open the setup assistant."));
+      setOnboardingError(extractApiError(err, adminText("Unable to open the setup assistant.")));
     } finally {
       setOnboardingBusy(false);
     }
@@ -278,17 +280,17 @@ export default function GeneralSettingsPage() {
   const color = String(form.draft["branding.primary_color"] ?? "#0569f8");
   return (
     <AdminSettingsFrame
-      title="General settings"
-      description="Workspace availability, platform services, documentation and branding."
+      title={adminText("General settings")}
+      description={adminText("Workspace availability, platform services, documentation and branding.")}
       page="general-settings"
-      resetTitle="Reset general settings draft?"
+      resetTitle={adminText("Reset general settings draft?")}
       form={form}
       dialogDirty={dialogDirty}
       dialogs={
         <>
         {smtpOpen && (
           <SettingsDraftDialog
-            title="Email delivery"
+            title={adminText("Email delivery")}
             maxWidthClass="max-w-xl"
             initialValue={{ ...form.draft }}
             validate={validateSmtp}
@@ -346,9 +348,7 @@ export default function GeneralSettingsPage() {
                   />
                 </div>
                 <p className="text-xs text-[var(--ui-text-muted)]">
-                  SMTP_PASSWORD is managed by the environment. A test uses this
-                  draft without saving it.
-                </p>
+                  {adminText("SMTP_PASSWORD is managed by the environment. A test uses this draft without saving it.")}</p>
                 <SettingsButton
                   variant="secondary"
                   disabled={sending}
@@ -372,12 +372,12 @@ export default function GeneralSettingsPage() {
       {lockError && <UiInlineMessage tone="error">{lockError}</UiInlineMessage>}
       <SettingsSection
         presentation="compact"
-        title="Setup assistant"
-        description="Return to the guided setup whenever you need it."
+        title={adminText("Setup assistant")}
+        description={adminText("Return to the guided setup whenever you need it.")}
       >
         <SettingsItem
           compact
-          title="Guided setup"
+          title={adminText("Guided setup")}
           description={
             !onboardingStatus
               ? "Loading setup status…"
@@ -405,23 +405,22 @@ export default function GeneralSettingsPage() {
         />
         <SettingsItem
           compact
-          title="Production hardening"
-          description="Review the deployment, authentication and operational recommendations before exposing this instance in production."
+          title={adminText("Production hardening")}
+          description={adminText("Review the deployment, authentication and operational recommendations before exposing this instance in production.")}
           action={
             <SettingsButton
               variant="secondary"
               onClick={() => navigate("/admin/production-readiness")}
             >
-              Review production readiness
-            </SettingsButton>
+              {adminText("Review production readiness")}</SettingsButton>
           }
         />
         {onboardingError && <UiInlineMessage tone="error">{onboardingError}</UiInlineMessage>}
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Available workspaces"
-        description="Availability does not grant storage permissions."
+        title={adminText("Available workspaces")}
+        description={adminText("Availability does not grant storage permissions.")}
       >
         {feature(
           "manager_enabled",
@@ -452,17 +451,17 @@ export default function GeneralSettingsPage() {
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="RGW accounts"
-        description="Defaults used when BucketReef generates a Ceph RGW Account ID."
+        title={adminText("RGW accounts")}
+        description={adminText("Defaults used when BucketReef generates a Ceph RGW Account ID.")}
       >
         <SettingsItem
           compact
-          title="Account ID prefix"
+          title={adminText("Account ID prefix")}
           description={`Generated IDs keep the RGW + 17 digits format. Current pattern: RGW${String(form.draft["general.rgw_account_id_prefix"] ?? "")}…`}
           action={
             <SettingsField
               name="general.rgw_account_id_prefix"
-              label="RGW account ID prefix"
+              label={adminText("RGW account ID prefix")}
               inputMode="numeric"
               maxLength={3}
               value={String(form.draft["general.rgw_account_id_prefix"] ?? "")}
@@ -478,20 +477,20 @@ export default function GeneralSettingsPage() {
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Services and monitoring"
-        description="Optional platform capabilities."
+        title={adminText("Services and monitoring")}
+        description={adminText("Optional platform capabilities.")}
       >
         <AppSettingsPolicy
           form={form}
           field="general.project_feature_policies.bucket_usage_stats"
-          title="Bucket composition statistics"
-          description="Controls whether Manager and Portal can read snapshots and request manual recalculation."
+          title={adminText("Bucket composition statistics")}
+          description={adminText("Controls whether Manager and Portal can read snapshots and request manual recalculation.")}
         />
         <AppSettingsPolicy
           form={form}
           field="general.project_collection_policies.bucket_usage_stats"
-          title="Automatic bucket composition collection"
-          description="Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled."
+          title={adminText("Automatic bucket composition collection")}
+          description={adminText("Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled.")}
         />
         {feature(
           "billing_enabled",
@@ -508,24 +507,24 @@ export default function GeneralSettingsPage() {
         <AppSettingsToggle
           form={form}
           field="general.usage_history_enabled"
-          title="Usage history"
-          ariaLabel="Usage history feature"
-          description="Collect usage snapshots for historical metrics."
+          title={adminText("Usage history")}
+          ariaLabel={adminText("Usage history feature")}
+          description={adminText("Collect usage snapshots for historical metrics.")}
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Documentation"
-        description="Choose where contextual help links open."
+        title={adminText("Documentation")}
+        description={adminText("Choose where contextual help links open.")}
       >
         <SettingsItem
           compact
-          title="Documentation base URL"
-          description="The hosted copy must preserve BucketReef guide paths such as /admin/en/, /manager/en/, /browser/en/ and /portal/en/. Leave empty to use the official documentation."
+          title={adminText("Documentation base URL")}
+          description={adminText("The hosted copy must preserve BucketReef guide paths such as /admin/en/, /manager/en/, /browser/en/ and /portal/en/. Leave empty to use the official documentation.")}
           action={
             <SettingsField
               name="general.documentation_base_url"
-              label="Documentation base URL"
+              label={adminText("Documentation base URL")}
               value={String(form.draft["general.documentation_base_url"] ?? "")}
               error={form.errors["general.documentation_base_url"]}
               disabled={form.busy}
@@ -539,32 +538,32 @@ export default function GeneralSettingsPage() {
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Quota alerts"
-        description="Email notifications for S3 Accounts and S3 Users."
+        title={adminText("Quota alerts")}
+        description={adminText("Email notifications for S3 Accounts and S3 Users.")}
       >
         <AppSettingsToggle
           form={form}
           field="general.quota_alerts_enabled"
-          title="Quota alerts"
-          ariaLabel="Quota alerts feature"
+          title={adminText("Quota alerts")}
+          ariaLabel={adminText("Quota alerts feature")}
         />
         <AppSettingsNumber
           form={form}
           field="quota_notifications.threshold_percent"
-          title="Threshold percent"
+          title={adminText("Threshold percent")}
           min={1}
           max={100}
-          description="Full-quota alerts are always sent at 100%."
+          description={adminText("Full-quota alerts are always sent at 100%.")}
         />
         <AppSettingsToggle
           form={form}
           field="quota_notifications.include_subject_contact_email"
-          title="Include subject contact email"
-          description="Also notify the account or S3 user's contact address when defined."
+          title={adminText("Include subject contact email")}
+          description={adminText("Also notify the account or S3 user's contact address when defined.")}
         />
         <SettingsItem
           compact
-          title="Email delivery"
+          title={adminText("Email delivery")}
           description={
             form.draft["quota_notifications.smtp_host"]
               ? `${form.draft["quota_notifications.smtp_host"]}:${form.draft["quota_notifications.smtp_port"]}`
@@ -579,19 +578,18 @@ export default function GeneralSettingsPage() {
                 setSmtpOpen(true);
               }}
             >
-              Configure SMTP
-            </SettingsButton>
+              {adminText("Configure SMTP")}</SettingsButton>
           }
         />
       </SettingsSection>
       <SettingsSection
         presentation="compact"
-        title="Branding"
-        description="Preview your changes here. The application updates after saving."
+        title={adminText("Branding")}
+        description={adminText("Preview your changes here. The application updates after saving.")}
       >
         <SettingsItem
           compact
-          title="Primary accent color"
+          title={adminText("Primary accent color")}
           action={
             <div className="flex flex-wrap items-center gap-2">
               {colors.map((value) => (
@@ -605,7 +603,7 @@ export default function GeneralSettingsPage() {
                 />
               ))}
               <SettingsField
-                label="Primary color picker"
+                label={adminText("Primary color picker")}
                 type="color"
                 value={color}
                 onChange={(event) =>
@@ -619,11 +617,11 @@ export default function GeneralSettingsPage() {
         />
         <SettingsItem
           compact
-          title="Login logo"
-          description="Leave empty to use the default logo. BucketReef branding always remains visible."
+          title={adminText("Login logo")}
+          description={adminText("Leave empty to use the default logo. BucketReef branding always remains visible.")}
           action={
             <SettingsField
-              label="Login logo URL"
+              label={adminText("Login logo URL")}
               value={String(form.draft["branding.login_logo_url"] ?? "")}
               onChange={(event) =>
                 form.setValue("branding.login_logo_url", event.target.value)
