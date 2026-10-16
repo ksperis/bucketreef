@@ -241,7 +241,7 @@ class QuotaMonitoringService:
         try:
             used_bytes, used_objects, bucket_count = self._collect_usage(
                 usage_client,
-                rgw_qualified_uid(subject.usage_uid, self._subject_tenant(subject)) if subject.usage_uid else None,
+                rgw_qualified_uid(subject.usage_uid, subject.rgw_tenant) if subject.usage_uid else None,
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning(
@@ -565,9 +565,6 @@ class QuotaMonitoringService:
         cache[endpoint.id] = client
         return client
 
-    def _subject_tenant(self, subject: SubjectContext) -> str:
-        return subject.rgw_tenant or ""
-
     def _collect_usage(
         self,
         admin: RGWAdminClient,
@@ -599,7 +596,7 @@ class QuotaMonitoringService:
             return client.get_account_quota(subject.quota_account_id)
         if not subject.quota_user_uid:
             return None, None
-        return client.get_user_quota(rgw_qualified_uid(subject.quota_user_uid, self._subject_tenant(subject)))
+        return client.get_user_quota(rgw_qualified_uid(subject.quota_user_uid, subject.rgw_tenant))
 
     def _compute_usage_ratio(
         self,

@@ -110,7 +110,7 @@ class PortalIamPolicyDocumentsMixin:
         bucket_name: str,
         account: Optional[S3Account] = None,
     ) -> list[str]:
-        tenant = str(account.rgw_tenant or "").strip() if account is not None else ""
+        tenant = account.rgw_tenant if account is not None else ""
         prefix = f"arn:aws:s3::{tenant}:" if tenant else "arn:aws:s3:::"
         bucket_arn = f"{prefix}{bucket_name}"
         return [bucket_arn, f"{bucket_arn}/*"]
