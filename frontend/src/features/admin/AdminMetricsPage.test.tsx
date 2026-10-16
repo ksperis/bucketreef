@@ -208,6 +208,7 @@ describe("AdminMetricsPage", () => {
     expect(screen.getByRole("combobox", { name: "Ceph endpoint" })).toHaveValue("");
     expect(screen.getByRole("combobox", { name: "Ceph endpoint" })).toBeDisabled();
     expect(screen.getByRole("combobox", { name: "Ceph endpoint" }).closest("header")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "Open endpoints" })).toHaveAttribute("href", "/admin/storage-endpoints");
   });
 
   it("reloads metrics when the compact page context changes", async () => {

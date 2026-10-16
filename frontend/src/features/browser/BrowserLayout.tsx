@@ -67,6 +67,9 @@ function BrowserShell() {
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const isBrowserExplorerRoute = normalizedPath === "/browser";
   const selected = contexts.find((a) => a.id === selectedContextId);
+  const canLoadManagerIdentity = !(
+    selected?.kind === "connection" && selected.capabilities?.can_manage_iam === false
+  );
   const showSelector = requiresContextSelection && contexts.length > 1;
   const identityLabel = iamIdentity
     ? identityAccessMode === "connection"
@@ -95,6 +98,11 @@ function BrowserShell() {
       setIdentityAccessMode(null);
       return;
     }
+    if (!canLoadManagerIdentity) {
+      setIamIdentity(null);
+      setIdentityAccessMode(null);
+      return;
+    }
     let isMounted = true;
     fetchManagerContext(selectedContextId)
       .then((data) => {
@@ -110,7 +118,7 @@ function BrowserShell() {
     return () => {
       isMounted = false;
     };
-  }, [isBrowserExplorerRoute, requiresContextSelection, selectedContextId]);
+  }, [canLoadManagerIdentity, isBrowserExplorerRoute, requiresContextSelection, selectedContextId]);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const handleS3AccountChange = (selectedValue: string) => {

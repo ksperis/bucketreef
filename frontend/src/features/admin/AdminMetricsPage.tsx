@@ -367,7 +367,7 @@ export default function AdminMetricsPage() {
         <PageEmptyState
           title={text("noEndpointTitle")}
           description={endpointError ? translateText(endpointError) : text("noEndpointDescription")}
-          primaryAction={{ label: text("openEndpoints"), to: "/admin/endpoints" }}
+          primaryAction={{ label: text("openEndpoints"), to: "/admin/storage-endpoints" }}
           tone="warning"
         />
       ) : null}
