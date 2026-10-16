@@ -17,16 +17,16 @@ from app.utils.s3_endpoint import resolve_iam_client_options
 
 
 def managed_iam_user_source(
-    db: Session, account: S3ExecutionContext, user_name: str,
+    db: Session, context: S3ExecutionContext, user_name: str,
 ) -> tuple[str, int | None] | None:
-    source = iam_source_reference(account)
+    source = iam_source_reference(context)
     if source is not None:
         provisioning = ManagedPrivateAccessService(db).managed_iam_user(*source, user_name)
         if provisioning is not None:
             return "private_access", provisioning.s3_connection_id
-    if account.id is not None and (
+    if context.id is not None and (
         db.query(AccountIAMUser)
-        .filter(AccountIAMUser.account_id == account.id, AccountIAMUser.iam_username == user_name)
+        .filter(AccountIAMUser.account_id == context.id, AccountIAMUser.iam_username == user_name)
         .first()
         is not None
     ):
@@ -34,8 +34,8 @@ def managed_iam_user_source(
     return None
 
 
-def ensure_unmanaged_iam_user(db: Session, account: S3ExecutionContext, user_name: str) -> None:
-    managed = managed_iam_user_source(db, account, user_name)
+def ensure_unmanaged_iam_user(db: Session, context: S3ExecutionContext, user_name: str) -> None:
+    managed = managed_iam_user_source(db, context, user_name)
     if managed is not None:
         workflow = "private connection" if managed[0] == "private_access" else "Portal"
         raise HTTPException(
@@ -44,11 +44,11 @@ def ensure_unmanaged_iam_user(db: Session, account: S3ExecutionContext, user_nam
         )
 
 
-def get_iam_service_for_account(account: S3ExecutionContext) -> RGWIAMService:
-    access_key, secret_key = account.effective_rgw_credentials()
+def get_iam_service_for_context(context: S3ExecutionContext) -> RGWIAMService:
+    access_key, secret_key = context.effective_rgw_credentials()
     if not access_key or not secret_key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Execution context credentials are missing")
-    endpoint, region, verify_tls = resolve_iam_client_options(account)
+    endpoint, region, verify_tls = resolve_iam_client_options(context)
     return get_iam_service(
         access_key,
         secret_key,

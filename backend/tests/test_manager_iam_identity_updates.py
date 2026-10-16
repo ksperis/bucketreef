@@ -138,10 +138,10 @@ class _RoleService:
 
 def test_user_detail_rehydrates_provider_relationships(monkeypatch):
     service = _UserService()
-    monkeypatch.setattr(iam_users, "get_iam_service_for_account", lambda _account: service)
+    monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)
     monkeypatch.setattr(iam_users, "_annotate_managed_user", lambda _db, _account, user: user)
 
-    result = iam_users.get_user("alice", account=_context(), db=object(), _=object())
+    result = iam_users.get_user("alice", context=_context(), db=object(), _=object())
 
     assert result.path == "/old/"
     assert result.groups == ["researchers"]
@@ -154,7 +154,7 @@ def test_update_user_renames_moves_metadata_and_audits_changed_fields(monkeypatc
     service = _UserService()
     audit = _Audit()
     metadata = _Metadata(object())
-    monkeypatch.setattr(iam_users, "get_iam_service_for_account", lambda _account: service)
+    monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)
     monkeypatch.setattr(iam_users, "_annotate_managed_user", lambda _db, _account, user: user)
     monkeypatch.setattr(iam_users, "AccessKeyMetadataService", lambda _db: metadata)
     context = _context()
@@ -162,7 +162,7 @@ def test_update_user_renames_moves_metadata_and_audits_changed_fields(monkeypatc
     result = iam_users.update_user(
         "alice",
         IAMUserUpdate(name="alice-renamed", path="/service/"),
-        account=context,
+        context=context,
         current_user=object(),
         audit_service=audit,
         db=object(),
@@ -180,7 +180,7 @@ def test_update_user_renames_moves_metadata_and_audits_changed_fields(monkeypatc
 
 def test_update_user_blocks_bucketreef_managed_identity(monkeypatch):
     service = _UserService()
-    monkeypatch.setattr(iam_users, "get_iam_service_for_account", lambda _account: service)
+    monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)
     def annotate_managed(_db, _account, user):
         user.is_bucketreef_managed = True
         return user
@@ -188,7 +188,7 @@ def test_update_user_blocks_bucketreef_managed_identity(monkeypatch):
 
     with pytest.raises(HTTPException) as exc_info:
         iam_users.update_user(
-            "alice", IAMUserUpdate(name="renamed"), account=_context(), current_user=object(), audit_service=_Audit(), db=object()
+            "alice", IAMUserUpdate(name="renamed"), context=_context(), current_user=object(), audit_service=_Audit(), db=object()
         )
 
     assert exc_info.value.status_code == 409
@@ -206,12 +206,12 @@ def test_update_user_maps_provider_name_conflict_to_http_409(monkeypatch):
         raise RuntimeError("Unable to update IAM user") from error
 
     service.update_user = conflict
-    monkeypatch.setattr(iam_users, "get_iam_service_for_account", lambda _account: service)
+    monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)
     monkeypatch.setattr(iam_users, "_annotate_managed_user", lambda _db, _account, user: user)
 
     with pytest.raises(HTTPException) as exc_info:
         iam_users.update_user(
-            "alice", IAMUserUpdate(name="taken"), account=_context(), current_user=object(), audit_service=_Audit(), db=object()
+            "alice", IAMUserUpdate(name="taken"), context=_context(), current_user=object(), audit_service=_Audit(), db=object()
         )
 
     assert exc_info.value.status_code == 409
@@ -220,13 +220,13 @@ def test_update_user_maps_provider_name_conflict_to_http_409(monkeypatch):
 def test_group_detail_update_and_managed_protection(monkeypatch):
     service = _GroupService()
     audit = _Audit()
-    monkeypatch.setattr(iam_groups, "get_iam_service_for_account", lambda _account: service)
+    monkeypatch.setattr(iam_groups, "get_iam_service_for_context", lambda _account: service)
     context = _context()
 
-    detail = iam_groups.get_group("researchers", account=context, _=object())
+    detail = iam_groups.get_group("researchers", context=context, _=object())
     assert detail.path == "/old/"
     result = iam_groups.update_group(
-        "researchers", IAMGroupUpdate(name="scientists", path="/teams/"), account=context, current_user=object(), audit_service=audit
+        "researchers", IAMGroupUpdate(name="scientists", path="/teams/"), context=context, current_user=object(), audit_service=audit
     )
     assert result.name == "scientists"
     assert service.update_calls == [{"name": "researchers", "new_name": "scientists", "new_path": "/teams/"}]
@@ -235,7 +235,7 @@ def test_group_detail_update_and_managed_protection(monkeypatch):
 
     with pytest.raises(HTTPException) as exc_info:
         iam_groups.update_group(
-            "bkr-portal-user", IAMGroupUpdate(path="/moved/"), account=context, current_user=object(), audit_service=audit
+            "bkr-portal-user", IAMGroupUpdate(path="/moved/"), context=context, current_user=object(), audit_service=audit
         )
     assert exc_info.value.status_code == 409
 
@@ -261,11 +261,11 @@ def test_portal_group_mutations_are_rejected_before_iam_calls(monkeypatch, group
     if operation in {"add_user_to_group", "remove_user_from_group"}:
         kwargs["db"] = object()
 
-    monkeypatch.setattr(iam_groups, "get_iam_service_for_account", lambda _account: pytest.fail("IAM must not be called"))
+    monkeypatch.setattr(iam_groups, "get_iam_service_for_context", lambda _account: pytest.fail("IAM must not be called"))
     audit = _Audit()
     with pytest.raises(HTTPException) as exc_info:
         getattr(iam_groups, operation)(
-            **kwargs, account=_context(), current_user=object(), audit_service=audit,
+            **kwargs, context=_context(), current_user=object(), audit_service=audit,
         )
     assert exc_info.value.status_code == 409
     assert audit.calls == []
@@ -288,11 +288,11 @@ def test_managed_user_mutations_are_rejected_before_iam_calls(monkeypatch, manag
         iam_common, "managed_iam_user_source",
         lambda _db, _account, _name: (management_source, None),
     )
-    monkeypatch.setattr(iam_users, "get_iam_service_for_account", lambda _account: pytest.fail("IAM must not be called"))
+    monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: pytest.fail("IAM must not be called"))
     audit = _Audit()
     with pytest.raises(HTTPException) as exc_info:
         getattr(iam_users, operation)(
-            "alice", **extra, account=_context(), current_user=object(), audit_service=audit, db=object(),
+            "alice", **extra, context=_context(), current_user=object(), audit_service=audit, db=object(),
         )
     assert exc_info.value.status_code == 409
     assert audit.calls == []
@@ -308,11 +308,11 @@ def test_managed_user_cannot_be_added_to_or_removed_from_other_groups(monkeypatc
         iam_common, "managed_iam_user_source",
         lambda _db, _account, _name: (management_source, None),
     )
-    monkeypatch.setattr(iam_groups, "get_iam_service_for_account", lambda _account: pytest.fail("IAM must not be called"))
+    monkeypatch.setattr(iam_groups, "get_iam_service_for_context", lambda _account: pytest.fail("IAM must not be called"))
     audit = _Audit()
     with pytest.raises(HTTPException) as exc_info:
         getattr(iam_groups, operation)(
-            "researchers", **extra, account=_context(), current_user=object(), audit_service=audit, db=object(),
+            "researchers", **extra, context=_context(), current_user=object(), audit_service=audit, db=object(),
         )
     assert exc_info.value.status_code == 409
     assert audit.calls == []
@@ -320,12 +320,12 @@ def test_managed_user_cannot_be_added_to_or_removed_from_other_groups(monkeypatc
 
 @pytest.mark.parametrize("group_name", ["bkr-portal-manager", "bkr-portal-user"])
 def test_iam_user_creation_rejects_portal_managed_group_membership(monkeypatch, group_name):
-    monkeypatch.setattr(iam_users, "get_iam_service_for_account", lambda _account: pytest.fail("IAM must not be called"))
+    monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: pytest.fail("IAM must not be called"))
     audit = _Audit()
     with pytest.raises(HTTPException) as exc_info:
         iam_users.create_user(
             IAMUserCreate(name="alice", groups=[group_name]),
-            account=_context(), current_user=object(), audit_service=audit,
+            context=_context(), current_user=object(), audit_service=audit,
         )
     assert exc_info.value.status_code == 409
     assert audit.calls == []
@@ -334,13 +334,13 @@ def test_iam_user_creation_rejects_portal_managed_group_membership(monkeypatch, 
 def test_update_role_calls_only_changed_native_operations_and_audits_each_success(monkeypatch):
     service = _RoleService()
     audit = _Audit()
-    monkeypatch.setattr(iam_roles, "get_iam_service_for_account", lambda _account: service)
+    monkeypatch.setattr(iam_roles, "get_iam_service_for_context", lambda _account: service)
     context = _context()
 
     unchanged = iam_roles.update_role(
         "reader",
         IAMRoleUpdate(max_session_duration=3600, assume_role_policy_document={"Statement": [], "Version": "2012-10-17"}),
-        account=context,
+        context=context,
         current_user=object(),
         audit_service=audit,
     )
@@ -353,7 +353,7 @@ def test_update_role_calls_only_changed_native_operations_and_audits_each_succes
     updated = iam_roles.update_role(
         "reader",
         IAMRoleUpdate(max_session_duration=7200, assume_role_policy_document=updated_policy),
-        account=context,
+        context=context,
         current_user=object(),
         audit_service=audit,
     )
@@ -371,13 +371,13 @@ def test_update_role_keeps_audit_for_successful_duration_before_later_failure(mo
     service = _RoleService()
     service.fail_policy_update = True
     audit = _Audit()
-    monkeypatch.setattr(iam_roles, "get_iam_service_for_account", lambda _account: service)
+    monkeypatch.setattr(iam_roles, "get_iam_service_for_context", lambda _account: service)
 
     with pytest.raises(HTTPException) as exc_info:
         iam_roles.update_role(
             "reader",
             IAMRoleUpdate(max_session_duration=7200, assume_role_policy_document={"Version": "2012-10-17", "Statement": [{}]}),
-            account=_context(),
+            context=_context(),
             current_user=object(),
             audit_service=audit,
         )
@@ -390,16 +390,16 @@ def test_update_role_keeps_audit_for_successful_duration_before_later_failure(mo
 def test_role_tags_preserve_duplicate_keys_and_delete_all_values(monkeypatch):
     service = _RoleService()
     audit = _Audit()
-    monkeypatch.setattr(iam_roles, "get_iam_service_for_account", lambda _account: service)
+    monkeypatch.setattr(iam_roles, "get_iam_service_for_context", lambda _account: service)
     context = _context()
 
-    listed = iam_roles.list_role_tags("reader", account=context, _=object())
+    listed = iam_roles.list_role_tags("reader", context=context, _=object())
     assert [(tag.key, tag.value) for tag in listed] == [("team", "storage"), ("team", "research")]
 
     added = [IAMTag(key="scope", value="one"), IAMTag(key="scope", value="two")]
-    iam_roles.put_role_tags("reader", added, account=context, current_user=object(), audit_service=audit)
+    iam_roles.put_role_tags("reader", added, context=context, current_user=object(), audit_service=audit)
     assert service.tag_calls == [added]
-    remaining = iam_roles.delete_role_tag("reader", "team", account=context, current_user=object(), audit_service=audit)
+    remaining = iam_roles.delete_role_tag("reader", "team", context=context, current_user=object(), audit_service=audit)
     assert service.untag_calls == [["team"]]
     assert all(tag.key != "team" for tag in remaining)
     assert [call["action"] for call in audit.calls] == ["tag_iam_role", "untag_iam_role"]

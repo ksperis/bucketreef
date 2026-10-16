@@ -22,13 +22,13 @@ PoliciesContext = tuple[S3ExecutionContext, PoliciesService]
 
 
 def get_policies_context(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
 ) -> PoliciesContext:
     try:
-        service = get_policies_service(account)
+        service = get_policies_service(context)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    return account, service
+    return context, service
 
 
 @router.get("", response_model=list[Policy])
@@ -63,7 +63,7 @@ def create_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
-    account, service = policies_context
+    context, service = policies_context
     try:
         result = service.create_policy(payload.name, payload.document)
         audit_service.record_action(
@@ -72,7 +72,7 @@ def create_policy(
             action="create_managed_policy",
             entity_type="iam_policy",
             entity_id=result.arn,
-            execution_context=account,
+            execution_context=context,
             metadata={"name": payload.name},
         )
         return result
@@ -89,7 +89,7 @@ def delete_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    account, service = policies_context
+    context, service = policies_context
     try:
         service.delete_policy(policy_arn)
         audit_service.record_action(
@@ -98,7 +98,7 @@ def delete_policy(
             action="delete_managed_policy",
             entity_type="iam_policy",
             entity_id=policy_arn,
-            execution_context=account,
+            execution_context=context,
         )
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)

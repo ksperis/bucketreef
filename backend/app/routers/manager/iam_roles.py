@@ -17,7 +17,7 @@ from app.routers.dependencies import (
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
-    get_iam_service_for_account,
+    get_iam_service_for_context,
     load_inline_policies,
     resolve_attached_policy,
     save_inline_policy,
@@ -49,11 +49,11 @@ def _same_policy_document(left: object, right: object) -> bool:
 
 @router.get("", response_model=list[IAMRole])
 def list_roles(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMRole]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         return service.list_roles()
     except RuntimeError as exc:
@@ -63,12 +63,12 @@ def list_roles(
 @router.post("", response_model=IAMRole, status_code=status.HTTP_201_CREATED)
 def create_role(
     payload: IAMRoleCreate,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMRole:
-    validate_inline_policy_requests(payload.inline_policies, "role", account)
-    service = get_iam_service_for_account(account)
+    validate_inline_policy_requests(payload.inline_policies, "role", context)
+    service = get_iam_service_for_context(context)
     assume_policy = payload.assume_role_policy_document or DEFAULT_ASSUME_ROLE
     if isinstance(assume_policy, str):
         try:
@@ -92,7 +92,7 @@ def create_role(
             action="create_iam_role",
             entity_type="iam_role",
             entity_id=payload.name,
-            execution_context=account,
+            execution_context=context,
             metadata={
                 "inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else [],
                 "max_session_duration": payload.max_session_duration,
@@ -107,10 +107,10 @@ def create_role(
 @router.get("/{role_name}", response_model=IAMRole)
 def get_role(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> IAMRole:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         role = service.get_role(role_name)
     except RuntimeError as exc:
@@ -123,11 +123,11 @@ def get_role(
 @router.delete("/{role_name}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_role(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         service.delete_role(role_name)
         audit_service.record_action(
@@ -136,7 +136,7 @@ def delete_role(
             action="delete_iam_role",
             entity_type="iam_role",
             entity_id=role_name,
-            execution_context=account,
+            execution_context=context,
         )
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
@@ -146,11 +146,11 @@ def delete_role(
 def update_role(
     role_name: str,
     payload: IAMRoleUpdate,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMRole:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         existing = service.get_role(role_name)
     except RuntimeError as exc:
@@ -189,7 +189,7 @@ def update_role(
                 action="update_iam_role",
                 entity_type="iam_role",
                 entity_id=role_name,
-                execution_context=account,
+                execution_context=context,
                 metadata={"max_session_duration": payload.max_session_duration},
             )
         if assume_policy_changed:
@@ -200,7 +200,7 @@ def update_role(
                 action="update_iam_role",
                 entity_type="iam_role",
                 entity_id=role_name,
-                execution_context=account,
+                execution_context=context,
                 metadata={"assume_role_policy_updated": True},
             )
         if duration_changed or assume_policy_changed:
@@ -216,10 +216,10 @@ def update_role(
 @router.get("/{role_name}/tags", response_model=list[IAMTag])
 def list_role_tags(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMTag]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         if service.get_role(role_name) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
@@ -232,7 +232,7 @@ def list_role_tags(
 def put_role_tags(
     role_name: str,
     payload: list[IAMTag],
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> list[IAMTag]:
@@ -240,7 +240,7 @@ def put_role_tags(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one role tag is required")
     if len(payload) > 50:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="IAM roles support at most 50 tags per request")
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         if service.get_role(role_name) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
@@ -252,7 +252,7 @@ def put_role_tags(
             action="tag_iam_role",
             entity_type="iam_role",
             entity_id=role_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"tag_keys": [tag.key for tag in payload]},
         )
         return tags
@@ -264,11 +264,11 @@ def put_role_tags(
 def delete_role_tag(
     role_name: str,
     tag_key: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> list[IAMTag]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         if service.get_role(role_name) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
@@ -280,7 +280,7 @@ def delete_role_tag(
             action="untag_iam_role",
             entity_type="iam_role",
             entity_id=role_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"tag_keys": [tag_key]},
         )
         return tags
@@ -291,10 +291,10 @@ def delete_role_tag(
 @router.get("/{role_name}/inline-policies", response_model=list[InlinePolicy])
 def list_role_inline_policies(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[InlinePolicy]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         return load_inline_policies(
             role_name,
@@ -310,14 +310,14 @@ def put_role_inline_policy(
     role_name: str,
     policy_name: str,
     payload: InlinePolicy,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
-    validate_inline_policy_request(payload.name, "role", account)
-    validate_inline_policy_request(policy_name, "role", account, loc=("path", "policy_name"))
+    validate_inline_policy_request(payload.name, "role", context)
+    validate_inline_policy_request(policy_name, "role", context, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         saved = save_inline_policy(
             role_name,
@@ -332,7 +332,7 @@ def put_role_inline_policy(
             action="put_role_inline_policy",
             entity_type="iam_role",
             entity_id=role_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_name": policy_name},
         )
         return saved
@@ -344,11 +344,11 @@ def put_role_inline_policy(
 def delete_role_inline_policy(
     role_name: str,
     policy_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         service.delete_role_inline_policy(role_name, policy_name)
         audit_service.record_action(
@@ -357,7 +357,7 @@ def delete_role_inline_policy(
             action="delete_role_inline_policy",
             entity_type="iam_role",
             entity_id=role_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_name": policy_name},
         )
     except RuntimeError as exc:
@@ -367,10 +367,10 @@ def delete_role_inline_policy(
 @router.get("/{role_name}/policies", response_model=list[Policy])
 def list_role_policies(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         return service.list_role_policies(role_name)
     except RuntimeError as exc:
@@ -381,11 +381,11 @@ def list_role_policies(
 def attach_role_policy(
     role_name: str,
     payload: Policy,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         service.attach_role_policy(role_name, payload.arn)
         audit_service.record_action(
@@ -394,7 +394,7 @@ def attach_role_policy(
             action="attach_role_policy",
             entity_type="iam_role",
             entity_id=role_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_arn": payload.arn},
         )
         return resolve_attached_policy(payload, get_policy_fn=service.get_policy)
@@ -406,11 +406,11 @@ def attach_role_policy(
 def detach_role_policy(
     role_name: str,
     policy_arn: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         service.detach_role_policy(role_name, policy_arn)
         audit_service.record_action(
@@ -419,7 +419,7 @@ def detach_role_policy(
             action="detach_role_policy",
             entity_type="iam_role",
             entity_id=role_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_arn": policy_arn},
         )
     except RuntimeError as exc:
