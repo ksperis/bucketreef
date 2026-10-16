@@ -59,7 +59,7 @@ class StorageOpsContextRef:
 @dataclass(frozen=True)
 class StorageOpsResolvedContext:
     ref: StorageOpsContextRef
-    account: S3ExecutionContext
+    context: S3ExecutionContext
 
 
 @dataclass(frozen=True)
@@ -227,7 +227,7 @@ def _sort_buckets(
 def resolve_storage_ops_contexts(
     *,
     refs: list[StorageOpsContextRef],
-    resolve_account: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
+    resolve_context: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
     progress: ListingProgressEmitter | None = None,
     cancel_check: Callable[[], None] | None = None,
 ) -> list[StorageOpsResolvedContext]:
@@ -235,9 +235,9 @@ def resolve_storage_ops_contexts(
     total = len(refs)
     for index, ref in enumerate(refs, start=1):
         invoke_cancel_check(cancel_check)
-        account = resolve_account(ref)
-        if account is not None:
-            resolved.append(StorageOpsResolvedContext(ref=ref, account=account))
+        context = resolve_context(ref)
+        if context is not None:
+            resolved.append(StorageOpsResolvedContext(ref=ref, context=context))
         if progress is not None:
             progress.emit(
                 percent=interpolate_progress_percent(15, 25, processed=index, total=total),
@@ -250,14 +250,14 @@ def resolve_storage_ops_contexts(
     return resolved
 
 
-def _resolve_context_owner(account: S3ExecutionContext) -> _StorageOpsContextOwner:
-    account_id = str(account.rgw_account_id or "").strip()
+def _resolve_context_owner(context: S3ExecutionContext) -> _StorageOpsContextOwner:
+    account_id = str(context.rgw_account_id or "").strip()
     if account_id:
-        return _StorageOpsContextOwner(owner=account_id, tenant=resolve_target_tenant(account))
-    user_uid = str(account.rgw_user_uid or "").strip()
+        return _StorageOpsContextOwner(owner=account_id, tenant=resolve_target_tenant(context))
+    user_uid = str(context.rgw_user_uid or "").strip()
     if user_uid:
-        return _StorageOpsContextOwner(owner=user_uid, tenant=resolve_target_tenant(account))
-    source_connection = account.source_connection
+        return _StorageOpsContextOwner(owner=user_uid, tenant=resolve_target_tenant(context))
+    source_connection = context.source_connection
     if source_connection is None:
         return _StorageOpsContextOwner(owner=None)
     resolution = ConnectionIdentityService().resolve_rgw_identity(source_connection)
@@ -266,9 +266,9 @@ def _resolve_context_owner(account: S3ExecutionContext) -> _StorageOpsContextOwn
     return _StorageOpsContextOwner(owner=resolution.rgw_account_id)
 
 
-def resolve_storage_ops_context_tenant(account: S3ExecutionContext) -> str:
+def resolve_storage_ops_context_tenant(context: S3ExecutionContext) -> str:
     """Return the normalized tenant used in the physical bucket identity."""
-    return str(_resolve_context_owner(account).tenant or "").strip()
+    return str(_resolve_context_owner(context).tenant or "").strip()
 
 
 def _apply_page_owner_enrichment(
@@ -295,8 +295,8 @@ def _apply_page_owner_enrichment(
         resolved = resolved_contexts_by_id.get(context_id)
         if resolved is not None:
             metadata = BucketOwnerMetadataService(
-                endpoint_id=int(resolved.account.storage_endpoint_id or 0),
-                account=resolved.account,
+                endpoint_id=int(resolved.context.storage_endpoint_id or 0),
+                account=resolved.context,
             )
             kwargs = {
                 "include_name": include_name,
@@ -333,20 +333,20 @@ def list_storage_ops_context_buckets(
     owner_usage_required: bool,
 ) -> list[StorageOpsBucketSummary]:
     ref = context.ref
-    account = context.account
+    execution_context = context.context
     try:
         listed = get_cached_bucket_listing_for_context(
-            context=account,
+            context=execution_context,
             include=set(),
             with_stats=needs_stats,
-            builder=lambda: service.list_buckets(account, include=None, with_stats=needs_stats),
+            builder=lambda: service.list_buckets(execution_context, include=None, with_stats=needs_stats),
         )
     except RuntimeError as exc:
         logger.warning("Storage Ops listing failed for context %s: %s", ref.context_id, exc)
         return []
 
     context_buckets: list[StorageOpsBucketSummary] = []
-    owner_identity = _resolve_context_owner(account)
+    owner_identity = _resolve_context_owner(execution_context)
     for bucket in listed:
         context_buckets.append(
             StorageOpsBucketSummary(
@@ -375,8 +375,8 @@ def list_storage_ops_context_buckets(
         or owner_usage_required
     ):
         metadata = BucketOwnerMetadataService(
-            endpoint_id=int(account.storage_endpoint_id or 0),
-            account=account,
+            endpoint_id=int(execution_context.storage_endpoint_id or 0),
+            account=execution_context,
         )
         kwargs = {
             "include_name": filter_requires_owner_name,
@@ -394,7 +394,7 @@ def list_storage_ops_context_buckets(
             context_buckets,
             cheap_prefilter,
             service=service.configuration,
-            account=account,
+            context=execution_context,
         )
         if not context_buckets:
             return []
@@ -408,7 +408,7 @@ def list_storage_ops_context_buckets(
             requested_features,
             include_tags,
             service.configuration,
-            account,
+            execution_context,
         ):
             enriched_payload = enriched.model_dump(mode="json")
             enriched_payload.update(
@@ -427,7 +427,7 @@ def list_storage_ops_context_buckets(
         context_buckets,
         effective_filter,
         service=service.configuration,
-        account=account,
+        context=execution_context,
     )
     if normalized_search:
         context_buckets = [
@@ -447,7 +447,7 @@ class _StorageOpsBucketListingPipeline:
         self,
         *,
         load_context_refs: Callable[[], list[StorageOpsContextRef]],
-        resolve_account: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
+        resolve_context: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
         service: BucketsService,
         page: int,
         page_size: int,
@@ -465,7 +465,7 @@ class _StorageOpsBucketListingPipeline:
         cancel_check: Callable[[], None] | None,
     ) -> None:
         self.load_context_refs = load_context_refs
-        self.resolve_account = resolve_account
+        self.resolve_context = resolve_context
         self.service = service
         self.page = page
         self.page_size = page_size
@@ -574,7 +574,7 @@ class _StorageOpsBucketListingPipeline:
         )
         contexts = resolve_storage_ops_contexts(
             refs=refs,
-            resolve_account=self.resolve_account,
+            resolve_context=self.resolve_context,
             progress=self.progress,
             cancel_check=self.cancel_check,
         )
@@ -741,7 +741,7 @@ class _StorageOpsBucketListingPipeline:
 def compute_storage_ops_bucket_listing(
     *,
     load_context_refs: Callable[[], list[StorageOpsContextRef]],
-    resolve_account: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
+    resolve_context: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
     service: BucketsService,
     page: int,
     page_size: int,
@@ -760,7 +760,7 @@ def compute_storage_ops_bucket_listing(
 ) -> PaginatedStorageOpsBucketsResponse:
     return _StorageOpsBucketListingPipeline(
         load_context_refs=load_context_refs,
-        resolve_account=resolve_account,
+        resolve_context=resolve_context,
         service=service,
         page=page,
         page_size=page_size,
