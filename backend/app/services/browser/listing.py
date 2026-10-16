@@ -235,6 +235,41 @@ class BrowserListingMixin:
                 include_folder_markers=include_folder_markers,
             )
 
+        return self._list_objects_sorted_order(
+            bucket_name,
+            context,
+            prefix=prefix,
+            continuation_token=continuation_token,
+            max_keys=normalized_max_keys,
+            query=query,
+            query_exact=query_exact,
+            query_case_sensitive=query_case_sensitive,
+            item_type=item_type,
+            storage_class=storage_class,
+            recursive=recursive,
+            include_folder_markers=include_folder_markers,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+        )
+
+    def _list_objects_sorted_order(
+        self,
+        bucket_name: str,
+        context: S3ExecutionTarget,
+        *,
+        prefix: str,
+        continuation_token: Optional[str],
+        max_keys: int,
+        query: Optional[str],
+        query_exact: bool,
+        query_case_sensitive: bool,
+        item_type: Optional[str],
+        storage_class: Optional[str],
+        recursive: bool,
+        include_folder_markers: bool,
+        sort_by: BrowserObjectSortBy,
+        sort_dir: BrowserObjectSortDir,
+    ) -> ListBrowserObjectsResponse:
         snapshot = self._scan_sorted_object_snapshot(
             bucket_name,
             context,
@@ -270,6 +305,27 @@ class BrowserListingMixin:
                 sort_dir=sort_dir,
             )
         )
+        prefixes_offset, objects_offset = self._sorted_cursor_offsets(
+            snapshot,
+            continuation_token=continuation_token,
+            snapshot_signature=snapshot_signature,
+        )
+        return self._sorted_page_response(
+            snapshot,
+            prefix=prefix,
+            max_keys=max_keys,
+            prefixes_offset=prefixes_offset,
+            objects_offset=objects_offset,
+            snapshot_signature=snapshot_signature,
+        )
+
+    @staticmethod
+    def _sorted_cursor_offsets(
+        snapshot: SortedObjectSnapshot,
+        *,
+        continuation_token: Optional[str],
+        snapshot_signature: str,
+    ) -> tuple[int, int]:
         cursor_payload = _decode_sorted_cursor(continuation_token)
         prefixes_offset = 0
         objects_offset = 0
@@ -280,9 +336,20 @@ class BrowserListingMixin:
             objects_offset = max(0, int(cursor_payload.get("oo") or 0))
         prefixes_offset = min(prefixes_offset, snapshot.prefix_count)
         objects_offset = min(objects_offset, snapshot.object_count)
+        return prefixes_offset, objects_offset
 
-        prefixes = snapshot.fetch_prefixes(prefixes_offset, normalized_max_keys)
-        remaining = normalized_max_keys - len(prefixes)
+    @staticmethod
+    def _sorted_page_response(
+        snapshot: SortedObjectSnapshot,
+        *,
+        prefix: str,
+        max_keys: int,
+        prefixes_offset: int,
+        objects_offset: int,
+        snapshot_signature: str,
+    ) -> ListBrowserObjectsResponse:
+        prefixes = snapshot.fetch_prefixes(prefixes_offset, max_keys)
+        remaining = max_keys - len(prefixes)
         objects = snapshot.fetch_objects(objects_offset, remaining)
         next_prefixes_offset = prefixes_offset + len(prefixes)
         next_objects_offset = objects_offset + len(objects)

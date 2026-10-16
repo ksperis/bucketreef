@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 
 from app.db import S3Account, StorageEndpoint
 from app.models.portal_storage_spaces import PortalStorageSpaceIcon, PortalStorageSpaceSummary
@@ -610,6 +611,44 @@ def test_list_objects_sorted_paginates_prefixes_then_objects_with_cached_snapsho
     assert second_page.is_truncated is False
     assert second_page.next_continuation_token is None
     assert len(calls) == 1
+
+
+def test_list_objects_sorted_rejects_cursor_when_sort_changes(monkeypatch):
+    class FakeClient:
+        def list_objects_v2(self, **_kwargs):  # noqa: ANN001
+            return {
+                "Contents": [
+                    {"Key": "a.txt", "Size": 20},
+                    {"Key": "b.txt", "Size": 10},
+                ],
+                "IsTruncated": False,
+            }
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
+    account = _account()
+
+    first_page = service.list_objects(
+        "bucket-a",
+        account,
+        max_keys=1,
+        sort_by="size",
+        sort_dir="asc",
+    )
+
+    assert first_page.next_continuation_token
+    with pytest.raises(HTTPException) as exc_info:
+        service.list_objects(
+            "bucket-a",
+            account,
+            continuation_token=first_page.next_continuation_token,
+            max_keys=1,
+            sort_by="size",
+            sort_dir="desc",
+        )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail == "Listing filters changed; restart pagination"
 
 
 def test_list_objects_sorted_snapshot_scans_all_s3_pages(monkeypatch):
