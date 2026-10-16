@@ -12,6 +12,7 @@ import { ListActions, ListActionButton, ListActionLink, ListBadge } from "../../
 import TableSortControls from "../../components/list/TableSortControls";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
+import { isAdminLikeRole } from "../../utils/workspaces";
 import {
   CompactAssociationSummary,
   accountAssociationRoleLabels,
@@ -156,7 +157,7 @@ export default function AdminUsersList({
         <div className="flex flex-wrap items-center gap-2">
           <span>{roleLabel(user.role)}</span>
           {cephAdminFeatureEnabled &&
-            (user.role === "ui_admin" || user.role === "ui_superadmin") &&
+            isAdminLikeRole(user.role) &&
             user.can_access_ceph_admin && (
               <ListBadge tone="warning" className="uppercase tracking-wide">
                 {text("cephAdmin")}

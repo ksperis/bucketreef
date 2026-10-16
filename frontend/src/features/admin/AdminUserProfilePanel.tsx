@@ -2,6 +2,7 @@
 import type { ComponentProps } from "react";
 import type { UiRole, UpdateUserPayload, User } from "../../api/users";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { isAdminLikeRole } from "../../utils/workspaces";
 import UserAvatarEditor from "../shared/UserAvatarEditor";
 import { UserLanguageField, UserNotificationFields } from "../shared/UserProfilePreferenceFields";
 import type { ProfileText } from "../shared/profileMessages";
@@ -73,7 +74,7 @@ export default function AdminUserProfilePanel({
       <UserNotificationFields
         quotaAlerts={values.quota_alerts_enabled !== false}
         quotaWatch={Boolean(values.quota_alerts_global_watch)}
-        canWatch={role === "ui_admin" || role === "ui_superadmin"}
+        canWatch={isAdminLikeRole(role)}
         text={text}
         onQuotaAlertsChange={(value) => onChange({ quota_alerts_enabled: value })}
         onQuotaWatchChange={(value) => onChange({ quota_alerts_global_watch: value })}

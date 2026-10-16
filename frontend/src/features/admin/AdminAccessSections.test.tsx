@@ -3,11 +3,26 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ManagerToolAccessSection } from "./AdminAccessSections";
-import { buildManagerToolDefinitions, DEFAULT_MANAGER_TOOL_ACCESS } from "./adminAccessConfig";
+import {
+  buildManagerToolDefinitions,
+  DEFAULT_MANAGER_TOOL_ACCESS,
+  roleSupportsOperationalAccess,
+} from "./adminAccessConfig";
 import { DEFAULT_GENERAL_SETTINGS } from "../../components/GeneralSettingsContext";
 
 const tools = buildManagerToolDefinitions({ ...DEFAULT_GENERAL_SETTINGS,
   manager_feature_policies: { ...DEFAULT_GENERAL_SETTINGS.manager_feature_policies, bucket_compare: "default_on" } }).slice(0, 1);
+
+describe("UI role operational access", () => {
+  it.each([
+    ["ui_superadmin", true],
+    ["ui_admin", true],
+    ["ui_user", true],
+    ["ui_none", false],
+  ] as const)("maps %s to %s", (role, expected) => {
+    expect(roleSupportsOperationalAccess(role)).toBe(expected);
+  });
+});
 
 describe("additive Manager grants", () => {
   it("shows platform provenance while keeping a direct grant separate and editable", async () => {
