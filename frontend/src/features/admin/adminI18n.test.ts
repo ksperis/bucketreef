@@ -71,6 +71,7 @@ const IDENTICAL_KEYS_BY_LOCALE: Record<string, Set<string>> = {
     "Administration",
     "Admin UI",
     "Associations",
+    "Buckets",
     "Bucket \"{id}\" {action}",
     "Endpoint",
     "ENDPOINT",

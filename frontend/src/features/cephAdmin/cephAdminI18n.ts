@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
-import { useI18n } from "../../i18n";
+import { interpolateText, lookupCatalogMessage, useI18n } from "../../i18n";
 import adminDe from "../admin/admin.de.json";
 import adminFr from "../admin/admin.fr.json";
 import adminZh from "../admin/admin.zh.json";
@@ -23,28 +23,12 @@ const catalogs = {
   zh: [cephAdminZh, adminZh, managerZh, browserZh],
 } as const;
 
-function lookup(message: string, locale: UiLanguage): string | undefined {
-  if (locale === "en") return undefined;
-  for (const catalog of catalogs[locale]) {
-    const translated = (catalog as Record<string, string>)[message];
-    if (translated !== undefined) return translated;
-  }
-  return undefined;
-}
-
-function interpolate(message: string, values?: CephAdminTextValues): string {
-  if (!values) return message;
-  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-  );
-}
-
 export function cephAdminText(
   message: string,
   locale: UiLanguage = "en",
   values?: CephAdminTextValues,
 ): string {
-  return interpolate(lookup(message, locale) ?? message, values);
+  return interpolateText(lookupCatalogMessage(message, locale, catalogs) ?? message, values);
 }
 
 export function useCephAdminI18n() {
