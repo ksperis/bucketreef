@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from app.core.config import Settings
-from app.db import StorageEndpoint, User, UserRole, WebAuthnCredential
+from app.db import LdapProvider, OidcProvider, StorageEndpoint, User, UserRole, WebAuthnCredential
 from app.models.app_settings import AppSettings
 from app.scripts.check_production_hardening import run
 from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
@@ -416,6 +416,47 @@ def test_active_admin_without_enrolled_passkey_is_critical(db_session):
         include_manual=False,
     )
     assert _finding(findings, "admin-passkey-enrollment").level == "ok"
+
+
+def test_persisted_identity_provider_security_checks_share_provider_policy(db_session):
+    db_session.add(
+        OidcProvider(
+            provider_id="hardening-oidc",
+            display_name="Hardening OIDC",
+            discovery_url="http://idp.example.test/.well-known/openid-configuration",
+            client_id="bucketreef",
+            redirect_uri="http://admin.example.test/api/auth/oidc/hardening-oidc/callback",
+            use_pkce=False,
+            use_nonce=False,
+        )
+    )
+    db_session.add(
+        LdapProvider(
+            provider_id="hardening-ldap",
+            display_name="Hardening LDAP",
+            url="ldap://ldap.example.test",
+            user_base_dn="ou=users,dc=example,dc=test",
+            user_filter="(uid={username})",
+            email_attribute="mail",
+            start_tls=False,
+            tls_verify=False,
+            allow_legacy_tls=True,
+        )
+    )
+    db_session.flush()
+
+    findings = run_deployment_checks(
+        _production_settings(),
+        app_settings=_app_settings(),
+        profile="admin",
+        db=db_session,
+        include_manual=False,
+    )
+
+    assert _finding(findings, "persisted-oidc-transport").level == "blocked"
+    assert _finding(findings, "persisted-oidc-integrity").level == "critical"
+    assert _finding(findings, "persisted-ldap-transport").level == "blocked"
+    assert _finding(findings, "persisted-ldap-legacy-tls").level == "warning"
 
 
 def test_persisted_storage_endpoint_security_recommendations(db_session):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Callable, Iterable, Literal, Protocol
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
@@ -64,6 +64,21 @@ class DeploymentCheckFinding:
 class UncoveredTarget:
     target_type: str
     hostname: str
+
+
+class _OidcSecurityProvider(Protocol):
+    discovery_url: str
+    redirect_uri: str
+    use_pkce: bool
+    use_nonce: bool
+
+
+class _LdapSecurityProvider(Protocol):
+    url: str
+    start_tls: bool
+    allow_insecure: bool
+    tls_verify: bool
+    allow_legacy_tls: bool
 
 
 _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
@@ -196,17 +211,10 @@ def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[Unc
 
 def _environment_oidc_findings(settings: Settings) -> list[DeploymentCheckFinding]:
     enabled = [(provider_id, provider) for provider_id, provider in settings.oidc_providers.items() if provider.enabled]
-    transport_issues: list[str] = []
-    integrity_issues: list[str] = []
-    trusted_origins = set(settings.effective_public_origins())
-    for provider_id, provider in enabled:
-        discovery = urlparse(provider.discovery_url)
-        redirect = urlparse(provider.redirect_uri)
-        redirect_origin = f"{redirect.scheme}://{redirect.netloc}".rstrip("/")
-        if discovery.scheme != "https" or not discovery.hostname or redirect.scheme != "https":
-            transport_issues.append(provider_id)
-        if not provider.use_pkce or not provider.use_nonce or redirect_origin not in trusted_origins:
-            integrity_issues.append(provider_id)
+    transport_issues, integrity_issues = _oidc_security_issues(
+        enabled,
+        trusted_origins=set(settings.effective_public_origins()),
+    )
     production = settings.app_env == "production"
     return [
         _finding(
@@ -234,17 +242,27 @@ def _environment_oidc_findings(settings: Settings) -> list[DeploymentCheckFindin
     ]
 
 
+def _oidc_security_issues(
+    providers: Iterable[tuple[str, _OidcSecurityProvider]],
+    *,
+    trusted_origins: set[str],
+) -> tuple[list[str], list[str]]:
+    transport_issues: list[str] = []
+    integrity_issues: list[str] = []
+    for provider_id, provider in providers:
+        discovery = urlparse(provider.discovery_url)
+        redirect = urlparse(provider.redirect_uri)
+        redirect_origin = f"{redirect.scheme}://{redirect.netloc}".rstrip("/")
+        if discovery.scheme != "https" or not discovery.hostname or redirect.scheme != "https":
+            transport_issues.append(provider_id)
+        if not provider.use_pkce or not provider.use_nonce or redirect_origin not in trusted_origins:
+            integrity_issues.append(provider_id)
+    return transport_issues, integrity_issues
+
+
 def _environment_ldap_findings(settings: Settings) -> list[DeploymentCheckFinding]:
     enabled = [(provider_id, provider) for provider_id, provider in settings.ldap_providers.items() if provider.enabled]
-    transport_issues: list[str] = []
-    legacy_issues: list[str] = []
-    for provider_id, provider in enabled:
-        scheme = urlparse(provider.url).scheme
-        encrypted = scheme == "ldaps" or (scheme == "ldap" and provider.start_tls)
-        if not encrypted or provider.allow_insecure or not provider.tls_verify:
-            transport_issues.append(provider_id)
-        if provider.allow_legacy_tls:
-            legacy_issues.append(provider_id)
+    transport_issues, legacy_issues = _ldap_security_issues(enabled)
     production = settings.app_env == "production"
     return [
         _finding(
@@ -272,28 +290,33 @@ def _environment_ldap_findings(settings: Settings) -> list[DeploymentCheckFindin
     ]
 
 
-def _persisted_provider_findings(settings: Settings, db: Session) -> list[DeploymentCheckFinding]:
-    public_origins = set(settings.effective_public_origins())
-    oidc_transport: list[str] = []
-    oidc_integrity: list[str] = []
-    for provider in db.query(OidcProvider).filter(OidcProvider.enabled.is_(True)).all():
-        discovery = urlparse(provider.discovery_url)
-        redirect = urlparse(provider.redirect_uri)
-        redirect_origin = f"{redirect.scheme}://{redirect.netloc}".rstrip("/")
-        if discovery.scheme != "https" or not discovery.hostname or redirect.scheme != "https":
-            oidc_transport.append(provider.provider_id)
-        if not provider.use_pkce or not provider.use_nonce or redirect_origin not in public_origins:
-            oidc_integrity.append(provider.provider_id)
-
-    ldap_transport: list[str] = []
-    ldap_legacy: list[str] = []
-    for provider in db.query(LdapProvider).filter(LdapProvider.enabled.is_(True)).all():
+def _ldap_security_issues(
+    providers: Iterable[tuple[str, _LdapSecurityProvider]],
+) -> tuple[list[str], list[str]]:
+    transport_issues: list[str] = []
+    legacy_issues: list[str] = []
+    for provider_id, provider in providers:
         scheme = urlparse(provider.url).scheme
         encrypted = scheme == "ldaps" or (scheme == "ldap" and provider.start_tls)
         if not encrypted or provider.allow_insecure or not provider.tls_verify:
-            ldap_transport.append(provider.provider_id)
+            transport_issues.append(provider_id)
         if provider.allow_legacy_tls:
-            ldap_legacy.append(provider.provider_id)
+            legacy_issues.append(provider_id)
+    return transport_issues, legacy_issues
+
+
+def _persisted_provider_findings(settings: Settings, db: Session) -> list[DeploymentCheckFinding]:
+    public_origins = set(settings.effective_public_origins())
+    oidc_providers = db.query(OidcProvider).filter(OidcProvider.enabled.is_(True)).all()
+    oidc_transport, oidc_integrity = _oidc_security_issues(
+        ((provider.provider_id, provider) for provider in oidc_providers),
+        trusted_origins=public_origins,
+    )
+
+    ldap_providers = db.query(LdapProvider).filter(LdapProvider.enabled.is_(True)).all()
+    ldap_transport, ldap_legacy = _ldap_security_issues(
+        (provider.provider_id, provider) for provider in ldap_providers
+    )
 
     production = settings.app_env == "production"
     return [
