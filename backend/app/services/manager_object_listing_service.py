@@ -14,11 +14,11 @@ from app.services.s3_execution_context import S3ExecutionTarget
 
 
 class ManagerObjectListingService:
-    def _client(self, account: S3ExecutionTarget):
+    def _client(self, context: S3ExecutionTarget):
         return get_s3_client(
             request_profile="long_running",
             **s3_execution_request_kwargs(
-                account,
+                context,
                 error_message="Execution context credentials are missing",
             ),
         )
@@ -26,12 +26,12 @@ class ManagerObjectListingService:
     def list_objects(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         prefix: str = "",
         continuation_token: Optional[str] = None,
         max_keys: int = 1000,
     ) -> ListObjectsResponse:
-        client = self._client(account)
+        client = self._client(context)
         kwargs = {
             "Bucket": bucket_name,
             "Prefix": prefix or "",

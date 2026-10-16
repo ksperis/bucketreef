@@ -22,11 +22,11 @@ def list_objects(
     bucket_name: str,
     prefix: str = "",
     continuation_token: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: ManagerObjectListingService = Depends(get_manager_object_listing_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ):
     try:
-        return service.list_objects(bucket_name, account, prefix=prefix, continuation_token=continuation_token)
+        return service.list_objects(bucket_name, context, prefix=prefix, continuation_token=continuation_token)
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
