@@ -10,6 +10,7 @@ import {
   patchStorageOpsBucketUiTagDefinition,
   type BucketUiTagCatalog,
 } from "../../api/bucketUiTags";
+import { ApiError } from "../../api/client";
 import {
   buildPhysicalBucketUiTagIdentity,
   createBucketUiTagTarget,
@@ -88,6 +89,24 @@ describe("useBucketUiTags", () => {
     expect(result.current.definitions).toEqual([]);
     expect(result.current.ready).toBe(false);
     unmount();
+  });
+
+  it("surfaces structured API details when catalog loading fails", async () => {
+    vi.mocked(fetchStorageOpsBucketUiTags).mockRejectedValue(
+      new ApiError("Request failed", {
+        response: {
+          status: 409,
+          data: { detail: { code: "tag_catalog_unavailable", message: "Tag catalog is rebuilding." } },
+          headers: {},
+        },
+      })
+    );
+
+    const { result } = renderHook(() => useBucketUiTags("storage-ops", null));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe("Tag catalog is rebuilding.");
+    expect(result.current.definitions).toEqual([]);
   });
 
   it("splits mutations above 200 targets and keeps Storage Ops tags private", async () => {
