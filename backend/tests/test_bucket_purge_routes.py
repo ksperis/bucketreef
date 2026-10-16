@@ -236,7 +236,7 @@ def test_manager_delete_with_purge_route_streams_progress_and_result(monkeypatch
     app.dependency_overrides[manager_buckets.get_current_account_admin] = lambda: SimpleNamespace(id=1)
     monkeypatch.setattr(manager_buckets, "BucketPurgeService", FakeService)
     monkeypatch.setattr(manager_buckets, "record_bucket_purge_audit", lambda **kwargs: audit_calls.append(kwargs))
-    monkeypatch.setattr(manager_buckets, "_invalidate_bucket_listing_for_account", lambda account: None)
+    monkeypatch.setattr(manager_buckets, "_invalidate_bucket_listing_for_context", lambda account: None)
     try:
         with TestClient(app) as client:
             response = client.post(

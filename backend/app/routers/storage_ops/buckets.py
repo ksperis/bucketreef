@@ -19,7 +19,7 @@ from app.routers.dependencies import (
     get_current_storage_ops_admin,
 )
 from app.routers.execution_contexts import list_execution_contexts
-from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_account
+from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_context
 from app.services.bucket_listing_shared import BucketListingFilterError, is_advanced_filter_stream_payload
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
 from app.services.bucket_ui_tags_service import BucketUiTagsService
@@ -125,7 +125,7 @@ def refresh_storage_ops_bucket_listing_cache(
     )
     endpoint_ids: set[int] = set()
     for context in resolved_contexts:
-        invalidate_bucket_listing_cache_for_account(context.account)
+        invalidate_bucket_listing_cache_for_context(context.account)
         endpoint_id = int(context.account.storage_endpoint_id or 0)
         if endpoint_id > 0:
             endpoint_ids.add(endpoint_id)

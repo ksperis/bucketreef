@@ -370,7 +370,7 @@ def test_maintenance_bucket_delete_invalidates_bucket_list_caches(prepared, monk
     browser_cache_invalidate = Mock()
     monkeypatch.setattr(
         bucket_migration_maintenance,
-        "invalidate_bucket_listing_cache_for_account",
+        "invalidate_bucket_listing_cache_for_context",
         manager_cache_invalidate,
     )
     monkeypatch.setattr(

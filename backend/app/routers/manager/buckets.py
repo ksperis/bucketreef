@@ -46,8 +46,8 @@ from app.services.bucket_purge_service import (
     BucketPurgeService,
 )
 from app.services.bucket_listing_cache import (
-    get_cached_bucket_listing_for_account,
-    invalidate_bucket_listing_cache_for_account,
+    get_cached_bucket_listing_for_context,
+    invalidate_bucket_listing_cache_for_context,
 )
 from app.services.bucket_listing_shared import parse_includes
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
@@ -74,8 +74,8 @@ router.include_router(bucket_config.router)
 logger = logging.getLogger(__name__)
 
 
-def _invalidate_bucket_listing_for_account(account: S3ExecutionContext) -> None:
-    invalidate_bucket_listing_cache_for_account(account)
+def _invalidate_bucket_listing_for_context(context: S3ExecutionContext) -> None:
+    invalidate_bucket_listing_cache_for_context(context)
 
 
 @router.get("", response_model=list[Bucket])
@@ -88,8 +88,8 @@ def list_buckets(
 ) -> list[Bucket]:
     try:
         include_set = parse_includes(include)
-        return get_cached_bucket_listing_for_account(
-            account=account,
+        return get_cached_bucket_listing_for_context(
+            context=account,
             include=include_set,
             with_stats=with_stats,
             builder=lambda: service.list_buckets(account, include=include_set, with_stats=with_stats),
@@ -127,7 +127,7 @@ def update_quota(
         bucket_name=bucket_name,
         payload=payload,
     )
-    _invalidate_bucket_listing_for_account(account)
+    _invalidate_bucket_listing_for_context(account)
     audit_service.record_action(
         user=current_user,
         scope="manager",
@@ -200,8 +200,8 @@ def run_compare_bucket_action(
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
-    _invalidate_bucket_listing_for_account(source_account)
-    _invalidate_bucket_listing_for_account(target_account)
+    _invalidate_bucket_listing_for_context(source_account)
+    _invalidate_bucket_listing_for_context(target_account)
     audit_service.record_action(
         user=actor,
         scope="manager",
@@ -229,7 +229,7 @@ def create_bucket(
         account=account,
         payload=payload,
     )
-    _invalidate_bucket_listing_for_account(account)
+    _invalidate_bucket_listing_for_context(account)
     audit_service.record_action(
         user=current_user,
         scope="manager",
@@ -255,7 +255,7 @@ def delete_bucket(
         account=account,
         bucket_name=bucket_name,
     )
-    _invalidate_bucket_listing_for_account(account)
+    _invalidate_bucket_listing_for_context(account)
     audit_service.record_action(
         user=current_user,
         scope="manager",
@@ -319,7 +319,7 @@ def stream_delete_bucket_with_purge(
 
     def after_result(result: BucketPurgeResult) -> None:
         if result.bucket_deleted:
-            _invalidate_bucket_listing_for_account(account)
+            _invalidate_bucket_listing_for_context(account)
             if deleted_bucket_target is not None:
                 cleanup_db = SessionLocal()
                 try:

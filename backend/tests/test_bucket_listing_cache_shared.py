@@ -17,9 +17,9 @@ from app.routers.manager import buckets as manager_buckets_router
 from app.routers.storage_ops import buckets as storage_ops_buckets_router
 from app.services import bucket_listing_cache
 from app.services.bucket_listing_cache import (
-    get_cached_bucket_listing_for_account,
+    get_cached_bucket_listing_for_context,
     invalidate_bucket_listing_cache,
-    invalidate_bucket_listing_cache_for_account,
+    invalidate_bucket_listing_cache_for_context,
 )
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.execution_context_factory import make_execution_context
@@ -222,8 +222,8 @@ def test_shared_bucket_listing_cache_coalesces_parallel_misses():
 
     def worker() -> None:
         try:
-            listed = get_cached_bucket_listing_for_account(
-                account=account,
+            listed = get_cached_bucket_listing_for_context(
+                context=account,
                 include=set(),
                 with_stats=True,
                 builder=builder,
@@ -255,8 +255,8 @@ def test_shared_bucket_listing_cache_expires_after_ttl(monkeypatch):
 
     monkeypatch.setattr("app.services.bucket_listing_cache.monotonic", lambda: now)
 
-    first = get_cached_bucket_listing_for_account(
-        account=account,
+    first = get_cached_bucket_listing_for_context(
+        context=account,
         include=set(),
         with_stats=True,
         builder=lambda: service.list_buckets(account, include=None, with_stats=True),
@@ -265,8 +265,8 @@ def test_shared_bucket_listing_cache_expires_after_ttl(monkeypatch):
     assert service.list_calls == 1
 
     now = 2799.0
-    second = get_cached_bucket_listing_for_account(
-        account=account,
+    second = get_cached_bucket_listing_for_context(
+        context=account,
         include=set(),
         with_stats=True,
         builder=lambda: service.list_buckets(account, include=None, with_stats=True),
@@ -275,8 +275,8 @@ def test_shared_bucket_listing_cache_expires_after_ttl(monkeypatch):
     assert service.list_calls == 1
 
     now = 2801.0
-    third = get_cached_bucket_listing_for_account(
-        account=account,
+    third = get_cached_bucket_listing_for_context(
+        context=account,
         include=set(),
         with_stats=True,
         builder=lambda: service.list_buckets(account, include=None, with_stats=True),
@@ -316,15 +316,15 @@ def test_shared_cache_partitions_execution_configuration_and_invalidates_scope(c
         return [Bucket(name=f"result-{calls}")]
 
     def read(target):
-        return get_cached_bucket_listing_for_account(
-            account=target, include=set(), with_stats=False, builder=builder,
+        return get_cached_bucket_listing_for_context(
+            context=target, include=set(), with_stats=False, builder=builder,
         )[0].name
 
     assert read(context) == "result-1"
     assert read(context) == "result-1"
     assert read(other) == "result-2"
     assert read(other) == "result-2"
-    invalidate_bucket_listing_cache_for_account(account)
+    invalidate_bucket_listing_cache_for_context(account)
     assert read(context) == "result-3"
     assert read(other) == "result-4"
 
@@ -360,14 +360,14 @@ def test_shared_cache_scope_uses_explicit_context_id(kind, context_id, source_id
         return [Bucket(name=f"result-{calls}")]
 
     def read(target):
-        return get_cached_bucket_listing_for_account(
-            account=target, include=set(), with_stats=False, builder=builder,
+        return get_cached_bucket_listing_for_context(
+            context=target, include=set(), with_stats=False, builder=builder,
         )[0].name
 
     assert read(context) == "result-1"
     assert read(without_source_metadata) == "result-1"
     assert read(other_scope) == "result-2"
-    invalidate_bucket_listing_cache_for_account(without_source_metadata)
+    invalidate_bucket_listing_cache_for_context(without_source_metadata)
     assert read(context) == "result-3"
     assert read(other_scope) == "result-2"
 
@@ -401,8 +401,8 @@ def test_invalidation_detaches_pending_listing(
         return [Bucket(name="fresh")]
 
     def read(builder):
-        return get_cached_bucket_listing_for_account(
-            account=account, include=set(), with_stats=True, builder=builder,
+        return get_cached_bucket_listing_for_context(
+            context=account, include=set(), with_stats=True, builder=builder,
         )[0].name
 
     def finish_old_read(future):
@@ -421,7 +421,7 @@ def test_invalidation_detaches_pending_listing(
             if invalidate_all:
                 invalidate_bucket_listing_cache()
             else:
-                invalidate_bucket_listing_cache_for_account(account)
+                invalidate_bucket_listing_cache_for_context(account)
             fresh = pool.submit(read, new_builder)
             assert new_started.wait(timeout=2)
             if old_finishes_first:
@@ -466,8 +466,8 @@ def test_invalidation_preserves_existing_waiters_and_new_load_ownership(monkeypa
                 raise provider_error
             return [Bucket(name=f"generation-{generation}")]
 
-        return get_cached_bucket_listing_for_account(
-            account=account, include=set(), with_stats=False, builder=builder,
+        return get_cached_bucket_listing_for_context(
+            context=account, include=set(), with_stats=False, builder=builder,
         )[0].name
 
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -476,7 +476,7 @@ def test_invalidation_preserves_existing_waiters_and_new_load_ownership(monkeypa
             assert started[0].wait(timeout=2)
             old_waiter = pool.submit(read, 0)
             assert waiting[0].wait(timeout=2)
-            invalidate_bucket_listing_cache_for_account(account)
+            invalidate_bucket_listing_cache_for_context(account)
             fresh = pool.submit(read, 1)
             assert started[1].wait(timeout=2)
             finish[0].set()
@@ -523,15 +523,15 @@ def test_scoped_invalidation_preserves_unrelated_pending_load(monkeypatch):
         return [Bucket(name="unaffected")]
 
     def read():
-        return get_cached_bucket_listing_for_account(
-            account=account, include=set(), with_stats=False, builder=builder,
+        return get_cached_bucket_listing_for_context(
+            context=account, include=set(), with_stats=False, builder=builder,
         )[0].name
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(read)
         try:
             assert started.wait(timeout=2)
-            invalidate_bucket_listing_cache_for_account(other)
+            invalidate_bucket_listing_cache_for_context(other)
             second = pool.submit(read)
             assert waiting.wait(timeout=2)
             finish.set()
