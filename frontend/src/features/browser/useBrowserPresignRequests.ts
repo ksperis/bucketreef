@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback } from "react";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { StsCredentials } from "../../api/browserContracts";
 import {
   presignPart,
@@ -23,7 +23,7 @@ type EnsureStsCredentials = (
 ) => Promise<StsCredentials | null>;
 
 type UseBrowserPresignRequestsOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   ensureStsCredentials: EnsureStsCredentials;
   requestOptions?: BrowserRequestOptions;
   sseCustomerKeyBase64: string | null;

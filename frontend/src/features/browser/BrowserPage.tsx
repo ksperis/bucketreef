@@ -188,7 +188,7 @@ const DEFAULT_STREAMING_ZIP_THRESHOLD_MB = 200;
 const browserShellClasses =
   "flex min-h-0 flex-1 flex-col overflow-hidden";
 export default function BrowserPage({
-  accountIdForApi: accountIdOverride,
+  contextIdForApi: contextIdOverride,
   executionContextKind: executionContextKindOverride,
   hasContext: hasContextOverride,
   workspaceSurface: workspaceSurfaceOverride,
@@ -235,7 +235,7 @@ export default function BrowserPage({
     workspaceSurface,
     lockedBucketName,
   });
-  const accountIdForApi = accountIdOverride ?? browserContext.selectorForApi;
+  const contextIdForApi = contextIdOverride ?? browserContext.contextIdForApi;
   const hasS3AccountContext = hasContextOverride ?? browserContext.hasContext;
   const canOpenExternalObjectDetails = Boolean(onOpenObjectDetails);
   const browserRequestOptions = useMemo<BrowserRequestOptions | undefined>(
@@ -246,9 +246,9 @@ export default function BrowserPage({
     [workspaceSurface],
   );
   const browserRootContextId =
-    accountIdForApi == null ? null : String(accountIdForApi);
+    contextIdForApi == null ? null : String(contextIdForApi);
   const bucketAccessContextKey =
-    accountIdForApi == null ? null : `${workspaceSurface}:${String(accountIdForApi)}`;
+    contextIdForApi == null ? null : `${workspaceSurface}:${String(contextIdForApi)}`;
   const storedUser = useMemo(() => readStoredUser(), []);
   const userBrowserAdvancedFeaturesEnabled = storedUser
     ? storedUser.authType === "s3_session" ||
@@ -288,7 +288,7 @@ export default function BrowserPage({
     usageLoading: usageSummaryLoading,
     usageSummary,
   } = useBrowserRuntimeData({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     enabled: hasS3AccountContext,
     requestOptions: browserRequestOptions,
     showUsage: showWorkspaceSidebar,
@@ -326,7 +326,7 @@ export default function BrowserPage({
     setPrefix,
     updateBucketAccessEntry,
   } = useBrowserBucketCatalog({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     accessContextKey: bucketAccessContextKey,
     browserRootContextId,
     enabled: hasS3AccountContext,
@@ -423,7 +423,7 @@ export default function BrowserPage({
     statusMessage,
     warningMessage,
   } = useBrowserNotices({
-    scopeKey: JSON.stringify([accountIdForApi, bucketName, prefix]),
+    scopeKey: JSON.stringify([contextIdForApi, bucketName, prefix]),
   });
   const {
     close: closeCopyDialog,
@@ -485,7 +485,7 @@ export default function BrowserPage({
     setShowObjectsIssueTechnicalDetails,
     showObjectsIssueTechnicalDetails,
   } = useBrowserObjectListing({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     accountSwitchInFlight,
     bucketName,
     caseSensitive: searchCaseSensitive,
@@ -539,7 +539,7 @@ export default function BrowserPage({
     setObjectDirty: setObjectDetailsDirty,
   } = useBrowserDetailsDrawerState({
     onRequestDiscardChanges: requestDiscardDrawerChanges,
-    scopeKey: JSON.stringify([accountIdForApi, bucketName, prefix]),
+    scopeKey: JSON.stringify([contextIdForApi, bucketName, prefix]),
     versioningEnabled: isStorageSpaceContext || isVersioningEnabled,
   });
   const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
@@ -640,7 +640,7 @@ export default function BrowserPage({
   const searchOptionsButtonRef = useRef<HTMLButtonElement | null>(null);
   const objectsListViewportRef = useRef<HTMLDivElement | null>(null);
   const bucketMenuFilterRef = useRef<HTMLInputElement | null>(null);
-  const accountIdForApiRef = useRef(accountIdForApi);
+  const contextIdForApiRef = useRef(contextIdForApi);
   const operationIdsRef = useRef(new Set<string>());
   const storageEndpointCaps = useMemo(() => {
     if (selectedContext?.storage_endpoint_capabilities) {
@@ -682,7 +682,7 @@ export default function BrowserPage({
     credentialsError: stsCredentialsError,
     ensureCredentials: ensureStsCredentials,
   } = useBrowserStsSession({
-    accountIdForApi,
+    contextIdForApi,
     enabled: stsEnabled,
     hasContext: hasS3AccountContext,
     requestOptions: browserRequestOptions,
@@ -708,7 +708,7 @@ export default function BrowserPage({
     close: closeSseCustomerModal,
     dirty: sseCustomerDraftDirty,
   } = useBrowserSseCustomerKeys({
-    accountIdForApi,
+    contextIdForApi,
     bucketName,
     enabled: sseFeatureEnabled,
     onManualCopyRequired: openSseCustomerKeyCopyDialog,
@@ -735,7 +735,7 @@ export default function BrowserPage({
     setStatus: setCorsStatus,
     setError: setCorsFixError,
   } = useBrowserBucketCors({
-    accountIdForApi,
+    contextIdForApi,
     allowAction: !isPortalProfile,
     bucketName,
     enabled:
@@ -767,7 +767,7 @@ export default function BrowserPage({
   const useStsPresigner = shouldUseStsPresigner({ stsAvailable, sseActive });
   const { presignObjectRequest, presignPartRequest } =
     useBrowserPresignRequests({
-      accountId: accountIdForApi,
+      accountId: contextIdForApi,
       ensureStsCredentials,
       requestOptions: browserRequestOptions,
       sseCustomerKeyBase64,
@@ -888,7 +888,7 @@ export default function BrowserPage({
     toggleTreeNode: handleToggleTreeNode,
     treeRootNode,
   } = useBrowserFolderTree({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     accountSwitchInFlight,
     bucketName,
     currentBucketUnavailable,
@@ -958,7 +958,7 @@ export default function BrowserPage({
   } = useBrowserSelection({
     items,
     listItems,
-    scopeKey: JSON.stringify([accountIdForApi, bucketName, prefix]),
+    scopeKey: JSON.stringify([contextIdForApi, bucketName, prefix]),
   });
 
   useLayoutEffect(() => {
@@ -1014,7 +1014,7 @@ export default function BrowserPage({
     visibleColumnSet.has("restoreStatus");
   const lazyTagsColumnsVisible = visibleColumnSet.has("tagsCount");
   const lazyColumnCache = useBrowserLazyColumns({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     enabled: hasS3AccountContext,
     items: listItems,
@@ -1102,7 +1102,7 @@ export default function BrowserPage({
   );
   const workspaceAccountActionTarget = useMemo<"manager" | "portal" | null>(() => {
     if (selectedContext?.kind === "portal_account" || isPortalBrowserSurface) {
-      return accountIdForApi != null ? "portal" : null;
+      return contextIdForApi != null ? "portal" : null;
     }
     if (
       selectedContext?.manager_role === "account_administrator" ||
@@ -1111,22 +1111,22 @@ export default function BrowserPage({
       return "manager";
     }
     return null;
-  }, [accountIdForApi, isPortalBrowserSurface, selectedContext]);
+  }, [contextIdForApi, isPortalBrowserSurface, selectedContext]);
   const handleOpenWorkspaceAccount = useCallback(() => {
     if (!workspaceAccountActionTarget) return;
     if (workspaceAccountActionTarget === "manager") {
-      const contextId = selectedContext?.id ?? (typeof accountIdForApi === "string" ? accountIdForApi : null);
+      const contextId = selectedContext?.id ?? (typeof contextIdForApi === "string" ? contextIdForApi : null);
       if (!contextId) return;
       writeClientStorage(CLIENT_STORAGE_KEYS.selectedManagerExecutionContext, contextId);
       writeClientStorage(CLIENT_STORAGE_KEYS.selectedWorkspace, "manager");
       navigate(`/manager?ctx=${encodeURIComponent(contextId)}`);
       return;
     }
-    if (accountIdForApi == null) return;
-    writeClientStorage(CLIENT_STORAGE_KEYS.selectedPortalAccount, String(accountIdForApi));
+    if (contextIdForApi == null) return;
+    writeClientStorage(CLIENT_STORAGE_KEYS.selectedPortalAccount, String(contextIdForApi));
     writeClientStorage(CLIENT_STORAGE_KEYS.selectedWorkspace, "portal");
-    navigate(`/portal?project=${encodeURIComponent(String(accountIdForApi))}`);
-  }, [accountIdForApi, navigate, selectedContext, workspaceAccountActionTarget]);
+    navigate(`/portal?project=${encodeURIComponent(String(contextIdForApi))}`);
+  }, [contextIdForApi, navigate, selectedContext, workspaceAccountActionTarget]);
   const workspaceAccountAction = useMemo(() => {
     if (workspaceAccountActionTarget === "manager") {
       return {
@@ -1181,7 +1181,7 @@ export default function BrowserPage({
     rows: prefixVersionRows,
     visible: showPrefixVersions,
   } = useBrowserPrefixVersions({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     contextEnabled: hasS3AccountContext,
     onHardLimit: handleVersionsHardLimit,
@@ -1225,7 +1225,7 @@ export default function BrowserPage({
   });
 
   const listAllObjectsForPrefix = useBrowserRecursiveObjectListing({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     enabled: hasS3AccountContext,
     requestOptions: browserRequestOptions,
@@ -1240,7 +1240,7 @@ export default function BrowserPage({
     cut: handleCutItems,
     paste: handlePasteItems,
   } = useBrowserClipboard({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     cancelCopyDetails,
     clearOperationController,
@@ -1527,7 +1527,7 @@ export default function BrowserPage({
     suggestionsLoading: pathSuggestionsLoading,
     value: pathDraft,
   } = useBrowserPathEditor({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     enabled: hasS3AccountContext,
     history: pathHistory,
@@ -1556,8 +1556,8 @@ export default function BrowserPage({
   });
 
   useEffect(() => {
-    accountIdForApiRef.current = accountIdForApi;
-  }, [accountIdForApi]);
+    contextIdForApiRef.current = contextIdForApi;
+  }, [contextIdForApi]);
 
   useEffect(() => {
     if (
@@ -1665,7 +1665,7 @@ export default function BrowserPage({
     submit: submitCreateBucket,
     close: closeCreateBucket,
   } = useBrowserCreateBucket({
-    accountIdForApi,
+    contextIdForApi,
     currentBucketName: bucketName,
     enabled: bucketManagementEnabled,
     hasContext: hasS3AccountContext,
@@ -1700,12 +1700,12 @@ export default function BrowserPage({
       name: currentFavoriteName,
       surface: isMainBrowserPath ? ("browser" as const) : workspaceSurface,
       workspace: workspaceSurface,
-      context: String(accountIdForApi ?? ""),
+      context: String(contextIdForApi ?? ""),
       bucket: bucketName,
       prefix: normalizedPrefix,
     }),
     [
-      accountIdForApi,
+      contextIdForApi,
       bucketName,
       currentFavoriteName,
       isMainBrowserPath,
@@ -1730,7 +1730,7 @@ export default function BrowserPage({
   const handleApplyFavorite = useCallback(
     (favorite: BrowserFavorite) =>
       requestDetailsDrawerTransition(() => {
-        if (favorite.context !== String(accountIdForApi ?? "")) {
+        if (favorite.context !== String(contextIdForApi ?? "")) {
           const nextParams = new URLSearchParams(searchParams);
           nextParams.set("ctx", favorite.context);
           navigate(
@@ -1748,7 +1748,7 @@ export default function BrowserPage({
         clearActiveItem();
       }),
     [
-      accountIdForApi,
+      contextIdForApi,
       clearActiveItem,
       location.hash,
       location.pathname,
@@ -1888,7 +1888,7 @@ export default function BrowserPage({
     submit: submitNewFolder,
     close: closeNewFolder,
   } = useBrowserCreateFolder({
-    accountIdForApi,
+    contextIdForApi,
     bucketName,
     hasContext: hasS3AccountContext,
     parentPrefix: normalizedPrefix,
@@ -1930,7 +1930,7 @@ export default function BrowserPage({
     handleFolderInputChange,
     removeQueuedUpload,
   } = useBrowserUploadQueue({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     cancelOperationController,
     enabled: hasS3AccountContext,
@@ -1961,7 +1961,7 @@ export default function BrowserPage({
     close: closeMultipartUploadsModal,
     requestAbort: requestAbortMultipartUpload,
   } = useBrowserMultipartUploads({
-    accountIdForApi,
+    contextIdForApi,
     bucketName,
     hasContext: hasS3AccountContext,
     requestOptions: browserRequestOptions,
@@ -1983,7 +1983,7 @@ export default function BrowserPage({
     show: openBulkAttributesModal,
     summary: bulkAttributesSummary,
   } = useBrowserBulkAttributes({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     clearOperationController,
     completeOperation,
@@ -2007,7 +2007,7 @@ export default function BrowserPage({
     deleteObjectsInBatches,
     remove: handleDeleteItems,
   } = useBrowserDeleteItems({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     cancelDeleteDetails,
     clearOperationController,
@@ -2047,7 +2047,7 @@ export default function BrowserPage({
     summary: bulkRestoreSummary,
     targetPath: bulkRestoreTargetPath,
   } = useBrowserBulkRestore({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     clearOperationController,
     completeOperation,
@@ -2081,7 +2081,7 @@ export default function BrowserPage({
     show: openCleanupModal,
     summary: cleanupSummary,
   } = useBrowserVersionCleanup({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     clearOperationController,
     completeOperation,
@@ -2109,7 +2109,7 @@ export default function BrowserPage({
     downloadVersion: handleDownloadVersion,
     savePreparedArchive,
   } = useBrowserDownloads({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     cancelDownloadDetails,
     clearOperationController,
@@ -2191,7 +2191,7 @@ export default function BrowserPage({
     remove: handleDeleteVersion,
     restore: handleRestoreVersion,
   } = useBrowserVersionActions({
-    accountId: accountIdForApi,
+    accountId: contextIdForApi,
     bucketName,
     clearOperationController,
     completeOperation,
@@ -2810,7 +2810,7 @@ export default function BrowserPage({
         <BrowserStorageSpaceObjectDetailsDrawer
           navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          accountId={accountIdForApi}
+          accountId={contextIdForApi}
           bucket={currentBucketPanelItem}
           bucketName={bucketName}
           canModifyObjects={
@@ -2834,7 +2834,7 @@ export default function BrowserPage({
         <BrowserObjectDetailsDrawer
           navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          accountId={accountIdForApi}
+          accountId={contextIdForApi}
           bucketName={bucketName}
           item={objectDetailsTarget.item}
           initialTab={objectDetailsTarget.initialTab}
@@ -2865,7 +2865,7 @@ export default function BrowserPage({
         resolvedFunctionalProfile === "advanced" ? (
         <BrowserPathDetailsDrawer
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          accountId={accountIdForApi}
+          accountId={contextIdForApi}
           bucketName={bucketName}
           listAllObjectsForPrefix={listAllObjectsForPrefix}
           prefix={objectDetailsTarget.item.key}
@@ -2877,7 +2877,7 @@ export default function BrowserPage({
       ) : null}
       {configBucketName && bucketConfigurationEnabled && (
         <BrowserBucketConfigurationDrawer
-          accountId={accountIdForApi}
+          accountId={contextIdForApi}
           bucketName={configBucketName}
           includeStaticWebsite={effectiveCaps?.static_website ?? true}
           includeUsage={effectiveCaps ? effectiveCaps.metrics !== false : true}

@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { listBrowserObjects } from "../../api/browserObjects";
 import {
   TREE_PREFIXES_HARD_LIMIT,
@@ -28,7 +28,7 @@ import type { TreeNode } from "./browserTypes";
 import { useBrowserI18n } from "./browserI18n";
 
 type UseBrowserFolderTreeOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   accountSwitchInFlight: boolean;
   bucketName: string;
   currentBucketUnavailable: boolean;

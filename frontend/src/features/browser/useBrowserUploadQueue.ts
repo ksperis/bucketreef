@@ -12,7 +12,7 @@ import {
   type DragEvent,
   type SetStateAction,
 } from "react";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   buildUploadCandidates,
   buildUploadGrouping,
@@ -28,7 +28,7 @@ import { useBrowserI18n } from "./browserI18n";
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
 type UseBrowserUploadQueueOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   cancelOperationController: OperationRegistry["cancelOperationController"];
   enabled: boolean;

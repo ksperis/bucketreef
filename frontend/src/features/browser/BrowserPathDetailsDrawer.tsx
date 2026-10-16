@@ -5,7 +5,7 @@
 import UiCard from "../../components/ui/UiCard";
 import UiButton from "../../components/ui/UiButton";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import ObjectDetailsDrawer from "../shared/ObjectDetailsDrawer";
 import DetailsList from "../shared/DetailsList";
@@ -15,7 +15,7 @@ import { buildPrefixBreadcrumbs, normalizePrefix } from "./browserUtils";
 import { useBrowserI18n } from "./browserI18n";
 
 type BrowserPathDetailsDrawerProps = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   listAllObjectsForPrefix: ListAllBrowserObjectsForPrefix;
   prefix: string;

@@ -5,7 +5,7 @@
 import { useBrowserI18n } from "./browserI18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   getBrowserStsCredentials,
   getBrowserStsStatus,
@@ -28,21 +28,21 @@ type InFlightCredentials = {
 };
 
 type UseBrowserStsSessionOptions = {
-  accountIdForApi: S3AccountSelector;
+  contextIdForApi: S3ExecutionContextSelector;
   enabled: boolean;
   hasContext: boolean;
   requestOptions?: BrowserRequestOptions;
 };
 
 function createScopeKey(
-  accountIdForApi: S3AccountSelector,
+  contextIdForApi: S3ExecutionContextSelector,
   requestOptions?: BrowserRequestOptions,
 ): string {
-  return `${String(accountIdForApi ?? "")}::${requestOptions?.workspaceSurface ?? "browser"}`;
+  return `${String(contextIdForApi ?? "")}::${requestOptions?.workspaceSurface ?? "browser"}`;
 }
 
 export function useBrowserStsSession({
-  accountIdForApi,
+  contextIdForApi,
   enabled,
   hasContext,
   requestOptions,
@@ -50,7 +50,7 @@ export function useBrowserStsSession({
   const { text } = useBrowserI18n();
   const scopeKey =
     enabled && hasContext
-      ? createScopeKey(accountIdForApi, requestOptions)
+      ? createScopeKey(contextIdForApi, requestOptions)
       : null;
   const activeScopeRef = useRef(scopeKey);
   activeScopeRef.current = scopeKey;
@@ -89,7 +89,7 @@ export function useBrowserStsSession({
       }
 
       const requestedScopeKey = scopeKey;
-      const request = getBrowserStsCredentials(accountIdForApi, requestOptions)
+      const request = getBrowserStsCredentials(contextIdForApi, requestOptions)
         .then((nextCredentials) => {
           if (activeScopeRef.current !== requestedScopeKey) return null;
           const scopedCredentials = {
@@ -122,7 +122,7 @@ export function useBrowserStsSession({
       inFlightRef.current = { scopeKey: requestedScopeKey, request };
       return request;
     }, [
-      accountIdForApi,
+      contextIdForApi,
       requestOptions,
       scopeKey,
       status?.available,
@@ -137,7 +137,7 @@ export function useBrowserStsSession({
     if (!scopeKey) return;
 
     let active = true;
-    getBrowserStsStatus(accountIdForApi, requestOptions)
+    getBrowserStsStatus(contextIdForApi, requestOptions)
       .then((nextStatus) => {
         if (!active || activeScopeRef.current !== scopeKey) return;
         setStatusState({ scopeKey, value: nextStatus });
@@ -158,7 +158,7 @@ export function useBrowserStsSession({
     return () => {
       active = false;
     };
-  }, [accountIdForApi, requestOptions, scopeKey]);
+  }, [contextIdForApi, requestOptions, scopeKey]);
 
   useEffect(() => {
     if (!status?.available) return;

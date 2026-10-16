@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { listObjectVersions } from "../../api/browserObjects";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import { extractApiError } from "../../utils/apiError";
@@ -16,7 +16,7 @@ type LoadBrowserVersionsOptions = {
 };
 
 type UseBrowserVersionListingOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   autoLoad?: boolean;
   bucketName: string;
   enabled: boolean;

@@ -4,7 +4,7 @@
  */
 import { useCallback, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   createBrowserBucket,
   ensureBrowserBucketCors,
@@ -21,7 +21,7 @@ const INVALID_BUCKET_NAME_MESSAGE =
   "Invalid name. 3-63 characters, lowercase letters, numbers, dots or hyphens.";
 
 type UseBrowserCreateBucketOptions = {
-  accountIdForApi: S3AccountSelector;
+  contextIdForApi: S3ExecutionContextSelector;
   currentBucketName: string;
   enabled: boolean;
   hasContext: boolean;
@@ -34,7 +34,7 @@ type UseBrowserCreateBucketOptions = {
 };
 
 export function useBrowserCreateBucket({
-  accountIdForApi,
+  contextIdForApi,
   currentBucketName,
   enabled,
   hasContext,
@@ -90,7 +90,7 @@ export function useBrowserCreateBucket({
     setError(null);
     setCorsError(null);
     try {
-      await createBrowserBucket(accountIdForApi, normalizedName, {
+      await createBrowserBucket(contextIdForApi, normalizedName, {
         versioning,
         ...requestOptions,
       });
@@ -98,7 +98,7 @@ export function useBrowserCreateBucket({
       if (uiOrigin) {
         try {
           const status = await ensureBrowserBucketCors(
-            accountIdForApi,
+            contextIdForApi,
             normalizedName,
             uiOrigin,
             requestOptions,

@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   listBrowserObjects,
   listObjectVersions,
@@ -56,7 +56,7 @@ type BrowserObjectSortBy =
   | "etag";
 
 type UseBrowserObjectListingOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   accountSwitchInFlight: boolean;
   bucketName: string;
   caseSensitive: boolean;

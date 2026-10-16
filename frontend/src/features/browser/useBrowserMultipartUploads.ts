@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useState } from "react";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import {
   abortMultipartUpload,
@@ -19,7 +19,7 @@ import { getMultipartUploadEntryId } from "./browserListingState";
 import { useBrowserI18n } from "./browserI18n";
 
 type UseBrowserMultipartUploadsOptions = {
-  accountIdForApi: S3AccountSelector;
+  contextIdForApi: S3ExecutionContextSelector;
   bucketName: string;
   hasContext: boolean;
   requestOptions?: BrowserRequestOptions;
@@ -35,7 +35,7 @@ type UseBrowserMultipartUploadsOptions = {
 };
 
 export function useBrowserMultipartUploads({
-  accountIdForApi,
+  contextIdForApi,
   bucketName,
   hasContext,
   requestOptions,
@@ -82,7 +82,7 @@ export function useBrowserMultipartUploads({
       setError(null);
     }
     try {
-      const data = await listMultipartUploads(accountIdForApi, bucketName, {
+      const data = await listMultipartUploads(contextIdForApi, bucketName, {
         keyMarker: append ? (options?.keyMarker ?? undefined) : undefined,
         uploadIdMarker: append
           ? (options?.uploadIdMarker ?? undefined)
@@ -165,7 +165,7 @@ export function useBrowserMultipartUploads({
     setAbortingUploadIds((current) => new Set(current).add(uploadRowId));
     try {
       await abortMultipartUpload(
-        accountIdForApi,
+        contextIdForApi,
         bucketName,
         upload.upload_id,
         upload.key,

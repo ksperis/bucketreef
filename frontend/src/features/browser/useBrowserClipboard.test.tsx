@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserItem } from "./browserTypes";
 import { useBrowserClipboard } from "./useBrowserClipboard";
 
@@ -15,10 +15,10 @@ const transferMocks = vi.hoisted(() => ({
 }));
 
 type CapturedTransferParameters = {
-  source: { selector: S3AccountSelector; bucket: string };
-  destination: { selector: S3AccountSelector; bucket: string };
+  source: { selector: S3ExecutionContextSelector; bucket: string };
+  destination: { selector: S3ExecutionContextSelector; bucket: string };
   resolveMode: (
-    selector: S3AccountSelector,
+    selector: S3ExecutionContextSelector,
     bucket: string,
   ) => Promise<"direct" | "proxy">;
 };

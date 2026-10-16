@@ -44,7 +44,7 @@ describe("useBrowserBucketCors", () => {
     const setStatusMessage = vi.fn();
     const { result } = renderHook(() =>
       useBrowserBucketCors({
-        accountIdForApi: "acc-1",
+        contextIdForApi: "acc-1",
         allowAction: true,
         bucketName: "bucket-a",
         enabled: true,
@@ -86,7 +86,7 @@ describe("useBrowserBucketCors", () => {
     const { result, rerender } = renderHook(
       ({ bucketName }) =>
         useBrowserBucketCors({
-          accountIdForApi: "acc-1",
+          contextIdForApi: "acc-1",
           allowAction: true,
           bucketName,
           enabled: true,
@@ -134,7 +134,7 @@ describe("useBrowserBucketCors", () => {
 
     const { result } = renderHook(() =>
       useBrowserBucketCors({
-        accountIdForApi: "acc-1",
+        contextIdForApi: "acc-1",
         allowAction: true,
         bucketName: "bucket-a",
         enabled: true,

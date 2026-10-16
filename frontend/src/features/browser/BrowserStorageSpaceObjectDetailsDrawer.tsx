@@ -5,7 +5,7 @@
 import type { ObjectPreviewNavigation } from "../shared/ObjectDetailsDrawer";
 import { useEffect, useMemo, useState } from "react";
 
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserBucket } from "../../api/browserContracts";
 import { listPortalStorageSpaces } from "../../api/portal";
 import { fetchPortalStorageSpaceAccessSummary } from "../../api/portalSharing";
@@ -18,7 +18,7 @@ import type { BrowserItem } from "./browserTypes";
 
 type BrowserStorageSpaceObjectDetailsDrawerProps = {
   navigation?: ObjectPreviewNavigation;
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucket?: BrowserBucket | null;
   bucketName: string;
   canModifyObjects: boolean;

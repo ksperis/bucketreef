@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useState } from "react";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import {
   VERSIONS_LIST_HARD_LIMIT,
@@ -12,7 +12,7 @@ import {
 import { useBrowserVersionListing } from "./useBrowserVersionListing";
 
 type UseBrowserPrefixVersionsOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   contextEnabled: boolean;
   onHardLimit: () => void;

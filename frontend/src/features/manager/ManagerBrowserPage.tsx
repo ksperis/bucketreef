@@ -68,7 +68,7 @@ export default function ManagerBrowserPage() {
             ) : null}
             <div className="min-h-0 flex-1">
               <BrowserEmbed
-                accountIdForApi={accountIdForApi}
+                contextIdForApi={accountIdForApi}
                 executionContextKind={selectedContext?.kind ?? (selectedS3AccountType === "s3_user" ? "s3_user" : null)}
                 hasContext
                 workspaceSurface="manager"

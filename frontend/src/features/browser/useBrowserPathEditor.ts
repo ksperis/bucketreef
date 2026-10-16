@@ -11,7 +11,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { listBrowserObjects } from "../../api/browserObjects";
 import {
   buildPathSuggestionEntries,
@@ -25,7 +25,7 @@ const PATH_SUGGESTIONS_DEBOUNCE_MS = 200;
 const PATH_SUGGESTIONS_API_LIMIT = 50;
 
 type UseBrowserPathEditorOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   history: string[];

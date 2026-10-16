@@ -6,7 +6,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import {
   normalizeS3SelectorId,
-  type S3AccountSelector,
+  type S3ExecutionContextSelector,
 } from "../../api/accountParams";
 import {
   copyObject,
@@ -58,7 +58,7 @@ type ClipboardTransferParameters = Parameters<
 >[0];
 
 type UseBrowserClipboardOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   cancelCopyDetails: OperationRegistry["cancelCopyDetails"];
   clearOperationController: OperationRegistry["clearOperationController"];
@@ -67,7 +67,7 @@ type UseBrowserClipboardOptions = {
   enabled: boolean;
   functionalProfile: BrowserFunctionalProfile;
   getSseCustomerKeyForScope: (
-    selector: S3AccountSelector,
+    selector: S3ExecutionContextSelector,
     bucket: string,
   ) => string | null;
   listAllObjectsForPrefix: ListAllBrowserObjectsForPrefix;
@@ -173,7 +173,7 @@ export function useBrowserClipboard({
 
   const resolveTransferMode = useCallback(
     async (
-      selector: S3AccountSelector,
+      selector: S3ExecutionContextSelector,
       targetBucket: string,
     ): Promise<ClipboardTransferMode> => {
       try {
@@ -335,7 +335,7 @@ export function useBrowserClipboard({
     const isMove = mode === "move";
     const useServerSideCopy = clipboardMatchesContext;
     const copyTasks: Array<{
-      sourceSelector: S3AccountSelector;
+      sourceSelector: S3ExecutionContextSelector;
       sourceBucket: string;
       sourceKey: string;
       destinationBucket: string;
@@ -464,7 +464,7 @@ export function useBrowserClipboard({
         Promise<ClipboardTransferMode>
       >();
       const resolveTransferModeCached = (
-        selector: S3AccountSelector,
+        selector: S3ExecutionContextSelector,
         targetBucket: string,
       ) => {
         const cacheKey = `${normalizeS3SelectorId(selector) ?? ""}::${targetBucket}`;

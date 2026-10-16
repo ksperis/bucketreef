@@ -4,7 +4,7 @@ import { buildBrowserSelectionManifest } from "./browserSelectionManifest";
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import type {
@@ -65,7 +65,7 @@ export type BrowserArchivePreparation =
     };
 
 type UseBrowserDownloadsOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName: string;
   cancelDownloadDetails: OperationRegistry["cancelDownloadDetails"];
   clearOperationController: OperationRegistry["clearOperationController"];

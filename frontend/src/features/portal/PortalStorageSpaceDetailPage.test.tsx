@@ -514,7 +514,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     const embedProps = vi.mocked(BrowserEmbed).mock.calls[0][0] as ComponentProps<typeof BrowserEmbed>;
     expect(embedProps).toMatchObject({
-      accountIdForApi: "101",
+      contextIdForApi: "101",
       hasContext: true,
       workspaceSurface: "portal",
       functionalProfile: "portal",

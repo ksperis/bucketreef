@@ -33,7 +33,7 @@ vi.mock("./BrowserContext", () => ({
     setSelectedContextId: () => {},
     requiresContextSelection: false,
     hasContext: true,
-    selectorForApi: "acc-1",
+    contextIdForApi: "acc-1",
     selectedKind: null,
     sessionAccountName: null,
     accessError: null,
