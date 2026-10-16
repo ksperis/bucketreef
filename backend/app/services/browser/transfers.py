@@ -21,21 +21,21 @@ settings = get_settings()
 
 
 class BrowserTransfersMixin:
-    def check_sts(self, account: S3ExecutionTarget) -> StsStatus:
+    def check_sts(self, context: S3ExecutionTarget) -> StsStatus:
         try:
-            request_browser_sts_session(account)
+            request_browser_sts_session(context)
         except RuntimeError as exc:
             return StsStatus(available=False, error=sanitized_error_log_detail(exc))
         return StsStatus(available=True)
 
     def get_sts_credentials(
         self,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         *,
         cache_partition: Optional[str] = None,
     ) -> BrowserStsCredentials:
         try:
-            session = request_browser_sts_session(account, cache_partition=cache_partition)
+            session = request_browser_sts_session(context, cache_partition=cache_partition)
         except BrowserStsRequestError as exc:
             raise RuntimeError(f"Unable to request STS credentials: {exc}") from exc
         credentials = session.credentials
@@ -44,27 +44,27 @@ class BrowserTransfersMixin:
             secret_access_key=credentials.secret_access_key,
             session_token=credentials.session_token,
             expiration=credentials.expiration,
-            endpoint=_resolve_endpoint(account),
+            endpoint=_resolve_endpoint(context),
             region=session.region or settings.seed_s3_region,
         )
 
     def proxy_upload(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         file_obj,
         content_type: Optional[str],
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> None:
-        client = self._client(account, request_profile="long_running")
+        client = self._client(context, request_profile="long_running")
         extra_args = {}
         if content_type:
             extra_args["ContentType"] = content_type
         extra_args.update(self._sse_customer_params(sse_customer))
         try:
             file_obj.seek(0)
-            with self._object_mutation(account, bucket_name):
+            with self._object_mutation(context, bucket_name):
                 if extra_args:
                     client.upload_fileobj(file_obj, bucket_name, key, ExtraArgs=extra_args)
                 else:
@@ -75,7 +75,7 @@ class BrowserTransfersMixin:
     def upload_via_proxy(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         file,
         *,
         key: str,
@@ -84,7 +84,7 @@ class BrowserTransfersMixin:
     ) -> None:
         file_obj = getattr(file, "file", file)
         resolved_content_type = content_type or getattr(file, "content_type", None) or "application/octet-stream"
-        self.proxy_upload(bucket_name, account, key, file_obj, resolved_content_type, sse_customer=sse_customer)
+        self.proxy_upload(bucket_name, context, key, file_obj, resolved_content_type, sse_customer=sse_customer)
 
     def _filename_from_content_disposition(self, value: Optional[str]) -> Optional[str]:
         if not value:
@@ -110,13 +110,13 @@ class BrowserTransfersMixin:
     def download_object(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         *,
         version_id: Optional[str] = None,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> S3ObjectDownload:
-        client = self._client(account, request_profile="long_running")
+        client = self._client(context, request_profile="long_running")
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id

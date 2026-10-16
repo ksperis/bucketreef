@@ -101,7 +101,7 @@ def _seed_scoped_caches(service, account):
     }
     entries = {}
     for label, (context, bucket_name) in scopes.items():
-        key = (service._account_cache_key(context), bucket_name, "opaque cache parameters")
+        key = (service._context_cache_key(context), bucket_name, "opaque cache parameters")
         entries[label] = []
         for cache in OBJECT_CACHES:
             value = Mock(spec=["close"])
@@ -214,8 +214,8 @@ def test_same_bucket_move_invalidates_each_cache_once(monkeypatch):
     service = BrowserService()
     account = make_s3_execution_context()
     _mutation_client(service, monkeypatch)
-    invalidate = Mock(wraps=service.invalidate_object_list_cache_for_account)
-    monkeypatch.setattr(service, "invalidate_object_list_cache_for_account", invalidate)
+    invalidate = Mock(wraps=service.invalidate_object_list_cache_for_context)
+    monkeypatch.setattr(service, "invalidate_object_list_cache_for_context", invalidate)
 
     service.copy_object("target", account, CopyObjectPayload(source_key="source", destination_key="destination", move=True))
 
@@ -340,8 +340,8 @@ def test_bucket_creation_expires_bucket_list_after_partial_configuration(monkeyp
     service = BrowserService()
     account = make_s3_execution_context()
     entries = _seed_scoped_caches(service, account)
-    account_key = service._account_cache_key(account)
-    other_key = service._account_cache_key(make_s3_execution_context(context_id="2", id=2))
+    account_key = service._context_cache_key(account)
+    other_key = service._context_cache_key(make_s3_execution_context(context_id="2", id=2))
     _shared._BUCKET_LIST_CACHE.set(account_key, [])
     _shared._BUCKET_LIST_CACHE.set(other_key, [])
     create = Mock()

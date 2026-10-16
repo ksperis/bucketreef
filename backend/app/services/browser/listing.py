@@ -63,7 +63,7 @@ class BrowserListingMixin:
     def _list_objects_default_order(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         *,
         prefix: str = "",
         continuation_token: Optional[str] = None,
@@ -83,9 +83,9 @@ class BrowserListingMixin:
         if type_filter not in {"all", "file", "folder"}:
             type_filter = "all"
         storage_filter = (storage_class or "").strip() or None
-        account_cache_key = self._account_cache_key(account)
+        context_cache_key = self._context_cache_key(context)
         object_cache_key = self._object_list_cache_key(
-            account_cache_key=account_cache_key,
+            context_cache_key=context_cache_key,
             bucket_name=bucket_name,
             prefix=normalized_prefix,
             continuation_token=continuation_token,
@@ -100,10 +100,10 @@ class BrowserListingMixin:
         )
         cached = _OBJECT_LIST_CACHE.get(object_cache_key)
         if cached is not None:
-            logger.debug("Browser object cache hit: account=%s bucket=%s", account_cache_key, bucket_name)
+            logger.debug("Browser object cache hit: context=%s bucket=%s", context_cache_key, bucket_name)
             return cached.model_copy(deep=True)
         result = DefaultObjectListingLoader(
-            client=self._client(account),
+            client=self._client(context),
             options=DefaultObjectScanOptions(
                 bucket_name=bucket_name,
                 prefix=normalized_prefix,
@@ -130,13 +130,13 @@ class BrowserListingMixin:
             ),
         )
         _OBJECT_LIST_CACHE.set(object_cache_key, result.model_copy(deep=True))
-        logger.debug("Browser object cache miss: account=%s bucket=%s", account_cache_key, bucket_name)
+        logger.debug("Browser object cache miss: context=%s bucket=%s", context_cache_key, bucket_name)
         return result
 
     def _scan_sorted_object_snapshot(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         *,
         prefix: str = "",
         query: Optional[str] = None,
@@ -155,9 +155,9 @@ class BrowserListingMixin:
         if type_filter not in {"all", "file", "folder"}:
             type_filter = "all"
         storage_filter = (storage_class or "").strip() or None
-        account_cache_key = self._account_cache_key(account)
+        context_cache_key = self._context_cache_key(context)
         snapshot_cache_key = self._object_sort_snapshot_cache_key(
-            account_cache_key=account_cache_key,
+            context_cache_key=context_cache_key,
             bucket_name=bucket_name,
             prefix=normalized_prefix,
             query=query_value_raw,
@@ -175,7 +175,7 @@ class BrowserListingMixin:
             return cached
 
         snapshot = SortedObjectSnapshotBuilder(
-            client=self._client(account),
+            client=self._client(context),
             options=SortedObjectScanOptions(
                 bucket_name=bucket_name,
                 prefix=normalized_prefix,
@@ -201,7 +201,7 @@ class BrowserListingMixin:
     def list_objects(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         prefix: str = "",
         continuation_token: Optional[str] = None,
         max_keys: int = 1000,
@@ -218,11 +218,11 @@ class BrowserListingMixin:
     ) -> ListBrowserObjectsResponse:
         normalized_max_keys = max(1, min(1000, int(max_keys or 1000)))
         if force_refresh:
-            self.invalidate_object_list_cache_for_account(account, bucket_name)
+            self.invalidate_object_list_cache_for_context(context, bucket_name)
         if sort_by == "name" and sort_dir == "asc":
             return self._list_objects_default_order(
                 bucket_name,
-                account,
+                context,
                 prefix=prefix,
                 continuation_token=continuation_token,
                 max_keys=normalized_max_keys,
@@ -237,7 +237,7 @@ class BrowserListingMixin:
 
         snapshot = self._scan_sorted_object_snapshot(
             bucket_name,
-            account,
+            context,
             prefix=prefix,
             query=query,
             query_exact=query_exact,
@@ -249,10 +249,10 @@ class BrowserListingMixin:
             sort_by=sort_by,
             sort_dir=sort_dir,
         )
-        account_cache_key = self._account_cache_key(account)
+        context_cache_key = self._context_cache_key(context)
         snapshot_signature = _sorted_snapshot_signature(
             self._object_sort_snapshot_cache_key(
-                account_cache_key=account_cache_key,
+                context_cache_key=context_cache_key,
                 bucket_name=bucket_name,
                 prefix=prefix or "",
                 query=(query or "").strip(),
@@ -305,7 +305,7 @@ class BrowserListingMixin:
     def list_object_versions(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         prefix: str = "",
         delimiter: Optional[str] = None,
         key: Optional[str] = None,
@@ -313,7 +313,7 @@ class BrowserListingMixin:
         version_id_marker: Optional[str] = None,
         max_keys: int = 1000,
     ) -> ListObjectVersionsResponse:
-        client = self._client(account)
+        client = self._client(context)
         filter_key = key
         query_prefix = filter_key if filter_key is not None else prefix
         kwargs = {

@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserVersionsMixin:
-    def get_bucket_versioning(self, bucket_name: str, account: S3ExecutionTarget) -> Optional[str]:
-        client = self._client(account)
+    def get_bucket_versioning(self, bucket_name: str, context: S3ExecutionTarget) -> Optional[str]:
+        client = self._client(context)
         try:
             resp = client.get_bucket_versioning(Bucket=bucket_name)
         except (ClientError, BotoCoreError) as exc:
@@ -29,12 +29,12 @@ class BrowserVersionsMixin:
     def cleanup_object_versions(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: CleanupObjectVersionsPayload,
     ) -> CleanupObjectVersionsResponse:
         if not (payload.keep_last_n or payload.older_than_days or payload.delete_orphan_markers):
             raise ValueError("No cleanup criteria provided.")
-        client = self._client(account, request_profile="long_running")
+        client = self._client(context, request_profile="long_running")
         prefix = payload.prefix or ""
         cutoff = None
         if payload.older_than_days:
@@ -64,7 +64,7 @@ class BrowserVersionsMixin:
                     if not versions_batch:
                         return
                     batch = list(versions_batch)
-                    with self._object_mutation(account, bucket_name):
+                    with self._object_mutation(context, bucket_name):
                         delete_objects(
                             client,
                             bucket_name,
@@ -106,7 +106,7 @@ class BrowserVersionsMixin:
                     if not markers_batch:
                         return
                     batch = list(markers_batch)
-                    with self._object_mutation(account, bucket_name):
+                    with self._object_mutation(context, bucket_name):
                         delete_objects(
                             client,
                             bucket_name,

@@ -682,7 +682,7 @@ def test_sorted_object_snapshot_temp_store_is_closed_on_invalidation(monkeypatch
     assert cached is snapshot
     assert snapshot_path.exists()
 
-    service.invalidate_object_list_cache_for_account(account, "bucket-a")
+    service.invalidate_object_list_cache_for_context(account, "bucket-a")
 
     assert not snapshot_path.exists()
 
@@ -766,7 +766,7 @@ def test_get_object_columns_reuses_backend_cache_and_invalidates_after_mutation(
     assert first.items[0].metadata_status == "ready"
     assert first.items[0].tags_status == "ready"
 
-    service.invalidate_object_list_cache_for_account(account, "bucket-a")
+    service.invalidate_object_list_cache_for_context(account, "bucket-a")
     third = service.get_object_columns(
         "bucket-a",
         account,

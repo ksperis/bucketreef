@@ -195,12 +195,12 @@ class BrowserObjectDetailsMixin:
     def head_object(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         version_id: Optional[str] = None,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> ObjectMetadata:
-        client = self._client(account)
+        client = self._client(context)
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
@@ -230,14 +230,14 @@ class BrowserObjectDetailsMixin:
     def _get_object_lazy_head_columns(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         *,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> _ObjectLazyHeadCacheValue:
-        account_cache_key = self._account_cache_key(account)
+        context_cache_key = self._context_cache_key(context)
         cache_key = self._object_lazy_head_cache_key(
-            account_cache_key=account_cache_key,
+            context_cache_key=context_cache_key,
             bucket_name=bucket_name,
             key=key,
             sse_customer=sse_customer,
@@ -246,7 +246,7 @@ class BrowserObjectDetailsMixin:
         if cached is not None:
             return cached
 
-        client = self._client(account)
+        client = self._client(context)
         kwargs = {"Bucket": bucket_name, "Key": key}
         kwargs.update(self._sse_customer_params(sse_customer))
         try:
@@ -275,12 +275,12 @@ class BrowserObjectDetailsMixin:
     def _get_object_lazy_tags_columns(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
     ) -> _ObjectLazyTagsCacheValue:
-        account_cache_key = self._account_cache_key(account)
+        context_cache_key = self._context_cache_key(context)
         cache_key = self._object_lazy_tags_cache_key(
-            account_cache_key=account_cache_key,
+            context_cache_key=context_cache_key,
             bucket_name=bucket_name,
             key=key,
         )
@@ -288,7 +288,7 @@ class BrowserObjectDetailsMixin:
         if cached is not None:
             return cached
 
-        client = self._client(account)
+        client = self._client(context)
         kwargs = {"Bucket": bucket_name, "Key": key}
         try:
             resp = client.get_object_tagging(**kwargs)
@@ -304,7 +304,7 @@ class BrowserObjectDetailsMixin:
     def get_object_columns(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         *,
         keys: list[str],
         columns: set[BrowserObjectLazyColumn],
@@ -322,12 +322,12 @@ class BrowserObjectDetailsMixin:
             if wants_head:
                 head_value = self._get_object_lazy_head_columns(
                     bucket_name,
-                    account,
+                    context,
                     key,
                     sse_customer=sse_customer,
                 )
             if wants_tags:
-                tags_value = self._get_object_lazy_tags_columns(bucket_name, account, key)
+                tags_value = self._get_object_lazy_tags_columns(bucket_name, context, key)
             items.append(
                 ObjectColumnValues(
                     key=key,
@@ -346,11 +346,11 @@ class BrowserObjectDetailsMixin:
     def get_object_tags(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         version_id: Optional[str] = None,
     ) -> ObjectTags:
-        client = self._client(account)
+        client = self._client(context)
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
@@ -369,12 +369,12 @@ class BrowserObjectDetailsMixin:
     def put_object_tags(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         tags: list[ObjectTag],
         version_id: Optional[str] = None,
     ) -> ObjectTags:
-        client = self._client(account)
+        client = self._client(context)
         tag_set = [
             {"Key": tag.key, "Value": tag.value}
             for tag in tags
@@ -382,7 +382,7 @@ class BrowserObjectDetailsMixin:
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
-        with self._object_mutation(account, bucket_name):
+        with self._object_mutation(context, bucket_name):
             try:
                 if tag_set:
                     client.put_object_tagging(**kwargs, Tagging={"TagSet": tag_set})
@@ -395,13 +395,13 @@ class BrowserObjectDetailsMixin:
     def update_object_metadata(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: ObjectMetadataUpdate,
     ) -> ObjectMetadata:
-        client = self._client(account)
+        client = self._client(context)
         current, current_tag_set = _load_metadata_copy_state(client, bucket_name, payload)
         copy_request = _metadata_copy_request(bucket_name, payload, current, current_tag_set)
-        with self._object_mutation(account, bucket_name):
+        with self._object_mutation(context, bucket_name):
             copied_version_id = _copy_metadata(client, payload, copy_request)
             _restore_copied_tags(
                 client,
@@ -410,16 +410,16 @@ class BrowserObjectDetailsMixin:
                 current_tag_set,
                 copied_version_id,
             )
-        return self.head_object(bucket_name, account, payload.key, version_id=None)
+        return self.head_object(bucket_name, context, payload.key, version_id=None)
 
     def get_object_acl(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         version_id: Optional[str] = None,
     ) -> ObjectAcl:
-        client = self._client(account)
+        client = self._client(context)
         kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
@@ -473,10 +473,10 @@ class BrowserObjectDetailsMixin:
     def put_object_acl(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: ObjectAcl,
     ) -> ObjectAcl:
-        client = self._client(account)
+        client = self._client(context)
         kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": payload.key, "ACL": payload.acl}
         if payload.version_id:
             kwargs["VersionId"] = payload.version_id
@@ -489,11 +489,11 @@ class BrowserObjectDetailsMixin:
     def get_object_legal_hold(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         version_id: Optional[str] = None,
     ) -> ObjectLegalHold:
-        client = self._client(account)
+        client = self._client(context)
         kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
@@ -511,10 +511,10 @@ class BrowserObjectDetailsMixin:
     def put_object_legal_hold(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: ObjectLegalHold,
     ) -> ObjectLegalHold:
-        client = self._client(account)
+        client = self._client(context)
         if payload.status not in {"ON", "OFF"}:
             raise RuntimeError("Legal hold status must be ON or OFF.")
         status = payload.status.upper()
@@ -534,11 +534,11 @@ class BrowserObjectDetailsMixin:
     def get_object_retention(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         version_id: Optional[str] = None,
     ) -> ObjectRetention:
-        client = self._client(account)
+        client = self._client(context)
         kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
@@ -561,10 +561,10 @@ class BrowserObjectDetailsMixin:
     def put_object_retention(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: ObjectRetention,
     ) -> ObjectRetention:
-        client = self._client(account)
+        client = self._client(context)
         if not payload.mode or not payload.retain_until:
             raise RuntimeError("Retention mode and retain-until date are required.")
         mode = payload.mode.upper()
@@ -586,10 +586,10 @@ class BrowserObjectDetailsMixin:
     def restore_object(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: ObjectRestoreRequest,
     ) -> None:
-        client = self._client(account)
+        client = self._client(context)
         restore_request: dict[str, object] = {"Days": payload.days}
         if payload.tier:
             restore_request["GlacierJobParameters"] = {"Tier": payload.tier}
@@ -600,7 +600,7 @@ class BrowserObjectDetailsMixin:
         }
         if payload.version_id:
             kwargs["VersionId"] = payload.version_id
-        with self._object_mutation(account, bucket_name):
+        with self._object_mutation(context, bucket_name):
             try:
                 client.restore_object(**kwargs)
             except (ClientError, BotoCoreError) as exc:

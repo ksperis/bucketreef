@@ -273,7 +273,7 @@ class BucketMigrationMaintenanceMixin:
         if self._precheck_bucket_exists(context, bucket) is not False:
             raise RuntimeError("Bucket removal could not be verified")
         invalidate_bucket_listing_cache_for_account(context.account)
-        BrowserService().invalidate_bucket_list_cache_for_account(context.account)
+        BrowserService().invalidate_bucket_list_cache_for_context(context.account)
 
     def _remove_deleted_bucket_ui_tags(self, context, bucket: str) -> None:
         endpoint_id = int(context.account.storage_endpoint_id or 0)

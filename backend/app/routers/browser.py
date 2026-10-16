@@ -88,13 +88,13 @@ def search_buckets(
     exact: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> PaginatedBrowserBucketsResponse:
     try:
         return service.search_buckets(
-            account,
+            context,
             search=search,
             exact=exact,
             page=page,
@@ -110,17 +110,17 @@ def search_buckets(
     response_model_exclude_none=True,
 )
 def get_usage_summary(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserUsageSummaryService = Depends(get_browser_usage_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BrowserUsageSummary:
-    return service.build(account)
+    return service.build(context)
 
 
 @router.post("/buckets", status_code=status.HTTP_201_CREATED)
 def create_bucket(
     payload: CreateBucketPayload,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     actor: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -129,14 +129,14 @@ def create_bucket(
     if not bucket_name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bucket name is required")
     try:
-        service.create_bucket(bucket_name, account, versioning=payload.versioning)
+        service.create_bucket(bucket_name, context, versioning=payload.versioning)
         audit_service.record_action(
             user=actor,
             scope="browser",
             action="create_bucket",
             entity_type="bucket",
             entity_id=bucket_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"versioning": bool(payload.versioning)},
         )
         return {
@@ -151,12 +151,12 @@ def create_bucket(
 @router.get("/buckets/{bucket_name}/versioning", response_model=BucketVersioningStatus)
 def get_bucket_versioning(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketVersioningStatus:
     try:
-        status_value = service.get_bucket_versioning(bucket_name, account)
+        status_value = service.get_bucket_versioning(bucket_name, context)
         enabled = status_value == "Enabled"
         return BucketVersioningStatus(status=status_value, enabled=enabled)
     except RuntimeError as exc:
@@ -179,14 +179,14 @@ def list_objects(
     sort_by: BrowserObjectSortBy = Query(default="name"),
     sort_dir: BrowserObjectSortDir = Query(default="asc"),
     force_refresh: bool = Query(default=False),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListBrowserObjectsResponse:
     try:
         return service.list_objects(
             bucket_name,
-            account,
+            context,
             prefix=prefix,
             continuation_token=continuation_token,
             max_keys=max_keys,
@@ -209,7 +209,7 @@ def list_objects(
 def get_object_columns(
     bucket_name: str,
     payload: ObjectColumnsRequest,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -217,7 +217,7 @@ def get_object_columns(
     try:
         return service.get_object_columns(
             bucket_name,
-            account,
+            context,
             keys=payload.keys,
             columns=set(payload.columns),
             sse_customer=sse_customer,
@@ -230,18 +230,18 @@ def get_object_columns(
 def get_bucket_cors(
     bucket_name: str,
     origin: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketCorsStatus:
-    return service.get_bucket_cors_status(bucket_name, account, origin=origin)
+    return service.get_bucket_cors_status(bucket_name, context, origin=origin)
 
 
 @router.post("/buckets/{bucket_name}/cors/ensure", response_model=BucketCorsStatus)
 def ensure_bucket_cors(
     bucket_name: str,
     payload: EnsureCorsPayload,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     actor: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -249,14 +249,14 @@ def ensure_bucket_cors(
     if not payload.origin:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing origin")
     try:
-        status_result = service.ensure_bucket_cors(bucket_name, account, payload.origin)
+        status_result = service.ensure_bucket_cors(bucket_name, context, payload.origin)
         audit_service.record_action(
             user=actor,
             scope="browser",
             action="ensure_bucket_cors",
             entity_type="bucket",
             entity_id=bucket_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"origin": payload.origin},
         )
         return status_result

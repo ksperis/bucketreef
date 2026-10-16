@@ -56,7 +56,7 @@ def test_update_object_metadata_preserves_source_state_and_tags(monkeypatch):
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
     monkeypatch.setattr(
         service,
-        "invalidate_object_list_cache_for_account",
+        "invalidate_object_list_cache_for_context",
         lambda account, bucket: invalidations.append((account, bucket)),
     )
     monkeypatch.setattr(service, "head_object", lambda *_args, **_kwargs: expected)
@@ -185,7 +185,7 @@ def test_update_object_metadata_copies_empty_tag_set_without_restoration(monkeyp
 
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
-    monkeypatch.setattr(service, "invalidate_object_list_cache_for_account", lambda *_args: None)
+    monkeypatch.setattr(service, "invalidate_object_list_cache_for_context", lambda *_args: None)
     monkeypatch.setattr(
         service,
         "head_object",

@@ -26,8 +26,8 @@ from app.services.s3_deletion import delete_objects
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 
 
-def require_multipart_write_access(account: S3ExecutionTarget, bucket_name: str) -> None:
-    spaces = account.portal_storage_spaces if isinstance(account, S3ExecutionContext) else None
+def require_multipart_write_access(context: S3ExecutionTarget, bucket_name: str) -> None:
+    spaces = context.portal_storage_spaces if isinstance(context, S3ExecutionContext) else None
     if spaces is not None:
         space = next((space for space in spaces if (space.internal_bucket_name or space.id) == bucket_name), None)
         if space is None or space.role == "Viewer":
@@ -38,11 +38,11 @@ class BrowserObjectOperationsMixin:
     def presign(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: PresignRequest,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> PresignedUrl:
-        client = self._client(account)
+        client = self._client(context)
         expires = payload.expires_in or 900
         params = {"Bucket": bucket_name, "Key": payload.key}
         params.update(self._sse_customer_params(sse_customer))
@@ -82,13 +82,13 @@ class BrowserObjectOperationsMixin:
     def copy_object(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: CopyObjectPayload,
     ) -> None:
         source_bucket = payload.source_bucket or bucket_name
         spaces = (
-            account.portal_storage_spaces
-            if isinstance(account, S3ExecutionContext)
+            context.portal_storage_spaces
+            if isinstance(context, S3ExecutionContext)
             else None
         )
         if spaces is not None:
@@ -99,7 +99,7 @@ class BrowserObjectOperationsMixin:
                 raise HTTPException(status_code=403, detail="Storage Space permissions do not allow this transfer")
         if payload.move and source_bucket == bucket_name and payload.source_key == payload.destination_key:
             raise RuntimeError("Cannot move an object onto itself")
-        client = self._client(account, request_profile="long_running")
+        client = self._client(context, request_profile="long_running")
         copy_source: dict[str, str] = {
             "Bucket": source_bucket,
             "Key": payload.source_key,
@@ -143,7 +143,7 @@ class BrowserObjectOperationsMixin:
         if payload.acl:
             kwargs["ACL"] = payload.acl
         affected_buckets = (bucket_name, source_bucket) if payload.move else (bucket_name,)
-        with self._object_mutation(account, *affected_buckets):
+        with self._object_mutation(context, *affected_buckets):
             try:
                 resp = client.copy_object(**kwargs)
                 destination_version_id = resp.get("VersionId")
@@ -191,7 +191,7 @@ class BrowserObjectOperationsMixin:
     def delete_objects(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: DeleteObjectsPayload,
     ) -> int:
         if not payload.objects:
@@ -206,8 +206,8 @@ class BrowserObjectOperationsMixin:
             items.append(entry)
         if not items:
             return 0
-        client = self._client(account)
-        with self._object_mutation(account, bucket_name):
+        client = self._client(context)
+        with self._object_mutation(context, bucket_name):
             try:
                 delete_objects(client, bucket_name, items)
             except (ClientError, BotoCoreError) as exc:
@@ -217,12 +217,12 @@ class BrowserObjectOperationsMixin:
     def create_folder(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         prefix: str,
     ) -> None:
-        client = self._client(account)
+        client = self._client(context)
         key = prefix if prefix.endswith("/") else f"{prefix}/"
-        with self._object_mutation(account, bucket_name):
+        with self._object_mutation(context, bucket_name):
             try:
                 client.put_object(Bucket=bucket_name, Key=key, Body=b"")
             except (ClientError, BotoCoreError) as exc:
@@ -231,12 +231,12 @@ class BrowserObjectOperationsMixin:
     def initiate_multipart_upload(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: MultipartUploadInitRequest,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> MultipartUploadInitResponse:
-        require_multipart_write_access(account, bucket_name)
-        client = self._client(account, request_profile="long_running")
+        require_multipart_write_access(context, bucket_name)
+        client = self._client(context, request_profile="long_running")
         kwargs = {"Bucket": bucket_name, "Key": payload.key}
         kwargs.update(self._sse_customer_params(sse_customer))
         if payload.content_type:
@@ -261,13 +261,13 @@ class BrowserObjectOperationsMixin:
     def list_multipart_uploads(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         prefix: Optional[str] = None,
         key_marker: Optional[str] = None,
         upload_id_marker: Optional[str] = None,
         max_uploads: int = 50,
     ) -> ListMultipartUploadsResponse:
-        client = self._client(account)
+        client = self._client(context)
         kwargs = {"Bucket": bucket_name, "MaxUploads": max_uploads}
         if prefix:
             kwargs["Prefix"] = prefix
@@ -300,14 +300,14 @@ class BrowserObjectOperationsMixin:
     def presign_part(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         payload: PresignPartRequest,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> PresignPartResponse:
         if not payload.upload_id:
             raise RuntimeError("Upload id is required to presign a part")
-        require_multipart_write_access(account, bucket_name)
-        client = self._client(account)
+        require_multipart_write_access(context, bucket_name)
+        client = self._client(context)
         expires = payload.expires_in or 900
         params = {
             "Bucket": bucket_name,
@@ -330,18 +330,18 @@ class BrowserObjectOperationsMixin:
     def complete_multipart_upload(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         upload_id: str,
         payload: CompleteMultipartUploadRequest,
     ) -> None:
         if not payload.parts:
             raise RuntimeError("No parts provided to complete multipart upload")
-        require_multipart_write_access(account, bucket_name)
-        client = self._client(account, request_profile="long_running")
+        require_multipart_write_access(context, bucket_name)
+        client = self._client(context, request_profile="long_running")
         sorted_parts = sorted(payload.parts, key=lambda part: part.part_number)
         completed = [{"ETag": part.etag, "PartNumber": part.part_number} for part in sorted_parts]
-        with self._object_mutation(account, bucket_name):
+        with self._object_mutation(context, bucket_name):
             try:
                 client.complete_multipart_upload(
                     Bucket=bucket_name,
@@ -355,13 +355,13 @@ class BrowserObjectOperationsMixin:
     def abort_multipart_upload(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         key: str,
         upload_id: str,
     ) -> None:
-        require_multipart_write_access(account, bucket_name)
-        client = self._client(account, request_profile="long_running")
-        with self._object_mutation(account, bucket_name):
+        require_multipart_write_access(context, bucket_name)
+        client = self._client(context, request_profile="long_running")
+        with self._object_mutation(context, bucket_name):
             try:
                 client.abort_multipart_upload(Bucket=bucket_name, Key=key, UploadId=upload_id)
             except (ClientError, BotoCoreError) as exc:

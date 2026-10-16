@@ -30,10 +30,10 @@ def _bucket_search_values(bucket: BrowserBucket) -> list[str]:
 
 
 class BrowserBucketsMixin:
-    def _list_portal_storage_space_buckets(self, account: S3ExecutionTarget) -> Optional[list[BrowserBucket]]:
-        if not isinstance(account, S3ExecutionContext):
+    def _list_portal_storage_space_buckets(self, context: S3ExecutionTarget) -> Optional[list[BrowserBucket]]:
+        if not isinstance(context, S3ExecutionContext):
             return None
-        spaces = account.portal_storage_spaces
+        spaces = context.portal_storage_spaces
         if spaces is None:
             return None
         buckets: list[BrowserBucket] = []
@@ -60,23 +60,23 @@ class BrowserBucketsMixin:
         buckets.sort(key=lambda bucket: (bucket.display_name or bucket.name).lower())
         return buckets
 
-    def list_buckets(self, account: S3ExecutionTarget) -> list[BrowserBucket]:
-        portal_buckets = self._list_portal_storage_space_buckets(account)
+    def list_buckets(self, context: S3ExecutionTarget) -> list[BrowserBucket]:
+        portal_buckets = self._list_portal_storage_space_buckets(context)
         if portal_buckets is not None:
             return portal_buckets
         allowed_portal_buckets = (
-            account.portal_allowed_buckets
-            if isinstance(account, S3ExecutionContext)
+            context.portal_allowed_buckets
+            if isinstance(context, S3ExecutionContext)
             else None
         )
-        account_key = self._account_cache_key(account)
-        cached = _BUCKET_LIST_CACHE.get(account_key)
+        context_key = self._context_cache_key(context)
+        cached = _BUCKET_LIST_CACHE.get(context_key)
         if cached is not None:
-            logger.debug("Browser bucket cache hit: account=%s count=%s", account_key, len(cached))
+            logger.debug("Browser bucket cache hit: context=%s count=%s", context_key, len(cached))
             if allowed_portal_buckets is not None:
                 return [bucket for bucket in cached if bucket.name in allowed_portal_buckets]
             return list(cached)
-        client = self._client(account)
+        client = self._client(context)
         try:
             resp = client.list_buckets()
         except (ClientError, BotoCoreError) as exc:
@@ -88,15 +88,15 @@ class BrowserBucketsMixin:
                 continue
             buckets.append(BrowserBucket(name=name, creation_date=bucket.get("CreationDate")))
         buckets.sort(key=lambda bucket: bucket.name)
-        _BUCKET_LIST_CACHE.set(account_key, buckets)
-        logger.debug("Browser bucket cache miss: account=%s count=%s", account_key, len(buckets))
+        _BUCKET_LIST_CACHE.set(context_key, buckets)
+        logger.debug("Browser bucket cache miss: context=%s count=%s", context_key, len(buckets))
         if allowed_portal_buckets is not None:
             return [bucket for bucket in buckets if bucket.name in allowed_portal_buckets]
         return list(buckets)
 
     def search_buckets(
         self,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         *,
         search: Optional[str] = None,
         exact: bool = False,
@@ -105,7 +105,7 @@ class BrowserBucketsMixin:
     ) -> PaginatedBrowserBucketsResponse:
         normalized_page = max(1, int(page or 1))
         normalized_page_size = max(1, min(200, int(page_size or 50)))
-        buckets = self.list_buckets(account)
+        buckets = self.list_buckets(context)
         query = (search or "").strip()
         if query:
             query_normalized = query.lower()
@@ -138,21 +138,21 @@ class BrowserBucketsMixin:
     def create_bucket(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         *,
         versioning: bool = False,
     ) -> None:
-        access_key, secret_key, session_token = self._resolve_s3_credentials(account)
+        access_key, secret_key, session_token = self._resolve_s3_credentials(context)
         client_options = {
-            **self._s3_client_kwargs(account),
+            **self._s3_client_kwargs(context),
             "access_key": access_key,
             "secret_key": secret_key,
             "session_token": session_token,
         }
-        with self._object_mutation(account, bucket_name):
+        with self._object_mutation(context, bucket_name):
             try:
                 s3_create_bucket(bucket_name, **client_options)
                 if versioning:
                     s3_set_bucket_versioning(bucket_name, enabled=True, **client_options)
             finally:
-                self.invalidate_bucket_list_cache_for_account(account)
+                self.invalidate_bucket_list_cache_for_context(context)

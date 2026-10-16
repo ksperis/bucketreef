@@ -41,18 +41,18 @@ router = APIRouter()
 
 @router.get("/sts", response_model=StsStatus)
 def get_sts_status(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StsStatus:
-    return service.check_sts(account)
+    return service.check_sts(context)
 
 
 @router.get("/sts/credentials", response_model=BrowserStsCredentials)
 def get_sts_credentials(
     request: Request,
     response: Response,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -60,7 +60,7 @@ def get_sts_credentials(
     auth_session = current_auth_session(request, db)
     try:
         credentials = service.get_sts_credentials(
-            account,
+            context,
             cache_partition=f"auth-session:{auth_session.id}",
         )
         response.headers["Cache-Control"] = "no-store, private"
@@ -76,7 +76,7 @@ def upload_via_proxy(
     file: UploadFile = File(...),
     key: str = Form(...),
     content_type: Optional[str] = Form(default=None),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -84,11 +84,11 @@ def upload_via_proxy(
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
-        require_sse_feature(account)
+        require_sse_feature(context)
     try:
         service.upload_via_proxy(
             bucket_name,
-            account,
+            context,
             file,
             key=key,
             content_type=content_type,
@@ -104,7 +104,7 @@ def download_object(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -112,11 +112,11 @@ def download_object(
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
-        require_sse_feature(account)
+        require_sse_feature(context)
     try:
         download = service.download_object(
             bucket_name,
-            account,
+            context,
             key,
             version_id=version_id,
             sse_customer=sse_customer,
@@ -130,15 +130,15 @@ def download_object(
 def presign(
     bucket_name: str,
     payload: PresignRequest,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> PresignedUrl:
     if sse_customer:
-        require_sse_feature(account)
+        require_sse_feature(context)
     try:
-        return service.presign(bucket_name, account, payload, sse_customer=sse_customer)
+        return service.presign(bucket_name, context, payload, sse_customer=sse_customer)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -147,7 +147,7 @@ def presign(
 def multipart_init(
     bucket_name: str,
     payload: MultipartUploadInitRequest,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -155,11 +155,11 @@ def multipart_init(
     if not payload.key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
-        require_sse_feature(account)
+        require_sse_feature(context)
     try:
         return service.initiate_multipart_upload(
             bucket_name,
-            account,
+            context,
             payload,
             sse_customer=sse_customer,
         )
@@ -174,14 +174,14 @@ def list_multipart_uploads(
     key_marker: Optional[str] = None,
     upload_id_marker: Optional[str] = None,
     max_uploads: int = Query(default=1000, ge=1, le=1000),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListMultipartUploadsResponse:
     try:
         return service.list_multipart_uploads(
             bucket_name,
-            account,
+            context,
             prefix=prefix,
             key_marker=key_marker,
             upload_id_marker=upload_id_marker,
@@ -197,7 +197,7 @@ def presign_part_for_upload(
     bucket_name: str,
     upload_id: str,
     payload: PresignPartRequest,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -206,9 +206,9 @@ def presign_part_for_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     payload.upload_id = upload_id
     if sse_customer:
-        require_sse_feature(account)
+        require_sse_feature(context)
     try:
-        return service.presign_part(bucket_name, account, payload, sse_customer=sse_customer)
+        return service.presign_part(bucket_name, context, payload, sse_customer=sse_customer)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -219,14 +219,14 @@ def complete_multipart_upload(
     upload_id: str,
     key: str,
     payload: CompleteMultipartUploadRequest,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     try:
-        service.complete_multipart_upload(bucket_name, account, key, upload_id, payload)
+        service.complete_multipart_upload(bucket_name, context, key, upload_id, payload)
         return {"message": "completed"}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -237,14 +237,14 @@ def abort_multipart_upload(
     bucket_name: str,
     upload_id: str,
     key: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     try:
-        service.abort_multipart_upload(bucket_name, account, key, upload_id)
+        service.abort_multipart_upload(bucket_name, context, key, upload_id)
         return {"message": "aborted"}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
