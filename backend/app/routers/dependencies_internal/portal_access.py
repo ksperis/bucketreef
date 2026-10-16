@@ -18,7 +18,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.portal_access_service import portal_membership_capabilities
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
-from .account_context import _parse_account_selector, _resolve_user_account_link, _resolve_workspace_surface
+from .account_context import _resolve_user_account_link, _resolve_workspace_surface
 from .auth_session import get_current_account_user, settings
 
 def _portal_membership_capabilities(
@@ -35,6 +35,18 @@ def _validate_portal_account_surface(account: S3Account) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal requires a Ceph RGW account")
     if not resolve_feature_flags(endpoint).iam_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal is disabled for this endpoint")
+
+
+def _parse_portal_account_id(account_ref: Optional[str]) -> Optional[int]:
+    if account_ref is None or account_ref == "":
+        return None
+    try:
+        account_id = int(account_ref)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account identifier")
+    if account_id <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account identifier")
+    return account_id
 
 
 def _is_portal_browser_request(request: Optional[Request], surface: str) -> bool:
@@ -195,9 +207,7 @@ def get_portal_account_access(
     user: User = Depends(get_current_account_user),
     db: Session = Depends(get_db),
 ) -> AccountAccess:
-    account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_account_selector(account_ref)
-    if s3_user_id is not None or connection_id is not None or ceph_admin_endpoint_id is not None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="S3 user context is not supported here")
+    account_id = _parse_portal_account_id(account_ref)
 
     account, link = _resolve_user_account_link(db, user, account_id, allow_default=False)
     _validate_portal_account_surface(account)
