@@ -407,6 +407,46 @@ def test_role_tags_preserve_duplicate_keys_and_delete_all_values(monkeypatch):
     assert audit.calls[1]["metadata"] == {"tag_keys": ["team"]}
 
 
+def test_role_tag_update_rejects_provider_false_success(monkeypatch):
+    service = _RoleService()
+    audit = _Audit()
+    monkeypatch.setattr(iam_roles, "get_iam_service_for_context", lambda _account: service)
+    service.tag_role = lambda _name, tags: service.tag_calls.append(tags)
+
+    with pytest.raises(HTTPException) as exc_info:
+        iam_roles.put_role_tags(
+            "reader",
+            [IAMTag(key="scope", value="functional")],
+            context=_context(),
+            current_user=object(),
+            audit_service=audit,
+        )
+
+    assert exc_info.value.status_code == 502
+    assert "did not persist" in str(exc_info.value.detail)
+    assert audit.calls == []
+
+
+def test_role_tag_delete_rejects_provider_false_success(monkeypatch):
+    service = _RoleService()
+    audit = _Audit()
+    monkeypatch.setattr(iam_roles, "get_iam_service_for_context", lambda _account: service)
+    service.untag_role = lambda _name, keys: service.untag_calls.append(keys)
+
+    with pytest.raises(HTTPException) as exc_info:
+        iam_roles.delete_role_tag(
+            "reader",
+            "team",
+            context=_context(),
+            current_user=object(),
+            audit_service=audit,
+        )
+
+    assert exc_info.value.status_code == 502
+    assert "did not persist" in str(exc_info.value.detail)
+    assert audit.calls == []
+
+
 @pytest.mark.parametrize("model", [IAMUserUpdate, IAMGroupUpdate, IAMRoleUpdate])
 def test_iam_path_validation_is_shared(model):
     assert model(path="/").path == "/"
