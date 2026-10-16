@@ -176,6 +176,43 @@ class UserOutputService:
             connection_names=connection_names,
         )
 
+    @staticmethod
+    def _s3_user_details(
+        links: list[S3UserMembership],
+        names: dict[int, str],
+    ) -> list[LinkedS3User]:
+        return [
+            LinkedS3User(
+                id=link.s3_user_id,
+                name=names.get(link.s3_user_id) or f"S3 User #{link.s3_user_id}",
+            )
+            for link in links
+        ]
+
+    @staticmethod
+    def _connection_details(
+        connection_ids: list[int],
+        names: dict[int, str],
+    ) -> list[LinkedS3Connection]:
+        return [
+            LinkedS3Connection(id=connection_id, name=names[connection_id])
+            for connection_id in connection_ids
+            if connection_id in names
+        ]
+
+    @staticmethod
+    def _group_details(
+        group_ids: list[int],
+        names: dict[int, str],
+    ) -> list[LinkedUiGroup]:
+        return [
+            LinkedUiGroup(
+                id=group_id,
+                name=names.get(group_id) or f"Group #{group_id}",
+            )
+            for group_id in group_ids
+        ]
+
     def to_out(
         self,
         user: User,
@@ -187,38 +224,7 @@ class UserOutputService:
         account_links = projection.account_links_by_user.get(user_id, [])
         group_ids = projection.group_ids_by_user.get(user_id, [])
         s3_user_links = projection.s3_user_links_by_user.get(user_id, [])
-        s3_user_ids = [link.s3_user_id for link in s3_user_links]
         s3_connection_ids = projection.connection_ids_by_user.get(user_id, [])
-        s3_user_names = projection.s3_user_names
-        s3_connection_names = projection.connection_names
-        group_names = projection.group_names
-        s3_user_details = [
-            LinkedS3User(
-                id=s3_user_id,
-                name=s3_user_names.get(s3_user_id)
-                or f"S3 User #{s3_user_id}",
-            )
-            for s3_user_id in s3_user_ids
-        ]
-        visible_connection_ids = [
-            connection_id
-            for connection_id in s3_connection_ids
-            if connection_id in s3_connection_names
-        ]
-        s3_connection_details = [
-            LinkedS3Connection(
-                id=connection_id,
-                name=s3_connection_names[connection_id],
-            )
-            for connection_id in visible_connection_ids
-        ]
-        group_details = [
-            LinkedUiGroup(
-                id=group_id,
-                name=group_names.get(group_id) or f"Group #{group_id}",
-            )
-            for group_id in group_ids
-        ]
 
         return UserOut(
             id=user.id,
@@ -249,10 +255,13 @@ class UserOutputService:
                 user.ui_preferences_json
             ),
             account_links=account_links,
-            group_details=group_details,
+            group_details=self._group_details(group_ids, projection.group_names),
             s3_user_links=s3_user_links,
-            s3_user_details=s3_user_details,
-            s3_connection_details=s3_connection_details,
+            s3_user_details=self._s3_user_details(s3_user_links, projection.s3_user_names),
+            s3_connection_details=self._connection_details(
+                s3_connection_ids,
+                projection.connection_names,
+            ),
             effective_access=EffectiveAccessService(
                 self.db
             ).to_user_effective_access(user),
