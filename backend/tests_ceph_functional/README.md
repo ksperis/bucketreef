@@ -130,8 +130,9 @@ Ceph-admin entity creation tests are executed only when RGW admin cleanup creden
 - **S3Account/Bucket/Object flow**: creates a tenant, manager, bucket, uploads/downloads objects, manages policies/tags, then exercises admin teardown.
 - **Bucket configuration**: validates Manager bucket round-trips for versioning, lifecycle, CORS, tags, policy and public access block, plus dedicated logging/website/notifications/replication scenarios when the cluster supports them.
 - **Portal server access logging**: provisions an explicit `portal_manager` account binding before login, verifies logging configuration and identity attribution, and checks the technical log bucket denies personal Portal keys. A Manager binding alone grants no Portal access; other account fixtures keep their default Manager-only binding.
-- **IAM & policies**: provisions IAM users/keys, creates managed policies, attaches them to users, and exercises key/user deletion.
-- **Stats & traffic**: hits `/manager/stats/overview` and `/manager/stats/traffic` after generating activity, skipping gracefully when RGW usage logs are unavailable.
+- **IAM & policies**: provisions IAM users/keys, inline and managed policies, groups and roles; validates key metadata, status changes, one-time secret exposure, role tags, and rejects storage backends that acknowledge a tag mutation without persisting it.
+- **Stats & traffic**: hits `/manager/stats/overview` and `/manager/stats/traffic` after generating activity, then cross-checks Manager bucket/account totals against Admin RGW statistics and dashboard coverage.
+- **Admin governance & audit**: validates Admin account usage, dashboard scope/storage/traffic, effective-access audit rights, Manager activity history, and persisted Admin/Manager audit actions with the expected execution context and actor.
 - **Bucket migration**: exercises one-shot and pre-sync migrations for current-only and version-aware buckets, validates replicated object state through the backend API, and requires the migration worker to be enabled on the target backend.
 - **Ceph-admin endpoints & metrics**: validates endpoint discovery, access probes, info, cluster storage and traffic metrics routes.
 - **Ceph-admin accounts**: validates listing/search/detail/update/metrics against dedicated RGW test accounts.
