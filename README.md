@@ -117,6 +117,8 @@ Explore the [official website](https://bucketreef.ksperis.com) and the published
 
 - https://docs.bucketreef.ksperis.com/
 
+Try the [online demo](https://demo.bucketreef.ksperis.com/).
+
 ## License
 
 Apache-2.0 — see `LICENSE`.
