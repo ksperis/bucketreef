@@ -142,7 +142,7 @@ class PortalServerAccessLoggingMixin:
             if not (isinstance(stmt, dict) and stmt.get("Sid") in managed_sids)
         ]
         log_bucket_arn = self._bucket_arns(log_bucket, account)[0]
-        tenant = str(account.rgw_tenant or "").strip()
+        tenant = account.rgw_tenant
         source_arn = f"arn:aws:s3::{tenant}:*" if tenant else "arn:aws:s3:::*"
         filtered.append(
             {

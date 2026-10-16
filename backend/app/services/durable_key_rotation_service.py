@@ -138,7 +138,7 @@ class DurableKeyRotationService:
         secret: str,
     ) -> None:
         if isinstance(target, (S3Account, S3User)):
-            require_rgw_user_identity(payload, target.rgw_user_uid, target.rgw_tenant or "")
+            require_rgw_user_identity(payload, target.rgw_user_uid, target.rgw_tenant)
         entries = RgwUserKeyParser.to_access_keys(admin.extract_keys(payload), ui_managed_access_key=None)
         key = next((key for key in entries if key.access_key_id == access), None)
         pair = next((item for item in admin.extract_keys(payload) if item.get("access_key") == access), None)
