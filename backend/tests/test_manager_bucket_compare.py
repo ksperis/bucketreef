@@ -31,7 +31,7 @@ def _build_request(context_id: str | None = None, path: str = "/api/manager/buck
     return Request(scope)
 
 
-def _build_account(account_id: int) -> S3ExecutionContext:
+def _build_context(account_id: int) -> S3ExecutionContext:
     return S3ExecutionContext(
         context_id=str(account_id),
         context_kind="account",
@@ -68,18 +68,18 @@ def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
         include_config=True,
         ignore_modified_after=datetime(2026, 3, 2, 10, 0, tzinfo=timezone.utc),
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
 
     def fake_get_s3_execution_context(*, context_ref, **_kwargs):
         assert context_ref == "2"
-        return target_account
+        return target_context
 
     def fake_compare_content(self, source_bucket, source_ctx, target_bucket, target_ctx, **kwargs):
         assert source_bucket == "bucket-a"
         assert target_bucket == "bucket-b"
-        assert source_ctx is source_account
-        assert target_ctx is target_account
+        assert source_ctx is source_context
+        assert target_ctx is target_context
         assert kwargs["ignore_modified_after"] == payload.ignore_modified_after
         return BucketContentDiff(
             source_count=10,
@@ -105,7 +105,7 @@ def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
         payload=payload,
         request=_build_request(context_id="1"),
         db=SimpleNamespace(),
-        source_account=source_account,
+        source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
     )
@@ -127,9 +127,9 @@ def test_compare_bucket_pair_returns_no_diff(monkeypatch):
         target_bucket="bucket-a",
         include_config=False,
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
     monkeypatch.setattr(
         BucketComparisonService,
         "compare_bucket_content",
@@ -150,7 +150,7 @@ def test_compare_bucket_pair_returns_no_diff(monkeypatch):
         payload=payload,
         request=_build_request(context_id="1"),
         db=SimpleNamespace(),
-        source_account=source_account,
+        source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
     )
@@ -165,9 +165,9 @@ def test_compare_bucket_pair_translates_runtime_errors(monkeypatch):
         source_bucket="bucket-a",
         target_bucket="bucket-b",
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     def failing_compare(*_args, **_kwargs):
         raise RuntimeError("target bucket not found")
@@ -179,7 +179,7 @@ def test_compare_bucket_pair_translates_runtime_errors(monkeypatch):
             payload=payload,
             request=_build_request(context_id="1"),
             db=SimpleNamespace(),
-            source_account=source_account,
+            source_context=source_context,
             actor=SimpleNamespace(),
             service=BucketComparisonService(),
         )
@@ -196,9 +196,9 @@ def test_compare_bucket_pair_supports_config_only(monkeypatch):
         include_content=False,
         include_config=True,
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     def should_not_compare_content(*_args, **_kwargs):
         raise AssertionError("compare_bucket_content should not be called in config-only mode")
@@ -214,7 +214,7 @@ def test_compare_bucket_pair_supports_config_only(monkeypatch):
         payload=payload,
         request=_build_request(context_id="1"),
         db=SimpleNamespace(),
-        source_account=source_account,
+        source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
     )
@@ -233,9 +233,9 @@ def test_compare_bucket_pair_forwards_selected_config_features(monkeypatch):
         include_config=True,
         config_features=["tags", "versioning_status"],
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
     captured: dict[str, object] = {}
 
     def should_not_compare_content(*_args, **_kwargs):
@@ -256,16 +256,16 @@ def test_compare_bucket_pair_forwards_selected_config_features(monkeypatch):
         payload=payload,
         request=_build_request(context_id="1"),
         db=SimpleNamespace(),
-        source_account=source_account,
+        source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
     )
 
     assert response.has_differences is False
     assert captured["source_bucket"] == "bucket-a"
-    assert captured["source_ctx"] is source_account
+    assert captured["source_ctx"] is source_context
     assert captured["target_bucket"] == "bucket-b"
-    assert captured["target_ctx"] is target_account
+    assert captured["target_ctx"] is target_context
     assert captured["include_sections"] == {"tags", "versioning_status"}
 
 
@@ -275,16 +275,16 @@ def test_compare_bucket_pair_rejects_source_equals_target_for_same_context(monke
         source_bucket="bucket-a",
         target_bucket="bucket-a",
     )
-    source_account = _build_account(1)
-    target_account = _build_account(1)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(1)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     with pytest.raises(HTTPException) as exc:
         buckets_router.compare_bucket_pair(
             payload=payload,
             request=_build_request(context_id="1"),
             db=SimpleNamespace(),
-            source_account=source_account,
+            source_context=source_context,
             actor=SimpleNamespace(),
             service=BucketComparisonService(),
         )
@@ -341,11 +341,11 @@ def test_compare_bucket_action_sync_source_only(monkeypatch):
         object_keys=["logs/a.txt", "logs/b.txt", "logs/c.txt"],
         parallelism=8,
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     def fake_run_action(self, source_bucket, source_ctx, target_bucket, target_ctx, **kwargs):
         captured["source_bucket"] = source_bucket
@@ -370,7 +370,7 @@ def test_compare_bucket_action_sync_source_only(monkeypatch):
         payload=payload,
         request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
         db=SimpleNamespace(),
-        source_account=source_account,
+        source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
         audit_service=audit,
@@ -385,9 +385,9 @@ def test_compare_bucket_action_sync_source_only(monkeypatch):
     assert response.succeeded_count == 3
     assert response.failed_count == 0
     assert captured["source_bucket"] == "bucket-a"
-    assert captured["source_ctx"] is source_account
+    assert captured["source_ctx"] is source_context
     assert captured["target_bucket"] == "bucket-b"
-    assert captured["target_ctx"] is target_account
+    assert captured["target_ctx"] is target_context
     assert captured["action"] == "sync_source_only"
     assert captured["object_keys"] == ["logs/a.txt", "logs/b.txt", "logs/c.txt"]
     assert captured["parallelism"] == 8
@@ -405,9 +405,9 @@ def test_compare_bucket_action_runs_sync_different(monkeypatch):
         action="sync_different",
         object_keys=["logs/different.txt"],
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
     captured: dict[str, object] = {}
 
     def fake_run_action(self, *_args, **kwargs):
@@ -426,7 +426,7 @@ def test_compare_bucket_action_runs_sync_different(monkeypatch):
         payload=payload,
         request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
         db=SimpleNamespace(),
-        source_account=source_account,
+        source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
         audit_service=_RecordingAudit(),
@@ -444,9 +444,9 @@ def test_compare_bucket_action_forwards_object_keys(monkeypatch):
         action="sync_source_only",
         object_keys=[" logs/a.txt "],
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
     captured: dict[str, object] = {}
 
     def fake_run_action(self, *_args, **kwargs):
@@ -466,7 +466,7 @@ def test_compare_bucket_action_forwards_object_keys(monkeypatch):
         payload=payload,
         request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
         db=SimpleNamespace(),
-        source_account=source_account,
+        source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
         audit_service=audit,
@@ -486,9 +486,9 @@ def test_compare_bucket_action_delete_returns_partial_failure(monkeypatch):
         action="delete_target_only",
         object_keys=["orphan-1", "orphan-2", "orphan-3", "orphan-4", "orphan-5"],
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     monkeypatch.setattr(
         BucketComparisonService,
@@ -506,7 +506,7 @@ def test_compare_bucket_action_delete_returns_partial_failure(monkeypatch):
         payload=payload,
         request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
         db=SimpleNamespace(),
-        source_account=source_account,
+        source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
         audit_service=_RecordingAudit(),
@@ -528,16 +528,16 @@ def test_compare_bucket_action_rejects_source_equals_target_for_same_context(mon
         action="sync_source_only",
         object_keys=["logs/a.txt"],
     )
-    source_account = _build_account(1)
-    target_account = _build_account(1)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(1)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     with pytest.raises(HTTPException) as exc:
         buckets_router.run_compare_bucket_action(
             payload=payload,
             request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
             db=SimpleNamespace(),
-            source_account=source_account,
+            source_context=source_context,
             actor=SimpleNamespace(),
             service=BucketComparisonService(),
         )
@@ -554,9 +554,9 @@ def test_compare_bucket_action_translates_runtime_error(monkeypatch):
         action="sync_source_only",
         object_keys=["logs/a.txt"],
     )
-    source_account = _build_account(1)
-    target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     def failing_action(*_args, **_kwargs):
         raise RuntimeError("copy failed")
@@ -568,7 +568,7 @@ def test_compare_bucket_action_translates_runtime_error(monkeypatch):
             payload=payload,
             request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
             db=SimpleNamespace(),
-            source_account=source_account,
+            source_context=source_context,
             actor=SimpleNamespace(),
             service=BucketComparisonService(),
         )
@@ -585,7 +585,7 @@ def test_compare_bucket_action_rejects_unauthorized_target_context(monkeypatch):
         action="sync_source_only",
         object_keys=["logs/a.txt"],
     )
-    source_account = _build_account(1)
+    source_context = _build_context(1)
 
     def fail_get_context(**_kwargs):
         raise HTTPException(status_code=403, detail="Forbidden target context")
@@ -597,7 +597,7 @@ def test_compare_bucket_action_rejects_unauthorized_target_context(monkeypatch):
             payload=payload,
             request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
             db=SimpleNamespace(),
-            source_account=source_account,
+            source_context=source_context,
             actor=SimpleNamespace(),
             service=BucketComparisonService(),
         )
@@ -672,7 +672,7 @@ def test_compare_bucket_action_feature_off_returns_403(db_session, monkeypatch):
             payload=payload,
             request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
             db=SimpleNamespace(),
-            source_account=_build_account(1),
+            source_context=_build_context(1),
             actor=SimpleNamespace(),
             service=BucketComparisonService(),
             _tool_user=dependencies_router.require_bucket_compare_enabled(_tool_user(), db=db_session),
