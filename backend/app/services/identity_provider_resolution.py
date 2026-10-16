@@ -5,27 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from typing import TypeVar
 
-from sqlalchemy.orm import Session
-
 
 _PersistedProviderT = TypeVar("_PersistedProviderT")
 _ProviderSettingsT = TypeVar("_ProviderSettingsT")
 _ProviderItemT = TypeVar("_ProviderItemT")
-
-
-def list_persisted_identity_providers(
-    db: Session,
-    model: type[_PersistedProviderT],
-) -> list[_PersistedProviderT]:
-    return db.query(model).order_by(model.provider_id.asc()).all()
-
-
-def get_persisted_identity_provider(
-    db: Session,
-    model: type[_PersistedProviderT],
-    provider_id: str,
-) -> _PersistedProviderT | None:
-    return db.query(model).filter(model.provider_id == provider_id).first()
 
 
 def list_effective_identity_providers(

@@ -6,7 +6,6 @@ import json
 from typing import Literal, Optional
 from urllib.parse import urlparse
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import OIDCProviderSettings, Settings, get_settings
@@ -18,17 +17,15 @@ from app.models.oidc import (
     OIDCProviderAdminPayload,
     OIDCProviderFieldLock,
 )
+from app.services.identity_provider_repository import IdentityProviderRepository
 from app.services.identity_provider_resolution import (
-    get_persisted_identity_provider,
     list_effective_identity_providers,
-    list_persisted_identity_providers,
     resolve_identity_provider_map,
 )
 from app.utils.identity_provider_ids import (
     identity_provider_environment_source,
     normalize_identity_provider_id,
 )
-from app.utils.time import utcnow
 
 
 OIDC_PROVIDER_FIELDS = (
@@ -36,22 +33,6 @@ OIDC_PROVIDER_FIELDS = (
     *OIDC_PROVIDER_CONFIG_FIELDS,
     "client_secret",
 )
-
-
-class OIDCProviderSettingsError(Exception):
-    """Base class for admin OIDC provider settings errors."""
-
-
-class OIDCProviderAlreadyExistsError(OIDCProviderSettingsError):
-    """Raised when a UI-managed provider id is already used."""
-
-
-class OIDCProviderManagedByEnvironmentError(OIDCProviderSettingsError):
-    """Raised when trying to mutate an environment-managed provider."""
-
-
-class OIDCProviderNotFoundError(OIDCProviderSettingsError):
-    """Raised when a UI-managed provider cannot be found."""
 
 
 def normalize_oidc_provider_id(provider_id: str) -> str:
@@ -84,7 +65,7 @@ def list_effective_oidc_providers(
     env_providers = _environment_provider_map(settings)
     return list_effective_identity_providers(
         env_providers,
-        list_persisted_identity_providers(db, OidcProvider),
+        _provider_repository(db, env_providers).list(),
         environment_item=_environment_provider_item,
         persisted_item=_ui_provider_item,
     )
@@ -98,7 +79,7 @@ def resolve_oidc_provider_map(
     env_providers = _environment_provider_map(settings)
     return resolve_identity_provider_map(
         env_providers,
-        list_persisted_identity_providers(db, OidcProvider),
+        _provider_repository(db, env_providers).list(),
         persisted_to_settings=_ui_provider_to_settings,
     )
 
@@ -106,20 +87,10 @@ def resolve_oidc_provider_map(
 def create_oidc_provider(db: Session, payload: OIDCProviderAdminPayload) -> OIDCProviderAdminItem:
     _validate_production_payload(payload)
     provider_id = normalize_oidc_provider_id(payload.provider_id)
-    if provider_id in _environment_provider_map():
-        raise OIDCProviderManagedByEnvironmentError("OIDC provider is managed by environment settings")
-    if get_persisted_identity_provider(db, OidcProvider, provider_id):
-        raise OIDCProviderAlreadyExistsError("OIDC provider already exists")
-
-    provider = OidcProvider(provider_id=provider_id)
-    _apply_payload(provider, payload, replace_secret=True)
-    db.add(provider)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise OIDCProviderAlreadyExistsError("OIDC provider already exists") from exc
-    db.refresh(provider)
+    provider = _provider_repository(db).create(
+        provider_id,
+        lambda current: _apply_payload(current, payload, replace_secret=True),
+    )
     return _ui_provider_item(provider)
 
 
@@ -133,33 +104,29 @@ def update_oidc_provider(
     payload_id = normalize_oidc_provider_id(payload.provider_id)
     if payload_id != normalized_id:
         raise ValueError("provider_id cannot be changed")
-    if normalized_id in _environment_provider_map():
-        raise OIDCProviderManagedByEnvironmentError("OIDC provider is managed by environment settings")
-    provider = get_persisted_identity_provider(db, OidcProvider, normalized_id)
-    if not provider:
-        raise OIDCProviderNotFoundError("OIDC provider not found")
-
-    _apply_payload(provider, payload, replace_secret=False)
-    provider.updated_at = utcnow()
-    db.commit()
-    db.refresh(provider)
+    provider = _provider_repository(db).update(
+        normalized_id,
+        lambda current: _apply_payload(current, payload, replace_secret=False),
+    )
     return _ui_provider_item(provider)
 
 
 def delete_oidc_provider(db: Session, provider_id: str) -> None:
     normalized_id = normalize_oidc_provider_id(provider_id)
-    if normalized_id in _environment_provider_map():
-        raise OIDCProviderManagedByEnvironmentError("OIDC provider is managed by environment settings")
-    provider = get_persisted_identity_provider(db, OidcProvider, normalized_id)
-    if not provider:
-        raise OIDCProviderNotFoundError("OIDC provider not found")
-    db.delete(provider)
-    db.commit()
+    _provider_repository(db).delete(normalized_id)
 
 
 def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, OIDCProviderSettings]:
     settings = settings or get_settings()
     return dict(settings.oidc_providers)
+
+
+def _provider_repository(
+    db: Session,
+    environment_providers: Optional[dict[str, OIDCProviderSettings]] = None,
+) -> IdentityProviderRepository[OidcProvider]:
+    providers = _environment_provider_map() if environment_providers is None else environment_providers
+    return IdentityProviderRepository(db, OidcProvider, providers, "OIDC")
 
 
 def _apply_payload(provider: OidcProvider, payload: OIDCProviderAdminPayload, *, replace_secret: bool) -> None:
