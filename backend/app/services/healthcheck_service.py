@@ -183,7 +183,7 @@ class HealthCheckService:
                 url,
                 timeout=settings.healthcheck_timeout_seconds,
                 verify=self._resolve_verify_ssl(target),
-                allow_redirects=True,
+                allow_redirects=False,
                 headers={"User-Agent": "bucketreef-healthcheck"},
             )
             return response.status_code, None

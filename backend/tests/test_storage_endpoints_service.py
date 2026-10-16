@@ -1128,7 +1128,7 @@ def test_detect_features_checks_http_endpoint_when_requested(
     kwargs = captured["kwargs"]
     assert isinstance(kwargs, dict)
     assert kwargs["verify"] is False
-    assert kwargs["allow_redirects"] is True
+    assert kwargs["allow_redirects"] is False
 
 
 def test_detect_features_reports_unavailable_http_endpoint(db_session, monkeypatch):
