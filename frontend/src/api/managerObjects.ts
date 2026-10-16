@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3ContextParam } from "./accountParams";
+import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
 
 export type ManagerObject = {
   key: string;
@@ -21,7 +21,7 @@ type ManagerObjectListingResponse = {
 };
 
 export async function listManagerObjects(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   prefix = "",
   continuationToken?: string,
@@ -34,7 +34,7 @@ export async function listManagerObjects(
           prefix,
           continuation_token: continuationToken,
         },
-        accountId,
+        contextId,
       ),
     },
   );

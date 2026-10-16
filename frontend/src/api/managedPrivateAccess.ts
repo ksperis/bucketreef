@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import type { S3AccountSelector } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
 import { withS3ContextParam } from "./accountParams";
 import type { S3Connection } from "./connections";
 
@@ -31,21 +31,21 @@ type ManagedPrivateAccessResult = {
 };
 
 export async function createManagedIAMPrivateAccess(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   payload: ManagedIAMPrivateAccessPayload
 ): Promise<ManagedPrivateAccessResult> {
   const { data } = await client.post<ManagedPrivateAccessResult>("/manager/private-access/iam", payload, {
-    params: withS3ContextParam(undefined, accountId),
+    params: withS3ContextParam(undefined, contextId),
   });
   return data;
 }
 
 export async function createManagedRGWUserPrivateAccess(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   payload: ManagedPrivateAccessBasePayload
 ): Promise<ManagedPrivateAccessResult> {
   const { data } = await client.post<ManagedPrivateAccessResult>("/manager/private-access/rgw-user", payload, {
-    params: withS3ContextParam(undefined, accountId),
+    params: withS3ContextParam(undefined, contextId),
   });
   return data;
 }

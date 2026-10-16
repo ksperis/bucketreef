@@ -4,7 +4,7 @@
  */
 import {
   withS3ContextParam,
-  type S3AccountSelector,
+  type S3ExecutionContextSelector,
 } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import {
@@ -29,7 +29,7 @@ type BrowserTransferMode = "direct" | "proxy";
 type BrowserTransferObjectRef = {
   text?: BrowserTextFn;
   versionId?: string;
-  selector: S3AccountSelector;
+  selector: S3ExecutionContextSelector;
   bucket: string;
   key: string;
   sseCustomerKeyBase64?: string | null;

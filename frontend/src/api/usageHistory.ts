@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3ContextParam } from "./accountParams";
+import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
 
 export type UsageHistoryGranularity = "daily" | "hourly";
 export type UsageHistorySubjectType = "all" | "account" | "s3_user";
@@ -143,10 +143,10 @@ export async function fetchAdminUsageHistoryTrends(
 }
 
 export async function fetchManagerUsageHistoryTrends(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   window: UsageHistoryTrendWindow
 ): Promise<UsageHistoryTrendResponse> {
-  const params = withS3ContextParam({ window }, accountId);
+  const params = withS3ContextParam({ window }, contextId);
   const { data } = await client.get<UsageHistoryTrendResponse>("/manager/stats/usage-history-trends", { params });
   return data;
 }

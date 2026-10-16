@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { S3AccountSelector, withS3ContextParam } from "./accountParams";
+import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 import {
   buildBrowserWorkspaceHeaders,
@@ -49,7 +49,7 @@ export function buildBrowserFetchHeaders(
 }
 
 export async function presignObject(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   payload: PresignRequest,
   sseCustomerKeyBase64?: string | null,
@@ -59,7 +59,7 @@ export async function presignObject(
     `/browser/buckets/${encodeURIComponent(bucketName)}/presign`,
     payload,
     {
-      params: withS3ContextParam(undefined, accountId),
+      params: withS3ContextParam(undefined, contextId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -70,7 +70,7 @@ export async function presignObject(
 }
 
 export async function proxyUpload(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   key: string,
   file: Blob,
@@ -94,7 +94,7 @@ export async function proxyUpload(
     `/browser/buckets/${encodeURIComponent(bucketName)}/proxy-upload`,
     form,
     {
-      params: withS3ContextParam(undefined, accountId),
+      params: withS3ContextParam(undefined, contextId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -107,7 +107,7 @@ export async function proxyUpload(
 }
 
 export async function proxyDownload(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   key: string,
   signal?: AbortSignal,
@@ -118,7 +118,7 @@ export async function proxyDownload(
   const { data } = await client.get(
     `/browser/buckets/${encodeURIComponent(bucketName)}/download`,
     {
-      params: withS3ContextParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId),
+      params: withS3ContextParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, contextId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
