@@ -149,7 +149,7 @@ def _endpoint(db_session, *, iam=True, admin=False):
 def _account(db_session, user, endpoint):
     account = S3Account(
         name="managed-account",
-        rgw_account_id="tenant-a",
+        rgw_account_id="RGW00000000000000001",
         rgw_user_uid="tenant-a-admin",
         rgw_access_key="ROOT-AK",
         rgw_secret_key="ROOT-SK",
@@ -220,6 +220,9 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     connection = db_session.query(S3Connection).filter(S3Connection.id == result.connection.id).one()
     assert connection.secret_access_key == "NEVER-IN-RESPONSE"
     assert connection.storage_endpoint_id == account.storage_endpoint_id
+    assert connection.rgw_user_uid is None
+    assert connection.rgw_tenant is None
+    assert connection.rgw_account_id == account.rgw_account_id
     audits = db_session.query(AuditLog).all()
     assert audits
     assert all("NEVER-IN-RESPONSE" not in (audit.metadata_json or "") for audit in audits)
@@ -653,8 +656,9 @@ def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkey
     assert created.storage_endpoint_id == endpoint.id
     assert created.access_key_id == "PERSONAL-AK"
     assert created.access_key_id != s3_user.rgw_access_key
-    assert created.credential_owner_type == "s3_user"
-    assert created.credential_owner_identifier == (f"{tenant}${s3_user.rgw_user_uid}" if tenant else s3_user.rgw_user_uid)
+    assert created.rgw_user_uid == s3_user.rgw_user_uid
+    assert created.rgw_tenant == (tenant or "")
+    assert created.rgw_account_id is None
     assert "PERSONAL-SK" not in result.model_dump_json()
     audits = db_session.query(AuditLog).filter(AuditLog.action.like("managed_private_access.%")).all()
     assert audits

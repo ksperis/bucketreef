@@ -69,6 +69,9 @@ def _create_row(db_session, **kwargs) -> S3Connection:
         custom_endpoint_config=custom_endpoint_config,
         access_key_id=kwargs.get("access_key_id", "AKIA-CONN-001"),
         secret_access_key=kwargs.get("secret_access_key", "SECRET-CONN-001"),
+        rgw_user_uid=kwargs.get("rgw_user_uid"),
+        rgw_tenant=kwargs.get("rgw_tenant"),
+        rgw_account_id=kwargs.get("rgw_account_id"),
         capabilities_json=kwargs.get("capabilities_json", '{"can_manage_iam": false}'),
     )
     db_session.add(row)
@@ -311,8 +314,8 @@ def test_update_connection_updates_private_connection(db_session, monkeypatch):
             secret_access_key="SECRET-UPDATED",
             access_manager=True,
             access_browser=True,
-            credential_owner_type="iam_user",
-            credential_owner_identifier="user-42",
+            rgw_user_uid="user-42",
+            rgw_tenant="tenant_a",
         ),
     )
     assert updated.endpoint_url == "https://new.example.test"
@@ -320,8 +323,40 @@ def test_update_connection_updates_private_connection(db_session, monkeypatch):
     assert updated.verify_tls is True
     assert updated.force_path_style is True
     assert updated.access_manager is True
-    assert updated.credential_owner_type == "iam_user"
+    assert updated.rgw_user_uid == "user-42"
+    assert updated.rgw_tenant == "tenant_a"
     assert refreshed == [row.id]
+
+
+def test_update_connection_clears_persisted_identity_when_endpoint_changes(
+    db_session,
+    monkeypatch,
+):
+    owner = _user(db_session, "identity-endpoint-change@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="identity-endpoint-change",
+        rgw_user_uid="alice",
+        rgw_tenant="tenant_a",
+        rgw_account_id="RGW00000000000000001",
+    )
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_connection_endpoint_planner.validate_user_supplied_s3_endpoint",
+        lambda value, field_name="Endpoint URL": value.rstrip("/"),
+    )
+    monkeypatch.setattr(service, "_refresh_detected_capabilities", lambda current: None)
+
+    updated = service.update(
+        owner.id,
+        row.id,
+        S3ConnectionUpdate(endpoint_url="https://replacement.example.test"),
+    )
+
+    assert updated.rgw_user_uid is None
+    assert updated.rgw_tenant is None
+    assert updated.rgw_account_id is None
 
 
 def test_update_private_connection_requires_explicit_managed_detachment(

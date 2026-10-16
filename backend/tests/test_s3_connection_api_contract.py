@@ -142,7 +142,7 @@ def test_admin_connections_api_does_not_expose_iam_capable(monkeypatch, contract
 
 
 @pytest.mark.parametrize("path", ["/api/connections", "/api/admin/s3-connections"])
-def test_connections_api_rejects_noncanonical_credential_owner_types(
+def test_connections_api_rejects_legacy_rgw_user_uid_syntax(
     contract_client,
     path,
 ):
@@ -151,16 +151,15 @@ def test_connections_api_rejects_noncanonical_credential_owner_types(
     response = client.post(
         path,
         json={
-            "name": "invalid-owner-type",
-            "endpoint_url": "https://invalid-owner-type.example.test",
+            "name": "invalid-rgw-user-uid",
+            "endpoint_url": "https://invalid-rgw-user-uid.example.test",
             "access_key_id": "AKIAINVALIDOWNERTYPE",
             "secret_access_key": "SECRETINVALIDOWNERTYPE",
-            "credential_owner_type": "rgw_user",
-            "credential_owner_identifier": "rgw-user",
+            "rgw_user_uid": "iam:rgw-user",
         },
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 400
 
 
 def test_admin_connections_api_supports_is_active_update(monkeypatch, contract_client):

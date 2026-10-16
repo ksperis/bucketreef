@@ -163,8 +163,8 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
         access_manager=True,
         access_browser=True,
         storage_endpoint=endpoint,
-        credential_owner_type="s3_user",
-        credential_owner_identifier="rgw-account$reporting",
+        rgw_user_uid="reporting",
+        rgw_tenant="rgw_account",
         capabilities_json=json.dumps({"can_manage_iam": False}),
         access_key_id="AK-CONN-STATS",
         secret_access_key="SK-CONN-STATS",
@@ -182,12 +182,12 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
     )
     dependencies.require_usage_capable_manager(account=account, actor=user, db=db_session)
     assert account.rgw_user_uid == "reporting"
-    assert account.rgw_tenant == "rgw-account"
+    assert account.rgw_tenant == "rgw_account"
 
     class _FakeBucketsService:
         def list_buckets(self, target_account):
             assert target_account.rgw_user_uid == "reporting"
-            assert target_account.rgw_tenant == "rgw-account"
+            assert target_account.rgw_tenant == "rgw_account"
             return []
 
     payload = manager_stats_router.account_stats(account=account, bucket_service=_FakeBucketsService(), _={})
@@ -239,8 +239,8 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
         access_manager=True,
         access_browser=True,
         storage_endpoint=endpoint,
-        credential_owner_type="s3_user",
-        credential_owner_identifier="rgw-account$traffic",
+        rgw_user_uid="traffic",
+        rgw_tenant="rgw_account",
         capabilities_json=json.dumps({"can_manage_iam": False}),
         access_key_id="AK-CONN-TRAFFIC",
         secret_access_key="SK-CONN-TRAFFIC",
@@ -258,7 +258,7 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
     )
     dependencies.require_metrics_capable_manager(account=account, actor=user, db=db_session)
     assert account.rgw_user_uid == "traffic"
-    assert account.rgw_tenant == "rgw-account"
+    assert account.rgw_tenant == "rgw_account"
 
     captured = {"uid": None}
 

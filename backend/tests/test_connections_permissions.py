@@ -171,8 +171,9 @@ def test_revocation_keeps_owned_connection_lifecycle_but_rejects_sensitive_forge
                 for payload in (
                     {"provider_hint": "other"},
                     {"storage_endpoint_id": endpoint.id},
-                    {"credential_owner_type": "iam_user"},
-                    {"credential_owner_identifier": "forged-owner"},
+                    {"rgw_user_uid": "forged-owner"},
+                    {"rgw_tenant": "forged-tenant"},
+                    {"rgw_account_id": "RGW00000000000000001"},
                     {"endpoint_url": "https://forged.example.test"},
                     {"region": "eu-west-3"},
                     {"access_key_id": "FORGED-AK"},

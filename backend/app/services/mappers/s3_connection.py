@@ -42,8 +42,9 @@ def s3_connection_from_db(
             if row.managed_private_access is not None
             else None
         ),
-        credential_owner_type=row.credential_owner_type,
-        credential_owner_identifier=row.credential_owner_identifier,
+        rgw_user_uid=row.rgw_user_uid,
+        rgw_tenant=row.rgw_tenant,
+        rgw_account_id=row.rgw_account_id,
         endpoint_url=details.endpoint_url or "",
         region=details.region,
         access_key_id=mask_access_key_id(row.access_key_id),

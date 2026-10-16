@@ -11,7 +11,6 @@ import { PaginatedResponse } from "./types";
 import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 import type { UiGroupAvatarDescriptor } from "./groups";
 import type { UserAvatarDescriptor, UserSummary } from "./users";
-import type { CredentialOwnerType } from "./connections";
 
 export type S3ConnectionAdminItem = {
   id: number;
@@ -23,8 +22,9 @@ export type S3ConnectionAdminItem = {
   execution_status: "ready" | "remediation_required";
   remediation_reason?: string | null;
   capabilities?: Record<string, unknown> | null;
-  credential_owner_type?: CredentialOwnerType | null;
-  credential_owner_identifier?: string | null;
+  rgw_user_uid?: string | null;
+  rgw_tenant?: string | null;
+  rgw_account_id?: string | null;
   provider_hint?: string | null;
   region?: string | null;
   force_path_style?: boolean | null;
@@ -64,8 +64,9 @@ export type CreateAdminS3ConnectionPayload = {
   name: string;
   provider_hint?: string | null;
   storage_endpoint_id?: number | null;
-  credential_owner_type?: CredentialOwnerType | null;
-  credential_owner_identifier?: string | null;
+  rgw_user_uid?: string | null;
+  rgw_tenant?: string | null;
+  rgw_account_id?: string | null;
   endpoint_url?: string | null;
   region?: string | null;
   access_key_id: string;
@@ -83,8 +84,9 @@ export type UpdateAdminS3ConnectionPayload = {
   provider_hint?: string | null;
   storage_endpoint_id?: number | null;
   is_active?: boolean | null;
-  credential_owner_type?: CredentialOwnerType | null;
-  credential_owner_identifier?: string | null;
+  rgw_user_uid?: string | null;
+  rgw_tenant?: string | null;
+  rgw_account_id?: string | null;
   endpoint_url?: string | null;
   region?: string | null;
   force_path_style?: boolean | null;

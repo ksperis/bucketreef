@@ -41,6 +41,9 @@ describe("AddS3ConnectionFromKeyModal", () => {
         defaultEndpointUrl="https://s3.example.test"
         defaultAccessManager
         defaultAccessBrowser
+        defaultRgwUserUid="alice"
+        defaultRgwTenant="team_a"
+        defaultRgwAccountId="RGW00000000000000001"
         onClose={onClose}
         onCreated={onCreated}
       />
@@ -62,6 +65,9 @@ describe("AddS3ConnectionFromKeyModal", () => {
         secret_access_key: "SECRET-EXAMPLE",
         access_manager: true,
         access_browser: true,
+        rgw_user_uid: "alice",
+        rgw_tenant: "team_a",
+        rgw_account_id: "RGW00000000000000001",
       })
     );
 

@@ -507,7 +507,7 @@ Legend: {
   }
   "s3_connections": {
     class: table
-    tooltip: "PK: id\\nCheck: ck_s3_connections_credential_owner_type: credential_owner_type IS NULL OR credential_owner_type IN ('iam_user', 'account_user', 's3_user')\\nIndexes: ix_s3_connections_created_by_user_id(created_by_user_id) [index]; ix_s3_connections_id(id) [index]; ix_s3_connections_storage_endpoint_id(storage_endpoint_id) [index]; uq_s3_connections_private_creator_name(created_by_user_id, name) [unique]; uq_s3_connections_shared_name(name) [unique]"
+    tooltip: "PK: id\\nIndexes: ix_s3_connections_created_by_user_id(created_by_user_id) [index]; ix_s3_connections_id(id) [index]; ix_s3_connections_storage_endpoint_id(storage_endpoint_id) [index]; uq_s3_connections_private_creator_name(created_by_user_id, name) [unique]; uq_s3_connections_shared_name(name) [unique]"
     "id": "INTEGER [PK, NN]"
     "created_by_user_id": "INTEGER [FK, NN]"
     "name": "VARCHAR [NN]"
@@ -519,8 +519,9 @@ Legend: {
     "remediation_required": "BOOLEAN [NN]"
     "remediation_reason": "VARCHAR"
     "server_managed": "BOOLEAN [NN]"
-    "credential_owner_type": "VARCHAR"
-    "credential_owner_identifier": "VARCHAR"
+    "rgw_user_uid": "VARCHAR"
+    "rgw_tenant": "VARCHAR"
+    "rgw_account_id": "VARCHAR"
     "storage_endpoint_id": "INTEGER [FK]"
     "custom_endpoint_config": "TEXT"
     "access_key_id": "VARCHAR [NN]"

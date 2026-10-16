@@ -17,7 +17,6 @@ from app.models.managed_private_access import (
     ManagedPrivateAccessResult,
     ManagedRGWUserPrivateAccessRequest,
 )
-from app.models.s3_connection import CredentialOwnerType
 from app.services import app_settings_service
 from app.services.resource_name_validation import validate_inline_policy_requests
 from app.services.audit_service import AuditService
@@ -44,6 +43,8 @@ from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTar
 from app.services.s3_users_service import S3UsersService
 from app.utils.s3_connection_endpoint import resolve_connection_details
 from app.utils.s3_endpoint import resolve_iam_client_options
+from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
+from app.utils.rgw_payloads import extract_rgw_user_identity
 from app.utils.storage_endpoint_features import (
     aws_iam_client_options_for_region,
     resolve_iam_endpoint,
@@ -54,16 +55,6 @@ from app.utils.time import utcnow
 
 ACTIVE_STATES = ("provisioning", "active", "deleting", "cleanup_pending")
 AMAZON_S3_FULL_ACCESS_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-
-
-def _credential_owner_type_for_principal(
-    principal_type: str,
-) -> CredentialOwnerType:
-    if principal_type == "iam_user":
-        return "iam_user"
-    if principal_type == "rgw_user":
-        return "s3_user"
-    raise ManagedPrivateAccessError(f"Unsupported remote principal type: {principal_type}")
 
 
 class ManagedPrivateAccessService:
@@ -505,6 +496,7 @@ class ManagedPrivateAccessService:
         access_browser: bool,
         access_manager: bool,
     ) -> ManagedPrivateAccessResult:
+        rgw_user_uid, rgw_tenant, rgw_account_id = self._managed_connection_rgw_identity(provisioning)
         connection = S3Connection(
             created_by_user_id=user.id,
             name=connection_name,
@@ -513,10 +505,9 @@ class ManagedPrivateAccessService:
             access_manager=access_manager,
             access_browser=access_browser,
             server_managed=True,
-            credential_owner_type=_credential_owner_type_for_principal(
-                provisioning.remote_principal_type
-            ),
-            credential_owner_identifier=provisioning.remote_principal_identifier,
+            rgw_user_uid=rgw_user_uid,
+            rgw_tenant=rgw_tenant,
+            rgw_account_id=rgw_account_id,
             storage_endpoint_id=destination.storage_endpoint_id,
             custom_endpoint_config=destination.custom_endpoint_config,
             access_key_id=access_key_id,
@@ -538,6 +529,38 @@ class ManagedPrivateAccessService:
             status="active",
             connection=self.connections.serialize(connection),
         )
+
+    def _managed_connection_rgw_identity(
+        self,
+        provisioning: ManagedPrivateAccess,
+    ) -> tuple[str | None, str | None, str | None]:
+        user_uid = None
+        tenant = None
+        account_id = None
+        if provisioning.remote_principal_type == "iam_user":
+            if provisioning.source_context_type == "account":
+                source_account = (
+                    self.db.query(S3Account)
+                    .filter(S3Account.id == provisioning.source_context_id)
+                    .first()
+                )
+                account_id = source_account.rgw_account_id if source_account is not None else None
+            elif provisioning.source_context_type == "connection":
+                source_connection = (
+                    self.db.query(S3Connection)
+                    .filter(S3Connection.id == provisioning.source_context_id)
+                    .first()
+                )
+                account_id = source_connection.rgw_account_id if source_connection is not None else None
+        elif provisioning.remote_principal_type == "rgw_user":
+            user_uid, tenant = extract_rgw_user_identity(
+                {"uid": provisioning.remote_principal_identifier}
+            )
+        else:
+            raise ManagedPrivateAccessError(
+                f"Unsupported remote principal type: {provisioning.remote_principal_type}"
+            )
+        return normalize_connection_rgw_identity(user_uid, tenant, account_id)
 
     def _cleanup_remote(self, provisioning: ManagedPrivateAccess, *, user: User) -> None:
         if provisioning.remote_principal_type == "iam_user":

@@ -47,8 +47,9 @@ _SENSITIVE_UPDATE_FIELDS = frozenset(
     {
         "provider_hint",
         "storage_endpoint_id",
-        "credential_owner_type",
-        "credential_owner_identifier",
+        "rgw_user_uid",
+        "rgw_tenant",
+        "rgw_account_id",
         "endpoint_url",
         "region",
         "access_key_id",

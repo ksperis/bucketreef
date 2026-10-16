@@ -14,7 +14,6 @@ from app.models.tagging import (
     TagDefinitionSummary,
 )
 
-CredentialOwnerType = Literal["iam_user", "account_user", "s3_user"]
 S3_CONNECTION_CUSTOM_ENDPOINT_FIELDS = {
     "endpoint_url",
     "region",
@@ -58,8 +57,9 @@ class S3Connection(ApiModel):
     access_browser: bool = True
     server_managed: bool = False
     managed_access_state: Optional[str] = None
-    credential_owner_type: Optional[CredentialOwnerType] = None
-    credential_owner_identifier: Optional[str] = None
+    rgw_user_uid: Optional[str] = None
+    rgw_tenant: Optional[str] = None
+    rgw_account_id: Optional[str] = None
     endpoint_url: str
     region: Optional[str] = None
     access_key_id: str
@@ -79,8 +79,9 @@ class S3ConnectionCreate(_CanonicalEndpointPayload):
     provider_hint: Optional[str] = None
     access_manager: bool = False
     access_browser: bool = True
-    credential_owner_type: Optional[CredentialOwnerType] = None
-    credential_owner_identifier: Optional[str] = None
+    rgw_user_uid: Optional[str] = None
+    rgw_tenant: Optional[str] = None
+    rgw_account_id: Optional[str] = None
     endpoint_url: Optional[str] = None
     region: Optional[str] = None
     access_key_id: str
@@ -98,8 +99,9 @@ class S3ConnectionUpdate(_CanonicalEndpointPayload):
     is_active: Optional[bool] = None
     access_manager: Optional[bool] = None
     access_browser: Optional[bool] = None
-    credential_owner_type: Optional[CredentialOwnerType] = None
-    credential_owner_identifier: Optional[str] = None
+    rgw_user_uid: Optional[str] = None
+    rgw_tenant: Optional[str] = None
+    rgw_account_id: Optional[str] = None
     endpoint_url: Optional[str] = None
     region: Optional[str] = None
     access_key_id: Optional[str] = None
