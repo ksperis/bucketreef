@@ -24,19 +24,18 @@ from app.services.app_settings_service import (
 )
 from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.healthcheck_background_service import run_initial_healthchecks
+from app.services.identity_provider_repository import (
+    IdentityProviderAlreadyExistsError,
+    IdentityProviderManagedByEnvironmentError,
+    IdentityProviderNotFoundError,
+)
 from app.services.ldap_provider_settings_service import (
-    LDAPProviderAlreadyExistsError,
-    LDAPProviderManagedByEnvironmentError,
-    LDAPProviderNotFoundError as AdminLDAPProviderNotFoundError,
     create_ldap_provider,
     delete_ldap_provider,
     list_effective_ldap_providers,
     update_ldap_provider,
 )
 from app.services.oidc_provider_settings_service import (
-    OIDCProviderAlreadyExistsError,
-    OIDCProviderManagedByEnvironmentError,
-    OIDCProviderNotFoundError as AdminOIDCProviderNotFoundError,
     create_oidc_provider,
     delete_oidc_provider,
     list_effective_oidc_providers,
@@ -144,9 +143,9 @@ def create_oidc_provider_settings(
     require_admin_sensitive_action(request, db, current_user)
     try:
         item = create_oidc_provider(db, payload)
-    except OIDCProviderManagedByEnvironmentError as exc:
+    except IdentityProviderManagedByEnvironmentError as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except OIDCProviderAlreadyExistsError as exc:
+    except IdentityProviderAlreadyExistsError as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
@@ -179,9 +178,9 @@ def update_oidc_provider_settings(
     require_admin_sensitive_action(request, db, current_user)
     try:
         item = update_oidc_provider(db, provider_id, payload)
-    except OIDCProviderManagedByEnvironmentError as exc:
+    except IdentityProviderManagedByEnvironmentError as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except AdminOIDCProviderNotFoundError as exc:
+    except IdentityProviderNotFoundError as exc:
         raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
@@ -216,9 +215,9 @@ def delete_oidc_provider_settings(
     require_admin_sensitive_action(request, db, current_user)
     try:
         delete_oidc_provider(db, provider_id)
-    except OIDCProviderManagedByEnvironmentError as exc:
+    except IdentityProviderManagedByEnvironmentError as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except AdminOIDCProviderNotFoundError as exc:
+    except IdentityProviderNotFoundError as exc:
         raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
@@ -253,9 +252,9 @@ def create_ldap_provider_settings(
     require_admin_sensitive_action(request, db, current_user)
     try:
         item = create_ldap_provider(db, payload)
-    except LDAPProviderManagedByEnvironmentError as exc:
+    except IdentityProviderManagedByEnvironmentError as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except LDAPProviderAlreadyExistsError as exc:
+    except IdentityProviderAlreadyExistsError as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
@@ -288,9 +287,9 @@ def update_ldap_provider_settings(
     require_admin_sensitive_action(request, db, current_user)
     try:
         item = update_ldap_provider(db, provider_id, payload)
-    except LDAPProviderManagedByEnvironmentError as exc:
+    except IdentityProviderManagedByEnvironmentError as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except AdminLDAPProviderNotFoundError as exc:
+    except IdentityProviderNotFoundError as exc:
         raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
@@ -325,9 +324,9 @@ def delete_ldap_provider_settings(
     require_admin_sensitive_action(request, db, current_user)
     try:
         delete_ldap_provider(db, provider_id)
-    except LDAPProviderManagedByEnvironmentError as exc:
+    except IdentityProviderManagedByEnvironmentError as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except AdminLDAPProviderNotFoundError as exc:
+    except IdentityProviderNotFoundError as exc:
         raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)

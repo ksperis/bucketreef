@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Literal, Optional
 from urllib.parse import urlparse
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import LDAPProviderSettings, Settings, get_settings
@@ -16,17 +15,15 @@ from app.models.ldap import (
     LDAPProviderAdminPayload,
     LDAPProviderFieldLock,
 )
+from app.services.identity_provider_repository import IdentityProviderRepository
 from app.services.identity_provider_resolution import (
-    get_persisted_identity_provider,
     list_effective_identity_providers,
-    list_persisted_identity_providers,
     resolve_identity_provider_map,
 )
 from app.utils.identity_provider_ids import (
     identity_provider_environment_source,
     normalize_identity_provider_id,
 )
-from app.utils.time import utcnow
 
 
 LDAP_PROVIDER_FIELDS = (
@@ -34,22 +31,6 @@ LDAP_PROVIDER_FIELDS = (
     *LDAP_PROVIDER_CONFIG_FIELDS,
     "bind_password",
 )
-
-
-class LDAPProviderSettingsError(Exception):
-    """Base class for admin LDAP provider settings errors."""
-
-
-class LDAPProviderAlreadyExistsError(LDAPProviderSettingsError):
-    """Raised when a UI-managed provider id is already used."""
-
-
-class LDAPProviderManagedByEnvironmentError(LDAPProviderSettingsError):
-    """Raised when trying to mutate an environment-managed provider."""
-
-
-class LDAPProviderNotFoundError(LDAPProviderSettingsError):
-    """Raised when a UI-managed provider cannot be found."""
 
 
 def normalize_ldap_provider_id(provider_id: str) -> str:
@@ -77,7 +58,7 @@ def list_effective_ldap_providers(
     env_providers = _environment_provider_map(settings)
     return list_effective_identity_providers(
         env_providers,
-        list_persisted_identity_providers(db, LdapProvider),
+        _provider_repository(db, env_providers).list(),
         environment_item=_environment_provider_item,
         persisted_item=_ui_provider_item,
     )
@@ -91,7 +72,7 @@ def resolve_ldap_provider_map(
     env_providers = _environment_provider_map(settings)
     return resolve_identity_provider_map(
         env_providers,
-        list_persisted_identity_providers(db, LdapProvider),
+        _provider_repository(db, env_providers).list(),
         persisted_to_settings=_ui_provider_to_settings,
     )
 
@@ -99,19 +80,10 @@ def resolve_ldap_provider_map(
 def create_ldap_provider(db: Session, payload: LDAPProviderAdminPayload) -> LDAPProviderAdminItem:
     _validate_production_payload(payload)
     provider_id = normalize_ldap_provider_id(payload.provider_id)
-    if provider_id in _environment_provider_map():
-        raise LDAPProviderManagedByEnvironmentError("LDAP provider is managed by environment settings")
-    if get_persisted_identity_provider(db, LdapProvider, provider_id):
-        raise LDAPProviderAlreadyExistsError("LDAP provider already exists")
-    provider = LdapProvider(provider_id=provider_id)
-    _apply_payload(provider, payload, replace_secret=True)
-    db.add(provider)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise LDAPProviderAlreadyExistsError("LDAP provider already exists") from exc
-    db.refresh(provider)
+    provider = _provider_repository(db).create(
+        provider_id,
+        lambda current: _apply_payload(current, payload, replace_secret=True),
+    )
     return _ui_provider_item(provider)
 
 
@@ -125,33 +97,29 @@ def update_ldap_provider(
     payload_id = normalize_ldap_provider_id(payload.provider_id)
     if payload_id != normalized_id:
         raise ValueError("provider_id cannot be changed")
-    if normalized_id in _environment_provider_map():
-        raise LDAPProviderManagedByEnvironmentError("LDAP provider is managed by environment settings")
-    provider = get_persisted_identity_provider(db, LdapProvider, normalized_id)
-    if not provider:
-        raise LDAPProviderNotFoundError("LDAP provider not found")
-
-    _apply_payload(provider, payload, replace_secret=False)
-    provider.updated_at = utcnow()
-    db.commit()
-    db.refresh(provider)
+    provider = _provider_repository(db).update(
+        normalized_id,
+        lambda current: _apply_payload(current, payload, replace_secret=False),
+    )
     return _ui_provider_item(provider)
 
 
 def delete_ldap_provider(db: Session, provider_id: str) -> None:
     normalized_id = normalize_ldap_provider_id(provider_id)
-    if normalized_id in _environment_provider_map():
-        raise LDAPProviderManagedByEnvironmentError("LDAP provider is managed by environment settings")
-    provider = get_persisted_identity_provider(db, LdapProvider, normalized_id)
-    if not provider:
-        raise LDAPProviderNotFoundError("LDAP provider not found")
-    db.delete(provider)
-    db.commit()
+    _provider_repository(db).delete(normalized_id)
 
 
 def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, LDAPProviderSettings]:
     settings = settings or get_settings()
     return dict(settings.ldap_providers)
+
+
+def _provider_repository(
+    db: Session,
+    environment_providers: Optional[dict[str, LDAPProviderSettings]] = None,
+) -> IdentityProviderRepository[LdapProvider]:
+    providers = _environment_provider_map() if environment_providers is None else environment_providers
+    return IdentityProviderRepository(db, LdapProvider, providers, "LDAP")
 
 
 def _apply_payload(provider: LdapProvider, payload: LDAPProviderAdminPayload, *, replace_secret: bool) -> None:
