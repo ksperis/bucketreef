@@ -57,66 +57,30 @@ def apply_storage_ops_advanced_filter(
     field_rules, feature_state_rules, feature_param_rules, match_mode = (
         _split_rules(parsed_filter)
     )
+
+    def base_match(bucket: StorageOpsBucketSummary) -> bool:
+        results = [
+            *(match_storage_ops_field_rule(bucket, rule) for rule in field_rules),
+            *(match_bucket_feature_rule(bucket, rule) for rule in feature_state_rules),
+        ]
+        if not results:
+            return not feature_param_rules or match_mode == "all"
+        return all(results) if match_mode == "all" else any(results)
+
     if not feature_param_rules:
-
-        def base_match(bucket: StorageOpsBucketSummary) -> bool:
-            results: list[bool] = []
-            results.extend(
-                match_storage_ops_field_rule(bucket, rule) for rule in field_rules
-            )
-            results.extend(
-                match_bucket_feature_rule(bucket, rule)
-                for rule in feature_state_rules
-            )
-            if not results:
-                return True
-            return all(results) if match_mode == "all" else any(results)
-
         return [bucket for bucket in buckets if base_match(bucket)]
 
-    def base_match(bucket: StorageOpsBucketSummary, mode: str) -> bool:
-        if not field_rules and not feature_state_rules:
-            return mode == "all"
-        base_results = [
-            *(match_storage_ops_field_rule(bucket, rule) for rule in field_rules),
-            *(
-                match_bucket_feature_rule(bucket, rule)
-                for rule in feature_state_rules
-            ),
-        ]
-        return all(base_results) if mode == "all" else any(base_results)
-
     if match_mode == "all":
-        base_candidates = [
-            bucket for bucket in buckets if base_match(bucket, "all")
-        ]
-        if not base_candidates:
-            return []
-        snapshots_by_key, _available_keys = load_bucket_feature_param_snapshots(
-            base_candidates,
-            feature_param_rules,
-            service,
-            context,
-        )
-        filtered: list[StorageOpsBucketSummary] = []
-        for bucket in base_candidates:
-            key = f"{bucket.tenant or ''}:{bucket.name}"
-            snapshot = snapshots_by_key.get(key, {})
-            if match_bucket_feature_param_rules(
-                feature_param_rules,
-                "all",
-                snapshot,
-            ):
-                filtered.append(bucket)
-        return filtered
-
-    pre_matched: list[StorageOpsBucketSummary] = []
-    param_candidates: list[StorageOpsBucketSummary] = []
-    for bucket in buckets:
-        if base_match(bucket, "any"):
-            pre_matched.append(bucket)
-        else:
-            param_candidates.append(bucket)
+        pre_matched: list[StorageOpsBucketSummary] = []
+        param_candidates = [bucket for bucket in buckets if base_match(bucket)]
+    else:
+        pre_matched = []
+        param_candidates = []
+        for bucket in buckets:
+            if base_match(bucket):
+                pre_matched.append(bucket)
+            else:
+                param_candidates.append(bucket)
     if not param_candidates:
         return pre_matched
 
@@ -126,13 +90,18 @@ def apply_storage_ops_advanced_filter(
         service,
         context,
     )
-    filtered = list(pre_matched)
-    for bucket in param_candidates:
-        key = f"{bucket.tenant or ''}:{bucket.name}"
-        snapshot = snapshots_by_key.get(key, {})
-        if match_bucket_feature_param_rules(feature_param_rules, "any", snapshot):
-            filtered.append(bucket)
-    return filtered
+    return [
+        *pre_matched,
+        *(
+            bucket
+            for bucket in param_candidates
+            if match_bucket_feature_param_rules(
+                feature_param_rules,
+                match_mode,
+                snapshots_by_key.get(f"{bucket.tenant or ''}:{bucket.name}", {}),
+            )
+        ),
+    ]
 
 
 def _split_rules(
