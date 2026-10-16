@@ -28,10 +28,12 @@ import { formatBytes, formatCompactNumber } from "../../utils/format";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type CephAdminMetricsTab = "storage" | "usage-composition" | "traffic";
 
 export default function CephAdminMetricsPage() {
+  const { text: surfaceText } = useCephAdminI18n();
   const {
     selectedEndpointId,
     selectedEndpoint,
@@ -248,13 +250,13 @@ export default function CephAdminMetricsPage() {
   const missingTraffic = canLoadTraffic && !traffic && !trafficLoading && !trafficError;
   const usageStatsAggregateSection = canLoadUsageStatsAggregate ? (
     <BucketUsageStatsAggregateCard
-      title="Cluster usage composition"
-      description="Latest calculated bucket snapshots for the selected Ceph endpoint."
+      title={surfaceText("Cluster usage composition")}
+      description={surfaceText("Latest calculated bucket snapshots for the selected Ceph endpoint.")}
       aggregate={usageStatsAggregate}
       loading={usageStatsLoading}
       error={usageStatsError}
       recalculating={usageStatsRecalculating}
-      recalculateLabel="Recalculate cluster"
+      recalculateLabel={surfaceText("Recalculate cluster")}
       onCancel={handleCancelUsageStats}
       onRecalculate={handleRecalculateUsageStats}
     />
@@ -262,11 +264,11 @@ export default function CephAdminMetricsPage() {
   const metricsTabs = useMemo(
     () =>
       [
-        { id: "storage" as const, label: "Storage" },
-        ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: "Usage composition" }] : []),
-        { id: "traffic" as const, label: "Traffic" },
+        { id: "storage" as const, label: surfaceText("Storage") },
+        ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: surfaceText("Usage composition") }] : []),
+        { id: "traffic" as const, label: surfaceText("Traffic") },
       ],
-    [canLoadUsageStatsAggregate]
+    [canLoadUsageStatsAggregate, surfaceText]
   );
 
   useEffect(() => {
@@ -278,58 +280,61 @@ export default function CephAdminMetricsPage() {
   return (
     <div className="space-y-4 ui-caption leading-relaxed">
       <PageHeader
-        title="Usage & Metrics"
-        description="Latest calculated logical usage composition plus cluster-wide Ceph RGW storage and traffic metrics."
+        title={surfaceText("Usage & Metrics")}
+        description={surfaceText("Latest calculated logical usage composition plus cluster-wide Ceph RGW storage and traffic metrics.")}
         breadcrumbs={cephAdminPageBreadcrumbs("metrics")}
       />
 
       {endpointRequired ? (
         <PageEmptyState
-          title="Select a Ceph endpoint before opening usage and metrics"
-          description="Cluster usage composition and metrics are endpoint-scoped. Choose an endpoint to load usage snapshots, storage metrics, traffic analytics, and owner breakdowns."
-          primaryAction={{ label: "Return to Ceph Admin", to: "/ceph-admin" }}
+          title={surfaceText("Select a Ceph endpoint before opening usage and metrics")}
+          description={surfaceText("Cluster usage composition and metrics are endpoint-scoped. Choose an endpoint to load usage snapshots, storage metrics, traffic analytics, and owner breakdowns.")}
+          primaryAction={{ label: surfaceText("Return to Ceph Admin"), to: "/ceph-admin" }}
           tone="warning"
         />
       ) : metricsUnavailableError && !canLoadUsageStatsAggregate ? (
         <PageEmptyState
-          title="Metrics credentials are not configured for this endpoint"
-          description="This endpoint does not currently expose Ceph admin metrics. Configure supervision credentials before opening storage and traffic analytics."
-          primaryAction={{ label: "Return to Ceph Admin", to: "/ceph-admin" }}
+          title={surfaceText("Metrics credentials are not configured for this endpoint")}
+          description={surfaceText("This endpoint does not currently expose Ceph admin metrics. Configure supervision credentials before opening storage and traffic analytics.")}
+          primaryAction={{ label: surfaceText("Return to Ceph Admin"), to: "/ceph-admin" }}
           tone="warning"
         />
       ) : noMetricsSurfaceAvailable && !canLoadUsageStatsAggregate ? (
         <PageEmptyState
-          title="Metrics are disabled for this endpoint"
-          description="Both storage metrics and usage logs are disabled for the selected endpoint. Enable at least one capability to restore analytics on this page."
-          primaryAction={{ label: "Return to Ceph Admin", to: "/ceph-admin" }}
+          title={surfaceText("Metrics are disabled for this endpoint")}
+          description={surfaceText("Both storage metrics and usage logs are disabled for the selected endpoint. Enable at least one capability to restore analytics on this page.")}
+          primaryAction={{ label: surfaceText("Return to Ceph Admin"), to: "/ceph-admin" }}
           tone="warning"
         />
       ) : (
         <>
           {usageStatsConfirmOpen && (
             <ConfirmActionDialog
-              title="Recalculate cluster usage composition"
-              description="This operation can be costly because it lists object versions across every bucket on the selected Ceph endpoint."
-              confirmLabel="Start recalculation"
-              cancelLabel="Cancel"
+              title={surfaceText("Recalculate cluster usage composition")}
+              description={surfaceText("This operation can be costly because it lists object versions across every bucket on the selected Ceph endpoint.")}
+              confirmLabel={surfaceText("Start recalculation")}
+              cancelLabel={surfaceText("Cancel")}
               tone="primary"
               onCancel={() => setUsageStatsConfirmOpen(false)}
               onConfirm={handleConfirmRecalculateUsageStats}
               details={[
-                { label: "Endpoint", value: selectedEndpoint?.name ?? `Endpoint ${selectedEndpointId}` },
+                { label: surfaceText("Endpoint"), value: selectedEndpoint?.name ?? `${surfaceText("Endpoint")} ${selectedEndpointId}` },
                 {
-                  label: "Buckets",
+                  label: surfaceText("Buckets"),
                   value:
                     usageStatsAggregate?.bucket_count != null
-                      ? `${usageStatsAggregate.bucket_count} bucket${usageStatsAggregate.bucket_count === 1 ? "" : "s"}`
-                      : "Unknown",
+                      ? surfaceText(
+                          usageStatsAggregate.bucket_count === 1 ? "{count} bucket" : "{count} buckets",
+                          { count: usageStatsAggregate.bucket_count },
+                        )
+                      : surfaceText("Unknown"),
                 },
               ]}
               impacts={[
-                "The calculation may generate significant RGW listing traffic on large or heavily versioned buckets.",
-                "If the calculation fails, the latest successful snapshot remains visible.",
+                surfaceText("The calculation may generate significant RGW listing traffic on large or heavily versioned buckets."),
+                surfaceText("If the calculation fails, the latest successful snapshot remains visible."),
               ]}
-              warning="Start this only when a fresh cluster-wide logical usage composition is needed."
+              warning={surfaceText("Start this only when a fresh cluster-wide logical usage composition is needed.")}
             />
           )}
 
@@ -338,7 +343,7 @@ export default function CephAdminMetricsPage() {
             activeTab={activeTab}
             onChange={(tab) => setActiveTab(tab as CephAdminMetricsTab)}
             variant="line"
-            ariaLabel="Ceph Admin metrics sections"
+            ariaLabel={surfaceText("Ceph Admin metrics sections")}
             idPrefix="ceph-admin-metrics"
           />
 
@@ -346,102 +351,102 @@ export default function CephAdminMetricsPage() {
           {activeTab === "storage" ? (
             metricsUnavailableError ? (
               <MetricsUnavailableCard
-                eyebrow="RGW metrics"
-                title="Storage snapshot"
-                description="Aggregated stats across the entire RGW cluster."
+                eyebrow={surfaceText("RGW metrics")}
+                title={surfaceText("Storage snapshot")}
+                description={surfaceText("Aggregated stats across the entire RGW cluster.")}
                 message={metricsUnavailableError}
                 tone="warning"
               />
             ) : noMetricsSurfaceAvailable ? (
               <MetricsUnavailableCard
-                eyebrow="RGW metrics"
-                title="Storage snapshot"
-                description="Aggregated stats across the entire RGW cluster."
-                message="Both storage metrics and usage logs are disabled for the selected endpoint."
+                eyebrow={surfaceText("RGW metrics")}
+                title={surfaceText("Storage snapshot")}
+                description={surfaceText("Aggregated stats across the entire RGW cluster.")}
+                message={surfaceText("Both storage metrics and usage logs are disabled for the selected endpoint.")}
                 tone="warning"
               />
             ) : storageDisabledMessage ? (
               <MetricsUnavailableCard
-                title="Storage snapshot"
-                description="Aggregated stats across the entire RGW cluster."
+                title={surfaceText("Storage snapshot")}
+                description={surfaceText("Aggregated stats across the entire RGW cluster.")}
                 message={storageDisabledMessage}
               />
             ) : storageError ? (
               <MetricsUnavailableCard
-                title="Storage snapshot"
-                description="Aggregated stats across the entire RGW cluster."
+                title={surfaceText("Storage snapshot")}
+                description={surfaceText("Aggregated stats across the entire RGW cluster.")}
                 message={storageError}
                 tone="error"
               />
             ) : storageFeatureEnabled ? (
               <>
                 <MetricsSummaryCard
-                  title="Storage snapshot"
-                  description="Aggregated stats across the entire RGW cluster."
+                  title={surfaceText("Storage snapshot")}
+                  description={surfaceText("Aggregated stats across the entire RGW cluster.")}
                   updatedAt={storage?.generated_at}
                 >
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <MetricsSnapshotCard
-                      label="Stored volume"
+                      label={surfaceText("Stored volume")}
                       value={storageTotals?.used_bytes != null ? formatBytes(storageTotals.used_bytes) : "—"}
-                      hint="Sum of all visible buckets"
+                      hint={surfaceText("Sum of all visible buckets")}
                       loading={storageLoading}
                     />
                     <MetricsSnapshotCard
-                      label="Objects"
+                      label={surfaceText("Objects")}
                       value={storageTotals?.object_count != null ? formatCompactNumber(storageTotals.object_count) : "—"}
-                      hint="Instant cluster count"
+                      hint={surfaceText("Instant cluster count")}
                       loading={storageLoading}
                     />
                     <MetricsSnapshotCard
-                      label="Buckets"
+                      label={surfaceText("Buckets")}
                       value={formatCompactNumber(storageTotals?.bucket_count ?? storage?.total_buckets ?? 0)}
-                      hint="Across all owners"
+                      hint={surfaceText("Across all owners")}
                       loading={storageLoading}
                     />
                     <MetricsSnapshotCard
-                      label="Owners"
+                      label={surfaceText("Owners")}
                       value={formatCompactNumber(storageTotals?.owners_with_usage ?? 0)}
-                      hint="Distinct bucket owners"
+                      hint={surfaceText("Distinct bucket owners")}
                       loading={storageLoading}
                     />
                   </div>
                 </MetricsSummaryCard>
 
                 <MetricsCard
-                  title="Storage breakdown"
-                  description="Top consumers by owner and bucket."
+                  title={surfaceText("Storage breakdown")}
+                  description={surfaceText("Top consumers by owner and bucket.")}
                 >
                   <div className="grid gap-6 xl:grid-cols-2">
                     <UsageBreakdown
-                      title="Owners (volume)"
+                      title={surfaceText("Owners (volume)")}
                       loading={storageLoading}
                       metric="bytes"
                       items={ownerUsageItems}
-                      emptyMessage="No owner volume data available."
+                      emptyMessage={surfaceText("No owner volume data available.")}
                     />
                     <UsageBreakdown
-                      title="Owners (objects)"
+                      title={surfaceText("Owners (objects)")}
                       loading={storageLoading}
                       metric="objects"
                       items={ownerUsageItems}
-                      emptyMessage="No owner object data available."
+                      emptyMessage={surfaceText("No owner object data available.")}
                     />
                   </div>
                   <div className="grid gap-6 xl:grid-cols-2">
                     <UsageBreakdown
-                      title="Buckets (volume)"
+                      title={surfaceText("Buckets (volume)")}
                       loading={storageLoading}
                       metric="bytes"
                       items={bucketUsageItems}
-                      emptyMessage="No bucket volume data available."
+                      emptyMessage={surfaceText("No bucket volume data available.")}
                     />
                     <UsageBreakdown
-                      title="Buckets (objects)"
+                      title={surfaceText("Buckets (objects)")}
                       loading={storageLoading}
                       metric="objects"
                       items={bucketUsageItems}
-                      emptyMessage="No bucket object data available."
+                      emptyMessage={surfaceText("No bucket object data available.")}
                     />
                   </div>
                 </MetricsCard>
@@ -453,26 +458,26 @@ export default function CephAdminMetricsPage() {
 
           {activeTab === "traffic" && metricsUnavailableError ? (
             <MetricsUnavailableCard
-              eyebrow="RGW metrics"
-              title="RGW traffic"
-              description="Reading cluster-wide RGW logs for the selected window."
+              eyebrow={surfaceText("RGW metrics")}
+              title={surfaceText("RGW traffic")}
+              description={surfaceText("Reading cluster-wide RGW logs for the selected window.")}
               message={metricsUnavailableError}
               tone="warning"
             />
           ) : null}
           {activeTab === "traffic" && !metricsUnavailableError && noMetricsSurfaceAvailable ? (
             <MetricsUnavailableCard
-              eyebrow="RGW metrics"
-              title="RGW traffic"
-              description="Reading cluster-wide RGW logs for the selected window."
-              message="Both storage metrics and usage logs are disabled for the selected endpoint."
+              eyebrow={surfaceText("RGW metrics")}
+              title={surfaceText("RGW traffic")}
+              description={surfaceText("Reading cluster-wide RGW logs for the selected window.")}
+              message={surfaceText("Both storage metrics and usage logs are disabled for the selected endpoint.")}
               tone="warning"
             />
           ) : null}
           {activeTab === "traffic" && !metricsUnavailableError && !noMetricsSurfaceAvailable && trafficDisabledMessage ? (
             <MetricsUnavailableCard
-              title="RGW traffic"
-              description="Reading cluster-wide RGW logs for the selected window."
+              title={surfaceText("RGW traffic")}
+              description={surfaceText("Reading cluster-wide RGW logs for the selected window.")}
               message={trafficDisabledMessage}
             />
           ) : activeTab === "traffic" && !metricsUnavailableError && !noMetricsSurfaceAvailable && usageLogFeatureEnabled ? (
@@ -483,8 +488,8 @@ export default function CephAdminMetricsPage() {
               loading={trafficLoading}
               error={trafficError}
               showEmpty={missingTraffic}
-              description="Reading cluster-wide RGW logs for the selected window."
-              userRankingTitle="Most active owners"
+              description={surfaceText("Reading cluster-wide RGW logs for the selected window.")}
+              userRankingTitle={surfaceText("Most active owners")}
             />
           ) : null}
           </PageTabPanel>

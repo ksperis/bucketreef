@@ -19,6 +19,7 @@ import { cx, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styl
 import { extractApiError } from "../../utils/apiError";
 import { formatNumber } from "../../utils/format";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type Props = {
   endpointId: number;
@@ -32,6 +33,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName, targets, onClose }: Props) {
+  const { text: surfaceText } = useCephAdminI18n();
   const [parallelism, setParallelism] = useState(4);
   const [progress, setProgress] = useState<BucketIndexCheckProgress | null>(null);
   const [result, setResult] = useState<BucketIndexCheckResult | null>(null);
@@ -63,14 +65,19 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
       setResult(nextResult);
       setMessage(
         nextResult.status === "completed"
-          ? "All bucket index checks completed."
-          : `${formatNumber(nextResult.failed_buckets)} bucket index check${nextResult.failed_buckets === 1 ? "" : "s"} failed.`
+          ? surfaceText("All bucket index checks completed.")
+          : surfaceText(
+              nextResult.failed_buckets === 1
+                ? "{count} bucket index check failed."
+                : "{count} bucket index checks failed.",
+              { count: formatNumber(nextResult.failed_buckets) },
+            )
       );
     } catch (runError) {
       if (isAbortError(runError)) {
-        setMessage("Bucket index checks canceled.");
+        setMessage(surfaceText("Bucket index checks canceled."));
       } else {
-        setError(extractApiError(runError, "Bucket index checks failed."));
+        setError(extractApiError(runError, surfaceText("Bucket index checks failed.")));
       }
     } finally {
       abortRef.current = null;
@@ -85,30 +92,29 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
 
   return (
     <WorkflowPage
-      title="Check bucket indexes"
-      description="Run read-only RGW Admin Ops diagnostics across the selected buckets and review each result."
-      breadcrumbs={cephAdminPageBreadcrumbs("buckets", { label: "Index checks" })}
+      title={surfaceText("Check bucket indexes")}
+      description={surfaceText("Run read-only RGW Admin Ops diagnostics across the selected buckets and review each result.")}
+      breadcrumbs={cephAdminPageBreadcrumbs("buckets", { label: surfaceText("Index checks") })}
       onBack={closePage}
-      backLabel={running ? "Stop and return" : "Back to bucket selection"}
+      backLabel={running ? surfaceText("Stop and return") : surfaceText("Back to bucket selection")}
       contentClassName="min-w-0"
     >
       <div className="space-y-4">
         <PageBanner tone="warning">
-          This bulk action is read-only. Index repairs remain available only from the unitary RGW Admin Ops action.
-        </PageBanner>
+          {surfaceText("This bulk action is read-only. Index repairs remain available only from the unitary RGW Admin Ops action.")}</PageBanner>
         {error && <PageBanner tone="error">{error}</PageBanner>}
         {message && <PageBanner tone={result?.status === "completed" ? "success" : "warning"}>{message}</PageBanner>}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--ui-border-soft)] pb-3">
           <div>
             <p className={cx("ui-body font-semibold", uiTitleTextClass)}>
-              {targets.length} bucket{targets.length > 1 ? "s" : ""}
+              {surfaceText(targets.length === 1 ? "{count} bucket" : "{count} buckets", { count: targets.length })}
             </p>
-            <p className={cx("ui-caption", uiMutedTextClass)}>{endpointName || `Endpoint ${endpointId}`} · RGW Admin Ops</p>
+            <p className={cx("ui-caption", uiMutedTextClass)}>{endpointName || `Endpoint ${endpointId}`} {surfaceText("· RGW Admin Ops")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <UiInput
-              label="Parallelism"
+              label={surfaceText("Parallelism")}
               type="number"
               min={1}
               max={16}
@@ -120,12 +126,10 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
             />
             {running ? (
               <UiButton variant="danger" size="sm" onClick={() => abortRef.current?.abort()}>
-                Cancel
-              </UiButton>
+                {surfaceText("Cancel")}</UiButton>
             ) : (
               <UiButton size="sm" onClick={() => void runChecks()} disabled={targets.length === 0 || targets.length > 200}>
-                Run index checks
-              </UiButton>
+                {surfaceText("Run index checks")}</UiButton>
             )}
           </div>
         </div>
@@ -133,10 +137,10 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
         {progress && (
           <div className="space-y-2 border-b border-[color:var(--ui-border-soft)] pb-4">
             <div className="flex items-center justify-between gap-2 ui-caption font-semibold">
-              <span>{progress.message || "Checking bucket indexes"}</span>
+              <span>{progress.message || surfaceText("Checking bucket indexes")}</span>
               <span>{progressPercent}%</span>
             </div>
-            <UiProgressBar value={progressPercent} label="Bucket index check progress" />
+            <UiProgressBar value={progressPercent} label={surfaceText("Bucket index check progress")} />
           </div>
         )}
 
@@ -144,20 +148,20 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
           <table className="ui-data-table ui-data-table-fixed min-w-full">
             <thead>
               <tr>
-                <th className="text-left">Bucket</th>
-                <th className="text-left">Tenant</th>
-                <th className="text-left">Status</th>
-                <th className="text-left">Result</th>
+                <th className="text-left">{surfaceText("Bucket")}</th>
+                <th className="text-left">{surfaceText("Tenant")}</th>
+                <th className="text-left">{surfaceText("Status")}</th>
+                <th className="text-left">{surfaceText("Result")}</th>
               </tr>
             </thead>
             <tbody>
-              {(result?.buckets ?? targets.map((target) => ({ ...target, status: "pending" as const, message: "Not run yet" }))).map((item) => (
+              {(result?.buckets ?? targets.map((target) => ({ ...target, status: "pending" as const, message: surfaceText("Not run yet") }))).map((item) => (
                 <tr key={`${item.tenant ?? ""}:${item.name}`}>
                   <td className="font-mono">{item.name}</td>
                   <td>{item.tenant || "—"}</td>
                   <td>
                     <span className={item.status === "completed" ? "text-emerald-700 dark:text-emerald-300" : item.status === "failed" ? "text-rose-700 dark:text-rose-300" : uiMutedTextClass}>
-                      {item.status === "completed" ? "Completed" : item.status === "failed" ? "Failed" : "Pending"}
+                      {item.status === "completed" ? surfaceText("Completed") : item.status === "failed" ? surfaceText("Failed") : surfaceText("Pending")}
                     </span>
                   </td>
                   <td className="max-w-xl whitespace-normal">{item.message}</td>

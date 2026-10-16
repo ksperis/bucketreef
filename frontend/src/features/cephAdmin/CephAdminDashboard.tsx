@@ -13,6 +13,7 @@ import WorkspaceEndpointHealthCards from "../../components/WorkspaceEndpointHeal
 import { extractApiError } from "../../utils/apiError";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type CardLink = {
   title: string;
@@ -20,19 +21,19 @@ type CardLink = {
   to: string;
 };
 
-const cards: CardLink[] = [
-  { title: "Usage & Metrics", description: "Cluster-wide usage composition, RGW storage, and traffic.", to: "/ceph-admin/metrics" },
-  { title: "RGW Accounts", description: "Create/import RGW tenants and manage their quotas.", to: "/ceph-admin/accounts" },
-  { title: "RGW Users", description: "Manage cluster-wide RGW users.", to: "/ceph-admin/users" },
-  { title: "Buckets", description: "List and configure cluster-wide buckets (Admin Ops + S3).", to: "/ceph-admin/buckets" },
-];
-
 export default function CephAdminDashboard() {
+  const { text: surfaceText } = useCephAdminI18n();
   const { generalSettings } = useGeneralSettings();
   const { endpoints, selectedEndpoint, loading, error, retryEndpoints } = useCephAdminEndpoint();
   const [workspaceHealth, setWorkspaceHealth] = useState<WorkspaceEndpointHealthOverviewResponse | null>(null);
   const [workspaceHealthLoading, setWorkspaceHealthLoading] = useState(false);
   const [workspaceHealthError, setWorkspaceHealthError] = useState<string | null>(null);
+  const cards: CardLink[] = [
+    { title: surfaceText("Usage & Metrics"), description: surfaceText("Cluster-wide usage composition, RGW storage, and traffic."), to: "/ceph-admin/metrics" },
+    { title: surfaceText("RGW Accounts"), description: surfaceText("Create/import RGW tenants and manage their quotas."), to: "/ceph-admin/accounts" },
+    { title: surfaceText("RGW Users"), description: surfaceText("Manage cluster-wide RGW users."), to: "/ceph-admin/users" },
+    { title: surfaceText("Buckets"), description: surfaceText("List and configure cluster-wide buckets (Admin Ops + S3)."), to: "/ceph-admin/buckets" },
+  ];
 
   useEffect(() => {
     if (!generalSettings.endpoint_status_enabled || !selectedEndpoint?.id) {
@@ -52,7 +53,7 @@ export default function CephAdminDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setWorkspaceHealth(null);
-        setWorkspaceHealthError(extractApiError(err, "Unable to load endpoint health for this endpoint."));
+        setWorkspaceHealthError(extractApiError(err, surfaceText("Unable to load endpoint health for this endpoint.")));
       })
       .finally(() => {
         if (!cancelled) {
@@ -62,41 +63,41 @@ export default function CephAdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [generalSettings.endpoint_status_enabled, selectedEndpoint?.id]);
+  }, [generalSettings.endpoint_status_enabled, selectedEndpoint?.id, surfaceText]);
 
   return (
     <PageShell
       title="Ceph Admin"
-      description={`Cluster-level RGW administration. Active endpoint: ${selectedEndpoint?.name ?? "—"}.`}
+      description={surfaceText("Cluster-level RGW administration. Active endpoint: {endpoint}.", { endpoint: selectedEndpoint?.name ?? "—" })}
       breadcrumbs={cephAdminPageBreadcrumbs("dashboard")}
     >
       <div className="ui-dashboard-compact">
         {loading ? (
           <PageEmptyState
-            eyebrow="Loading"
-            title="Loading Ceph endpoints"
-            description="Ceph Admin will open as soon as the available endpoints are loaded."
+            eyebrow={surfaceText("Loading")}
+            title={surfaceText("Loading Ceph endpoints")}
+            description={surfaceText("Ceph Admin will open as soon as the available endpoints are loaded.")}
           />
         ) : error ? (
           <ErrorState
             kind="unavailable"
             error={error}
-            title="Unable to load Ceph endpoints"
+            title={surfaceText("Unable to load Ceph endpoints")}
             description={error}
             onRetry={retryEndpoints}
           />
         ) : endpoints.length === 0 ? (
           <PageEmptyState
-            eyebrow="Unavailable"
-            title="No Ceph endpoint available"
-            description="Ceph Admin requires at least one Ceph endpoint before cluster-level administration can be used."
+            eyebrow={surfaceText("Unavailable")}
+            title={surfaceText("No Ceph endpoint available")}
+            description={surfaceText("Ceph Admin requires at least one Ceph endpoint before cluster-level administration can be used.")}
             tone="warning"
           />
         ) : !selectedEndpoint?.id ? (
           <PageEmptyState
-            eyebrow="Loading"
-            title="Selecting Ceph endpoint"
-            description="Ceph Admin is selecting the endpoint to use for cluster-level administration."
+            eyebrow={surfaceText("Loading")}
+            title={surfaceText("Selecting Ceph endpoint")}
+            description={surfaceText("Ceph Admin is selecting the endpoint to use for cluster-level administration.")}
           />
         ) : null}
         {generalSettings.endpoint_status_enabled && selectedEndpoint?.id && (
@@ -105,11 +106,11 @@ export default function CephAdminDashboard() {
             data={workspaceHealth}
             loading={workspaceHealthLoading}
             error={workspaceHealthError}
-            title="Endpoint Health"
+            title={surfaceText("Endpoint Health")}
             showStatusCounters={false}
             action={
               selectedEndpoint?.id
-                ? { to: `/admin/endpoint-status/${selectedEndpoint.id}`, label: "View details" }
+                ? { to: `/admin/endpoint-status/${selectedEndpoint.id}`, label: surfaceText("View details") }
                 : undefined
             }
             className="grid gap-3"

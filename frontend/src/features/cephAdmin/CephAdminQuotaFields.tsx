@@ -7,6 +7,7 @@ import UiSelect from "../../components/ui/UiSelect";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { CEPH_ADMIN_QUOTA_UNITS, type CephAdminQuotaUnit } from "./quotaForm";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type CephAdminQuotaFieldsProps = {
   title: string;
@@ -41,6 +42,7 @@ export default function CephAdminQuotaFields({
   sizeError,
   objectError,
 }: CephAdminQuotaFieldsProps) {
+  const { text: surfaceText } = useCephAdminI18n();
   return (
     <SettingsSection title={title} presentation="compact">
       <div className="settings-fields">
@@ -53,7 +55,7 @@ export default function CephAdminQuotaFields({
         </UiCheckboxField>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)]">
           <UiInput
-            label="Storage quota"
+            label={surfaceText("Storage quota")}
             type="number"
             min={0}
             step="any"
@@ -64,7 +66,7 @@ export default function CephAdminQuotaFields({
             error={sizeError}
           />
           <UiSelect
-            label="Unit"
+            label={surfaceText("Unit")}
             disabled={!enabled}
             value={unitValue}
             onChange={(event) => onUnitChange(event.target.value as CephAdminQuotaUnit)}
@@ -76,7 +78,7 @@ export default function CephAdminQuotaFields({
             ))}
           </UiSelect>
           <UiInput
-            label="Object quota"
+            label={surfaceText("Object quota")}
             type="number"
             min={0}
             step={1}

@@ -31,6 +31,7 @@ import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { buildCephAdminQuotaPatch } from "./quotaPatch";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { parseOptionalNonNegativeInteger, parseQuotaBytes, quotaBytesToForm, type CephAdminQuotaUnit } from "./quotaForm";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type Props = {
   endpointId: number;
@@ -49,6 +50,7 @@ export default function CephAdminAccountEditModal({
   onClose,
   onSaved,
 }: Props) {
+  const { text: surfaceText } = useCephAdminI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [detail, setDetail] = useState<CephAdminRgwAccountDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(true);
@@ -273,7 +275,7 @@ export default function CephAdminAccountEditModal({
         const updated = await updateCephAdminAccountConfig(endpointId, accountId, payload);
         setDetail(updated);
         setInitialSignature(currentSignature);
-        setSaveStatus("Account configuration updated.");
+        setSaveStatus(surfaceText("Account configuration updated."));
         onSaved?.(updated);
         if (activeTab === "metrics") {
           try {
@@ -285,7 +287,7 @@ export default function CephAdminAccountEditModal({
           }
         }
       } catch (err) {
-        setSaveError(extractApiError(err, "Unexpected error"));
+        setSaveError(extractApiError(err, surfaceText("Unexpected error")));
       } finally {
         setSaving(false);
       }
@@ -303,52 +305,50 @@ export default function CephAdminAccountEditModal({
 
   const overviewTab = (
     <section className="space-y-4">
-      {detailLoading && <PageBanner tone="info">Loading account details...</PageBanner>}
+      {detailLoading && <PageBanner tone="info">{surfaceText("Loading account details...")}</PageBanner>}
       {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
       {detail && (
         <>
           <div className="grid gap-3 md:grid-cols-2">
             <UsageTile
-              label="Buckets"
+              label={surfaceText("Buckets")}
               used={detail.bucket_count ?? null}
               quota={detail.max_buckets ?? null}
               formatter={formatNumber}
               quotaFormatter={(value) => (value != null ? value.toLocaleString() : "-")}
-              unitHint="buckets"
-              emptyHint="No bucket limit defined."
+              unitHint={surfaceText("buckets")}
+              emptyHint={surfaceText("No bucket limit defined.")}
             />
             <UsageTile
-              label="Users"
+              label={surfaceText("Users")}
               used={detail.user_count ?? null}
               quota={detail.max_users ?? null}
               formatter={formatNumber}
               quotaFormatter={(value) => (value != null ? value.toLocaleString() : "-")}
-              unitHint="users"
-              emptyHint="No user limit defined."
+              unitHint={surfaceText("users")}
+              emptyHint={surfaceText("No user limit defined.")}
             />
           </div>
           <div className={cx(uiPanelMutedClass, "px-4 py-3")}>
             <dl className="grid gap-2 sm:grid-cols-2">
               <div>
-                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Name</dt>
+                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{surfaceText("Name")}</dt>
                 <dd className="ui-body font-semibold text-slate-800 dark:text-slate-100">{detail.account_name ?? "-"}</dd>
               </div>
               <div>
-                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</dt>
+                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{surfaceText("Email")}</dt>
                 <dd className="ui-body font-semibold text-slate-800 dark:text-slate-100">{detail.email ?? "-"}</dd>
               </div>
               <div>
                 <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Quota (size)
-                </dt>
+                  {surfaceText("Quota (size)")}</dt>
                 <dd className="ui-body font-semibold text-slate-800 dark:text-slate-100">
                   {overviewQuota?.max_size_bytes != null ? formatBytes(overviewQuota.max_size_bytes) : "-"}
                 </dd>
               </div>
               <div>
                 <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Quota (objects)
-                </dt>
+                  {surfaceText("Quota (objects)")}</dt>
                 <dd className="ui-body font-semibold text-slate-800 dark:text-slate-100">
                   {overviewQuota?.max_objects != null ? formatNumber(overviewQuota.max_objects) : "-"}
                 </dd>
@@ -362,22 +362,22 @@ export default function CephAdminAccountEditModal({
 
   const configTab = (
     <SettingsForm
-      label="RGW account configuration"
+      label={surfaceText("RGW account configuration")}
       busy={formController.locked || detailLoading}
       disabled={!detail}
       submitDisabled={detailLoading || !detail}
       onSubmit={formController.submit}
       onCancel={formController.requestClose}
-      submitLabel="Save configuration"
-      busyLabel="Saving..."
+      submitLabel={surfaceText("Save configuration")}
+      busyLabel={surfaceText("Saving...")}
       actions={(
         <SettingsButton type="submit" disabled={formController.locked || detailLoading || !detail} loading={formController.locked}>
-          {formController.locked ? "Saving..." : "Save configuration"}
+          {formController.locked ? surfaceText("Saving...") : surfaceText("Save configuration")}
         </SettingsButton>
       )}
     >
       <div className="settings-compact settings-form settings-stack">
-        {detailLoading && <PageBanner tone="info">Loading account details...</PageBanner>}
+        {detailLoading && <PageBanner tone="info">{surfaceText("Loading account details...")}</PageBanner>}
         {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
         {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
         {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
@@ -388,8 +388,8 @@ export default function CephAdminAccountEditModal({
             maxGroups: setMaxGroups, maxAccessKeys: setMaxAccessKeys })[field](value)} />
 
         <CephAdminQuotaFields
-          title="Account quota"
-          enabledLabel="Enable account quota"
+          title={surfaceText("Account quota")}
+          enabledLabel={surfaceText("Enable account quota")}
           enabled={quotaEnabled}
           onEnabledChange={setQuotaEnabled}
           sizeError={validationAttempted ? validation.accountQuota.size : undefined}
@@ -400,13 +400,13 @@ export default function CephAdminAccountEditModal({
           onUnitChange={setQuotaUnit}
           objectValue={quotaObjects}
           onObjectChange={setQuotaObjects}
-          sizePlaceholder="Leave empty to clear"
-          objectPlaceholder="Leave empty to clear"
+          sizePlaceholder={surfaceText("Leave empty to clear")}
+          objectPlaceholder={surfaceText("Leave empty to clear")}
         />
 
         <CephAdminQuotaFields
-          title="Bucket quota"
-          enabledLabel="Enable bucket quota"
+          title={surfaceText("Bucket quota")}
+          enabledLabel={surfaceText("Enable bucket quota")}
           enabled={bucketQuotaEnabled}
           onEnabledChange={setBucketQuotaEnabled}
           sizeError={validationAttempted ? validation.bucketQuota.size : undefined}
@@ -417,8 +417,8 @@ export default function CephAdminAccountEditModal({
           onUnitChange={setBucketQuotaUnit}
           objectValue={bucketQuotaObjects}
           onObjectChange={setBucketQuotaObjects}
-          sizePlaceholder="Leave empty to clear"
-          objectPlaceholder="Leave empty to clear"
+          sizePlaceholder={surfaceText("Leave empty to clear")}
+          objectPlaceholder={surfaceText("Leave empty to clear")}
         />
       </div>
     </SettingsForm>
@@ -426,55 +426,53 @@ export default function CephAdminAccountEditModal({
 
   const metricsTab = (
     <section className="space-y-4">
-      {metricsLoading && <PageBanner tone="info">Loading metrics...</PageBanner>}
+      {metricsLoading && <PageBanner tone="info">{surfaceText("Loading metrics...")}</PageBanner>}
       {metricsError && <PageBanner tone="error">{metricsError}</PageBanner>}
       {metrics && (
         <>
           <div className="grid gap-3 md:grid-cols-2">
             <UsageTile
-              label="Storage"
+              label={surfaceText("Storage")}
               used={metrics.total_bytes ?? null}
               quota={detail?.quota?.max_size_bytes ?? null}
               formatter={formatBytes}
               quotaFormatter={formatBytes}
-              emptyHint="No storage quota defined."
+              emptyHint={surfaceText("No storage quota defined.")}
             />
             <UsageTile
-              label="Objects"
+              label={surfaceText("Objects")}
               used={metrics.total_objects ?? null}
               quota={detail?.quota?.max_objects ?? null}
               formatter={formatNumber}
               quotaFormatter={(value) => (value != null ? value.toLocaleString() : "-")}
-              unitHint="objects"
-              emptyHint="No object quota defined."
+              unitHint={surfaceText("objects")}
+              emptyHint={surfaceText("No object quota defined.")}
             />
           </div>
           <div className={cx(uiPanelMutedClass, "px-4 py-3")}>
             <div className="flex items-center justify-between gap-2">
-              <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Top buckets by usage</p>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">{metrics.bucket_count} bucket(s)</p>
+              <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">{surfaceText("Top buckets by usage")}</p>
+              <p className="ui-caption text-slate-500 dark:text-slate-400">
+                {surfaceText(metrics.bucket_count === 1 ? "{count} bucket" : "{count} buckets", { count: metrics.bucket_count })}
+              </p>
             </div>
             <div className="mt-3 overflow-x-auto">
               <table className={uiDataTableClass}>
                 <thead className="bg-slate-100/80 dark:bg-slate-900/60">
                   <tr>
                     <th className="text-left">
-                      Bucket
-                    </th>
+                      {surfaceText("Bucket")}</th>
                     <th className="text-right">
-                      Used
-                    </th>
+                      {surfaceText("Used")}</th>
                     <th className="text-right">
-                      Objects
-                    </th>
+                      {surfaceText("Objects")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {metrics.bucket_usage.length === 0 && (
                     <tr>
                       <td colSpan={3} className="ui-table-secondary">
-                        No bucket usage data available.
-                      </td>
+                        {surfaceText("No bucket usage data available.")}</td>
                     </tr>
                   )}
                   {metrics.bucket_usage.slice(0, 50).map((entry) => (
@@ -498,17 +496,17 @@ export default function CephAdminAccountEditModal({
   );
 
   const tabs = [
-    { id: "overview", label: "Overview", content: overviewTab },
-    { id: "config", label: "Configuration", content: configTab },
-    ...(canViewMetrics ? [{ id: "metrics", label: "Metrics", content: metricsTab }] : []),
+    { id: "overview", label: surfaceText("Overview"), content: overviewTab },
+    { id: "config", label: surfaceText("Configuration"), content: configTab },
+    ...(canViewMetrics ? [{ id: "metrics", label: surfaceText("Metrics"), content: metricsTab }] : []),
   ];
 
   return <>
     <WorkflowPage
-      title={`Configure account · ${accountId}`}
-      description="Review configuration, quotas and metrics without nested dialog scrolling."
+      title={`${surfaceText("Configure account")} · ${accountId}`}
+      description={surfaceText("Review configuration, quotas and metrics without nested dialog scrolling.")}
       breadcrumbs={cephAdminPageBreadcrumbs("accounts", { label: accountId })}
-      backLabel="Back to accounts"
+      backLabel={surfaceText("Back to accounts")}
       onBack={formController.requestClose}
       backDisabled={formController.locked}
       contentClassName="min-w-0"
@@ -519,7 +517,7 @@ export default function CephAdminAccountEditModal({
         activeTab={activeTab}
         onChange={(tab) => setActiveTab(tab as TabId)}
         variant="line"
-        ariaLabel="Account configuration sections"
+        ariaLabel={surfaceText("Account configuration sections")}
         idPrefix="ceph-admin-account-editor"
       />
     </WorkflowPage>
