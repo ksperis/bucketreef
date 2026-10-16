@@ -185,6 +185,37 @@ describe("BrowserLayout", () => {
     expect(capturedSelectorProps).toBeNull();
   });
 
+  it("does not load Manager context for a Browser-only private connection", async () => {
+    useBrowserContextMock.mockReturnValue(buildBrowserContext({
+      contexts: [{
+        id: "conn-1",
+        kind: "connection",
+        display_name: "Private Browser connection",
+        capabilities: {
+          can_manage_iam: false,
+          sts_capable: false,
+          admin_api_capable: false,
+        },
+      }],
+      selectedContextId: "conn-1",
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/browser"]}>
+        <Routes>
+          <Route path="/browser" element={<BrowserLayout />}>
+            <Route index element={<BrowserSidebarSlotConsumer />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Private Browser connection")).toBeInTheDocument();
+    });
+    expect(fetchManagerContextMock).not.toHaveBeenCalled();
+  });
+
   it("keeps a single page-level Browser heading when no context is available", () => {
     useBrowserContextMock.mockReturnValue(buildBrowserContext({
       contexts: [],
