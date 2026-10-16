@@ -76,26 +76,13 @@ class BrowserVersionsMixin:
 
                 if payload.keep_last_n is not None or cutoff:
                     cutoff_ts = cutoff.timestamp() if cutoff else None
-                    current_key = None
-                    key_index = 0
-                    for row in cleanup_store.iter_retention_versions():
-                        key = str(row["key"])
-                        if key != current_key:
-                            current_key = key
-                            key_index = 0
-                        is_latest = bool(row["is_latest"])
-                        delete_for_count = payload.keep_last_n is not None and key_index >= payload.keep_last_n
-                        last_modified_ts = row["last_modified_ts"]
-                        delete_for_age = bool(
-                            cutoff_ts is not None
-                            and last_modified_ts is not None
-                            and float(last_modified_ts) < cutoff_ts
-                        )
-                        if not is_latest and (delete_for_count or delete_for_age):
-                            versions_batch.append((key, str(row["version_id"])))
-                            if len(versions_batch) >= 1000:
-                                flush_versions_batch()
-                        key_index += 1
+                    for row in cleanup_store.iter_cleanup_candidates(
+                        keep_last_n=payload.keep_last_n,
+                        cutoff_ts=cutoff_ts,
+                    ):
+                        versions_batch.append((str(row["key"]), str(row["version_id"])))
+                        if len(versions_batch) >= 1000:
+                            flush_versions_batch()
                     flush_versions_batch()
 
                 deleted_delete_markers = 0

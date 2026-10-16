@@ -166,13 +166,45 @@ class ObjectVersionCleanupStore:
         )
         return ObjectVersionScanCounts(scanned_versions, scanned_delete_markers)
 
-    def iter_retention_versions(self) -> Iterator[sqlite3.Row]:
+    def iter_cleanup_candidates(
+        self,
+        *,
+        keep_last_n: int | None,
+        cutoff_ts: float | None,
+    ) -> Iterator[sqlite3.Row]:
+        if keep_last_n is None and cutoff_ts is None:
+            return
         yield from self.connection.execute(
             """
-            SELECT key, version_id, last_modified_ts, is_latest
-            FROM cleanup_versions
-            ORDER BY key ASC, is_latest DESC, last_modified_ts DESC, scan_order ASC
-            """
+            WITH ordered_versions AS (
+                SELECT
+                    key,
+                    version_id,
+                    last_modified_ts,
+                    is_latest,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY key
+                        ORDER BY is_latest DESC, last_modified_ts DESC, scan_order ASC
+                    ) - 1 AS key_index
+                FROM cleanup_versions
+            )
+            SELECT key, version_id
+            FROM ordered_versions
+            WHERE is_latest = 0
+              AND (
+                    (:keep_last_n IS NOT NULL AND key_index >= :keep_last_n)
+                    OR (
+                        :cutoff_ts IS NOT NULL
+                        AND last_modified_ts IS NOT NULL
+                        AND last_modified_ts < :cutoff_ts
+                    )
+              )
+            ORDER BY key ASC, key_index ASC
+            """,
+            {
+                "keep_last_n": keep_last_n,
+                "cutoff_ts": cutoff_ts,
+            },
         )
 
     def iter_noncurrent_versions(self) -> Iterator[sqlite3.Row]:
