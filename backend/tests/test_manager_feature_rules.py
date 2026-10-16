@@ -22,30 +22,30 @@ class FakeBucketsService:
         self.tags = {}
         self.failures = {}
 
-    def list_buckets(self, _account, with_stats=True):  # noqa: ANN001, ARG002
+    def list_buckets(self, _context, with_stats=True):  # noqa: ANN001, ARG002
         return self.buckets
 
     def _maybe_fail(self, feature, bucket_name):  # noqa: ANN001
         if self.failures.get((feature, bucket_name)):
             raise RuntimeError(self.failures[(feature, bucket_name)])
 
-    def get_lifecycle(self, bucket_name, _account):  # noqa: ANN001
+    def get_lifecycle(self, bucket_name, _context):  # noqa: ANN001
         self._maybe_fail("lifecycle", bucket_name)
         return BucketLifecycleConfig(rules=self.lifecycle.get(bucket_name, []))
 
-    def get_policy(self, bucket_name, _account):  # noqa: ANN001
+    def get_policy(self, bucket_name, _context):  # noqa: ANN001
         self._maybe_fail("policy", bucket_name)
         return self.policies.get(bucket_name)
 
-    def get_bucket_cors(self, bucket_name, _account):  # noqa: ANN001
+    def get_bucket_cors(self, bucket_name, _context):  # noqa: ANN001
         self._maybe_fail("cors", bucket_name)
         return self.cors.get(bucket_name, [])
 
-    def get_bucket_notifications(self, bucket_name, _account):  # noqa: ANN001
+    def get_bucket_notifications(self, bucket_name, _context):  # noqa: ANN001
         self._maybe_fail("notifications", bucket_name)
         return BucketNotificationConfiguration(configuration=self.notifications.get(bucket_name, {}))
 
-    def get_bucket_tags(self, bucket_name, _account):  # noqa: ANN001
+    def get_bucket_tags(self, bucket_name, _context):  # noqa: ANN001
         self._maybe_fail("tags", bucket_name)
         return self.tags.get(bucket_name, [])
 
@@ -53,7 +53,7 @@ class FakeBucketsService:
 @pytest.fixture
 def feature_rule_client(client, db_session, monkeypatch):
     service = FakeBucketsService()
-    account = SimpleNamespace(storage_endpoint=None)
+    context = SimpleNamespace(storage_endpoint=None)
     user = User(
         id=8101,
         email="feature-rules@example.com",
@@ -64,11 +64,11 @@ def feature_rule_client(client, db_session, monkeypatch):
     )
     db_session.add(user)
     db_session.commit()
-    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: account
+    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: context
     app.dependency_overrides[feature_rules_router.get_buckets_service] = lambda: service
     app.dependency_overrides[feature_rules_router.get_bucket_configuration_service] = lambda: service
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
-    monkeypatch.setattr(feature_rule_inventory_service, "account_sns_feature_enabled", lambda _account: True)
+    monkeypatch.setattr(feature_rule_inventory_service, "account_sns_feature_enabled", lambda _context: True)
     return client, service
 
 
@@ -246,7 +246,7 @@ def test_feature_rules_lists_bucket_tags(feature_rule_client):
 
 def test_feature_rules_marks_notifications_unavailable_when_sns_is_disabled(feature_rule_client, monkeypatch):
     client, service = feature_rule_client
-    monkeypatch.setattr(feature_rule_inventory_service, "account_sns_feature_enabled", lambda _account: False)
+    monkeypatch.setattr(feature_rule_inventory_service, "account_sns_feature_enabled", lambda _context: False)
 
     response = client.get("/api/manager/feature-rules", params={"feature": "notifications"})
 
@@ -259,7 +259,7 @@ def test_feature_rules_marks_notifications_unavailable_when_sns_is_disabled(feat
 
 def test_feature_rules_requires_manager_tool_access(client, db_session, monkeypatch):
     service = FakeBucketsService()
-    account = SimpleNamespace(storage_endpoint=None)
+    context = SimpleNamespace(storage_endpoint=None)
     user = User(
         id=8102,
         email="feature-rules-denied@example.com",
@@ -270,11 +270,11 @@ def test_feature_rules_requires_manager_tool_access(client, db_session, monkeypa
     )
     db_session.add(user)
     db_session.commit()
-    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: account
+    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: context
     app.dependency_overrides[feature_rules_router.get_buckets_service] = lambda: service
     app.dependency_overrides[feature_rules_router.get_bucket_configuration_service] = lambda: service
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
-    monkeypatch.setattr(feature_rule_inventory_service, "account_sns_feature_enabled", lambda _account: True)
+    monkeypatch.setattr(feature_rule_inventory_service, "account_sns_feature_enabled", lambda _context: True)
 
     response = client.get("/api/manager/feature-rules", params={"feature": "lifecycle"})
 
@@ -284,7 +284,7 @@ def test_feature_rules_requires_manager_tool_access(client, db_session, monkeypa
 
 def test_feature_rules_allows_group_inherited_manager_tool_access(client, db_session, monkeypatch):
     service = FakeBucketsService()
-    account = SimpleNamespace(storage_endpoint=None)
+    context = SimpleNamespace(storage_endpoint=None)
     user = User(
         id=8103,
         email="feature-rules-inherited@example.com",
@@ -302,11 +302,11 @@ def test_feature_rules_allows_group_inherited_manager_tool_access(client, db_ses
     db_session.flush()
     db_session.add(UserUiGroup(user_id=user.id, group_id=group.id))
     db_session.commit()
-    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: account
+    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: context
     app.dependency_overrides[feature_rules_router.get_buckets_service] = lambda: service
     app.dependency_overrides[feature_rules_router.get_bucket_configuration_service] = lambda: service
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
-    monkeypatch.setattr(feature_rule_inventory_service, "account_sns_feature_enabled", lambda _account: True)
+    monkeypatch.setattr(feature_rule_inventory_service, "account_sns_feature_enabled", lambda _context: True)
 
     response = client.get("/api/manager/feature-rules", params={"feature": "lifecycle"})
 
