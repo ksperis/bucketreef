@@ -11,7 +11,7 @@ from typing import Callable, Iterable
 from app.models.bucket_filter import BucketFilterQuery
 from app.models.execution_context import ExecutionContext
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse, StorageOpsBucketSummary, StorageOpsContextKind
-from app.services.bucket_listing_cache import get_cached_bucket_listing_for_account
+from app.services.bucket_listing_cache import get_cached_bucket_listing_for_context
 from app.services.bucket_listing_enrichment import enrich_buckets
 from app.services.bucket_listing_owner_metadata import OWNER_DETAIL_FIELDS
 from app.services.bucket_listing_shared import listing_sort_key
@@ -335,8 +335,8 @@ def list_storage_ops_context_buckets(
     ref = context.ref
     account = context.account
     try:
-        listed = get_cached_bucket_listing_for_account(
-            account=account,
+        listed = get_cached_bucket_listing_for_context(
+            context=account,
             include=set(),
             with_stats=needs_stats,
             builder=lambda: service.list_buckets(account, include=None, with_stats=needs_stats),

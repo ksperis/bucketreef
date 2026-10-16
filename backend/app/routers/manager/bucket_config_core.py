@@ -23,17 +23,17 @@ from app.services.bucket_configuration_service import (
     BucketConfigurationService,
     get_bucket_configuration_service,
 )
-from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_account
+from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_context
 from app.services.s3_execution_context import S3ExecutionContext
 
 router = APIRouter(tags=["manager-buckets"])
 
 
 def _invalidate_manager_bucket_config_cache(
-    account: S3ExecutionContext,
+    context: S3ExecutionContext,
     _bucket_name: str,
 ) -> None:
-    invalidate_bucket_listing_cache_for_account(account)
+    invalidate_bucket_listing_cache_for_context(context)
 
 
 def get_manager_bucket_config_mutation_service(

@@ -52,21 +52,21 @@ def _normalize_include_key(include: set[str]) -> str:
     return ",".join(normalized)
 
 
-def _account_scope_key(account: S3ExecutionTarget) -> str:
+def _context_scope_key(context: S3ExecutionTarget) -> str:
     """Invalidate all execution variants of the explicitly selected resource."""
-    return account.context_id if isinstance(account, S3ExecutionContext) else str(account.id)
+    return context.context_id if isinstance(context, S3ExecutionContext) else str(context.id)
 
 
-def get_cached_bucket_listing_for_account(
+def get_cached_bucket_listing_for_context(
     *,
-    account: S3ExecutionTarget,
+    context: S3ExecutionTarget,
     include: set[str],
     with_stats: bool,
     builder: Callable[[], list[Bucket]],
 ) -> list[Bucket]:
     key = BucketListingCacheKey(
-        scope_key=_account_scope_key(account),
-        execution_key=s3_execution_cache_key(account),
+        scope_key=_context_scope_key(context),
+        execution_key=s3_execution_cache_key(context),
         include_key=_normalize_include_key(include),
         with_stats=bool(with_stats),
     )
@@ -132,5 +132,5 @@ def invalidate_bucket_listing_cache(scope_key: str | None = None) -> None:
                     entries.pop(key, None)
 
 
-def invalidate_bucket_listing_cache_for_account(account: S3ExecutionTarget) -> None:
-    invalidate_bucket_listing_cache(_account_scope_key(account))
+def invalidate_bucket_listing_cache_for_context(context: S3ExecutionTarget) -> None:
+    invalidate_bucket_listing_cache(_context_scope_key(context))

@@ -1357,7 +1357,7 @@ def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
     monkeypatch.setattr(storage_ops_listing_service, "enrich_buckets", fake_enrich_buckets)
     monkeypatch.setattr(
         storage_ops_listing_service,
-        "get_cached_bucket_listing_for_account",
+        "get_cached_bucket_listing_for_context",
         lambda **kwargs: kwargs["builder"](),
     )
 
@@ -1428,7 +1428,7 @@ def test_storage_ops_notification_param_filter_uses_shared_snapshot_matching(mon
 
     monkeypatch.setattr(
         storage_ops_listing_service,
-        "get_cached_bucket_listing_for_account",
+        "get_cached_bucket_listing_for_context",
         lambda **kwargs: kwargs["builder"](),
     )
 

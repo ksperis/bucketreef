@@ -7,7 +7,7 @@ import hashlib
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.utils.time import utcnow
 from app.services.browser_service import BrowserService
-from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_account
+from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_context
 from app.services.s3_deletion import purge_bucket_contents
 from app.services.bucket_ui_tags_service import (
     BucketUiTagsService,
@@ -272,7 +272,7 @@ class BucketMigrationMaintenanceMixin:
             client.delete_bucket(Bucket=bucket)
         if self._precheck_bucket_exists(context, bucket) is not False:
             raise RuntimeError("Bucket removal could not be verified")
-        invalidate_bucket_listing_cache_for_account(context.account)
+        invalidate_bucket_listing_cache_for_context(context.account)
         BrowserService().invalidate_bucket_list_cache_for_context(context.account)
 
     def _remove_deleted_bucket_ui_tags(self, context, bucket: str) -> None:

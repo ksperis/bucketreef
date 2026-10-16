@@ -24,7 +24,7 @@ from app.routers.dependencies import (
 )
 from app.utils.http_errors import raise_bad_gateway_from_runtime
 from app.routers.manager.access import require_bucket_management_context
-from app.services.bucket_listing_cache import get_cached_bucket_listing_for_account
+from app.services.bucket_listing_cache import get_cached_bucket_listing_for_context
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsOptions,
     BucketUsageStatsResolvedTarget,
@@ -50,8 +50,8 @@ def _target_for_bucket(account: S3ExecutionContext, bucket_name: str) -> BucketU
 
 def _list_manager_bucket_names(account: S3ExecutionContext, service: BucketsService) -> list[str]:
     try:
-        buckets = get_cached_bucket_listing_for_account(
-            account=account,
+        buckets = get_cached_bucket_listing_for_context(
+            context=account,
             include=set(),
             with_stats=False,
             builder=lambda: service.list_buckets(account, include=set(), with_stats=False),
