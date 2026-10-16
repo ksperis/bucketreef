@@ -33,7 +33,7 @@ class BucketConfigBackupService:
     def build_backup(
         self,
         *,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         bucket_names: list[str],
         features: list[BucketConfigBackupFeature],
         source: BucketConfigBackupSource,
@@ -46,7 +46,7 @@ class BucketConfigBackupService:
             features=selected_features,
             buckets=[
                 self._build_bucket_backup(
-                    account=account,
+                    execution_context=execution_context,
                     bucket_name=bucket_name,
                     features=selected_features,
                     quota_loader=quota_loader,
@@ -58,7 +58,7 @@ class BucketConfigBackupService:
     def _build_bucket_backup(
         self,
         *,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         bucket_name: str,
         features: list[BucketConfigBackupFeature],
         quota_loader: QuotaSnapshotLoader | None,
@@ -68,7 +68,12 @@ class BucketConfigBackupService:
 
         for feature in features:
             try:
-                configuration[feature] = self._load_feature(account, bucket_name, feature, quota_loader)
+                configuration[feature] = self._load_feature(
+                    execution_context,
+                    bucket_name,
+                    feature,
+                    quota_loader,
+                )
             except Exception as exc:  # noqa: BLE001 - backup files should carry per-feature failures.
                 errors[feature] = str(exc)
 
@@ -76,37 +81,37 @@ class BucketConfigBackupService:
 
     def _load_feature(
         self,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         bucket_name: str,
         feature: BucketConfigBackupFeature,
         quota_loader: QuotaSnapshotLoader | None,
     ) -> Any:
         if feature == "quota":
-            return self._load_quota(account, bucket_name, quota_loader)
+            return self._load_quota(execution_context, bucket_name, quota_loader)
         if feature == "versioning":
-            status_value = self._configuration.get_bucket_versioning_status(bucket_name, account)
+            status_value = self._configuration.get_bucket_versioning_status(bucket_name, execution_context)
             return {"status": status_value, "enabled": status_value == "Enabled"}
         if feature == "object_lock":
-            return model_to_jsonable(self._configuration.get_object_lock(bucket_name, account))
+            return model_to_jsonable(self._configuration.get_object_lock(bucket_name, execution_context))
         if feature == "public_access_block":
-            return model_to_jsonable(self._configuration.get_public_access_block(bucket_name, account))
+            return model_to_jsonable(self._configuration.get_public_access_block(bucket_name, execution_context))
         if feature == "lifecycle":
-            lifecycle = self._configuration.get_lifecycle(bucket_name, account)
+            lifecycle = self._configuration.get_lifecycle(bucket_name, execution_context)
             return {"rules": lifecycle.rules or []}
         if feature == "cors":
-            return {"rules": self._configuration.get_bucket_cors(bucket_name, account) or []}
+            return {"rules": self._configuration.get_bucket_cors(bucket_name, execution_context) or []}
         if feature == "policy":
-            return {"policy": self._configuration.get_policy(bucket_name, account)}
+            return {"policy": self._configuration.get_policy(bucket_name, execution_context)}
         if feature == "access_logging":
-            return model_to_jsonable(self._configuration.get_bucket_logging(bucket_name, account))
+            return model_to_jsonable(self._configuration.get_bucket_logging(bucket_name, execution_context))
         if feature == "tags":
-            tags = self._configuration.get_bucket_tags(bucket_name, account)
+            tags = self._configuration.get_bucket_tags(bucket_name, execution_context)
             return {"tags": [model_to_jsonable(tag) for tag in tags]}
         raise ValueError(f"Unsupported backup feature: {feature}")
 
     def _load_quota(
         self,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         bucket_name: str,
         quota_loader: QuotaSnapshotLoader | None,
     ) -> dict[str, int | None]:
@@ -117,7 +122,7 @@ class BucketConfigBackupService:
                 "max_objects": _normalize_quota_limit(snapshot.get("max_objects")),
             }
 
-        stats = self._bucket_stats.get_bucket_stats(bucket_name, account, with_stats=True)
+        stats = self._bucket_stats.get_bucket_stats(bucket_name, execution_context, with_stats=True)
         return {
             "max_size_bytes": _normalize_quota_limit(stats.quota_max_size_bytes),
             "max_objects": _normalize_quota_limit(stats.quota_max_objects),

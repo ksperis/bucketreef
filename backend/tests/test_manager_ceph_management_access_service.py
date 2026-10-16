@@ -95,11 +95,21 @@ def test_quota_policy_revalidates_direct_manager_access_after_revocation(db_sess
         lambda _endpoint: _admin_ops_permissions(),
     )
 
-    assert policy.evaluate("bucket_quota", surface="manager", actor=user, account=context).allowed is True
+    assert policy.evaluate(
+        "bucket_quota",
+        surface="manager",
+        actor=user,
+        execution_context=context,
+    ).allowed is True
 
     db_session.delete(link)
     db_session.commit()
-    decision = policy.evaluate("bucket_quota", surface="manager", actor=user, account=context)
+    decision = policy.evaluate(
+        "bucket_quota",
+        surface="manager",
+        actor=user,
+        execution_context=context,
+    )
     assert decision.allowed is False
     assert decision.reason == "Not authorized for this Manager context"
 
@@ -137,7 +147,7 @@ def test_quota_policy_requires_endpoint_buckets_write_capability(db_session, mon
         "bucket_quota",
         surface="manager",
         actor=user,
-        account=S3ExecutionContext.from_account(account),
+        execution_context=S3ExecutionContext.from_account(account),
     )
 
     assert decision.allowed is False
@@ -170,11 +180,21 @@ def test_key_policy_accepts_group_access_and_revalidates_revocation(db_session, 
     context = S3ExecutionContext.from_s3_user(s3_user)
     policy = ManagerCephManagementAccessService(db_session)
 
-    assert policy.evaluate("rgw_access_keys", surface="manager", actor=user, account=context).allowed is True
+    assert policy.evaluate(
+        "rgw_access_keys",
+        surface="manager",
+        actor=user,
+        execution_context=context,
+    ).allowed is True
 
     db_session.delete(membership)
     db_session.commit()
-    assert policy.evaluate("rgw_access_keys", surface="manager", actor=user, account=context).allowed is False
+    assert policy.evaluate(
+        "rgw_access_keys",
+        surface="manager",
+        actor=user,
+        execution_context=context,
+    ).allowed is False
 
 
 @pytest.mark.parametrize(
@@ -193,7 +213,7 @@ def test_policy_applies_global_kill_switches(db_session, monkeypatch, operation,
         operation,
         surface="manager",
         actor=user,
-        account=None,
+        execution_context=None,
     )
     assert decision.allowed is False
     assert "disabled" in decision.reason
@@ -238,7 +258,7 @@ def test_policy_rejects_each_missing_ceph_admin_capability(
         operation,
         surface="manager",
         actor=user,
-        account=S3ExecutionContext.from_s3_user(s3_user),
+        execution_context=S3ExecutionContext.from_s3_user(s3_user),
     )
     assert decision.allowed is False
     assert decision.reason == "Ceph Admin API is not available for this context"
@@ -277,7 +297,7 @@ def test_policy_rejects_non_eligible_manager_contexts(
         operation,
         surface="manager",
         actor=user,
-        account=context,
+        execution_context=context,
     )
 
     assert decision.allowed is False

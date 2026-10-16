@@ -25,11 +25,11 @@ class PoliciesService:
         self.iam.delete_policy(arn)
 
 
-def get_policies_service(account: S3ExecutionTarget) -> PoliciesService:
-    access_key, secret_key = account.effective_rgw_credentials()
+def get_policies_service(execution_context: S3ExecutionTarget) -> PoliciesService:
+    access_key, secret_key = execution_context.effective_rgw_credentials()
     if not access_key or not secret_key:
         raise ValueError("Execution context credentials are missing")
-    endpoint, region, verify_tls = resolve_iam_client_options(account)
+    endpoint, region, verify_tls = resolve_iam_client_options(execution_context)
     iam_service = get_iam_service(
         access_key,
         secret_key,

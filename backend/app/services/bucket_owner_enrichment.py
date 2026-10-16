@@ -253,12 +253,13 @@ class BucketOwnerMetadataService:
         endpoint_id: int,
         endpoint: StorageEndpoint | None = None,
         rgw_admin: RGWAdminClient | None = None,
-        account: S3ExecutionTarget | None = None,
+        execution_context: S3ExecutionTarget | None = None,
     ) -> None:
         self.endpoint_id = int(endpoint_id)
-        self.endpoint = endpoint or (account.storage_endpoint if account is not None else None)
+        self.endpoint = endpoint or (
+            execution_context.storage_endpoint if execution_context is not None else None
+        )
         self.rgw_admin = rgw_admin
-        self.account = account
 
     def enrich_buckets(
         self,

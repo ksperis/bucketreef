@@ -5,7 +5,10 @@ import pytest
 
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.usage_trends_service import account_usage_trend_filters, build_account_usage_trends
+from app.services.usage_trends_service import (
+    build_execution_context_usage_trends,
+    execution_context_usage_trend_filters,
+)
 
 
 @pytest.mark.parametrize("model", [QuotaUsageDaily, QuotaUsageHourly])
@@ -22,7 +25,7 @@ def test_usage_history_filters_follow_explicit_context_kind(model, context_kind)
         s3_user_id=43,
     )
 
-    filters = account_usage_trend_filters(context, model)
+    filters = execution_context_usage_trend_filters(context, model)
 
     expected = [model.storage_endpoint_id == 7]
     if context_kind == "s3_user":
@@ -39,8 +42,8 @@ def test_persisted_account_and_execution_context_use_identical_history_filters(m
     account = S3Account(id=42, name="Selected account", storage_endpoint_id=7)
     context = S3ExecutionContext.from_account(account)
 
-    persisted = account_usage_trend_filters(account, model)
-    resolved = account_usage_trend_filters(context, model)
+    persisted = execution_context_usage_trend_filters(account, model)
+    resolved = execution_context_usage_trend_filters(context, model)
 
     assert persisted is not None and resolved is not None
     assert len(persisted) == len(resolved)
@@ -73,5 +76,5 @@ def test_contexts_without_a_persisted_history_subject_do_not_query_usage(context
         def query(self, *_args):
             raise AssertionError("Untracked contexts must not query another subject's history")
 
-    assert account_usage_trend_filters(context) is None
-    assert build_account_usage_trends(NoHistoryQuery(), context).model_dump(exclude_none=True) == {}
+    assert execution_context_usage_trend_filters(context) is None
+    assert build_execution_context_usage_trends(NoHistoryQuery(), context).model_dump(exclude_none=True) == {}

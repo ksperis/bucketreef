@@ -72,7 +72,7 @@ class ManagerCephManagementAccessService:
         *,
         surface: ManagerCephManagementSurface,
         actor: User | None,
-        account: S3ExecutionTarget | None,
+        execution_context: S3ExecutionTarget | None,
     ) -> ManagerCephManagementDecision:
         label = "Bucket quota management" if operation == "bucket_quota" else "Ceph access key management"
         if surface != "manager":
@@ -85,15 +85,19 @@ class ManagerCephManagementAccessService:
             return self._deny("Bucket quota management feature is disabled")
         if operation == "rgw_access_keys" and policies.ceph_s3_user_keys == FeaturePolicy.DISABLED:
             return self._deny("Ceph access key management feature is disabled")
-        if account is None:
+        if execution_context is None:
             return self._deny(f"{label} is not available for this context")
 
         effective = EffectiveAccessService(self.db).resolve_user(actor)
-        context_kind = account.context_kind if isinstance(account, S3ExecutionContext) else "account"
+        context_kind = (
+            execution_context.context_kind
+            if isinstance(execution_context, S3ExecutionContext)
+            else "account"
+        )
         resource: S3Account | S3User | None = None
 
         if context_kind == "account" and operation == "bucket_quota":
-            account_id = account.id
+            account_id = execution_context.id
             if not isinstance(account_id, int) or account_id <= 0:
                 return self._deny(f"{label} is not available for this context")
             link = effective.account_link_for(account_id)
@@ -103,9 +107,9 @@ class ManagerCephManagementAccessService:
             if resource is None or not resolve_feature_policy(policies.bucket_quota_management, resource.allow_bucket_quota_management).enabled:
                 return self._deny("Bucket quota management is not enabled for this resource")
         elif context_kind == "s3_user":
-            if not isinstance(account, S3ExecutionContext):
+            if not isinstance(execution_context, S3ExecutionContext):
                 return self._deny(f"{label} is not available for this context")
-            s3_user_id = account.s3_user_id
+            s3_user_id = execution_context.s3_user_id
             if not isinstance(s3_user_id, int) or s3_user_id <= 0:
                 return self._deny(f"{label} is not available for this context")
             if not effective.has_s3_user(s3_user_id):

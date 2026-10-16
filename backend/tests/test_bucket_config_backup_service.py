@@ -75,7 +75,7 @@ def test_bucket_config_backup_collects_selected_features_without_secrets():
     service = BucketConfigBackupService(fake_service, fake_service)
 
     backup = service.build_backup(
-        account=account,
+        execution_context=account,
         bucket_names=["bucket-a"],
         features=[
             "quota",
@@ -115,7 +115,7 @@ def test_bucket_config_backup_captures_feature_errors():
     service = BucketConfigBackupService(FailingPolicyService())
 
     backup = service.build_backup(
-        account=S3Account(name="account-a"),
+        execution_context=S3Account(name="account-a"),
         bucket_names=["bucket-a"],
         features=["policy", "tags"],
         source=BucketConfigBackupSource(surface="ceph-admin", endpoint_id=7, endpoint_name="Archive"),

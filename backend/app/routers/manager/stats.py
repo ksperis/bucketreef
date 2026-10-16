@@ -24,7 +24,10 @@ from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.rgw_admin import RGWAdminError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficService, TrafficWindow
-from app.services.usage_trends_service import account_usage_trend_filters, build_account_usage_trends
+from app.services.usage_trends_service import (
+    build_execution_context_usage_trends,
+    execution_context_usage_trend_filters,
+)
 from app.services.usage_history_service import UsageHistoryService
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.time import utcnow
@@ -81,7 +84,7 @@ def account_usage_trends(
 ) -> UsageTrendsResponse:
     if not load_app_settings().general.usage_history_enabled:
         return UsageTrendsResponse()
-    return build_account_usage_trends(db, context, reference_date=utcnow().date())
+    return build_execution_context_usage_trends(db, context, reference_date=utcnow().date())
 
 
 @router.get("/usage-history-trends", response_model=UsageHistoryTrendResponse)
@@ -102,11 +105,11 @@ def account_usage_history_trends(
                 "for RGW accounts and S3 users."
             ),
         )
-    if account_usage_trend_filters(context, QuotaUsageDaily) is None:
+    if execution_context_usage_trend_filters(context, QuotaUsageDaily) is None:
         return service.empty_trends(window=window, unavailable_reason="Usage history trends are unavailable for this context.")
     return service.aggregate_trends(
         window=window,
-        extra_filter_builder=lambda model: account_usage_trend_filters(context, model) or [],
+        extra_filter_builder=lambda model: execution_context_usage_trend_filters(context, model) or [],
     )
 
 

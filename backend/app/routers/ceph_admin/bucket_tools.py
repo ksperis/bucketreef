@@ -52,7 +52,7 @@ def backup_bucket_configs(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketConfigBackupResponse:
     service = BucketConfigBackupService()
-    account = build_ceph_admin_s3_context(ctx)
+    execution_context = build_ceph_admin_s3_context(ctx)
 
     def quota_loader(bucket_name: str) -> dict[str, int | None]:
         try:
@@ -65,7 +65,7 @@ def backup_bucket_configs(
         return quota_from_bucket_summary(summary)
 
     return service.build_backup(
-        account=account,
+        execution_context=execution_context,
         bucket_names=payload.buckets,
         features=payload.features,
         source=BucketConfigBackupSource(

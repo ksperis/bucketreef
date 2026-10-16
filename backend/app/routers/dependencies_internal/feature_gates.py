@@ -242,7 +242,7 @@ def is_manager_bucket_quota_available(
         "bucket_quota",
         surface="manager",
         actor=user,
-        account=context,
+        execution_context=context,
     ).allowed
 
 
@@ -255,7 +255,7 @@ def require_manager_bucket_quota(
         "bucket_quota",
         surface="manager",
         actor=user,
-        account=context,
+        execution_context=context,
     )
     if not decision.allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=decision.reason)
@@ -273,7 +273,7 @@ def is_manager_rgw_access_key_management_available(
         "rgw_access_keys",
         surface="manager",
         actor=user,
-        account=context,
+        execution_context=context,
     ).allowed
 
 
@@ -286,7 +286,7 @@ def require_manager_rgw_access_key_management(
         "rgw_access_keys",
         surface="manager",
         actor=user,
-        account=context,
+        execution_context=context,
     )
     if not decision.allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=decision.reason)

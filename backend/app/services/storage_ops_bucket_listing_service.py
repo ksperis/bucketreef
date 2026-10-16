@@ -296,7 +296,7 @@ def _apply_page_owner_enrichment(
         if resolved is not None:
             metadata = BucketOwnerMetadataService(
                 endpoint_id=int(resolved.context.storage_endpoint_id or 0),
-                account=resolved.context,
+                execution_context=resolved.context,
             )
             kwargs = {
                 "include_name": include_name,
@@ -376,7 +376,7 @@ def list_storage_ops_context_buckets(
     ):
         metadata = BucketOwnerMetadataService(
             endpoint_id=int(execution_context.storage_endpoint_id or 0),
-            account=execution_context,
+            execution_context=execution_context,
         )
         kwargs = {
             "include_name": filter_requires_owner_name,
