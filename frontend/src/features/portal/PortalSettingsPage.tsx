@@ -14,7 +14,7 @@ const portalSettingsAdapter: ProjectSettingsAdapter = {
 
 export default function PortalSettingsPage() {
   const { t, locale } = useI18n();
-  const { selectedAccount, selectedAccountId, loading, error } =
+  const { selectedAccount, selectedAccountId, accountIdForApi, loading, error } =
     usePortalAccountContext();
   const title = t({ en: "Settings", fr: "Paramètres", de: "Einstellungen", zh: "设置" });
   return (
@@ -35,14 +35,14 @@ export default function PortalSettingsPage() {
       })}
     >
       {error && <PageBanner tone="error">{error}</PageBanner>}
-      {selectedAccountId ? (
+      {accountIdForApi ? (
         <ProjectSettingsEditor
           adapter={portalSettingsAdapter}
           t={t}
           locale={locale}
-          key={selectedAccountId}
-          accountId={selectedAccountId}
-          projectName={selectedAccount?.name ?? selectedAccountId}
+          key={selectedAccountId ?? accountIdForApi}
+          accountId={accountIdForApi}
+          projectName={selectedAccount?.name ?? String(accountIdForApi)}
           storageName={
             selectedAccount?.storage_endpoint_name ??
             selectedAccount?.storage_endpoint_url

@@ -44,8 +44,8 @@ type Props = {
 };
 const settingsSnapshot = (value: PortalAccountSettings) => ({ ...value, project_override: value.admin_override, can_update: true });
 const portalAdapter: ProjectSettingsAdapter = {
-  load: async id => settingsSnapshot(await fetchAccountPortalSettings(Number(id))),
-  save: async (id, payload) => settingsSnapshot(await updateAccountPortalSettings(Number(id), payload)),
+  load: async id => settingsSnapshot(await fetchAccountPortalSettings(id)),
+  save: async (id, payload) => settingsSnapshot(await updateAccountPortalSettings(id, payload)),
 };
 /** Mount by account ID so a late read or save cannot replace another account's draft. */
 export default function AdminAccountEditor(props: Props) {
@@ -273,7 +273,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
           </SettingsForm>
         </div>
         {portalEnabled && <div hidden={tab !== "portal"}>
-          <ProjectSettingsEditor accountId={String(account.id)} projectName={account.name} adapter={portalAdapter} admin navigationGuard={false}
+          <ProjectSettingsEditor accountId={account.id} projectName={account.name} adapter={portalAdapter} admin navigationGuard={false}
             disabled={controller.locked} onDirtyChange={setPortalDirty} onBusyChange={setPortalBusy} />
         </div>}
       </WorkflowTabs>

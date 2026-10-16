@@ -8,7 +8,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   IAMTag,
   IAMRole,
@@ -109,7 +109,7 @@ export default function ManagerRolesPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const loadPolicies = useCallback(
-    (accountId: S3AccountSelector) =>
+    (accountId: S3ExecutionContextSelector) =>
       loadRelated(accountId, listIamPolicies, setPolicies),
     [loadRelated],
   );

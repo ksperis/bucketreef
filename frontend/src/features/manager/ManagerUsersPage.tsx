@@ -8,7 +8,7 @@ import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   AccessKey,
   IAMUser,
@@ -126,13 +126,13 @@ export default function ManagerUsersPage() {
   });
 
   const loadGroups = useCallback(
-    (accountId: S3AccountSelector) =>
+    (accountId: S3ExecutionContextSelector) =>
       loadRelated(accountId, listIamGroups, setGroups),
     [loadRelated],
   );
 
   const loadPolicies = useCallback(
-    (accountId: S3AccountSelector) =>
+    (accountId: S3ExecutionContextSelector) =>
       loadRelated(accountId, listIamPolicies, setPolicies),
     [loadRelated],
   );

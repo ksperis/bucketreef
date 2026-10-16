@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { S3AccountSelector } from "../../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../../api/accountParams";
 import { listCephAdminBucketObjects } from "../../../api/cephAdminBucketDetails";
 import {
   listManagerObjects,
@@ -13,7 +13,7 @@ import { extractApiError } from "../../../utils/apiError";
 import { parentS3Prefix } from "../../../utils/s3Prefix";
 
 type UseBucketObjectsControllerOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;

@@ -2,7 +2,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { addIamGroupUser, listIamGroups, removeIamGroupUser, type IAMGroup } from "../../api/managerIamGroups";
 import { getIamUser } from "../../api/managerIamUsers";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
@@ -36,7 +36,7 @@ export default function ManagerUserGroupsPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const membershipConfirmation = useConfirmActionDialog();
 
-  const load = useCallback(async (accountId: S3AccountSelector, targetUser: string) => {
+  const load = useCallback(async (accountId: S3ExecutionContextSelector, targetUser: string) => {
     setLoading(true);
     setError(null);
     try {

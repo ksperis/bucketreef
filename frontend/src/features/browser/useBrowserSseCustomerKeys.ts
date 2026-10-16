@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  normalizeS3SelectorId,
+  normalizeS3ExecutionContextId,
   type S3ExecutionContextSelector,
 } from "../../api/accountParams";
 import { stableSignature } from "../../utils/stableSignature";
@@ -50,7 +50,7 @@ export function useBrowserSseCustomerKeys({
   const [visible, setVisible] = useState(false);
 
   const scopeKey = useMemo(() => {
-    const contextId = normalizeS3SelectorId(contextIdForApi);
+    const contextId = normalizeS3ExecutionContextId(contextIdForApi);
     if (!contextId || !bucketName) return null;
     return `${contextId}::${bucketName}`;
   }, [contextIdForApi, bucketName]);
@@ -62,7 +62,7 @@ export function useBrowserSseCustomerKeys({
 
   const getKeyForScope = useCallback(
     (selector: S3ExecutionContextSelector, bucket: string) => {
-      const contextId = normalizeS3SelectorId(selector);
+      const contextId = normalizeS3ExecutionContextId(selector);
       if (!contextId || !bucket) return null;
       return keysByScope[`${contextId}::${bucket}`] ?? null;
     },

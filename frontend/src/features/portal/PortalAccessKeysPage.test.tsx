@@ -23,7 +23,7 @@ function readDownloadedBlobText(blob: Blob | undefined): Promise<string> {
 
 const mocks = vi.hoisted(() => ({
   account: {
-    accountIdForApi: "101" as string | null,
+    accountIdForApi: 101 as number | null,
     hasAccountContext: true,
     loading: false,
     error: null as string | null,
@@ -109,7 +109,7 @@ describe("PortalAccessKeysPage", () => {
     });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     vi.clearAllMocks();
-    mocks.account = { accountIdForApi: "101", hasAccountContext: true, loading: false, error: null };
+    mocks.account = { accountIdForApi: 101, hasAccountContext: true, loading: false, error: null };
     mocks.state = {
       iam_user: { iam_username: "portal-101-7" },
       s3_endpoint: "https://s3.example.test",
@@ -175,7 +175,7 @@ describe("PortalAccessKeysPage", () => {
     expect(screen.queryByRole("dialog", { name: "Connect a tool" })).not.toBeInTheDocument();
     expect(connectButton).toHaveFocus();
     expect(screen.getByRole("button", { name: "New tool access" })).toBeEnabled();
-    expect(mocks.fetchPortalAccessKeysState).toHaveBeenCalledWith("101");
+    expect(mocks.fetchPortalAccessKeysState).toHaveBeenCalledWith(101);
   });
 
   it.each([
@@ -319,7 +319,7 @@ describe("PortalAccessKeysPage", () => {
     await screen.findByRole("heading", { name: "External S3 tools" });
     expect(mocks.listPortalStorageSpaces).not.toHaveBeenCalled();
     const setupDialog = await openSetupDialog(user);
-    await waitFor(() => expect(mocks.listPortalStorageSpaces).toHaveBeenCalledWith("101", { sort: "name" }));
+    await waitFor(() => expect(mocks.listPortalStorageSpaces).toHaveBeenCalledWith(101, { sort: "name" }));
     const cyberduckLink = within(setupDialog).getByRole("link", { name: /Install Cyberduck from the official site/ });
     const mountainDuckLink = within(setupDialog).getByRole("link", { name: /Install Mountain Duck from the official site/ });
     const winScpLink = within(setupDialog).getByRole("link", { name: /Install WinSCP from the official site/ });
@@ -395,7 +395,7 @@ describe("PortalAccessKeysPage", () => {
     const dialog = getCreateWorkflowPage();
     await user.click(within(dialog).getByRole("button", { name: "Create access" }));
 
-    expect(mocks.createPortalAccessKey).toHaveBeenCalledWith("101", { target_type: "self" });
+    expect(mocks.createPortalAccessKey).toHaveBeenCalledWith(101, { target_type: "self" });
     expect(await screen.findByText(/The secret is shown only once\./)).toBeInTheDocument();
     expect(screen.getAllByText("Personal tool access created")).toHaveLength(1);
     expect(screen.getByRole("status")).toHaveTextContent("Personal tool access created");
@@ -476,14 +476,14 @@ describe("PortalAccessKeysPage", () => {
     await user.click(await screen.findByRole("button", { name: "New tool access" }));
     const dialog = getCreateWorkflowPage();
     await user.click(within(dialog).getByLabelText("For an external user"));
-    await waitFor(() => expect(mocks.listPortalStorageSpaces).toHaveBeenCalledWith("101", { sort: "name" }));
+    await waitFor(() => expect(mocks.listPortalStorageSpaces).toHaveBeenCalledWith(101, { sort: "name" }));
     await user.type(within(dialog).getByPlaceholderText("name@example.org"), "partner@example.org");
     await user.selectOptions(within(dialog).getByLabelText("Space"), "research-data");
     await user.click(within(dialog).getByLabelText("Read/write"));
     await user.click(within(dialog).getByRole("button", { name: "Create access" }));
 
     await waitFor(() =>
-      expect(mocks.createPortalAccessKey).toHaveBeenCalledWith("101", {
+      expect(mocks.createPortalAccessKey).toHaveBeenCalledWith(101, {
         target_type: "external",
         storage_space_id: "research-data",
         external_email: "partner@example.org",
@@ -511,7 +511,7 @@ describe("PortalAccessKeysPage", () => {
 
     await screen.findByRole("heading", { name: "Create S3 tool access" });
     const dialog = getCreateWorkflowPage();
-    await waitFor(() => expect(mocks.listPortalStorageSpaces).toHaveBeenCalledWith("101", { sort: "name" }));
+    await waitFor(() => expect(mocks.listPortalStorageSpaces).toHaveBeenCalledWith(101, { sort: "name" }));
     expect(within(dialog).getByLabelText("For an external user")).toBeChecked();
     expect(within(dialog).getByLabelText("Space")).toHaveValue("research-data");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
@@ -559,14 +559,14 @@ describe("PortalAccessKeysPage", () => {
     expect(within(disableDialog).getByText("AK-USER")).toBeInTheDocument();
     expect(within(disableDialog).getByText("External tools using this access stop authenticating until it is re-enabled.")).toBeInTheDocument();
     await user.click(within(disableDialog).getByRole("button", { name: "Disable access" }));
-    await waitFor(() => expect(mocks.updatePortalAccessKeyStatus).toHaveBeenCalledWith("101", "AK-USER", false));
+    await waitFor(() => expect(mocks.updatePortalAccessKeyStatus).toHaveBeenCalledWith(101, "AK-USER", false));
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
     const deleteDialog = screen.getByRole("dialog", { name: "Delete tool access" });
     expect(within(deleteDialog).getByText("AK-USER")).toBeInTheDocument();
     expect(within(deleteDialog).getByText("External tools using this access stop working immediately.")).toBeInTheDocument();
     await user.click(within(deleteDialog).getByRole("button", { name: "Delete access" }));
-    await waitFor(() => expect(mocks.deletePortalAccessKey).toHaveBeenCalledWith("101", "AK-USER"));
+    await waitFor(() => expect(mocks.deletePortalAccessKey).toHaveBeenCalledWith(101, "AK-USER"));
   });
 
   it("guards an edited access draft on close, reload and route navigation", async () => {
@@ -616,7 +616,7 @@ describe("PortalAccessKeysPage", () => {
     await user.type(screen.getByRole("textbox", { name: "External user" }), "{Enter}");
     fireEvent.submit(screen.getByRole("form", { name: "Create S3 tool access" }));
     expect(mocks.createPortalAccessKey).toHaveBeenCalledOnce();
-    expect(mocks.createPortalAccessKey).toHaveBeenCalledWith("101", {
+    expect(mocks.createPortalAccessKey).toHaveBeenCalledWith(101, {
       target_type: "external", storage_space_id: "research-data", external_email: "Partner name", permission: "read_write",
     });
     expect(screen.getByRole("textbox", { name: "External user" })).toBeDisabled();
@@ -666,8 +666,8 @@ describe("PortalAccessKeysPage", () => {
     let finish!: (state: PortalAccessKeysState) => void;
     mocks.fetchPortalAccessKeysState.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
     const view = renderPage();
-    await waitFor(() => expect(mocks.fetchPortalAccessKeysState).toHaveBeenCalledWith("101"));
-    mocks.account = { ...mocks.account, accountIdForApi: "102" };
+    await waitFor(() => expect(mocks.fetchPortalAccessKeysState).toHaveBeenCalledWith(101));
+    mocks.account = { ...mocks.account, accountIdForApi: 102 };
     mocks.fetchPortalAccessKeysState.mockResolvedValueOnce({ ...mocks.state, access_keys: [{ access_key_id: "NEW-PROJECT", is_active: true }] });
     view.rerender(<LanguageProvider><MemoryRouter><main><PortalAccessKeysPage /></main></MemoryRouter></LanguageProvider>);
     expect(await screen.findByText("NEW-PROJECT")).toBeVisible();
@@ -749,7 +749,7 @@ describe("PortalAccessKeysPage", () => {
       }),
     );
     await waitFor(() =>
-      expect(mocks.deletePortalAccessKey).toHaveBeenCalledWith("101", "AK-EXT-EXISTING"),
+      expect(mocks.deletePortalAccessKey).toHaveBeenCalledWith(101, "AK-EXT-EXISTING"),
     );
   });
 });

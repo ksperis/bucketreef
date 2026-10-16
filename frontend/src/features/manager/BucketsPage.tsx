@@ -30,7 +30,7 @@ import type {
   BucketProperties,
   BucketTag,
 } from "../../api/bucketContracts";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import PageHeader from "../../components/PageHeader";
@@ -480,7 +480,7 @@ export default function BucketsPage() {
     );
   };
 
-  const fetchBuckets = useCallback(async (accountId: S3AccountSelector) => {
+  const fetchBuckets = useCallback(async (accountId: S3ExecutionContextSelector) => {
     fetchAbortRef.current?.abort();
     const controller = new AbortController();
     fetchAbortRef.current = controller;

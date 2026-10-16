@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { ExecutionContext } from "../../api/executionContexts";
 import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerContext";
 import type { FeatureState } from "../../api/featurePolicies";
@@ -19,7 +19,7 @@ type S3AccountContextType = {
   selectedS3AccountId: string | null;
   requiresS3AccountSelection: boolean;
   hasS3AccountContext: boolean;
-  accountIdForApi: S3AccountSelector;
+  accountIdForApi: S3ExecutionContextSelector;
   sessionS3AccountName: string | null;
   selectedS3AccountName: string | null;
   selectedS3AccountType: string | null;
@@ -104,7 +104,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         : "Access to manager is denied for this user.",
     revokedSelectionMessage: "The previously selected Manager context is no longer authorized.",
   });
-  const [namingProfileState, setNamingProfileState] = useState<{ accountId: S3AccountSelector; profile: NamingValidationProfile } | null>(null);
+  const [namingProfileState, setNamingProfileState] = useState<{ accountId: S3ExecutionContextSelector; profile: NamingValidationProfile } | null>(null);
   const [iamIdentity, setIamIdentity] = useState<string | null>(null);
   const [accessMode, setAccessModeState] = useState<ManagerAccessMode | null>(null);
   const [managerStatsEnabled, setManagerStatsEnabled] = useState<boolean | null>(null);
@@ -118,7 +118,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
   const [managerFeatureStates, setManagerFeatureStates] = useState<Record<string, FeatureState> | null>(null);
   const hasS3AccountContext = requiresS3AccountSelection ? selectedS3Account !== null : true;
-  const accountIdForApi: S3AccountSelector = requiresS3AccountSelection ? selectedS3AccountId : null;
+  const accountIdForApi: S3ExecutionContextSelector = requiresS3AccountSelection ? selectedS3AccountId : null;
   const selectedS3AccountName = selectedS3Account?.display_name ?? sessionAccountName;
   const selectedS3AccountType = deriveS3AccountType(selectedS3Account);
 

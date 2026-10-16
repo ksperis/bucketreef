@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   refreshWorkspaceDataMock: vi.fn(),
   usePortalWorkspaceDataMock: vi.fn(),
   hookResult: {
-    accountIdForApi: "101",
+    accountIdForApi: 101,
     workspace: {
       accountName: "Account 1",
       userEmail: "manager@example.com",
@@ -120,7 +120,7 @@ describe("PortalStorageSpacesPage", () => {
     setSessionUserCache(null);
     window.localStorage.clear();
     mocks.usePortalWorkspaceDataMock.mockClear();
-    mocks.hookResult.accountIdForApi = "101";
+    mocks.hookResult.accountIdForApi = 101;
     mocks.createStorageSpaceMock.mockResolvedValue({ id: "created-space" });
     mocks.importStorageSpaceMock.mockResolvedValue({ id: "imported-space" });
     mocks.listShareCandidatesMock.mockResolvedValue([
@@ -624,7 +624,7 @@ describe("PortalStorageSpacesPage", () => {
     fireEvent.change(name, { target: { value: "research-data.v1" } });
     expect(name).not.toHaveAttribute("aria-invalid", "true");
     fireEvent.submit(form);
-    await waitFor(() => expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith("101", expect.objectContaining({ name: "research-data.v1", naming_mode: "named_bucket" })));
+    await waitFor(() => expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith(101, expect.objectContaining({ name: "research-data.v1", naming_mode: "named_bucket" })));
   });
 
   it("shows a required name after submission and applies bucket rules only in named mode", async () => {
@@ -645,7 +645,7 @@ describe("PortalStorageSpacesPage", () => {
     fireEvent.change(screen.getByLabelText("Space setup"), { target: { value: "generic_uuid" } });
     expect(name).not.toHaveAttribute("aria-invalid", "true");
     fireEvent.submit(form);
-    await waitFor(() => expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith("101", expect.objectContaining({ name: "Résultats ***", naming_mode: "generic_uuid" })));
+    await waitFor(() => expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith(101, expect.objectContaining({ name: "Résultats ***", naming_mode: "generic_uuid" })));
   });
 
   it("hides the storage naming selector when portal state disables named storage", () => {
@@ -714,7 +714,7 @@ describe("PortalStorageSpacesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
-      expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith("101", {
+      expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith(101, {
         name: "Private Research",
         naming_mode: "generic_uuid",
         description: null,
@@ -764,7 +764,7 @@ describe("PortalStorageSpacesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
-      expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith("101", {
+      expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith(101, {
         name: "Team Research",
         naming_mode: "generic_uuid",
         description: null,
@@ -804,7 +804,7 @@ describe("PortalStorageSpacesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
-      expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith("101", {
+      expect(mocks.createStorageSpaceMock).toHaveBeenCalledWith(101, {
         name: "Restricted Research",
         naming_mode: "generic_uuid",
         description: null,
@@ -836,7 +836,7 @@ describe("PortalStorageSpacesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => {
-      expect(mocks.importStorageSpaceMock).toHaveBeenCalledWith("101", {
+      expect(mocks.importStorageSpaceMock).toHaveBeenCalledWith(101, {
         bucket_name: "existing-research",
         description: null,
         visibility: "shared",
@@ -869,7 +869,7 @@ describe("PortalStorageSpacesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => {
-      expect(mocks.importStorageSpaceMock).toHaveBeenCalledWith("101", {
+      expect(mocks.importStorageSpaceMock).toHaveBeenCalledWith(101, {
         bucket_name: "existing-restricted",
         description: null,
         visibility: "shared",

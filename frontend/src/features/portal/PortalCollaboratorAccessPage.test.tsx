@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   revokeShare: vi.fn(),
   createRequest: vi.fn(),
   accountContext: {
-    accountIdForApi: "101",
+    accountIdForApi: 101,
     hasAccountContext: true,
     loading: false,
     error: null,
@@ -107,7 +107,7 @@ describe("PortalCollaboratorAccessPage", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Editor User" })).toBeInTheDocument();
-    expect(mocks.fetchReview).toHaveBeenCalledWith("101", 13);
+    expect(mocks.fetchReview).toHaveBeenCalledWith(101, 13);
     expect(screen.getByText("Workspace member")).toBeInTheDocument();
     expect(screen.getByText("Direct access", { selector: "dd" })).toBeInTheDocument();
     expect(screen.getByText("Project team")).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe("PortalCollaboratorAccessPage", () => {
     expect(within(dialog).getByText("Direct Space")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Remove access" }));
 
-    await waitFor(() => expect(mocks.revokeShare).toHaveBeenCalledWith("101", "direct-space", 13));
+    await waitFor(() => expect(mocks.revokeShare).toHaveBeenCalledWith(101, "direct-space", 13));
     expect(await screen.findByText("Access to Direct Space was removed.")).toBeInTheDocument();
     expect(screen.queryByText("Direct Space")).not.toBeInTheDocument();
     expect(screen.getByText("Team Space")).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe("PortalCollaboratorAccessPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Send request" }));
 
     await waitFor(() =>
-      expect(mocks.createRequest).toHaveBeenCalledWith("101", {
+      expect(mocks.createRequest).toHaveBeenCalledWith(101, {
         request_type: "portal_user_removal",
         target_name: "Editor User",
         target_email: "editor@example.com",
@@ -178,7 +178,7 @@ describe("PortalCollaboratorAccessPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Confirm role change" }));
 
     await waitFor(() =>
-      expect(mocks.createRequest).toHaveBeenCalledWith("101", {
+      expect(mocks.createRequest).toHaveBeenCalledWith(101, {
         request_type: "portal_user_access",
         intent: "role_change",
         target_user_id: 13,

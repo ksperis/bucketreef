@@ -109,9 +109,9 @@ const mocks = vi.hoisted(() => {
     error: null,
     accountError: null,
     hasAccountContext: true,
-    accountIdForApi: "101",
+    accountIdForApi: 101,
     selectedAccount: {
-      id: "101",
+      id: 101,
       name: "Research Project",
       rgw_account_id: "RGW40703637082424546",
       tags: [],
@@ -327,7 +327,7 @@ describe("PortalUsagePage", () => {
     mocks.hookResult.trafficLoading = false;
     mocks.hookResult.trafficError = null;
     mocks.hookResult.selectedAccount = {
-      id: "101",
+      id: 101,
       name: "Research Project",
       rgw_account_id: "RGW40703637082424546",
       tags: [],
@@ -366,7 +366,7 @@ describe("PortalUsagePage", () => {
 
     expect(await screen.findByText("Stored data")).toBeInTheDocument();
     expect(screen.getByText("1 / 1 spaces covered")).toBeInTheDocument();
-    expect(mocks.usageStatsMock).toHaveBeenCalledWith("101");
+    expect(mocks.usageStatsMock).toHaveBeenCalledWith(101);
 
     fireEvent.click(screen.getByRole("tab", { name: "Trends" }));
 
@@ -376,7 +376,7 @@ describe("PortalUsagePage", () => {
     expect(screen.getByText("Files & spaces")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "7d" }));
     await waitFor(() => {
-      expect(mocks.usageHistoryMock).toHaveBeenLastCalledWith("101", "week");
+      expect(mocks.usageHistoryMock).toHaveBeenLastCalledWith(101, "week");
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Uploads & downloads" }));
@@ -408,13 +408,13 @@ describe("PortalUsagePage", () => {
     expect(screen.getByText("File actions")).toBeInTheDocument();
     expect(screen.getByText("default")).toBeInTheDocument();
     expect(screen.getByText("2/31 days")).toBeInTheDocument();
-    expect(mocks.billingMock).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}$/), "101");
+    expect(mocks.billingMock).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}$/), 101);
 
     const monthInput = screen.getByLabelText("Month");
     expect(monthInput).toHaveClass("ui-control", "ui-control-compact");
     fireEvent.change(monthInput, { target: { value: "2026-04" } });
     await waitFor(() => {
-      expect(mocks.billingMock).toHaveBeenCalledWith("2026-04", "101");
+      expect(mocks.billingMock).toHaveBeenCalledWith("2026-04", 101);
     });
   });
 

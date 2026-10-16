@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback, useEffect, useId, useState } from "react";
 import { getTopicConfiguration, updateTopicConfiguration, type Topic } from "../../api/topics";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
@@ -95,8 +95,8 @@ const editableValues = ({ attributeItems, ...delivery }: ReturnType<typeof confi
 });
 
 export default function TopicAttributesEditor({ accountId, currentAccountId, topic, onSaved, onClose, embedded = false }: {
-  accountId: S3AccountSelector;
-  currentAccountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
+  currentAccountId: S3ExecutionContextSelector;
   topic: Topic;
   onSaved: (configuration: Record<string, unknown>) => void;
   onClose: () => void;

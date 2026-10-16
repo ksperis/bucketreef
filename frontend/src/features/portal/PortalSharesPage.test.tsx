@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => ({
     error: null,
     accountError: null,
     hasAccountContext: true,
-    accountIdForApi: "101",
+    accountIdForApi: 101,
     state: {
       portal_role: "portal_manager",
       can_manage_portal_users: true,
@@ -195,7 +195,7 @@ describe("PortalSharesPage", () => {
     await user.click(within(addDialog).getByRole("button", { name: "Send request" }));
 
     await waitFor(() =>
-      expect(mocks.createPortalRequestMock).toHaveBeenCalledWith("101", {
+      expect(mocks.createPortalRequestMock).toHaveBeenCalledWith(101, {
         request_type: "portal_user_access",
         intent: "add",
         target_name: "New Member",
@@ -285,7 +285,7 @@ describe("PortalSharesPage", () => {
 
     await waitFor(() => {
       expect(mocks.revokePublicLinkMock).toHaveBeenCalledWith(
-        "101",
+        101,
         "research-data",
         42,
       );

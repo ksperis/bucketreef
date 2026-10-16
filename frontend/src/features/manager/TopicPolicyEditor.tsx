@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback, useEffect, useId, useState } from "react";
 import { getTopicPolicy, updateTopicPolicy, type Topic } from "../../api/topics";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
@@ -15,8 +15,8 @@ import { useManagerI18n } from "./managerI18n";
 const defaultPolicy = JSON.stringify({ Version: "2012-10-17", Statement: [] }, null, 2);
 
 export default function TopicPolicyEditor({ accountId, currentAccountId, topic, onClose, embedded = false }: {
-  accountId: S3AccountSelector;
-  currentAccountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
+  currentAccountId: S3ExecutionContextSelector;
   topic: Topic;
   onClose: () => void;
   embedded?: boolean;

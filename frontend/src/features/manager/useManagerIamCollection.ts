@@ -3,17 +3,17 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { extractApiError } from "../../utils/apiError";
 
-type ListManagerIamItems<Item> = (accountId: S3AccountSelector) => Promise<Item[]>;
+type ListManagerIamItems<Item> = (accountId: S3ExecutionContextSelector) => Promise<Item[]>;
 
 export function useManagerIamCollection<Item>(listItems: ListManagerIamItems<Item>) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (accountId: S3AccountSelector) => {
+  const load = useCallback(async (accountId: S3ExecutionContextSelector) => {
     setLoading(true);
     setError(null);
     try {
@@ -26,7 +26,7 @@ export function useManagerIamCollection<Item>(listItems: ListManagerIamItems<Ite
   }, [listItems]);
 
   const loadRelated = useCallback(async <RelatedItem>(
-    accountId: S3AccountSelector,
+    accountId: S3ExecutionContextSelector,
     listRelatedItems: ListManagerIamItems<RelatedItem>,
     setRelatedItems: (items: RelatedItem[]) => void,
   ) => {

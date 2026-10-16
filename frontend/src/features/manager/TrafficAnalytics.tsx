@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   ManagerTrafficStats,
   TrafficBucketRanking,
@@ -55,7 +55,7 @@ const REQUEST_COLORS: Record<string, string> = {
 
 const CATEGORY_COLORS = ["#4F46E5", "#14B8A6", "#F97316", "#0EA5E9", "#F59E0B", "#EC4899"];
 type TrafficAnalyticsProps = {
-  accountId?: S3AccountSelector;
+  accountId?: S3ExecutionContextSelector;
   endpointId?: number | null;
   bucketName?: string;
   scope?: "manager" | "ceph-admin";

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3AccountSelector } from "../../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../../api/accountParams";
 import {
   getBucketAcl,
   updateBucketAcl,
@@ -17,7 +17,7 @@ import { extractApiError } from "../../../utils/apiError";
 import { stableBucketJsonSignature } from "./bucketFeatureState";
 
 type UseBucketAclControllerOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;

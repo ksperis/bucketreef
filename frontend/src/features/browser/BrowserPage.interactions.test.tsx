@@ -1253,7 +1253,7 @@ describe("BrowserPage interactions", () => {
     const openObjectDetailsRoute = vi.fn();
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      contextIdForApi: "acc-portal",
+      contextIdForApi: "101",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1284,14 +1284,14 @@ describe("BrowserPage interactions", () => {
     expect(screen.queryByRole("group", { name: "Details view" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Bucket" })).not.toBeInTheDocument();
     expect(searchBrowserBucketsMock).not.toHaveBeenCalled();
-    expect(fetchBrowserSettingsMock).toHaveBeenCalledWith("acc-portal", { workspaceSurface: "portal" });
+    expect(fetchBrowserSettingsMock).toHaveBeenCalledWith("101", { workspaceSurface: "portal" });
     expect(listBrowserObjectsMock).toHaveBeenCalledWith(
-      "acc-portal",
+      "101",
       "portal-bucket",
       expect.objectContaining({ workspaceSurface: "portal" }),
     );
     expect(getBrowserBucketVersioningMock).toHaveBeenCalledWith(
-      "acc-portal",
+      "101",
       "portal-bucket",
       { workspaceSurface: "portal" },
     );
@@ -1365,7 +1365,7 @@ describe("BrowserPage interactions", () => {
 
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      contextIdForApi: "acc-portal",
+      contextIdForApi: "101",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1439,7 +1439,7 @@ describe("BrowserPage interactions", () => {
 
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      contextIdForApi: "acc-portal",
+      contextIdForApi: "101",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1505,7 +1505,7 @@ describe("BrowserPage interactions", () => {
     expect(listObjectVersionsMock).toHaveBeenCalledTimes(2);
     expect(listObjectVersionsMock).toHaveBeenNthCalledWith(
       1,
-      "acc-portal",
+      "101",
       "portal-bucket",
       expect.objectContaining({
         delimiter: "/",
@@ -1515,7 +1515,7 @@ describe("BrowserPage interactions", () => {
     );
     expect(listObjectVersionsMock).toHaveBeenNthCalledWith(
       2,
-      "acc-portal",
+      "101",
       "portal-bucket",
       expect.objectContaining({
         keyMarker: "dense/file-999.txt",
@@ -1556,7 +1556,7 @@ describe("BrowserPage interactions", () => {
 
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      contextIdForApi: "acc-portal",
+      contextIdForApi: "101",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1585,7 +1585,7 @@ describe("BrowserPage interactions", () => {
   it("keeps the Portal profile on the imposed Standard layout", async () => {
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      contextIdForApi: "acc-portal",
+      contextIdForApi: "101",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",
@@ -1615,10 +1615,10 @@ describe("BrowserPage interactions", () => {
       has_next: false,
     });
     setBrowserContext({
-      contextIdForApi: "acc-portal",
-      selectedContextId: "portal-101",
+      contextIdForApi: "101",
+      selectedContextId: "101",
       selectedContext: makeExecutionContext({
-        id: "portal-101",
+        id: "101",
         display_name: "Research Portal",
       }),
       selectedKind: "portal_account",
@@ -1651,9 +1651,9 @@ describe("BrowserPage interactions", () => {
       }),
     ).not.toBeInTheDocument();
     fireEvent.keyDown(document.body, { key: "Escape" });
-    expect(fetchBrowserSettingsMock).toHaveBeenCalledWith("acc-portal", { workspaceSurface: "portal" });
+    expect(fetchBrowserSettingsMock).toHaveBeenCalledWith("101", { workspaceSurface: "portal" });
     expect(searchBrowserBucketsMock).toHaveBeenCalledWith(
-      "acc-portal",
+      "101",
       expect.objectContaining({ workspaceSurface: "portal" }),
     );
     const selector = screen.getByRole("button", { name: "Select storage space" });
@@ -1704,10 +1704,10 @@ describe("BrowserPage interactions", () => {
       },
     ]);
     setBrowserContext({
-      contextIdForApi: "acc-portal",
-      selectedContextId: "portal-101",
+      contextIdForApi: "101",
+      selectedContextId: "101",
       selectedContext: makeExecutionContext({
-        id: "portal-101",
+        id: "101",
         display_name: "Research Portal",
       }),
       selectedKind: "portal_account",
@@ -1730,7 +1730,7 @@ describe("BrowserPage interactions", () => {
     await user.click(within(drawer).getByRole("tab", { name: "Sharing" }));
     await waitFor(() =>
       expect(listPortalPublicLinksMock).toHaveBeenCalledWith(
-        "acc-portal",
+        101,
         "research-data",
         { objectKey: "a.txt", includeRevoked: true },
       ),
@@ -1797,7 +1797,7 @@ describe("BrowserPage interactions", () => {
     const createPublicLinkForObject = vi.fn();
     renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      contextIdForApi: "acc-portal",
+      contextIdForApi: "101",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       canCreatePublicLinks: true,
@@ -2733,7 +2733,7 @@ describe("BrowserPage interactions", () => {
       error: "AccessDenied",
     });
     const portalContext = makeExecutionContext({
-      id: "portal-101",
+      id: "101",
       kind: "portal_account",
     });
     setBrowserContext({
@@ -2741,7 +2741,7 @@ describe("BrowserPage interactions", () => {
       selectedContextId: portalContext.id,
       selectedContext: portalContext,
       requiresContextSelection: true,
-      contextIdForApi: "acc-portal",
+      contextIdForApi: "101",
       selectedKind: "portal_account",
     });
 
@@ -2769,7 +2769,7 @@ describe("BrowserPage interactions", () => {
 
     await waitFor(() => {
       expect(presignObjectMock).toHaveBeenCalledWith(
-        "acc-portal",
+        "101",
         "bucket-1",
         {
           key: "portal-direct.txt",
@@ -3036,7 +3036,7 @@ describe("BrowserPage interactions", () => {
 
     const portalRender = renderPage({
       initialEntry: "/portal/storage-spaces/research-data",
-      contextIdForApi: "acc-portal",
+      contextIdForApi: "101",
       workspaceSurface: "portal",
       functionalProfile: "portal",
       lockedBucketName: "portal-bucket",

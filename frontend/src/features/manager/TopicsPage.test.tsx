@@ -62,9 +62,9 @@ describe("TopicsPage", () => {
     const user = userEvent.setup();
     const topicArn = "arn:aws:sns:us-east-1:lab:topic-events";
     useS3AccountContextMock.mockReturnValue({
-      accounts: [{ id: 7, display_name: "Lab account", storage_endpoint_capabilities: { sns: true } }],
-      selectedS3AccountId: 7,
-      accountIdForApi: 7,
+      accounts: [{ id: "7", display_name: "Lab account", storage_endpoint_capabilities: { sns: true } }],
+      selectedS3AccountId: "7",
+      accountIdForApi: "7",
       requiresS3AccountSelection: false,
       sessionS3AccountName: null,
       accessMode: "default",
@@ -83,7 +83,7 @@ describe("TopicsPage", () => {
     expect(deleteTopicMock).not.toHaveBeenCalled();
     const dialog = screen.getByRole("dialog", { name: "Delete notification topic?" });
     await user.click(within(dialog).getByRole("button", { name: "Delete topic" }));
-    await waitFor(() => expect(deleteTopicMock).toHaveBeenCalledWith(7, topicArn));
+    await waitFor(() => expect(deleteTopicMock).toHaveBeenCalledWith("7", topicArn));
   });
 
   it("retains the create draft while pending and restores dismissal after a failure", async () => {
@@ -124,13 +124,13 @@ describe("TopicsPage", () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [
         {
-          id: 7,
+          id: "7",
           display_name: "Lab account",
           storage_endpoint_capabilities: { sns: true },
         },
       ],
-      selectedS3AccountId: 7,
-      accountIdForApi: 7,
+      selectedS3AccountId: "7",
+      accountIdForApi: "7",
       requiresS3AccountSelection: false,
       sessionS3AccountName: null,
       accessMode: "default",

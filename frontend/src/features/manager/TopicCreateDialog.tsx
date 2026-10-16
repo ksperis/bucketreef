@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useEffect, useState } from "react";
 import { createTopic } from "../../api/topics";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import UiInput from "../../components/ui/UiInput";
 import { extractApiError } from "../../utils/apiError";
@@ -10,8 +10,8 @@ import { topicNameFormatError } from "../../utils/resourceNames";
 import { useManagerI18n } from "./managerI18n";
 
 export default function TopicCreateDialog({ accountId, currentAccountId, onCreated, onClose }: {
-  accountId: S3AccountSelector;
-  currentAccountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
+  currentAccountId: S3ExecutionContextSelector;
   onCreated: (name: string) => void;
   onClose: () => void;
 }) {

@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { portalStorageSpaceVersionCleanupConfirmationPhrase, streamPortalStorageSpaceVersionCleanup, type PortalStorageSpaceVersionCleanupProgress, type PortalStorageSpaceVersionCleanupResult } from "../../api/portal";
+import type { S3AccountId } from "../../api/accountParams";
 import InlineSummary from "../../components/InlineSummary";
 import { WorkflowSection } from "../../components/WorkflowPage";
 import { SettingsButton } from "../../components/settings/SettingsControls";
@@ -12,7 +13,7 @@ import PortalOperationLayout, { PortalOperationProgress } from "./PortalOperatio
 import { usePortalStreamOperation } from "./usePortalStreamOperation";
 
 export default function PortalStorageSpaceHistoryCleanupWorkflow({ accountId, spaceId, spaceName, usedBytes, enabled, onClose, onStart, onCompleted, onRefresh }: {
-  accountId: string | number; spaceId: string; spaceName: string; usedBytes?: number | null; enabled: boolean;
+  accountId: S3AccountId; spaceId: string; spaceName: string; usedBytes?: number | null; enabled: boolean;
   onClose: () => void; onStart: () => void; onCompleted: (bytesFreed: number) => void; onRefresh: () => void;
 }) {
   const { t } = useI18n();

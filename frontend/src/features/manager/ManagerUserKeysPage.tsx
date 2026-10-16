@@ -5,7 +5,7 @@
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
   AccessKey,
   createIamAccessKey,
@@ -68,7 +68,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     return true;
   };
 
-  const load = useCallback(async (accountId: S3AccountSelector, targetUser: string) => {
+  const load = useCallback(async (accountId: S3ExecutionContextSelector, targetUser: string) => {
     setLoading(true);
     setError(null);
     try {

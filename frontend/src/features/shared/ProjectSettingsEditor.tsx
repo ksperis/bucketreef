@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { useEffect, useRef, useState } from "react";
+import type { S3AccountId } from "../../api/accountParams";
 import type { PortalProjectSettings } from "../../api/portalAccounts";
 import type { PortalSettingsAdminUpdate } from "../../api/appSettings";
 import PageBanner from "../../components/PageBanner";
@@ -45,15 +46,15 @@ type FlagField = {
 }[keyof ProjectSettingsForm];
 
 export type ProjectSettingsAdapter = {
-  load: (accountId: string) => Promise<PortalProjectSettings>;
-  save: (accountId: string, payload: PortalSettingsAdminUpdate) => Promise<PortalProjectSettings>;
+  load: (accountId: S3AccountId) => Promise<PortalProjectSettings>;
+  save: (accountId: S3AccountId, payload: PortalSettingsAdminUpdate) => Promise<PortalProjectSettings>;
 };
 
 export default function ProjectSettingsEditor({
   accountId, projectName, storageName, adapter, admin = false,
   t = translate, locale = "en", onDirtyChange, onBusyChange, disabled = false, navigationGuard = true,
 }: {
-  accountId: string;
+  accountId: S3AccountId;
   projectName: string;
   storageName?: string | null;
   adapter: ProjectSettingsAdapter;

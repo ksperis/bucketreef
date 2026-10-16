@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
       storage_endpoint_name: "Ceph EU",
     },
     selectedAccountId: "101",
+    accountIdForApi: 101,
     loading: false,
   },
 }));
@@ -143,7 +144,7 @@ describe("Portal project settings", () => {
     fireEvent.click(inherited);
     expectPortalFeature("Browser workspace access", "inherit");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith("101", {}));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith(101, {}));
   });
 
   it("keeps a draft when delegation is revoked and reloads current values on confirmed cancellation", async () => {
@@ -171,7 +172,7 @@ describe("Portal project settings", () => {
     await selectPortalFeature("Browser workspace access", "disabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() =>
-      expect(mocks.save).toHaveBeenCalledWith("101", {
+      expect(mocks.save).toHaveBeenCalledWith(101, {
         browser_access_enabled: false,
       }),
     );
@@ -189,7 +190,7 @@ describe("Portal project settings", () => {
     expect(mocks.save).toHaveBeenCalledTimes(1);
     expectPortalFeature("Browser workspace access", "inherit");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(mocks.save).toHaveBeenLastCalledWith("101", {}));
+    await waitFor(() => expect(mocks.save).toHaveBeenLastCalledWith(101, {}));
   });
 
   it("lets a delegated manager opt Portal users into external sharing", async () => {
@@ -201,7 +202,7 @@ describe("Portal project settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(mocks.save).toHaveBeenCalledWith("101", {
+      expect(mocks.save).toHaveBeenCalledWith(101, {
         allow_portal_user_external_sharing: true,
       }),
     );
@@ -226,7 +227,7 @@ describe("Portal project settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(mocks.save).toHaveBeenCalledWith("101", {
+      expect(mocks.save).toHaveBeenCalledWith(101, {
         bucket_defaults: {
           versioning: false,
           enable_lifecycle: false,
@@ -294,7 +295,7 @@ describe("Portal project settings", () => {
     expect(
       await screen.findByText(/Unable to save project settings/),
     ).toBeInTheDocument();
-    expect(mocks.save).toHaveBeenLastCalledWith("101", {
+    expect(mocks.save).toHaveBeenLastCalledWith(101, {
       bucket_defaults: { cors_allowed_origins: ["https://applied.test"] },
     });
     fireEvent.click(screen.getByRole("button", { name: "Configure" }));

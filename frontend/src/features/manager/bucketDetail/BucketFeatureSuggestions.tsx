@@ -12,7 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { S3AccountSelector } from "../../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../../api/accountParams";
 import { listCephAdminBucketObjects } from "../../../api/cephAdminBucketDetails";
 import { listCephAdminBuckets } from "../../../api/cephAdminBuckets";
 import { listBuckets } from "../../../api/managerBuckets";
@@ -209,7 +209,7 @@ export function BucketFeatureSuggestionsProvider({
   topicsEnabled,
   children,
 }: {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;

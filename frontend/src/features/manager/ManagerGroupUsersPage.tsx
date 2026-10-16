@@ -6,7 +6,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { IAMUser, listIamUsers } from "../../api/managerIamUsers";
 import { addIamGroupUser, listIamGroupUsers, removeIamGroupUser } from "../../api/managerIamGroups";
 import { useS3AccountContext } from "./S3AccountContext";
@@ -46,7 +46,7 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
     }
   }, [groupName]);
 
-  const load = useCallback(async (accountId: S3AccountSelector, targetGroup: string) => {
+  const load = useCallback(async (accountId: S3ExecutionContextSelector, targetGroup: string) => {
     setLoading(true);
     setError(null);
     try {

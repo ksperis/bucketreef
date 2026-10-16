@@ -278,6 +278,12 @@ export default function BrowserPage({
   const executionContextKind =
     executionContextKindOverride ?? selectedContext?.kind ?? null;
   const isStorageSpaceContext = executionContextKind === "portal_account";
+  const portalAccountId = isStorageSpaceContext && contextIdForApi != null
+    ? Number(contextIdForApi)
+    : null;
+  const portalAccountIdForApi = portalAccountId != null && Number.isInteger(portalAccountId) && portalAccountId > 0
+    ? portalAccountId
+    : null;
   const isCephAdminContext = executionContextKind === "ceph_admin";
   const isS3UserContext = executionContextKind === "s3_user";
   const isConnectionContext = executionContextKind === "connection";
@@ -2810,7 +2816,7 @@ export default function BrowserPage({
         <BrowserStorageSpaceObjectDetailsDrawer
           navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          portalAccountId={contextIdForApi}
+          portalAccountId={portalAccountIdForApi}
           bucket={currentBucketPanelItem}
           bucketName={bucketName}
           canModifyObjects={

@@ -38,7 +38,7 @@ afterEach(() => {
 function renderWorkflow() {
   function Page() {
     const [open, setOpen] = useState(true);
-    return <main>{open ? <PortalAddPeopleWorkflow accountId="101" spaceId="research" spaceName="Research"
+    return <main>{open ? <PortalAddPeopleWorkflow accountId={101} spaceId="research" spaceName="Research"
       existingRoles={{ 1: "Editor" }} disabled={false} onClose={() => setOpen(false)}
       onAdded={async count => { mocks.added(count); setOpen(false); }} /> : <p>Space view</p>}</main>;
   }
@@ -73,7 +73,7 @@ it("keeps roles and counts across searches, excludes existing grants and submits
   expect(await axe(container)).toHaveNoViolations();
   await user.click(screen.getByRole("button", { name: "Add people" }));
   expect(await screen.findByText("Space view")).toBeVisible();
-  expect(mocks.grant).toHaveBeenCalledExactlyOnceWith("101", "research", { user_id: 2, role: "Editor" });
+  expect(mocks.grant).toHaveBeenCalledExactlyOnceWith(101, "research", { user_id: 2, role: "Editor" });
   expect(mocks.added).toHaveBeenCalledWith(1);
 });
 
@@ -139,7 +139,7 @@ it("guards a nested request once, retains failed values and never submits the in
   await user.click(within(dialog).getByRole("button", { name: "Send request" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Request sent.");
   expect(screen.getByRole("button", { name: "Request collaborator access" })).toHaveFocus();
-  expect(mocks.request).toHaveBeenLastCalledWith("101", { request_type: "portal_user_access", intent: "add", target_name: "Missing person", target_email: "partner@example.test", portal_role: "portal_manager" });
+  expect(mocks.request).toHaveBeenLastCalledWith(101, { request_type: "portal_user_access", intent: "add", target_name: "Missing person", target_email: "partner@example.test", portal_role: "portal_manager" });
   expect(mocks.grant).not.toHaveBeenCalled();
   await user.clear(screen.getByRole("textbox", { name: "People" }));
   expect(screen.getByRole("checkbox", { name: /Bob/ })).toBeChecked();
