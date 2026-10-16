@@ -10,6 +10,20 @@ from app.utils.identity_provider_ids import normalize_identity_provider_id
 
 
 OIDC_PROVIDER_DEFAULT_SCOPES = ["openid", "email", "profile"]
+OIDC_PROVIDER_CONFIG_FIELDS = (
+    "display_name",
+    "discovery_url",
+    "client_id",
+    "redirect_uri",
+    "scopes",
+    "prompt",
+    "enabled",
+    "icon_url",
+    "use_pkce",
+    "use_nonce",
+    "linking_policy",
+    "trusted_email_domains",
+)
 
 
 def normalize_trusted_email_domains(value) -> list[str]:

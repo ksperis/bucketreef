@@ -17,6 +17,23 @@ from app.utils.ldap_validation import (
 
 LDAP_USERNAME_MAX_LENGTH = 256
 LDAP_PASSWORD_MAX_LENGTH = 1024
+LDAP_PROVIDER_CONFIG_FIELDS = (
+    "display_name",
+    "url",
+    "bind_dn",
+    "user_base_dn",
+    "user_filter",
+    "email_attribute",
+    "name_attribute",
+    "subject_attribute",
+    "start_tls",
+    "tls_verify",
+    "tls_ca_file",
+    "allow_legacy_tls",
+    "timeout_seconds",
+    "enabled",
+    "allow_insecure",
+)
 
 
 class LDAPProviderInfo(ApiModel):

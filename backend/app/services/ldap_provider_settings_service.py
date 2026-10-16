@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import LDAPProviderSettings, Settings, get_settings
 from app.db import LdapProvider
 from app.models.ldap import (
+    LDAP_PROVIDER_CONFIG_FIELDS,
     LDAPProviderAdminItem,
     LDAPProviderAdminPayload,
     LDAPProviderFieldLock,
@@ -24,22 +25,8 @@ from app.utils.time import utcnow
 
 LDAP_PROVIDER_FIELDS = (
     "provider_id",
-    "display_name",
-    "url",
-    "bind_dn",
+    *LDAP_PROVIDER_CONFIG_FIELDS,
     "bind_password",
-    "user_base_dn",
-    "user_filter",
-    "email_attribute",
-    "name_attribute",
-    "subject_attribute",
-    "start_tls",
-    "tls_verify",
-    "tls_ca_file",
-    "allow_legacy_tls",
-    "timeout_seconds",
-    "enabled",
-    "allow_insecure",
 )
 
 

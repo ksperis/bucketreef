@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import OIDCProviderSettings, Settings, get_settings
 from app.db import OidcProvider
 from app.models.oidc import (
+    OIDC_PROVIDER_CONFIG_FIELDS,
     OIDC_PROVIDER_DEFAULT_SCOPES,
     OIDCProviderAdminItem,
     OIDCProviderAdminPayload,
@@ -26,18 +27,7 @@ from app.utils.time import utcnow
 
 OIDC_PROVIDER_FIELDS = (
     "provider_id",
-    "display_name",
-    "discovery_url",
-    "client_id",
-    "redirect_uri",
-    "scopes",
-    "prompt",
-    "enabled",
-    "icon_url",
-    "use_pkce",
-    "use_nonce",
-    "linking_policy",
-    "trusted_email_domains",
+    *OIDC_PROVIDER_CONFIG_FIELDS,
     "client_secret",
 )
 
