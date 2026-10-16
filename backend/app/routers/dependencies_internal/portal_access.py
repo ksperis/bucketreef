@@ -18,7 +18,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.portal_access_service import portal_membership_capabilities
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
-from .account_context import _resolve_user_account_link, _resolve_workspace_surface
+from .execution_context import _resolve_user_account_link, _resolve_workspace_surface
 from .auth_session import get_current_account_user, settings
 
 def _portal_membership_capabilities(

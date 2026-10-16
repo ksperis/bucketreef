@@ -10,7 +10,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.models.iam import IAMRole, IAMRoleCreate, IAMRoleUpdate, IAMTag
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_audit_service,
     require_iam_capable_manager,
 )
@@ -49,7 +49,7 @@ def _same_policy_document(left: object, right: object) -> bool:
 
 @router.get("", response_model=list[IAMRole])
 def list_roles(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMRole]:
@@ -63,7 +63,7 @@ def list_roles(
 @router.post("", response_model=IAMRole, status_code=status.HTTP_201_CREATED)
 def create_role(
     payload: IAMRoleCreate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMRole:
@@ -107,7 +107,7 @@ def create_role(
 @router.get("/{role_name}", response_model=IAMRole)
 def get_role(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> IAMRole:
     service = get_iam_service_for_account(account)
@@ -123,7 +123,7 @@ def get_role(
 @router.delete("/{role_name}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_role(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
@@ -146,7 +146,7 @@ def delete_role(
 def update_role(
     role_name: str,
     payload: IAMRoleUpdate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMRole:
@@ -216,7 +216,7 @@ def update_role(
 @router.get("/{role_name}/tags", response_model=list[IAMTag])
 def list_role_tags(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMTag]:
     service = get_iam_service_for_account(account)
@@ -232,7 +232,7 @@ def list_role_tags(
 def put_role_tags(
     role_name: str,
     payload: list[IAMTag],
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> list[IAMTag]:
@@ -264,7 +264,7 @@ def put_role_tags(
 def delete_role_tag(
     role_name: str,
     tag_key: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> list[IAMTag]:
@@ -291,7 +291,7 @@ def delete_role_tag(
 @router.get("/{role_name}/inline-policies", response_model=list[InlinePolicy])
 def list_role_inline_policies(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[InlinePolicy]:
     service = get_iam_service_for_account(account)
@@ -310,7 +310,7 @@ def put_role_inline_policy(
     role_name: str,
     policy_name: str,
     payload: InlinePolicy,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
@@ -344,7 +344,7 @@ def put_role_inline_policy(
 def delete_role_inline_policy(
     role_name: str,
     policy_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
@@ -367,7 +367,7 @@ def delete_role_inline_policy(
 @router.get("/{role_name}/policies", response_model=list[Policy])
 def list_role_policies(
     role_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
     service = get_iam_service_for_account(account)
@@ -381,7 +381,7 @@ def list_role_policies(
 def attach_role_policy(
     role_name: str,
     payload: Policy,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
@@ -406,7 +406,7 @@ def attach_role_policy(
 def detach_role_policy(
     role_name: str,
     policy_arn: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:

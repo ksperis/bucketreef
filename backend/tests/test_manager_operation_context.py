@@ -72,7 +72,7 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
         return JSONResponse({"ok": True})
 
     app.dependency_overrides[dependencies.require_manager_enabled] = lambda: None
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
     app.dependency_overrides[dependencies.get_current_account_admin] = lambda: actor
 
     if operation in {"usage", "aggregate-usage"}:

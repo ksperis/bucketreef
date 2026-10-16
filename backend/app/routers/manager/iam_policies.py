@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.access_context import ManagerActor
 from app.models.policy import Policy, PolicyCreate
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_audit_service,
     require_iam_capable_manager,
 )
@@ -22,7 +22,7 @@ PoliciesContext = tuple[S3ExecutionContext, PoliciesService]
 
 
 def get_policies_context(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
 ) -> PoliciesContext:
     try:
         service = get_policies_service(account)

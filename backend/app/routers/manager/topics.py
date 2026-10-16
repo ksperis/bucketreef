@@ -6,7 +6,7 @@ from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.topic import Topic, TopicConfiguration, TopicCreate, TopicPolicy
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_audit_service,
     get_current_account_admin,
     require_sns_capable_manager,
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/manager/topics", tags=["manager-topics"])
 
 @router.get("", response_model=list[Topic])
 def list_topics(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _sns_guard: ManagerActor = Depends(require_sns_capable_manager),
     _actor: ManagerActor = Depends(get_current_account_admin),
@@ -35,7 +35,7 @@ def list_topics(
 @router.post("", response_model=Topic, status_code=status.HTTP_201_CREATED)
 def create_topic(
     payload: TopicCreate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _: ManagerActor = Depends(require_sns_capable_manager),
     current_user: ManagerActor = Depends(get_current_account_admin),
@@ -70,7 +70,7 @@ def create_topic(
 @router.delete("/{topic_arn:path}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_topic(
     topic_arn: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _: ManagerActor = Depends(require_sns_capable_manager),
     current_user: ManagerActor = Depends(get_current_account_admin),
@@ -93,7 +93,7 @@ def delete_topic(
 @router.get("/{topic_arn:path}/policy", response_model=TopicPolicy)
 def get_topic_policy(
     topic_arn: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _sns_guard: ManagerActor = Depends(require_sns_capable_manager),
     _actor: ManagerActor = Depends(get_current_account_admin),
@@ -109,7 +109,7 @@ def get_topic_policy(
 def put_topic_policy(
     topic_arn: str,
     payload: TopicPolicy,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _: ManagerActor = Depends(require_sns_capable_manager),
     current_user: ManagerActor = Depends(get_current_account_admin),
@@ -136,7 +136,7 @@ def put_topic_policy(
 @router.get("/{topic_arn:path}/configuration", response_model=TopicConfiguration)
 def get_topic_configuration(
     topic_arn: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _sns_guard: ManagerActor = Depends(require_sns_capable_manager),
     _actor: ManagerActor = Depends(get_current_account_admin),
@@ -152,7 +152,7 @@ def get_topic_configuration(
 def put_topic_configuration(
     topic_arn: str,
     payload: TopicConfiguration,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _: ManagerActor = Depends(require_sns_capable_manager),
     current_user: ManagerActor = Depends(get_current_account_admin),

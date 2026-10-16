@@ -79,9 +79,9 @@ def test_account_requires_admin_and_permission_on_same_direct_link(db_session):
     db_session.add(link)
     db_session.commit()
 
-    context = dependencies.get_account_context(
+    context = dependencies.get_s3_execution_context(
         request=_request("/api/browser/buckets/search"),
-        account_ref=str(account.id),
+        context_ref=str(account.id),
         actor=user,
         db=db_session,
     )
@@ -91,9 +91,9 @@ def test_account_requires_admin_and_permission_on_same_direct_link(db_session):
     db_session.add(link)
     db_session.commit()
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/browser/buckets/search"),
-            account_ref=str(account.id),
+            context_ref=str(account.id),
             actor=user,
             db=db_session,
         )
@@ -135,9 +135,9 @@ def test_account_permissions_cannot_escalate_by_combining_links(db_session):
     db_session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/browser/buckets/demo/objects"),
-            account_ref=str(account.id),
+            context_ref=str(account.id),
             actor=user,
             db=db_session,
         )
@@ -148,9 +148,9 @@ def test_account_permissions_cannot_escalate_by_combining_links(db_session):
     group_account_link.allow_manager_browser_data_access = True
     db_session.add(group_account_link)
     db_session.commit()
-    context = dependencies.get_account_context(
+    context = dependencies.get_s3_execution_context(
         request=_request("/api/browser/buckets/demo/objects"),
-        account_ref=str(account.id),
+        context_ref=str(account.id),
         actor=user,
         db=db_session,
     )
@@ -184,9 +184,9 @@ def test_rgw_user_permission_aggregates_direct_and_group_and_revokes(db_session)
     )
     db_session.commit()
 
-    context = dependencies.get_account_context(
+    context = dependencies.get_s3_execution_context(
         request=_request("/api/browser/buckets/search"),
-        account_ref=f"s3u-{s3_user.id}",
+        context_ref=f"s3u-{s3_user.id}",
         actor=user,
         db=db_session,
     )
@@ -196,9 +196,9 @@ def test_rgw_user_permission_aggregates_direct_and_group_and_revokes(db_session)
     db_session.add(group_link)
     db_session.commit()
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/browser/buckets/search"),
-            account_ref=f"s3u-{s3_user.id}",
+            context_ref=f"s3u-{s3_user.id}",
             actor=user,
             db=db_session,
         )
@@ -245,9 +245,9 @@ def test_private_connection_requires_both_flags_and_shared_is_always_denied(db_s
     db_session.add_all([user, private, shared])
     db_session.commit()
 
-    context = dependencies.get_account_context(
+    context = dependencies.get_s3_execution_context(
         request=_request("/api/browser/buckets/search"),
-        account_ref=f"conn-{private.id}",
+        context_ref=f"conn-{private.id}",
         actor=user,
         db=db_session,
     )
@@ -258,9 +258,9 @@ def test_private_connection_requires_both_flags_and_shared_is_always_denied(db_s
     db_session.commit()
     for connection in (private, shared):
         with pytest.raises(HTTPException) as exc:
-            dependencies.get_account_context(
+            dependencies.get_s3_execution_context(
                 request=_request("/api/browser/buckets/search"),
-                account_ref=f"conn-{connection.id}",
+                context_ref=f"conn-{connection.id}",
                 actor=user,
                 db=db_session,
             )
@@ -286,9 +286,9 @@ def test_direct_s3_session_uses_its_credentials_and_browser_capability(db_sessio
         capabilities=SessionCapabilities(access_browser=True),
     )
 
-    context = dependencies.get_account_context(
+    context = dependencies.get_s3_execution_context(
         request=_request("/api/browser/buckets/search"),
-        account_ref=str(account.id),
+        context_ref=str(account.id),
         actor=actor,
         db=db_session,
     )
@@ -296,9 +296,9 @@ def test_direct_s3_session_uses_its_credentials_and_browser_capability(db_sessio
 
     actor.capabilities.access_browser = False
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/browser/buckets/search"),
-            account_ref=str(account.id),
+            context_ref=str(account.id),
             actor=actor,
             db=db_session,
         )
@@ -329,11 +329,11 @@ def test_manager_context_and_surface_gate_use_same_explicit_permission(db_sessio
         )
     )
     db_session.commit()
-    manager_account = dependencies.get_account_context(
+    manager_account = dependencies.get_s3_execution_context(
         request=SimpleNamespace(
             url=SimpleNamespace(path="/api/manager/context"), headers={}, method="GET"
         ),
-        account_ref=str(account.id),
+        context_ref=str(account.id),
         actor=user,
         db=db_session,
     )

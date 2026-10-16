@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.db import User
 from app.models.bucket_integrity import BucketIntegrityCheckRequest
 from app.routers.bucket_integrity_stream import stream_bucket_integrity_check
-from app.routers.dependencies import get_account_context, get_current_storage_ops_admin
+from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin
 from app.routers.execution_contexts import list_execution_contexts
 from app.services.bucket_integrity_service import (
     BucketIntegrityCheckService,
@@ -54,9 +54,9 @@ def stream_storage_ops_bucket_integrity_check(
     )
     targets = [
         BucketIntegrityResolvedTarget(
-            account=get_account_context(
+            account=get_s3_execution_context(
                 request=request,
-                account_ref=target.context_id,
+                context_ref=target.context_id,
                 actor=user,
                 db=db,
             ),

@@ -20,7 +20,7 @@ from app.models.access_context import ManagerActor
 from app.models.execution_context import ManagerContext
 from app.models.session import ManagerSessionPrincipal
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_current_actor,
     is_manager_bucket_quota_available,
     is_manager_rgw_access_key_management_available,
@@ -248,7 +248,7 @@ def _manager_limits(
 
 @router.get("/context", response_model=ManagerContext)
 def get_manager_context(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
     include_limits: Annotated[bool, Query()] = False,

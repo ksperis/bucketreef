@@ -17,7 +17,7 @@ from app.routers.bucket_purge_stream import (
     record_bucket_purge_audit,
     stream_bucket_purge,
 )
-from app.routers.dependencies import get_account_context, get_current_storage_ops_admin, require_bucket_purge_global_enabled
+from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin, require_bucket_purge_global_enabled
 from app.routers.execution_contexts import list_execution_contexts
 from app.services.bucket_purge_service import BucketPurgeOptions, BucketPurgeResolvedTarget, BucketPurgeService
 
@@ -50,9 +50,9 @@ def stream_storage_ops_bucket_purge(
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
     targets = [
         BucketPurgeResolvedTarget(
-            account=get_account_context(
+            account=get_s3_execution_context(
                 request=request,
-                account_ref=target.context_id,
+                context_ref=target.context_id,
                 actor=user,
                 db=db,
             ),

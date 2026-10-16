@@ -13,7 +13,7 @@ from app.models.healthcheck import WorkspaceEndpointHealthOverviewResponse
 from app.models.usage_trends import UsageTrendsResponse
 from app.models.usage_history import UsageHistoryTrendResponse, UsageHistoryTrendWindow
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     require_metrics_capable_manager,
     require_usage_capable_manager,
 )
@@ -37,7 +37,7 @@ settings = get_settings()
 
 @router.get("/overview")
 def account_stats(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     bucket_service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(require_usage_capable_manager),
 ) -> dict:
@@ -75,7 +75,7 @@ def account_stats(
 
 @router.get("/usage-trends", response_model=UsageTrendsResponse, response_model_exclude_none=True)
 def account_usage_trends(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_usage_capable_manager),
     db: Session = Depends(get_db),
 ) -> UsageTrendsResponse:
@@ -87,7 +87,7 @@ def account_usage_trends(
 @router.get("/usage-history-trends", response_model=UsageHistoryTrendResponse)
 def account_usage_history_trends(
     window: UsageHistoryTrendWindow = Query("month"),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_usage_capable_manager),
     db: Session = Depends(get_db),
 ) -> UsageHistoryTrendResponse:
@@ -114,7 +114,7 @@ def account_usage_history_trends(
 def account_traffic(
     window: TrafficWindow = Query(TrafficWindow.WEEK),
     bucket: Optional[str] = Query(None),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_metrics_capable_manager),
 ) -> dict:
     try:
@@ -134,7 +134,7 @@ def account_traffic(
 
 @router.get("/endpoint-health", response_model=WorkspaceEndpointHealthOverviewResponse)
 def endpoint_health_overview(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> WorkspaceEndpointHealthOverviewResponse:
     app_settings = load_app_settings()

@@ -24,7 +24,7 @@ from app.db import (
 from app.models.app_settings import AppSettings, GeneralSettings
 from app.routers.ceph_admin import dependencies as ceph_admin_dependencies
 from app.routers import dependencies
-from app.routers.dependencies_internal.account_context import manager_membership_capabilities
+from app.routers.dependencies_internal.execution_context import manager_membership_capabilities
 from app.services import app_settings_service
 from app.routers.manager import context as manager_context_router
 from app.services.connection_identity_service import ConnectionIdentityResolution
@@ -135,9 +135,9 @@ def _build_linked_s3_user_context(
     db_session.add(UserS3User(user_id=user.id, s3_user_id=s3_user.id))
     db_session.commit()
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/context"),
-        account_ref=f"s3u-{s3_user.id}",
+        context_ref=f"s3u-{s3_user.id}",
         actor=user,
         db=db_session,
     )
@@ -185,9 +185,9 @@ def test_manager_workspace_rejects_portal_role_without_account_admin(db_session)
     db_session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/manager/buckets"),
-            account_ref=str(account.id),
+            context_ref=str(account.id),
             actor=user,
             db=db_session,
         )
@@ -249,9 +249,9 @@ def test_portal_browser_context_uses_portal_credentials_without_manager_admin(db
         lambda self, user_arg, access_arg: [],
     )
 
-    account_ctx = dependencies.get_account_context(
+    account_ctx = dependencies.get_s3_execution_context(
         request=_request("/api/browser/buckets/search", headers={"X-S3-Workspace": "portal"}),
-        account_ref=str(account.id),
+        context_ref=str(account.id),
         actor=user,
         db=db_session,
     )
@@ -320,9 +320,9 @@ def test_portal_browser_context_rejects_unavailable_storage_space_bucket(db_sess
     )
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/browser/buckets/archived-data/objects", headers={"X-S3-Workspace": "portal"}),
-            account_ref=str(account.id),
+            context_ref=str(account.id),
             actor=user,
             db=db_session,
         )
@@ -426,9 +426,9 @@ def test_manager_context_ignores_legacy_access_mode_header(db_session):
     )
     db_session.commit()
 
-    account_ctx = dependencies.get_account_context(
+    account_ctx = dependencies.get_s3_execution_context(
         request=_request("/api/manager/context", headers={"X-Manager-Access-Mode": "portal"}),
-        account_ref=str(account.id),
+        context_ref=str(account.id),
         actor=user,
         db=db_session,
     )
@@ -459,9 +459,9 @@ def test_manager_workspace_accepts_non_iam_connection_when_access_manager_enable
     db_session.refresh(user)
     db_session.refresh(connection)
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/buckets"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -497,9 +497,9 @@ def test_manager_workspace_touch_connection_last_used_timestamp(db_session, publ
     db_session.refresh(connection)
     assert connection.last_used_at is None
 
-    dependencies.get_account_context(
+    dependencies.get_s3_execution_context(
         request=_request("/api/manager/buckets"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -530,9 +530,9 @@ def test_storage_ops_workspace_does_not_touch_connection_last_used_timestamp(db_
     db_session.refresh(connection)
     assert connection.last_used_at is None
 
-    dependencies.get_account_context(
+    dependencies.get_s3_execution_context(
         request=_request("/api/storage-ops/buckets"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -563,9 +563,9 @@ def test_manager_workspace_rejects_connection_without_manager_access(db_session)
     db_session.refresh(connection)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/manager/buckets"),
-            account_ref=f"conn-{connection.id}",
+            context_ref=f"conn-{connection.id}",
             actor=user,
             db=db_session,
         )
@@ -598,9 +598,9 @@ def test_manager_and_browser_workspace_reject_inactive_connection(db_session, pa
     db_session.refresh(connection)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request(path),
-            account_ref=f"conn-{connection.id}",
+            context_ref=f"conn-{connection.id}",
             actor=user,
             db=db_session,
         )
@@ -621,9 +621,9 @@ def test_workspace_rejects_invalid_account_selectors(db_session, account_ref: st
     db_session.refresh(user)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/manager/buckets"),
-            account_ref=account_ref,
+            context_ref=account_ref,
             actor=user,
             db=db_session,
         )
@@ -676,9 +676,9 @@ def test_manager_context_exposes_browser_access_flag_for_connection(db_session, 
     db_session.refresh(user)
     db_session.refresh(connection)
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/context"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -713,9 +713,9 @@ def test_manager_context_connection_exposes_detected_identity_and_stats_enabled(
     db_session.refresh(user)
     db_session.refresh(connection)
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/context"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -756,9 +756,9 @@ def test_manager_context_reports_global_rgw_metrics_disablement(db_session, monk
     db_session.refresh(user)
     db_session.refresh(connection)
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/context"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -804,9 +804,9 @@ def test_manager_context_connection_reports_reason_when_identity_cannot_be_resol
         ),
     )
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/context"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -843,9 +843,9 @@ def test_manager_context_connection_reports_reason_for_non_ceph_endpoint(db_sess
     db_session.refresh(user)
     db_session.refresh(connection)
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/context"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -879,9 +879,9 @@ def test_manager_workspace_accepts_s3_user_context(db_session):
     db_session.add(UserS3User(user_id=user.id, s3_user_id=s3_user.id))
     db_session.commit()
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/buckets"),
-        account_ref=f"s3u-{s3_user.id}",
+        context_ref=f"s3u-{s3_user.id}",
         actor=user,
         db=db_session,
     )
@@ -919,9 +919,9 @@ def test_browser_workspace_rejects_forged_s3_user_context(db_session):
     db_session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/browser/buckets/search"),
-            account_ref=f"s3u-{s3_user.id}",
+            context_ref=f"s3u-{s3_user.id}",
             actor=user,
             db=db_session,
         )
@@ -970,9 +970,9 @@ def test_browser_workspace_rejects_forged_account_and_shared_connection(db_sessi
 
     for account_ref in (str(account.id), f"conn-{shared_connection.id}"):
         with pytest.raises(HTTPException) as exc:
-            dependencies.get_account_context(
+            dependencies.get_s3_execution_context(
                 request=_request("/api/browser/buckets/search"),
-                account_ref=account_ref,
+                context_ref=account_ref,
                 actor=user,
                 db=db_session,
             )
@@ -1164,9 +1164,9 @@ def test_workspace_rejects_unlinked_s3_user_context(db_session):
     db_session.refresh(s3_user)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/manager/buckets"),
-            account_ref=f"s3u-{s3_user.id}",
+            context_ref=f"s3u-{s3_user.id}",
             actor=user,
             db=db_session,
         )
@@ -1202,9 +1202,9 @@ def test_browser_workspace_accepts_ceph_admin_selector_for_authorized_user(db_se
 
     monkeypatch.setattr(ceph_admin_dependencies, "validate_ceph_admin_service_identity", lambda _endpoint: None)
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/browser/buckets/search"),
-        account_ref=f"ceph-admin-{endpoint.id}",
+        context_ref=f"ceph-admin-{endpoint.id}",
         actor=user,
         db=db_session,
     )
@@ -1250,9 +1250,9 @@ def test_browser_workspace_rejects_ceph_admin_selector_for_invalid_ceph_admin_id
     )
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/browser/buckets/search"),
-            account_ref=f"ceph-admin-{endpoint.id}",
+            context_ref=f"ceph-admin-{endpoint.id}",
             actor=user,
             db=db_session,
         )
@@ -1287,9 +1287,9 @@ def test_browser_workspace_rejects_ceph_admin_selector_for_non_admin_user(db_ses
     db_session.refresh(endpoint)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_account_context(
+        dependencies.get_s3_execution_context(
             request=_request("/api/browser/buckets/search"),
-            account_ref=f"ceph-admin-{endpoint.id}",
+            context_ref=f"ceph-admin-{endpoint.id}",
             actor=user,
             db=db_session,
         )

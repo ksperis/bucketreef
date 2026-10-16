@@ -9,7 +9,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.models.iam import IAMGroup, IAMGroupCreate, IAMGroupUpdate, IAMUser
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_audit_service,
     require_iam_capable_manager,
 )
@@ -37,7 +37,7 @@ def _annotate_managed_group(item: IAMGroup) -> IAMGroup:
 
 @router.get("", response_model=list[IAMGroup])
 def list_groups(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMGroup]:
@@ -51,7 +51,7 @@ def list_groups(
 @router.get("/{group_name}", response_model=IAMGroup)
 def get_group(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> IAMGroup:
     service = get_iam_service_for_account(account)
@@ -68,7 +68,7 @@ def get_group(
 def update_group(
     group_name: str,
     payload: IAMGroupUpdate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMGroup:
@@ -111,7 +111,7 @@ def update_group(
 @router.post("", response_model=IAMGroup, status_code=status.HTTP_201_CREATED)
 def create_group(
     payload: IAMGroupCreate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMGroup:
@@ -139,7 +139,7 @@ def create_group(
 @router.delete("/{group_name}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_group(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
@@ -161,7 +161,7 @@ def delete_group(
 @router.get("/{group_name}/users", response_model=list[IAMUser])
 def list_group_users(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMUser]:
     service = get_iam_service_for_account(account)
@@ -175,7 +175,7 @@ def list_group_users(
 def add_user_to_group(
     group_name: str,
     payload: IAMUser,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMUser:
@@ -200,7 +200,7 @@ def add_user_to_group(
 def remove_user_from_group(
     group_name: str,
     user_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
@@ -223,7 +223,7 @@ def remove_user_from_group(
 @router.get("/{group_name}/inline-policies", response_model=list[InlinePolicy])
 def list_group_inline_policies(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[InlinePolicy]:
     service = get_iam_service_for_account(account)
@@ -242,7 +242,7 @@ def put_group_inline_policy(
     group_name: str,
     policy_name: str,
     payload: InlinePolicy,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
@@ -276,7 +276,7 @@ def put_group_inline_policy(
 def delete_group_inline_policy(
     group_name: str,
     policy_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
@@ -299,7 +299,7 @@ def delete_group_inline_policy(
 @router.get("/{group_name}/policies", response_model=list[Policy])
 def list_group_policies(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
     service = get_iam_service_for_account(account)
@@ -313,7 +313,7 @@ def list_group_policies(
 def attach_group_policy(
     group_name: str,
     payload: Policy,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
@@ -338,7 +338,7 @@ def attach_group_policy(
 def detach_group_policy(
     group_name: str,
     policy_arn: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:

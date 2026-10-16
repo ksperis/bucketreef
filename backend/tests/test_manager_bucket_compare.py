@@ -71,8 +71,8 @@ def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
     source_account = _build_account(1)
     target_account = _build_account(2)
 
-    def fake_get_account_context(*, account_ref, **_kwargs):
-        assert account_ref == "2"
+    def fake_get_s3_execution_context(*, context_ref, **_kwargs):
+        assert context_ref == "2"
         return target_account
 
     def fake_compare_content(self, source_bucket, source_ctx, target_bucket, target_ctx, **kwargs):
@@ -93,7 +93,7 @@ def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
             different_sample=[],
         )
 
-    monkeypatch.setattr(buckets_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", fake_get_s3_execution_context)
     monkeypatch.setattr(BucketComparisonService, "compare_bucket_content", fake_compare_content)
     monkeypatch.setattr(
         BucketComparisonService,
@@ -129,7 +129,7 @@ def test_compare_bucket_pair_returns_no_diff(monkeypatch):
     )
     source_account = _build_account(1)
     target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
     monkeypatch.setattr(
         BucketComparisonService,
         "compare_bucket_content",
@@ -167,7 +167,7 @@ def test_compare_bucket_pair_translates_runtime_errors(monkeypatch):
     )
     source_account = _build_account(1)
     target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
 
     def failing_compare(*_args, **_kwargs):
         raise RuntimeError("target bucket not found")
@@ -198,7 +198,7 @@ def test_compare_bucket_pair_supports_config_only(monkeypatch):
     )
     source_account = _build_account(1)
     target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
 
     def should_not_compare_content(*_args, **_kwargs):
         raise AssertionError("compare_bucket_content should not be called in config-only mode")
@@ -235,7 +235,7 @@ def test_compare_bucket_pair_forwards_selected_config_features(monkeypatch):
     )
     source_account = _build_account(1)
     target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
     captured: dict[str, object] = {}
 
     def should_not_compare_content(*_args, **_kwargs):
@@ -277,7 +277,7 @@ def test_compare_bucket_pair_rejects_source_equals_target_for_same_context(monke
     )
     source_account = _build_account(1)
     target_account = _build_account(1)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
 
     with pytest.raises(HTTPException) as exc:
         buckets_router.compare_bucket_pair(
@@ -345,7 +345,7 @@ def test_compare_bucket_action_sync_source_only(monkeypatch):
     target_account = _build_account(2)
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
 
     def fake_run_action(self, source_bucket, source_ctx, target_bucket, target_ctx, **kwargs):
         captured["source_bucket"] = source_bucket
@@ -407,7 +407,7 @@ def test_compare_bucket_action_runs_sync_different(monkeypatch):
     )
     source_account = _build_account(1)
     target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
     captured: dict[str, object] = {}
 
     def fake_run_action(self, *_args, **kwargs):
@@ -446,7 +446,7 @@ def test_compare_bucket_action_forwards_object_keys(monkeypatch):
     )
     source_account = _build_account(1)
     target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
     captured: dict[str, object] = {}
 
     def fake_run_action(self, *_args, **kwargs):
@@ -488,7 +488,7 @@ def test_compare_bucket_action_delete_returns_partial_failure(monkeypatch):
     )
     source_account = _build_account(1)
     target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
 
     monkeypatch.setattr(
         BucketComparisonService,
@@ -530,7 +530,7 @@ def test_compare_bucket_action_rejects_source_equals_target_for_same_context(mon
     )
     source_account = _build_account(1)
     target_account = _build_account(1)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
 
     with pytest.raises(HTTPException) as exc:
         buckets_router.run_compare_bucket_action(
@@ -556,7 +556,7 @@ def test_compare_bucket_action_translates_runtime_error(monkeypatch):
     )
     source_account = _build_account(1)
     target_account = _build_account(2)
-    monkeypatch.setattr(buckets_router, "get_account_context", lambda **_kwargs: target_account)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_account)
 
     def failing_action(*_args, **_kwargs):
         raise RuntimeError("copy failed")
@@ -590,7 +590,7 @@ def test_compare_bucket_action_rejects_unauthorized_target_context(monkeypatch):
     def fail_get_context(**_kwargs):
         raise HTTPException(status_code=403, detail="Forbidden target context")
 
-    monkeypatch.setattr(buckets_router, "get_account_context", fail_get_context)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", fail_get_context)
 
     with pytest.raises(HTTPException) as exc:
         buckets_router.run_compare_bucket_action(

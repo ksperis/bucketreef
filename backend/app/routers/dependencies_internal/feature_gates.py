@@ -28,7 +28,7 @@ from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTar
 from app.services.rgw_supervision import has_supervision_credentials
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
-from .account_context import get_account_context
+from .execution_context import get_s3_execution_context
 from .auth_session import get_current_actor, get_current_user
 
 ManagerToolKey = Literal[
@@ -109,7 +109,7 @@ def _require_supervision_access(
 
 
 def require_iam_capable_manager(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
 ) -> ManagerActor:
     caps = require_manager_capabilities(account)
@@ -122,7 +122,7 @@ def require_iam_capable_manager(
 
 
 def require_usage_capable_manager(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> ManagerActor:
@@ -136,7 +136,7 @@ def require_usage_capable_manager(
 
 
 def require_sns_capable_manager(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
 ) -> ManagerActor:
     require_manager_capabilities(account)
@@ -149,7 +149,7 @@ def require_sns_capable_manager(
 
 
 def require_metrics_capable_manager(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> ManagerActor:
@@ -211,7 +211,7 @@ def require_bucket_purge_global_enabled() -> None:
 
 def require_bucket_usage_stats_enabled(
     user: User = Depends(get_current_user),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> User:
     app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
@@ -248,7 +248,7 @@ def is_manager_bucket_quota_available(
 
 def require_manager_bucket_quota(
     user: User = Depends(get_current_user),
-    account: S3ExecutionTarget = Depends(get_account_context),
+    account: S3ExecutionTarget = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> S3ExecutionTarget:
     decision = ManagerCephManagementAccessService(db).evaluate(
@@ -279,7 +279,7 @@ def is_manager_rgw_access_key_management_available(
 
 def require_manager_rgw_access_key_management(
     user: User = Depends(get_current_user),
-    account: S3ExecutionTarget = Depends(get_account_context),
+    account: S3ExecutionTarget = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> S3ExecutionTarget:
     decision = ManagerCephManagementAccessService(db).evaluate(

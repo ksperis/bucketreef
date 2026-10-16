@@ -256,7 +256,7 @@ def test_ui_session_can_export_partitioned_browser_sts_credentials_without_cachi
             )
 
     account = object()
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = auth_client.get("/api/browser/sts/credentials")

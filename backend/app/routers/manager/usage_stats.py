@@ -18,7 +18,7 @@ from app.models.bucket_usage_stats import (
 )
 from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_current_account_admin,
     require_bucket_usage_stats_enabled,
 )
@@ -65,7 +65,7 @@ def _list_manager_bucket_names(account: S3ExecutionContext, service: BucketsServ
 def get_manager_usage_stats_aggregate(
     db: Session = Depends(get_db),
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> BucketUsageStatsAggregateResponse:
@@ -87,7 +87,7 @@ def stream_manager_usage_stats_aggregate(
     payload: BucketUsageStatsScopeRequest,
     request: Request,
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_account_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> StreamingResponse:
@@ -116,7 +116,7 @@ def get_manager_bucket_usage_stats(
     bucket_name: str,
     db: Session = Depends(get_db),
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketUsageStatsLatestResponse:
     require_bucket_management_context(account)
@@ -135,7 +135,7 @@ def stream_manager_bucket_usage_stats_for_bucket(
     bucket_name: str,
     request: Request,
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
     require_bucket_management_context(account)

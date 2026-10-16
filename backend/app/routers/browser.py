@@ -12,7 +12,7 @@ They are credential-first and can be used with:
 - Ceph Admin endpoint context (selector `ceph-admin-<endpoint_id>`)
 
 The endpoints reuse the `context_id` selector and context resolution
-logic implemented in :func:`app.routers.dependencies.get_account_context`.
+logic implemented in :func:`app.routers.dependencies.get_s3_execution_context`.
 """
 
 from typing import Any, Optional
@@ -39,7 +39,7 @@ from app.models.browser import (
 )
 from app.routers import browser_bucket_config, browser_objects, browser_transfers
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_audit_service,
     get_current_account_admin,
     get_optional_sse_customer_context,
@@ -88,7 +88,7 @@ def search_buckets(
     exact: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> PaginatedBrowserBucketsResponse:
@@ -110,7 +110,7 @@ def search_buckets(
     response_model_exclude_none=True,
 )
 def get_usage_summary(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserUsageSummaryService = Depends(get_browser_usage_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BrowserUsageSummary:
@@ -120,7 +120,7 @@ def get_usage_summary(
 @router.post("/buckets", status_code=status.HTTP_201_CREATED)
 def create_bucket(
     payload: CreateBucketPayload,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     actor: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -151,7 +151,7 @@ def create_bucket(
 @router.get("/buckets/{bucket_name}/versioning", response_model=BucketVersioningStatus)
 def get_bucket_versioning(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketVersioningStatus:
@@ -179,7 +179,7 @@ def list_objects(
     sort_by: BrowserObjectSortBy = Query(default="name"),
     sort_dir: BrowserObjectSortDir = Query(default="asc"),
     force_refresh: bool = Query(default=False),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListBrowserObjectsResponse:
@@ -209,7 +209,7 @@ def list_objects(
 def get_object_columns(
     bucket_name: str,
     payload: ObjectColumnsRequest,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -230,7 +230,7 @@ def get_object_columns(
 def get_bucket_cors(
     bucket_name: str,
     origin: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketCorsStatus:
@@ -241,7 +241,7 @@ def get_bucket_cors(
 def ensure_bucket_cors(
     bucket_name: str,
     payload: EnsureCorsPayload,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     actor: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),

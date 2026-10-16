@@ -93,7 +93,7 @@ def test_manager_purge_route_rejects_wrong_confirmation_with_400():
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_purge.require_bucket_purge_enabled] = lambda: _manager_tool_user()
-    app.dependency_overrides[manager_purge.get_account_context] = lambda: make_s3_execution_context(
+    app.dependency_overrides[manager_purge.get_s3_execution_context] = lambda: make_s3_execution_context(
         context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
         can_manage_buckets=True,
@@ -116,7 +116,7 @@ def test_manager_delete_with_purge_route_rejects_wrong_confirmation_with_400():
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_buckets.require_bucket_purge_enabled] = lambda: _manager_tool_user()
-    app.dependency_overrides[manager_buckets.get_account_context] = lambda: make_s3_execution_context(
+    app.dependency_overrides[manager_buckets.get_s3_execution_context] = lambda: make_s3_execution_context(
         context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
         can_manage_buckets=True,
@@ -162,7 +162,7 @@ def test_manager_purge_route_streams_progress_and_result(monkeypatch):
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_purge.require_bucket_purge_enabled] = lambda: _manager_tool_user()
-    app.dependency_overrides[manager_purge.get_account_context] = lambda: make_s3_execution_context(
+    app.dependency_overrides[manager_purge.get_s3_execution_context] = lambda: make_s3_execution_context(
         context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
         can_manage_buckets=True,
@@ -228,7 +228,7 @@ def test_manager_delete_with_purge_route_streams_progress_and_result(monkeypatch
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_buckets.require_bucket_purge_enabled] = lambda: _manager_tool_user()
-    app.dependency_overrides[manager_buckets.get_account_context] = lambda: make_s3_execution_context(
+    app.dependency_overrides[manager_buckets.get_s3_execution_context] = lambda: make_s3_execution_context(
         context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
         can_manage_buckets=True,
@@ -357,9 +357,9 @@ def test_storage_ops_purge_route_resolves_authorized_manager_contexts(monkeypatc
         captured["stream_result"] = run_purge(lambda progress: None, lambda: None)
         return "stream"
 
-    def fake_get_account_context(*, request, account_ref, actor, db):
-        captured.setdefault("account_refs", []).append(account_ref)
-        return SimpleNamespace(name=f"Account {account_ref}")
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):
+        captured.setdefault("account_refs", []).append(context_ref)
+        return SimpleNamespace(name=f"Account {context_ref}")
 
     monkeypatch.setattr(storage_ops_purge, "BucketPurgeService", FakeService)
     monkeypatch.setattr(storage_ops_purge, "stream_bucket_purge", fake_stream)
@@ -368,7 +368,7 @@ def test_storage_ops_purge_route_resolves_authorized_manager_contexts(monkeypatc
         "list_execution_contexts",
         lambda *, workspace, user, db: [SimpleNamespace(id="s3u-1", display_name="S3 User 1")],
     )
-    monkeypatch.setattr(storage_ops_purge, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_purge, "get_s3_execution_context", fake_get_s3_execution_context)
 
     response = storage_ops_purge.stream_storage_ops_bucket_purge(
         payload=BucketPurgeRequest(

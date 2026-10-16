@@ -79,7 +79,7 @@ def test_manager_usage_stats_latest_aggregates_snapshots_and_coverage(client: Te
     )
 
     monkeypatch.setattr(manager_usage_stats_router, "_list_manager_bucket_names", lambda account, service: ["bucket-a", "bucket-b"])
-    app.dependency_overrides[manager_usage_stats_router.get_account_context] = lambda: account
+    app.dependency_overrides[manager_usage_stats_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[manager_usage_stats_router.require_bucket_usage_stats_enabled] = _tool_user
     app.dependency_overrides[manager_usage_stats_router.get_buckets_service] = lambda: object()
 
@@ -125,7 +125,7 @@ def test_manager_usage_stats_stream_builds_scope_targets(client: TestClient, mon
     monkeypatch.setattr(manager_usage_stats_router, "_list_manager_bucket_names", lambda account, service: ["bucket-a", "bucket-b"])
     monkeypatch.setattr(manager_usage_stats_router, "BucketUsageStatsService", FakeService)
     monkeypatch.setattr(manager_usage_stats_router, "stream_bucket_usage_stats", fake_stream)
-    app.dependency_overrides[manager_usage_stats_router.get_account_context] = lambda: account
+    app.dependency_overrides[manager_usage_stats_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[manager_usage_stats_router.require_bucket_usage_stats_enabled] = _tool_user
     app.dependency_overrides[manager_usage_stats_router.get_buckets_service] = lambda: object()
 

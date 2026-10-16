@@ -122,7 +122,7 @@ def naming_client(monkeypatch):
     )
     for router in [iam_users.router, iam_groups.router, iam_roles.router, topics.router]:
         application.include_router(router)
-    for dep in [dependencies.get_account_context, dependencies.get_current_account_admin, dependencies.require_iam_capable_manager, dependencies.require_sns_capable_manager, dependencies.get_audit_service]:
+    for dep in [dependencies.get_s3_execution_context, dependencies.get_current_account_admin, dependencies.require_iam_capable_manager, dependencies.require_sns_capable_manager, dependencies.get_audit_service]:
         application.dependency_overrides[dep] = lambda: account
     service = Mock()
     factories = []

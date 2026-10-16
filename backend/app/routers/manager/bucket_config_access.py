@@ -13,7 +13,7 @@ from app.models.bucket import (
     BucketPolicyOut,
     BucketPublicAccessBlock,
 )
-from app.routers.dependencies import get_account_context, get_current_account_admin
+from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.routers.manager.bucket_config_core import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
@@ -29,7 +29,7 @@ router = APIRouter(tags=["manager-buckets"])
 @router.get("/{bucket_name}/policy", response_model=BucketPolicyOut)
 def get_policy(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketPolicyOut:
@@ -43,7 +43,7 @@ def get_policy(
 @router.get("/{bucket_name}/acl", response_model=BucketAcl)
 def get_acl(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketAcl:
@@ -58,7 +58,7 @@ def get_acl(
 def put_acl(
     bucket_name: str,
     payload: BucketAclUpdate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketAcl:
@@ -75,7 +75,7 @@ def put_acl(
 @router.get("/{bucket_name}/public-access-block", response_model=BucketPublicAccessBlock)
 def get_public_access_block(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketPublicAccessBlock:
@@ -90,7 +90,7 @@ def get_public_access_block(
 def put_public_access_block(
     bucket_name: str,
     payload: BucketPublicAccessBlock,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketPublicAccessBlock:
@@ -108,7 +108,7 @@ def put_public_access_block(
 def put_policy(
     bucket_name: str,
     payload: BucketPolicyIn,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketPolicyOut:
@@ -125,7 +125,7 @@ def put_policy(
 @router.delete("/{bucket_name}/policy", status_code=status.HTTP_204_NO_CONTENT)
 def delete_policy(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> None:

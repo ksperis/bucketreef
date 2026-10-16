@@ -17,7 +17,7 @@ from app.routers.bucket_purge_stream import (
     stream_bucket_purge,
 )
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_current_account_admin,
     require_bucket_purge_enabled,
 )
@@ -45,7 +45,7 @@ def stream_manager_bucket_purge(
     payload: BucketPurgeRequest,
     request: Request,
     tool_user: User = Depends(require_bucket_purge_enabled),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
     bucket_names = _require_buckets_payload(payload)

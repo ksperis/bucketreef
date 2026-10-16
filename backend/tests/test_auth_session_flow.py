@@ -361,17 +361,17 @@ def test_iam_overview_success(monkeypatch, client, db_session):
             return []
 
     monkeypatch.setattr("app.routers.manager.iam_overview.get_iam_service_for_account", lambda _account: FakeService())
-    previous_account_context = app.dependency_overrides.get(dependencies.get_account_context)
+    previous_account_context = app.dependency_overrides.get(dependencies.get_s3_execution_context)
     previous_iam_guard = app.dependency_overrides.get(dependencies.require_iam_capable_manager)
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
     app.dependency_overrides[dependencies.require_iam_capable_manager] = lambda: {"ok": True}
     try:
         resp = client.get(f"/api/manager/iam/overview?context_id={account.id}")
     finally:
         if previous_account_context is not None:
-            app.dependency_overrides[dependencies.get_account_context] = previous_account_context
+            app.dependency_overrides[dependencies.get_s3_execution_context] = previous_account_context
         else:
-            app.dependency_overrides.pop(dependencies.get_account_context, None)
+            app.dependency_overrides.pop(dependencies.get_s3_execution_context, None)
         if previous_iam_guard is not None:
             app.dependency_overrides[dependencies.require_iam_capable_manager] = previous_iam_guard
         else:
@@ -404,17 +404,17 @@ def test_iam_overview_handles_partial_failures(monkeypatch, client, db_session):
             return []
 
     monkeypatch.setattr("app.routers.manager.iam_overview.get_iam_service_for_account", lambda _account: PartialService())
-    previous_account_context = app.dependency_overrides.get(dependencies.get_account_context)
+    previous_account_context = app.dependency_overrides.get(dependencies.get_s3_execution_context)
     previous_iam_guard = app.dependency_overrides.get(dependencies.require_iam_capable_manager)
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
     app.dependency_overrides[dependencies.require_iam_capable_manager] = lambda: {"ok": True}
     try:
         resp = client.get(f"/api/manager/iam/overview?context_id={account.id}")
     finally:
         if previous_account_context is not None:
-            app.dependency_overrides[dependencies.get_account_context] = previous_account_context
+            app.dependency_overrides[dependencies.get_s3_execution_context] = previous_account_context
         else:
-            app.dependency_overrides.pop(dependencies.get_account_context, None)
+            app.dependency_overrides.pop(dependencies.get_s3_execution_context, None)
         if previous_iam_guard is not None:
             app.dependency_overrides[dependencies.require_iam_capable_manager] = previous_iam_guard
         else:

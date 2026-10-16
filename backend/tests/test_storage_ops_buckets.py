@@ -312,8 +312,8 @@ def test_storage_ops_listing_aggregates_contexts_and_exposes_context_fields(clie
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -332,7 +332,7 @@ def test_storage_ops_listing_aggregates_contexts_and_exposes_context_fields(clie
             return []
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -445,15 +445,15 @@ def test_storage_ops_listing_reports_context_progress(monkeypatch):
         assert workspace == "manager"
         return contexts
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
             return [Bucket(name=f"{account.context_id}-bucket")]
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
     snapshots = []
 
     response = storage_ops_router._compute_storage_ops_listing(
@@ -501,8 +501,8 @@ def test_storage_ops_query_endpoint_matches_get(client, monkeypatch):
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -522,7 +522,7 @@ def test_storage_ops_query_endpoint_matches_get(client, monkeypatch):
     )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -574,8 +574,8 @@ def test_storage_ops_listing_fanout_runs_in_parallel(client, monkeypatch):
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def __init__(self) -> None:
@@ -597,7 +597,7 @@ def test_storage_ops_listing_fanout_runs_in_parallel(client, monkeypatch):
 
     service = FakeBucketsService()
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1006,8 +1006,8 @@ def test_storage_ops_list_and_stream_apply_context_advanced_filters(client, monk
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -1029,7 +1029,7 @@ def test_storage_ops_list_and_stream_apply_context_advanced_filters(client, monk
     )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1079,9 +1079,9 @@ def test_storage_ops_context_prefilter_skips_non_matching_contexts_for_match_all
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        resolved_contexts.append(account_ref)
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        resolved_contexts.append(context_ref)
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -1097,7 +1097,7 @@ def test_storage_ops_context_prefilter_skips_non_matching_contexts_for_match_all
     )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1137,9 +1137,9 @@ def test_storage_ops_context_id_prefilter_skips_non_matching_contexts(client, mo
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        resolved_contexts.append(account_ref)
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        resolved_contexts.append(context_ref)
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -1155,7 +1155,7 @@ def test_storage_ops_context_id_prefilter_skips_non_matching_contexts(client, mo
     )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1195,9 +1195,9 @@ def test_storage_ops_context_prefilter_keeps_other_contexts_for_match_any_mixed_
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        resolved_contexts.append(account_ref)
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        resolved_contexts.append(context_ref)
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -1218,7 +1218,7 @@ def test_storage_ops_context_prefilter_keeps_other_contexts_for_match_any_mixed_
     )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1251,8 +1251,8 @@ def test_storage_ops_applies_cheap_field_prefilter_before_feature_enrichment(cli
             )
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -1283,7 +1283,7 @@ def test_storage_ops_applies_cheap_field_prefilter_before_feature_enrichment(cli
     )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
     monkeypatch.setattr(storage_ops_listing_service, "enrich_buckets", fake_enrich_buckets)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
@@ -1471,15 +1471,15 @@ def test_storage_ops_owner_quota_and_usage_use_context_principal_and_resolve_con
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        if account_ref == "1":
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        if context_ref == "1":
             return _source_context(
                 "1",
                 rgw_account_id="RGW00000000000000011",
                 rgw_user_uid="root-11",
                 storage_endpoint=_storage_endpoint(11),
             )
-        if account_ref == "conn-2":
+        if context_ref == "conn-2":
             return _source_context(
                 "conn-2",
                 rgw_account_id=None,
@@ -1487,7 +1487,7 @@ def test_storage_ops_owner_quota_and_usage_use_context_principal_and_resolve_con
                 storage_endpoint=_storage_endpoint(12),
                 source_connection=SimpleNamespace(id=22),
             )
-        raise AssertionError(f"unexpected context {account_ref}")
+        raise AssertionError(f"unexpected context {context_ref}")
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -1524,7 +1524,7 @@ def test_storage_ops_owner_quota_and_usage_use_context_principal_and_resolve_con
         return buckets
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
     monkeypatch.setattr(storage_ops_listing_service.ConnectionIdentityService, "resolve_rgw_identity", fake_resolve_rgw_identity)
     monkeypatch.setattr(storage_ops_listing_service.BucketOwnerMetadataService, "enrich_buckets", fake_enrich_buckets)
 
@@ -1578,8 +1578,8 @@ def test_storage_ops_bucket_quota_usage_percent_filter_forces_stats_and_filters_
             )
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
-        return _source_context(account_ref)
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
+        return _source_context(context_ref)
 
     class FakeBucketsService(_CompositeConfigurationStub):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
@@ -1597,7 +1597,7 @@ def test_storage_ops_bucket_quota_usage_percent_filter_forces_stats_and_filters_
     )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1630,9 +1630,9 @@ def test_storage_ops_bucket_listing_does_not_expose_quota_write_availability(cli
             )
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
         return _source_context(
-            account_ref,
+            context_ref,
             storage_endpoint=_storage_endpoint(
                 1,
                 admin_access_key="admin-ak",
@@ -1646,7 +1646,7 @@ def test_storage_ops_bucket_listing_does_not_expose_quota_write_availability(cli
             return [Bucket(name="alpha")]
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1695,11 +1695,11 @@ def test_storage_ops_bucket_listing_filters_by_owner_suspended_status(client, mo
             ),
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
         return _source_context(
-            account_ref,
+            context_ref,
             rgw_account_id=None,
-            rgw_user_uid={"1": "user-active", "2": "user-suspended"}[account_ref],
+            rgw_user_uid={"1": "user-active", "2": "user-suspended"}[context_ref],
             storage_endpoint=_storage_endpoint(21),
         )
 
@@ -1730,7 +1730,7 @@ def test_storage_ops_bucket_listing_filters_by_owner_suspended_status(client, mo
     )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
     monkeypatch.setattr(storage_ops_listing_service.BucketOwnerMetadataService, "enrich_buckets", fake_enrich_buckets)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
@@ -1764,9 +1764,9 @@ def test_storage_ops_owner_identity_failures_leave_owner_quota_fields_null(clien
             )
         ]
 
-    def fake_get_account_context(*, request, account_ref, actor, db):  # noqa: ARG001
+    def fake_get_s3_execution_context(*, request, context_ref, actor, db):  # noqa: ARG001
         return _source_context(
-            account_ref,
+            context_ref,
             rgw_account_id=None,
             rgw_user_uid=None,
             storage_endpoint=_storage_endpoint(13),
@@ -1787,7 +1787,7 @@ def test_storage_ops_owner_identity_failures_leave_owner_quota_fields_null(clien
         )
 
     monkeypatch.setattr(storage_ops_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
     monkeypatch.setattr(storage_ops_listing_service.ConnectionIdentityService, "resolve_rgw_identity", fake_resolve_rgw_identity)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None

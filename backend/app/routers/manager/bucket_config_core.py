@@ -15,7 +15,7 @@ from app.models.bucket import (
     BucketVersioningUpdate,
 )
 from app.routers.browser_common import require_sse_feature
-from app.routers.dependencies import get_account_context, get_audit_service, get_current_account_admin
+from app.routers.dependencies import get_s3_execution_context, get_audit_service, get_current_account_admin
 from app.services import bucket_config_actions
 from app.services.audit_service import AuditService
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
@@ -51,7 +51,7 @@ def get_manager_bucket_config_mutation_service(
 @router.get("/{bucket_name}/properties", response_model=BucketProperties)
 def bucket_properties(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketProperties:
@@ -65,7 +65,7 @@ def bucket_properties(
 @router.get("/{bucket_name}/versioning", response_model=BucketVersioningStatus)
 def get_versioning(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketVersioningStatus:
@@ -80,7 +80,7 @@ def get_versioning(
 def update_versioning(
     bucket_name: str,
     payload: BucketVersioningUpdate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ):
@@ -97,7 +97,7 @@ def update_versioning(
 @router.get("/{bucket_name}/object-lock", response_model=BucketObjectLock)
 def get_object_lock(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketObjectLock:
@@ -112,7 +112,7 @@ def get_object_lock(
 def put_object_lock(
     bucket_name: str,
     payload: BucketObjectLockUpdate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketObjectLock:
@@ -129,7 +129,7 @@ def put_object_lock(
 @router.get("/{bucket_name}/encryption", response_model=BucketEncryptionConfiguration)
 def get_bucket_encryption(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketEncryptionConfiguration:
@@ -145,7 +145,7 @@ def get_bucket_encryption(
 def put_bucket_encryption(
     bucket_name: str,
     payload: BucketEncryptionConfiguration,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketEncryptionConfiguration:
@@ -163,7 +163,7 @@ def put_bucket_encryption(
 @router.delete("/{bucket_name}/encryption", status_code=status.HTTP_204_NO_CONTENT)
 def delete_bucket_encryption(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> None:

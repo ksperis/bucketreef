@@ -45,7 +45,7 @@ def test_browser_get_object_columns_passes_keys_and_columns(client):
                 ]
             )
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.post(
@@ -78,7 +78,7 @@ def test_browser_get_object_columns_passes_keys_and_columns(client):
     assert captured["columns"] == {"content_type", "tags_count"}
     assert captured["sse_customer"] is None
 
-    app.dependency_overrides.pop(dependencies.get_account_context, None)
+    app.dependency_overrides.pop(dependencies.get_s3_execution_context, None)
     app.dependency_overrides.pop(browser_router.get_browser_service, None)
 
 
@@ -87,7 +87,7 @@ def test_browser_get_object_columns_maps_runtime_error_to_bad_gateway(client):
         def get_object_columns(self, *args, **kwargs):  # noqa: ANN002, ANN003
             raise RuntimeError("S3 head_object failed")
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.post(
@@ -101,5 +101,5 @@ def test_browser_get_object_columns_maps_runtime_error_to_bad_gateway(client):
     assert response.status_code == 502
     assert "S3 head_object failed" in response.json()["detail"]
 
-    app.dependency_overrides.pop(dependencies.get_account_context, None)
+    app.dependency_overrides.pop(dependencies.get_s3_execution_context, None)
     app.dependency_overrides.pop(browser_router.get_browser_service, None)

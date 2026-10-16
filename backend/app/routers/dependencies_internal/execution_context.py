@@ -341,13 +341,13 @@ def _resolve_requested_session_endpoint(
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Endpoint is not allowed for this session")
 
 
-def get_account_context(
+def get_s3_execution_context(
     request: Request,
-    account_ref: Optional[str] = Query(default=None, alias="context_id"),
+    context_ref: Optional[str] = Query(default=None, alias="context_id"),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> S3ExecutionContext:
-    account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_execution_context_selector(account_ref)
+    account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_execution_context_selector(context_ref)
     surface = _resolve_workspace_surface(request)
     requested_endpoint = normalize_s3_endpoint(request.headers.get("X-S3-Endpoint")) if request else None
     if isinstance(actor, ManagerSessionPrincipal):

@@ -98,13 +98,13 @@ def test_http_remediation_targets_only_selected_exact_keys(client, monkeypatch, 
     monkeypatch.setattr(service, "_accounts_share_storage_endpoint", lambda *_args: mode != "stream")
     # Keep the HTTP model, action orchestration, and remediation real while
     # isolating authorization, remote storage, and audit persistence.
-    app.dependency_overrides[dependencies.get_account_context] = lambda: source
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: source
     app.dependency_overrides[dependencies.require_manager_enabled] = lambda: None
     app.dependency_overrides[dependencies.require_bucket_compare_enabled] = lambda: None
     app.dependency_overrides[buckets.get_bucket_comparison_service] = lambda: service
     audit = Mock(spec=["record_action"])
     app.dependency_overrides[buckets.get_audit_service] = lambda: audit
-    monkeypatch.setattr(buckets, "get_account_context", lambda **kwargs: target)
+    monkeypatch.setattr(buckets, "get_s3_execution_context", lambda **kwargs: target)
 
     response = client.post("/api/manager/buckets/compare/action", params={"context_id": "1"}, json=_payload(selected, action))
 
