@@ -25,7 +25,7 @@ const PATH_SUGGESTIONS_DEBOUNCE_MS = 200;
 const PATH_SUGGESTIONS_API_LIMIT = 50;
 
 type UseBrowserPathEditorOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   history: string[];
@@ -36,7 +36,7 @@ type UseBrowserPathEditorOptions = {
 };
 
 export function useBrowserPathEditor({
-  accountId,
+  contextId,
   bucketName,
   enabled,
   history,
@@ -165,7 +165,7 @@ export function useBrowserPathEditor({
     clearSuggestions();
     setValue(prefix);
     setEditing(false);
-  }, [accountId, bucketName, clearSuggestions, prefix]);
+  }, [contextId, bucketName, clearSuggestions, prefix]);
 
   useEffect(() => {
     if (!editing) return;
@@ -210,7 +210,7 @@ export function useBrowserPathEditor({
     setSuggestionsLoading(true);
     debounceRef.current = window.setTimeout(() => {
       debounceRef.current = null;
-      listBrowserObjects(accountId, bucketName, {
+      listBrowserObjects(contextId, bucketName, {
         prefix: parentPrefix,
         query: fragment || undefined,
         type: "folder",
@@ -249,7 +249,7 @@ export function useBrowserPathEditor({
       cancelPendingSuggestions();
     };
   }, [
-    accountId,
+    contextId,
     bucketName,
     cancelPendingSuggestions,
     clearSuggestions,

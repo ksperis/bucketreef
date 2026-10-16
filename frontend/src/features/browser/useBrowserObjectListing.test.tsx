@@ -63,8 +63,8 @@ function objectPage(
 
 function createOptions() {
   return {
-    accountId: "account-a",
-    accountSwitchInFlight: false,
+    contextId: "account-a",
+    contextSwitchInFlight: false,
     bucketName: "bucket-a",
     caseSensitive: false,
     enabled: true,
@@ -108,7 +108,7 @@ describe("useBrowserObjectListing", () => {
 
   it("loads the current prefix and appends the next object page", async () => {
     apiMocks.listBrowserObjects.mockImplementation(
-      (_accountId: string, _bucketName: string, options?: { continuationToken?: string }) =>
+      (_contextId: string, _bucketName: string, options?: { continuationToken?: string }) =>
         Promise.resolve(
           options?.continuationToken === "page-2"
             ? objectPage([object("second.txt")])
@@ -155,19 +155,19 @@ describe("useBrowserObjectListing", () => {
 
   it("ignores a response from the previous account even when abort is ignored", async () => {
     const accountARequest = deferred<ListBrowserObjectsResponse>();
-    apiMocks.listBrowserObjects.mockImplementation((accountId: string) =>
-      accountId === "account-a"
+    apiMocks.listBrowserObjects.mockImplementation((contextId: string) =>
+      contextId === "account-a"
         ? accountARequest.promise
         : Promise.resolve(objectPage([object("account-b.txt")])),
     );
     const options = createOptions();
     const { result, rerender } = renderHook(
-      ({ accountId }) =>
+      ({ contextId }) =>
         useBrowserObjectListing({
           ...options,
-          accountId,
+          contextId,
         }),
-      { initialProps: { accountId: "account-a" } },
+      { initialProps: { contextId: "account-a" } },
     );
 
     await waitFor(() => {
@@ -177,7 +177,7 @@ describe("useBrowserObjectListing", () => {
         expect.any(Object),
       );
     });
-    rerender({ accountId: "account-b" });
+    rerender({ contextId: "account-b" });
     await waitFor(() => {
       expect(result.current.objects.map((entry) => entry.key)).toEqual([
         "account-b.txt",

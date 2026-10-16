@@ -82,7 +82,7 @@ export function useBrowserQueuedUpload({
         relativePath,
         key,
         bucket,
-        accountId,
+        contextId,
         groupId,
         groupLabel,
         groupKind,
@@ -123,7 +123,7 @@ export function useBrowserQueuedUpload({
             lifecycle: {
               initiate: async () => {
                 const result = await initiateMultipartUpload(
-                  accountId,
+                  contextId,
                   bucket,
                   {
                     key,
@@ -142,7 +142,7 @@ export function useBrowserQueuedUpload({
                 }),
               complete: (uploadId, parts) =>
                 completeMultipartUpload(
-                  accountId,
+                  contextId,
                   bucket,
                   uploadId,
                   key,
@@ -151,7 +151,7 @@ export function useBrowserQueuedUpload({
                 ),
               abort: (uploadId) =>
                 abortMultipartUpload(
-                  accountId,
+                  contextId,
                   bucket,
                   uploadId,
                   key,
@@ -172,7 +172,7 @@ export function useBrowserQueuedUpload({
           };
           const uploadProxyFile = () =>
             proxyUpload(
-              accountId,
+              contextId,
               bucket,
               key,
               file,

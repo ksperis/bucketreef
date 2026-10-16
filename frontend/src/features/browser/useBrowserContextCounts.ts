@@ -17,7 +17,7 @@ type BrowserContextCounts = {
 };
 
 type UseBrowserContextCountsOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   listAllObjectsForPrefix: ListAllBrowserObjectsForPrefix;
@@ -27,13 +27,13 @@ type UseBrowserContextCountsOptions = {
 };
 
 async function countVersionedObjects({
-  accountId,
+  contextId,
   bucketName,
   prefix,
   requestOptions,
 }: Pick<
   UseBrowserContextCountsOptions,
-  "accountId" | "bucketName" | "prefix" | "requestOptions"
+  "contextId" | "bucketName" | "prefix" | "requestOptions"
 >): Promise<BrowserContextCounts> {
   let versions = 0;
   let deleteMarkers = 0;
@@ -44,7 +44,7 @@ async function countVersionedObjects({
   let pageGuard = 0;
 
   while (isTruncated) {
-    const data = await listObjectVersions(accountId, bucketName, {
+    const data = await listObjectVersions(contextId, bucketName, {
       prefix,
       keyMarker: keyMarker ?? undefined,
       versionIdMarker: versionIdMarker ?? undefined,
@@ -86,7 +86,7 @@ async function countVersionedObjects({
 }
 
 export function useBrowserContextCounts({
-  accountId,
+  contextId,
   bucketName,
   enabled,
   listAllObjectsForPrefix,
@@ -105,7 +105,7 @@ export function useBrowserContextCounts({
     setCounts(null);
     setError(null);
     setLoading(false);
-  }, [accountId, bucketName, enabled, prefix, versioningEnabled]);
+  }, [contextId, bucketName, enabled, prefix, versioningEnabled]);
 
   const count = useCallback(async () => {
     if (!bucketName || !enabled) return;
@@ -116,7 +116,7 @@ export function useBrowserContextCounts({
     try {
       const nextCounts = versioningEnabled
         ? await countVersionedObjects({
-            accountId,
+            contextId,
             bucketName,
             prefix,
             requestOptions,
@@ -137,7 +137,7 @@ export function useBrowserContextCounts({
       }
     }
   }, [
-    accountId,
+    contextId,
     bucketName,
     enabled,
     listAllObjectsForPrefix,

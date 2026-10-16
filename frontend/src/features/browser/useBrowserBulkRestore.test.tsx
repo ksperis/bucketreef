@@ -50,7 +50,7 @@ function version(
 
 function createOptions() {
   return {
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "bucket-a",
     clearOperationController: vi.fn(),
     completeOperation: vi.fn(),

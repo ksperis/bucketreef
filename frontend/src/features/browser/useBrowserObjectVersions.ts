@@ -12,7 +12,7 @@ import { useBrowserVersionListing } from "./useBrowserVersionListing";
 type ObjectVersionAction = "restore" | "delete";
 
 type UseBrowserObjectVersionsOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   onDeleteVersion: (version: BrowserObjectVersion) => Promise<void> | void;
@@ -22,7 +22,7 @@ type UseBrowserObjectVersionsOptions = {
 };
 
 export function useBrowserObjectVersions({
-  accountId,
+  contextId,
   bucketName,
   enabled,
   onDeleteVersion,
@@ -41,7 +41,7 @@ export function useBrowserObjectVersions({
     loading,
     rows,
   } = useBrowserVersionListing({
-    accountId,
+    contextId,
     bucketName,
     enabled,
     objectKey,

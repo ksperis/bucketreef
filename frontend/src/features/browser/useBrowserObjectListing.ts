@@ -56,8 +56,8 @@ type BrowserObjectSortBy =
   | "etag";
 
 type UseBrowserObjectListingOptions = {
-  accountId: S3ExecutionContextSelector;
-  accountSwitchInFlight: boolean;
+  contextId: S3ExecutionContextSelector;
+  contextSwitchInFlight: boolean;
   bucketName: string;
   caseSensitive: boolean;
   enabled: boolean;
@@ -107,8 +107,8 @@ const EMPTY_DELETED_LISTING: DeletedListingResult = {
 };
 
 export function useBrowserObjectListing({
-  accountId,
-  accountSwitchInFlight,
+  contextId,
+  contextSwitchInFlight,
   bucketName,
   caseSensitive,
   enabled,
@@ -169,7 +169,7 @@ export function useBrowserObjectListing({
     [requestOptions?.workspaceSurface],
   );
   const requestScopeKey = JSON.stringify([
-    accountId ?? null,
+    contextId ?? null,
     enabled,
     stableRequestOptions?.workspaceSurface ?? null,
   ]);
@@ -294,7 +294,7 @@ export function useBrowserObjectListing({
           latestMarkersByKey.size + markerPrefixes.size <
             DELETED_RESULTS_TARGET)
       ) {
-        const data = await listObjectVersions(accountId, bucketName, {
+        const data = await listObjectVersions(contextId, bucketName, {
           prefix: targetPrefix,
           delimiter: isRecursiveSearch ? undefined : "/",
           keyMarker: nextKeyMarker ?? undefined,
@@ -374,7 +374,7 @@ export function useBrowserObjectListing({
       };
     },
     [
-      accountId,
+      contextId,
       bucketName,
       enabled,
       isVersioningEnabled,
@@ -420,7 +420,7 @@ export function useBrowserObjectListing({
         let loadedObjectsTruncated = false;
 
         if (!loadDeletedOnly) {
-          const data = await listBrowserObjects(accountId, bucketName, {
+          const data = await listBrowserObjects(contextId, bucketName, {
             prefix: requestPrefix,
             continuationToken: options?.continuationToken ?? undefined,
             maxKeys: OBJECTS_PAGE_SIZE,
@@ -629,7 +629,7 @@ export function useBrowserObjectListing({
       }
     },
     [
-      accountId,
+      contextId,
       bucketName,
       caseSensitive,
       enabled,
@@ -655,7 +655,7 @@ export function useBrowserObjectListing({
   );
 
   useEffect(() => {
-    if (accountSwitchInFlight) {
+    if (contextSwitchInFlight) {
       invalidateRequests();
       return;
     }
@@ -669,7 +669,7 @@ export function useBrowserObjectListing({
       setObjectsLoading(false);
       return;
     }
-    const navigationKey = `${String(accountId ?? "")}::${bucketName}::${normalizePrefix(prefix)}::${sortId}`;
+    const navigationKey = `${String(contextId ?? "")}::${bucketName}::${normalizePrefix(prefix)}::${sortId}`;
     const shouldLoadImmediately =
       objectsNavigationKeyRef.current !== navigationKey;
     objectsNavigationKeyRef.current = navigationKey;
@@ -689,8 +689,8 @@ export function useBrowserObjectListing({
       }
     };
   }, [
-    accountId,
-    accountSwitchInFlight,
+    contextId,
+    contextSwitchInFlight,
     bucketName,
     caseSensitive,
     enabled,
@@ -710,12 +710,12 @@ export function useBrowserObjectListing({
   ]);
 
   useEffect(() => {
-    if (accountSwitchInFlight || !bucketName || !enabled) {
+    if (contextSwitchInFlight || !bucketName || !enabled) {
       setIsVersioningEnabled(false);
       return;
     }
     let active = true;
-    getBrowserBucketVersioning(accountId, bucketName, stableRequestOptions)
+    getBrowserBucketVersioning(contextId, bucketName, stableRequestOptions)
       .then((data) => {
         if (!active) return;
         setIsVersioningEnabled(
@@ -729,8 +729,8 @@ export function useBrowserObjectListing({
       active = false;
     };
   }, [
-    accountId,
-    accountSwitchInFlight,
+    contextId,
+    contextSwitchInFlight,
     bucketName,
     enabled,
     stableRequestOptions,

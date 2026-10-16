@@ -69,7 +69,7 @@ export type UploadQueueItem = {
   relativePath: string;
   key: string;
   bucket: string;
-  accountId: string;
+  contextId: string;
   groupId: string;
   groupLabel: string;
   groupKind: "folder" | "files";

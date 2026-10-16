@@ -52,7 +52,7 @@ describe("useBrowserPathEditor", () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() =>
       useBrowserPathEditor({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         history,
@@ -101,7 +101,7 @@ describe("useBrowserPathEditor", () => {
     const localPrefixes = ["docs/recent/"];
     const { result } = renderHook(() =>
       useBrowserPathEditor({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         history,
@@ -144,7 +144,7 @@ describe("useBrowserPathEditor", () => {
       const history: string[] = [];
       const localPrefixes: string[] = [];
       const { result } = renderHook(() => useBrowserPathEditor({
-        accountId: "acc-1", bucketName: "bucket-a", enabled: true,
+        contextId: "acc-1", bucketName: "bucket-a", enabled: true,
         history, localPrefixes, onCommit, prefix: "start/",
       }));
       act(() => {
@@ -163,7 +163,7 @@ describe("useBrowserPathEditor", () => {
     const history: string[] = [];
     const localPrefixes: string[] = [];
     const { result } = renderHook(() => useBrowserPathEditor({
-      accountId: "acc-1", bucketName: "bucket-a", enabled: true,
+      contextId: "acc-1", bucketName: "bucket-a", enabled: true,
       history, localPrefixes, onCommit, prefix: " /docs// nested /",
     }));
     act(() => result.current.startEditing());
@@ -179,7 +179,7 @@ describe("useBrowserPathEditor", () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() =>
       useBrowserPathEditor({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         history,

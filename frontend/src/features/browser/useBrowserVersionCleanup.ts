@@ -19,7 +19,7 @@ export type BrowserVersionCleanupDraft = {
 };
 
 type UseBrowserVersionCleanupOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   clearOperationController: OperationRegistry["clearOperationController"];
   completeOperation: OperationRegistry["completeOperation"];
@@ -47,7 +47,7 @@ export function createBrowserVersionCleanupDraft(): BrowserVersionCleanupDraft {
 }
 
 export function useBrowserVersionCleanup({
-  accountId,
+  contextId,
   bucketName,
   clearOperationController,
   completeOperation,
@@ -120,7 +120,7 @@ export function useBrowserVersionCleanup({
     let completionError: string | undefined;
     try {
       const result = await cleanupObjectVersions(
-        accountId,
+        contextId,
         bucketName,
         {
           prefix: normalizedPrefix,
@@ -152,7 +152,7 @@ export function useBrowserVersionCleanup({
       setLoading(false);
     }
   }, [
-    accountId,
+    contextId,
     bucketName,
     clearOperationController,
     completeOperation,

@@ -236,7 +236,7 @@ export default function BrowserPage({
     lockedBucketName,
   });
   const contextIdForApi = contextIdOverride ?? browserContext.contextIdForApi;
-  const hasS3AccountContext = hasContextOverride ?? browserContext.hasContext;
+  const hasExecutionContext = hasContextOverride ?? browserContext.hasContext;
   const canOpenExternalObjectDetails = Boolean(onOpenObjectDetails);
   const browserRequestOptions = useMemo<BrowserRequestOptions | undefined>(
     () =>
@@ -288,8 +288,8 @@ export default function BrowserPage({
     usageLoading: usageSummaryLoading,
     usageSummary,
   } = useBrowserRuntimeData({
-    accountId: contextIdForApi,
-    enabled: hasS3AccountContext,
+    contextId: contextIdForApi,
+    enabled: hasExecutionContext,
     requestOptions: browserRequestOptions,
     showUsage: showWorkspaceSidebar,
   });
@@ -304,7 +304,7 @@ export default function BrowserPage({
   );
   const {
     accessByName: bucketAccessByName,
-    accountSwitchInFlight,
+    contextSwitchInFlight,
     bucketError,
     bucketFilter,
     bucketMenuItems,
@@ -326,10 +326,10 @@ export default function BrowserPage({
     setPrefix,
     updateBucketAccessEntry,
   } = useBrowserBucketCatalog({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     accessContextKey: bucketAccessContextKey,
     browserRootContextId,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     isCephAdminContext,
     isMainBrowserPath,
     lockedBucketName: resolvedLockedBucketName,
@@ -485,11 +485,11 @@ export default function BrowserPage({
     setShowObjectsIssueTechnicalDetails,
     showObjectsIssueTechnicalDetails,
   } = useBrowserObjectListing({
-    accountId: contextIdForApi,
-    accountSwitchInFlight,
+    contextId: contextIdForApi,
+    contextSwitchInFlight,
     bucketName,
     caseSensitive: searchCaseSensitive,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     exactMatch: searchExactMatch,
     filter,
     getBucketAccessEntry,
@@ -684,7 +684,7 @@ export default function BrowserPage({
   } = useBrowserStsSession({
     contextIdForApi,
     enabled: stsEnabled,
-    hasContext: hasS3AccountContext,
+    hasContext: hasExecutionContext,
     requestOptions: browserRequestOptions,
   });
   const sseFeatureEnabled =
@@ -715,7 +715,7 @@ export default function BrowserPage({
     setStatusMessage,
   });
   const showSseControls = Boolean(
-    sseFeatureEnabled && hasS3AccountContext && bucketName,
+    sseFeatureEnabled && hasExecutionContext && bucketName,
   );
   const normalizedPrefix = useMemo(() => normalizePrefix(prefix), [prefix]);
   const uiOrigin = useMemo(
@@ -739,7 +739,7 @@ export default function BrowserPage({
     allowAction: !isPortalProfile,
     bucketName,
     enabled:
-      !accountSwitchInFlight && Boolean(bucketName) && hasS3AccountContext,
+      !contextSwitchInFlight && Boolean(bucketName) && hasExecutionContext,
     origin: uiOrigin,
     requestOptions: browserRequestOptions,
     setStatusMessage,
@@ -752,7 +752,7 @@ export default function BrowserPage({
     corsEnabled === false ? text(CORS_DIRECT_TRANSFER_WARNING) : null;
   const useProxyTransfers = Boolean(
     bucketName &&
-      hasS3AccountContext &&
+      hasExecutionContext &&
       proxyAllowed &&
       corsAvailability === "disabled",
   );
@@ -767,7 +767,7 @@ export default function BrowserPage({
   const useStsPresigner = shouldUseStsPresigner({ stsAvailable, sseActive });
   const { presignObjectRequest, presignPartRequest } =
     useBrowserPresignRequests({
-      accountId: contextIdForApi,
+      contextId: contextIdForApi,
       ensureStsCredentials,
       requestOptions: browserRequestOptions,
       sseCustomerKeyBase64,
@@ -776,7 +776,7 @@ export default function BrowserPage({
   const { copyPath: handleCopyPath, copyUrl: handleCopyUrl } =
     useBrowserCopyActions({
       bucketName,
-      enabled: hasS3AccountContext,
+      enabled: hasExecutionContext,
       onFallback: openCopyDialog,
       onStatus: setStatusMessage,
       onWarning: setWarningMessage,
@@ -813,7 +813,7 @@ export default function BrowserPage({
   const accessBadge = useMemo(
     () =>
       resolveBrowserTransferAccessBadge({
-        hasContext: hasS3AccountContext,
+        hasContext: hasExecutionContext,
         corsEnabled,
         proxyAllowed,
         useProxyTransfers,
@@ -825,7 +825,7 @@ export default function BrowserPage({
       }),
     [
       corsEnabled,
-      hasS3AccountContext,
+      hasExecutionContext,
       directCredentialStsTooltip,
       proxyAllowed,
       sseActive,
@@ -888,11 +888,11 @@ export default function BrowserPage({
     toggleTreeNode: handleToggleTreeNode,
     treeRootNode,
   } = useBrowserFolderTree({
-    accountId: contextIdForApi,
-    accountSwitchInFlight,
+    contextId: contextIdForApi,
+    contextSwitchInFlight,
     bucketName,
     currentBucketUnavailable,
-    enabled: hasS3AccountContext && isFoldersPanelVisible,
+    enabled: hasExecutionContext && isFoldersPanelVisible,
     onWarning: setWarningMessage,
     prefix,
     requestOptions: browserRequestOptions,
@@ -962,9 +962,9 @@ export default function BrowserPage({
   });
 
   useLayoutEffect(() => {
-    if (!accountSwitchInFlight) return;
+    if (!contextSwitchInFlight) return;
     clearActiveItem();
-  }, [accountSwitchInFlight, clearActiveItem]);
+  }, [contextSwitchInFlight, clearActiveItem]);
 
   const visibleColumnDefinitions = useMemo(
     () =>
@@ -1014,9 +1014,9 @@ export default function BrowserPage({
     visibleColumnSet.has("restoreStatus");
   const lazyTagsColumnsVisible = visibleColumnSet.has("tagsCount");
   const lazyColumnCache = useBrowserLazyColumns({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     items: listItems,
     metadataColumnsVisible: lazyMetadataColumnsVisible,
     prefix,
@@ -1063,7 +1063,7 @@ export default function BrowserPage({
     text,
   ]);
   const bucketSelectorNeedsAttention =
-    hasS3AccountContext && !bucketName && bucketTotalCount > 0;
+    hasExecutionContext && !bucketName && bucketTotalCount > 0;
   const bucketButtonActionLabel = resolvedLockedBucketName
     ? text("Selected {workspace}", { workspace: text(selectorWorkspaceNoun) })
     : text("Select {workspace}", { workspace: text(selectorWorkspaceNoun) });
@@ -1181,9 +1181,9 @@ export default function BrowserPage({
     rows: prefixVersionRows,
     visible: showPrefixVersions,
   } = useBrowserPrefixVersions({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
-    contextEnabled: hasS3AccountContext,
+    contextEnabled: hasExecutionContext,
     onHardLimit: handleVersionsHardLimit,
     prefix: normalizedPrefix,
     requestOptions: browserRequestOptions,
@@ -1217,7 +1217,7 @@ export default function BrowserPage({
   } = useBrowserListingRefresh({
     bucketName,
     contextKey: bucketAccessContextKey,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     loadObjects,
     loadTreeChildren,
     prefix,
@@ -1225,9 +1225,9 @@ export default function BrowserPage({
   });
 
   const listAllObjectsForPrefix = useBrowserRecursiveObjectListing({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     requestOptions: browserRequestOptions,
   });
 
@@ -1240,13 +1240,13 @@ export default function BrowserPage({
     cut: handleCutItems,
     paste: handlePasteItems,
   } = useBrowserClipboard({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
     cancelCopyDetails,
     clearOperationController,
     completeOperation,
     createOperationController,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     functionalProfile: resolvedFunctionalProfile,
     getSseCustomerKeyForScope,
     listAllObjectsForPrefix,
@@ -1270,7 +1270,7 @@ export default function BrowserPage({
       resolveBrowserActions({
         scope: "path",
         bucketName,
-        hasS3AccountContext,
+        hasExecutionContext,
         versioningEnabled: isVersioningEnabled,
         canPaste: canPasteInFunctionalProfile,
         clipboardMode: clipboard?.mode ?? null,
@@ -1290,7 +1290,7 @@ export default function BrowserPage({
       canPasteInFunctionalProfile,
       clipboard?.mode,
       currentPath,
-      hasS3AccountContext,
+      hasExecutionContext,
       isVersioningEnabled,
       deletedObjectsOptions?.onRestorePrefix,
       objectsLoading,
@@ -1308,7 +1308,7 @@ export default function BrowserPage({
         scope: "selection",
         items: selectionItems,
         bucketName,
-        hasS3AccountContext,
+        hasExecutionContext,
         versioningEnabled: isVersioningEnabled,
         canPaste: canPasteInFunctionalProfile,
         clipboardMode: clipboard?.mode ?? null,
@@ -1322,7 +1322,7 @@ export default function BrowserPage({
       canPasteInFunctionalProfile,
       clipboard?.mode,
       copyUrlDisabledReason,
-      hasS3AccountContext,
+      hasExecutionContext,
       isVersioningEnabled,
       resolvedCapabilityFacts,
       resolvedFunctionalProfile,
@@ -1336,7 +1336,7 @@ export default function BrowserPage({
         scope: "item",
         items: [item],
         bucketName,
-        hasS3AccountContext,
+        hasExecutionContext,
         versioningEnabled: isVersioningEnabled,
         canPaste: canPasteInFunctionalProfile,
         clipboardMode: clipboard?.mode ?? null,
@@ -1360,7 +1360,7 @@ export default function BrowserPage({
       clipboard?.mode,
       copyUrlDisabledReason,
       deletedObjectsOptions?.onRestoreObject,
-      hasS3AccountContext,
+      hasExecutionContext,
       isVersioningEnabled,
       resolvedCapabilityFacts,
       resolvedFunctionalProfile,
@@ -1527,9 +1527,9 @@ export default function BrowserPage({
     suggestionsLoading: pathSuggestionsLoading,
     value: pathDraft,
   } = useBrowserPathEditor({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     history: pathHistory,
     localPrefixes: prefixes,
     onCommit: handleSelectPrefix,
@@ -1541,7 +1541,7 @@ export default function BrowserPage({
     prefix,
     lockedBucketName: resolvedLockedBucketName,
     ready:
-      hasS3AccountContext && selectionReady && !accountSwitchInFlight,
+      hasExecutionContext && selectionReady && !contextSwitchInFlight,
     scopeKey: `${normalizedPath}:${bucketAccessContextKey ?? "none"}:${resolvedLockedBucketName}`,
     onNavigate: ({ bucketName: nextBucket, prefix: nextPrefix }) => {
       if (hasOpenModal()) return false;
@@ -1668,7 +1668,7 @@ export default function BrowserPage({
     contextIdForApi,
     currentBucketName: bucketName,
     enabled: bucketManagementEnabled,
-    hasContext: hasS3AccountContext,
+    hasContext: hasExecutionContext,
     requestOptions: browserRequestOptions,
     uiOrigin,
     onCreated: handleBrowserBucketCreated,
@@ -1832,7 +1832,7 @@ export default function BrowserPage({
   }, [renderWorkspaceSidebarBody, setSidebarBody, showWorkspaceSidebar]);
 
   const handleRefresh = () => {
-    if (!hasS3AccountContext) return;
+    if (!hasExecutionContext) return;
     if (!bucketName) {
       void refreshBucketList();
       return;
@@ -1890,7 +1890,7 @@ export default function BrowserPage({
   } = useBrowserCreateFolder({
     contextIdForApi,
     bucketName,
-    hasContext: hasS3AccountContext,
+    hasContext: hasExecutionContext,
     parentPrefix: normalizedPrefix,
     requestOptions: browserRequestOptions,
     onCreated: handleBrowserFolderCreated,
@@ -1930,10 +1930,10 @@ export default function BrowserPage({
     handleFolderInputChange,
     removeQueuedUpload,
   } = useBrowserUploadQueue({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
     cancelOperationController,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     normalizedPrefix,
     onRefreshListing: refreshUploadedListing,
     onShowOperations: showOperationsBar,
@@ -1963,7 +1963,7 @@ export default function BrowserPage({
   } = useBrowserMultipartUploads({
     contextIdForApi,
     bucketName,
-    hasContext: hasS3AccountContext,
+    hasContext: hasExecutionContext,
     requestOptions: browserRequestOptions,
     requestConfirmation: openConfirmDialog,
     setStatusMessage,
@@ -1983,13 +1983,13 @@ export default function BrowserPage({
     show: openBulkAttributesModal,
     summary: bulkAttributesSummary,
   } = useBrowserBulkAttributes({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
     clearOperationController,
     completeOperation,
     createOperationController,
     currentPath,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     listAllObjectsForPrefix,
     onRefresh: requestObjectsRefresh,
     onRefreshNow: refreshObjectsNow,
@@ -2007,14 +2007,14 @@ export default function BrowserPage({
     deleteObjectsInBatches,
     remove: handleDeleteItems,
   } = useBrowserDeleteItems({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
     cancelDeleteDetails,
     clearOperationController,
     completeOperation,
     createOperationController,
     currentPath,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     isOperationAborted,
     listAllObjectsForPrefix,
     onConfirm: openConfirmDialog,
@@ -2047,14 +2047,14 @@ export default function BrowserPage({
     summary: bulkRestoreSummary,
     targetPath: bulkRestoreTargetPath,
   } = useBrowserBulkRestore({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
     clearOperationController,
     completeOperation,
     createOperationController,
     currentPath,
     deleteObjectsInBatches,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     isOperationAborted,
     listAllObjectsForPrefix,
     normalizedPrefix,
@@ -2081,13 +2081,13 @@ export default function BrowserPage({
     show: openCleanupModal,
     summary: cleanupSummary,
   } = useBrowserVersionCleanup({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
     clearOperationController,
     completeOperation,
     createOperationController,
     currentPath,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     isOperationAborted,
     normalizedPrefix,
     onRefresh: requestObjectsRefresh,
@@ -2109,14 +2109,14 @@ export default function BrowserPage({
     downloadVersion: handleDownloadVersion,
     savePreparedArchive,
   } = useBrowserDownloads({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
     cancelDownloadDetails,
     clearOperationController,
     completeOperation,
     createOperationController,
     currentPath,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     listAllObjectsForPrefix,
     onStatus: setStatusMessage,
     onWarning: setWarningMessage,
@@ -2172,7 +2172,7 @@ export default function BrowserPage({
       resolvedFunctionalProfile !== "portal" &&
       resolvedCapabilityFacts.canWriteObjects,
     canPaste: canPasteInFunctionalProfile,
-    enabled: hasS3AccountContext && Boolean(bucketName),
+    enabled: hasExecutionContext && Boolean(bucketName),
     hasSelectableItems: selectableListItems.length > 0,
     onCopy: handleCopyItems,
     onCut: handleCutItems,
@@ -2191,12 +2191,12 @@ export default function BrowserPage({
     remove: handleDeleteVersion,
     restore: handleRestoreVersion,
   } = useBrowserVersionActions({
-    accountId: contextIdForApi,
+    contextId: contextIdForApi,
     bucketName,
     clearOperationController,
     completeOperation,
     createOperationController,
-    enabled: hasS3AccountContext,
+    enabled: hasExecutionContext,
     isOperationAborted,
     onConfirm: openConfirmDialog,
     onRefreshListing: refreshObjectListing,
@@ -2409,7 +2409,7 @@ export default function BrowserPage({
               rootRef: bucketMenuRef,
               filterInputRef: bucketMenuFilterRef,
               lockedBucketName: resolvedLockedBucketName,
-              hasContext: hasS3AccountContext,
+              hasContext: hasExecutionContext,
               open: showBucketMenu,
               buttonLabel: bucketButtonLabel,
               buttonActionLabel: bucketButtonActionLabel,
@@ -2543,7 +2543,7 @@ export default function BrowserPage({
                 ? {
                     enabled: Boolean(
                       bucketName &&
-                        hasS3AccountContext &&
+                        hasExecutionContext &&
                         sseFeatureEnabled,
                     ),
                     active: sseActive,
@@ -2747,7 +2747,7 @@ export default function BrowserPage({
         contextMenuRef={contextMenuRef}
         bucketName={bucketName}
         currentPath={currentPath}
-        hasS3AccountContext={hasS3AccountContext}
+        hasExecutionContext={hasExecutionContext}
         versioningEnabled={isVersioningEnabled}
         showFolderItems={showFolderItems}
         showDeletedObjects={showDeletedObjects}
@@ -2810,7 +2810,7 @@ export default function BrowserPage({
         <BrowserStorageSpaceObjectDetailsDrawer
           navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          accountId={contextIdForApi}
+          portalAccountId={contextIdForApi}
           bucket={currentBucketPanelItem}
           bucketName={bucketName}
           canModifyObjects={
@@ -2834,7 +2834,7 @@ export default function BrowserPage({
         <BrowserObjectDetailsDrawer
           navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          accountId={contextIdForApi}
+          contextId={contextIdForApi}
           bucketName={bucketName}
           item={objectDetailsTarget.item}
           initialTab={objectDetailsTarget.initialTab}
@@ -2865,7 +2865,7 @@ export default function BrowserPage({
         resolvedFunctionalProfile === "advanced" ? (
         <BrowserPathDetailsDrawer
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          accountId={contextIdForApi}
+          contextId={contextIdForApi}
           bucketName={bucketName}
           listAllObjectsForPrefix={listAllObjectsForPrefix}
           prefix={objectDetailsTarget.item.key}
@@ -2877,7 +2877,7 @@ export default function BrowserPage({
       ) : null}
       {configBucketName && bucketConfigurationEnabled && (
         <BrowserBucketConfigurationDrawer
-          accountId={contextIdForApi}
+          contextId={contextIdForApi}
           bucketName={configBucketName}
           includeStaticWebsite={effectiveCaps?.static_website ?? true}
           includeUsage={effectiveCaps ? effectiveCaps.metrics !== false : true}
@@ -2894,7 +2894,7 @@ export default function BrowserPage({
           error={createBucketError}
           isNameValid={isCreateBucketNameValid}
           invalidNameMessage={invalidBucketNameMessage}
-          hasS3AccountContext={hasS3AccountContext}
+          hasExecutionContext={hasExecutionContext}
           onNameChange={updateCreateBucketName}
           onVersioningChange={setCreateBucketVersioning}
           onSubmit={submitCreateBucket}
@@ -2918,7 +2918,7 @@ export default function BrowserPage({
           onClose={closeSseCustomerModal}
         />
       )}
-      {showMultipartUploadsModal && bucketName && hasS3AccountContext && (
+      {showMultipartUploadsModal && bucketName && hasExecutionContext && (
         <BrowserMultipartUploadsModal
           bucketName={bucketName}
           uploads={multipartUploads}
@@ -2996,7 +2996,7 @@ export default function BrowserPage({
           error={newFolderError}
           currentPath={currentPath}
           bucketName={bucketName}
-          hasS3AccountContext={hasS3AccountContext}
+          hasExecutionContext={hasExecutionContext}
           onNameChange={setNewFolderName}
           onSubmit={submitNewFolder}
           onClose={closeNewFolder}

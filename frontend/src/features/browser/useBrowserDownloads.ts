@@ -65,7 +65,7 @@ export type BrowserArchivePreparation =
     };
 
 type UseBrowserDownloadsOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   cancelDownloadDetails: OperationRegistry["cancelDownloadDetails"];
   clearOperationController: OperationRegistry["clearOperationController"];
@@ -94,7 +94,7 @@ type UseBrowserDownloadsOptions = {
 };
 
 export function useBrowserDownloads({
-  accountId,
+  contextId,
   bucketName,
   cancelDownloadDetails,
   clearOperationController,
@@ -144,7 +144,7 @@ export function useBrowserDownloads({
       if (!bucketName || !enabled) throw new Error(text("Missing bucket context."));
       return downloadBrowserTransferBlob({
         text,
-        selector: accountId,
+        selector: contextId,
         bucket: bucketName,
         key,
         versionId,
@@ -156,7 +156,7 @@ export function useBrowserDownloads({
       });
     },
     [
-      accountId,
+      contextId,
       bucketName,
       enabled,
       presignDownload,
@@ -172,7 +172,7 @@ export function useBrowserDownloads({
       if (!bucketName || !enabled) throw new Error(text("Missing bucket context."));
       return downloadBrowserTransferStream({
         text,
-        selector: accountId,
+        selector: contextId,
         bucket: bucketName,
         key,
         mode: useProxyTransfers ? "proxy" : "direct",
@@ -183,7 +183,7 @@ export function useBrowserDownloads({
       });
     },
     [
-      accountId,
+      contextId,
       bucketName,
       enabled,
       presignDownload,

@@ -15,7 +15,7 @@ import type { ObjectPreviewLoadResult } from "../shared/ObjectPreview";
 import { buildInlinePreviewDisposition } from "./browserObjectDetailsModel";
 
 type UseBrowserObjectPreviewOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   metadataContentType?: string | null;
   metadataLoaded: boolean;
@@ -31,7 +31,7 @@ type UseBrowserObjectPreviewOptions = {
 };
 
 export function useBrowserObjectPreview({
-  accountId,
+  contextId,
   bucketName,
   metadataContentType,
   metadataLoaded,
@@ -52,7 +52,7 @@ export function useBrowserObjectPreview({
       };
       const blob = useProxyTransfers
         ? await proxyDownload(
-            accountId,
+            contextId,
             bucketName,
             objectKey,
             signal,
@@ -74,7 +74,7 @@ export function useBrowserObjectPreview({
       return { blob, contentType: blob.type || null };
     },
     [
-      accountId,
+      contextId,
       bucketName,
       objectKey,
       objectName,
@@ -90,7 +90,7 @@ export function useBrowserObjectPreview({
       if (metadataLoaded) return metadataContentType ?? null;
       try {
         const metadata = await fetchObjectMetadata(
-          accountId,
+          contextId,
           bucketName,
           objectKey,
           null,
@@ -105,7 +105,7 @@ export function useBrowserObjectPreview({
       }
     },
     [
-      accountId,
+      contextId,
       bucketName,
       metadataContentType,
       metadataLoaded,

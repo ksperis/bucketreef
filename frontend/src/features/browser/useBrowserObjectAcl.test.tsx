@@ -34,7 +34,7 @@ describe("useBrowserObjectAcl", () => {
   it("updates the selected canned ACL for the current object version", async () => {
     const { result } = renderHook(() =>
       useBrowserObjectAcl({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         objectKey: "docs/report.txt",
         requestOptions: { workspaceSurface: "manager" },
@@ -65,7 +65,7 @@ describe("useBrowserObjectAcl", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserObjectAcl({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           objectKey,
         }),
@@ -84,7 +84,7 @@ describe("useBrowserObjectAcl", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserObjectAcl({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           objectKey,
         }),

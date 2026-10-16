@@ -40,7 +40,7 @@ function bucketPage(
 
 function createOptions() {
   return {
-    accountId: "account-a",
+    contextId: "account-a",
     accessContextKey: "browser:account-a",
     browserRootContextId: "account-a",
     enabled: true,
@@ -107,7 +107,7 @@ describe("useBrowserBucketCatalog", () => {
       prefix: "remembered/",
     });
     apiMocks.searchBrowserBuckets.mockImplementation(
-      (_accountId: string, options?: { search?: string; exact?: boolean }) =>
+      (_contextId: string, options?: { search?: string; exact?: boolean }) =>
         options?.exact && options.search === "missing"
           ? Promise.resolve(bucketPage([]))
           : Promise.resolve(bucketPage(["bucket-a", "bucket-b"])),
@@ -147,22 +147,22 @@ describe("useBrowserBucketCatalog", () => {
 
   it("ignores a catalogue response from the previous account", async () => {
     const accountARequest = deferred<ReturnType<typeof bucketPage>>();
-    apiMocks.searchBrowserBuckets.mockImplementation((accountId: string) =>
-      accountId === "account-a"
+    apiMocks.searchBrowserBuckets.mockImplementation((contextId: string) =>
+      contextId === "account-a"
         ? accountARequest.promise
         : Promise.resolve(bucketPage(["bucket-b"])),
     );
     const { result, rerender } = renderHook(
-      ({ accountId, accessContextKey, browserRootContextId }) =>
+      ({ contextId, accessContextKey, browserRootContextId }) =>
         useBrowserBucketCatalog({
           ...createOptions(),
-          accountId,
+          contextId,
           accessContextKey,
           browserRootContextId,
         }),
       {
         initialProps: {
-          accountId: "account-a",
+          contextId: "account-a",
           accessContextKey: "browser:account-a",
           browserRootContextId: "account-a",
         },
@@ -176,7 +176,7 @@ describe("useBrowserBucketCatalog", () => {
       );
     });
     rerender({
-      accountId: "account-b",
+      contextId: "account-b",
       accessContextKey: "browser:account-b",
       browserRootContextId: "account-b",
     });
@@ -197,7 +197,7 @@ describe("useBrowserBucketCatalog", () => {
   it("debounces searches and appends the next result page", async () => {
     vi.useFakeTimers();
     apiMocks.searchBrowserBuckets.mockImplementation(
-      (_accountId: string, options?: { page?: number; search?: string }) => {
+      (_contextId: string, options?: { page?: number; search?: string }) => {
         if (options?.search === "archive" && options.page === 2) {
           return Promise.resolve(
             bucketPage(["archive-3"], { page: 2, total: 3 }),

@@ -70,7 +70,7 @@ describe("useBrowserVersionListing", () => {
 
     const { result } = renderHook(() =>
       useBrowserVersionListing({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         hardLimit: 2,
@@ -114,7 +114,7 @@ describe("useBrowserVersionListing", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserVersionListing({
-          accountId: "acc-1",
+          contextId: "acc-1",
           autoLoad: true,
           bucketName: "bucket-a",
           enabled: true,
@@ -152,7 +152,7 @@ describe("useBrowserVersionListing", () => {
       .mockRejectedValueOnce(new Error("Next page unavailable"))
       .mockResolvedValueOnce(response([version("docs/report.txt", "v2")]));
     const { result } = renderHook(() => useBrowserVersionListing({
-      accountId: "acc-1", bucketName: "bucket-a", enabled: true, prefix: "docs/",
+      contextId: "acc-1", bucketName: "bucket-a", enabled: true, prefix: "docs/",
     }));
     await act(async () => { await result.current.load(); });
     await act(async () => { await result.current.load({ append: true }); });

@@ -5,7 +5,7 @@
 import type { ObjectPreviewNavigation } from "../shared/ObjectDetailsDrawer";
 import { useEffect, useMemo, useState } from "react";
 
-import type { S3ExecutionContextSelector } from "../../api/accountParams";
+import type { S3AccountSelector } from "../../api/accountParams";
 import type { BrowserBucket } from "../../api/browserContracts";
 import { listPortalStorageSpaces } from "../../api/portal";
 import { fetchPortalStorageSpaceAccessSummary } from "../../api/portalSharing";
@@ -18,7 +18,7 @@ import type { BrowserItem } from "./browserTypes";
 
 type BrowserStorageSpaceObjectDetailsDrawerProps = {
   navigation?: ObjectPreviewNavigation;
-  accountId: S3ExecutionContextSelector;
+  portalAccountId: S3AccountSelector;
   bucket?: BrowserBucket | null;
   bucketName: string;
   canModifyObjects: boolean;
@@ -78,7 +78,7 @@ function fallbackSpace(
 
 export default function BrowserStorageSpaceObjectDetailsDrawer({
   navigation,
-  accountId,
+  portalAccountId,
   bucket,
   bucketName,
   canModifyObjects,
@@ -110,8 +110,8 @@ export default function BrowserStorageSpaceObjectDetailsDrawer({
 
   useEffect(() => {
     let cancelled = false;
-    if (accountId == null) return;
-    listPortalStorageSpaces(accountId, { includeArchived: true })
+    if (portalAccountId == null) return;
+    listPortalStorageSpaces(portalAccountId, { includeArchived: true })
       .then((summaries) => {
         if (cancelled) return;
         const summary = summaries.find(
@@ -136,20 +136,20 @@ export default function BrowserStorageSpaceObjectDetailsDrawer({
     return () => {
       cancelled = true;
     };
-  }, [accountId, bucketName, locale, t]);
+  }, [portalAccountId, bucketName, locale, t]);
 
   useEffect(() => {
     let cancelled = false;
     setCanCreatePublicLinks(false);
     if (
-      accountId == null ||
+      portalAccountId == null ||
       space.role !== "Manager" ||
       space.visibility !== "shared" ||
       space.status === "Archived"
     ) {
       return;
     }
-    fetchPortalStorageSpaceAccessSummary(accountId, space.id)
+    fetchPortalStorageSpaceAccessSummary(portalAccountId, space.id)
       .then((summary) => {
         if (!cancelled) {
           setCanCreatePublicLinks(Boolean(summary.can_create_public_links));
@@ -161,7 +161,7 @@ export default function BrowserStorageSpaceObjectDetailsDrawer({
     return () => {
       cancelled = true;
     };
-  }, [accountId, space.id, space.role, space.status, space.visibility]);
+  }, [portalAccountId, space.id, space.role, space.status, space.visibility]);
 
   const canModify =
     canModifyObjects &&
@@ -172,8 +172,8 @@ export default function BrowserStorageSpaceObjectDetailsDrawer({
 
   return (
     <StorageSpaceObjectDetailsDrawer
-        navigation={navigation}
-      accountId={accountId}
+      navigation={navigation}
+      accountId={portalAccountId}
       activeView={activeView}
       canCreatePublicLinks={canCreatePublicLinks}
       canModify={canModify}

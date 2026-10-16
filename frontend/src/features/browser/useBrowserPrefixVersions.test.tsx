@@ -45,7 +45,7 @@ function renderPrefixVersions(versioningEnabled = true) {
   return renderHook(
     ({ enabled }) =>
       useBrowserPrefixVersions({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         contextEnabled: true,
         onHardLimit: vi.fn(),

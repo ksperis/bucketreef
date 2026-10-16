@@ -77,7 +77,7 @@ function item(key: string, options: { deleted?: boolean } = {}): BrowserItem {
 
 function createOptions() {
   return {
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "source-bucket",
     cancelCopyDetails: vi.fn(),
     clearOperationController: vi.fn(),
@@ -192,7 +192,7 @@ describe("useBrowserClipboard", () => {
       { initialProps: {} },
     );
     act(() => result.current.copy([item("docs/report.txt")]));
-    rerender({ accountId: "acc-2", bucketName: "destination-bucket" });
+    rerender({ contextId: "acc-2", bucketName: "destination-bucket" });
 
     expect(result.current.canPaste).toBe(false);
     await act(async () => {
@@ -215,7 +215,7 @@ describe("useBrowserClipboard", () => {
     );
     act(() => result.current.copy([item("docs/report.txt")]));
     rerender({
-      accountId: "acc-2",
+      contextId: "acc-2",
       bucketName: "destination-bucket",
       functionalProfile: "advanced",
       normalizedPrefix: "archive/",
@@ -288,7 +288,7 @@ describe("useBrowserClipboard", () => {
     );
     act(() => result.current.copy([item("docs/report.txt")]));
     rerender({
-      accountId: "acc-2",
+      contextId: "acc-2",
       bucketName: "destination-bucket",
       functionalProfile: "advanced",
     });

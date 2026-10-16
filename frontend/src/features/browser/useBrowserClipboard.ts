@@ -58,7 +58,7 @@ type ClipboardTransferParameters = Parameters<
 >[0];
 
 type UseBrowserClipboardOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   cancelCopyDetails: OperationRegistry["cancelCopyDetails"];
   clearOperationController: OperationRegistry["clearOperationController"];
@@ -86,7 +86,7 @@ type UseBrowserClipboardOptions = {
 };
 
 export function useBrowserClipboard({
-  accountId,
+  contextId,
   bucketName,
   cancelCopyDetails,
   clearOperationController,
@@ -111,12 +111,12 @@ export function useBrowserClipboard({
 }: UseBrowserClipboardOptions) {
   const { text } = useBrowserI18n();
   const [clipboard, setClipboard] = useState<ClipboardState | null>(null);
-  const currentAccountId = normalizeS3SelectorId(accountId);
-  const clipboardAccountId = normalizeS3SelectorId(
+  const currentContextId = normalizeS3SelectorId(contextId);
+  const clipboardContextId = normalizeS3SelectorId(
     clipboard?.sourceSelector ?? null,
   );
   const clipboardMatchesContext = Boolean(
-    clipboard && clipboardAccountId === currentAccountId,
+    clipboard && clipboardContextId === currentContextId,
   );
   const canPaste = Boolean(clipboard && bucketName && enabled);
   const canPasteInFunctionalProfile =
@@ -139,12 +139,12 @@ export function useBrowserClipboard({
       setClipboard({
         items: eligibleItems,
         sourceBucket: bucketName,
-        sourceSelector: accountId ?? null,
+        sourceSelector: contextId ?? null,
         mode: "copy",
       });
       onStatus(text("Items copied."));
     },
-    [accountId, bucketName, onStatus, onWarning, text],
+    [contextId, bucketName, onStatus, onWarning, text],
   );
 
   const cut = useCallback(
@@ -163,12 +163,12 @@ export function useBrowserClipboard({
       setClipboard({
         items: eligibleItems,
         sourceBucket: bucketName,
-        sourceSelector: accountId ?? null,
+        sourceSelector: contextId ?? null,
         mode: "move",
       });
       onStatus(text("Items ready to move."));
     },
-    [accountId, bucketName, onStatus, onWarning, text],
+    [contextId, bucketName, onStatus, onWarning, text],
   );
 
   const resolveTransferMode = useCallback(
@@ -386,7 +386,7 @@ export function useBrowserClipboard({
         continue;
       }
       try {
-        await createFolder(accountId, destinationBucket, destinationFolderPrefix, requestOptions);
+        await createFolder(contextId, destinationBucket, destinationFolderPrefix, requestOptions);
       } catch {
         // Object copies below still create the effective S3 prefix.
       }
@@ -487,7 +487,7 @@ export function useBrowserClipboard({
             updateCopyDetailStatus(operationId, task.detailId, "copying");
             if (useServerSideCopy) {
               await copyObject(
-                accountId,
+                contextId,
                 destinationBucket,
                 {
                   source_bucket: task.sourceBucket,
@@ -504,7 +504,7 @@ export function useBrowserClipboard({
                 task.sourceBucket,
               );
               const destinationSseCustomerKeyBase64 =
-                getSseCustomerKeyForScope(accountId, destinationBucket);
+                getSseCustomerKeyForScope(contextId, destinationBucket);
               const sourceMetadata = await fetchObjectMetadata(
                 task.sourceSelector,
                 task.sourceBucket,
@@ -523,7 +523,7 @@ export function useBrowserClipboard({
                   sseCustomerKeyBase64: sourceSseCustomerKeyBase64,
                 },
                 destination: {
-                  selector: accountId,
+                  selector: contextId,
                   bucket: destinationBucket,
                   key: task.destinationKey,
                   sseCustomerKeyBase64: destinationSseCustomerKeyBase64,
@@ -637,7 +637,7 @@ export function useBrowserClipboard({
       clearOperationController(operationId);
     }
   }, [
-    accountId,
+    contextId,
     bucketName,
     cancelCopyDetails,
     clearOperationController,

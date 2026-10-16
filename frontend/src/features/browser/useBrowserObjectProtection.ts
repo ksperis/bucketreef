@@ -25,7 +25,7 @@ export type ObjectRetentionMode = "" | "GOVERNANCE" | "COMPLIANCE";
 type SaveObjectRetentionResult = "saved" | "invalid" | "skipped";
 
 type UseBrowserObjectProtectionOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   objectKey: string;
@@ -34,7 +34,7 @@ type UseBrowserObjectProtectionOptions = {
 };
 
 export function useBrowserObjectProtection({
-  accountId,
+  contextId,
   bucketName,
   enabled,
   objectKey,
@@ -43,7 +43,7 @@ export function useBrowserObjectProtection({
 }: UseBrowserObjectProtectionOptions) {
   const { text } = useBrowserI18n();
   const scope = JSON.stringify([
-    accountId,
+    contextId,
     bucketName,
     objectKey,
     requestOptions?.workspaceSurface ?? null,
@@ -91,7 +91,7 @@ export function useBrowserObjectProtection({
   const load = useCallback(
     async (force = false) => {
       if (scope !== scopeRef.current) return;
-      if (!accountId || !bucketName || !objectKey) return;
+      if (!contextId || !bucketName || !objectKey) return;
       if (
         !force &&
         ((legalHoldLoadedRef.current && retentionLoadedRef.current) ||
@@ -111,14 +111,14 @@ export function useBrowserObjectProtection({
       try {
         const [nextLegalHold, nextRetention] = await Promise.allSettled([
           getObjectLegalHold(
-            accountId,
+            contextId,
             bucketName,
             objectKey,
             versionId ?? null,
             requestOptions,
           ),
           getObjectRetention(
-            accountId,
+            contextId,
             bucketName,
             objectKey,
             versionId ?? null,
@@ -185,7 +185,7 @@ export function useBrowserObjectProtection({
       }
     },
     [
-      accountId,
+      contextId,
       bucketName,
       objectKey,
       requestOptions,
@@ -197,7 +197,7 @@ export function useBrowserObjectProtection({
   const saveLegalHold = useCallback(async () => {
     if (
       !isCurrentScope() ||
-      !accountId ||
+      !contextId ||
       !bucketName ||
       !objectKey ||
       objectLockUnavailable
@@ -207,7 +207,7 @@ export function useBrowserObjectProtection({
     return (
       (await runBrowserScopedSave(isCurrentScope, setSavingLegalHold, async () => {
         await updateObjectLegalHold(
-          accountId,
+          contextId,
           bucketName,
           {
             key: objectKey,
@@ -222,7 +222,7 @@ export function useBrowserObjectProtection({
       })) ?? false
     );
   }, [
-    accountId,
+    contextId,
     bucketName,
     isCurrentScope,
     legalHoldStatus,
@@ -237,7 +237,7 @@ export function useBrowserObjectProtection({
     async (): Promise<SaveObjectRetentionResult> => {
       if (
         !isCurrentScope() ||
-        !accountId ||
+        !contextId ||
         !bucketName ||
         !objectKey ||
         !retentionMode ||
@@ -255,7 +255,7 @@ export function useBrowserObjectProtection({
           setSavingRetention,
           async () => {
             await updateObjectRetention(
-              accountId,
+              contextId,
               bucketName,
               {
                 key: objectKey,
@@ -274,7 +274,7 @@ export function useBrowserObjectProtection({
       );
     },
     [
-      accountId,
+      contextId,
       bucketName,
       isCurrentScope,
       load,

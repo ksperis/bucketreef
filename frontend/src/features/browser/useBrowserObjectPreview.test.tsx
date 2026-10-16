@@ -24,7 +24,7 @@ vi.mock("../../api/browserTransfers", () => ({
 }));
 
 const baseOptions = {
-  accountId: "acc-1",
+  contextId: "acc-1",
   bucketName: "bucket-a",
   metadataLoaded: false,
   objectKey: "docs/report.txt",

@@ -9,7 +9,7 @@ import { updateObjectAcl } from "../../api/browserObjects";
 import { runBrowserScopedSave } from "./browserScopedSave";
 
 type UseBrowserObjectAclOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   objectKey: string;
   requestOptions?: BrowserRequestOptions;
@@ -17,14 +17,14 @@ type UseBrowserObjectAclOptions = {
 };
 
 export function useBrowserObjectAcl({
-  accountId,
+  contextId,
   bucketName,
   objectKey,
   requestOptions,
   versionId,
 }: UseBrowserObjectAclOptions) {
   const scope = JSON.stringify([
-    accountId,
+    contextId,
     bucketName,
     objectKey,
     requestOptions?.workspaceSurface ?? null,
@@ -46,13 +46,13 @@ export function useBrowserObjectAcl({
   }, []);
 
   const save = useCallback(async () => {
-    if (!isCurrentScope() || !accountId || !bucketName || !objectKey) {
+    if (!isCurrentScope() || !contextId || !bucketName || !objectKey) {
       return false;
     }
     return (
       (await runBrowserScopedSave(isCurrentScope, setSaving, async () => {
         await updateObjectAcl(
-          accountId,
+          contextId,
           bucketName,
           {
             key: objectKey,
@@ -66,7 +66,7 @@ export function useBrowserObjectAcl({
       })) ?? false
     );
   }, [
-    accountId,
+    contextId,
     bucketName,
     isCurrentScope,
     objectKey,

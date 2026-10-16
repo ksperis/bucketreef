@@ -25,7 +25,7 @@ import { formatDateTime } from "./browserUtils";
 import { useBrowserI18n } from "./browserI18n";
 
 type BrowserBucketDetailsContentProps = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   includeStaticWebsite: boolean;
   includeUsage: boolean;
@@ -209,7 +209,7 @@ function buildFeatureRows(
 }
 
 export default function BrowserBucketDetailsContent({
-  accountId,
+  contextId,
   bucketName,
   includeStaticWebsite,
   includeUsage,
@@ -225,14 +225,14 @@ export default function BrowserBucketDetailsContent({
     setLoading(true);
     setError(null);
     const results = await Promise.allSettled([
-      browserBucketDetails.getBucketStats(accountId, bucketName, {
+      browserBucketDetails.getBucketStats(contextId, bucketName, {
         with_stats: includeUsage,
       }),
-      browserBucketDetails.getBucketProperties(accountId, bucketName),
-      browserBucketDetails.getBucketPolicy(accountId, bucketName),
-      browserBucketDetails.getBucketLogging(accountId, bucketName),
+      browserBucketDetails.getBucketProperties(contextId, bucketName),
+      browserBucketDetails.getBucketPolicy(contextId, bucketName),
+      browserBucketDetails.getBucketLogging(contextId, bucketName),
       includeStaticWebsite
-        ? browserBucketDetails.getBucketWebsite(accountId, bucketName)
+        ? browserBucketDetails.getBucketWebsite(contextId, bucketName)
         : Promise.resolve(null),
     ] as const);
     if (requestId !== requestIdRef.current) return;
@@ -255,7 +255,7 @@ export default function BrowserBucketDetailsContent({
       unavailableSections,
     });
     setLoading(false);
-  }, [accountId, bucketName, includeStaticWebsite, includeUsage, text]);
+  }, [contextId, bucketName, includeStaticWebsite, includeUsage, text]);
 
   useEffect(() => {
     void load();

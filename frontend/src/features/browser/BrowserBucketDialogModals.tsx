@@ -28,7 +28,7 @@ import BrowserBucketDetailsContent from "./BrowserBucketDetailsContent";
 import { useBrowserI18n } from "./browserI18n";
 
 type BrowserBucketConfigurationDrawerProps = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   includeStaticWebsite: boolean;
   includeUsage: boolean;
@@ -44,7 +44,7 @@ type BrowserCreateBucketModalProps = {
   error: string | null;
   isNameValid: boolean;
   invalidNameMessage: string;
-  hasS3AccountContext: boolean;
+  hasExecutionContext: boolean;
   onNameChange: (value: string) => void;
   onVersioningChange: (enabled: boolean) => void;
   onSubmit: () => void | Promise<void>;
@@ -73,14 +73,14 @@ type BrowserCreateFolderModalProps = {
   error: string | null;
   currentPath: string;
   bucketName: string;
-  hasS3AccountContext: boolean;
+  hasExecutionContext: boolean;
   onNameChange: (value: string) => void;
   onSubmit: () => void | Promise<void>;
   onClose: () => void;
 };
 
 export function BrowserBucketConfigurationDrawer({
-  accountId,
+  contextId,
   bucketName,
   includeStaticWebsite,
   includeUsage,
@@ -125,7 +125,7 @@ export function BrowserBucketConfigurationDrawer({
     >
       {browserReadOnly ? (
         <BrowserBucketDetailsContent
-          accountId={accountId}
+          contextId={contextId}
           bucketName={bucketName}
           includeStaticWebsite={includeStaticWebsite}
           includeUsage={includeUsage}
@@ -142,12 +142,12 @@ export function BrowserBucketConfigurationDrawer({
 
 export function BrowserCreateBucketModal({
   name, versioning, loading, error, isNameValid, invalidNameMessage,
-  hasS3AccountContext, onNameChange, onVersioningChange, onSubmit, onClose,
+  hasExecutionContext, onNameChange, onVersioningChange, onSubmit, onClose,
 }: BrowserCreateBucketModalProps) {
   const { text } = useBrowserI18n();
   return (
     <SettingsFormDialog title={text("Create bucket")} draftKey={stableSignature({ name, versioning })}
-      busy={loading} disabled={!hasS3AccountContext || !name.trim() || !isNameValid}
+      busy={loading} disabled={!hasExecutionContext || !name.trim() || !isNameValid}
       error={error} submitLabel={loading ? text("Creating...") : text("Create bucket")}
       onSubmit={onSubmit} onClose={onClose}>
       <UiInput label={text("Bucket name")} type="text" value={name}
@@ -207,13 +207,13 @@ export function BrowserSseCustomerKeyModal({
 }
 
 export function BrowserCreateFolderModal({
-  name, loading, error, currentPath, bucketName, hasS3AccountContext,
+  name, loading, error, currentPath, bucketName, hasExecutionContext,
   onNameChange, onSubmit, onClose,
 }: BrowserCreateFolderModalProps) {
   const { text } = useBrowserI18n();
   return (
     <SettingsFormDialog title={text("Create folder")} draftKey={name} busy={loading}
-      disabled={!bucketName || !hasS3AccountContext} error={error}
+      disabled={!bucketName || !hasExecutionContext} error={error}
       submitLabel={loading ? text("Creating...") : text("Create")} onSubmit={onSubmit} onClose={onClose}
       maxWidthClass="max-w-md">
       <p className="settings-description break-all whitespace-pre-wrap">

@@ -26,7 +26,7 @@ type DeleteConfirmation = {
 };
 
 type UseBrowserVersionActionsOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   clearOperationController: OperationRegistry["clearOperationController"];
   completeOperation: OperationRegistry["completeOperation"];
@@ -44,7 +44,7 @@ type UseBrowserVersionActionsOptions = {
 };
 
 export function useBrowserVersionActions({
-  accountId,
+  contextId,
   bucketName,
   clearOperationController,
   completeOperation,
@@ -92,7 +92,7 @@ export function useBrowserVersionActions({
       let completionError: string | undefined;
       try {
         await copyObject(
-          accountId,
+          contextId,
           bucketName,
           {
             source_key: version.key,
@@ -126,7 +126,7 @@ export function useBrowserVersionActions({
       }
     },
     [
-      accountId,
+      contextId,
       bucketName,
       clearOperationController,
       completeOperation,
@@ -157,7 +157,7 @@ export function useBrowserVersionActions({
       let completionError: string | undefined;
       try {
         await deleteObjects(
-          accountId,
+          contextId,
           bucketName,
           [{ key: version.key, version_id: version.version_id }],
           controller.signal,
@@ -194,7 +194,7 @@ export function useBrowserVersionActions({
       }
     },
     [
-      accountId,
+      contextId,
       bucketName,
       clearOperationController,
       completeOperation,

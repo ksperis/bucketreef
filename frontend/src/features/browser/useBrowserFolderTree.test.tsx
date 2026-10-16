@@ -39,8 +39,8 @@ function prefixPage(
 
 function createOptions() {
   return {
-    accountId: "account-a",
-    accountSwitchInFlight: false,
+    contextId: "account-a",
+    contextSwitchInFlight: false,
     bucketName: "bucket-a",
     currentBucketUnavailable: false,
     enabled: true,
@@ -61,7 +61,7 @@ describe("useBrowserFolderTree", () => {
 
   it("collects, deduplicates, and sorts paginated root prefixes", async () => {
     apiMocks.listBrowserObjects.mockImplementation(
-      (_accountId: string, _bucketName: string, options?: { continuationToken?: string }) =>
+      (_contextId: string, _bucketName: string, options?: { continuationToken?: string }) =>
         Promise.resolve(
           options?.continuationToken === "page-2"
             ? prefixPage(["docs/", "archive/"])
@@ -93,7 +93,7 @@ describe("useBrowserFolderTree", () => {
 
   it("loads and expands every segment of the active prefix", async () => {
     apiMocks.listBrowserObjects.mockImplementation(
-      (_accountId: string, _bucketName: string, options?: { prefix?: string }) => {
+      (_contextId: string, _bucketName: string, options?: { prefix?: string }) => {
         if (options?.prefix === "docs/") {
           return Promise.resolve(prefixPage(["docs/reports/"]));
         }
@@ -128,7 +128,7 @@ describe("useBrowserFolderTree", () => {
   it("loads empty segments and spaces as exact ancestors", async () => {
     const prefixes = ["", "/", "/ docs /", "/ docs //", "/ docs //nested /"];
     apiMocks.listBrowserObjects.mockImplementation(
-      (_accountId: string, _bucketName: string, options: { prefix: string }) => {
+      (_contextId: string, _bucketName: string, options: { prefix: string }) => {
         const index = prefixes.indexOf(options.prefix);
         const next = index >= 0 ? prefixes[index + 1] : undefined;
         return Promise.resolve(prefixPage(next ? [next] : []));
@@ -149,7 +149,7 @@ describe("useBrowserFolderTree", () => {
   it("ignores an old bucket child response even when abort is ignored", async () => {
     const oldChildRequest = deferred<ListBrowserObjectsResponse>();
     apiMocks.listBrowserObjects.mockImplementation(
-      (_accountId: string, bucketName: string, options?: { prefix?: string }) => {
+      (_contextId: string, bucketName: string, options?: { prefix?: string }) => {
         if (bucketName === "bucket-a" && options?.prefix === "shared/") {
           return oldChildRequest.promise;
         }

@@ -16,7 +16,7 @@ const object = (key: string): BrowserObject => ({ key, size: 1 });
 
 function createOptions() {
   return {
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "bucket-a",
     enabled: true,
     listAllObjectsForPrefix: vi.fn().mockResolvedValue([

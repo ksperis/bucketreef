@@ -53,7 +53,7 @@ describe("BrowserBucketDetailsContent", () => {
   it("shows a read-only overview and effective feature states", async () => {
     render(
       <BrowserBucketDetailsContent
-        accountId="account-1"
+        contextId="account-1"
         bucketName="documents"
         includeStaticWebsite
         includeUsage
@@ -78,7 +78,7 @@ describe("BrowserBucketDetailsContent", () => {
 
     render(
       <BrowserBucketDetailsContent
-        accountId="account-1"
+        contextId="account-1"
         bucketName="documents"
         includeStaticWebsite={false}
         includeUsage={false}

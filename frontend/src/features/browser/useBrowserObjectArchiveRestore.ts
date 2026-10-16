@@ -13,7 +13,7 @@ export type ObjectRestoreTier = "Standard" | "Bulk" | "Expedited";
 type RestoreArchiveResult = "restored" | "invalid" | "skipped";
 
 type UseBrowserObjectArchiveRestoreOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   loadProperties: (force?: boolean) => Promise<unknown>;
   objectKey: string;
@@ -22,7 +22,7 @@ type UseBrowserObjectArchiveRestoreOptions = {
 };
 
 export function useBrowserObjectArchiveRestore({
-  accountId,
+  contextId,
   bucketName,
   loadProperties,
   objectKey,
@@ -30,7 +30,7 @@ export function useBrowserObjectArchiveRestore({
   versionId,
 }: UseBrowserObjectArchiveRestoreOptions) {
   const scope = JSON.stringify([
-    accountId,
+    contextId,
     bucketName,
     objectKey,
     requestOptions?.workspaceSurface ?? null,
@@ -54,7 +54,7 @@ export function useBrowserObjectArchiveRestore({
   }, []);
 
   const restore = useCallback(async (): Promise<RestoreArchiveResult> => {
-    if (!isCurrentScope() || !accountId || !bucketName || !objectKey) {
+    if (!isCurrentScope() || !contextId || !bucketName || !objectKey) {
       return "skipped";
     }
     const restoreDays = Number(days);
@@ -63,7 +63,7 @@ export function useBrowserObjectArchiveRestore({
     return (
       (await runBrowserScopedSave(isCurrentScope, setSaving, async () => {
         await restoreObject(
-          accountId,
+          contextId,
           bucketName,
           {
             key: objectKey,
@@ -79,7 +79,7 @@ export function useBrowserObjectArchiveRestore({
       })) ?? "skipped"
     );
   }, [
-    accountId,
+    contextId,
     bucketName,
     days,
     isCurrentScope,

@@ -58,7 +58,7 @@ describe("useBrowserObjectVersions", () => {
 
     const { result } = renderHook(() =>
       useBrowserObjectVersions({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         onDeleteVersion: vi.fn(),
@@ -107,7 +107,7 @@ describe("useBrowserObjectVersions", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserObjectVersions({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           enabled: true,
           onDeleteVersion: vi.fn(),
@@ -151,7 +151,7 @@ describe("useBrowserObjectVersions", () => {
     });
     const { result } = renderHook(() =>
       useBrowserObjectVersions({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         onDeleteVersion,
@@ -184,7 +184,7 @@ describe("useBrowserObjectVersions", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserObjectVersions({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           enabled: true,
           onDeleteVersion: vi.fn(),

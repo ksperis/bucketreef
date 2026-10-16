@@ -50,7 +50,7 @@ type BrowserObjectDetailsStatus = {
 
 type BrowserObjectDetailsDrawerProps = {
   navigation?: ObjectPreviewNavigation;
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   item: BrowserItem;
   initialTab: ObjectDetailsTabId;
@@ -80,7 +80,7 @@ type BrowserObjectDetailsDrawerProps = {
 
 export default function BrowserObjectDetailsDrawer({
   navigation,
-  accountId,
+  contextId,
   bucketName,
   item,
   initialTab,
@@ -125,7 +125,7 @@ export default function BrowserObjectDetailsDrawer({
     isCurrentScope: isVersionsScopeCurrent,
     runAction: runVersionAction,
   } = useBrowserObjectVersions({
-    accountId,
+    contextId,
     bucketName,
     enabled: versioningEnabled && itemSnapshot.type === "file",
     onDeleteVersion,
@@ -166,7 +166,7 @@ export default function BrowserObjectDetailsDrawer({
     saveTags,
     saveStorageClass,
   } = useBrowserObjectProperties({
-    accountId,
+    contextId,
     bucketName,
     isDeleted: isDeletedCurrent,
     item: itemSnapshot,
@@ -177,7 +177,7 @@ export default function BrowserObjectDetailsDrawer({
     loadBlob: loadObjectPreview,
     resolveContentType: resolveObjectPreviewContentType,
   } = useBrowserObjectPreview({
-    accountId,
+    contextId,
     bucketName,
     metadataContentType: metadata?.content_type,
     metadataLoaded,
@@ -195,7 +195,7 @@ export default function BrowserObjectDetailsDrawer({
     isCurrentScope: isAclScopeCurrent,
     save: saveAcl,
   } = useBrowserObjectAcl({
-    accountId,
+    contextId,
     bucketName,
     objectKey: itemSnapshot.key,
     requestOptions,
@@ -220,7 +220,7 @@ export default function BrowserObjectDetailsDrawer({
     saveLegalHold,
     saveRetention,
   } = useBrowserObjectProtection({
-    accountId,
+    contextId,
     bucketName,
     enabled:
       activeTab === "protection" &&
@@ -250,7 +250,7 @@ export default function BrowserObjectDetailsDrawer({
     isCurrentScope: isArchiveRestoreScopeCurrent,
     restore: restoreArchive,
   } = useBrowserObjectArchiveRestore({
-    accountId,
+    contextId,
     bucketName,
     loadProperties,
     objectKey: itemSnapshot.key,
@@ -268,7 +268,7 @@ export default function BrowserObjectDetailsDrawer({
     generate: generatePresign,
     copy: copyPresign,
   } = useBrowserObjectSignedUrl({
-    accountId,
+    contextId,
     bucketName,
     objectKey: itemSnapshot.key,
     requestOptions,

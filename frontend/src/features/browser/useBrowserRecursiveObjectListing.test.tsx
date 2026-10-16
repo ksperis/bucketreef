@@ -27,7 +27,7 @@ function renderRecursiveListing({
 } = {}) {
   return renderHook(() =>
     useBrowserRecursiveObjectListing({
-      accountId: "account-1",
+      contextId: "account-1",
       bucketName,
       enabled,
       requestOptions: { workspaceSurface: "manager" },

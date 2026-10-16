@@ -30,7 +30,7 @@ type LazyColumnLoadPlan = {
 };
 
 type UseBrowserLazyColumnsOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   items: BrowserItem[];
@@ -43,7 +43,7 @@ type UseBrowserLazyColumnsOptions = {
 };
 
 export function useBrowserLazyColumns({
-  accountId,
+  contextId,
   bucketName,
   enabled,
   items,
@@ -67,7 +67,7 @@ export function useBrowserLazyColumns({
   const sessionRef = useRef(0);
   const active = metadataColumnsVisible || tagsColumnVisible;
   const scopeKey = JSON.stringify([
-    accountId ?? null,
+    contextId ?? null,
     bucketName,
     enabled,
     prefix,
@@ -197,7 +197,7 @@ export function useBrowserLazyColumns({
 
       try {
         const response = await fetchBrowserObjectColumns(
-          accountId,
+          contextId,
           bucketName,
           {
             keys: Array.from(
@@ -257,7 +257,7 @@ export function useBrowserLazyColumns({
       }
     },
     [
-      accountId,
+      contextId,
       bucketName,
       enabled,
       markLoadErrors,

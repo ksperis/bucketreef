@@ -743,7 +743,7 @@ describe("BrowserPage interactions", () => {
 
     listBrowserObjectsMock.mockImplementation(
       (
-        _accountId: string,
+        _contextId: string,
         _bucketName: string,
         payload?: { prefix?: string; includeFolderMarkers?: boolean },
       ) => {
@@ -799,7 +799,7 @@ describe("BrowserPage interactions", () => {
     );
     fetchBrowserObjectColumnsMock.mockImplementation(
       async (
-        _accountId: string,
+        _contextId: string,
         _bucketName: string,
         payload?: { keys?: string[]; columns?: string[] },
       ) => ({
@@ -868,7 +868,7 @@ describe("BrowserPage interactions", () => {
     });
     createFolderMock.mockResolvedValue(undefined);
     presignObjectMock.mockImplementation(
-      async (_accountId: string, _bucketName: string, payload?: { key?: string }) => ({
+      async (_contextId: string, _bucketName: string, payload?: { key?: string }) => ({
         url: `https://example.test/${payload?.key ?? "object"}`,
         method: "PUT",
         expires_in: 1800,
@@ -3239,9 +3239,9 @@ describe("BrowserPage interactions", () => {
   it("restores the last bucket and path for the same execution context", async () => {
     const user = userEvent.setup();
     searchBrowserBucketsMock.mockImplementation(
-      (accountId: string, options?: { search?: string; exact?: boolean }) => {
+      (contextId: string, options?: { search?: string; exact?: boolean }) => {
         const allBuckets =
-          accountId === "acc-2"
+          contextId === "acc-2"
             ? [{ name: "bucket-a" }]
             : [{ name: "bucket-1" }, { name: "bucket-2" }];
         const search = options?.search?.trim() ?? "";
@@ -3321,7 +3321,7 @@ describe("BrowserPage interactions", () => {
   ])("navigates from the literal URL prefix $prefix through exact parents", async ({ prefix, parents }) => {
     const user = userEvent.setup();
     listBrowserObjectsMock.mockImplementation(
-      async (_accountId: string, _bucketName: string, options: { prefix?: string }) => ({
+      async (_contextId: string, _bucketName: string, options: { prefix?: string }) => ({
         prefix: options.prefix ?? "", objects: [], prefixes: [], is_truncated: false,
         next_continuation_token: null,
       }),
@@ -3382,7 +3382,7 @@ describe("BrowserPage interactions", () => {
 
   it("falls back cleanly when a stored bucket is no longer available", async () => {
     searchBrowserBucketsMock.mockImplementation(
-      (_accountId: string, options?: { search?: string; exact?: boolean }) => {
+      (_contextId: string, options?: { search?: string; exact?: boolean }) => {
         const allBuckets = [{ name: "bucket-1" }];
         const search = options?.search?.trim() ?? "";
         const filtered = search
@@ -3425,7 +3425,7 @@ describe("BrowserPage interactions", () => {
 
   it("lets an explicit ?bucket override reset the restored path to the bucket root", async () => {
     searchBrowserBucketsMock.mockImplementation(
-      (_accountId: string, options?: { search?: string; exact?: boolean }) => {
+      (_contextId: string, options?: { search?: string; exact?: boolean }) => {
         const allBuckets = [{ name: "bucket-1" }, { name: "bucket-2" }];
         const search = options?.search?.trim() ?? "";
         const filtered = search
@@ -3501,7 +3501,7 @@ describe("BrowserPage interactions", () => {
       has_next: false,
     });
     listBrowserObjectsMock.mockImplementation(
-      (_accountId: string, bucket: string, payload?: { prefix?: string }) => {
+      (_contextId: string, bucket: string, payload?: { prefix?: string }) => {
         const prefix = payload?.prefix ?? "";
         if (bucket === "bucket-2") {
           return Promise.resolve({
@@ -3571,7 +3571,7 @@ describe("BrowserPage interactions", () => {
   it("filters the workspace sidebar without hiding the current folders panel", async () => {
     const user = userEvent.setup();
     searchBrowserBucketsMock.mockImplementation(
-      (_accountId: string, options?: { search?: string; exact?: boolean }) => {
+      (_contextId: string, options?: { search?: string; exact?: boolean }) => {
         const allBuckets = [{ name: "bucket-1" }, { name: "bucket-2" }];
         const search = options?.search?.trim() ?? "";
         const filtered = search
@@ -3759,7 +3759,7 @@ describe("BrowserPage interactions", () => {
       has_next: false,
     });
     listBrowserObjectsMock.mockImplementation(
-      (_accountId: string, bucket: string, _options?: { maxKeys?: number }) => {
+      (_contextId: string, bucket: string, _options?: { maxKeys?: number }) => {
         if (bucket === "locked-bucket") {
           return Promise.reject(new ApiError("Request failed with status 403", {
             response: {
@@ -3825,7 +3825,7 @@ describe("BrowserPage interactions", () => {
       has_next: false,
     });
     listBrowserObjectsMock.mockImplementation(
-      (_accountId: string, bucket: string, _options?: { maxKeys?: number }) => {
+      (_contextId: string, bucket: string, _options?: { maxKeys?: number }) => {
         if (bucket === "flaky-bucket") {
           return Promise.reject(new ApiError("Failed to fetch", {
             response: { status: 502, data: {}, headers: {} },
@@ -3881,7 +3881,7 @@ describe("BrowserPage interactions", () => {
   it("loads more buckets from the panel without dropping the pinned current bucket", async () => {
     const user = userEvent.setup();
     searchBrowserBucketsMock.mockImplementation(
-      (_accountId: string, options?: { page?: number }) => {
+      (_contextId: string, options?: { page?: number }) => {
         const page = options?.page ?? 1;
         if (page === 1) {
           return Promise.resolve({
@@ -4339,7 +4339,7 @@ describe("BrowserPage interactions", () => {
 
     listBrowserObjectsMock.mockImplementation(
       (
-        _accountId: string,
+        _contextId: string,
         _bucketName: string,
         payload?: { prefix?: string; includeFolderMarkers?: boolean },
       ) => {
@@ -5034,14 +5034,14 @@ describe("BrowserPage interactions", () => {
 
     listBrowserObjectsMock.mockImplementation(
       (
-        accountId: string,
+        contextId: string,
         _bucketName: string,
         payload?: { prefix?: string; includeFolderMarkers?: boolean },
       ) => {
         const prefix = payload?.prefix ?? "";
         if (prefix === "docs/") {
           const objects =
-            accountId === "acc-2" && destinationDocsUpdated
+            contextId === "acc-2" && destinationDocsUpdated
               ? [
                   {
                     key: "docs/a.txt",
@@ -5109,12 +5109,12 @@ describe("BrowserPage interactions", () => {
 
     presignObjectMock.mockImplementation(
       async (
-        accountId: string,
+        contextId: string,
         _bucketName: string,
         payload?: { key?: string; operation?: string },
       ) => {
         if (
-          accountId === "acc-2" &&
+          contextId === "acc-2" &&
           payload?.operation === "put_object" &&
           payload.key === "docs/a.txt"
         ) {
@@ -5160,7 +5160,7 @@ describe("BrowserPage interactions", () => {
     });
     copyObjectMock.mockImplementation(
       async (
-        _accountId: string,
+        _contextId: string,
         _bucketName: string,
         payload: { destination_key: string },
         signal?: AbortSignal,
@@ -5437,7 +5437,7 @@ describe("BrowserPage interactions", () => {
     });
     presignObjectMock.mockImplementation(
       async (
-        _accountId: string,
+        _contextId: string,
         _bucketName: string,
         payload?: { key?: string; operation?: string },
       ) => ({

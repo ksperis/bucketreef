@@ -35,7 +35,7 @@ type DeleteConfirmation = {
 };
 
 type UseBrowserDeleteItemsOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   cancelDeleteDetails: OperationRegistry["cancelDeleteDetails"];
   clearOperationController: OperationRegistry["clearOperationController"];
@@ -61,7 +61,7 @@ type UseBrowserDeleteItemsOptions = {
 };
 
 export function useBrowserDeleteItems({
-  accountId,
+  contextId,
   bucketName,
   cancelDeleteDetails,
   clearOperationController,
@@ -136,7 +136,7 @@ export function useBrowserDeleteItems({
               );
             }
             await deleteObjects(
-              accountId,
+              contextId,
               bucketName,
               chunk.map((key) => ({ key })),
               signal,
@@ -187,7 +187,7 @@ export function useBrowserDeleteItems({
       return deletedCount;
     },
     [
-      accountId,
+      contextId,
       bucketName,
       enabled,
       parallelism,

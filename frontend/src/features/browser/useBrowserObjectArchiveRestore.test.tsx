@@ -35,7 +35,7 @@ describe("useBrowserObjectArchiveRestore", () => {
     const loadProperties = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() =>
       useBrowserObjectArchiveRestore({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         loadProperties,
         objectKey: "archives/report.csv",
@@ -73,7 +73,7 @@ describe("useBrowserObjectArchiveRestore", () => {
       const loadProperties = vi.fn();
       const { result } = renderHook(() =>
         useBrowserObjectArchiveRestore({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           loadProperties,
           objectKey: "archives/report.csv",
@@ -96,7 +96,7 @@ describe("useBrowserObjectArchiveRestore", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserObjectArchiveRestore({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           loadProperties,
           objectKey,

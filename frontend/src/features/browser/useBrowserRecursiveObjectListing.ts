@@ -13,19 +13,19 @@ const RECURSIVE_LIST_PAGE_SIZE = 1000;
 export type ListAllBrowserObjectsForPrefix = (
   prefix: string,
   bucketName?: string,
-  accountId?: S3ExecutionContextSelector,
+  contextId?: S3ExecutionContextSelector,
   signal?: AbortSignal,
 ) => Promise<BrowserObject[]>;
 
 type UseBrowserRecursiveObjectListingOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   enabled: boolean;
   requestOptions?: BrowserRequestOptions;
 };
 
 export function useBrowserRecursiveObjectListing({
-  accountId,
+  contextId,
   bucketName,
   enabled,
   requestOptions,
@@ -34,7 +34,7 @@ export function useBrowserRecursiveObjectListing({
     async (
       prefix: string,
       targetBucketName?: string,
-      targetAccountId?: S3ExecutionContextSelector,
+      targetContextId?: S3ExecutionContextSelector,
       signal?: AbortSignal,
     ) => {
       const resolvedBucketName = targetBucketName ?? bucketName;
@@ -45,7 +45,7 @@ export function useBrowserRecursiveObjectListing({
       let hasMore = true;
       while (hasMore) {
         const page = await listBrowserObjects(
-          targetAccountId ?? accountId,
+          targetContextId ?? contextId,
           resolvedBucketName,
           {
             prefix,
@@ -64,6 +64,6 @@ export function useBrowserRecursiveObjectListing({
       }
       return objects;
     },
-    [accountId, bucketName, enabled, requestOptions],
+    [contextId, bucketName, enabled, requestOptions],
   );
 }

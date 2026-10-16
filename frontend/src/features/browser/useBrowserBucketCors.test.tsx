@@ -77,7 +77,7 @@ describe("useBrowserBucketCors", () => {
     const bucketARequest = deferred<BucketCorsStatus>();
     const bucketBRequest = deferred<BucketCorsStatus>();
     apiMocks.getBrowserBucketCorsStatus.mockImplementation(
-      (_accountId: string, bucketName: string) =>
+      (_contextId: string, bucketName: string) =>
         bucketName === "bucket-a"
           ? bucketARequest.promise
           : bucketBRequest.promise,

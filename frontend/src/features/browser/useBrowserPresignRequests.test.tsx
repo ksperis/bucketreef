@@ -54,7 +54,7 @@ function renderPresignRequests({
 } = {}) {
   const { result } = renderHook(() =>
     useBrowserPresignRequests({
-      accountId: "conn-7",
+      contextId: "conn-7",
       ensureStsCredentials,
       requestOptions: { workspaceSurface: "manager" },
       sseCustomerKeyBase64: "customer-key",
