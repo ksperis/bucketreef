@@ -32,8 +32,12 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def __init__(self, configuration_reader: Optional[BucketConfigurationReader] = None) -> None:
         self._configuration_reader = configuration_reader or BucketConfigurationService()
 
-    def _list_bucket_objects_for_compare(self, bucket_name: str, account: S3ExecutionTarget):
-        with self._open_client(account) as client:
+    def _list_bucket_objects_for_compare(
+        self,
+        bucket_name: str,
+        execution_context: S3ExecutionTarget,
+    ):
+        with self._open_client(execution_context) as client:
             continuation_token: Optional[str] = None
             while True:
                 kwargs: dict[str, Any] = {"Bucket": bucket_name, "MaxKeys": 1000}
@@ -66,17 +70,17 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def compare_bucket_content(
         self,
         source_bucket: str,
-        source_account: S3ExecutionTarget,
+        source_context: S3ExecutionTarget,
         target_bucket: str,
-        target_account: S3ExecutionTarget,
+        target_context: S3ExecutionTarget,
         *,
         ignore_modified_after: Optional[datetime] = None,
     ) -> BucketContentDiff:
         with TemporarySqliteStore(prefix="bucketreef-bucket-compare-") as store:
             index = bucket_content_comparison.BucketCompareObjectIndex(store.connection)
-            with closing(self._list_bucket_objects_for_compare(source_bucket, source_account)) as source_objects:
+            with closing(self._list_bucket_objects_for_compare(source_bucket, source_context)) as source_objects:
                 source_indexed_count = index.add_objects("source", source_objects)
-            with closing(self._list_bucket_objects_for_compare(target_bucket, target_account)) as target_objects:
+            with closing(self._list_bucket_objects_for_compare(target_bucket, target_context)) as target_objects:
                 target_indexed_count = index.add_objects("target", target_objects)
             diff = index.build_content_diff(
                 md5_resolver=etag_md5,
@@ -92,13 +96,13 @@ class BucketComparisonService(LongRunningS3ClientMixin):
             )
             return diff
 
-    def _accounts_share_storage_endpoint(
+    def _contexts_share_storage_endpoint(
         self,
-        source_account: S3ExecutionTarget,
-        target_account: S3ExecutionTarget,
+        source_context: S3ExecutionTarget,
+        target_context: S3ExecutionTarget,
     ) -> bool:
-        source_options = self._client_kwargs(source_account)
-        target_options = self._client_kwargs(target_account)
+        source_options = self._client_kwargs(source_context)
+        target_options = self._client_kwargs(target_context)
         return (
             source_options.get("endpoint") == target_options.get("endpoint")
             and source_options.get("region") == target_options.get("region")
@@ -109,9 +113,9 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def run_compare_content_remediation(
         self,
         source_bucket: str,
-        source_account: S3ExecutionTarget,
+        source_context: S3ExecutionTarget,
         target_bucket: str,
-        target_account: S3ExecutionTarget,
+        target_context: S3ExecutionTarget,
         *,
         action: bucket_compare_remediation.BucketCompareRemediationAction,
         object_keys: list[str],
@@ -134,12 +138,12 @@ class BucketComparisonService(LongRunningS3ClientMixin):
         with ExitStack() as clients:
             if action == "delete_target_only":
                 source_client = None
-                target_client = clients.enter_context(self._open_client(target_account))
+                target_client = clients.enter_context(self._open_client(target_context))
                 same_endpoint = False
             else:
-                source_client = clients.enter_context(self._open_client(source_account))
-                target_client = clients.enter_context(self._open_client(target_account))
-                same_endpoint = self._accounts_share_storage_endpoint(source_account, target_account)
+                source_client = clients.enter_context(self._open_client(source_context))
+                target_client = clients.enter_context(self._open_client(target_context))
+                same_endpoint = self._contexts_share_storage_endpoint(source_context, target_context)
 
             return bucket_compare_remediation.remediate_bucket_content(
                 source_client=source_client,
@@ -156,18 +160,18 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def compare_bucket_configuration(
         self,
         source_bucket: str,
-        source_account: S3ExecutionTarget,
+        source_context: S3ExecutionTarget,
         target_bucket: str,
-        target_account: S3ExecutionTarget,
+        target_context: S3ExecutionTarget,
         *,
         include_sections: Optional[set[str]] = None,
     ) -> BucketConfigDiff:
         return bucket_configuration_comparison.compare_bucket_configuration(
             self._configuration_reader,
             source_bucket,
-            source_account,
+            source_context,
             target_bucket,
-            target_account,
+            target_context,
             include_sections=include_sections,
         )
 

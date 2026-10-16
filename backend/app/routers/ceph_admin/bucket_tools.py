@@ -84,7 +84,7 @@ def compare_bucket_pair(
     db: Session = Depends(get_db),
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminBucketCompareResult:
-    source_account = build_ceph_admin_s3_context(ctx)
+    source_context = build_ceph_admin_s3_context(ctx)
     target_endpoint = _resolve_storage_endpoint(db, payload.target_endpoint_id)
     from app.routers.ceph_admin.dependencies import validate_ceph_admin_service_configuration
     target_error = validate_ceph_admin_service_configuration(target_endpoint)
@@ -98,7 +98,7 @@ def compare_bucket_pair(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Target endpoint Ceph Admin credentials are not configured",
         )
-    target_account = S3ExecutionContext.from_ceph_admin_endpoint(
+    target_context = S3ExecutionContext.from_ceph_admin_endpoint(
         target_endpoint,
         access_key=target_access_key,
         secret_key=target_secret_key,
@@ -111,17 +111,17 @@ def compare_bucket_pair(
         if payload.include_content:
             content_diff = service.compare_bucket_content(
                 payload.source_bucket,
-                source_account,
+                source_context,
                 payload.target_bucket,
-                target_account,
+                target_context,
                 ignore_modified_after=payload.ignore_modified_after,
             )
         if payload.include_config:
             config_diff = service.compare_bucket_configuration(
                 payload.source_bucket,
-                source_account,
+                source_context,
                 payload.target_bucket,
-                target_account,
+                target_context,
                 include_sections=set(payload.config_features) if payload.config_features is not None else None,
             )
     except RuntimeError as exc:

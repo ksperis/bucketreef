@@ -10,21 +10,21 @@ from app.utils.jsonable import model_to_jsonable
 
 
 class BucketConfigurationReader(Protocol):
-    def get_bucket_properties(self, name: str, account: S3ExecutionTarget) -> BucketProperties: ...
+    def get_bucket_properties(self, name: str, execution_context: S3ExecutionTarget) -> BucketProperties: ...
 
-    def get_policy(self, name: str, account: S3ExecutionTarget) -> Optional[dict]: ...
+    def get_policy(self, name: str, execution_context: S3ExecutionTarget) -> Optional[dict]: ...
 
-    def get_bucket_logging(self, name: str, account: S3ExecutionTarget) -> BucketLoggingConfiguration: ...
+    def get_bucket_logging(self, name: str, execution_context: S3ExecutionTarget) -> BucketLoggingConfiguration: ...
 
-    def get_bucket_tags(self, name: str, account: S3ExecutionTarget) -> list[BucketTag]: ...
+    def get_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> list[BucketTag]: ...
 
 
 def compare_bucket_configuration(
     reader: BucketConfigurationReader,
     source_bucket: str,
-    source_account: S3ExecutionTarget,
+    source_context: S3ExecutionTarget,
     target_bucket: str,
-    target_account: S3ExecutionTarget,
+    target_context: S3ExecutionTarget,
     *,
     include_sections: Optional[set[str]] = None,
 ) -> BucketConfigDiff:
@@ -50,28 +50,28 @@ def compare_bucket_configuration(
     source_properties: Optional[BucketProperties] = None
     target_properties: Optional[BucketProperties] = None
     if needs_properties:
-        source_properties = reader.get_bucket_properties(source_bucket, source_account)
-        target_properties = reader.get_bucket_properties(target_bucket, target_account)
+        source_properties = reader.get_bucket_properties(source_bucket, source_context)
+        target_properties = reader.get_bucket_properties(target_bucket, target_context)
         assert source_properties is not None
         assert target_properties is not None
 
     source_policy: Optional[dict] = None
     target_policy: Optional[dict] = None
     if "bucket_policy" in selected_section_keys:
-        source_policy = reader.get_policy(source_bucket, source_account)
-        target_policy = reader.get_policy(target_bucket, target_account)
+        source_policy = reader.get_policy(source_bucket, source_context)
+        target_policy = reader.get_policy(target_bucket, target_context)
 
     source_logging: Any = None
     target_logging: Any = None
     if "access_logging" in selected_section_keys:
-        source_logging = model_to_jsonable(reader.get_bucket_logging(source_bucket, source_account))
-        target_logging = model_to_jsonable(reader.get_bucket_logging(target_bucket, target_account))
+        source_logging = model_to_jsonable(reader.get_bucket_logging(source_bucket, source_context))
+        target_logging = model_to_jsonable(reader.get_bucket_logging(target_bucket, target_context))
 
     source_tags: list[dict[str, str]] = []
     target_tags: list[dict[str, str]] = []
     if "tags" in selected_section_keys:
-        source_tags = _normalize_tags(reader.get_bucket_tags(source_bucket, source_account))
-        target_tags = _normalize_tags(reader.get_bucket_tags(target_bucket, target_account))
+        source_tags = _normalize_tags(reader.get_bucket_tags(source_bucket, source_context))
+        target_tags = _normalize_tags(reader.get_bucket_tags(target_bucket, target_context))
 
     sections_data: list[tuple[str, str, Any, Any]] = []
     if "versioning_status" in selected_section_keys:

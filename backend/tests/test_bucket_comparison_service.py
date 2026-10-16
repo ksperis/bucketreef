@@ -337,7 +337,7 @@ def test_compare_remediation_uses_requested_object_keys(monkeypatch):
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("remediation must not re-list objects")),
     )
     monkeypatch.setattr(service, "_build_client", lambda _account: Mock(spec=["close"]))
-    monkeypatch.setattr(service, "_accounts_share_storage_endpoint", lambda _source, _target: True)
+    monkeypatch.setattr(service, "_contexts_share_storage_endpoint", lambda _source, _target: True)
 
     def fake_remediate(**kwargs):
         requested_keys.extend(kwargs["object_keys"])
