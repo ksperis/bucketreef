@@ -143,7 +143,7 @@ def test_bucket_scan_is_skipped_when_bucket_lease_is_already_held(db_session, mo
     assert lease is not None
 
     target = BucketUsageStatsResolvedTarget(
-        account=S3ExecutionContext(
+        context=S3ExecutionContext(
             context_id="1",
             context_kind="account",
             name="Account",

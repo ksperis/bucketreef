@@ -36,25 +36,25 @@ from app.services.s3_execution_context import S3ExecutionContext
 router = APIRouter(tags=["manager-bucket-usage-stats"])
 logger = logging.getLogger(__name__)
 
-def _target_for_bucket(account: S3ExecutionContext, bucket_name: str) -> BucketUsageStatsResolvedTarget:
+def _target_for_bucket(context: S3ExecutionContext, bucket_name: str) -> BucketUsageStatsResolvedTarget:
     return BucketUsageStatsResolvedTarget(
-        account=account,
+        context=context,
         bucket_name=bucket_name,
         scope_kind="manager",
-        scope_id=account.context_id,
-        scope_name=account.name,
-        context_id=account.context_id,
-        context_name=account.name,
+        scope_id=context.context_id,
+        scope_name=context.name,
+        context_id=context.context_id,
+        context_name=context.name,
     )
 
 
-def _list_manager_bucket_names(account: S3ExecutionContext, service: BucketsService) -> list[str]:
+def _list_manager_bucket_names(context: S3ExecutionContext, service: BucketsService) -> list[str]:
     try:
         buckets = get_cached_bucket_listing_for_context(
-            context=account,
+            context=context,
             include=set(),
             with_stats=False,
-            builder=lambda: service.list_buckets(account, include=set(), with_stats=False),
+            builder=lambda: service.list_buckets(context, include=set(), with_stats=False),
         )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -65,18 +65,18 @@ def _list_manager_bucket_names(account: S3ExecutionContext, service: BucketsServ
 def get_manager_usage_stats_aggregate(
     db: Session = Depends(get_db),
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> BucketUsageStatsAggregateResponse:
-    require_bucket_management_context(account)
-    context_id = account.context_id
-    bucket_names = _list_manager_bucket_names(account, bucket_service)
+    require_bucket_management_context(context)
+    context_id = context.context_id
+    bucket_names = _list_manager_bucket_names(context, bucket_service)
     aggregate = BucketUsageStatsService().get_aggregate(
         db,
         scope_kind="manager",
         scope_id=context_id,
-        scope_name=account.name,
+        scope_name=context.name,
         bucket_names=bucket_names,
     )
     return BucketUsageStatsAggregateResponse(aggregate=aggregate)
@@ -87,13 +87,13 @@ def stream_manager_usage_stats_aggregate(
     payload: BucketUsageStatsScopeRequest,
     request: Request,
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_account_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> StreamingResponse:
-    require_bucket_management_context(account)
-    bucket_names = _list_manager_bucket_names(account, bucket_service)
-    targets = [_target_for_bucket(account, bucket_name) for bucket_name in bucket_names]
+    require_bucket_management_context(context)
+    bucket_names = _list_manager_bucket_names(context, bucket_service)
+    targets = [_target_for_bucket(context, bucket_name) for bucket_name in bucket_names]
     service = BucketUsageStatsService(SessionLocal)
     return stream_bucket_usage_stats(
         request,
@@ -116,11 +116,11 @@ def get_manager_bucket_usage_stats(
     bucket_name: str,
     db: Session = Depends(get_db),
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketUsageStatsLatestResponse:
-    require_bucket_management_context(account)
-    context_id = account.context_id
+    require_bucket_management_context(context)
+    context_id = context.context_id
     snapshot = BucketUsageStatsService().get_latest(
         db,
         scope_kind="manager",
@@ -135,11 +135,11 @@ def stream_manager_bucket_usage_stats_for_bucket(
     bucket_name: str,
     request: Request,
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
-    require_bucket_management_context(account)
-    target = _target_for_bucket(account, bucket_name)
+    require_bucket_management_context(context)
+    target = _target_for_bucket(context, bucket_name)
     service = BucketUsageStatsService(SessionLocal)
     return stream_bucket_usage_stats(
         request,

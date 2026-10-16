@@ -92,7 +92,7 @@ def test_bucket_operations_close_their_client_on_every_exit(monkeypatch, operati
     account = make_s3_execution_context(can_manage_buckets=True)
     if operation == "usage":
         service = BucketUsageStatsService()
-        target = BucketUsageStatsResolvedTarget(account=account, bucket_name="bucket", scope_kind="manager", scope_id="1")
+        target = BucketUsageStatsResolvedTarget(context=account, bucket_name="bucket", scope_kind="manager", scope_id="1")
         run = lambda: service.calculate_bucket(target)
     elif operation == "integrity":
         service = BucketIntegrityCheckService()
@@ -146,7 +146,7 @@ def test_usage_current_listing_fallback_keeps_client_open_until_finished(monkeyp
     service = BucketUsageStatsService()
     monkeypatch.setattr(service, "_build_client", lambda _account: client)
     target = BucketUsageStatsResolvedTarget(
-        account=make_s3_execution_context(), bucket_name="bucket", scope_kind="manager", scope_id="1",
+        context=make_s3_execution_context(), bucket_name="bucket", scope_kind="manager", scope_id="1",
     )
     if outcome == "success":
         assert service.calculate_bucket(target).scan_mode == "current_only"
@@ -299,7 +299,7 @@ def test_usage_worker_cancellation_releases_client_without_persisting(monkeypatc
     client = TrackingClient(error=BucketUsageStatsCancelled("Canceled while listing"))
     monkeypatch.setattr(service, "_build_client", lambda _account: client)
     target = BucketUsageStatsResolvedTarget(
-        account=make_s3_execution_context(), bucket_name="bucket", scope_kind="manager", scope_id="1",
+        context=make_s3_execution_context(), bucket_name="bucket", scope_kind="manager", scope_id="1",
     )
 
     def run(progress_callback=None, cancel_check=None):

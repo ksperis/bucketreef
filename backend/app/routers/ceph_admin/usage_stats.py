@@ -47,10 +47,10 @@ def _require_buckets_payload(payload: BucketUsageStatsRequest) -> list[str]:
 
 
 def _target_for_bucket(ctx: CephAdminContext, bucket_name: str) -> BucketUsageStatsResolvedTarget:
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     context_id = f"ceph-admin-{ctx.endpoint.id}"
     return BucketUsageStatsResolvedTarget(
-        account=account,
+        context=context,
         bucket_name=bucket_name,
         scope_kind="ceph_admin",
         scope_id=str(ctx.endpoint.id),
