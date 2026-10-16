@@ -23,7 +23,7 @@ from app.services.bucket_feature_param_values import (
     extract_sse_values,
 )
 from app.services.bucket_notification_state import (
-    account_sns_feature_enabled,
+    execution_context_sns_feature_enabled,
     is_bucket_notification_configuration_configured,
 )
 from app.services.bucket_configuration_service import BucketConfigurationService
@@ -317,7 +317,10 @@ def _enrich_lifecycle_configuration(
         return
 
     try:
-        raw_rules = context.reader.get_lifecycle(context.bucket_name, context.account).rules or []
+        raw_rules = context.reader.get_lifecycle(
+            context.bucket_name,
+            context.execution_context,
+        ).rules or []
     except RuntimeError:
         if wants_feature:
             feature_map["lifecycle_rules"] = _feature_status_unavailable()
@@ -399,7 +402,7 @@ class _BucketEnrichmentPlan:
         return cls(
             requested=selected,
             include_tags=include_tags,
-            sns_feature_enabled=account_sns_feature_enabled(execution_context),
+            sns_feature_enabled=execution_context_sns_feature_enabled(execution_context),
             lifecycle_details=selected & _COLUMN_DETAIL_LIFECYCLE_KEYS,
             property_details=property_details,
             logging_details=selected & _COLUMN_DETAIL_LOGGING_KEYS,
