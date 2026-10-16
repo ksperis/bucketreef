@@ -21,13 +21,13 @@ router = APIRouter(prefix="/manager/topics", tags=["manager-topics"])
 
 @router.get("", response_model=list[Topic])
 def list_topics(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _sns_guard: ManagerActor = Depends(require_sns_capable_manager),
     _actor: ManagerActor = Depends(get_current_account_admin),
 ) -> list[Topic]:
     try:
-        return service.list_topics(account)
+        return service.list_topics(context)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -35,16 +35,16 @@ def list_topics(
 @router.post("", response_model=Topic, status_code=status.HTTP_201_CREATED)
 def create_topic(
     payload: TopicCreate,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _: ManagerActor = Depends(require_sns_capable_manager),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Topic:
-    validate_topic_request(payload.name, payload.configuration, account)
+    validate_topic_request(payload.name, payload.configuration, context)
     try:
         topic = service.create_topic(
-            account,
+            context,
             payload.name,
             configuration=payload.configuration,
         )
@@ -54,7 +54,7 @@ def create_topic(
             action="create_topic",
             entity_type="sns_topic",
             entity_id=topic.arn,
-            execution_context=account,
+            execution_context=context,
             metadata={
                 "name": payload.name,
                 "configuration_keys": sorted((payload.configuration or {}).keys()),
@@ -70,21 +70,21 @@ def create_topic(
 @router.delete("/{topic_arn:path}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_topic(
     topic_arn: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _: ManagerActor = Depends(require_sns_capable_manager),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     try:
-        service.delete_topic(account, topic_arn)
+        service.delete_topic(context, topic_arn)
         audit_service.record_action(
             user=current_user,
             scope="manager",
             action="delete_topic",
             entity_type="sns_topic",
             entity_id=topic_arn,
-            execution_context=account,
+            execution_context=context,
         )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -93,13 +93,13 @@ def delete_topic(
 @router.get("/{topic_arn:path}/policy", response_model=TopicPolicy)
 def get_topic_policy(
     topic_arn: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _sns_guard: ManagerActor = Depends(require_sns_capable_manager),
     _actor: ManagerActor = Depends(get_current_account_admin),
 ) -> TopicPolicy:
     try:
-        policy = service.get_topic_policy(account, topic_arn)
+        policy = service.get_topic_policy(context, topic_arn)
         return TopicPolicy(policy=policy or {})
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -109,21 +109,21 @@ def get_topic_policy(
 def put_topic_policy(
     topic_arn: str,
     payload: TopicPolicy,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _: ManagerActor = Depends(require_sns_capable_manager),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> TopicPolicy:
     try:
-        updated = service.set_topic_policy(account, topic_arn, payload.policy or {})
+        updated = service.set_topic_policy(context, topic_arn, payload.policy or {})
         audit_service.record_action(
             user=current_user,
             scope="manager",
             action="update_topic_policy",
             entity_type="sns_topic",
             entity_id=topic_arn,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_length": len(payload.policy or {})},
         )
         return TopicPolicy(policy=updated)
@@ -136,13 +136,13 @@ def put_topic_policy(
 @router.get("/{topic_arn:path}/configuration", response_model=TopicConfiguration)
 def get_topic_configuration(
     topic_arn: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _sns_guard: ManagerActor = Depends(require_sns_capable_manager),
     _actor: ManagerActor = Depends(get_current_account_admin),
 ) -> TopicConfiguration:
     try:
-        configuration = service.get_topic_configuration(account, topic_arn)
+        configuration = service.get_topic_configuration(context, topic_arn)
         return TopicConfiguration(configuration=configuration)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -152,21 +152,21 @@ def get_topic_configuration(
 def put_topic_configuration(
     topic_arn: str,
     payload: TopicConfiguration,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: TopicsService = Depends(get_topics_service),
     _: ManagerActor = Depends(require_sns_capable_manager),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> TopicConfiguration:
     try:
-        updated = service.set_topic_configuration(account, topic_arn, payload.configuration or {})
+        updated = service.set_topic_configuration(context, topic_arn, payload.configuration or {})
         audit_service.record_action(
             user=current_user,
             scope="manager",
             action="update_topic_configuration",
             entity_type="sns_topic",
             entity_id=topic_arn,
-            execution_context=account,
+            execution_context=context,
             metadata={"configuration_keys": sorted(updated.keys())},
         )
         return TopicConfiguration(configuration=updated)
