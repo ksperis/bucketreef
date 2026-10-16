@@ -325,14 +325,10 @@ class UsersService:
         logger.debug("Updated profile for user id=%s", user.id)
         return user
 
-    def delete_user(self, user_id: int) -> None:
-        user = self.db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise UiUserNotFoundError("User not found")
-        require_no_private_storage_space_ownership(self.db, user_id=user.id)
+    def _created_private_connection_ids_for_deletion(self, user_id: int) -> list[int]:
         created_connection_rows = (
             self.db.query(S3Connection.id, S3Connection.is_shared)
-            .filter(S3Connection.created_by_user_id == user.id)
+            .filter(S3Connection.created_by_user_id == user_id)
             .all()
         )
         created_shared_ids = sorted([row[0] for row in created_connection_rows if bool(row[1])])
@@ -341,11 +337,13 @@ class UsersService:
             raise ValueError(
                 f"Cannot delete user with shared S3 connections created by this user: {created_shared_str}"
             )
-        created_private_ids = [
+        return [
             row[0]
             for row in created_connection_rows
             if not bool(row[1])
         ]
+
+    def _sync_portal_access_before_user_deletion(self, user: User) -> None:
         from app.services.portal_service import PortalService
 
         portal_service = PortalService(self.db)
@@ -361,30 +359,36 @@ class UsersService:
                 account,
                 None,
             )
+
+    def _delete_user_links_and_private_connections(
+        self,
+        user_id: int,
+        created_private_ids: list[int],
+    ) -> None:
         # Remove dependent links/tokens first to satisfy FK constraints on PostgreSQL.
         (
             self.db.query(AccountIAMUser)
-            .filter(AccountIAMUser.user_id == user.id)
+            .filter(AccountIAMUser.user_id == user_id)
             .delete(synchronize_session=False)
         )
         (
             self.db.query(UserS3Account)
-            .filter(UserS3Account.user_id == user.id)
+            .filter(UserS3Account.user_id == user_id)
             .delete(synchronize_session=False)
         )
         (
             self.db.query(UserS3User)
-            .filter(UserS3User.user_id == user.id)
+            .filter(UserS3User.user_id == user_id)
             .delete(synchronize_session=False)
         )
         (
             self.db.query(UserS3Connection)
-            .filter(UserS3Connection.user_id == user.id)
+            .filter(UserS3Connection.user_id == user_id)
             .delete(synchronize_session=False)
         )
         (
             self.db.query(UserUiGroup)
-            .filter(UserUiGroup.user_id == user.id)
+            .filter(UserUiGroup.user_id == user_id)
             .delete(synchronize_session=False)
         )
         if created_private_ids:
@@ -398,14 +402,16 @@ class UsersService:
                 .filter(S3Connection.id.in_(created_private_ids))
                 .delete(synchronize_session=False)
             )
+
+    def _delete_user_auth_artifacts(self, user_id: int) -> None:
         (
             self.db.query(ApiToken)
-            .filter(ApiToken.user_id == user.id)
+            .filter(ApiToken.user_id == user_id)
             .delete(synchronize_session=False)
         )
         auth_session_ids = [
             row[0]
-            for row in self.db.query(AuthSession.id).filter(AuthSession.user_id == user.id).all()
+            for row in self.db.query(AuthSession.id).filter(AuthSession.user_id == user_id).all()
         ]
         if auth_session_ids:
             self.db.query(RefreshToken).filter(
@@ -414,22 +420,26 @@ class UsersService:
             self.db.query(AuthSession).filter(
                 AuthSession.id.in_(auth_session_ids)
             ).delete(synchronize_session=False)
+
+    def _anonymize_user_history(self, user_id: int) -> None:
         (
             self.db.query(AuditLog)
-            .filter(AuditLog.user_id == user.id)
+            .filter(AuditLog.user_id == user_id)
             .update({AuditLog.user_id: None}, synchronize_session=False)
         )
         (
             self.db.query(BucketMigration)
-            .filter(BucketMigration.created_by_user_id == user.id)
+            .filter(BucketMigration.created_by_user_id == user_id)
             .update({BucketMigration.created_by_user_id: None}, synchronize_session=False)
         )
+
+    def _cleanup_owned_tag_definitions(self, user_id: int) -> None:
         # Private bucket UI tags must disappear with their owner. Turning them
         # into global definitions would silently make private metadata shared.
         (
             self.db.query(TagDefinition)
             .filter(
-                TagDefinition.owner_user_id == user.id,
+                TagDefinition.owner_user_id == user_id,
                 TagDefinition.domain_kind.in_(
                     [TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS]
                 ),
@@ -438,9 +448,21 @@ class UsersService:
         )
         (
             self.db.query(TagDefinition)
-            .filter(TagDefinition.owner_user_id == user.id)
+            .filter(TagDefinition.owner_user_id == user_id)
             .update({TagDefinition.owner_user_id: None}, synchronize_session=False)
         )
+
+    def delete_user(self, user_id: int) -> None:
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise UiUserNotFoundError("User not found")
+        require_no_private_storage_space_ownership(self.db, user_id=user.id)
+        created_private_ids = self._created_private_connection_ids_for_deletion(user.id)
+        self._sync_portal_access_before_user_deletion(user)
+        self._delete_user_links_and_private_connections(user.id, created_private_ids)
+        self._delete_user_auth_artifacts(user.id)
+        self._anonymize_user_history(user.id)
+        self._cleanup_owned_tag_definitions(user.id)
         self.db.delete(user)
         self.db.commit()
         logger.debug("Deleted user id=%s email=%s", user.id, user.email)
