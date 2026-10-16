@@ -47,31 +47,25 @@ class UserOutputService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def preload(self, users: list[User]) -> UserOutputPreload:
-        user_ids = [int(user.id) for user in users]
-        account_links_by_user: dict[int, list[AccountMembership]] = {
-            user_id: [] for user_id in user_ids
-        }
-        group_ids_by_user: dict[int, list[int]] = {
-            user_id: [] for user_id in user_ids
-        }
-        s3_user_links_by_user: dict[int, list[S3UserMembership]] = {
-            user_id: [] for user_id in user_ids
-        }
-        connection_ids_by_user: dict[int, list[int]] = {
-            user_id: [] for user_id in user_ids
-        }
-        if not user_ids:
-            return UserOutputPreload(
-                account_links_by_user=account_links_by_user,
-                group_ids_by_user=group_ids_by_user,
-                group_names={},
-                s3_user_links_by_user=s3_user_links_by_user,
-                s3_user_names={},
-                connection_ids_by_user=connection_ids_by_user,
-                connection_names={},
-            )
+    @staticmethod
+    def _empty_preload(user_ids: list[int]) -> UserOutputPreload:
+        return UserOutputPreload(
+            account_links_by_user={user_id: [] for user_id in user_ids},
+            group_ids_by_user={user_id: [] for user_id in user_ids},
+            group_names={},
+            s3_user_links_by_user={user_id: [] for user_id in user_ids},
+            s3_user_names={},
+            connection_ids_by_user={user_id: [] for user_id in user_ids},
+            connection_names={},
+        )
 
+    def _load_account_links(
+        self,
+        user_ids: list[int],
+    ) -> dict[int, list[AccountMembership]]:
+        links_by_user: dict[int, list[AccountMembership]] = {
+            user_id: [] for user_id in user_ids
+        }
         account_rows = (
             self.db.query(UserS3Account)
             .filter(UserS3Account.user_id.in_(user_ids))
@@ -79,7 +73,7 @@ class UserOutputService:
             .all()
         )
         for link in account_rows:
-            account_links_by_user[int(link.user_id)].append(
+            links_by_user[int(link.user_id)].append(
                 AccountMembership(
                     account_id=link.account_id,
                     manager_role=link.manager_role,
@@ -89,7 +83,13 @@ class UserOutputService:
                     ),
                 )
             )
+        return links_by_user
 
+    def _load_group_links(
+        self,
+        user_ids: list[int],
+    ) -> tuple[dict[int, list[int]], dict[int, str]]:
+        ids_by_user = {user_id: [] for user_id in user_ids}
         group_rows = (
             self.db.query(UserUiGroup, UiGroup.name)
             .join(UiGroup, UiGroup.id == UserUiGroup.group_id)
@@ -100,9 +100,17 @@ class UserOutputService:
         group_names: dict[int, str] = {}
         for link, group_name in group_rows:
             group_id = int(link.group_id)
-            group_ids_by_user[int(link.user_id)].append(group_id)
+            ids_by_user[int(link.user_id)].append(group_id)
             group_names[group_id] = group_name
+        return ids_by_user, group_names
 
+    def _load_s3_user_links(
+        self,
+        user_ids: list[int],
+    ) -> tuple[dict[int, list[S3UserMembership]], set[int]]:
+        links_by_user: dict[int, list[S3UserMembership]] = {
+            user_id: [] for user_id in user_ids
+        }
         s3_user_rows = (
             self.db.query(UserS3User)
             .filter(UserS3User.user_id.in_(user_ids))
@@ -113,7 +121,7 @@ class UserOutputService:
         for link in s3_user_rows:
             s3_user_id = int(link.s3_user_id)
             s3_user_ids.add(s3_user_id)
-            s3_user_links_by_user[int(link.user_id)].append(
+            links_by_user[int(link.user_id)].append(
                 S3UserMembership(
                     s3_user_id=s3_user_id,
                     allow_manager_browser_data_access=bool(
@@ -121,7 +129,13 @@ class UserOutputService:
                     ),
                 )
             )
+        return links_by_user, s3_user_ids
 
+    def _load_connection_links(
+        self,
+        user_ids: list[int],
+    ) -> tuple[dict[int, list[int]], dict[int, str]]:
+        ids_by_user = {user_id: [] for user_id in user_ids}
         connection_rows = (
             self.db.query(UserS3Connection, S3Connection.name)
             .join(
@@ -138,8 +152,19 @@ class UserOutputService:
         connection_names: dict[int, str] = {}
         for link, connection_name in connection_rows:
             connection_id = int(link.s3_connection_id)
-            connection_ids_by_user[int(link.user_id)].append(connection_id)
+            ids_by_user[int(link.user_id)].append(connection_id)
             connection_names[connection_id] = connection_name
+        return ids_by_user, connection_names
+
+    def preload(self, users: list[User]) -> UserOutputPreload:
+        user_ids = [int(user.id) for user in users]
+        if not user_ids:
+            return self._empty_preload(user_ids)
+
+        account_links_by_user = self._load_account_links(user_ids)
+        group_ids_by_user, group_names = self._load_group_links(user_ids)
+        s3_user_links_by_user, s3_user_ids = self._load_s3_user_links(user_ids)
+        connection_ids_by_user, connection_names = self._load_connection_links(user_ids)
 
         return UserOutputPreload(
             account_links_by_user=account_links_by_user,
