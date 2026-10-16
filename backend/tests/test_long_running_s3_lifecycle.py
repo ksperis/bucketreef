@@ -226,7 +226,7 @@ def test_comparison_remediation_closes_all_owned_clients(monkeypatch, action, ou
         return bucket_compare_remediation.BucketCompareRemediationResult(action, 1, 1, 0, [])
 
     monkeypatch.setattr(service, "_build_client", build_client)
-    monkeypatch.setattr(service, "_accounts_share_storage_endpoint", lambda *_args: True)
+    monkeypatch.setattr(service, "_contexts_share_storage_endpoint", lambda *_args: True)
     monkeypatch.setattr(bucket_compare_remediation, "remediate_bucket_content", remediate)
     if outcome == "success":
         assert service.run_compare_content_remediation("source", source, "target", target, action=action, object_keys=["one"]).succeeded_count == 1
