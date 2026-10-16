@@ -140,9 +140,9 @@ def test_save_app_settings_keeps_persisted_value_for_locked_features(monkeypatch
 
 def test_app_settings_json_bootstrap_imports_once_to_db(monkeypatch, tmp_path, db_session):
     settings_path = tmp_path / "app_settings.json"
-    legacy = AppSettings()
-    legacy.general.browser_enabled = False
-    settings_path.write_text(legacy.model_dump_json(indent=2), encoding="utf-8")
+    bootstrap = AppSettings()
+    bootstrap.general.browser_enabled = False
+    settings_path.write_text(bootstrap.model_dump_json(indent=2), encoding="utf-8")
 
     monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
     _use_settings_db(monkeypatch, db_session)
@@ -223,22 +223,20 @@ def test_general_settings_view_exposes_only_canonical_feature_policies():
         assert removed_field not in payload
 
 
-def test_app_settings_disk_import_converts_legacy_usage_flags(tmp_path):
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"general": {"bucket_compare_enabled": True}},
+        {"general": {"bucket_usage_stats_enabled": False}},
+        {"manager": {"manager_rgw_usage_metrics_enabled": False}},
+    ],
+)
+def test_app_settings_disk_import_rejects_removed_feature_flags(tmp_path, payload):
     settings_path = tmp_path / "app_settings.json"
-    settings_path.write_text(
-        json.dumps(
-            {
-                "general": {"bucket_usage_stats_enabled": False},
-                "manager": {"manager_rgw_usage_metrics_enabled": False},
-            }
-        ),
-        encoding="utf-8",
-    )
+    settings_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    settings = app_settings_service._load_persisted_settings_from_disk(settings_path)
-
-    assert settings.general.project_feature_policies.bucket_usage_stats == "disabled"
-    assert settings.manager.feature_policies.rgw_usage_metrics == "disabled"
+    with pytest.raises(ValidationError):
+        app_settings_service._load_persisted_settings_from_disk(settings_path)
 
 
 def test_general_feature_locks_only_use_dedicated_feature_sources(monkeypatch):

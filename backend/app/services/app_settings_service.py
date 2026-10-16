@@ -10,7 +10,6 @@ from app.core.config import get_settings
 from app.db import AppSetting
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
 from app.utils.time import utcnow
-from app.utils.app_settings_import import normalize_settings_import
 from sqlalchemy.exc import IntegrityError
 
 DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "data" / "app_settings.json"
@@ -37,7 +36,7 @@ def _load_persisted_settings_from_disk(settings_path: Path) -> AppSettings:
     if not settings_path.exists():
         return AppSettings()
     data = json.loads(settings_path.read_text(encoding="utf-8"))
-    return AppSettings.model_validate(normalize_settings_import(data))
+    return AppSettings.model_validate(data)
 
 
 def _open_settings_session():

@@ -30,10 +30,10 @@ rows. Manager true/false settings become targeted/disabled; Portal true/false
 defaults become default_on/targeted. Migration
 `0151_project_usage_feature_overrides` separately converts the former
 `bucket_usage_stats_enabled` and `manager_rgw_usage_metrics_enabled` fields
-into their canonical project/Manager policy fields. Legacy bootstrap JSON is
-converted only at the explicit disk-import boundary, then saved canonically.
-Normal database reads do not run compatibility conversion and reject removed
-settings fields. Backend and bundled frontend must be upgraded together.
+into their canonical project/Manager policy fields. `APP_SETTINGS_PATH` is only
+an initial bootstrap source and must already use the current schema; removed
+settings fields are rejected there just like they are on normal database reads.
+Backend and bundled frontend must be upgraded together.
 
 An older version cannot express inheritance or Portal prohibitions. Downgrade
 conservatively converts inherited resource values to explicit false and loses

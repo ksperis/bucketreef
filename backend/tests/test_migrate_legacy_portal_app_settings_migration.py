@@ -12,10 +12,6 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-from app.utils.app_settings_import import normalize_settings_import
-from app.models.app_settings import AppSettings
-
-
 def _load_migration():
     migration_path = (
         Path(__file__).resolve().parents[1]
@@ -141,10 +137,6 @@ def test_migration_updates_legacy_portal_settings(monkeypatch):
         }
         assert raw_payloads["already-clean"] == already_clean
         assert payloads["without-portal"] == {"onboarding": {"dismissed": True}}
-
-        for payload in payloads.values():
-            AppSettings.model_validate(normalize_settings_import(payload))
-
 
 @pytest.mark.parametrize(
     "invalid_payload",
