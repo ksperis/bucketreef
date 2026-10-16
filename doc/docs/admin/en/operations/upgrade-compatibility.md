@@ -24,8 +24,10 @@ explicit `portal_manager` additions are preserved.
 
 After this migration, the runtime no longer supplies missing intent or role
 defaults when executing a persisted collaborator request. A malformed row is
-failed instead of being interpreted as a Portal User addition. Apply the
-database migration before starting the matching backend version.
+failed instead of being interpreted as a Portal User addition. Persisted
+intent, role, and role-change identifiers are consumed with their canonical
+JSON types and values; the runtime does not trim or coerce malformed values.
+Apply the database migration before starting the matching backend version.
 
 ## 2026-10 canonical audit statuses
 
