@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from app.db import PortalAccountRole, S3Account, User
 from app.models.portal_versions import PortalStorageSpaceSettings, PortalStorageSpaceSettingsUpdate
@@ -112,6 +112,118 @@ class PortalStorageSpaceSettingsMixin:
             can_update=can_update,
         )
 
+    def _portal_storage_space_target_lifecycle_rules(
+        self,
+        previous_rules: list[dict],
+        payload: PortalStorageSpaceSettingsUpdate,
+    ) -> list[dict]:
+        target_rules = [
+            rule
+            for rule in previous_rules
+            if not (isinstance(rule, dict) and str(rule.get("ID") or "") in PORTAL_LIFECYCLE_RULE_IDS)
+        ]
+        if payload.lifecycle_enabled:
+            target_rules.extend(
+                self._portal_bucket_lifecycle_rules(payload.version_history_retention_days)
+            )
+        return target_rules
+
+    @staticmethod
+    def _write_portal_storage_space_lifecycle(
+        bucket_name: str,
+        rules: list[dict],
+        *,
+        access_key: str,
+        secret_key: str,
+        client_kwargs: dict[str, Any],
+    ) -> None:
+        if rules:
+            s3_bucket_metadata.put_bucket_lifecycle(
+                bucket_name,
+                rules=rules,
+                access_key=access_key,
+                secret_key=secret_key,
+                **client_kwargs,
+            )
+            return
+        s3_bucket_metadata.delete_bucket_lifecycle(
+            bucket_name,
+            access_key=access_key,
+            secret_key=secret_key,
+            **client_kwargs,
+        )
+
+    def _restore_portal_storage_space_lifecycle(
+        self,
+        bucket_name: str,
+        previous_rules: list[dict],
+        *,
+        access_key: str,
+        secret_key: str,
+        client_kwargs: dict[str, Any],
+    ) -> bool:
+        try:
+            self._write_portal_storage_space_lifecycle(
+                bucket_name,
+                previous_rules,
+                access_key=access_key,
+                secret_key=secret_key,
+                client_kwargs=client_kwargs,
+            )
+        except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
+            logger.error(
+                "Unable to restore lifecycle settings for Portal Storage Space %s: %s",
+                bucket_name,
+                rollback_exc,
+            )
+            return False
+        return True
+
+    def _apply_portal_storage_space_settings(
+        self,
+        bucket_name: str,
+        payload: PortalStorageSpaceSettingsUpdate,
+        *,
+        previous_versioning: Optional[str],
+        previous_rules: list[dict],
+        access_key: str,
+        secret_key: str,
+        client_kwargs: dict[str, Any],
+    ) -> None:
+        target_rules = self._portal_storage_space_target_lifecycle_rules(previous_rules, payload)
+        lifecycle_changed = target_rules != previous_rules
+        try:
+            if lifecycle_changed:
+                self._write_portal_storage_space_lifecycle(
+                    bucket_name,
+                    target_rules,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    client_kwargs=client_kwargs,
+                )
+            if (previous_versioning == "Enabled") != payload.versioning_enabled:
+                s3_client.set_bucket_versioning(
+                    bucket_name,
+                    enabled=payload.versioning_enabled,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    **client_kwargs,
+                )
+        except Exception as exc:
+            if not lifecycle_changed:
+                suffix = " Lifecycle settings were unchanged."
+            elif self._restore_portal_storage_space_lifecycle(
+                bucket_name,
+                previous_rules,
+                access_key=access_key,
+                secret_key=secret_key,
+                client_kwargs=client_kwargs,
+            ):
+                suffix = " Previous lifecycle settings were restored."
+            else:
+                suffix = " Lifecycle rollback also failed."
+            raise RuntimeError(f"Unable to update Storage Space settings: {exc}.{suffix}") from exc
+
     def update_storage_space_settings(
         self,
         user: User,
@@ -146,73 +258,15 @@ class PortalStorageSpaceSettingsMixin:
             secret_key=secret_key,
             **kwargs,
         )
-        retained_rules = [
-            rule
-            for rule in previous_rules
-            if not (isinstance(rule, dict) and str(rule.get("ID") or "") in PORTAL_LIFECYCLE_RULE_IDS)
-        ]
-        target_rules = list(retained_rules)
-        if payload.lifecycle_enabled:
-            target_rules.extend(
-                self._portal_bucket_lifecycle_rules(payload.version_history_retention_days)
-            )
-
-        lifecycle_changed = target_rules != previous_rules
-        try:
-            if lifecycle_changed:
-                if target_rules:
-                    s3_bucket_metadata.put_bucket_lifecycle(
-                        bucket_name,
-                        rules=target_rules,
-                        access_key=access_key,
-                        secret_key=secret_key,
-                        **kwargs,
-                    )
-                else:
-                    s3_bucket_metadata.delete_bucket_lifecycle(
-                        bucket_name,
-                        access_key=access_key,
-                        secret_key=secret_key,
-                        **kwargs,
-                    )
-
-            versioning_enabled = previous_versioning == "Enabled"
-            if versioning_enabled != payload.versioning_enabled:
-                s3_client.set_bucket_versioning(
-                    bucket_name,
-                    enabled=payload.versioning_enabled,
-                    access_key=access_key,
-                    secret_key=secret_key,
-                    **kwargs,
-                )
-        except Exception as exc:
-            rollback_error: Optional[Exception] = None
-            if lifecycle_changed:
-                try:
-                    if previous_rules:
-                        s3_bucket_metadata.put_bucket_lifecycle(
-                            bucket_name,
-                            rules=previous_rules,
-                            access_key=access_key,
-                            secret_key=secret_key,
-                            **kwargs,
-                        )
-                    else:
-                        s3_bucket_metadata.delete_bucket_lifecycle(
-                            bucket_name,
-                            access_key=access_key,
-                            secret_key=secret_key,
-                            **kwargs,
-                        )
-                except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
-                    rollback_error = rollback_exc
-                    logger.error(
-                        "Unable to restore lifecycle settings for Portal Storage Space %s: %s",
-                        bucket_name,
-                        rollback_exc,
-                    )
-            suffix = " Lifecycle rollback also failed." if rollback_error else " Previous lifecycle settings were restored."
-            raise RuntimeError(f"Unable to update Storage Space settings: {exc}.{suffix}") from exc
+        self._apply_portal_storage_space_settings(
+            bucket_name,
+            payload,
+            previous_versioning=previous_versioning,
+            previous_rules=previous_rules,
+            access_key=access_key,
+            secret_key=secret_key,
+            client_kwargs=kwargs,
+        )
 
         return self._portal_storage_space_runtime_settings(
             user,

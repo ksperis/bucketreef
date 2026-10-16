@@ -289,6 +289,41 @@ def test_versioning_failure_restores_previous_lifecycle(monkeypatch, db_session)
     assert state["rules"] == previous_rules
 
 
+def test_versioning_failure_without_lifecycle_change_reports_unchanged_lifecycle(monkeypatch, db_session):
+    account, manager, _metadata = _setup(db_session)
+    service = PortalService(db_session)
+    _prepare_service(monkeypatch, service)
+    previous_rules = service._portal_bucket_lifecycle_rules(45)
+    state = _install_s3_state(monkeypatch, versioning="Suspended", rules=previous_rules)
+    lifecycle_writes: list[list[dict]] = []
+
+    monkeypatch.setattr(
+        s3_bucket_metadata,
+        "put_bucket_lifecycle",
+        lambda _bucket_name, *, rules, **_kwargs: lifecycle_writes.append(list(rules)),
+    )
+    monkeypatch.setattr(
+        s3_client,
+        "set_bucket_versioning",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("versioning failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="Lifecycle settings were unchanged"):
+        service.update_storage_space_settings(
+            manager,
+            _access(account, manager, PortalAccountRole.PORTAL_MANAGER.value),
+            "research-data",
+            PortalStorageSpaceSettingsUpdate(
+                versioning_enabled=True,
+                lifecycle_enabled=True,
+                version_history_retention_days=45,
+            ),
+        )
+
+    assert lifecycle_writes == []
+    assert state["rules"] == previous_rules
+
+
 def test_only_portal_manager_iam_policy_can_change_space_settings(db_session):
     service = PortalService(db_session)
 
