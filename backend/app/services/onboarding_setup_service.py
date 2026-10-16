@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 """Setup orchestration for the guided administrator onboarding."""
 import json
+from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -42,6 +43,35 @@ from app.utils.time import utcnow
 
 
 ManagementCredentialKind = Literal["admin", "runtime", "supervision", "ceph_admin"]
+CredentialPair = tuple[str, str, bool]
+
+
+@dataclass(frozen=True)
+class _EndpointRequirements:
+    account_api: bool
+    ceph_admin: bool
+    ceph: bool
+    admin_credentials: bool
+
+
+@dataclass(frozen=True)
+class _EndpointCredentials:
+    admin: CredentialPair = ("", "", False)
+    runtime: CredentialPair = ("", "", False)
+    supervision: CredentialPair = ("", "", False)
+    ceph_admin: CredentialPair = ("", "", False)
+
+    @property
+    def supplied(self) -> bool:
+        return any(
+            pair[2]
+            for pair in (
+                self.admin,
+                self.runtime,
+                self.supervision,
+                self.ceph_admin,
+            )
+        )
 
 
 class OnboardingSetupService:
@@ -171,62 +201,85 @@ class OnboardingSetupService:
         )
         return self.endpoints.detect_features(payload)
 
-    def _prepare_endpoint(self, actor, row, draft, payload):
-        resources = json.loads(row.resources_json)
-        endpoint_id = resources.get("endpoint_id") or draft.endpoint_id
-        endpoint = self.db.get(StorageEndpoint, endpoint_id) if endpoint_id else None
-        if endpoint_id and endpoint is None:
-            raise OnboardingError("endpoint_unavailable")
-        needs_account_api = draft.manager or draft.portal
-        needs_ceph_admin = draft.ceph_admin
-        needs_ceph = needs_account_api or draft.supervision or needs_ceph_admin
-        needs_admin = needs_account_api or (draft.supervision and payload.service_identity_mode == "managed")
-        if endpoint is not None and needs_ceph and endpoint.provider != "ceph":
-            raise OnboardingError("ceph_endpoint_required")
+    @staticmethod
+    def _endpoint_requirements(draft, payload) -> _EndpointRequirements:
+        account_api = draft.manager or draft.portal
+        ceph_admin = draft.ceph_admin
+        ceph = account_api or draft.supervision or ceph_admin
+        admin_credentials = account_api or (
+            draft.supervision and payload.service_identity_mode == "managed"
+        )
+        return _EndpointRequirements(
+            account_api=account_api,
+            ceph_admin=ceph_admin,
+            ceph=ceph,
+            admin_credentials=admin_credentials,
+        )
 
-        admin = ("", "", False)
-        runtime = ("", "", False)
-        supervision = ("", "", False)
-        ceph_admin = ("", "", False)
-        if needs_ceph_admin:
-            ceph_admin = self._management_credentials(payload, endpoint, "ceph_admin", "ceph_admin_credentials_required")
-        if needs_ceph:
-            admin = self._management_credentials(
+    def _endpoint_credentials(
+        self,
+        payload,
+        endpoint,
+        requirements: _EndpointRequirements,
+        *,
+        supervision_required: bool,
+    ) -> _EndpointCredentials:
+        ceph_admin = (
+            self._management_credentials(
+                payload,
+                endpoint,
+                "ceph_admin",
+                "ceph_admin_credentials_required",
+            )
+            if requirements.ceph_admin
+            else ("", "", False)
+        )
+        admin = (
+            self._management_credentials(
                 payload,
                 endpoint,
                 "admin",
                 "endpoint_admin_credentials_required",
-                required=needs_admin,
+                required=requirements.admin_credentials,
             )
-        if needs_ceph and payload.service_identity_mode == "external":
-            runtime = self._management_credentials(payload, endpoint, "runtime", "runtime_credentials_required", required=needs_account_api)
-        if needs_ceph and payload.service_identity_mode == "external":
+            if requirements.ceph
+            else ("", "", False)
+        )
+        runtime = ("", "", False)
+        supervision = ("", "", False)
+        if requirements.ceph and payload.service_identity_mode == "external":
+            runtime = self._management_credentials(
+                payload,
+                endpoint,
+                "runtime",
+                "runtime_credentials_required",
+                required=requirements.account_api,
+            )
             supervision = self._management_credentials(
                 payload,
                 endpoint,
                 "supervision",
                 "supervision_credentials_required",
-                required=draft.supervision,
+                required=supervision_required,
             )
-
-        supplied_management_credentials = any(
-            item[2] for item in (admin, runtime, supervision, ceph_admin)
+        return _EndpointCredentials(
+            admin=admin,
+            runtime=runtime,
+            supervision=supervision,
+            ceph_admin=ceph_admin,
         )
-        editable = endpoint is None or (
-            endpoint.is_editable and not self.endpoints.env_endpoints_locked()
-        )
-        if endpoint is not None and supplied_management_credentials and not editable:
-            raise OnboardingError("endpoint_credentials_locked")
 
-        detection = None
-        if needs_ceph:
-            detection = self._detect(draft, endpoint, admin, supervision, ceph_admin)
-        if needs_account_api:
+    @staticmethod
+    def _validate_endpoint_detection(
+        draft,
+        payload,
+        requirements: _EndpointRequirements,
+        detection,
+    ) -> None:
+        if requirements.account_api:
             if detection.credential_checks.admin.status != "valid" or not detection.admin:
                 raise OnboardingError("endpoint_credentials_invalid")
-            if not has_account_provisioning_permissions(
-                detection.admin_ops_permissions
-            ):
+            if not has_account_provisioning_permissions(detection.admin_ops_permissions):
                 raise OnboardingError("admin_ops_permissions_insufficient")
             if not detection.account:
                 raise OnboardingError("account_api_unavailable")
@@ -235,136 +288,268 @@ class OnboardingSetupService:
             or not detection.metrics
         ):
             raise OnboardingError("supervision_credentials_invalid")
-        if needs_ceph_admin and detection.credential_checks.ceph_admin.status != "valid":
+        if (
+            requirements.ceph_admin
+            and detection.credential_checks.ceph_admin.status != "valid"
+        ):
             raise OnboardingError("ceph_identity_denied")
 
-        if endpoint is None:
-            features = StorageEndpointFeatures()
-            features.admin.enabled = needs_account_api
-            features.account.enabled = needs_account_api
-            features.usage.enabled = draft.supervision and detection.usage if detection else False
-            features.metrics.enabled = draft.supervision
-            endpoint_name = resources.get("endpoint_name") or self._unique_endpoint_name(
-                draft.endpoint_url
+    def _create_endpoint(
+        self,
+        actor,
+        row,
+        draft,
+        payload,
+        resources,
+        requirements: _EndpointRequirements,
+        credentials: _EndpointCredentials,
+        detection,
+    ) -> StorageEndpoint:
+        features = StorageEndpointFeatures()
+        features.admin.enabled = requirements.account_api
+        features.account.enabled = requirements.account_api
+        features.usage.enabled = draft.supervision and detection.usage if detection else False
+        features.metrics.enabled = draft.supervision
+        endpoint_name = resources.get("endpoint_name") or self._unique_endpoint_name(
+            draft.endpoint_url
+        )
+        if not resources.get("endpoint_name"):
+            self.progress.checkpoint(row, endpoint_name=endpoint_name)
+        endpoint_payload = StorageEndpointCreate(
+            name=endpoint_name,
+            endpoint_url=draft.endpoint_url,
+            region=draft.region or None,
+            force_path_style=draft.force_path_style,
+            verify_tls=True,
+            provider="ceph" if requirements.ceph else "other",
+            service_identity_mode=payload.service_identity_mode,
+            runtime_access_key=credentials.runtime[0] or None,
+            runtime_secret_key=credentials.runtime[1] or None,
+            ceph_admin_allowed=requirements.ceph_admin,
+            admin_access_key=credentials.admin[0] or None,
+            admin_secret_key=credentials.admin[1] or None,
+            ceph_admin_access_key=credentials.ceph_admin[0] or None,
+            ceph_admin_secret_key=credentials.ceph_admin[1] or None,
+            supervision_access_key=credentials.supervision[0] or None,
+            supervision_secret_key=credentials.supervision[1] or None,
+            features_config=dump_features_config(features.model_dump()),
+        )
+        created = self.endpoints.create_endpoint(endpoint_payload)
+        self.progress.checkpoint(row, endpoint_id=created.id)
+        endpoint = self.db.get(StorageEndpoint, created.id)
+        self.progress.audit(actor, "endpoint_created", row.id, endpoint_id=endpoint.id)
+        return endpoint
+
+    def _update_endpoint(
+        self,
+        actor,
+        row,
+        draft,
+        payload,
+        endpoint: StorageEndpoint,
+        requirements: _EndpointRequirements,
+        credentials: _EndpointCredentials,
+        detection,
+        *,
+        editable: bool,
+    ) -> StorageEndpoint:
+        flags = resolve_feature_flags(endpoint)
+        feature_fields: list[str] = []
+        if requirements.account_api and not (
+            flags.admin_enabled and flags.account_enabled
+        ):
+            feature_fields.extend(["admin", "account"])
+        if draft.supervision:
+            if not flags.metrics_enabled:
+                feature_fields.append("metrics")
+            if editable and detection.usage and not flags.usage_enabled:
+                feature_fields.append("usage")
+        if feature_fields and not editable:
+            raise OnboardingError("endpoint_features_locked")
+
+        update = {}
+        runtime_identity = endpoint.service_identity("runtime")
+        current_identity_mode = (
+            runtime_identity.mode if runtime_identity is not None else "managed"
+        )
+        if (
+            requirements.account_api or draft.supervision
+        ) and payload.service_identity_mode != current_identity_mode:
+            update["service_identity_mode"] = payload.service_identity_mode
+        if credentials.runtime[2]:
+            update.update(
+                runtime_access_key=credentials.runtime[0],
+                runtime_secret_key=credentials.runtime[1],
             )
-            if not resources.get("endpoint_name"):
-                self.progress.checkpoint(row, endpoint_name=endpoint_name)
-            endpoint_payload = StorageEndpointCreate(
-                name=endpoint_name,
-                endpoint_url=draft.endpoint_url,
-                region=draft.region or None,
-                force_path_style=draft.force_path_style,
-                verify_tls=True,
-                provider="ceph" if needs_ceph else "other",
-                service_identity_mode=payload.service_identity_mode,
-                runtime_access_key=runtime[0] or None,
-                runtime_secret_key=runtime[1] or None,
-                ceph_admin_allowed=needs_ceph_admin,
-                admin_access_key=admin[0] or None,
-                admin_secret_key=admin[1] or None,
-                ceph_admin_access_key=ceph_admin[0] or None,
-                ceph_admin_secret_key=ceph_admin[1] or None,
-                supervision_access_key=supervision[0] or None,
-                supervision_secret_key=supervision[1] or None,
-                features_config=dump_features_config(features.model_dump()),
+        if requirements.ceph_admin and not endpoint.ceph_admin_allowed:
+            update["ceph_admin_allowed"] = True
+
+        credential_kinds: list[str] = []
+        credential_updates = (
+            ("ceph_admin", credentials.ceph_admin),
+            ("admin", credentials.admin),
+            ("supervision", credentials.supervision),
+        )
+        for kind, pair in credential_updates:
+            if not pair[2]:
+                continue
+            update[f"{kind}_access_key"] = pair[0]
+            update[f"{kind}_secret_key"] = pair[1]
+            credential_kinds.append(kind)
+
+        if feature_fields:
+            features = normalize_features_config(
+                endpoint.provider, endpoint.features_config, endpoint.region
             )
-            created = self.endpoints.create_endpoint(endpoint_payload)
-            self.progress.checkpoint(row, endpoint_id=created.id)
-            endpoint = self.db.get(StorageEndpoint, created.id)
+            for field in feature_fields:
+                features[field]["enabled"] = True
+            update["features_config"] = dump_features_config(features)
+
+        if update:
+            self.endpoints.update_endpoint(
+                endpoint.id,
+                StorageEndpointUpdate(**update),
+            )
+            endpoint = self.db.get(StorageEndpoint, endpoint.id)
+        if credential_kinds:
             self.progress.audit(
-                actor, "endpoint_created", row.id, endpoint_id=endpoint.id
+                actor,
+                "endpoint_credentials_configured",
+                row.id,
+                endpoint_id=endpoint.id,
+                credential_kinds=credential_kinds,
             )
-        else:
-            flags = resolve_feature_flags(endpoint)
-            feature_fields: list[str] = []
-            if needs_account_api and not (flags.admin_enabled and flags.account_enabled):
-                feature_fields.extend(["admin", "account"])
-            if draft.supervision:
-                if not flags.metrics_enabled:
-                    feature_fields.append("metrics")
-                if editable and detection.usage and not flags.usage_enabled:
-                    feature_fields.append("usage")
-            if feature_fields and not editable:
-                raise OnboardingError("endpoint_features_locked")
+        if feature_fields:
+            self.progress.audit(
+                actor,
+                "endpoint_features_enabled",
+                row.id,
+                endpoint_id=endpoint.id,
+                features=feature_fields,
+            )
+        return endpoint
 
-            update = {}
+    def _verify_endpoint_identities(
+        self,
+        actor,
+        row,
+        draft,
+        endpoint: StorageEndpoint,
+        requirements: _EndpointRequirements,
+        credentials: _EndpointCredentials,
+        *,
+        editable: bool,
+    ) -> None:
+        if requirements.ceph:
+            self.endpoints.reconcile_identities(endpoint.id)
+        if requirements.ceph_admin:
+            ceph_identity = endpoint.service_identity("ceph_admin")
+            if (
+                ceph_identity is None
+                or ceph_identity.mode != "external"
+                or ceph_identity.status != "ready"
+            ):
+                raise OnboardingError("ceph_identity_denied")
+        if requirements.account_api:
             runtime_identity = endpoint.service_identity("runtime")
-            current_identity_mode = runtime_identity.mode if runtime_identity is not None else "managed"
-            if (needs_account_api or draft.supervision) and payload.service_identity_mode != current_identity_mode:
-                update["service_identity_mode"] = payload.service_identity_mode
-            if runtime[2]:
-                update.update(runtime_access_key=runtime[0], runtime_secret_key=runtime[1])
-            if needs_ceph_admin and not endpoint.ceph_admin_allowed:
-                update["ceph_admin_allowed"] = True
-            credential_kinds: list[str] = []
-            if ceph_admin[2]:
-                update.update(ceph_admin_access_key=ceph_admin[0], ceph_admin_secret_key=ceph_admin[1])
-                credential_kinds.append("ceph_admin")
-            if admin[2]:
-                update.update(
-                    admin_access_key=admin[0],
-                    admin_secret_key=admin[1],
-                )
-                credential_kinds.append("admin")
-            if supervision[2]:
-                update.update(
-                    supervision_access_key=supervision[0],
-                    supervision_secret_key=supervision[1],
-                )
-                credential_kinds.append("supervision")
-            if feature_fields:
-                features = normalize_features_config(
-                    endpoint.provider, endpoint.features_config, endpoint.region
-                )
-                for field in feature_fields:
-                    features[field]["enabled"] = True
-                update["features_config"] = dump_features_config(features)
+            if runtime_identity is None or runtime_identity.status != "ready":
+                raise OnboardingError("runtime_credentials_invalid")
+        if not draft.supervision:
+            return
 
-            if update:
-                self.endpoints.update_endpoint(
-                    endpoint.id,
-                    StorageEndpointUpdate(**update),
-                )
-                endpoint = self.db.get(StorageEndpoint, endpoint.id)
-            if credential_kinds:
-                self.progress.audit(
-                    actor,
-                    "endpoint_credentials_configured",
-                    row.id,
-                    endpoint_id=endpoint.id,
-                    credential_kinds=credential_kinds,
-                )
-            if feature_fields:
+        supervision_identity = endpoint.service_identity("supervision")
+        if supervision_identity is None or supervision_identity.status != "ready":
+            raise OnboardingError("supervision_credentials_invalid")
+        # Managed Supervision only exists after provisioning. Discover Usage
+        # with that identity before enabling the selected monitoring workflow.
+        if editable and not resolve_feature_flags(endpoint).usage_enabled:
+            detection = self._detect(
+                draft,
+                endpoint,
+                credentials.admin,
+                ("", "", False),
+            )
+            if detection.usage:
+                self._enable_endpoint_features(endpoint, "usage")
                 self.progress.audit(
                     actor,
                     "endpoint_features_enabled",
                     row.id,
                     endpoint_id=endpoint.id,
-                    features=feature_fields,
+                    features=["usage"],
                 )
 
-        if needs_ceph:
-            self.endpoints.reconcile_identities(endpoint.id)
-        if needs_ceph_admin:
-            ceph_identity = endpoint.service_identity("ceph_admin")
-            if ceph_identity is None or ceph_identity.mode != "external" or ceph_identity.status != "ready":
-                raise OnboardingError("ceph_identity_denied")
-        if needs_account_api:
-            runtime_identity = endpoint.service_identity("runtime")
-            if runtime_identity is None or runtime_identity.status != "ready":
-                raise OnboardingError("runtime_credentials_invalid")
-        if draft.supervision:
-            supervision_identity = endpoint.service_identity("supervision")
-            if supervision_identity is None or supervision_identity.status != "ready":
-                raise OnboardingError("supervision_credentials_invalid")
-            # Managed Supervision only exists after provisioning. Discover Usage
-            # with that identity before enabling the selected monitoring workflow.
-            if draft.supervision and editable and not resolve_feature_flags(endpoint).usage_enabled:
-                detection = self._detect(draft, endpoint, admin, ("", "", False))
-                if detection.usage:
-                    self._enable_endpoint_features(endpoint, "usage")
-                    self.progress.audit(actor, "endpoint_features_enabled", row.id,
-                                        endpoint_id=endpoint.id, features=["usage"])
+    def _prepare_endpoint(self, actor, row, draft, payload):
+        resources = json.loads(row.resources_json)
+        endpoint_id = resources.get("endpoint_id") or draft.endpoint_id
+        endpoint = self.db.get(StorageEndpoint, endpoint_id) if endpoint_id else None
+        if endpoint_id and endpoint is None:
+            raise OnboardingError("endpoint_unavailable")
+        requirements = self._endpoint_requirements(draft, payload)
+        if endpoint is not None and requirements.ceph and endpoint.provider != "ceph":
+            raise OnboardingError("ceph_endpoint_required")
+
+        credentials = self._endpoint_credentials(
+            payload,
+            endpoint,
+            requirements,
+            supervision_required=draft.supervision,
+        )
+        editable = endpoint is None or (
+            endpoint.is_editable and not self.endpoints.env_endpoints_locked()
+        )
+        if endpoint is not None and credentials.supplied and not editable:
+            raise OnboardingError("endpoint_credentials_locked")
+
+        detection = None
+        if requirements.ceph:
+            detection = self._detect(
+                draft,
+                endpoint,
+                credentials.admin,
+                credentials.supervision,
+                credentials.ceph_admin,
+            )
+            self._validate_endpoint_detection(
+                draft,
+                payload,
+                requirements,
+                detection,
+            )
+
+        if endpoint is None:
+            endpoint = self._create_endpoint(
+                actor,
+                row,
+                draft,
+                payload,
+                resources,
+                requirements,
+                credentials,
+                detection,
+            )
+        else:
+            endpoint = self._update_endpoint(
+                actor,
+                row,
+                draft,
+                payload,
+                endpoint,
+                requirements,
+                credentials,
+                detection,
+                editable=editable,
+            )
+
+        self._verify_endpoint_identities(
+            actor,
+            row,
+            draft,
+            endpoint,
+            requirements,
+            credentials,
+            editable=editable,
+        )
         return endpoint
 
     def _enable_endpoint_features(self, endpoint, *fields):
