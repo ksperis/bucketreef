@@ -229,14 +229,7 @@ class DurableKeyRotationService:
                     from app.services.key_rotation_rgw import RgwAccessKeyRotator
                     uid, tenant = RgwAccessKeyRotator().resolve_identity_from_access_key(admin, old_access)
                 elif isinstance(target, (S3Account, S3User)):
-                    if preferred_tenant is None:
-                        from app.services.key_rotation_rgw import RgwAccessKeyRotator
-                        resolved_uid, tenant = RgwAccessKeyRotator().resolve_identity_from_access_key(admin, old_access)
-                        if resolved_uid != uid:
-                            raise ValueError("Stored RGW principal does not own the access key")
-                        target.rgw_tenant = tenant or ""
-                    else:
-                        tenant = preferred_tenant or None
+                    tenant = preferred_tenant or None
                 elif key_type not in SERVICE_TYPES:
                     from app.services.key_rotation_rgw import RgwAccessKeyRotator
                     tenant = RgwAccessKeyRotator().detect_user_tenant(admin, uid=uid, preferred_tenant=preferred_tenant)
