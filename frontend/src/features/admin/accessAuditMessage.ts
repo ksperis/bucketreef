@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
 import type { AccessAuditRightCode, AccessAuditScope } from "../../api/accessAudit";
-import { useI18n, type I18nMessage } from "../../i18n";
+import { interpolateText, useI18n, type I18nMessage } from "../../i18n";
 import { adminMessage } from "./adminI18n";
 
 const m = (en: string, zh: string) => adminMessage(en, zh);
@@ -100,7 +100,7 @@ const rightMessageKeys: Record<AccessAuditRightCode, AccessAuditMessageKey> = {
 export function useAccessAuditI18n() {
   const { t } = useI18n();
   const text = useCallback<AccessAuditText>(
-    (key, values) => t(accessAuditMessage[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)),
+    (key, values) => interpolateText(t(accessAuditMessage[key]), values),
     [t],
   );
   const scopeLabel = useCallback((scope: AccessAuditScope, fallback?: string) => {

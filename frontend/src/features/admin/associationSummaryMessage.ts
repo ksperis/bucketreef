@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
-import { translate, useI18n } from "../../i18n";
+import { interpolateText, translate, useI18n } from "../../i18n";
 import { adminMessage } from "./adminI18n";
 
 const m = (en: string, zh: string) => adminMessage(en, zh);
@@ -37,7 +37,7 @@ const associationSummaryMessage = {
 type AssociationSummaryMessageKey = keyof typeof associationSummaryMessage;
 
 export function associationSummaryText(key: AssociationSummaryMessageKey, locale: UiLanguage = "en", values?: Record<string, string | number>) {
-  return translate(associationSummaryMessage[key], locale).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match));
+  return interpolateText(translate(associationSummaryMessage[key], locale), values);
 }
 
 const roleKeys = ["accountAdministrator", "portalManager", "portalUser", "member", "superadmin", "admin", "noUiAccess", "user"] as const;

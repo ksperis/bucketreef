@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
-import { translate, useI18n } from "../../i18n";
+import { interpolateText, translate, useI18n } from "../../i18n";
 import { adminMessage } from "./adminI18n";
 
 const m = (en: string, zh: string) => adminMessage(en, zh);
@@ -157,7 +157,7 @@ type EndpointStatusMessageKey = keyof typeof messages;
 type MessageValues = Record<string, string | number>;
 
 export function endpointStatusText(key: EndpointStatusMessageKey, locale: UiLanguage = "en", values?: MessageValues) {
-  return translate(messages[key], locale).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match));
+  return interpolateText(translate(messages[key], locale), values);
 }
 
 export function useEndpointStatusText() {
