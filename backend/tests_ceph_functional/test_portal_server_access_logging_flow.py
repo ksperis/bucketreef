@@ -359,9 +359,30 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             "limit": 200,
             "timezone_offset_minutes": 0,
         }
+
+        # Ceph bucket logging rolls pending log objects lazily. The default
+        # ObjectRollTime is five minutes, and an idle source bucket can keep a
+        # pending log object past that deadline until another operation causes
+        # the rollover. Disabling logging is documented to flush pending log
+        # objects immediately, which makes this live qualification deterministic
+        # without sleeping for the default roll interval.
+        super_admin_session.put(
+            f"/admin/accounts/{account_id}/portal-settings",
+            json={"server_access_logging_enabled": False},
+            expected_status=200,
+        )
+        _wait_for_value(
+            "Portal Storage Space server access logging disable",
+            lambda: manager_session.get(
+                f"/manager/buckets/{bucket_name}/logging",
+                params=_context_params(account_id),
+            ),
+            lambda current: current.get("enabled") is False and not current.get("target_bucket"),
+        )
+
         try:
             server_logs = _wait_for_value(
-                "Portal Server Access Logging identity attribution",
+                "Portal Server Access Logging identity attribution after flush",
                 lambda: (
                     manager_session.get("/portal/access-logs/page", params=server_log_params).get("entries") or []
                 ),
@@ -383,22 +404,8 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
                 interval=2,
             )
         except AssertionError as exc:
-            pytest.skip(f"RGW did not emit Portal server access log records on this cluster: {exc}")
+            pytest.skip(f"RGW did not expose flushed Portal server access log records on this cluster: {exc}")
         assert isinstance(server_logs, list)
-
-        super_admin_session.put(
-            f"/admin/accounts/{account_id}/portal-settings",
-            json={"server_access_logging_enabled": False},
-            expected_status=200,
-        )
-        _wait_for_value(
-            "Portal Storage Space server access logging disable",
-            lambda: manager_session.get(
-                f"/manager/buckets/{bucket_name}/logging",
-                params=_context_params(account_id),
-            ),
-            lambda current: current.get("enabled") is False and not current.get("target_bucket"),
-        )
     except BackendAPIError as exc:
         _skip_if_cluster_unavailable(
             "Portal Server Access Logging",
