@@ -52,7 +52,7 @@ def _translate_error(exc: ManagedPrivateAccessError) -> HTTPException:
 @router.post("/iam", response_model=ManagedPrivateAccessResult, status_code=status.HTTP_201_CREATED)
 def create_iam_private_access(
     payload: ManagedIAMPrivateAccessRequest,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
     user: User = Depends(get_current_account_user),
     db: Session = Depends(get_db),
@@ -60,7 +60,7 @@ def create_iam_private_access(
     try:
         return ManagedPrivateAccessService(db).provision_iam(
             user=user,
-            account=account,
+            context=context,
             payload=payload,
         )
     except ManagedPrivateAccessError as exc:
@@ -70,14 +70,14 @@ def create_iam_private_access(
 @router.post("/rgw-user", response_model=ManagedPrivateAccessResult, status_code=status.HTTP_201_CREATED)
 def create_rgw_user_private_access(
     payload: ManagedRGWUserPrivateAccessRequest,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     user: User = Depends(get_current_account_user),
     db: Session = Depends(get_db),
 ) -> ManagedPrivateAccessResult:
     try:
         return ManagedPrivateAccessService(db).provision_rgw_user(
             user=user,
-            account=account,
+            context=context,
             payload=payload,
         )
     except ManagedPrivateAccessError as exc:
