@@ -122,7 +122,7 @@ function CephAdminShell() {
 
   const navSections: SidebarSection[] = [
     {
-      links: [{ ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.dashboard), end: true }],
+      links: [{ ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.dashboard), end: true, iconName: "home" }],
     },
     {
       label: "Monitoring",

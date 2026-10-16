@@ -185,7 +185,7 @@ function ManagerShell() {
 
   const navSections: SidebarSection[] = [
     {
-      links: [{ ...localizedPageLink(MANAGER_PAGE_CONTRACTS.dashboard), end: true }],
+      links: [{ ...localizedPageLink(MANAGER_PAGE_CONTRACTS.dashboard), end: true, iconName: "home" }],
     },
   ];
 

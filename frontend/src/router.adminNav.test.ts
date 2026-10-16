@@ -209,6 +209,27 @@ describe("buildAdminNav", () => {
     expect(setup?.links.find((link) => link.label === "Getting started")?.iconName).toBe("tools");
   });
 
+  it("keeps the shared Dashboard icon when the Admin label is localized", () => {
+    const adminNav = buildAdminNav(
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      false,
+      (message) => (message === "Dashboard" ? "Tableau de bord" : message),
+    );
+
+    expect(adminNav[0]?.links[0]).toMatchObject({
+      label: "Tableau de bord",
+      to: "/admin",
+      iconName: "home",
+    });
+  });
+
   it("hides Getting started after onboarding is complete or dismissed", () => {
     const adminNav = buildAdminNav(true, true, false, false, false, true, false, null, false);
 
