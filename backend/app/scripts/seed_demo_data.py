@@ -8,7 +8,7 @@ import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from app.core.config import get_settings
 from app.core.logging_security import configure_secure_logging
@@ -465,101 +465,108 @@ def ensure_iam_user_with_key(account: S3Account, iam_username: str) -> IAMAccess
     return key
 
 
-def create_account_data(
-    accounts_service,
-    buckets_service: BucketsService,
-    users_service: UsersService,
-    plan: AccountPlan,
-    storage_endpoint_id: int,
-) -> None:
-    account = ensure_account(
-        accounts_service,
-        plan.name,
-        plan.email,
-        plan.quota_gb,
-        storage_endpoint_id,
-    )
-    if not account:
-        logger.error("Unable to load account %s after creation", plan.name)
-        return
-    endpoint = resolve_s3_endpoint(account)
-    if not endpoint:
-        logger.error("No endpoint configured for account %s", plan.name)
-        return
-    logger.info("Account ready: %s (rgw_id=%s)", account.name, account.rgw_account_id)
-    iam_keys: dict[str, IAMAccessKey | None] = {}
-    account_client = None
-
-    def _client_for(user_name: str):
-        key = iam_keys.get(user_name)
-        if key is None:
-            try:
-                key = ensure_iam_user_with_key(account, user_name)
-                iam_keys[user_name] = key
-                logger.info("  IAM user ready: %s", user_name)
-            except Exception as exc:
-                logger.warning("  unable to provision IAM user %s: %s", user_name, exc)
-                iam_keys[user_name] = None
-                return None, None
-        if not key or not key.access_key_id or not key.secret_access_key:
-            return None, None
-        return key, s3_client.get_s3_client(key.access_key_id, key.secret_access_key, endpoint=endpoint)
-
-    for bucket_plan in plan.buckets:
-        iam_user_name = bucket_plan.iam_user or plan.iam_user or f"{slugify(plan.name)}-svc"
-        iam_key, bucket_client = _client_for(iam_user_name)
-        bucket_ready = True
+def _seed_iam_client(
+    account: S3Account,
+    endpoint: str,
+    iam_keys: dict[str, IAMAccessKey | None],
+    user_name: str,
+) -> tuple[IAMAccessKey | None, Any | None]:
+    key = iam_keys.get(user_name)
+    if key is None:
         try:
-            if bucket_client and iam_key:
-                s3_client.create_bucket(
-                    bucket_plan.name,
-                    access_key=iam_key.access_key_id,
-                    secret_key=iam_key.secret_access_key,
-                    endpoint=endpoint,
+            key = ensure_iam_user_with_key(account, user_name)
+            iam_keys[user_name] = key
+            logger.info("  IAM user ready: %s", user_name)
+        except Exception as exc:
+            logger.warning("  unable to provision IAM user %s: %s", user_name, exc)
+            iam_keys[user_name] = None
+            return None, None
+    if not key.access_key_id or not key.secret_access_key:
+        return None, None
+    return key, s3_client.get_s3_client(
+        key.access_key_id,
+        key.secret_access_key,
+        endpoint=endpoint,
+    )
+
+
+def _ensure_seed_bucket(
+    buckets_service: BucketsService,
+    account: S3Account,
+    endpoint: str,
+    bucket_plan: BucketPlan,
+    iam_key: IAMAccessKey | None,
+    bucket_client: Any | None,
+) -> bool:
+    try:
+        if bucket_client and iam_key:
+            s3_client.create_bucket(
+                bucket_plan.name,
+                access_key=iam_key.access_key_id,
+                secret_key=iam_key.secret_access_key,
+                endpoint=endpoint,
+            )
+        else:
+            buckets_service.create_bucket(bucket_plan.name, account)
+        logger.info("  created bucket %s", bucket_plan.name)
+        return True
+    except Exception as exc:
+        logger.warning("  bucket %s not created (may already exist): %s", bucket_plan.name, exc)
+        return False
+
+
+def _populate_seed_bucket(
+    account: S3Account,
+    endpoint: str,
+    bucket_plan: BucketPlan,
+    bucket_client: Any | None,
+    account_client: Any | None,
+    *,
+    bucket_ready: bool,
+) -> Any | None:
+    for idx in range(bucket_plan.object_count):
+        key, content_type = generate_object_key(bucket_plan.name, idx)
+        body = build_object_body(bucket_plan.name, key)
+        try:
+            if bucket_client:
+                bucket_client.put_object(
+                    Bucket=bucket_plan.name,
+                    Key=key,
+                    Body=body,
+                    ContentType=content_type,
                 )
             else:
-                buckets_service.create_bucket(bucket_plan.name, account)
-            logger.info("  created bucket %s", bucket_plan.name)
+                if account_client is None:
+                    account_client = s3_client.get_s3_client(
+                        request_profile="long_running",
+                        **s3_execution_request_kwargs(
+                            account,
+                            error_message="Account credentials are required to seed objects",
+                        ),
+                    )
+                account_client.put_object(
+                    Bucket=bucket_plan.name,
+                    Key=key,
+                    Body=body,
+                    ContentType=content_type,
+                )
         except Exception as exc:
-            bucket_ready = False
-            logger.warning("  bucket %s not created (may already exist): %s", bucket_plan.name, exc)
-        for idx in range(bucket_plan.object_count):
-            key, content_type = generate_object_key(bucket_plan.name, idx)
-            body = build_object_body(bucket_plan.name, key)
-            try:
-                if bucket_client:
-                    bucket_client.put_object(Bucket=bucket_plan.name, Key=key, Body=body, ContentType=content_type)
-                else:
-                    if account_client is None:
-                        account_client = s3_client.get_s3_client(
-                            request_profile="long_running",
-                            **s3_execution_request_kwargs(
-                                account,
-                                error_message="Account credentials are required to seed objects",
-                            ),
-                        )
-                    account_client.put_object(
-                        Bucket=bucket_plan.name,
-                        Key=key,
-                        Body=body,
-                        ContentType=content_type,
-                    )
-            except Exception as exc:
-                if bucket_ready:
-                    logger.debug("    failed object %s/%s: %s", bucket_plan.name, key, exc)
-                else:
-                    logger.debug(
-                        "    unable to populate %s/%s (bucket missing or inaccessible): %s",
-                        bucket_plan.name,
-                        key,
-                        exc,
-                    )
-                continue
-    for user_plan in plan.users:
-        existing_user = users_service.get_by_email(user_plan.email)
-        if existing_user:
-            user = existing_user
-        else:
+            if bucket_ready:
+                logger.debug("    failed object %s/%s: %s", bucket_plan.name, key, exc)
+            else:
+                logger.debug(
+                    "    unable to populate %s/%s (bucket missing or inaccessible): %s",
+                    bucket_plan.name,
+                    key,
+                    exc,
+                )
+    return account_client
+
+
+def _link_seed_users(users_service: UsersService, account: S3Account, user_plans: list[UserPlan]) -> None:
+    for user_plan in user_plans:
+        user = users_service.get_by_email(user_plan.email)
+        if user is None:
             try:
                 user = users_service.create_user(
                     UserCreate(
@@ -580,6 +587,50 @@ def create_account_data(
             )
         except Exception as exc:
             logger.warning("  unable to link user %s to %s: %s", user_plan.email, account.name, exc)
+
+
+def create_account_data(
+    accounts_service,
+    buckets_service: BucketsService,
+    users_service: UsersService,
+    plan: AccountPlan,
+    storage_endpoint_id: int,
+) -> None:
+    account = ensure_account(
+        accounts_service,
+        plan.name,
+        plan.email,
+        plan.quota_gb,
+        storage_endpoint_id,
+    )
+    endpoint = resolve_s3_endpoint(account)
+    if not endpoint:
+        logger.error("No endpoint configured for account %s", plan.name)
+        return
+    logger.info("Account ready: %s (rgw_id=%s)", account.name, account.rgw_account_id)
+    iam_keys: dict[str, IAMAccessKey | None] = {}
+    account_client = None
+
+    for bucket_plan in plan.buckets:
+        iam_user_name = bucket_plan.iam_user or plan.iam_user or f"{slugify(plan.name)}-svc"
+        iam_key, bucket_client = _seed_iam_client(account, endpoint, iam_keys, iam_user_name)
+        bucket_ready = _ensure_seed_bucket(
+            buckets_service,
+            account,
+            endpoint,
+            bucket_plan,
+            iam_key,
+            bucket_client,
+        )
+        account_client = _populate_seed_bucket(
+            account,
+            endpoint,
+            bucket_plan,
+            bucket_client,
+            account_client,
+            bucket_ready=bucket_ready,
+        )
+    _link_seed_users(users_service, account, plan.users)
 
 
 def parse_args() -> argparse.Namespace:
