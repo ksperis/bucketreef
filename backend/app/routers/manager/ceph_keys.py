@@ -30,8 +30,8 @@ def get_manager_ceph_s3_users_service(
     return get_s3_users_service(db)
 
 
-def _resolve_s3_user_id(account: S3ExecutionContext) -> int:
-    s3_user_id = account.s3_user_id
+def _resolve_s3_user_id(context: S3ExecutionContext) -> int:
+    s3_user_id = context.s3_user_id
     if not isinstance(s3_user_id, int) or s3_user_id <= 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -42,19 +42,19 @@ def _resolve_s3_user_id(account: S3ExecutionContext) -> int:
 
 @router.get("", response_model=list[S3UserAccessKey])
 def list_ceph_access_keys(
-    account: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
+    context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
     service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
     _: User = Depends(get_current_account_user),
     db: Session = Depends(get_db),
 ) -> list[S3UserAccessKey]:
     try:
-        source_id = _resolve_s3_user_id(account)
+        source_id = _resolve_s3_user_id(context)
         keys = service.list_keys(source_id)
         metadata_service = AccessKeyMetadataService(db)
         metadata_service.apply_metadata(
             keys,
             metadata_service.s3_user_metadata(source_id),
-            include_labels=metadata_service.metadata_enabled_for_context(account),
+            include_labels=metadata_service.metadata_enabled_for_context(context),
         )
         managed = {
             row.access_key_id: row
@@ -74,17 +74,17 @@ def list_ceph_access_keys(
 @router.post("", response_model=S3UserGeneratedKey, status_code=status.HTTP_201_CREATED)
 def create_ceph_access_key(
     payload: AccessKeyMetadataInput | None = None,
-    account: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
+    context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
     service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> S3UserGeneratedKey:
-    s3_user_id = _resolve_s3_user_id(account)
+    s3_user_id = _resolve_s3_user_id(context)
     metadata_service = AccessKeyMetadataService(db)
     if payload is not None and payload.model_fields_set:
         try:
-            metadata_service.validate_payload(account, payload)
+            metadata_service.validate_payload(context, payload)
         except PermissionError as exc:
             raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
         except ValueError as exc:
@@ -101,7 +101,7 @@ def create_ceph_access_key(
             action="create_s3_user_access_key",
             entity_type="s3_user",
             entity_id=str(s3_user_id),
-            execution_context=account,
+            execution_context=context,
             metadata={"access_key_id": key.access_key_id},
         )
         return key
@@ -113,16 +113,16 @@ def create_ceph_access_key(
 def update_ceph_access_key_metadata(
     access_key: str,
     payload: AccessKeyMetadataInput,
-    account: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
+    context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
     service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> AccessKeyMetadata:
-    s3_user_id = _resolve_s3_user_id(account)
+    s3_user_id = _resolve_s3_user_id(context)
     metadata_service = AccessKeyMetadataService(db)
     try:
-        metadata_service.validate_payload(account, payload)
+        metadata_service.validate_payload(context, payload)
     except PermissionError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
@@ -144,7 +144,7 @@ def update_ceph_access_key_metadata(
             action="update_s3_user_access_key_metadata",
             entity_type="s3_user",
             entity_id=str(s3_user_id),
-            execution_context=account,
+            execution_context=context,
             metadata={
                 "access_key_id": access_key,
                 "has_name": bool(row and row.name),
@@ -161,13 +161,13 @@ def update_ceph_access_key_metadata(
 def update_ceph_access_key_status(
     access_key: str,
     payload: S3UserAccessKeyStatusChange,
-    account: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
+    context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
     service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> S3UserAccessKey:
-    s3_user_id = _resolve_s3_user_id(account)
+    s3_user_id = _resolve_s3_user_id(context)
     if ManagedPrivateAccessService(db).managed_key("s3_user", s3_user_id, access_key) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -189,7 +189,7 @@ def update_ceph_access_key_status(
             action="update_s3_user_access_key_status",
             entity_type="s3_user",
             entity_id=str(s3_user_id),
-            execution_context=account,
+            execution_context=context,
             metadata={"access_key_id": access_key, "active": payload.active},
         )
         return updated
@@ -205,13 +205,13 @@ def update_ceph_access_key_status(
 )
 def delete_ceph_access_key(
     access_key: str,
-    account: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
+    context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
     service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> Response:
-    s3_user_id = _resolve_s3_user_id(account)
+    s3_user_id = _resolve_s3_user_id(context)
     if ManagedPrivateAccessService(db).managed_key("s3_user", s3_user_id, access_key) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -226,7 +226,7 @@ def delete_ceph_access_key(
             action="delete_s3_user_access_key",
             entity_type="s3_user",
             entity_id=str(s3_user_id),
-            execution_context=account,
+            execution_context=context,
             metadata={"access_key_id": access_key},
         )
     except ValueError as exc:
