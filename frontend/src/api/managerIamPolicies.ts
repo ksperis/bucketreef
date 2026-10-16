@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3ContextParam } from "./accountParams";
+import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
 
 export type IamPolicy = {
   name: string;
@@ -18,22 +18,22 @@ export type InlinePolicy = {
   document: Record<string, unknown>;
 };
 
-export async function listIamPolicies(accountId?: S3AccountSelector): Promise<IamPolicy[]> {
+export async function listIamPolicies(contextId?: S3ExecutionContextSelector): Promise<IamPolicy[]> {
   const { data } = await client.get<IamPolicy[]>("/manager/iam/policies", {
-    params: withS3ContextParam(undefined, accountId),
+    params: withS3ContextParam(undefined, contextId),
   });
   return data;
 }
 
 export async function createIamPolicy(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   name: string,
   document: Record<string, unknown>
 ): Promise<IamPolicy> {
   const { data } = await client.post<IamPolicy>(
     "/manager/iam/policies",
     { name, document },
-    { params: withS3ContextParam(undefined, accountId) }
+    { params: withS3ContextParam(undefined, contextId) }
   );
   return data;
 }

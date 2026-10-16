@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { S3AccountSelector, withS3ContextParam } from "./accountParams";
+import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
 import type { ObjectTag } from "./browserContracts";
 import {
   buildBrowserWorkspaceHeaders,
@@ -58,7 +58,7 @@ type CompleteMultipartUploadRequest = {
 };
 
 export async function initiateMultipartUpload(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   payload: MultipartUploadInitRequest,
   sseCustomerKeyBase64?: string | null,
@@ -68,7 +68,7 @@ export async function initiateMultipartUpload(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/initiate`,
     payload,
     {
-      params: withS3ContextParam(undefined, accountId),
+      params: withS3ContextParam(undefined, contextId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -79,7 +79,7 @@ export async function initiateMultipartUpload(
 }
 
 export async function listMultipartUploads(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   options?: {
     prefix?: string;
@@ -95,7 +95,7 @@ export async function listMultipartUploads(
       upload_id_marker: options?.uploadIdMarker ?? undefined,
       max_uploads: options?.maxUploads ?? undefined,
     },
-    accountId,
+    contextId,
   );
   const { data } = await client.get<ListMultipartUploadsResponse>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart`,
@@ -105,7 +105,7 @@ export async function listMultipartUploads(
 }
 
 export async function presignPart(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   uploadId: string,
   payload: PresignPartRequest,
@@ -116,7 +116,7 @@ export async function presignPart(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}/presign`,
     payload,
     {
-      params: withS3ContextParam(undefined, accountId),
+      params: withS3ContextParam(undefined, contextId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -127,7 +127,7 @@ export async function presignPart(
 }
 
 export async function completeMultipartUpload(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   uploadId: string,
   key: string,
@@ -138,14 +138,14 @@ export async function completeMultipartUpload(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}/complete`,
     payload,
     {
-      params: withS3ContextParam({ key }, accountId),
+      params: withS3ContextParam({ key }, contextId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );
 }
 
 export async function abortMultipartUpload(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   uploadId: string,
   key: string,
@@ -154,7 +154,7 @@ export async function abortMultipartUpload(
   await client.delete(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}`,
     {
-      params: withS3ContextParam({ key }, accountId),
+      params: withS3ContextParam({ key }, contextId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );

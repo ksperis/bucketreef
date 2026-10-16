@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3ContextParam } from "./accountParams";
+import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
 
 export type BucketUsagePoint = {
   name: string;
@@ -249,16 +249,16 @@ export async function fetchAdminTraffic(window: TrafficWindow = "week", endpoint
   return data;
 }
 
-export async function fetchManagerStats(accountId?: S3AccountSelector): Promise<ManagerStats> {
+export async function fetchManagerStats(contextId?: S3ExecutionContextSelector): Promise<ManagerStats> {
   const { data } = await client.get<ManagerStats>("/manager/stats/overview", {
-    params: withS3ContextParam(undefined, accountId),
+    params: withS3ContextParam(undefined, contextId),
   });
   return data;
 }
 
-export async function fetchManagerUsageTrends(accountId?: S3AccountSelector): Promise<ManagerUsageTrendsResponse> {
+export async function fetchManagerUsageTrends(contextId?: S3ExecutionContextSelector): Promise<ManagerUsageTrendsResponse> {
   const { data } = await client.get<ManagerUsageTrendsResponse>("/manager/stats/usage-trends", {
-    params: withS3ContextParam(undefined, accountId),
+    params: withS3ContextParam(undefined, contextId),
   });
   return data;
 }
@@ -278,7 +278,7 @@ export async function fetchAdminS3UserStats(userId: number): Promise<ManagerStat
 }
 
 export async function fetchManagerTraffic(
-  accountId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   window: TrafficWindow,
   bucket?: string
 ): Promise<ManagerTrafficStats> {
@@ -286,7 +286,7 @@ export async function fetchManagerTraffic(
   if (bucket) {
     baseParams.bucket = bucket;
   }
-  const params = withS3ContextParam(baseParams, accountId);
+  const params = withS3ContextParam(baseParams, contextId);
   const { data } = await client.get<ManagerTrafficStats>("/manager/stats/traffic", { params });
   return data;
 }

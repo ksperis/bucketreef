@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam, withS3ContextParam } from "./accountParams";
+import { S3AccountSelector, S3ExecutionContextSelector, withS3AccountParam, withS3ContextParam } from "./accountParams";
 
 export type HealthCheckStatus = "unknown" | "up" | "degraded" | "down";
 export type HealthWindow = "day" | "week" | "month" | "quarter" | "half_year" | "year";
@@ -282,10 +282,10 @@ export async function fetchHealthWorkspaceOverview(
 }
 
 export async function fetchManagerWorkspaceHealthOverview(
-  accountId: S3AccountSelector
+  contextId: S3ExecutionContextSelector
 ): Promise<WorkspaceEndpointHealthOverviewResponse> {
   const { data } = await client.get<WorkspaceEndpointHealthOverviewResponse>("/manager/stats/endpoint-health", {
-    params: withS3ContextParam(undefined, accountId),
+    params: withS3ContextParam(undefined, contextId),
   });
   return data;
 }

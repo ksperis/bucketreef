@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { S3AccountSelector } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
 import { withS3ContextParam } from "./accountParams";
 import type {
   Bucket,
@@ -31,22 +31,22 @@ function createManagerBucketDetailsApi() {
   const basePath = MANAGER_BUCKETS_PATH;
   const bucketPath = (bucketName: string) =>
     `${basePath}/${encodeURIComponent(bucketName)}`;
-  const requestConfig = (accountId: S3AccountSelector) => ({
-    params: withS3ContextParam(undefined, accountId),
+  const requestConfig = (contextId: S3ExecutionContextSelector) => ({
+    params: withS3ContextParam(undefined, contextId),
   });
   const read = async <T>(
-    accountId: S3AccountSelector,
+    contextId: S3ExecutionContextSelector,
     bucketName: string,
     resource: string,
   ): Promise<T> => {
     const { data } = await client.get<T>(
       `${bucketPath(bucketName)}/${resource}`,
-      requestConfig(accountId),
+      requestConfig(contextId),
     );
     return data;
   };
   const write = async <T>(
-    accountId: S3AccountSelector,
+    contextId: S3ExecutionContextSelector,
     bucketName: string,
     resource: string,
     payload: unknown,
@@ -54,12 +54,12 @@ function createManagerBucketDetailsApi() {
     const { data } = await client.put<T>(
       `${bucketPath(bucketName)}/${resource}`,
       payload,
-      requestConfig(accountId),
+      requestConfig(contextId),
     );
     return data;
   };
   const writeWithoutResponse = async (
-    accountId: S3AccountSelector,
+    contextId: S3ExecutionContextSelector,
     bucketName: string,
     resource: string,
     payload: unknown,
@@ -67,23 +67,23 @@ function createManagerBucketDetailsApi() {
     await client.put(
       `${bucketPath(bucketName)}/${resource}`,
       payload,
-      requestConfig(accountId),
+      requestConfig(contextId),
     );
   };
   const remove = async (
-    accountId: S3AccountSelector,
+    contextId: S3ExecutionContextSelector,
     bucketName: string,
     resource: string,
   ): Promise<void> => {
     await client.delete(
       `${bucketPath(bucketName)}/${resource}`,
-      requestConfig(accountId),
+      requestConfig(contextId),
     );
   };
 
   return {
     async getBucketStats(
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       options?: { with_stats?: boolean },
     ): Promise<Bucket> {
@@ -92,197 +92,197 @@ function createManagerBucketDetailsApi() {
         {
           params: withS3ContextParam(
             { with_stats: options?.with_stats },
-            accountId,
+            contextId,
           ),
         },
       );
       return data;
     },
-    getBucketProperties: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketProperties>(accountId, bucketName, "properties"),
-    getBucketAcl: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketAcl>(accountId, bucketName, "acl"),
+    getBucketProperties: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketProperties>(contextId, bucketName, "properties"),
+    getBucketAcl: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketAcl>(contextId, bucketName, "acl"),
     updateBucketAcl: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       acl: string,
-    ) => write<BucketAcl>(accountId, bucketName, "acl", { acl }),
+    ) => write<BucketAcl>(contextId, bucketName, "acl", { acl }),
     getBucketPublicAccessBlock: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
     ) =>
       read<BucketPublicAccessBlock>(
-        accountId,
+        contextId,
         bucketName,
         "public-access-block",
       ),
     updateBucketPublicAccessBlock: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       payload: BucketPublicAccessBlock,
     ) =>
       write<BucketPublicAccessBlock>(
-        accountId,
+        contextId,
         bucketName,
         "public-access-block",
         payload,
       ),
     updateBucketQuota: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       payload: BucketQuotaUpdate,
-    ) => writeWithoutResponse(accountId, bucketName, "quota", payload),
+    ) => writeWithoutResponse(contextId, bucketName, "quota", payload),
     getBucketVersioning: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
-    ) => read<BucketVersioningStatus>(accountId, bucketName, "versioning"),
+    ) => read<BucketVersioningStatus>(contextId, bucketName, "versioning"),
     setBucketVersioning: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       enabled: boolean,
     ) =>
-      writeWithoutResponse(accountId, bucketName, "versioning", { enabled }),
-    getBucketPolicy: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketPolicy>(accountId, bucketName, "policy"),
+      writeWithoutResponse(contextId, bucketName, "versioning", { enabled }),
+    getBucketPolicy: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketPolicy>(contextId, bucketName, "policy"),
     putBucketPolicy: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       policy: Record<string, unknown>,
-    ) => write<BucketPolicy>(accountId, bucketName, "policy", { policy }),
-    deleteBucketPolicy: (accountId: S3AccountSelector, bucketName: string) =>
-      remove(accountId, bucketName, "policy"),
-    getBucketLifecycle: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketLifecycleConfig>(accountId, bucketName, "lifecycle"),
+    ) => write<BucketPolicy>(contextId, bucketName, "policy", { policy }),
+    deleteBucketPolicy: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      remove(contextId, bucketName, "policy"),
+    getBucketLifecycle: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketLifecycleConfig>(contextId, bucketName, "lifecycle"),
     putBucketLifecycle: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       rules: Record<string, unknown>[],
     ) =>
-      write<BucketLifecycleConfig>(accountId, bucketName, "lifecycle", {
+      write<BucketLifecycleConfig>(contextId, bucketName, "lifecycle", {
         rules,
       }),
     deleteBucketLifecycle: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
-    ) => remove(accountId, bucketName, "lifecycle"),
-    getBucketCors: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketCors>(accountId, bucketName, "cors"),
+    ) => remove(contextId, bucketName, "lifecycle"),
+    getBucketCors: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketCors>(contextId, bucketName, "cors"),
     putBucketCors: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       rules: Record<string, unknown>[],
-    ) => write<BucketCors>(accountId, bucketName, "cors", { rules }),
-    deleteBucketCors: (accountId: S3AccountSelector, bucketName: string) =>
-      remove(accountId, bucketName, "cors"),
-    getBucketEncryption: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketEncryptionConfiguration>(accountId, bucketName, "encryption"),
+    ) => write<BucketCors>(contextId, bucketName, "cors", { rules }),
+    deleteBucketCors: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      remove(contextId, bucketName, "cors"),
+    getBucketEncryption: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketEncryptionConfiguration>(contextId, bucketName, "encryption"),
     putBucketEncryption: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       rules: Record<string, unknown>[],
     ) =>
       write<BucketEncryptionConfiguration>(
-        accountId,
+        contextId,
         bucketName,
         "encryption",
         { rules },
       ),
     deleteBucketEncryption: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
-    ) => remove(accountId, bucketName, "encryption"),
-    getBucketTags: (accountId: S3AccountSelector, bucketName: string) =>
-      read<{ tags: BucketTag[] }>(accountId, bucketName, "tags"),
+    ) => remove(contextId, bucketName, "encryption"),
+    getBucketTags: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<{ tags: BucketTag[] }>(contextId, bucketName, "tags"),
     putBucketTags: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       tags: BucketTag[],
-    ) => writeWithoutResponse(accountId, bucketName, "tags", { tags }),
-    deleteBucketTags: (accountId: S3AccountSelector, bucketName: string) =>
-      remove(accountId, bucketName, "tags"),
-    getBucketLogging: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketLoggingConfiguration>(accountId, bucketName, "logging"),
+    ) => writeWithoutResponse(contextId, bucketName, "tags", { tags }),
+    deleteBucketTags: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      remove(contextId, bucketName, "tags"),
+    getBucketLogging: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketLoggingConfiguration>(contextId, bucketName, "logging"),
     putBucketLogging: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       payload: BucketLoggingConfiguration,
     ) =>
       write<BucketLoggingConfiguration>(
-        accountId,
+        contextId,
         bucketName,
         "logging",
         payload,
       ),
-    deleteBucketLogging: (accountId: S3AccountSelector, bucketName: string) =>
-      remove(accountId, bucketName, "logging"),
+    deleteBucketLogging: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      remove(contextId, bucketName, "logging"),
     getBucketNotifications: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
     ) =>
       read<BucketNotificationConfiguration>(
-        accountId,
+        contextId,
         bucketName,
         "notifications",
       ),
     putBucketNotifications: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       configuration: Record<string, unknown>,
     ) =>
       write<BucketNotificationConfiguration>(
-        accountId,
+        contextId,
         bucketName,
         "notifications",
         { configuration },
       ),
     deleteBucketNotifications: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
-    ) => remove(accountId, bucketName, "notifications"),
+    ) => remove(contextId, bucketName, "notifications"),
     getBucketReplication: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
     ) =>
-      read<BucketReplicationConfiguration>(accountId, bucketName, "replication"),
+      read<BucketReplicationConfiguration>(contextId, bucketName, "replication"),
     putBucketReplication: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       configuration: Record<string, unknown>,
     ) =>
       write<BucketReplicationConfiguration>(
-        accountId,
+        contextId,
         bucketName,
         "replication",
         { configuration },
       ),
     deleteBucketReplication: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
-    ) => remove(accountId, bucketName, "replication"),
-    getBucketWebsite: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketWebsiteConfiguration>(accountId, bucketName, "website"),
+    ) => remove(contextId, bucketName, "replication"),
+    getBucketWebsite: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketWebsiteConfiguration>(contextId, bucketName, "website"),
     putBucketWebsite: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       payload: BucketWebsiteConfiguration,
     ) =>
       write<BucketWebsiteConfiguration>(
-        accountId,
+        contextId,
         bucketName,
         "website",
         payload,
       ),
-    deleteBucketWebsite: (accountId: S3AccountSelector, bucketName: string) =>
-      remove(accountId, bucketName, "website"),
-    getBucketObjectLock: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketObjectLockConfiguration>(accountId, bucketName, "object-lock"),
+    deleteBucketWebsite: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      remove(contextId, bucketName, "website"),
+    getBucketObjectLock: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketObjectLockConfiguration>(contextId, bucketName, "object-lock"),
     updateBucketObjectLock: (
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       payload: BucketObjectLockConfiguration,
     ) =>
       write<BucketObjectLockConfiguration>(
-        accountId,
+        contextId,
         bucketName,
         "object-lock",
         payload,
@@ -293,24 +293,24 @@ function createManagerBucketDetailsApi() {
 function createBrowserBucketDetailsApi() {
   const bucketPath = (bucketName: string) =>
     `${BROWSER_BUCKET_CONFIG_PATH}/${encodeURIComponent(bucketName)}`;
-  const requestConfig = (accountId: S3AccountSelector) => ({
-    params: withS3ContextParam(undefined, accountId),
+  const requestConfig = (contextId: S3ExecutionContextSelector) => ({
+    params: withS3ContextParam(undefined, contextId),
   });
   const read = async <T>(
-    accountId: S3AccountSelector,
+    contextId: S3ExecutionContextSelector,
     bucketName: string,
     resource: string,
   ): Promise<T> => {
     const { data } = await client.get<T>(
       `${bucketPath(bucketName)}/${resource}`,
-      requestConfig(accountId),
+      requestConfig(contextId),
     );
     return data;
   };
 
   return {
     async getBucketStats(
-      accountId: S3AccountSelector,
+      contextId: S3ExecutionContextSelector,
       bucketName: string,
       options?: { with_stats?: boolean },
     ): Promise<Bucket> {
@@ -319,20 +319,20 @@ function createBrowserBucketDetailsApi() {
         {
           params: withS3ContextParam(
             { with_stats: options?.with_stats },
-            accountId,
+            contextId,
           ),
         },
       );
       return data;
     },
-    getBucketProperties: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketProperties>(accountId, bucketName, "properties"),
-    getBucketPolicy: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketPolicy>(accountId, bucketName, "policy"),
-    getBucketLogging: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketLoggingConfiguration>(accountId, bucketName, "logging"),
-    getBucketWebsite: (accountId: S3AccountSelector, bucketName: string) =>
-      read<BucketWebsiteConfiguration>(accountId, bucketName, "website"),
+    getBucketProperties: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketProperties>(contextId, bucketName, "properties"),
+    getBucketPolicy: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketPolicy>(contextId, bucketName, "policy"),
+    getBucketLogging: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketLoggingConfiguration>(contextId, bucketName, "logging"),
+    getBucketWebsite: (contextId: S3ExecutionContextSelector, bucketName: string) =>
+      read<BucketWebsiteConfiguration>(contextId, bucketName, "website"),
   };
 }
 

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { S3AccountSelector } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
 import type { BucketOperationTarget } from "./bucketOperation";
 import {
   buildJsonPostRequestInit,
@@ -87,7 +87,7 @@ type BucketPurgeStreamOptions = {
 };
 
 export function streamManagerBucketPurge(
-  contextId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   payload: BucketPurgePayload,
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
@@ -103,7 +103,7 @@ export function streamManagerBucketPurge(
 }
 
 export function streamManagerBucketDeleteWithPurge(
-  contextId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   payload: BucketDeleteWithPurgePayload,
   options?: BucketPurgeStreamOptions

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { S3AccountSelector } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
 import type { BucketOperationTarget } from "./bucketOperation";
 import { withS3ContextParam } from "./accountParams";
 import client from "./client";
@@ -134,7 +134,7 @@ type BucketUsageStatsStreamOptions = {
 };
 
 export async function getManagerUsageStatsAggregate(
-  contextId: S3AccountSelector
+  contextId: S3ExecutionContextSelector
 ): Promise<BucketUsageStatsAggregateResponse> {
   const { data } = await client.get<BucketUsageStatsAggregateResponse>(
     "/manager/usage-stats/latest",
@@ -163,7 +163,7 @@ export async function getAdminUsageStatsAggregate(
 }
 
 export async function getManagerBucketUsageStats(
-  contextId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string
 ): Promise<BucketUsageStatsLatestResponse> {
   const { data } = await client.get<BucketUsageStatsLatestResponse>(
@@ -184,7 +184,7 @@ export async function getCephAdminBucketUsageStats(
 }
 
 export function streamManagerUsageStatsAggregate(
-  contextId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   payload: BucketUsageStatsScopePayload = {},
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
@@ -200,7 +200,7 @@ export function streamManagerUsageStatsAggregate(
 }
 
 export function streamManagerBucketUsageStatsForBucket(
-  contextId: S3AccountSelector,
+  contextId: S3ExecutionContextSelector,
   bucketName: string,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
