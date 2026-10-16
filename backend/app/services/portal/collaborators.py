@@ -220,6 +220,133 @@ class PortalCollaboratorsMixin:
             .count()
         )
 
+    def _portal_collaborator(
+        self,
+        target: User,
+        portal_role: str,
+        sources: set[str],
+        source_dates: dict[str, datetime] | None,
+        *,
+        can_review_access: bool,
+    ) -> PortalCollaborator:
+        return PortalCollaborator(
+            user_id=target.id,
+            email=target.email,
+            display_name=target.full_name,
+            portal_role=portal_role,
+            access_source=self._portal_access_source(sources),
+            member_since=self._portal_collaborator_member_since(
+                target,
+                sources,
+                source_dates,
+            ),
+            avatar=UserAvatarService(self.db).descriptor(target),
+            can_review_access=can_review_access,
+        )
+
+    def _portal_collaborator_space_access(
+        self,
+        metadata: PortalStorageSpaceMetadata,
+        grant_role: str | None,
+        *,
+        target_user_id: int,
+        portal_role: str,
+        can_manage_portal_users: bool,
+    ) -> PortalCollaboratorStorageSpaceAccess | None:
+        role: PortalStorageSpaceRole | None = None
+        source = None
+        if metadata.owner_user_id == target_user_id:
+            role, source = "Owner", "owner"
+        elif portal_role == PortalAccountRole.PORTAL_MANAGER.value:
+            role, source = "Manager", "project_manager"
+        elif (
+            self._metadata_visibility(metadata) == "shared"
+            and self._metadata_share_scope(metadata) == "account"
+        ):
+            role = self._metadata_account_member_role(metadata) or "Editor"
+            source = "team"
+        elif (
+            self._metadata_visibility(metadata) == "shared"
+            and self._metadata_share_scope(metadata) == "restricted"
+            and grant_role in {"Viewer", "Editor"}
+        ):
+            role, source = grant_role, "direct"
+        if role is None or source is None:
+            return None
+        return PortalCollaboratorStorageSpaceAccess(
+            storage_space_id=metadata.bucket_name,
+            storage_space_name=self._display_storage_space_name(metadata.bucket_name, metadata),
+            role=role,
+            source=source,
+            can_revoke=source == "direct" and can_manage_portal_users,
+        )
+
+    def _portal_collaborator_space_accesses(
+        self,
+        access: "AccountAccess",
+        target_user_id: int,
+        portal_role: str,
+    ) -> list[PortalCollaboratorStorageSpaceAccess]:
+        rows = (
+            self.db.query(PortalStorageSpaceMetadata, PortalStorageSpaceGrant.role)
+            .outerjoin(
+                PortalStorageSpaceGrant,
+                (PortalStorageSpaceGrant.storage_space_metadata_id == PortalStorageSpaceMetadata.id)
+                & (PortalStorageSpaceGrant.user_id == target_user_id),
+            )
+            .filter(
+                PortalStorageSpaceMetadata.account_id == access.account.id,
+                PortalStorageSpaceMetadata.archived_at.is_(None),
+            )
+            .all()
+        )
+        space_accesses = [
+            item
+            for metadata, grant_role in rows
+            if (
+                item := self._portal_collaborator_space_access(
+                    metadata,
+                    grant_role,
+                    target_user_id=target_user_id,
+                    portal_role=portal_role,
+                    can_manage_portal_users=access.capabilities.can_manage_portal_users,
+                )
+            )
+            is not None
+        ]
+        space_accesses.sort(key=lambda item: (item.storage_space_name.lower(), item.storage_space_id.lower()))
+        return space_accesses
+
+    def _portal_collaborator_review_actions(
+        self,
+        user: User,
+        access: "AccountAccess",
+        target_user_id: int,
+        portal_role: str,
+        sources: set[str],
+    ) -> tuple[bool, bool]:
+        direct_only = self._portal_access_source(sources) == "direct"
+        can_manage = access.capabilities.can_manage_portal_users
+        can_request_project_removal = (
+            can_manage
+            and portal_role == PortalAccountRole.PORTAL_USER.value
+            and direct_only
+        )
+        if not can_manage or target_user_id == user.id or not direct_only:
+            return can_request_project_removal, False
+        direct_membership = self.db.query(UserS3Account).filter(
+            UserS3Account.user_id == target_user_id,
+            UserS3Account.account_id == access.account.id,
+        ).first()
+        can_request_role_change = bool(
+            direct_membership is not None
+            and direct_membership.portal_role in {
+                PortalAccountRole.PORTAL_USER.value,
+                PortalAccountRole.PORTAL_MANAGER.value,
+            }
+        )
+        return can_request_project_removal, can_request_role_change
+
     def list_portal_collaborators(
         self,
         user: User,
@@ -228,14 +355,11 @@ class PortalCollaboratorsMixin:
         member_map = self._portal_account_member_map(access.account)
         source_dates = self._portal_collaborator_source_dates(access.account, set(member_map))
         collaborators = [
-            PortalCollaborator(
-                user_id=user_id,
-                email=target.email,
-                display_name=target.full_name,
-                portal_role=portal_role,
-                access_source=self._portal_access_source(sources),
-                member_since=self._portal_collaborator_member_since(target, sources, source_dates.get(user_id)),
-                avatar=UserAvatarService(self.db).descriptor(target),
+            self._portal_collaborator(
+                target,
+                portal_role,
+                sources,
+                source_dates.get(user_id),
                 can_review_access=access.capabilities.can_manage_portal_users or user.id == user_id,
             )
             for user_id, (target, portal_role, sources) in member_map.items()
@@ -265,94 +389,28 @@ class PortalCollaboratorsMixin:
 
         target, portal_role, sources = member
         source_dates = self._portal_collaborator_source_dates(access.account, {target_user_id})
-        collaborator = PortalCollaborator(
-            user_id=target.id,
-            email=target.email,
-            display_name=target.full_name,
-            portal_role=portal_role,
-            access_source=self._portal_access_source(sources),
-            member_since=self._portal_collaborator_member_since(
-                target,
-                sources,
-                source_dates.get(target_user_id),
-            ),
-            avatar=UserAvatarService(self.db).descriptor(target),
+        collaborator = self._portal_collaborator(
+            target,
+            portal_role,
+            sources,
+            source_dates.get(target_user_id),
             can_review_access=True,
         )
-
-        rows = (
-            self.db.query(PortalStorageSpaceMetadata, PortalStorageSpaceGrant.role)
-            .outerjoin(
-                PortalStorageSpaceGrant,
-                (PortalStorageSpaceGrant.storage_space_metadata_id == PortalStorageSpaceMetadata.id)
-                & (PortalStorageSpaceGrant.user_id == target_user_id),
-            )
-            .filter(
-                PortalStorageSpaceMetadata.account_id == access.account.id,
-                PortalStorageSpaceMetadata.archived_at.is_(None),
-            )
-            .all()
+        space_accesses = self._portal_collaborator_space_accesses(
+            access,
+            target_user_id,
+            portal_role,
         )
-        space_accesses: list[PortalCollaboratorStorageSpaceAccess] = []
-        for metadata, grant_role in rows:
-            role: PortalStorageSpaceRole | None = None
-            source = None
-            if metadata.owner_user_id == target_user_id:
-                role = "Owner"
-                source = "owner"
-            elif portal_role == PortalAccountRole.PORTAL_MANAGER.value:
-                role = "Manager"
-                source = "project_manager"
-            elif (
-                self._metadata_visibility(metadata) == "shared"
-                and self._metadata_share_scope(metadata) == "account"
-            ):
-                role = self._metadata_account_member_role(metadata) or "Editor"
-                source = "team"
-            elif (
-                self._metadata_visibility(metadata) == "shared"
-                and self._metadata_share_scope(metadata) == "restricted"
-                and grant_role in {"Viewer", "Editor"}
-            ):
-                role = grant_role
-                source = "direct"
-            if role is None or source is None:
-                continue
-            space_accesses.append(
-                PortalCollaboratorStorageSpaceAccess(
-                    storage_space_id=metadata.bucket_name,
-                    storage_space_name=self._display_storage_space_name(metadata.bucket_name, metadata),
-                    role=role,
-                    source=source,
-                    can_revoke=(
-                        source == "direct"
-                        and access.capabilities.can_manage_portal_users
-                    ),
-                )
-            )
-
-        space_accesses.sort(key=lambda item: (item.storage_space_name.lower(), item.storage_space_id.lower()))
-        direct_membership = self.db.query(UserS3Account).filter(
-            UserS3Account.user_id == target_user_id,
-            UserS3Account.account_id == access.account.id,
-        ).first()
-        direct_only = self._portal_access_source(sources) == "direct"
+        can_request_project_removal, can_request_role_change = self._portal_collaborator_review_actions(
+            user,
+            access,
+            target_user_id,
+            portal_role,
+            sources,
+        )
         return PortalCollaboratorAccessReview(
             collaborator=collaborator,
-            can_request_project_removal=(
-                access.capabilities.can_manage_portal_users
-                and portal_role == PortalAccountRole.PORTAL_USER.value
-                and direct_only
-            ),
-            can_request_role_change=(
-                access.capabilities.can_manage_portal_users
-                and target_user_id != user.id
-                and direct_only
-                and direct_membership is not None
-                and direct_membership.portal_role in {
-                    PortalAccountRole.PORTAL_USER.value,
-                    PortalAccountRole.PORTAL_MANAGER.value,
-                }
-            ),
+            can_request_project_removal=can_request_project_removal,
+            can_request_role_change=can_request_role_change,
             space_accesses=space_accesses,
         )
