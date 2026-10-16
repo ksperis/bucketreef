@@ -43,7 +43,7 @@ def _collect_context_refs(user: User, db: Session) -> list[StorageOpsContextRef]
     return build_storage_ops_context_refs(contexts)
 
 
-def _resolve_context_account(
+def _resolve_context(
     ref: StorageOpsContextRef,
     *,
     request: Request,
@@ -81,7 +81,7 @@ def _compute_storage_ops_listing(
         tag_service = BucketUiTagsService(db) if isinstance(db, Session) else None
         return compute_storage_ops_bucket_listing(
             load_context_refs=lambda: _collect_context_refs(user, db),
-            resolve_account=lambda ref: _resolve_context_account(
+            resolve_context=lambda ref: _resolve_context(
                 ref,
                 request=request,
                 db=db,
@@ -116,7 +116,7 @@ def refresh_storage_ops_bucket_listing_cache(
     refs = _collect_context_refs(user, db)
     resolved_contexts = resolve_storage_ops_contexts(
         refs=refs,
-        resolve_account=lambda ref: _resolve_context_account(
+        resolve_context=lambda ref: _resolve_context(
             ref,
             request=request,
             db=db,
@@ -125,8 +125,8 @@ def refresh_storage_ops_bucket_listing_cache(
     )
     endpoint_ids: set[int] = set()
     for context in resolved_contexts:
-        invalidate_bucket_listing_cache_for_context(context.account)
-        endpoint_id = int(context.account.storage_endpoint_id or 0)
+        invalidate_bucket_listing_cache_for_context(context.context)
+        endpoint_id = int(context.context.storage_endpoint_id or 0)
         if endpoint_id > 0:
             endpoint_ids.add(endpoint_id)
     for endpoint_id in endpoint_ids:

@@ -52,12 +52,12 @@ class StorageOpsBucketUiTagsWorkflow:
         tags: BucketUiTagsService,
         actor_user_id: int,
         context_refs: Sequence[StorageOpsContextRef],
-        resolve_account: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
+        resolve_context: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
     ) -> None:
         self.tags = tags
         self.actor_user_id = int(actor_user_id)
         self.refs_by_id = {ref.context_id: ref for ref in context_refs}
-        self.resolve_account = resolve_account
+        self.resolve_context = resolve_context
         self.resolved: dict[str, tuple[S3ExecutionContext, set[str]]] = {}
 
     def _bucket_inventory(
@@ -73,12 +73,12 @@ class StorageOpsBucketUiTagsWorkflow:
             raise StorageOpsBucketUiTagAuthorizationError(
                 "Storage Ops context is not available."
             )
-        account = self.resolve_account(ref)
-        if account is None:
+        context = self.resolve_context(ref)
+        if context is None:
             raise StorageOpsBucketUiTagAuthorizationError(
                 "Storage Ops context is not available."
             )
-        endpoint_id = int(account.storage_endpoint_id or 0)
+        endpoint_id = int(context.storage_endpoint_id or 0)
         if endpoint_id <= 0:
             raise StorageOpsBucketUiTagAuthorizationError(
                 "Storage Ops context is not available."
@@ -86,10 +86,10 @@ class StorageOpsBucketUiTagsWorkflow:
         # Mutations intentionally bypass the shared listing cache. Otherwise a
         # deleted or recreated bucket could be accepted from stale inventory.
         try:
-            listed = buckets.list_buckets(account, include=None, with_stats=False)
+            listed = buckets.list_buckets(context, include=None, with_stats=False)
         except RuntimeError as exc:
             raise StorageOpsBucketUiTagUpstreamError(sanitized_error_log_detail(exc)) from exc
-        inventory = (account, {str(bucket.name) for bucket in listed})
+        inventory = (context, {str(bucket.name) for bucket in listed})
         self.resolved[context_id] = inventory
         return inventory
 
@@ -99,11 +99,11 @@ class StorageOpsBucketUiTagsWorkflow:
         bucket_name: str,
         buckets: BucketsService,
     ) -> tuple[PhysicalBucketTarget, bool]:
-        account, bucket_names = self._bucket_inventory(context_id, buckets)
+        context, bucket_names = self._bucket_inventory(context_id, buckets)
         return (
             PhysicalBucketTarget.create(
-                int(account.storage_endpoint_id or 0),
-                resolve_storage_ops_context_tenant(account),
+                int(context.storage_endpoint_id or 0),
+                resolve_storage_ops_context_tenant(context),
                 bucket_name,
             ),
             bucket_name in bucket_names,

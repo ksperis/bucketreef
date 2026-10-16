@@ -696,7 +696,7 @@ def test_storage_ops_target_validation_returns_sanitized_bad_gateway(
     )
     monkeypatch.setattr(
         storage_bucket_ui_tags_router,
-        "_resolve_context_account",
+        "_resolve_context",
         lambda _ref, **_kwargs: account,
     )
 
@@ -936,7 +936,7 @@ def test_storage_ops_ui_tag_filter_runs_before_pagination_and_supports_any_all(d
     )
     common = {
         "load_context_refs": lambda: [ref],
-        "resolve_account": lambda _ref: account,
+        "resolve_context": lambda _ref: account,
         "service": FakeBucketsService(),
         "page": 1,
         "page_size": 1,
@@ -1013,7 +1013,7 @@ def test_storage_ops_replicates_private_tags_across_contexts_for_the_same_physic
     ]
     result = compute_storage_ops_bucket_listing(
         load_context_refs=lambda: refs,
-        resolve_account=lambda _ref: account,
+        resolve_context=lambda _ref: account,
         service=FakeBucketsService(),
         page=1,
         page_size=25,

@@ -50,7 +50,7 @@ def apply_storage_ops_advanced_filter(
     parsed_filter: BucketFilterQuery | None,
     *,
     service: BucketConfigurationService,
-    account,
+    context,
 ) -> list[StorageOpsBucketSummary]:
     if not parsed_filter or not parsed_filter.rules or not buckets:
         return buckets
@@ -96,7 +96,7 @@ def apply_storage_ops_advanced_filter(
             base_candidates,
             feature_param_rules,
             service,
-            account,
+            context,
         )
         filtered: list[StorageOpsBucketSummary] = []
         for bucket in base_candidates:
@@ -124,7 +124,7 @@ def apply_storage_ops_advanced_filter(
         param_candidates,
         feature_param_rules,
         service,
-        account,
+        context,
     )
     filtered = list(pre_matched)
     for bucket in param_candidates:

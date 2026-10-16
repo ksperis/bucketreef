@@ -14,7 +14,7 @@ from app.models.bucket_ui_tags import (
     StorageOpsBucketUiTagPatchRequest,
 )
 from app.routers.dependencies import get_current_storage_ops_admin
-from app.routers.storage_ops.buckets import _collect_context_refs, _resolve_context_account
+from app.routers.storage_ops.buckets import _collect_context_refs, _resolve_context
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.storage_ops_bucket_ui_tags_service import (
@@ -40,7 +40,7 @@ def _workflow(
         tags=BucketUiTagsService(db),
         actor_user_id=int(user.id),
         context_refs=_collect_context_refs(user, db),
-        resolve_account=lambda ref: _resolve_context_account(
+        resolve_context=lambda ref: _resolve_context(
             ref,
             request=request,
             db=db,
