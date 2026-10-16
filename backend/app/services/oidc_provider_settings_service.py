@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Iterable, Optional
+from typing import Iterable, Literal, Optional
 from urllib.parse import urlparse
 
 from sqlalchemy.exc import IntegrityError
@@ -221,27 +221,20 @@ def _ui_provider_to_settings(provider: OidcProvider) -> OIDCProviderSettings:
 
 
 def _ui_provider_item(provider: OidcProvider) -> OIDCProviderAdminItem:
-    return OIDCProviderAdminItem(
-        provider_id=provider.provider_id,
-        display_name=provider.display_name,
-        discovery_url=provider.discovery_url,
-        client_id=provider.client_id,
-        redirect_uri=provider.redirect_uri,
-        scopes=_load_scopes(provider.scopes_json),
-        prompt=provider.prompt,
-        enabled=bool(provider.enabled),
-        icon_url=provider.icon_url,
-        use_pkce=bool(provider.use_pkce),
-        use_nonce=bool(provider.use_nonce),
-        linking_policy=provider.linking_policy or "manual",
-        trusted_email_domains=_load_string_list(provider.trusted_email_domains_json),
+    return _provider_item(
+        provider.provider_id,
+        _ui_provider_to_settings(provider),
         source="ui",
-        editable=True,
-        has_client_secret=bool(provider.client_secret),
     )
 
 
-def _environment_provider_item(provider_id: str, provider: OIDCProviderSettings) -> OIDCProviderAdminItem:
+def _provider_item(
+    provider_id: str,
+    provider: OIDCProviderSettings,
+    *,
+    source: Literal["environment", "ui"],
+    field_locks: Optional[dict[str, OIDCProviderFieldLock]] = None,
+) -> OIDCProviderAdminItem:
     return OIDCProviderAdminItem(
         provider_id=provider_id,
         display_name=provider.display_name,
@@ -256,13 +249,22 @@ def _environment_provider_item(provider_id: str, provider: OIDCProviderSettings)
         use_nonce=bool(provider.use_nonce),
         linking_policy=provider.linking_policy,
         trusted_email_domains=list(provider.trusted_email_domains or []),
+        source=source,
+        editable=source == "ui",
+        field_locks=field_locks or {},
+        has_client_secret=bool(provider.client_secret),
+    )
+
+
+def _environment_provider_item(provider_id: str, provider: OIDCProviderSettings) -> OIDCProviderAdminItem:
+    return _provider_item(
+        provider_id,
+        provider,
         source="environment",
-        editable=False,
         field_locks={
             field: OIDCProviderFieldLock(forced=True, source=_environment_source(provider_id, field))
             for field in OIDC_PROVIDER_FIELDS
         },
-        has_client_secret=bool(provider.client_secret),
     )
 
 
