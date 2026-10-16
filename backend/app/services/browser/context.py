@@ -39,6 +39,87 @@ from .sts import browser_sts_enabled, request_browser_sts_session
 
 logger = logging.getLogger(__name__)
 
+_BROWSER_CORS_REQUIRED_METHODS = {"GET", "PUT", "POST", "HEAD"}
+_BROWSER_CORS_MANAGED_METHODS = ("GET", "PUT", "POST", "DELETE", "HEAD")
+_BROWSER_CORS_MANAGED_HEADERS = ("Content-Type", "x-amz-*")
+_BROWSER_CORS_EXPOSE_HEADERS = ("ETag", "x-amz-request-id", "x-amz-id-2")
+
+
+def _ordered_unique(values: list[str] | tuple[str, ...]) -> list[str]:
+    return list(dict.fromkeys(values))
+
+
+def _cors_rule_matches_origin(rule: dict, origin: str) -> bool:
+    allowed_origins = set(rule.get("AllowedOrigins") or [])
+    return "*" in allowed_origins or origin in allowed_origins
+
+
+def _cors_header_allowed(allowed_headers: list[str], header: str) -> bool:
+    header = header.lower()
+    for entry in allowed_headers:
+        entry_lower = entry.lower()
+        if entry_lower == "*" or entry_lower == header:
+            return True
+        if entry_lower.endswith("*") and header.startswith(entry_lower[:-1]):
+            return True
+    return False
+
+
+def _browser_cors_rule_enabled(rule: dict, origin: str) -> bool:
+    if not _cors_rule_matches_origin(rule, origin):
+        return False
+    allowed_methods = {method.upper() for method in (rule.get("AllowedMethods") or [])}
+    if not _BROWSER_CORS_REQUIRED_METHODS.issubset(allowed_methods):
+        return False
+    allowed_headers = rule.get("AllowedHeaders") or []
+    if not allowed_headers or not _cors_header_allowed(allowed_headers, "content-type"):
+        return False
+    exposed_headers = {
+        str(header).strip().lower()
+        for header in (rule.get("ExposeHeaders") or [])
+    }
+    return "*" in exposed_headers or "etag" in exposed_headers
+
+
+def _repair_browser_cors_rule(rule: dict, origin: str) -> bool:
+    changed = False
+    allowed_origins = list(rule.get("AllowedOrigins") or [])
+    if origin not in allowed_origins and "*" not in allowed_origins:
+        rule["AllowedOrigins"] = _ordered_unique([*allowed_origins, origin])
+        changed = True
+
+    allowed_methods = _ordered_unique(
+        [method.upper() for method in (rule.get("AllowedMethods") or [])]
+    )
+    if not set(_BROWSER_CORS_MANAGED_METHODS).issubset(allowed_methods):
+        rule["AllowedMethods"] = _ordered_unique(
+            [*allowed_methods, *_BROWSER_CORS_MANAGED_METHODS]
+        )
+        changed = True
+
+    allowed_headers = set(rule.get("AllowedHeaders") or [])
+    desired_headers = set(_BROWSER_CORS_MANAGED_HEADERS)
+    if not allowed_headers or "*" in allowed_headers:
+        rule["AllowedHeaders"] = sorted(desired_headers)
+        changed = True
+    elif not desired_headers.issubset(allowed_headers):
+        rule["AllowedHeaders"] = _ordered_unique(
+            [*allowed_headers, *_BROWSER_CORS_MANAGED_HEADERS]
+        )
+        changed = True
+
+    expose_headers = set(rule.get("ExposeHeaders") or [])
+    desired_expose = set(_BROWSER_CORS_EXPOSE_HEADERS)
+    if not desired_expose.issubset(expose_headers):
+        rule["ExposeHeaders"] = _ordered_unique(
+            [*expose_headers, *_BROWSER_CORS_EXPOSE_HEADERS]
+        )
+        changed = True
+    if rule.get("MaxAgeSeconds") is None:
+        rule["MaxAgeSeconds"] = 3000
+        changed = True
+    return changed
+
 
 class BrowserContextMixin:
     def _resolve_s3_credentials(self, context: S3ExecutionTarget) -> tuple[str, str, Optional[str]]:
@@ -294,35 +375,7 @@ class BrowserContextMixin:
                 )
             )
         if origin and raw_rules:
-            required_methods = {"GET", "PUT", "POST", "HEAD"}
-
-            def matches_header(allowed_headers: list[str], header: str) -> bool:
-                header = header.lower()
-                for entry in allowed_headers:
-                    entry_lower = entry.lower()
-                    if entry_lower == "*" or entry_lower == header:
-                        return True
-                    if entry_lower.endswith("*") and header.startswith(entry_lower[:-1]):
-                        return True
-                return False
-
-            def rule_allows(rule: dict) -> bool:
-                allowed_origins = {o for o in (rule.get("AllowedOrigins") or [])}
-                if "*" not in allowed_origins and origin not in allowed_origins:
-                    return False
-                allowed_methods = {m.upper() for m in (rule.get("AllowedMethods") or [])}
-                if not required_methods.issubset(allowed_methods):
-                    return False
-                allowed_headers = rule.get("AllowedHeaders") or []
-                if not allowed_headers or not matches_header(allowed_headers, "content-type"):
-                    return False
-                exposed_headers = {
-                    str(header).strip().lower()
-                    for header in (rule.get("ExposeHeaders") or [])
-                }
-                return "*" in exposed_headers or "etag" in exposed_headers
-
-            enabled = any(rule_allows(rule) for rule in raw_rules)
+            enabled = any(_browser_cors_rule_enabled(rule, origin) for rule in raw_rules)
         return BucketCorsStatus(enabled=enabled, rules=rules)
 
     def ensure_bucket_cors(self, bucket_name: str, context: S3ExecutionTarget, origin: str) -> BucketCorsStatus:
@@ -339,68 +392,21 @@ class BrowserContextMixin:
             else:
                 raise RuntimeError(f"Unable to fetch CORS for '{bucket_name}': {exc}") from exc
 
-        desired_methods = {"GET", "PUT", "POST", "DELETE", "HEAD"}
-        desired_headers = {"Content-Type", "x-amz-*"}
-        desired_expose = {"ETag", "x-amz-request-id", "x-amz-id-2"}
-
-        def normalize(values: list[str]) -> list[str]:
-            seen = set()
-            ordered = []
-            for value in values:
-                if value not in seen:
-                    seen.add(value)
-                    ordered.append(value)
-            return ordered
-
-        def update_rule(rule: dict) -> bool:
-            changed = False
-            allowed_origins = rule.get("AllowedOrigins") or []
-            if origin not in allowed_origins and "*" not in allowed_origins:
-                allowed_origins.append(origin)
-                rule["AllowedOrigins"] = normalize(allowed_origins)
-                changed = True
-            allowed_methods = {m.upper() for m in (rule.get("AllowedMethods") or [])}
-            if not desired_methods.issubset(allowed_methods):
-                merged_methods = normalize([*allowed_methods, *desired_methods])
-                rule["AllowedMethods"] = merged_methods
-                changed = True
-            allowed_headers = set(rule.get("AllowedHeaders") or [])
-            if not allowed_headers:
-                rule["AllowedHeaders"] = sorted(desired_headers)
-                changed = True
-            elif "*" in allowed_headers:
-                rule["AllowedHeaders"] = sorted(desired_headers)
-                changed = True
-            elif not desired_headers.issubset(allowed_headers):
-                merged_headers = normalize([*allowed_headers, *desired_headers])
-                rule["AllowedHeaders"] = merged_headers
-                changed = True
-            expose_headers = set(rule.get("ExposeHeaders") or [])
-            if not desired_expose.issubset(expose_headers):
-                merged_expose = normalize([*expose_headers, *desired_expose])
-                rule["ExposeHeaders"] = merged_expose
-                changed = True
-            if rule.get("MaxAgeSeconds") is None:
-                rule["MaxAgeSeconds"] = 3000
-                changed = True
-            return changed
-
         updated = False
         matched = False
         for rule in rules:
-            allowed_origins = set(rule.get("AllowedOrigins") or [])
-            if "*" in allowed_origins or origin in allowed_origins:
+            if _cors_rule_matches_origin(rule, origin):
                 matched = True
-                if update_rule(rule):
+                if _repair_browser_cors_rule(rule, origin):
                     updated = True
                 break
 
         if not matched:
             new_rule = {
                 "AllowedOrigins": [origin],
-                "AllowedMethods": sorted(desired_methods),
-                "AllowedHeaders": sorted(desired_headers),
-                "ExposeHeaders": sorted(desired_expose),
+                "AllowedMethods": list(_BROWSER_CORS_MANAGED_METHODS),
+                "AllowedHeaders": sorted(_BROWSER_CORS_MANAGED_HEADERS),
+                "ExposeHeaders": list(_BROWSER_CORS_EXPOSE_HEADERS),
                 "MaxAgeSeconds": 3000,
             }
             rules.append(new_rule)
