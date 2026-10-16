@@ -1,6 +1,6 @@
 import type { ManagerFeaturePolicies } from "../../api/appSettings";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
-import type { ManagerToolAccess } from "../../api/users";
+import type { ManagerToolAccess, UiRole } from "../../api/users";
 
 export type ManagerToolKey = keyof ManagerToolAccess;
 
@@ -19,6 +19,10 @@ export const DEFAULT_MANAGER_TOOL_ACCESS: ManagerToolAccess = {
   bucket_purge: false,
   feature_rules: false,
 };
+
+export function roleSupportsOperationalAccess(role: UiRole): boolean {
+  return role !== "ui_none";
+}
 
 export function normalizeManagerToolAccess(access?: ManagerToolAccess | null): ManagerToolAccess {
   return {

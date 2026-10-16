@@ -38,6 +38,7 @@ import AdminUsersList, { type AdminUsersSortField } from "./AdminUsersList";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
   normalizeManagerToolAccess,
+  roleSupportsOperationalAccess,
 } from "./adminAccessConfig";
 import PageBanner from "../../components/PageBanner";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -319,12 +320,10 @@ export default function UsersPage() {
   };
   const editRoleValue = editForm.role ?? editingUser?.role ?? "ui_user";
   const createRoleValue = form.role ?? "ui_user";
-  const createTargetSupportsCephAdmin = createRoleValue === "ui_admin" || createRoleValue === "ui_superadmin";
-  const createTargetSupportsStorageOps =
-    createRoleValue === "ui_user" || createRoleValue === "ui_admin" || createRoleValue === "ui_superadmin";
-  const editTargetSupportsCephAdmin = editRoleValue === "ui_admin" || editRoleValue === "ui_superadmin";
-  const editTargetSupportsStorageOps =
-    editRoleValue === "ui_user" || editRoleValue === "ui_admin" || editRoleValue === "ui_superadmin";
+  const createTargetSupportsCephAdmin = isAdminLikeRole(createRoleValue);
+  const createTargetSupportsStorageOps = roleSupportsOperationalAccess(createRoleValue);
+  const editTargetSupportsCephAdmin = isAdminLikeRole(editRoleValue);
+  const editTargetSupportsStorageOps = roleSupportsOperationalAccess(editRoleValue);
   const editTargetSupportsManagerTools = editTargetSupportsStorageOps;
   const createTargetSupportsManagerTools = createTargetSupportsStorageOps;
   const createCanGrantCephAdmin = currentIsSuperAdmin && createTargetSupportsCephAdmin;
@@ -548,8 +547,8 @@ export default function UsersPage() {
   };
 
   const roleAccessPatch = (role: UiRole, current: UpdateUserPayload) => {
-    const supportsCephAdmin = role === "ui_admin" || role === "ui_superadmin";
-    const supportsStorageOps = role === "ui_user" || supportsCephAdmin;
+    const supportsCephAdmin = isAdminLikeRole(role);
+    const supportsStorageOps = roleSupportsOperationalAccess(role);
     return {
       role,
       can_access_ceph_admin: currentIsSuperAdmin && supportsCephAdmin ? Boolean(current.can_access_ceph_admin) : false,
@@ -609,11 +608,11 @@ export default function UsersPage() {
       password: form.password,
       role,
       can_access_ceph_admin:
-        currentIsSuperAdmin && (role === "ui_admin" || role === "ui_superadmin")
+        currentIsSuperAdmin && isAdminLikeRole(role)
           ? Boolean(form.can_access_ceph_admin)
           : false,
       can_access_storage_ops:
-        currentIsAdminLike && (role === "ui_user" || role === "ui_admin" || role === "ui_superadmin")
+        currentIsAdminLike && roleSupportsOperationalAccess(role)
           ? Boolean(form.can_access_storage_ops)
           : false,
       can_create_manual_private_connections: createTargetSupportsManagerTools
@@ -669,7 +668,7 @@ export default function UsersPage() {
   };
 
   const startEdit = (user: User) => {
-    if (!currentIsSuperAdmin && (user.role === "ui_admin" || user.role === "ui_superadmin")) {
+    if (!currentIsSuperAdmin && isAdminLikeRole(user.role)) {
       setActionError(text("standardUsersOnly"));
       return;
     }
@@ -682,19 +681,19 @@ export default function UsersPage() {
       quota_alerts_global_watch: Boolean(user.quota_alerts_global_watch),
       role,
       can_access_ceph_admin:
-        role === "ui_admin" || role === "ui_superadmin"
+        isAdminLikeRole(role)
           ? Boolean(user.can_access_ceph_admin)
           : false,
       can_access_storage_ops:
-        role === "ui_user" || role === "ui_admin" || role === "ui_superadmin"
+        roleSupportsOperationalAccess(role)
           ? Boolean(user.can_access_storage_ops)
           : false,
       can_create_manual_private_connections:
-        role === "ui_user" || role === "ui_admin" || role === "ui_superadmin"
+        roleSupportsOperationalAccess(role)
           ? Boolean(user.can_create_manual_private_connections)
           : false,
       can_provision_managed_private_connections:
-        role === "ui_user" || role === "ui_admin" || role === "ui_superadmin"
+        roleSupportsOperationalAccess(role)
           ? Boolean(user.can_provision_managed_private_connections)
           : false,
       manager_tool_access: normalizeManagerToolAccess(user.manager_tool_access),
@@ -803,20 +802,19 @@ export default function UsersPage() {
       payload.full_name = editForm.full_name?.trim() || null;
       payload.ui_language = editForm.ui_language ?? null;
       payload.quota_alerts_enabled = editForm.quota_alerts_enabled !== false;
-      payload.quota_alerts_global_watch = (nextRole === "ui_admin" || nextRole === "ui_superadmin") && Boolean(editForm.quota_alerts_global_watch);
+      payload.quota_alerts_global_watch = isAdminLikeRole(nextRole) && Boolean(editForm.quota_alerts_global_watch);
       if (editForm.role) {
         payload.role = nextRole;
       }
       payload.can_access_ceph_admin =
-        currentIsSuperAdmin && (nextRole === "ui_admin" || nextRole === "ui_superadmin")
+        currentIsSuperAdmin && isAdminLikeRole(nextRole)
           ? Boolean(editForm.can_access_ceph_admin ?? editingUser.can_access_ceph_admin)
           : false;
       payload.can_access_storage_ops =
-        currentIsAdminLike && (nextRole === "ui_user" || nextRole === "ui_admin" || nextRole === "ui_superadmin")
+        currentIsAdminLike && roleSupportsOperationalAccess(nextRole)
           ? Boolean(editForm.can_access_storage_ops ?? editingUser.can_access_storage_ops)
           : false;
-      const nextRoleSupportsConnectionPermissions =
-        nextRole === "ui_user" || nextRole === "ui_admin" || nextRole === "ui_superadmin";
+      const nextRoleSupportsConnectionPermissions = roleSupportsOperationalAccess(nextRole);
       payload.can_create_manual_private_connections = nextRoleSupportsConnectionPermissions
         ? Boolean(
             editForm.can_create_manual_private_connections ??
@@ -830,7 +828,7 @@ export default function UsersPage() {
           )
         : false;
       payload.manager_tool_access =
-        nextRole === "ui_user" || nextRole === "ui_admin" || nextRole === "ui_superadmin"
+        roleSupportsOperationalAccess(nextRole)
           ? normalizeManagerToolAccess(editForm.manager_tool_access ?? editingUser.manager_tool_access)
           : { ...DEFAULT_MANAGER_TOOL_ACCESS };
       payload.browser_advanced_features_enabled = Boolean(
