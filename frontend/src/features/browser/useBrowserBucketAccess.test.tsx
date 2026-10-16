@@ -24,7 +24,7 @@ function deferred<T>() {
 
 function createOptions() {
   return {
-    accountId: "account-a",
+    contextId: "account-a",
     activeBucketName: "current",
     contextKey: "browser:account-a",
     enabled: true,
@@ -69,21 +69,21 @@ describe("useBrowserBucketAccess", () => {
 
   it("keeps cached access results isolated by execution context", async () => {
     apiMocks.listBrowserObjects.mockImplementation(
-      (accountId: string) =>
-        accountId === "account-a"
+      (contextId: string) =>
+        contextId === "account-a"
           ? Promise.resolve({})
           : Promise.reject(new Error("AccessDenied for this bucket")),
     );
     const { result, rerender } = renderHook(
-      ({ accountId, contextKey }) =>
+      ({ contextId, contextKey }) =>
         useBrowserBucketAccess({
           ...createOptions(),
-          accountId,
+          contextId,
           contextKey,
         }),
       {
         initialProps: {
-          accountId: "account-a",
+          contextId: "account-a",
           contextKey: "browser:account-a",
         },
       },
@@ -98,7 +98,7 @@ describe("useBrowserBucketAccess", () => {
     const updateAccountAEntry = result.current.updateBucketAccessEntry;
 
     rerender({
-      accountId: "account-b",
+      contextId: "account-b",
       contextKey: "browser:account-b",
     });
     expect(result.current.accessByName["shared-name"]).toBeUndefined();
@@ -117,7 +117,7 @@ describe("useBrowserBucketAccess", () => {
     });
 
     rerender({
-      accountId: "account-a",
+      contextId: "account-a",
       contextKey: "browser:account-a",
     });
     expect(result.current.accessByName["shared-name"]?.status).toBe(
@@ -131,22 +131,22 @@ describe("useBrowserBucketAccess", () => {
       ReturnType<typeof deferred<Record<string, never>>>
     >();
     apiMocks.listBrowserObjects.mockImplementation(
-      (accountId: string, bucketName: string) => {
+      (contextId: string, bucketName: string) => {
         const request = deferred<Record<string, never>>();
-        requests.set(`${accountId}:${bucketName}`, request);
+        requests.set(`${contextId}:${bucketName}`, request);
         return request.promise;
       },
     );
     const { result, rerender } = renderHook(
-      ({ accountId, contextKey }) =>
+      ({ contextId, contextKey }) =>
         useBrowserBucketAccess({
           ...createOptions(),
-          accountId,
+          contextId,
           contextKey,
         }),
       {
         initialProps: {
-          accountId: "account-a",
+          contextId: "account-a",
           contextKey: "browser:account-a",
         },
       },
@@ -159,7 +159,7 @@ describe("useBrowserBucketAccess", () => {
     const staleRequest = requests.get("account-a:shared-name");
 
     rerender({
-      accountId: "account-b",
+      contextId: "account-b",
       contextKey: "browser:account-b",
     });
     act(() => result.current.scheduleBucketAccessProbe("shared-name"));

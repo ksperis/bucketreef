@@ -43,7 +43,7 @@ function createViewport(...itemIds: string[]) {
 
 function createOptions(items: BrowserItem[]) {
   return {
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "bucket-a",
     enabled: true,
     items,
@@ -137,7 +137,7 @@ describe("useBrowserLazyColumns", () => {
       resolveOld = resolve;
     });
     apiMocks.fetchBrowserObjectColumns.mockImplementation(
-      (_accountId: unknown, bucketName: string) =>
+      (_contextId: unknown, bucketName: string) =>
         bucketName === "bucket-a"
           ? oldRequest
           : Promise.resolve({

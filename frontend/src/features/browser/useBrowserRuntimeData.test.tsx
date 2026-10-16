@@ -49,7 +49,7 @@ function usage(usedBytes: number): BrowserUsageSummary {
 
 function createOptions() {
   return {
-    accountId: "account-a",
+    contextId: "account-a",
     enabled: true,
     requestOptions: { workspaceSurface: "browser" as const },
     showUsage: true,
@@ -86,24 +86,24 @@ describe("useBrowserRuntimeData", () => {
   it("never exposes runtime data from the previous account", async () => {
     const accountASettings = deferred<BrowserSettings>();
     const accountAUsage = deferred<BrowserUsageSummary>();
-    apiMocks.fetchBrowserSettings.mockImplementation((accountId: string) =>
-      accountId === "account-a"
+    apiMocks.fetchBrowserSettings.mockImplementation((contextId: string) =>
+      contextId === "account-a"
         ? accountASettings.promise
         : Promise.resolve(settings(8)),
     );
-    apiMocks.fetchBrowserUsageSummary.mockImplementation((accountId: string) =>
-      accountId === "account-a"
+    apiMocks.fetchBrowserUsageSummary.mockImplementation((contextId: string) =>
+      contextId === "account-a"
         ? accountAUsage.promise
         : Promise.resolve(usage(256)),
     );
     const options = createOptions();
     const { result, rerender } = renderHook(
-      ({ accountId }) =>
+      ({ contextId }) =>
         useBrowserRuntimeData({
           ...options,
-          accountId,
+          contextId,
         }),
-      { initialProps: { accountId: "account-a" } },
+      { initialProps: { contextId: "account-a" } },
     );
 
     await waitFor(() => {
@@ -112,7 +112,7 @@ describe("useBrowserRuntimeData", () => {
         expect.any(Object),
       );
     });
-    rerender({ accountId: "account-b" });
+    rerender({ contextId: "account-b" });
     expect(result.current.settings).toBeNull();
     expect(result.current.usageSummary).toBeNull();
     expect(result.current.usageLoading).toBe(true);

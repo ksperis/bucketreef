@@ -18,7 +18,7 @@ import { isAbortError } from "./browserUtils";
 const BUCKET_ACCESS_PROBE_CONCURRENCY = 4;
 
 type UseBrowserBucketAccessOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   activeBucketName: string;
   contextKey: string | null;
   enabled: boolean;
@@ -26,7 +26,7 @@ type UseBrowserBucketAccessOptions = {
 };
 
 export function useBrowserBucketAccess({
-  accountId,
+  contextId,
   activeBucketName,
   contextKey,
   enabled,
@@ -122,7 +122,7 @@ export function useBrowserBucketAccess({
   }, [cancelProbes, commitEntries, contextKey, enabled]);
 
   const drainBucketAccessQueue = useCallback(() => {
-    if (!enabled || !accountId) return;
+    if (!enabled || !contextId) return;
     const requestSession = sessionRef.current;
     while (
       inFlightRef.current < BUCKET_ACCESS_PROBE_CONCURRENCY &&
@@ -134,7 +134,7 @@ export function useBrowserBucketAccess({
       inFlightRef.current += 1;
       const controller = new AbortController();
       abortControllersRef.current.set(bucketName, controller);
-      void listBrowserObjects(accountId, bucketName, {
+      void listBrowserObjects(contextId, bucketName, {
         maxKeys: 1,
         signal: controller.signal,
         ...requestOptions,
@@ -174,14 +174,14 @@ export function useBrowserBucketAccess({
           drainBucketAccessQueue();
         });
     }
-  }, [accountId, enabled, requestOptions, updateBucketAccessEntry]);
+  }, [contextId, enabled, requestOptions, updateBucketAccessEntry]);
 
   const scheduleBucketAccessProbe = useCallback(
     (bucketName: string) => {
       if (
         !bucketName ||
         !enabled ||
-        !accountId ||
+        !contextId ||
         bucketName === activeBucketName ||
         getBucketAccessEntry(bucketName).status !== "unknown" ||
         queuedRef.current.has(bucketName) ||
@@ -198,7 +198,7 @@ export function useBrowserBucketAccess({
       drainBucketAccessQueue();
     },
     [
-      accountId,
+      contextId,
       activeBucketName,
       drainBucketAccessQueue,
       enabled,

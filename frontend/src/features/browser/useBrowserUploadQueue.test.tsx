@@ -19,7 +19,7 @@ const candidate = (name: string, relativePath?: string): UploadCandidate => ({
 
 function createOptions() {
   return {
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "bucket-a",
     cancelOperationController: vi.fn(),
     enabled: true,
@@ -138,11 +138,11 @@ describe("useBrowserUploadQueue", () => {
   });
 
   it("queues uploads for an authenticated S3 session without inventing a context id", async () => {
-    const options = { ...createOptions(), accountId: null };
+    const options = { ...createOptions(), contextId: null };
     options.startUpload.mockResolvedValue(true);
     const { result } = renderHook(() => useBrowserUploadQueue(options));
     await act(async () => result.current.addFiles([candidate("session.txt")]));
-    expect(options.startUpload).toHaveBeenCalledWith(expect.objectContaining({ accountId: "", key: "docs/session.txt" }));
+    expect(options.startUpload).toHaveBeenCalledWith(expect.objectContaining({ contextId: "", key: "docs/session.txt" }));
   });
 
   it("does not enqueue files without an active Browser context", () => {

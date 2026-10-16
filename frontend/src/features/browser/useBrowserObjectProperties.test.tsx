@@ -72,7 +72,7 @@ function tags(key: string, versionId: string): ObjectTags {
 function renderProperties() {
   const item = browserItem("docs/report.txt");
   return renderHook(() => useBrowserObjectProperties({
-    accountId: "acc-1", bucketName: "bucket-a", isDeleted: false, item,
+    contextId: "acc-1", bucketName: "bucket-a", isDeleted: false, item,
     requestOptions: { workspaceSurface: "browser" },
   }));
 }
@@ -93,7 +93,7 @@ describe("useBrowserObjectProperties", () => {
     const item = browserItem("docs/report.txt");
     const { result } = renderHook(() =>
       useBrowserObjectProperties({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         isDeleted: false,
         item,
@@ -134,7 +134,7 @@ describe("useBrowserObjectProperties", () => {
     const item = browserItem("docs/report.txt");
     const { result } = renderHook(() =>
       useBrowserObjectProperties({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         isDeleted: false,
         item,
@@ -161,7 +161,7 @@ describe("useBrowserObjectProperties", () => {
     const item = browserItem("docs/report.txt");
     const { result } = renderHook(() =>
       useBrowserObjectProperties({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         isDeleted: false,
         item,
@@ -243,7 +243,7 @@ describe("useBrowserObjectProperties", () => {
     const { result, rerender } = renderHook(
       ({ item }) =>
         useBrowserObjectProperties({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           isDeleted: false,
           item,
@@ -285,7 +285,7 @@ describe("useBrowserObjectProperties", () => {
     const { result, rerender } = renderHook(
       ({ item }) =>
         useBrowserObjectProperties({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           isDeleted: false,
           item,

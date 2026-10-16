@@ -54,7 +54,7 @@ function item(key: string, type: "file" | "folder" = "file"): BrowserItem {
 
 function createOptions() {
   return {
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "bucket-a",
     cancelDownloadDetails: vi.fn(),
     clearOperationController: vi.fn(),

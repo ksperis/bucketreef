@@ -17,7 +17,7 @@ import type {
 import { extractApiError } from "../../utils/apiError";
 
 type UseBrowserRuntimeDataOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   enabled: boolean;
   requestOptions?: BrowserRequestOptions;
   showUsage: boolean;
@@ -47,11 +47,11 @@ const EMPTY_USAGE_STATE: UsageState = {
   error: null,
 };
 
-const hasAccountSelector = (accountId: S3ExecutionContextSelector) =>
-  accountId !== null && accountId !== undefined && accountId !== "";
+const hasAccountSelector = (contextId: S3ExecutionContextSelector) =>
+  contextId !== null && contextId !== undefined && contextId !== "";
 
 export function useBrowserRuntimeData({
-  accountId,
+  contextId,
   enabled,
   requestOptions,
   showUsage,
@@ -69,9 +69,9 @@ export function useBrowserRuntimeData({
         : undefined,
     [requestOptions?.workspaceSurface],
   );
-  const canLoad = enabled && hasAccountSelector(accountId);
+  const canLoad = enabled && hasAccountSelector(contextId);
   const settingsKey = JSON.stringify([
-    accountId ?? null,
+    contextId ?? null,
     canLoad,
     stableRequestOptions?.workspaceSurface ?? null,
   ]);
@@ -94,7 +94,7 @@ export function useBrowserRuntimeData({
   useEffect(() => {
     if (!canLoad) return;
     let active = true;
-    fetchBrowserSettings(accountId, stableRequestOptions)
+    fetchBrowserSettings(contextId, stableRequestOptions)
       .then((value) => {
         if (active) setSettingsState({ key: settingsKey, value });
       })
@@ -104,12 +104,12 @@ export function useBrowserRuntimeData({
     return () => {
       active = false;
     };
-  }, [accountId, canLoad, settingsKey, stableRequestOptions]);
+  }, [contextId, canLoad, settingsKey, stableRequestOptions]);
 
   useEffect(() => {
     if (!canLoadUsage) return;
     let active = true;
-    fetchBrowserUsageSummary(accountId, stableRequestOptions)
+    fetchBrowserUsageSummary(contextId, stableRequestOptions)
       .then((value) => {
         if (!active) return;
         setUsageState({
@@ -131,7 +131,7 @@ export function useBrowserRuntimeData({
     return () => {
       active = false;
     };
-  }, [accountId, canLoadUsage, stableRequestOptions, usageKey]);
+  }, [contextId, canLoadUsage, stableRequestOptions, usageKey]);
 
   const settings =
     settingsState.key === settingsKey ? settingsState.value : null;

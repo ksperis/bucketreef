@@ -55,7 +55,7 @@ type BrowserContextMenuProps = {
   contextMenuRef: RefObject<HTMLDivElement>;
   bucketName: string;
   currentPath: string;
-  hasS3AccountContext: boolean;
+  hasExecutionContext: boolean;
   versioningEnabled: boolean;
   showFolderItems: boolean;
   showDeletedObjects: boolean;
@@ -109,7 +109,7 @@ export default function BrowserContextMenu({
   contextMenuRef,
   bucketName,
   currentPath,
-  hasS3AccountContext,
+  hasExecutionContext,
   versioningEnabled,
   showFolderItems,
   showDeletedObjects,
@@ -164,7 +164,7 @@ export default function BrowserContextMenu({
   const pathActionStates = resolveBrowserActions({
     scope: "path",
     bucketName,
-    hasS3AccountContext,
+    hasExecutionContext,
     versioningEnabled,
     canPaste,
     clipboardMode: clipboard?.mode ?? null,
@@ -186,7 +186,7 @@ export default function BrowserContextMenu({
           scope: "selection",
           items: selectionItems,
           bucketName,
-          hasS3AccountContext,
+          hasExecutionContext,
           versioningEnabled,
           canPaste,
           clipboardMode: clipboard?.mode ?? null,

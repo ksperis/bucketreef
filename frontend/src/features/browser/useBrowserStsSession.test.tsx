@@ -89,20 +89,20 @@ describe("useBrowserStsSession", () => {
   it("does not reuse or commit an in-flight request from a previous account", async () => {
     const accountOneRequest = deferred<StsCredentials>();
     const accountTwoRequest = deferred<StsCredentials>();
-    apiMocks.getBrowserStsCredentials.mockImplementation((accountId: string) =>
-      accountId === "acc-1"
+    apiMocks.getBrowserStsCredentials.mockImplementation((contextId: string) =>
+      contextId === "acc-1"
         ? accountOneRequest.promise
         : accountTwoRequest.promise,
     );
 
     const { result, rerender } = renderHook(
-      ({ accountId }) =>
+      ({ contextId }) =>
         useBrowserStsSession({
-          contextIdForApi: accountId,
+          contextIdForApi: contextId,
           enabled: true,
           hasContext: true,
         }),
-      { initialProps: { accountId: "acc-1" } },
+      { initialProps: { contextId: "acc-1" } },
     );
     await waitFor(() => {
       expect(apiMocks.getBrowserStsCredentials).toHaveBeenCalledWith(
@@ -111,7 +111,7 @@ describe("useBrowserStsSession", () => {
       );
     });
 
-    rerender({ accountId: "acc-2" });
+    rerender({ contextId: "acc-2" });
     await waitFor(() => {
       expect(apiMocks.getBrowserStsCredentials).toHaveBeenCalledWith(
         "acc-2",

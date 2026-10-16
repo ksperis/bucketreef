@@ -51,7 +51,7 @@ describe("useBrowserObjectProtection", () => {
   it("loads legal hold and retention together for the active object", async () => {
     const { result } = renderHook(() =>
       useBrowserObjectProtection({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         objectKey: "docs/report.txt",
@@ -93,7 +93,7 @@ describe("useBrowserObjectProtection", () => {
 
     const { result } = renderHook(() =>
       useBrowserObjectProtection({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         objectKey: "docs/report.txt",
@@ -111,7 +111,7 @@ describe("useBrowserObjectProtection", () => {
   it("saves legal hold and retention through the active object version", async () => {
     const { result } = renderHook(() =>
       useBrowserObjectProtection({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         enabled: true,
         objectKey: "docs/report.txt",
@@ -175,7 +175,7 @@ describe("useBrowserObjectProtection", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserObjectProtection({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           enabled: true,
           objectKey,
@@ -224,7 +224,7 @@ describe("useBrowserObjectProtection", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserObjectProtection({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           enabled: true,
           objectKey,

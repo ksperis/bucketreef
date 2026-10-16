@@ -39,7 +39,7 @@ function item(
 
 function createOptions() {
   return {
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "bucket-a",
     cancelDeleteDetails: vi.fn(),
     clearOperationController: vi.fn(),

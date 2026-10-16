@@ -50,9 +50,9 @@ export function useBrowserSseCustomerKeys({
   const [visible, setVisible] = useState(false);
 
   const scopeKey = useMemo(() => {
-    const accountId = normalizeS3SelectorId(contextIdForApi);
-    if (!accountId || !bucketName) return null;
-    return `${accountId}::${bucketName}`;
+    const contextId = normalizeS3SelectorId(contextIdForApi);
+    if (!contextId || !bucketName) return null;
+    return `${contextId}::${bucketName}`;
   }, [contextIdForApi, bucketName]);
   const storedKeyBase64 = useMemo(() => {
     if (!scopeKey) return null;
@@ -62,9 +62,9 @@ export function useBrowserSseCustomerKeys({
 
   const getKeyForScope = useCallback(
     (selector: S3ExecutionContextSelector, bucket: string) => {
-      const accountId = normalizeS3SelectorId(selector);
-      if (!accountId || !bucket) return null;
-      return keysByScope[`${accountId}::${bucket}`] ?? null;
+      const contextId = normalizeS3SelectorId(selector);
+      if (!contextId || !bucket) return null;
+      return keysByScope[`${contextId}::${bucket}`] ?? null;
     },
     [keysByScope],
   );

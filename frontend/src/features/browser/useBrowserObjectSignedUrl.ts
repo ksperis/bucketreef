@@ -26,7 +26,7 @@ type CopySignedUrlResult =
   | { status: "skipped" };
 
 type UseBrowserObjectSignedUrlOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   objectKey: string;
   requestOptions?: BrowserRequestOptions;
@@ -37,7 +37,7 @@ const defaultExpiration = () =>
   formatLocalDateTime(new Date(Date.now() + 60 * 60 * 1000));
 
 export function useBrowserObjectSignedUrl({
-  accountId,
+  contextId,
   bucketName,
   objectKey,
   requestOptions,
@@ -45,7 +45,7 @@ export function useBrowserObjectSignedUrl({
 }: UseBrowserObjectSignedUrlOptions) {
   const { text } = useBrowserI18n();
   const scope = JSON.stringify([
-    accountId,
+    contextId,
     bucketName,
     objectKey,
     requestOptions?.workspaceSurface ?? null,
@@ -75,7 +75,7 @@ export function useBrowserObjectSignedUrl({
   }, []);
 
   const generate = useCallback(async (): Promise<GenerateSignedUrlResult> => {
-    if (!isCurrentScope() || !accountId || !bucketName || !objectKey) {
+    if (!isCurrentScope() || !contextId || !bucketName || !objectKey) {
       return { status: "skipped" };
     }
     setError(null);
@@ -100,7 +100,7 @@ export function useBrowserObjectSignedUrl({
         setGenerating,
         () =>
           presignObject(
-            accountId,
+            contextId,
             bucketName,
             {
               key: objectKey,
@@ -126,7 +126,7 @@ export function useBrowserObjectSignedUrl({
       return { status: "api-error", message };
     }
   }, [
-    accountId,
+    contextId,
     bucketName,
     expires,
     isCurrentScope,

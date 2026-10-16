@@ -84,7 +84,7 @@ type ResolveBrowserActionsInput = {
   scope: BrowserActionScope;
   items?: BrowserItem[];
   bucketName: string;
-  hasS3AccountContext: boolean;
+  hasExecutionContext: boolean;
   versioningEnabled: boolean;
   canPaste: boolean;
   clipboardMode?: ClipboardState["mode"] | null;
@@ -403,7 +403,7 @@ export const resolveBrowserActions = ({
   scope,
   items = [],
   bucketName,
-  hasS3AccountContext,
+  hasExecutionContext,
   versioningEnabled,
   canPaste,
   clipboardMode = null,
@@ -430,7 +430,7 @@ export const resolveBrowserActions = ({
   }, {} as BrowserActionMap);
   const selectionInfo = getSelectionInfo(items);
   const hasBucket = Boolean(bucketName);
-  const canUseContextActions = hasBucket && hasS3AccountContext;
+  const canUseContextActions = hasBucket && hasExecutionContext;
   const isSingle = selectionInfo.isSingle;
   const primary = selectionInfo.primary;
   const isPrimaryFile = primary?.type === "file";

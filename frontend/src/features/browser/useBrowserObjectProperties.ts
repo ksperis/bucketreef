@@ -41,7 +41,7 @@ export type BrowserObjectDirtySections = Record<PropertySection, boolean>;
 type SavedDraft = { section: PropertySection; signature: string };
 
 type UseBrowserObjectPropertiesOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   isDeleted: boolean;
   item: BrowserItem;
@@ -87,7 +87,7 @@ const draftSignatures = ({
   });
 
 export function useBrowserObjectProperties({
-  accountId,
+  contextId,
   bucketName,
   isDeleted,
   item,
@@ -96,7 +96,7 @@ export function useBrowserObjectProperties({
 }: UseBrowserObjectPropertiesOptions) {
   const { text } = useBrowserI18n();
   const scope = JSON.stringify([
-    accountId,
+    contextId,
     bucketName,
     isDeleted,
     item.key,
@@ -274,7 +274,7 @@ export function useBrowserObjectProperties({
   const load = useCallback(
     async (force = false, acceptedDraft?: SavedDraft) => {
       if (scope !== scopeRef.current) return;
-      if (!accountId || !bucketName || item.type !== "file" || isDeleted) {
+      if (!contextId || !bucketName || item.type !== "file" || isDeleted) {
         return;
       }
       if (!force && (loadingRef.current || loadedRef.current || readFailedRef.current)) return;
@@ -288,7 +288,7 @@ export function useBrowserObjectProperties({
       try {
         const [nextMetadata, nextTags] = await Promise.all([
           fetchObjectMetadata(
-            accountId,
+            contextId,
             bucketName,
             item.key,
             null,
@@ -297,7 +297,7 @@ export function useBrowserObjectProperties({
             requestOptions,
           ),
           getObjectTags(
-            accountId,
+            contextId,
             bucketName,
             item.key,
             null,
@@ -355,7 +355,7 @@ export function useBrowserObjectProperties({
       }
     },
     [
-      accountId,
+      contextId,
       bucketName,
       isDeleted,
       item,
@@ -390,7 +390,7 @@ export function useBrowserObjectProperties({
   }, [isCurrentScope, load]);
 
   const saveMetadata = useCallback(async () => {
-    if (!isCurrentScope() || !accountId || !bucketName || !item.key) {
+    if (!isCurrentScope() || !contextId || !bucketName || !item.key) {
       return false;
     }
     return (
@@ -407,7 +407,7 @@ export function useBrowserObjectProperties({
           metadata: normalizeObjectDetailPairs(metadataItems),
         };
         await updateObjectMetadata(
-          accountId,
+          contextId,
           bucketName,
           payload,
           undefined,
@@ -417,7 +417,7 @@ export function useBrowserObjectProperties({
       })) ?? false
     );
   }, [
-    accountId,
+    contextId,
     bucketName,
     isCurrentScope,
     item.key,
@@ -431,13 +431,13 @@ export function useBrowserObjectProperties({
   ]);
 
   const saveTags = useCallback(async () => {
-    if (!isCurrentScope() || !accountId || !bucketName || !item.key) {
+    if (!isCurrentScope() || !contextId || !bucketName || !item.key) {
       return false;
     }
     return (
       (await runSectionSave("tags", currentSignatures.tags, setSavingTags, async () => {
         await updateObjectTags(
-          accountId,
+          contextId,
           bucketName,
           {
             key: item.key,
@@ -451,7 +451,7 @@ export function useBrowserObjectProperties({
       })) ?? false
     );
   }, [
-    accountId,
+    contextId,
     bucketName,
     isCurrentScope,
     item.key,
@@ -466,7 +466,7 @@ export function useBrowserObjectProperties({
   const saveStorageClass = useCallback(async () => {
     if (
       !isCurrentScope() ||
-      !accountId ||
+      !contextId ||
       !bucketName ||
       !item.key ||
       !storageClass
@@ -475,7 +475,7 @@ export function useBrowserObjectProperties({
     }
     return runSectionSave("storageClass", currentSignatures.storageClass, setSavingStorageClass, async () => {
       await updateObjectMetadata(
-        accountId,
+        contextId,
         bucketName,
         {
           key: item.key,
@@ -488,7 +488,7 @@ export function useBrowserObjectProperties({
       return storageClass;
     });
   }, [
-    accountId,
+    contextId,
     bucketName,
     isCurrentScope,
     item.key,

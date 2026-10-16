@@ -92,7 +92,7 @@ function buildProps(overrides: Partial<ExplorerProps> = {}): ExplorerProps {
         scope: "item",
         items: [item],
         bucketName: "documents",
-        hasS3AccountContext: true,
+        hasExecutionContext: true,
         versioningEnabled: true,
         canPaste: true,
         functionalProfile: "advanced",

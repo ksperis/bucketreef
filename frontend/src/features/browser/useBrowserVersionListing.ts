@@ -16,7 +16,7 @@ type LoadBrowserVersionsOptions = {
 };
 
 type UseBrowserVersionListingOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   autoLoad?: boolean;
   bucketName: string;
   enabled: boolean;
@@ -30,7 +30,7 @@ type UseBrowserVersionListingOptions = {
 };
 
 export function useBrowserVersionListing({
-  accountId,
+  contextId,
   autoLoad = false,
   bucketName,
   enabled,
@@ -43,7 +43,7 @@ export function useBrowserVersionListing({
   requestOptions,
 }: UseBrowserVersionListingOptions) {
   const scope = JSON.stringify([
-    accountId,
+    contextId,
     bucketName,
     enabled,
     objectKey,
@@ -91,7 +91,7 @@ export function useBrowserVersionListing({
   const load = useCallback(
     async ({ append = false, force = false }: LoadBrowserVersionsOptions = {}) => {
       if (scope !== scopeRef.current) return;
-      if (!accountId || !bucketName || !enabled) return;
+      if (!contextId || !bucketName || !enabled) return;
       if (objectKey === null && prefix === undefined) return;
       if (loadingRef.current && !force) return;
 
@@ -103,7 +103,7 @@ export function useBrowserVersionListing({
       try {
         const target =
           objectKey !== null ? { key: objectKey } : { prefix };
-        const data = await listObjectVersions(accountId, bucketName, {
+        const data = await listObjectVersions(contextId, bucketName, {
           ...target,
           keyMarker: append ? keyMarkerRef.current : null,
           versionIdMarker: append ? versionIdMarkerRef.current : null,
@@ -183,7 +183,7 @@ export function useBrowserVersionListing({
       }
     },
     [
-      accountId,
+      contextId,
       bucketName,
       enabled,
       errorMessage,

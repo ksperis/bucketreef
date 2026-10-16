@@ -40,7 +40,7 @@ const makeItem = (file = new File(["data"], "report.txt")): UploadQueueItem => (
   relativePath: "docs/report.txt",
   key: "prefix/docs/report.txt",
   bucket: "bucket-a",
-  accountId: "acc-1",
+  contextId: "acc-1",
   groupId: "group-1",
   groupLabel: "docs",
   groupKind: "folder",
@@ -131,7 +131,7 @@ describe("useBrowserQueuedUpload", () => {
     uploadMocks.uploadBrowserFile.mockImplementation(async ({ uploadProxy }: { uploadProxy: () => Promise<void> }) => uploadProxy());
     const options = { ...createOptions(), useProxyTransfers: true };
     const { result } = renderHook(() => useBrowserQueuedUpload(options));
-    await act(async () => expect(result.current({ ...makeItem(), accountId: "" })).resolves.toBe(true));
+    await act(async () => expect(result.current({ ...makeItem(), contextId: "" })).resolves.toBe(true));
     expect(apiMocks.proxyUpload).toHaveBeenCalledWith("", "bucket-a", "prefix/docs/report.txt", expect.any(File), expect.any(Function), expect.any(AbortSignal), "customer-key", undefined, options.requestOptions);
   });
 

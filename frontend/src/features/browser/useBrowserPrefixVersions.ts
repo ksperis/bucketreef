@@ -12,7 +12,7 @@ import {
 import { useBrowserVersionListing } from "./useBrowserVersionListing";
 
 type UseBrowserPrefixVersionsOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   contextEnabled: boolean;
   onHardLimit: () => void;
@@ -22,7 +22,7 @@ type UseBrowserPrefixVersionsOptions = {
 };
 
 export function useBrowserPrefixVersions({
-  accountId,
+  contextId,
   bucketName,
   contextEnabled,
   onHardLimit,
@@ -33,7 +33,7 @@ export function useBrowserPrefixVersions({
   const [visible, setVisible] = useState(false);
   const { canLoadMore, error, load, loading, rows } =
     useBrowserVersionListing({
-      accountId,
+      contextId,
       autoLoad: true,
       bucketName,
       enabled: visible && contextEnabled && versioningEnabled,

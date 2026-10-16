@@ -44,7 +44,7 @@ type DeleteObjectsInBatches = (
 ) => Promise<number>;
 
 type UseBrowserBulkRestoreOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName: string;
   clearOperationController: OperationRegistry["clearOperationController"];
   completeOperation: OperationRegistry["completeOperation"];
@@ -77,7 +77,7 @@ export function createBrowserBulkRestoreDraft(): BrowserBulkRestoreDraft {
 }
 
 export function useBrowserBulkRestore({
-  accountId,
+  contextId,
   bucketName,
   clearOperationController,
   completeOperation,
@@ -171,7 +171,7 @@ export function useBrowserBulkRestore({
       let versionIdMarker: string | null = null;
       let hasMore = true;
       while (hasMore) {
-        const data = await listObjectVersions(accountId, bucketName, {
+        const data = await listObjectVersions(contextId, bucketName, {
           ...selector,
           keyMarker,
           versionIdMarker,
@@ -186,7 +186,7 @@ export function useBrowserBulkRestore({
       }
       return { versions, deleteMarkers };
     },
-    [accountId, bucketName, enabled, requestOptions, versioningEnabled],
+    [contextId, bucketName, enabled, requestOptions, versioningEnabled],
   );
 
   const apply = useCallback(async () => {
@@ -296,7 +296,7 @@ export function useBrowserBulkRestore({
             }
             try {
               await copyObject(
-                accountId,
+                contextId,
                 bucketName,
                 {
                   source_key: item.key,
@@ -369,7 +369,7 @@ export function useBrowserBulkRestore({
       setLoading(false);
     }
   }, [
-    accountId,
+    contextId,
     bucketName,
     clearOperationController,
     completeOperation,

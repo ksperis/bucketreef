@@ -13,7 +13,7 @@ describe("BrowserPathDetailsDrawer", () => {
       const onCopyPath = vi.fn();
       render(
         <BrowserPathDetailsDrawer
-          accountId="account-1"
+          contextId="account-1"
           bucketName="documents"
           listAllObjectsForPrefix={listAllObjectsForPrefix}
           prefix={prefix}
@@ -40,7 +40,7 @@ describe("BrowserPathDetailsDrawer", () => {
 
     render(
       <BrowserPathDetailsDrawer
-        accountId="account-1"
+        contextId="account-1"
         bucketName="documents"
         listAllObjectsForPrefix={listAllObjectsForPrefix}
         prefix="reports/"
@@ -72,7 +72,7 @@ describe("BrowserPathDetailsDrawer", () => {
 
     render(
       <BrowserPathDetailsDrawer
-        accountId="account-1"
+        contextId="account-1"
         bucketName="documents"
         listAllObjectsForPrefix={listAllObjectsForPrefix}
         prefix=""

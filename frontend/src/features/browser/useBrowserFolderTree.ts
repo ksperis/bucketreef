@@ -28,8 +28,8 @@ import type { TreeNode } from "./browserTypes";
 import { useBrowserI18n } from "./browserI18n";
 
 type UseBrowserFolderTreeOptions = {
-  accountId: S3ExecutionContextSelector;
-  accountSwitchInFlight: boolean;
+  contextId: S3ExecutionContextSelector;
+  contextSwitchInFlight: boolean;
   bucketName: string;
   currentBucketUnavailable: boolean;
   enabled: boolean;
@@ -45,8 +45,8 @@ type LoadTreeChildrenOptions = {
 const TREE_PREFIXES_PAGE_BUDGET = 50;
 
 export function useBrowserFolderTree({
-  accountId,
-  accountSwitchInFlight,
+  contextId,
+  contextSwitchInFlight,
   bucketName,
   currentBucketUnavailable,
   enabled,
@@ -67,8 +67,8 @@ export function useBrowserFolderTree({
     [requestOptions?.workspaceSurface],
   );
   const requestScopeKey = JSON.stringify([
-    accountId ?? null,
-    accountSwitchInFlight,
+    contextId ?? null,
+    contextSwitchInFlight,
     bucketName,
     enabled,
     currentBucketUnavailable,
@@ -100,7 +100,7 @@ export function useBrowserFolderTree({
         pagesScanned < TREE_PREFIXES_PAGE_BUDGET &&
         prefixesCollected.length < TREE_PREFIXES_HARD_LIMIT
       ) {
-        const data = await listBrowserObjects(accountId, bucketName, {
+        const data = await listBrowserObjects(contextId, bucketName, {
           prefix: targetPrefix,
           continuationToken: continuationToken ?? undefined,
           maxKeys: TREE_PREFIXES_PAGE_SIZE,
@@ -121,7 +121,7 @@ export function useBrowserFolderTree({
         truncated: hasMore || reachedHardLimit,
       };
     },
-    [accountId, bucketName, stableRequestOptions],
+    [contextId, bucketName, stableRequestOptions],
   );
 
   const loadTreeChildren = useCallback(
@@ -130,7 +130,7 @@ export function useBrowserFolderTree({
       options: LoadTreeChildrenOptions = {},
     ) => {
       if (
-        accountSwitchInFlight ||
+        contextSwitchInFlight ||
         !bucketName ||
         !enabled ||
         currentBucketUnavailable
@@ -194,7 +194,7 @@ export function useBrowserFolderTree({
       }
     },
     [
-      accountSwitchInFlight,
+      contextSwitchInFlight,
       bucketName,
       currentBucketUnavailable,
       enabled,
@@ -207,7 +207,7 @@ export function useBrowserFolderTree({
 
   useEffect(() => {
     if (
-      accountSwitchInFlight ||
+      contextSwitchInFlight ||
       !bucketName ||
       !enabled ||
       currentBucketUnavailable
@@ -228,7 +228,7 @@ export function useBrowserFolderTree({
     ]);
     void loadTreeChildren("");
   }, [
-    accountSwitchInFlight,
+    contextSwitchInFlight,
     bucketName,
     currentBucketUnavailable,
     enabled,

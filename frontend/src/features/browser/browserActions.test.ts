@@ -34,7 +34,7 @@ const folderItem: BrowserItem = {
 
 const baseInput = {
   bucketName: "bucket-1",
-  hasS3AccountContext: true,
+  hasExecutionContext: true,
   versioningEnabled: true,
   canPaste: true,
 };

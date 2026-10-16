@@ -45,7 +45,7 @@ describe("useBrowserObjectSignedUrl", () => {
   it("generates a signed URL within the allowed expiration window", async () => {
     const { result } = renderHook(() =>
       useBrowserObjectSignedUrl({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         objectKey: "docs/report.txt",
         sseCustomerKeyBase64: "customer-key",
@@ -77,7 +77,7 @@ describe("useBrowserObjectSignedUrl", () => {
   it("rejects invalid, short, and excessive expiration values locally", async () => {
     const { result } = renderHook(() =>
       useBrowserObjectSignedUrl({
-        accountId: "acc-1",
+        contextId: "acc-1",
         bucketName: "bucket-a",
         objectKey: "docs/report.txt",
       }),
@@ -129,7 +129,7 @@ describe("useBrowserObjectSignedUrl", () => {
     const { result, rerender } = renderHook(
       ({ objectKey }) =>
         useBrowserObjectSignedUrl({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           objectKey,
         }),
@@ -168,7 +168,7 @@ describe("useBrowserObjectSignedUrl", () => {
     try {
       const { result } = renderHook(() =>
         useBrowserObjectSignedUrl({
-          accountId: "acc-1",
+          contextId: "acc-1",
           bucketName: "bucket-a",
           objectKey: "docs/report.txt",
         }),

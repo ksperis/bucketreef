@@ -30,7 +30,7 @@ import { normalizePrefix } from "./browserUtils";
 import { useBrowserBucketAccess } from "./useBrowserBucketAccess";
 
 type UseBrowserBucketCatalogOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   accessContextKey: string | null;
   browserRootContextId: string | null;
   enabled: boolean;
@@ -55,7 +55,7 @@ type BucketSelectionSource =
   | "none";
 
 export function useBrowserBucketCatalog({
-  accountId,
+  contextId,
   accessContextKey,
   browserRootContextId,
   enabled,
@@ -87,14 +87,14 @@ export function useBrowserBucketCatalog({
   const searchValueRef = useRef("");
   const requestIdRef = useRef(0);
   const activeContextKeyRef = useRef<string | null>(accessContextKey);
-  const previousAccountIdRef = useRef(accountId);
+  const previousContextIdRef = useRef(contextId);
   const requestedPrefixRef = useRef(requestedPrefix);
   requestedPrefixRef.current = requestedPrefix;
   const selectionPersistenceReadyRef = useRef(false);
   const selectionPersistenceContextIdRef = useRef<string | null>(
     browserRootContextId,
   );
-  const accountSwitchInFlight = previousAccountIdRef.current !== accountId;
+  const contextSwitchInFlight = previousContextIdRef.current !== contextId;
   const stableRequestOptions = useMemo<BrowserRequestOptions | undefined>(
     () =>
       requestOptions?.workspaceSurface
@@ -139,7 +139,7 @@ export function useBrowserBucketCatalog({
     scheduleBucketAccessProbe,
     updateBucketAccessEntry,
   } = useBrowserBucketAccess({
-    accountId,
+    contextId,
     activeBucketName: bucketNameState,
     contextKey: accessContextKey,
     enabled,
@@ -163,15 +163,15 @@ export function useBrowserBucketCatalog({
   useLayoutEffect(() => {
     activeContextKeyRef.current = enabled ? accessContextKey : null;
     requestIdRef.current += 1;
-    if (previousAccountIdRef.current === accountId) return;
-    previousAccountIdRef.current = accountId;
+    if (previousContextIdRef.current === contextId) return;
+    previousContextIdRef.current = contextId;
     setSelectionReady(false);
     selectionPersistenceReadyRef.current = false;
     selectionPersistenceContextIdRef.current = browserRootContextId;
     setSelection("", "");
   }, [
     accessContextKey,
-    accountId,
+    contextId,
     browserRootContextId,
     enabled,
     setSelection,
@@ -230,7 +230,7 @@ export function useBrowserBucketCatalog({
       setBucketMenuLoadingMore(false);
       setBucketError(null);
       try {
-        const firstPage = await searchBrowserBuckets(accountId, {
+        const firstPage = await searchBrowserBuckets(contextId, {
           page: 1,
           pageSize: BUCKET_MENU_LIMIT,
           ...stableRequestOptions,
@@ -259,7 +259,7 @@ export function useBrowserBucketCatalog({
             exactMatchCache.set(value, true);
             return true;
           }
-          const exactResult = await searchBrowserBuckets(accountId, {
+          const exactResult = await searchBrowserBuckets(contextId, {
             search: value,
             exact: true,
             page: 1,
@@ -340,7 +340,7 @@ export function useBrowserBucketCatalog({
     },
     [
       accessContextKey,
-      accountId,
+      contextId,
       browserRootContextId,
       clearBucketAccessEntries,
       enabled,
@@ -392,7 +392,7 @@ export function useBrowserBucketCatalog({
       }
       setBucketError(null);
       try {
-        const data = await searchBrowserBuckets(accountId, {
+        const data = await searchBrowserBuckets(contextId, {
           search: searchValue || undefined,
           page: targetPage,
           pageSize: BUCKET_MENU_LIMIT,
@@ -425,7 +425,7 @@ export function useBrowserBucketCatalog({
     },
     [
       accessContextKey,
-      accountId,
+      contextId,
       enabled,
       lockedBucketName,
       requestIsCurrent,
@@ -533,7 +533,7 @@ export function useBrowserBucketCatalog({
 
   return {
     accessByName,
-    accountSwitchInFlight,
+    contextSwitchInFlight,
     bucketError,
     bucketFilter,
     bucketMenuItems,

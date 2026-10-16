@@ -47,9 +47,9 @@ function Editor({ kind }: { kind: Kind }) {
     onManualCopyRequired: manualCopy, setStatusMessage: status });
   const open = { bucket: bucket.open, folder: folder.open, sse: sse.open }[kind];
   return <><button onClick={open}>Open editor</button>
-    {bucket.showModal && <BrowserCreateBucketModal {...bucket} hasS3AccountContext onNameChange={bucket.updateName}
+    {bucket.showModal && <BrowserCreateBucketModal {...bucket} hasExecutionContext onNameChange={bucket.updateName}
       onVersioningChange={bucket.setVersioning} onSubmit={bucket.submit} onClose={bucket.close} />}
-    {folder.showModal && <BrowserCreateFolderModal {...folder} hasS3AccountContext bucketName="bucket-a" currentPath="bucket-a/ spaced//"
+    {folder.showModal && <BrowserCreateFolderModal {...folder} hasExecutionContext bucketName="bucket-a" currentPath="bucket-a/ spaced//"
       onNameChange={folder.setName} onSubmit={folder.submit} onClose={folder.close} />}
     {sse.showModal && <BrowserSseCustomerKeyModal {...sse} value={sse.input} onValueChange={sse.updateInput}
       onToggleVisibility={sse.toggleVisibility} onGenerate={sse.generate} onClear={sse.clear} onActivate={sse.activate} onClose={sse.close} />}

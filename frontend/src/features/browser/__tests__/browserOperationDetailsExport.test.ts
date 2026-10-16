@@ -133,7 +133,7 @@ describe("browserOperationDetailsExport", () => {
           relativePath: "folder/queued.txt",
           key: "folder/queued.txt",
           bucket: "demo",
-          accountId: "account-1",
+          contextId: "account-1",
           groupId: "upload-group",
           groupLabel: "Uploads",
           groupKind: "files",

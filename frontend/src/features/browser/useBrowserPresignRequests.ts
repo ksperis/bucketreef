@@ -23,7 +23,7 @@ type EnsureStsCredentials = (
 ) => Promise<StsCredentials | null>;
 
 type UseBrowserPresignRequestsOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   ensureStsCredentials: EnsureStsCredentials;
   requestOptions?: BrowserRequestOptions;
   sseCustomerKeyBase64: string | null;
@@ -50,7 +50,7 @@ async function tryStsPresign<T>(
 }
 
 export function useBrowserPresignRequests({
-  accountId,
+  contextId,
   ensureStsCredentials,
   requestOptions,
   sseCustomerKeyBase64,
@@ -70,7 +70,7 @@ export function useBrowserPresignRequests({
         if (stsResponse) return stsResponse;
       }
       return presignObject(
-        accountId,
+        contextId,
         bucketName,
         payload,
         sseCustomerKeyBase64,
@@ -78,7 +78,7 @@ export function useBrowserPresignRequests({
       );
     },
     [
-      accountId,
+      contextId,
       ensureStsCredentials,
       requestOptions,
       sseCustomerKeyBase64,
@@ -101,7 +101,7 @@ export function useBrowserPresignRequests({
         if (stsResponse) return stsResponse;
       }
       return presignPart(
-        accountId,
+        contextId,
         bucketName,
         uploadId,
         payload,
@@ -110,7 +110,7 @@ export function useBrowserPresignRequests({
       );
     },
     [
-      accountId,
+      contextId,
       ensureStsCredentials,
       requestOptions,
       sseCustomerKeyBase64,
