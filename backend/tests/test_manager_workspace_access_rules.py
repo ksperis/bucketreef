@@ -432,7 +432,7 @@ def test_manager_context_ignores_legacy_access_mode_header(db_session):
         actor=user,
         db=db_session,
     )
-    payload = manager_context_router.get_manager_context(account=account_ctx, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account_ctx, actor=user, db=db_session)
     assert payload.access_mode == "admin"
     assert "can_switch_access" not in payload.model_dump()
 
@@ -682,7 +682,7 @@ def test_manager_context_exposes_browser_access_flag_for_connection(db_session, 
         actor=user,
         db=db_session,
     )
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.access_mode == "connection"
     assert payload.manager_browser_enabled is False
     assert payload.manager_ceph_keys_enabled is False
@@ -719,7 +719,7 @@ def test_manager_context_connection_exposes_detected_identity_and_stats_enabled(
         actor=user,
         db=db_session,
     )
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.access_mode == "connection"
     assert payload.iam_identity == "rgw_account$analytics-user"
     assert payload.manager_stats_enabled is True
@@ -762,7 +762,7 @@ def test_manager_context_reports_global_rgw_metrics_disablement(db_session, monk
         actor=user,
         db=db_session,
     )
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
 
     assert payload.iam_identity == "rgw_account$analytics-disabled"
     assert payload.manager_stats_enabled is False
@@ -810,7 +810,7 @@ def test_manager_context_connection_reports_reason_when_identity_cannot_be_resol
         actor=user,
         db=db_session,
     )
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.access_mode == "connection"
     assert payload.iam_identity is None
     assert payload.manager_stats_enabled is False
@@ -849,7 +849,7 @@ def test_manager_context_connection_reports_reason_for_non_ceph_endpoint(db_sess
         actor=user,
         db=db_session,
     )
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.access_mode == "connection"
     assert payload.manager_stats_enabled is False
     assert payload.manager_stats_message is not None
@@ -993,7 +993,7 @@ def test_manager_context_s3_user_enables_ceph_keys_when_management_possible(db_s
         ceph_keys_access=True,
     )
 
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.access_mode == "s3_user"
     assert payload.manager_ceph_keys_enabled is True
 
@@ -1017,7 +1017,7 @@ def test_manager_context_s3_user_disables_ceph_keys_without_target_grant(db_sess
     db_session.add(s3_user)
     db_session.commit()
 
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.access_mode == "s3_user"
     assert payload.manager_ceph_keys_enabled is False
 
@@ -1037,7 +1037,7 @@ def test_manager_context_s3_user_keys_do_not_require_s3_user_tool_access(db_sess
         resource_opt_in=True,
     )
 
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.access_mode == "s3_user"
     assert payload.manager_ceph_keys_enabled is True
 
@@ -1062,7 +1062,7 @@ def test_manager_context_exposes_managed_private_access_without_ceph_key_invento
         managed_private_access=True,
     )
 
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.manager_ceph_keys_enabled is False
     assert payload.manager_private_access_enabled is True
 
@@ -1083,7 +1083,7 @@ def test_manager_context_hides_managed_private_access_when_global_flag_is_disabl
         managed_private_access=True,
     )
 
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.manager_private_access_enabled is False
 
 
@@ -1106,7 +1106,7 @@ def test_manager_context_does_not_infer_managed_private_access_from_ceph_key_inv
         managed_private_access=False,
     )
 
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.manager_ceph_keys_enabled is True
     assert payload.manager_private_access_enabled is False
 
@@ -1138,7 +1138,7 @@ def test_manager_context_s3_user_disables_ceph_keys_when_management_not_possible
         ceph_keys_access=True,
     )
 
-    payload = manager_context_router.get_manager_context(account=account, actor=user, db=db_session)
+    payload = manager_context_router.get_manager_context(context=account, actor=user, db=db_session)
     assert payload.access_mode == "s3_user"
     assert payload.manager_ceph_keys_enabled is False
 

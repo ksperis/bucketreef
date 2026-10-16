@@ -338,7 +338,7 @@ def test_manager_context_and_surface_gate_use_same_explicit_permission(db_sessio
         db=db_session,
     )
     payload = manager_context_router.get_manager_context(
-        account=manager_account,
+        context=manager_account,
         actor=user,
         db=db_session,
     )

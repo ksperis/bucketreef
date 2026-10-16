@@ -50,7 +50,7 @@ def test_manager_mode_uses_explicit_execution_kind(db_session, actor, kind, expe
     if kind == "session":
         actor = _session_actor()
     payload = context_router.get_manager_context(
-        account=_context(kind), actor=actor, db=db_session, include_limits=False,
+        context=_context(kind), actor=actor, db=db_session, include_limits=False,
     )
     assert payload.access_mode == expected_mode
     if kind == "session":
@@ -85,7 +85,7 @@ def test_manager_context_rejects_other_surface_kinds_before_loading_state(
 
     monkeypatch.setattr(context_router, "_manager_stats_state", unexpected_state)
     with pytest.raises(RuntimeError, match="Unsupported Manager execution context"):
-        context_router.get_manager_context(account=_context(kind), actor=actor, db=db_session)
+        context_router.get_manager_context(context=_context(kind), actor=actor, db=db_session)
 
 
 @pytest.mark.parametrize("browser_allowed", [False, True])
@@ -103,7 +103,7 @@ def test_manager_context_preserves_direct_session_capabilities(
     actor = _session_actor(access_browser=browser_allowed, can_view_traffic=traffic_allowed)
     account = _context("session", manager_capabilities=AccountCapabilities(can_manage_buckets=True))
 
-    payload = context_router.get_manager_context(account=account, actor=actor, db=db_session)
+    payload = context_router.get_manager_context(context=account, actor=actor, db=db_session)
 
     assert payload.access_mode == "session"
     assert payload.iam_identity == "session-user"

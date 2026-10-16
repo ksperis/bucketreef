@@ -36,7 +36,7 @@ def test_manager_context_keeps_limits_deferred_by_default(db_session, monkeypatc
     )
 
     payload = context_router.get_manager_context(
-        account=account,
+        context=account,
         actor=actor,
         db=db_session,
     )
@@ -51,7 +51,7 @@ def test_manager_context_loads_limits_on_explicit_request(db_session, monkeypatc
     monkeypatch.setattr(context_router, "get_s3_accounts_service", lambda *_args, **_kwargs: service)
 
     payload = context_router.get_manager_context(
-        account=account,
+        context=account,
         actor=actor,
         db=db_session,
         include_limits=True,
@@ -77,7 +77,7 @@ def test_manager_context_resolves_user_access_once(db_session, monkeypatch):
     monkeypatch.setattr(context_router.EffectiveAccessService, "resolve_user", resolve_once)
 
     context_router.get_manager_context(
-        account=account,
+        context=account,
         actor=actor,
         db=db_session,
         include_limits=False,
