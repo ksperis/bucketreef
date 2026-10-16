@@ -50,7 +50,7 @@ class BucketPurgeCancelled(RuntimeError):
 
 @dataclass(frozen=True)
 class BucketPurgeResolvedTarget:
-    account: S3ExecutionTarget
+    context: S3ExecutionTarget
     bucket_name: str
     context_id: str | None = None
     context_name: str | None = None
@@ -87,14 +87,14 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
         grouped_indexes: dict[str, list[int]] = {}
         for index, target in enumerate(targets):
-            context_key = target.context_id or f"account-object:{id(target.account)}"
+            context_key = target.context_id or f"context-object:{id(target.context)}"
             grouped_indexes.setdefault(context_key, []).append(index)
 
         buckets_service = BucketsService()
         for indexes in grouped_indexes.values():
-            account = targets[indexes[0]].account
+            context = targets[indexes[0]].context
             try:
-                buckets = buckets_service.list_buckets(account, with_stats=True)
+                buckets = buckets_service.list_buckets(context, with_stats=True)
             except Exception as exc:  # noqa: BLE001 - stats are best-effort only.
                 logger.info(
                     "Unable to resolve bucket purge entry estimates for context=%s: %s",
@@ -356,7 +356,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             )
 
         try:
-            with self._open_client(target.account) as client:
+            with self._open_client(target.context) as client:
                 result = s3_deletion.purge_bucket_contents(
                     client,
                     target.bucket_name,
@@ -429,7 +429,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             cancel_check=cancel_check,
         )
         try:
-            with self._open_client(target.account) as client:
+            with self._open_client(target.context) as client:
                 purge_result = s3_deletion.purge_bucket_contents(
                     client,
                     target.bucket_name,

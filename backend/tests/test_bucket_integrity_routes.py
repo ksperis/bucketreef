@@ -269,7 +269,7 @@ def test_ceph_admin_integrity_route_uses_dedicated_endpoint_credentials(monkeypa
     target = captured["targets"][0]
     assert target.bucket_name == "bucket-a"
     assert target.context_id == "ceph-admin-7"
-    assert target.account.effective_rgw_credentials() == ("admin-ak", "admin-sk")
+    assert target.context.effective_rgw_credentials() == ("admin-ak", "admin-sk")
     assert captured["options"].check_mode == "head"
 
 

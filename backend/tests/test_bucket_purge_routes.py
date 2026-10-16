@@ -339,7 +339,7 @@ def test_ceph_admin_purge_route_uses_dedicated_endpoint_credentials(monkeypatch)
     target = captured["targets"][0]
     assert target.bucket_name == "bucket-a"
     assert target.context_id == "ceph-admin-7"
-    assert target.account.effective_rgw_credentials() == ("admin-ak", "admin-sk")
+    assert target.context.effective_rgw_credentials() == ("admin-ak", "admin-sk")
     assert captured["options"].include_versions is True
     assert captured["options"].individual_deletes is True
 

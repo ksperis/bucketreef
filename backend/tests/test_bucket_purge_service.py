@@ -51,7 +51,7 @@ def test_delete_bucket_with_purge_deletes_contents_then_bucket(monkeypatch):
     monkeypatch.setattr(BucketPurgeService, "_build_client", lambda self, account: client)
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
-        BucketPurgeResolvedTarget(account=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1"),
+        BucketPurgeResolvedTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1"),
         BucketPurgeOptions(parallelism=4, include_versions=True),
     )
 
@@ -95,7 +95,7 @@ def test_delete_bucket_with_purge_deletes_large_bucket_without_entry_limit(monke
     monkeypatch.setattr(BucketPurgeService, "_build_client", lambda self, account: client)
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
-        BucketPurgeResolvedTarget(account=SimpleNamespace(), bucket_name="bucket-huge", context_id="s3u-1"),
+        BucketPurgeResolvedTarget(context=SimpleNamespace(), bucket_name="bucket-huge", context_id="s3u-1"),
         BucketPurgeOptions(parallelism=4, include_versions=True),
     )
 
@@ -138,7 +138,7 @@ def test_delete_bucket_with_purge_preserves_content_purge_failures(monkeypatch):
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
         BucketPurgeResolvedTarget(
-            account=SimpleNamespace(),
+            context=SimpleNamespace(),
             bucket_name="bucket-a",
         ),
         BucketPurgeOptions(),
@@ -161,7 +161,7 @@ def test_real_partial_purge_preserves_counts_and_never_deletes_the_bucket(monkey
     monkeypatch.setattr(BucketPurgeService, "_build_client", lambda self, account: client)
     monkeypatch.setattr(bucket_purge_service.BucketsService, "list_buckets", lambda *_args, **_kwargs: [])
     target = BucketPurgeResolvedTarget(
-        account=make_s3_execution_context(can_manage_buckets=True), bucket_name="target", context_id="1",
+        context=make_s3_execution_context(can_manage_buckets=True), bucket_name="target", context_id="1",
     )
     service = BucketPurgeService()
     progress = []
@@ -217,7 +217,7 @@ def test_delete_bucket_with_purge_reports_bucket_not_empty_race(monkeypatch):
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
         BucketPurgeResolvedTarget(
-            account=SimpleNamespace(),
+            context=SimpleNamespace(),
             bucket_name="bucket-racing",
         ),
         BucketPurgeOptions(),
@@ -256,7 +256,7 @@ def test_purge_progress_uses_rgw_stats_entry_estimate_before_listing(monkeypatch
     progress_events = []
 
     result = BucketPurgeService().run(
-        [BucketPurgeResolvedTarget(account=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1")],
+        [BucketPurgeResolvedTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1")],
         BucketPurgeOptions(parallelism=4, include_versions=True),
         progress_callback=progress_events.append,
     )
@@ -297,7 +297,7 @@ def test_purge_progress_continues_when_rgw_stats_are_unavailable(monkeypatch):
     progress_events = []
 
     result = BucketPurgeService().run(
-        [BucketPurgeResolvedTarget(account=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1")],
+        [BucketPurgeResolvedTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1")],
         BucketPurgeOptions(parallelism=4, include_versions=True),
         progress_callback=progress_events.append,
     )
@@ -329,7 +329,7 @@ def test_purge_service_forwards_individual_delete_strategy(monkeypatch):
     monkeypatch.setattr(bucket_purge_service.s3_deletion, "purge_bucket_contents", fake_purge_bucket_contents)
 
     result = BucketPurgeService().run(
-        [BucketPurgeResolvedTarget(account=SimpleNamespace(), bucket_name="bucket-a", context_id="ceph-admin-7")],
+        [BucketPurgeResolvedTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="ceph-admin-7")],
         BucketPurgeOptions(parallelism=4, include_versions=True, individual_deletes=True),
     )
 

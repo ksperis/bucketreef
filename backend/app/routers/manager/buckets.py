@@ -293,7 +293,7 @@ def stream_delete_bucket_with_purge(
     require_bucket_management_context(account)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=True)
     target = BucketPurgeResolvedTarget(
-        account=account,
+        context=account,
         bucket_name=bucket_name,
         context_id=account.context_id,
         context_name=account.name,

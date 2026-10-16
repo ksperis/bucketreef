@@ -108,10 +108,7 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
 
     assert response.status_code == 200, response.text
     target, = captured["targets"]
-    if operation in {"usage", "aggregate-usage"}:
-        assert target.context is account
-    else:
-        assert target.account is account
+    assert target.context is account
     assert target.bucket_name == "bucket-a"
     assert target.context_id == account.context_id
     assert target.context_name == account.name

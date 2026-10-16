@@ -96,11 +96,11 @@ def test_bucket_operations_close_their_client_on_every_exit(monkeypatch, operati
         run = lambda: service.calculate_bucket(target)
     elif operation == "integrity":
         service = BucketIntegrityCheckService()
-        target = BucketIntegrityResolvedTarget(account=account, bucket_name="bucket")
+        target = BucketIntegrityResolvedTarget(context=account, bucket_name="bucket")
         run = lambda: service.run([target], BucketIntegrityOptions())
     else:
         service = BucketPurgeService()
-        target = BucketPurgeResolvedTarget(account=account, bucket_name="bucket")
+        target = BucketPurgeResolvedTarget(context=account, bucket_name="bucket")
         monkeypatch.setattr(service, "_resolve_initial_entry_estimates", lambda targets: [None] * len(targets))
 
         def purge(client, bucket_name, **_kwargs):
@@ -263,7 +263,7 @@ def test_integrity_closes_client_only_after_in_flight_worker_finishes(monkeypatc
     client = ConcurrentClient()
     service = BucketIntegrityCheckService()
     monkeypatch.setattr(service, "_build_client", lambda _account: client)
-    target = BucketIntegrityResolvedTarget(account=make_s3_execution_context(), bucket_name="bucket")
+    target = BucketIntegrityResolvedTarget(context=make_s3_execution_context(), bucket_name="bucket")
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(service.run, [target], BucketIntegrityOptions())
         try:
