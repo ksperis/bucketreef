@@ -132,6 +132,31 @@ class _ResolvedFeatureAccess:
 
 
 @dataclass(frozen=True)
+class _GroupMembershipIndex:
+    groups_by_user: dict[int, list[UiGroup]]
+    user_ids_by_group: dict[int, list[int]]
+    group_names: dict[int, str]
+
+    @property
+    def group_ids(self) -> list[int]:
+        return list(self.group_names)
+
+
+@dataclass
+class _S3UserGrantIndex:
+    ids_by_user: dict[int, set[int]]
+    browser_ids_by_user: dict[int, set[int]]
+    sources_by_user: dict[int, dict[int, list[EffectiveAccessSource]]]
+    browser_sources_by_user: dict[int, dict[int, list[EffectiveAccessSource]]]
+
+
+@dataclass
+class _ConnectionGrantIndex:
+    ids_by_user: dict[int, set[int]]
+    sources_by_user: dict[int, dict[int, list[EffectiveAccessSource]]]
+
+
+@dataclass(frozen=True)
 class EffectiveAccessSource:
     """Origin of an effective UI grant used for read-only access auditing."""
 
@@ -223,44 +248,46 @@ class EffectiveAccessService:
         )
         return cls._ordered_sources(sources)
 
-    def resolve_users(self, users: list[User]) -> dict[int, ResolvedUserAccess]:
-        """Resolve direct and inherited access for many UI users without N+1 queries."""
-
-        user_by_id = {int(user.id): user for user in users}
-        user_ids = list(user_by_id)
-        if not user_ids:
-            return {}
-
+    def _load_group_memberships(self, user_ids: list[int]) -> _GroupMembershipIndex:
         groups_by_user: dict[int, list[UiGroup]] = {user_id: [] for user_id in user_ids}
         user_ids_by_group: dict[int, list[int]] = {}
         group_names: dict[int, str] = {}
-        group_rows = (
+        rows = (
             self.db.query(UserUiGroup, UiGroup)
             .join(UiGroup, UiGroup.id == UserUiGroup.group_id)
             .filter(UserUiGroup.user_id.in_(user_ids))
             .order_by(UserUiGroup.user_id.asc(), UiGroup.name.asc(), UiGroup.id.asc())
             .all()
         )
-        for membership, group in group_rows:
+        for membership, group in rows:
             user_id = int(membership.user_id)
             group_id = int(group.id)
             groups_by_user[user_id].append(group)
             user_ids_by_group.setdefault(group_id, []).append(user_id)
             group_names[group_id] = str(group.name)
-        group_ids = list(group_names)
+        return _GroupMembershipIndex(
+            groups_by_user=groups_by_user,
+            user_ids_by_group=user_ids_by_group,
+            group_names=group_names,
+        )
 
-        account_accumulators: dict[int, dict[int, _AccountRoleAccumulator]] = {
+    def _load_account_roles(
+        self,
+        user_ids: list[int],
+        groups: _GroupMembershipIndex,
+    ) -> dict[int, dict[int, _AccountRoleAccumulator]]:
+        accumulators: dict[int, dict[int, _AccountRoleAccumulator]] = {
             user_id: {} for user_id in user_ids
         }
-        direct_account_rows = (
+        direct_rows = (
             self.db.query(UserS3Account)
             .filter(UserS3Account.user_id.in_(user_ids))
             .all()
         )
-        for link in direct_account_rows:
+        for link in direct_rows:
             user_id = int(link.user_id)
             account_id = int(link.account_id)
-            accumulator = account_accumulators[user_id].setdefault(
+            accumulator = accumulators[user_id].setdefault(
                 account_id,
                 _AccountRoleAccumulator(account_id=account_id),
             )
@@ -269,39 +296,46 @@ class EffectiveAccessService:
             accumulator.direct_allow_manager_browser_data_access = bool(
                 link.allow_manager_browser_data_access
             )
-        if group_ids:
-            group_account_rows = (
-                self.db.query(UiGroupS3Account)
-                .filter(UiGroupS3Account.group_id.in_(group_ids))
-                .all()
-            )
-            for link in group_account_rows:
-                group_id = int(link.group_id)
-                for user_id in user_ids_by_group.get(group_id, []):
-                    account_id = int(link.account_id)
-                    accumulator = account_accumulators[user_id].setdefault(
-                        account_id,
-                        _AccountRoleAccumulator(account_id=account_id),
-                    )
-                    accumulator.group_roles.append(
-                        (
-                            group_id,
-                            group_names[group_id],
-                            link.manager_role,
-                            link.portal_role,
-                            bool(link.allow_manager_browser_data_access),
-                        )
-                    )
 
-        s3_user_ids_by_user: dict[int, set[int]] = {user_id: set() for user_id in user_ids}
-        s3_user_browser_ids_by_user: dict[int, set[int]] = {user_id: set() for user_id in user_ids}
-        s3_user_sources: dict[int, dict[int, list[EffectiveAccessSource]]] = {
-            user_id: {} for user_id in user_ids
-        }
-        s3_user_browser_sources: dict[int, dict[int, list[EffectiveAccessSource]]] = {
-            user_id: {} for user_id in user_ids
-        }
-        direct_s3_user_rows = (
+        if not groups.group_ids:
+            return accumulators
+
+        group_rows = (
+            self.db.query(UiGroupS3Account)
+            .filter(UiGroupS3Account.group_id.in_(groups.group_ids))
+            .all()
+        )
+        for link in group_rows:
+            group_id = int(link.group_id)
+            for user_id in groups.user_ids_by_group.get(group_id, []):
+                account_id = int(link.account_id)
+                accumulator = accumulators[user_id].setdefault(
+                    account_id,
+                    _AccountRoleAccumulator(account_id=account_id),
+                )
+                accumulator.group_roles.append(
+                    (
+                        group_id,
+                        groups.group_names[group_id],
+                        link.manager_role,
+                        link.portal_role,
+                        bool(link.allow_manager_browser_data_access),
+                    )
+                )
+        return accumulators
+
+    def _load_s3_user_grants(
+        self,
+        user_ids: list[int],
+        groups: _GroupMembershipIndex,
+    ) -> _S3UserGrantIndex:
+        grants = _S3UserGrantIndex(
+            ids_by_user={user_id: set() for user_id in user_ids},
+            browser_ids_by_user={user_id: set() for user_id in user_ids},
+            sources_by_user={user_id: {} for user_id in user_ids},
+            browser_sources_by_user={user_id: {} for user_id in user_ids},
+        )
+        direct_rows = (
             self.db.query(
                 UserS3User.user_id,
                 UserS3User.s3_user_id,
@@ -310,45 +344,54 @@ class EffectiveAccessService:
             .filter(UserS3User.user_id.in_(user_ids))
             .all()
         )
-        for user_id_raw, s3_user_id_raw, browser_allowed in direct_s3_user_rows:
+        for user_id_raw, s3_user_id_raw, browser_allowed in direct_rows:
             user_id = int(user_id_raw)
             s3_user_id = int(s3_user_id_raw)
             source = EffectiveAccessSource(kind="direct")
-            s3_user_ids_by_user[user_id].add(s3_user_id)
-            s3_user_sources[user_id].setdefault(s3_user_id, []).append(source)
+            grants.ids_by_user[user_id].add(s3_user_id)
+            grants.sources_by_user[user_id].setdefault(s3_user_id, []).append(source)
             if bool(browser_allowed):
-                s3_user_browser_ids_by_user[user_id].add(s3_user_id)
-                s3_user_browser_sources[user_id].setdefault(s3_user_id, []).append(source)
-        if group_ids:
-            group_s3_user_rows = (
-                self.db.query(
-                    UiGroupS3User.group_id,
-                    UiGroupS3User.s3_user_id,
-                    UiGroupS3User.allow_manager_browser_data_access,
-                )
-                .filter(UiGroupS3User.group_id.in_(group_ids))
-                .all()
-            )
-            for group_id_raw, s3_user_id_raw, browser_allowed in group_s3_user_rows:
-                group_id = int(group_id_raw)
-                s3_user_id = int(s3_user_id_raw)
-                source = EffectiveAccessSource(
-                    kind="group",
-                    group_id=group_id,
-                    group_name=group_names[group_id],
-                )
-                for user_id in user_ids_by_group.get(group_id, []):
-                    s3_user_ids_by_user[user_id].add(s3_user_id)
-                    s3_user_sources[user_id].setdefault(s3_user_id, []).append(source)
-                    if bool(browser_allowed):
-                        s3_user_browser_ids_by_user[user_id].add(s3_user_id)
-                        s3_user_browser_sources[user_id].setdefault(s3_user_id, []).append(source)
+                grants.browser_ids_by_user[user_id].add(s3_user_id)
+                grants.browser_sources_by_user[user_id].setdefault(s3_user_id, []).append(source)
 
-        connection_ids_by_user: dict[int, set[int]] = {user_id: set() for user_id in user_ids}
-        connection_sources: dict[int, dict[int, list[EffectiveAccessSource]]] = {
-            user_id: {} for user_id in user_ids
-        }
-        direct_connection_rows = (
+        if not groups.group_ids:
+            return grants
+
+        group_rows = (
+            self.db.query(
+                UiGroupS3User.group_id,
+                UiGroupS3User.s3_user_id,
+                UiGroupS3User.allow_manager_browser_data_access,
+            )
+            .filter(UiGroupS3User.group_id.in_(groups.group_ids))
+            .all()
+        )
+        for group_id_raw, s3_user_id_raw, browser_allowed in group_rows:
+            group_id = int(group_id_raw)
+            s3_user_id = int(s3_user_id_raw)
+            source = EffectiveAccessSource(
+                kind="group",
+                group_id=group_id,
+                group_name=groups.group_names[group_id],
+            )
+            for user_id in groups.user_ids_by_group.get(group_id, []):
+                grants.ids_by_user[user_id].add(s3_user_id)
+                grants.sources_by_user[user_id].setdefault(s3_user_id, []).append(source)
+                if bool(browser_allowed):
+                    grants.browser_ids_by_user[user_id].add(s3_user_id)
+                    grants.browser_sources_by_user[user_id].setdefault(s3_user_id, []).append(source)
+        return grants
+
+    def _load_shared_connection_grants(
+        self,
+        user_ids: list[int],
+        groups: _GroupMembershipIndex,
+    ) -> _ConnectionGrantIndex:
+        grants = _ConnectionGrantIndex(
+            ids_by_user={user_id: set() for user_id in user_ids},
+            sources_by_user={user_id: {} for user_id in user_ids},
+        )
+        direct_rows = (
             self.db.query(UserS3Connection.user_id, UserS3Connection.s3_connection_id)
             .join(S3Connection, S3Connection.id == UserS3Connection.s3_connection_id)
             .filter(
@@ -357,39 +400,44 @@ class EffectiveAccessService:
             )
             .all()
         )
-        for user_id_raw, connection_id_raw in direct_connection_rows:
+        for user_id_raw, connection_id_raw in direct_rows:
             user_id = int(user_id_raw)
             connection_id = int(connection_id_raw)
-            connection_ids_by_user[user_id].add(connection_id)
-            connection_sources[user_id].setdefault(connection_id, []).append(
+            grants.ids_by_user[user_id].add(connection_id)
+            grants.sources_by_user[user_id].setdefault(connection_id, []).append(
                 EffectiveAccessSource(kind="direct")
             )
-        if group_ids:
-            group_connection_rows = (
-                self.db.query(
-                    UiGroupS3Connection.group_id,
-                    UiGroupS3Connection.s3_connection_id,
-                )
-                .join(S3Connection, S3Connection.id == UiGroupS3Connection.s3_connection_id)
-                .filter(
-                    UiGroupS3Connection.group_id.in_(group_ids),
-                    S3Connection.is_shared.is_(True),
-                )
-                .all()
-            )
-            for group_id_raw, connection_id_raw in group_connection_rows:
-                group_id = int(group_id_raw)
-                connection_id = int(connection_id_raw)
-                source = EffectiveAccessSource(
-                    kind="group",
-                    group_id=group_id,
-                    group_name=group_names[group_id],
-                )
-                for user_id in user_ids_by_group.get(group_id, []):
-                    connection_ids_by_user[user_id].add(connection_id)
-                    connection_sources[user_id].setdefault(connection_id, []).append(source)
 
-        owned_private_user_ids = {
+        if not groups.group_ids:
+            return grants
+
+        group_rows = (
+            self.db.query(
+                UiGroupS3Connection.group_id,
+                UiGroupS3Connection.s3_connection_id,
+            )
+            .join(S3Connection, S3Connection.id == UiGroupS3Connection.s3_connection_id)
+            .filter(
+                UiGroupS3Connection.group_id.in_(groups.group_ids),
+                S3Connection.is_shared.is_(True),
+            )
+            .all()
+        )
+        for group_id_raw, connection_id_raw in group_rows:
+            group_id = int(group_id_raw)
+            connection_id = int(connection_id_raw)
+            source = EffectiveAccessSource(
+                kind="group",
+                group_id=group_id,
+                group_name=groups.group_names[group_id],
+            )
+            for user_id in groups.user_ids_by_group.get(group_id, []):
+                grants.ids_by_user[user_id].add(connection_id)
+                grants.sources_by_user[user_id].setdefault(connection_id, []).append(source)
+        return grants
+
+    def _load_owned_private_user_ids(self, user_ids: list[int]) -> set[int]:
+        return {
             int(row[0])
             for row in self.db.query(S3Connection.created_by_user_id)
             .filter(
@@ -400,50 +448,90 @@ class EffectiveAccessService:
             .all()
         }
 
+    def _build_feature_sources(
+        self,
+        user: User,
+        groups: list[UiGroup],
+        features: _ResolvedFeatureAccess,
+        policies: ManagerFeaturePolicies,
+    ) -> dict[str, tuple[EffectiveAccessSource, ...]]:
+        sources: dict[str, tuple[EffectiveAccessSource, ...]] = {}
+        feature_fields = {
+            "ceph_admin": (features.can_access_ceph_admin, "can_access_ceph_admin"),
+            "storage_ops": (features.can_access_storage_ops, "can_access_storage_ops"),
+            "private_connection_create": (
+                features.can_create_manual_private_connections,
+                "can_create_manual_private_connections",
+            ),
+            "managed_private_connection_provision": (
+                features.can_provision_managed_private_connections,
+                "can_provision_managed_private_connections",
+            ),
+            "browser_advanced_features": (
+                features.browser_advanced_features_enabled,
+                "browser_advanced_features_enabled",
+            ),
+        }
+        for right_code, (enabled, field_name) in feature_fields.items():
+            if enabled:
+                sources[right_code] = self._flag_sources(user, groups, field_name)
+                if (
+                    right_code == "managed_private_connection_provision"
+                    and policies.managed_private_connection_provisioning
+                    == FeaturePolicy.DEFAULT_ON
+                ):
+                    sources[right_code] = (
+                        EffectiveAccessSource(kind="platform"),
+                        *sources[right_code],
+                    )
+        for tool, field_name in MANAGER_TOOL_COLUMNS.items():
+            if bool(getattr(features.manager_tool_access, tool)):
+                right_code = f"manager_{tool}"
+                sources[right_code] = self._flag_sources(user, groups, field_name)
+                if getattr(policies, tool) == FeaturePolicy.DEFAULT_ON:
+                    sources[right_code] = (
+                        EffectiveAccessSource(kind="platform"),
+                        *sources[right_code],
+                    )
+        return sources
+
+    def resolve_users(self, users: list[User]) -> dict[int, ResolvedUserAccess]:
+        """Resolve direct and inherited access for many UI users without N+1 queries."""
+
+        user_by_id = {int(user.id): user for user in users}
+        user_ids = list(user_by_id)
+        if not user_ids:
+            return {}
+
+        groups = self._load_group_memberships(user_ids)
+        account_accumulators = self._load_account_roles(user_ids, groups)
+        s3_user_grants = self._load_s3_user_grants(user_ids, groups)
+        connection_grants = self._load_shared_connection_grants(user_ids, groups)
+        owned_private_user_ids = self._load_owned_private_user_ids(user_ids)
+
         policies = load_app_settings_for_db_readonly(self.db).manager.feature_policies
         resolved_by_user: dict[int, ResolvedUserAccess] = {}
         for user_id, user in user_by_id.items():
-            groups = groups_by_user[user_id]
-            features = self._resolve_feature_access(user, groups, policies)
-            feature_sources: dict[str, tuple[EffectiveAccessSource, ...]] = {}
-            feature_fields = {
-                "ceph_admin": (features.can_access_ceph_admin, "can_access_ceph_admin"),
-                "storage_ops": (features.can_access_storage_ops, "can_access_storage_ops"),
-                "private_connection_create": (
-                    features.can_create_manual_private_connections,
-                    "can_create_manual_private_connections",
-                ),
-                "managed_private_connection_provision": (
-                    features.can_provision_managed_private_connections,
-                    "can_provision_managed_private_connections",
-                ),
-                "browser_advanced_features": (
-                    features.browser_advanced_features_enabled,
-                    "browser_advanced_features_enabled",
-                ),
-            }
-            for right_code, (enabled, field_name) in feature_fields.items():
-                if enabled:
-                    feature_sources[right_code] = self._flag_sources(user, groups, field_name)
-                    if right_code == "managed_private_connection_provision" and policies.managed_private_connection_provisioning == FeaturePolicy.DEFAULT_ON:
-                        feature_sources[right_code] = (EffectiveAccessSource(kind="platform"), *feature_sources[right_code])
-            for tool, field_name in MANAGER_TOOL_COLUMNS.items():
-                if bool(getattr(features.manager_tool_access, tool)):
-                    feature_sources[f"manager_{tool}"] = self._flag_sources(user, groups, field_name)
-                    if getattr(policies, tool) == FeaturePolicy.DEFAULT_ON:
-                        feature_sources[f"manager_{tool}"] = (EffectiveAccessSource(kind="platform"), *feature_sources[f"manager_{tool}"])
+            user_groups = groups.groups_by_user[user_id]
+            features = self._resolve_feature_access(user, user_groups, policies)
+            feature_sources = self._build_feature_sources(
+                user,
+                user_groups,
+                features,
+                policies,
+            )
 
             account_links = sorted(
                 (accumulator.build() for accumulator in account_accumulators[user_id].values()),
                 key=lambda link: link.account_id,
             )
             resolved_by_user[user_id] = ResolvedUserAccess(
-                group_ids=[int(group.id) for group in groups],
-                group_details=[LinkedUiGroup(id=group.id, name=group.name) for group in groups],
+                group_ids=[int(group.id) for group in user_groups],
+                group_details=[LinkedUiGroup(id=group.id, name=group.name) for group in user_groups],
                 account_links=account_links,
-                s3_user_ids=sorted(s3_user_ids_by_user[user_id]),
-                manager_browser_s3_user_ids=sorted(s3_user_browser_ids_by_user[user_id]),
-                s3_connection_ids=sorted(connection_ids_by_user[user_id]),
+                s3_user_ids=sorted(s3_user_grants.ids_by_user[user_id]),
+                manager_browser_s3_user_ids=sorted(s3_user_grants.browser_ids_by_user[user_id]),
+                s3_connection_ids=sorted(connection_grants.ids_by_user[user_id]),
                 can_access_ceph_admin=features.can_access_ceph_admin,
                 can_access_storage_ops=features.can_access_storage_ops,
                 can_create_manual_private_connections=features.can_create_manual_private_connections,
@@ -454,15 +542,15 @@ class EffectiveAccessService:
                 feature_sources=feature_sources,
                 s3_user_sources={
                     s3_user_id: self._ordered_sources(sources)
-                    for s3_user_id, sources in s3_user_sources[user_id].items()
+                    for s3_user_id, sources in s3_user_grants.sources_by_user[user_id].items()
                 },
                 s3_user_browser_sources={
                     s3_user_id: self._ordered_sources(sources)
-                    for s3_user_id, sources in s3_user_browser_sources[user_id].items()
+                    for s3_user_id, sources in s3_user_grants.browser_sources_by_user[user_id].items()
                 },
                 s3_connection_sources={
                     connection_id: self._ordered_sources(sources)
-                    for connection_id, sources in connection_sources[user_id].items()
+                    for connection_id, sources in connection_grants.sources_by_user[user_id].items()
                 },
             )
         return resolved_by_user
