@@ -9,6 +9,7 @@ import {
 } from "../../api/browserFavorites";
 import { searchBrowserBuckets } from "../../api/browserBuckets";
 import { listBrowserObjects } from "../../api/browserObjects";
+import { extractApiError } from "../../utils/apiError";
 import { useBrowserI18n } from "./browserI18n";
 
 const favoriteLocationKey = (favorite: BrowserFavoriteInput) =>
@@ -16,9 +17,6 @@ const favoriteLocationKey = (favorite: BrowserFavoriteInput) =>
 
 const sameFavoriteLocation = (left: BrowserFavoriteInput, right: BrowserFavoriteInput) =>
   favoriteLocationKey(left) === favoriteLocationKey(right);
-
-const messageFrom = (reason: unknown, fallback: string) =>
-  reason instanceof Error ? reason.message : fallback;
 
 export function browserFavoriteDefaultName({
   bucketName,
@@ -89,7 +87,7 @@ export function useBrowserFavorites({
       setError("");
     } catch (reason) {
       if (!active.current) return;
-      setError(messageFrom(reason, "Unable to sync favorites."));
+      setError(extractApiError(reason, "Unable to sync favorites."));
     } finally {
       if (active.current) setLoaded(true);
     }
@@ -129,7 +127,7 @@ export function useBrowserFavorites({
         await reload();
         onStatus?.(successMessage);
       } catch (reason) {
-        const message = messageFrom(
+        const message = extractApiError(
           reason,
           text("Unable to save favorite. Refresh and try again."),
         );
@@ -212,7 +210,7 @@ export function useBrowserFavorites({
         if (!active.current) return false;
         setUnavailable((previous) => ({
           ...previous,
-          [favorite.id]: messageFrom(reason, text("Saved location is unavailable.")),
+          [favorite.id]: extractApiError(reason, text("Saved location is unavailable.")),
         }));
         return false;
       } finally {
