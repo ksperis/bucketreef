@@ -33,6 +33,7 @@ from app.services.managed_private_access_sources import (
     ManagedPrivateAccessSource,
     ManagedPrivateAccessSourceResolver,
 )
+from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.mappers.s3_connection import mask_access_key_id
 from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.s3_connection_capabilities_service import (
@@ -403,6 +404,10 @@ class ManagedPrivateAccessService:
         iam: RGWIAMService,
         payload: ManagedIAMPrivateAccessRequest,
     ) -> None:
+        if set(payload.groups) & PORTAL_MANAGED_IAM_GROUP_NAMES:
+            raise ManagedPrivateAccessForbidden(
+                "Portal-managed IAM groups cannot be assigned to private access identities"
+            )
         available_groups = {group.name for group in iam.list_groups()}
         invalid_groups = sorted(set(payload.groups) - available_groups)
         if invalid_groups:

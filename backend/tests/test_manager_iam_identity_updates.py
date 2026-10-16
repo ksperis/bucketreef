@@ -9,9 +9,13 @@ from botocore.exceptions import ClientError
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.models.iam import IAMGroup, IAMGroupUpdate, IAMRole, IAMRoleCreate, IAMRoleUpdate, IAMTag, IAMUser, IAMUserUpdate
-from app.models.policy import Policy
-from app.routers.manager import iam_groups, iam_roles, iam_users
+from app.models.iam import (
+    AccessKeyStatusChange, IAMGroup, IAMGroupCreate, IAMGroupUpdate, IAMRole,
+    IAMRoleCreate, IAMRoleUpdate, IAMTag, IAMUser, IAMUserCreate, IAMUserUpdate,
+)
+from app.models.access_key_metadata import AccessKeyMetadataInput
+from app.models.policy import InlinePolicy, Policy
+from app.routers.manager import iam_common, iam_groups, iam_roles, iam_users
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -234,6 +238,97 @@ def test_group_detail_update_and_managed_protection(monkeypatch):
             "bkr-portal-user", IAMGroupUpdate(path="/moved/"), account=context, current_user=object(), audit_service=audit
         )
     assert exc_info.value.status_code == 409
+
+
+@pytest.mark.parametrize("group_name", ["bkr-portal-manager", "bkr-portal-user"])
+@pytest.mark.parametrize("operation,extra", [
+    ("create_group", {"payload": IAMGroupCreate(name="bkr-portal-manager")}),
+    ("update_group", {"payload": IAMGroupUpdate(path="/moved/")}),
+    ("delete_group", {}),
+    ("add_user_to_group", {"payload": IAMUser(name="alice")}),
+    ("remove_user_from_group", {"user_name": "alice"}),
+    ("put_group_inline_policy", {"policy_name": "bkr-portal-manager", "payload": InlinePolicy(name="bkr-portal-manager", document={})}),
+    ("delete_group_inline_policy", {"policy_name": "bkr-portal-manager"}),
+    ("attach_group_policy", {"payload": Policy(name="read", arn="arn:policy/read")}),
+    ("detach_group_policy", {"policy_arn": "arn:policy/read"}),
+])
+def test_portal_group_mutations_are_rejected_before_iam_calls(monkeypatch, group_name, operation, extra):
+    if operation == "create_group":
+        extra = {"payload": IAMGroupCreate(name=group_name)}
+        kwargs = extra
+    else:
+        kwargs = {"group_name": group_name, **extra}
+    if operation in {"add_user_to_group", "remove_user_from_group"}:
+        kwargs["db"] = object()
+
+    monkeypatch.setattr(iam_groups, "get_iam_service_for_account", lambda _account: pytest.fail("IAM must not be called"))
+    audit = _Audit()
+    with pytest.raises(HTTPException) as exc_info:
+        getattr(iam_groups, operation)(
+            **kwargs, account=_context(), current_user=object(), audit_service=audit,
+        )
+    assert exc_info.value.status_code == 409
+    assert audit.calls == []
+
+
+@pytest.mark.parametrize("management_source", ["portal", "private_access"])
+@pytest.mark.parametrize("operation,extra", [
+    ("delete_user", {}),
+    ("create_access_key", {}),
+    ("update_access_key_metadata", {"access_key_id": "AKIA", "payload": AccessKeyMetadataInput(name="key")}),
+    ("update_access_key_status", {"access_key_id": "AKIA", "payload": AccessKeyStatusChange(active=False)}),
+    ("delete_access_key", {"access_key_id": "AKIA"}),
+    ("put_user_inline_policy", {"policy_name": "p", "payload": InlinePolicy(name="p", document={})}),
+    ("delete_user_inline_policy", {"policy_name": "p"}),
+    ("attach_user_policy", {"payload": Policy(name="read", arn="arn:policy/read")}),
+    ("detach_user_policy", {"policy_arn": "arn:policy/read"}),
+])
+def test_managed_user_mutations_are_rejected_before_iam_calls(monkeypatch, management_source, operation, extra):
+    monkeypatch.setattr(
+        iam_common, "managed_iam_user_source",
+        lambda _db, _account, _name: (management_source, None),
+    )
+    monkeypatch.setattr(iam_users, "get_iam_service_for_account", lambda _account: pytest.fail("IAM must not be called"))
+    audit = _Audit()
+    with pytest.raises(HTTPException) as exc_info:
+        getattr(iam_users, operation)(
+            "alice", **extra, account=_context(), current_user=object(), audit_service=audit, db=object(),
+        )
+    assert exc_info.value.status_code == 409
+    assert audit.calls == []
+
+
+@pytest.mark.parametrize("management_source", ["portal", "private_access"])
+@pytest.mark.parametrize("operation,extra", [
+    ("add_user_to_group", {"payload": IAMUser(name="alice")}),
+    ("remove_user_from_group", {"user_name": "alice"}),
+])
+def test_managed_user_cannot_be_added_to_or_removed_from_other_groups(monkeypatch, management_source, operation, extra):
+    monkeypatch.setattr(
+        iam_common, "managed_iam_user_source",
+        lambda _db, _account, _name: (management_source, None),
+    )
+    monkeypatch.setattr(iam_groups, "get_iam_service_for_account", lambda _account: pytest.fail("IAM must not be called"))
+    audit = _Audit()
+    with pytest.raises(HTTPException) as exc_info:
+        getattr(iam_groups, operation)(
+            "researchers", **extra, account=_context(), current_user=object(), audit_service=audit, db=object(),
+        )
+    assert exc_info.value.status_code == 409
+    assert audit.calls == []
+
+
+@pytest.mark.parametrize("group_name", ["bkr-portal-manager", "bkr-portal-user"])
+def test_iam_user_creation_rejects_portal_managed_group_membership(monkeypatch, group_name):
+    monkeypatch.setattr(iam_users, "get_iam_service_for_account", lambda _account: pytest.fail("IAM must not be called"))
+    audit = _Audit()
+    with pytest.raises(HTTPException) as exc_info:
+        iam_users.create_user(
+            IAMUserCreate(name="alice", groups=[group_name]),
+            account=_context(), current_user=object(), audit_service=audit,
+        )
+    assert exc_info.value.status_code == 409
+    assert audit.calls == []
 
 
 def test_update_role_calls_only_changed_native_operations_and_audits_each_success(monkeypatch):

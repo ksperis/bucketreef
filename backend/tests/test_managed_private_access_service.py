@@ -42,6 +42,7 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessNotFound,
 )
 from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services import app_settings_service
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
@@ -261,6 +262,27 @@ def test_iam_provisioning_accepts_builtin_full_access_when_catalog_omits_it(db_s
 
     assert result.status == "active"
     assert fake.attached == [(f"bkr-private-u{user.id}-acc{account.id}", policy_arn)]
+
+
+@pytest.mark.parametrize("technical_group", sorted(PORTAL_MANAGED_IAM_GROUP_NAMES))
+def test_iam_provisioning_rejects_portal_technical_groups_without_remote_mutation(
+    db_session, monkeypatch, technical_group,
+):
+    user = _user(db_session, email=f"deny-{technical_group}@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    fake = FakeIAM()
+    service = ManagedPrivateAccessService(db_session)
+    monkeypatch.setattr(service, "_iam_service_for_account", lambda _account: fake)
+    payload = _payload()
+    payload.groups = ["operators", technical_group]
+
+    with pytest.raises(ManagedPrivateAccessForbidden, match="Portal-managed IAM groups"):
+        service.provision_iam(user=user, account=account, payload=payload)
+
+    assert not fake.created_users
+    assert not fake.groups
+    assert not fake.created_keys
+    assert db_session.query(ManagedPrivateAccess).count() == 0
 
 
 @pytest.mark.parametrize("shared", [False, True])
