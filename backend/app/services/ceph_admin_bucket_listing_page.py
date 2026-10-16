@@ -182,7 +182,7 @@ class CephAdminBucketPageBuilder:
             requested,
             include_tags=self.request.include_tags,
             service=BucketConfigurationService(),
-            account=build_ceph_admin_s3_context(self.ctx),
+            execution_context=build_ceph_admin_s3_context(self.ctx),
             progress=self.progress,
             cancel_check=self.cancel_check,
             progress_stage="page_enrichment",

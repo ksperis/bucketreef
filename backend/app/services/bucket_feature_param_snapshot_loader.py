@@ -31,47 +31,47 @@ def _load_feature_param_snapshot_for_bucket(
     bucket: BucketListingSummary,
     required_sources: set[str],
     service: BucketConfigurationService,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
 ) -> dict[str, object]:
     snapshot: dict[str, object] = {}
     if "props" in required_sources:
         try:
-            snapshot["props"] = service.get_bucket_properties(bucket.name, account)
+            snapshot["props"] = service.get_bucket_properties(bucket.name, execution_context)
         except RuntimeError:
             snapshot["props"] = FEATURE_PARAM_UNAVAILABLE
     if "lifecycle" in required_sources:
         try:
-            snapshot["lifecycle"] = service.get_lifecycle(bucket.name, account).rules or []
+            snapshot["lifecycle"] = service.get_lifecycle(bucket.name, execution_context).rules or []
         except RuntimeError:
             snapshot["lifecycle"] = FEATURE_PARAM_UNAVAILABLE
     if "logging" in required_sources:
         try:
-            snapshot["logging"] = service.get_bucket_logging(bucket.name, account)
+            snapshot["logging"] = service.get_bucket_logging(bucket.name, execution_context)
         except RuntimeError:
             snapshot["logging"] = FEATURE_PARAM_UNAVAILABLE
     if "website" in required_sources:
         try:
-            snapshot["website"] = service.get_bucket_website(bucket.name, account)
+            snapshot["website"] = service.get_bucket_website(bucket.name, execution_context)
         except RuntimeError:
             snapshot["website"] = FEATURE_PARAM_UNAVAILABLE
     if "policy" in required_sources:
         try:
-            snapshot["policy"] = service.get_policy(bucket.name, account)
+            snapshot["policy"] = service.get_policy(bucket.name, execution_context)
         except RuntimeError:
             snapshot["policy"] = FEATURE_PARAM_UNAVAILABLE
     if "notifications" in required_sources:
-        if not account_sns_feature_enabled(account):
+        if not account_sns_feature_enabled(execution_context):
             snapshot["notifications"] = FEATURE_PARAM_UNAVAILABLE
         else:
             try:
                 snapshot["notifications"] = (
-                    service.get_bucket_notifications(bucket.name, account).configuration or {}
+                    service.get_bucket_notifications(bucket.name, execution_context).configuration or {}
                 )
             except RuntimeError:
                 snapshot["notifications"] = FEATURE_PARAM_UNAVAILABLE
     if "encryption" in required_sources:
         try:
-            snapshot["encryption"] = service.get_bucket_encryption(bucket.name, account)
+            snapshot["encryption"] = service.get_bucket_encryption(bucket.name, execution_context)
         except RuntimeError:
             snapshot["encryption"] = FEATURE_PARAM_UNAVAILABLE
     return snapshot
@@ -81,7 +81,7 @@ def load_bucket_feature_param_snapshots(
     buckets: list[BucketListingSummary],
     rules: list[BucketFilterRule],
     service: BucketConfigurationService,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     progress: ListingProgressEmitter | None = None,
     progress_stage: str = "feature_param_enrichment",
@@ -103,7 +103,7 @@ def load_bucket_feature_param_snapshots(
             bucket,
             required_sources,
             service,
-            account,
+            execution_context,
         )
         return bucket_identity_key(bucket), snapshot
 
