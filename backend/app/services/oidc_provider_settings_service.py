@@ -13,10 +13,13 @@ from app.core.config import OIDCProviderSettings, Settings, get_settings
 from app.db import OidcProvider
 from app.models.oidc import (
     OIDC_PROVIDER_DEFAULT_SCOPES,
-    OIDC_PROVIDER_ID_PATTERN,
     OIDCProviderAdminItem,
     OIDCProviderAdminPayload,
     OIDCProviderFieldLock,
+)
+from app.utils.identity_provider_ids import (
+    identity_provider_environment_source,
+    normalize_identity_provider_id,
 )
 from app.utils.time import utcnow
 
@@ -56,10 +59,10 @@ class OIDCProviderNotFoundError(OIDCProviderSettingsError):
 
 
 def normalize_oidc_provider_id(provider_id: str) -> str:
-    normalized = provider_id.strip().lower()
-    if not normalized or not OIDC_PROVIDER_ID_PATTERN.fullmatch(normalized):
-        raise ValueError("Invalid OIDC provider id")
-    return normalized
+    try:
+        return normalize_identity_provider_id(provider_id)
+    except ValueError as exc:
+        raise ValueError("Invalid OIDC provider id") from exc
 
 
 def _validate_production_payload(payload: OIDCProviderAdminPayload, settings: Optional[Settings] = None) -> None:
@@ -166,12 +169,7 @@ def delete_oidc_provider(db: Session, provider_id: str) -> None:
 
 def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, OIDCProviderSettings]:
     settings = settings or get_settings()
-    resolved: dict[str, OIDCProviderSettings] = {}
-    for raw_id, provider in settings.oidc_providers.items():
-        provider_id = str(raw_id or "").strip().lower()
-        if provider_id:
-            resolved[provider_id] = provider
-    return resolved
+    return dict(settings.oidc_providers)
 
 
 def _ui_provider_query(db: Session) -> Iterable[OidcProvider]:
@@ -262,16 +260,13 @@ def _environment_provider_item(provider_id: str, provider: OIDCProviderSettings)
         provider,
         source="environment",
         field_locks={
-            field: OIDCProviderFieldLock(forced=True, source=_environment_source(provider_id, field))
+            field: OIDCProviderFieldLock(
+                forced=True,
+                source=identity_provider_environment_source("OIDC_PROVIDERS", provider_id, field),
+            )
             for field in OIDC_PROVIDER_FIELDS
         },
     )
-
-
-def _environment_source(provider_id: str, field: str) -> str:
-    if field == "provider_id":
-        return f"OIDC_PROVIDERS__{provider_id.upper()}"
-    return f"OIDC_PROVIDERS__{provider_id.upper()}__{field.upper()}"
 
 
 def _load_scopes(raw: str) -> list[str]:

@@ -46,6 +46,22 @@ def test_environment_oidc_provider_rejects_unknown_fields():
         Settings(oidc_providers={"google": payload})
 
 
+def test_settings_normalizes_oidc_provider_ids_and_rejects_invalid_or_duplicate_keys():
+    settings = Settings(_env_file=None, oidc_providers={"  Google  ": _provider_settings()})
+    assert list(settings.oidc_providers) == ["google"]
+
+    with pytest.raises(ValidationError, match="OIDC provider keys"):
+        Settings(_env_file=None, oidc_providers={"google/prod": _provider_settings()})
+    with pytest.raises(ValidationError, match="Duplicate OIDC provider key"):
+        Settings(
+            _env_file=None,
+            oidc_providers={
+                "Google": _provider_settings(),
+                "google": _provider_settings(),
+            }
+        )
+
+
 def test_environment_oidc_provider_parses_security_lists_from_nested_env(monkeypatch):
     variables = {
         "OIDC_PROVIDERS__google__display_name": "Google",

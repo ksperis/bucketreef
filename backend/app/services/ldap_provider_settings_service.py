@@ -11,10 +11,13 @@ from sqlalchemy.orm import Session
 from app.core.config import LDAPProviderSettings, Settings, get_settings
 from app.db import LdapProvider
 from app.models.ldap import (
-    LDAP_PROVIDER_ID_PATTERN,
     LDAPProviderAdminItem,
     LDAPProviderAdminPayload,
     LDAPProviderFieldLock,
+)
+from app.utils.identity_provider_ids import (
+    identity_provider_environment_source,
+    normalize_identity_provider_id,
 )
 from app.utils.time import utcnow
 
@@ -57,10 +60,10 @@ class LDAPProviderNotFoundError(LDAPProviderSettingsError):
 
 
 def normalize_ldap_provider_id(provider_id: str) -> str:
-    normalized = provider_id.strip().lower()
-    if not normalized or not LDAP_PROVIDER_ID_PATTERN.fullmatch(normalized):
-        raise ValueError("Invalid LDAP provider id")
-    return normalized
+    try:
+        return normalize_identity_provider_id(provider_id)
+    except ValueError as exc:
+        raise ValueError("Invalid LDAP provider id") from exc
 
 
 def _validate_production_payload(payload: LDAPProviderAdminPayload, settings: Optional[Settings] = None) -> None:
@@ -161,12 +164,7 @@ def delete_ldap_provider(db: Session, provider_id: str) -> None:
 
 def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, LDAPProviderSettings]:
     settings = settings or get_settings()
-    resolved: dict[str, LDAPProviderSettings] = {}
-    for raw_id, provider in settings.ldap_providers.items():
-        provider_id = str(raw_id or "").strip().lower()
-        if provider_id:
-            resolved[provider_id] = provider
-    return resolved
+    return dict(settings.ldap_providers)
 
 
 def _ui_provider_query(db: Session) -> Iterable[LdapProvider]:
@@ -291,13 +289,10 @@ def _environment_provider_item(provider_id: str, provider: LDAPProviderSettings)
         provider,
         source="environment",
         field_locks={
-            field: LDAPProviderFieldLock(forced=True, source=_environment_source(provider_id, field))
+            field: LDAPProviderFieldLock(
+                forced=True,
+                source=identity_provider_environment_source("LDAP_PROVIDERS", provider_id, field),
+            )
             for field in LDAP_PROVIDER_FIELDS
         },
     )
-
-
-def _environment_source(provider_id: str, field: str) -> str:
-    if field == "provider_id":
-        return f"LDAP_PROVIDERS__{provider_id.upper()}"
-    return f"LDAP_PROVIDERS__{provider_id.upper()}__{field.upper()}"

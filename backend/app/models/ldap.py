@@ -6,9 +6,9 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
+from app.utils.identity_provider_ids import normalize_identity_provider_id
 from app.utils.ldap_validation import (
     LDAP_PROVIDER_DEFAULT_USER_FILTER,
-    LDAP_PROVIDER_ID_PATTERN,
     normalize_optional_ldap_string,
     normalize_required_ldap_string,
     validate_ldap_url,
@@ -87,17 +87,7 @@ class LDAPProviderAdminPayload(ApiModel):
     allow_insecure: bool = False
     clear_bind_password: bool = False
 
-    @field_validator("provider_id", mode="before")
-    @classmethod
-    def normalize_provider_id(cls, value: str) -> str:
-        if not isinstance(value, str):
-            raise ValueError("provider_id must be a string")
-        normalized = value.strip().lower()
-        if not normalized:
-            raise ValueError("provider_id is required")
-        if not LDAP_PROVIDER_ID_PATTERN.fullmatch(normalized):
-            raise ValueError("provider_id may contain only lowercase letters, numbers, underscores, and hyphens")
-        return normalized
+    normalize_provider_id = field_validator("provider_id", mode="before")(normalize_identity_provider_id)
 
     normalize_required_strings = field_validator(
         "display_name",
