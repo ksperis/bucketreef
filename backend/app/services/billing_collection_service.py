@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Literal, Optional
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -33,6 +34,15 @@ from app.utils.usage_stats import extract_usage_stats
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+@dataclass(frozen=True)
+class _BillingSubject:
+    kind: Literal["account", "s3_user"]
+    id: int
+    principal: S3Account | S3User
+    s3_account_id: int | None
+    s3_user_id: int | None
 
 
 def _collection_error(
@@ -111,6 +121,174 @@ class BillingCollector:
         summary["retention"] = DataRetentionService(self.db).purge_all()
         return summary
 
+    def _load_subjects(self, endpoint: StorageEndpoint) -> list[_BillingSubject]:
+        accounts = (
+            self.db.query(S3Account)
+            .filter(S3Account.storage_endpoint_id == endpoint.id)
+            .all()
+        )
+        s3_users = (
+            self.db.query(S3User)
+            .filter(S3User.storage_endpoint_id == endpoint.id)
+            .all()
+        )
+        subjects = [
+            _BillingSubject(
+                kind="account",
+                id=int(account.id),
+                principal=account,
+                s3_account_id=int(account.id),
+                s3_user_id=None,
+            )
+            for account in accounts
+        ]
+        subjects.extend(
+            _BillingSubject(
+                kind="s3_user",
+                id=int(s3_user.id),
+                principal=s3_user,
+                s3_account_id=None,
+                s3_user_id=int(s3_user.id),
+            )
+            for s3_user in s3_users
+            if s3_user.rgw_user_uid
+        )
+        return subjects
+
+    @staticmethod
+    def _collection_failure(
+        *,
+        stage: Literal["usage", "storage"],
+        endpoint: StorageEndpoint,
+        subject: _BillingSubject,
+        exc: Exception,
+    ) -> dict[str, Any]:
+        subject_label = "account" if subject.kind == "account" else "s3 user"
+        if isinstance(exc, RGWAdminError):
+            logger.warning(
+                "%s collection failed for %s %s: %s",
+                stage.capitalize(),
+                subject_label,
+                subject.id,
+                exc,
+            )
+        else:
+            logger.exception(
+                "%s collection error for %s %s",
+                stage.capitalize(),
+                subject_label,
+                subject.id,
+            )
+        return _collection_error(
+            stage=stage,
+            endpoint_id=endpoint.id,
+            subject=subject.kind,
+            subject_id=subject.id,
+        )
+
+    def _collect_subjects(
+        self,
+        *,
+        stage: Literal["usage", "storage"],
+        endpoint: StorageEndpoint,
+        operation: Callable[[_BillingSubject], None],
+    ) -> tuple[int, list[dict[str, Any]]]:
+        created = 0
+        errors: list[dict[str, Any]] = []
+        for subject in self._load_subjects(endpoint):
+            try:
+                operation(subject)
+                created += 1
+            except RGWAdminError as exc:
+                errors.append(
+                    self._collection_failure(
+                        stage=stage,
+                        endpoint=endpoint,
+                        subject=subject,
+                        exc=exc,
+                    )
+                )
+            except Exception as exc:
+                errors.append(
+                    self._collection_failure(
+                        stage=stage,
+                        endpoint=endpoint,
+                        subject=subject,
+                        exc=exc,
+                    )
+                )
+        return created, errors
+
+    def _collect_usage_subject(
+        self,
+        rgw_admin: RGWAdminClient,
+        endpoint: StorageEndpoint,
+        day: date,
+        start: datetime,
+        end: datetime,
+        subject: _BillingSubject,
+    ) -> None:
+        if subject.kind == "account":
+            usage_uid = subject.principal.rgw_account_id
+        else:
+            usage_uid = rgw_qualified_uid(
+                subject.principal.rgw_user_uid,
+                resolve_target_tenant(subject.principal),
+            )
+        payload = rgw_admin.get_usage(
+            uid=usage_uid,
+            start=start,
+            end=end,
+            show_entries=True,
+            show_summary=False,
+        )
+        entries = flatten_usage_entries(payload)
+        aggregation = aggregate_usage(entries, start=start, end=end)
+        totals = aggregation.get("totals", {})
+        breakdown = {
+            entry["category"]: entry["ops"]
+            for entry in aggregation.get("category_breakdown", [])
+            if entry.get("category")
+        }
+        self._upsert_usage(
+            day=day,
+            endpoint_id=endpoint.id,
+            s3_account_id=subject.s3_account_id,
+            s3_user_id=subject.s3_user_id,
+            bytes_in=int_or_zero(totals.get("bytes_in")),
+            bytes_out=int_or_zero(totals.get("bytes_out")),
+            ops_total=int_or_zero(totals.get("ops")),
+            ops_breakdown=breakdown,
+        )
+
+    def _collect_storage_subject(
+        self,
+        rgw_admin: RGWAdminClient,
+        endpoint: StorageEndpoint,
+        day: date,
+        subject: _BillingSubject,
+    ) -> None:
+        uid = subject.principal.rgw_user_uid
+        if not uid:
+            raise ValueError("RGW account root UID is unavailable")
+        storage_uid = rgw_qualified_uid(
+            uid,
+            resolve_target_tenant(subject.principal),
+        )
+        total_bytes, total_objects, by_bucket = self._collect_bucket_stats(
+            rgw_admin,
+            storage_uid,
+        )
+        self._upsert_storage(
+            day=day,
+            endpoint_id=endpoint.id,
+            s3_account_id=subject.s3_account_id,
+            s3_user_id=subject.s3_user_id,
+            total_bytes=total_bytes,
+            total_objects=total_objects,
+            by_bucket=by_bucket,
+        )
+
     def _collect_usage_for_endpoint(
         self,
         rgw_admin: RGWAdminClient,
@@ -121,128 +299,18 @@ class BillingCollector:
             tzinfo=timezone.utc
         )
         end = start + timedelta(days=1)
-        accounts = (
-            self.db.query(S3Account)
-            .filter(S3Account.storage_endpoint_id == endpoint.id)
-            .all()
+        return self._collect_subjects(
+            stage="usage",
+            endpoint=endpoint,
+            operation=lambda subject: self._collect_usage_subject(
+                rgw_admin,
+                endpoint,
+                day,
+                start,
+                end,
+                subject,
+            ),
         )
-        s3_users = (
-            self.db.query(S3User)
-            .filter(S3User.storage_endpoint_id == endpoint.id)
-            .all()
-        )
-        created = 0
-        errors: list[dict[str, Any]] = []
-
-        for account in accounts:
-            try:
-                payload = rgw_admin.get_usage(
-                    uid=account.rgw_account_id,
-                    start=start,
-                    end=end,
-                    show_entries=True,
-                    show_summary=False,
-                )
-                entries = flatten_usage_entries(payload)
-                aggregation = aggregate_usage(entries, start=start, end=end)
-                totals = aggregation.get("totals", {})
-                breakdown = {
-                    entry["category"]: entry["ops"]
-                    for entry in aggregation.get("category_breakdown", [])
-                    if entry.get("category")
-                }
-                self._upsert_usage(
-                    day=day,
-                    endpoint_id=endpoint.id,
-                    s3_account_id=account.id,
-                    s3_user_id=None,
-                    bytes_in=int_or_zero(totals.get("bytes_in")),
-                    bytes_out=int_or_zero(totals.get("bytes_out")),
-                    ops_total=int_or_zero(totals.get("ops")),
-                    ops_breakdown=breakdown,
-                )
-                created += 1
-            except RGWAdminError as exc:
-                logger.warning(
-                    "Usage collection failed for account %s: %s",
-                    account.id,
-                    exc,
-                )
-                errors.append(
-                    _collection_error(
-                        stage="usage",
-                        endpoint_id=endpoint.id,
-                        subject="account",
-                        subject_id=account.id,
-                    )
-                )
-            except Exception as exc:
-                logger.exception("Usage collection error for account %s", account.id)
-                errors.append(
-                    _collection_error(
-                        stage="usage",
-                        endpoint_id=endpoint.id,
-                        subject="account",
-                        subject_id=account.id,
-                    )
-                )
-
-        for s3_user in s3_users:
-            uid = s3_user.rgw_user_uid
-            if not uid:
-                continue
-            try:
-                payload = rgw_admin.get_usage(
-                    uid=rgw_qualified_uid(uid, resolve_target_tenant(s3_user)),
-                    start=start,
-                    end=end,
-                    show_entries=True,
-                    show_summary=False,
-                )
-                entries = flatten_usage_entries(payload)
-                aggregation = aggregate_usage(entries, start=start, end=end)
-                totals = aggregation.get("totals", {})
-                breakdown = {
-                    entry["category"]: entry["ops"]
-                    for entry in aggregation.get("category_breakdown", [])
-                    if entry.get("category")
-                }
-                self._upsert_usage(
-                    day=day,
-                    endpoint_id=endpoint.id,
-                    s3_account_id=None,
-                    s3_user_id=s3_user.id,
-                    bytes_in=int_or_zero(totals.get("bytes_in")),
-                    bytes_out=int_or_zero(totals.get("bytes_out")),
-                    ops_total=int_or_zero(totals.get("ops")),
-                    ops_breakdown=breakdown,
-                )
-                created += 1
-            except RGWAdminError as exc:
-                logger.warning(
-                    "Usage collection failed for s3 user %s: %s",
-                    s3_user.id,
-                    exc,
-                )
-                errors.append(
-                    _collection_error(
-                        stage="usage",
-                        endpoint_id=endpoint.id,
-                        subject="s3_user",
-                        subject_id=s3_user.id,
-                    )
-                )
-            except Exception as exc:
-                logger.exception("Usage collection error for s3 user %s", s3_user.id)
-                errors.append(
-                    _collection_error(
-                        stage="usage",
-                        endpoint_id=endpoint.id,
-                        subject="s3_user",
-                        subject_id=s3_user.id,
-                    )
-                )
-        return created, errors
 
     def _collect_storage_for_endpoint(
         self,
@@ -250,105 +318,16 @@ class BillingCollector:
         endpoint: StorageEndpoint,
         day: date,
     ) -> tuple[int, list[dict[str, Any]]]:
-        accounts = (
-            self.db.query(S3Account)
-            .filter(S3Account.storage_endpoint_id == endpoint.id)
-            .all()
+        return self._collect_subjects(
+            stage="storage",
+            endpoint=endpoint,
+            operation=lambda subject: self._collect_storage_subject(
+                rgw_admin,
+                endpoint,
+                day,
+                subject,
+            ),
         )
-        s3_users = (
-            self.db.query(S3User)
-            .filter(S3User.storage_endpoint_id == endpoint.id)
-            .all()
-        )
-        created = 0
-        errors: list[dict[str, Any]] = []
-        for account in accounts:
-            try:
-                if not account.rgw_user_uid:
-                    raise ValueError("RGW account root UID is unavailable")
-                total_bytes, total_objects, by_bucket = self._collect_bucket_stats(
-                    rgw_admin,
-                    rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account)),
-                )
-                self._upsert_storage(
-                    day=day,
-                    endpoint_id=endpoint.id,
-                    s3_account_id=account.id,
-                    s3_user_id=None,
-                    total_bytes=total_bytes,
-                    total_objects=total_objects,
-                    by_bucket=by_bucket,
-                )
-                created += 1
-            except RGWAdminError as exc:
-                logger.warning(
-                    "Storage collection failed for account %s: %s",
-                    account.id,
-                    exc,
-                )
-                errors.append(
-                    _collection_error(
-                        stage="storage",
-                        endpoint_id=endpoint.id,
-                        subject="account",
-                        subject_id=account.id,
-                    )
-                )
-            except Exception as exc:
-                logger.exception("Storage collection error for account %s", account.id)
-                errors.append(
-                    _collection_error(
-                        stage="storage",
-                        endpoint_id=endpoint.id,
-                        subject="account",
-                        subject_id=account.id,
-                    )
-                )
-
-        for s3_user in s3_users:
-            uid = s3_user.rgw_user_uid
-            if not uid:
-                continue
-            try:
-                total_bytes, total_objects, by_bucket = self._collect_bucket_stats(
-                    rgw_admin,
-                    rgw_qualified_uid(uid, resolve_target_tenant(s3_user)),
-                )
-                self._upsert_storage(
-                    day=day,
-                    endpoint_id=endpoint.id,
-                    s3_account_id=None,
-                    s3_user_id=s3_user.id,
-                    total_bytes=total_bytes,
-                    total_objects=total_objects,
-                    by_bucket=by_bucket,
-                )
-                created += 1
-            except RGWAdminError as exc:
-                logger.warning(
-                    "Storage collection failed for s3 user %s: %s",
-                    s3_user.id,
-                    exc,
-                )
-                errors.append(
-                    _collection_error(
-                        stage="storage",
-                        endpoint_id=endpoint.id,
-                        subject="s3_user",
-                        subject_id=s3_user.id,
-                    )
-                )
-            except Exception as exc:
-                logger.exception("Storage collection error for s3 user %s", s3_user.id)
-                errors.append(
-                    _collection_error(
-                        stage="storage",
-                        endpoint_id=endpoint.id,
-                        subject="s3_user",
-                        subject_id=s3_user.id,
-                    )
-                )
-        return created, errors
 
     def _collect_bucket_stats(
         self,
