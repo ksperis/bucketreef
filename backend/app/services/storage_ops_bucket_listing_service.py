@@ -298,13 +298,12 @@ def _apply_page_owner_enrichment(
                 endpoint_id=int(resolved.context.storage_endpoint_id or 0),
                 execution_context=resolved.context,
             )
-            kwargs = {
-                "include_name": include_name,
-                "include_quota": include_quota,
-            }
-            if include_suspended:
-                kwargs["include_suspended"] = True
-            metadata.enrich_buckets(buckets, **kwargs)
+            metadata.enrich_buckets(
+                buckets,
+                include_name=include_name,
+                include_suspended=include_suspended,
+                include_quota=include_quota,
+            )
         processed += len(buckets)
         if progress is not None:
             progress.emit(
@@ -318,19 +317,11 @@ def _apply_page_owner_enrichment(
     return page_items
 
 
-def list_storage_ops_context_buckets(
+def _load_storage_ops_context_buckets(
     *,
     context: StorageOpsResolvedContext,
     service: BucketsService,
     needs_stats: bool,
-    requested_features: set[str],
-    include_tags: bool,
-    parsed_filter: BucketFilterQuery | None,
-    normalized_search: str,
-    filter_requires_owner_name: bool,
-    filter_requires_owner_suspended: bool,
-    filter_requires_owner_quota: bool,
-    owner_usage_required: bool,
 ) -> list[StorageOpsBucketSummary]:
     ref = context.ref
     execution_context = context.context
@@ -345,83 +336,140 @@ def list_storage_ops_context_buckets(
         logger.warning("Storage Ops listing failed for context %s: %s", ref.context_id, exc)
         return []
 
-    context_buckets: list[StorageOpsBucketSummary] = []
     owner_identity = _resolve_context_owner(execution_context)
-    for bucket in listed:
-        context_buckets.append(
-            StorageOpsBucketSummary(
-                name=bucket.name,
-                bucket_name=bucket.name,
-                tenant=owner_identity.tenant,
-                owner=owner_identity.owner,
-                owner_name=None,
-                used_bytes=bucket.used_bytes,
-                object_count=bucket.object_count,
-                quota_max_size_bytes=bucket.quota_max_size_bytes,
-                quota_max_objects=bucket.quota_max_objects,
-                context_id=ref.context_id,
-                context_name=ref.context_name,
-                context_kind=ref.context_kind,
-                endpoint_id=ref.endpoint_id,
-                endpoint_name=ref.endpoint_name,
-                bucket_identity=build_storage_ops_bucket_identity(ref.endpoint_id, owner_identity.tenant, bucket.name),
-            )
+    return [
+        StorageOpsBucketSummary(
+            name=bucket.name,
+            bucket_name=bucket.name,
+            tenant=owner_identity.tenant,
+            owner=owner_identity.owner,
+            owner_name=None,
+            used_bytes=bucket.used_bytes,
+            object_count=bucket.object_count,
+            quota_max_size_bytes=bucket.quota_max_size_bytes,
+            quota_max_objects=bucket.quota_max_objects,
+            context_id=ref.context_id,
+            context_name=ref.context_name,
+            context_kind=ref.context_kind,
+            endpoint_id=ref.endpoint_id,
+            endpoint_name=ref.endpoint_name,
+            bucket_identity=build_storage_ops_bucket_identity(ref.endpoint_id, owner_identity.tenant, bucket.name),
         )
+        for bucket in listed
+    ]
 
-    if context_buckets and (
-        filter_requires_owner_name
-        or filter_requires_owner_suspended
-        or filter_requires_owner_quota
-        or owner_usage_required
+
+def _enrich_storage_ops_context_owner_details(
+    *,
+    buckets: list[StorageOpsBucketSummary],
+    execution_context: S3ExecutionContext,
+    query: StorageOpsBucketListingRequest,
+) -> list[StorageOpsBucketSummary]:
+    if not buckets or not (
+        query.filter_requires_owner_name
+        or query.filter_requires_owner_suspended
+        or query.filter_requires_owner_quota
+        or query.owner_usage_required
     ):
-        metadata = BucketOwnerMetadataService(
-            endpoint_id=int(execution_context.storage_endpoint_id or 0),
-            execution_context=execution_context,
-        )
-        kwargs = {
-            "include_name": filter_requires_owner_name,
-            "include_quota": filter_requires_owner_quota,
-            "include_usage": owner_usage_required,
-        }
-        if filter_requires_owner_suspended:
-            kwargs["include_suspended"] = True
-        metadata.enrich_buckets(context_buckets, **kwargs)
+        return buckets
 
+    BucketOwnerMetadataService(
+        endpoint_id=int(execution_context.storage_endpoint_id or 0),
+        execution_context=execution_context,
+    ).enrich_buckets(
+        buckets,
+        include_name=query.filter_requires_owner_name,
+        include_suspended=query.filter_requires_owner_suspended,
+        include_quota=query.filter_requires_owner_quota,
+        include_usage=query.owner_usage_required,
+    )
+    return buckets
+
+
+def _prefilter_storage_ops_context_buckets(
+    *,
+    buckets: list[StorageOpsBucketSummary],
+    execution_context: S3ExecutionContext,
+    service: BucketsService,
+    parsed_filter: BucketFilterQuery | None,
+) -> tuple[list[StorageOpsBucketSummary], BucketFilterQuery | None]:
     cheap_prefilter, cheap_prefilter_complete = _build_cheap_field_prefilter(parsed_filter)
-    effective_filter = parsed_filter
-    if cheap_prefilter and context_buckets:
-        context_buckets = apply_storage_ops_advanced_filter(
-            context_buckets,
-            cheap_prefilter,
-            service=service.configuration,
-            context=execution_context,
-        )
-        if not context_buckets:
-            return []
-        if cheap_prefilter_complete:
-            effective_filter = None
+    if not cheap_prefilter or not buckets:
+        return buckets, parsed_filter
 
-    if (requested_features or include_tags) and context_buckets:
-        enriched_buckets: list[StorageOpsBucketSummary] = []
-        for enriched in enrich_buckets(
-            context_buckets,
-            requested_features,
-            include_tags,
-            service.configuration,
-            execution_context,
-        ):
-            enriched_payload = enriched.model_dump(mode="json")
-            enriched_payload.update(
-                context_id=ref.context_id,
-                context_name=ref.context_name,
-                context_kind=ref.context_kind,
-                endpoint_id=ref.endpoint_id,
-                endpoint_name=ref.endpoint_name,
-                bucket_name=enriched.name,
-                bucket_identity=build_storage_ops_bucket_identity(ref.endpoint_id, enriched.tenant, enriched.name),
-            )
-            enriched_buckets.append(StorageOpsBucketSummary.model_validate(enriched_payload))
-        context_buckets = enriched_buckets
+    filtered = apply_storage_ops_advanced_filter(
+        buckets,
+        cheap_prefilter,
+        service=service.configuration,
+        context=execution_context,
+    )
+    return filtered, None if cheap_prefilter_complete else parsed_filter
+
+
+def _enrich_storage_ops_context_buckets(
+    *,
+    buckets: list[StorageOpsBucketSummary],
+    context: StorageOpsResolvedContext,
+    service: BucketsService,
+    query: StorageOpsBucketListingRequest,
+) -> list[StorageOpsBucketSummary]:
+    if not buckets or (not query.requested_features and not query.include_tags):
+        return buckets
+
+    ref = context.ref
+    enriched_buckets: list[StorageOpsBucketSummary] = []
+    for enriched in enrich_buckets(
+        buckets,
+        query.requested_features,
+        query.include_tags,
+        service.configuration,
+        context.context,
+    ):
+        enriched_payload = enriched.model_dump(mode="json")
+        enriched_payload.update(
+            context_id=ref.context_id,
+            context_name=ref.context_name,
+            context_kind=ref.context_kind,
+            endpoint_id=ref.endpoint_id,
+            endpoint_name=ref.endpoint_name,
+            bucket_name=enriched.name,
+            bucket_identity=build_storage_ops_bucket_identity(ref.endpoint_id, enriched.tenant, enriched.name),
+        )
+        enriched_buckets.append(StorageOpsBucketSummary.model_validate(enriched_payload))
+    return enriched_buckets
+
+
+def list_storage_ops_context_buckets(
+    *,
+    context: StorageOpsResolvedContext,
+    service: BucketsService,
+    query: StorageOpsBucketListingRequest,
+) -> list[StorageOpsBucketSummary]:
+    execution_context = context.context
+    context_buckets = _load_storage_ops_context_buckets(
+        context=context,
+        service=service,
+        needs_stats=query.needs_stats,
+    )
+    context_buckets = _enrich_storage_ops_context_owner_details(
+        buckets=context_buckets,
+        execution_context=execution_context,
+        query=query,
+    )
+    context_buckets, effective_filter = _prefilter_storage_ops_context_buckets(
+        buckets=context_buckets,
+        execution_context=execution_context,
+        service=service,
+        parsed_filter=query.parsed_filter,
+    )
+    if not context_buckets:
+        return []
+    context_buckets = _enrich_storage_ops_context_buckets(
+        buckets=context_buckets,
+        context=context,
+        service=service,
+        query=query,
+    )
 
     context_buckets = apply_storage_ops_advanced_filter(
         context_buckets,
@@ -429,11 +477,12 @@ def list_storage_ops_context_buckets(
         service=service.configuration,
         context=execution_context,
     )
-    if normalized_search:
+    if query.normalized_search:
         context_buckets = [
-            bucket for bucket in context_buckets if _match_simple_search(bucket, normalized_search)
+            bucket for bucket in context_buckets if _match_simple_search(bucket, query.normalized_search)
         ]
 
+    ref = context.ref
     for bucket in context_buckets:
         bucket.name = encode_storage_ops_bucket_ref(
             ref.context_id,
@@ -615,15 +664,7 @@ class _StorageOpsBucketListingPipeline:
         return list_storage_ops_context_buckets(
             context=context,
             service=self.service,
-            needs_stats=query.needs_stats,
-            requested_features=query.requested_features,
-            include_tags=query.include_tags,
-            parsed_filter=query.parsed_filter,
-            normalized_search=query.normalized_search,
-            filter_requires_owner_name=query.filter_requires_owner_name,
-            filter_requires_owner_suspended=query.filter_requires_owner_suspended,
-            filter_requires_owner_quota=query.filter_requires_owner_quota,
-            owner_usage_required=query.owner_usage_required,
+            query=query,
         )
 
     def _list_contexts_serially(
