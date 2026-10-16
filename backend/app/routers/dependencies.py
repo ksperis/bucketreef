@@ -38,11 +38,11 @@ from app.routers.dependencies_internal.feature_gates import (
     require_manager_context_enabled,
     require_manager_enabled,
     require_manager_feature_rules_enabled,
-    require_metrics_capable_manager,
+    require_usage_logs_capable_manager,
     require_portal_enabled,
     require_sns_capable_manager,
     require_storage_ops_enabled,
-    require_usage_capable_manager,
+    require_storage_metrics_capable_manager,
 )
 from app.routers.dependencies_internal.portal_access import (
     get_portal_account_access,

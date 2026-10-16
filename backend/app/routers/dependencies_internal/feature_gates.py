@@ -49,7 +49,7 @@ _MANAGER_TOOL_DISABLED_MESSAGES: dict[ManagerToolKey, str] = {
 
 
 def _require_supervision_access(
-    account: S3ExecutionContext,
+    context: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
     disabled_detail: str,
@@ -58,7 +58,7 @@ def _require_supervision_access(
     settings = app_settings_service.load_app_settings_for_db_readonly(db)
     metrics_state = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
-        project_account_resource(db, account),
+        project_account_resource(db, context),
     )
     if not metrics_state.enabled:
         raise HTTPException(
@@ -66,19 +66,19 @@ def _require_supervision_access(
             detail="RGW traffic and usage metrics are disabled",
         )
 
-    caps = require_manager_capabilities(account)
+    caps = require_manager_capabilities(context)
     if isinstance(actor, ManagerSessionPrincipal) and not actor.capabilities.can_view_traffic:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this profile")
     if not caps.can_manage_buckets:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this account")
-    endpoint = account.storage_endpoint
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this context")
+    endpoint = context.storage_endpoint
 
-    if account.context_kind == "connection":
-        source_connection = account.source_connection
+    if context.context_kind == "connection":
+        source_connection = context.source_connection
         if (
             source_connection is None
-            or account.s3_connection_id is None
-            or source_connection.id != account.s3_connection_id
+            or context.s3_connection_id is None
+            or source_connection.id != context.s3_connection_id
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -91,11 +91,11 @@ def _require_supervision_access(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
         if required_feature == "usage" and not resolution.usage_enabled:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage logs are disabled for this endpoint")
-        account.rgw_tenant = resolution.rgw_tenant
+        context.rgw_tenant = resolution.rgw_tenant
         if resolution.rgw_account_id:
-            account.rgw_account_id = resolution.rgw_account_id
+            context.rgw_account_id = resolution.rgw_account_id
         if resolution.rgw_user_uid:
-            account.rgw_user_uid = resolution.rgw_user_uid
+            context.rgw_user_uid = resolution.rgw_user_uid
 
     if endpoint:
         flags = resolve_feature_flags(endpoint)
@@ -103,31 +103,31 @@ def _require_supervision_access(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=disabled_detail)
         if required_feature == "usage" and not flags.usage_enabled:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=disabled_detail)
-    if not has_supervision_credentials(account):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Supervision credentials are not configured for this account")
+    if not has_supervision_credentials(context):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Supervision credentials are not configured for this context")
     return actor
 
 
 def require_iam_capable_manager(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
 ) -> ManagerActor:
-    caps = require_manager_capabilities(account)
+    caps = require_manager_capabilities(context)
     if not caps.can_manage_iam:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="IAM management not allowed for this account")
-    endpoint = account.storage_endpoint
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="IAM management not allowed for this context")
+    endpoint = context.storage_endpoint
     if endpoint and not resolve_feature_flags(endpoint).iam_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="IAM is disabled for this endpoint")
     return actor
 
 
-def require_usage_capable_manager(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+def require_storage_metrics_capable_manager(
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> ManagerActor:
     return _require_supervision_access(
-        account,
+        context,
         actor,
         db,
         disabled_detail="Storage metrics are disabled for this endpoint",
@@ -136,11 +136,11 @@ def require_usage_capable_manager(
 
 
 def require_sns_capable_manager(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
 ) -> ManagerActor:
-    require_manager_capabilities(account)
-    endpoint = account.storage_endpoint
+    require_manager_capabilities(context)
+    endpoint = context.storage_endpoint
     if endpoint:
         flags = resolve_feature_flags(endpoint)
         if not flags.sns_enabled:
@@ -148,13 +148,13 @@ def require_sns_capable_manager(
     return actor
 
 
-def require_metrics_capable_manager(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+def require_usage_logs_capable_manager(
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> ManagerActor:
     return _require_supervision_access(
-        account,
+        context,
         actor,
         db,
         disabled_detail="Usage logs are disabled for this endpoint",
@@ -211,13 +211,13 @@ def require_bucket_purge_global_enabled() -> None:
 
 def require_bucket_usage_stats_enabled(
     user: User = Depends(get_current_user),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> User:
     app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
     state = bucket_usage_stats_state(
         app_settings.general.project_feature_policies,
-        project_account_resource(db, account),
+        project_account_resource(db, context),
     )
     if not state.enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bucket usage stats feature is disabled")
@@ -232,7 +232,7 @@ def require_manager_feature_rules_enabled(user: User = Depends(get_current_user)
 
 
 def is_manager_bucket_quota_available(
-    account: S3ExecutionTarget,
+    context: S3ExecutionTarget,
     user: Optional[User] = None,
     db: Session | None = None,
 ) -> bool:
@@ -242,28 +242,28 @@ def is_manager_bucket_quota_available(
         "bucket_quota",
         surface="manager",
         actor=user,
-        account=account,
+        account=context,
     ).allowed
 
 
 def require_manager_bucket_quota(
     user: User = Depends(get_current_user),
-    account: S3ExecutionTarget = Depends(get_s3_execution_context),
+    context: S3ExecutionTarget = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> S3ExecutionTarget:
     decision = ManagerCephManagementAccessService(db).evaluate(
         "bucket_quota",
         surface="manager",
         actor=user,
-        account=account,
+        account=context,
     )
     if not decision.allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=decision.reason)
-    return account
+    return context
 
 
 def is_manager_rgw_access_key_management_available(
-    account: S3ExecutionTarget,
+    context: S3ExecutionTarget,
     user: Optional[User] = None,
     db: Session | None = None,
 ) -> bool:
@@ -273,24 +273,24 @@ def is_manager_rgw_access_key_management_available(
         "rgw_access_keys",
         surface="manager",
         actor=user,
-        account=account,
+        account=context,
     ).allowed
 
 
 def require_manager_rgw_access_key_management(
     user: User = Depends(get_current_user),
-    account: S3ExecutionTarget = Depends(get_s3_execution_context),
+    context: S3ExecutionTarget = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> S3ExecutionTarget:
     decision = ManagerCephManagementAccessService(db).evaluate(
         "rgw_access_keys",
         surface="manager",
         actor=user,
-        account=account,
+        account=context,
     )
     if not decision.allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=decision.reason)
-    return account
+    return context
 
 
 def require_manager_enabled() -> None:
