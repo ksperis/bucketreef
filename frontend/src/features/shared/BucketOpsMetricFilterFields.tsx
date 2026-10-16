@@ -9,6 +9,7 @@ import {
   type AdvancedNumericField,
 } from "./bucketOpsAdvancedFilterModel";
 import { buildAdvancedFilterFieldState } from "./bucketOpsAdvancedFilterUiProjection";
+import { useSharedI18n } from "./sharedI18n";
 
 type MetricRangeRow = {
   label: string;
@@ -120,6 +121,7 @@ export default function BucketOpsMetricFilterFields({
   usageFeatureEnabled,
   usageUnavailableDescription,
 }: BucketOpsMetricFilterFieldsProps) {
+  const { text: surfaceText } = useSharedI18n();
   return (
     <div className="space-y-3">
       {!usageFeatureEnabled && (
@@ -130,6 +132,7 @@ export default function BucketOpsMetricFilterFields({
       <div className="grid gap-3 lg:grid-cols-2">
         {METRIC_FILTER_SECTIONS.map((section) => {
           const disabled = section.requiresStats && !usageFeatureEnabled;
+          const sectionTitle = surfaceText(section.title);
           return (
             <div
               key={section.title}
@@ -138,15 +141,15 @@ export default function BucketOpsMetricFilterFields({
               )}
             >
               <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {section.title}
+                {sectionTitle}
               </p>
               {disabled && (
                 <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                  Requires bucket stats.
-                </p>
+                  {surfaceText("Requires bucket stats.")}</p>
               )}
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {section.rows.map((row) => {
+                  const rowLabel = surfaceText(row.label);
                   const minApplied = (advancedApplied?.[row.minId] ?? "").trim();
                   const minDraft = advancedDraft[row.minId].trim();
                   const maxApplied = (advancedApplied?.[row.maxId] ?? "").trim();
@@ -166,8 +169,8 @@ export default function BucketOpsMetricFilterFields({
                   return (
                     <AdvancedFilterNumberRangeField
                       key={`${section.title}:${row.label}`}
-                      label={row.label}
-                      accessibleLabel={`${section.title} ${row.label}`}
+                      label={rowLabel}
+                      accessibleLabel={`${sectionTitle} ${rowLabel}`}
                       disabled={disabled}
                       fieldState={rowState}
                       minFieldState={minState}

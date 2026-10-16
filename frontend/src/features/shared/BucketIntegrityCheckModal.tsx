@@ -40,6 +40,7 @@ import {
   STORAGE_OPS_PAGE_CONTRACTS,
   buildWorkspacePageBreadcrumbs,
 } from "../../navigation/workspacePages";
+import { useSharedI18n } from "./sharedI18n";
 
 type CommonProps = {
   targets: BucketOperationUiTarget[];
@@ -129,6 +130,7 @@ const CHECK_MODE_OPTIONS: Array<{ value: BucketIntegrityCheckMode; label: string
 ];
 
 export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckModalProps) {
+  const { text: surfaceText } = useSharedI18n();
   const [parallelism, setParallelism] = useState(10);
   const [allVersions, setAllVersions] = useState(false);
   const [checkMode, setCheckMode] = useState<BucketIntegrityCheckMode>("head");
@@ -145,7 +147,10 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
   const abortRef = useRef<AbortController | null>(null);
 
   const targetCount = props.targets.length;
-  const targetLabel = `${targetCount} bucket${targetCount > 1 ? "s" : ""}`;
+  const targetLabel = surfaceText(
+    targetCount === 1 ? "{count} bucket" : "{count} buckets",
+    { count: targetCount },
+  );
   const progressPercent = useMemo(() => {
     if (!progress || progress.listed_count <= 0) return null;
     return Math.max(0, Math.min(100, Math.round((progress.checked_count / progress.listed_count) * 100)));
@@ -190,7 +195,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
     try {
       payload = buildPayload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid options.");
+      setError(surfaceText(err instanceof Error ? err.message : "Invalid options."));
       return;
     }
 
@@ -209,12 +214,20 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
             ? await streamCephAdminBucketIntegrityCheck(props.endpointId, payload, streamOptions)
             : await streamStorageOpsBucketIntegrityCheck(payload, streamOptions);
       setResult(nextResult);
-      setMessage(`Check ${statusLabel(nextResult.status).toLowerCase()}.`);
+      setMessage(surfaceText(
+        nextResult.status === "passed"
+          ? "Check passed."
+          : nextResult.status === "completed_with_errors"
+            ? "Check completed with errors."
+            : nextResult.status === "canceled"
+              ? "Check canceled."
+              : "Check failed.",
+      ));
     } catch (err) {
       if (isAbortError(err)) {
-        setMessage("Check canceled.");
+        setMessage(surfaceText("Check canceled."));
       } else {
-        setError(extractApiError(err, "Bucket integrity check failed."));
+        setError(extractApiError(err, surfaceText("Bucket integrity check failed.")));
       }
     } finally {
       setRunning(false);
@@ -233,18 +246,18 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
 
   const breadcrumbs =
     props.mode === "manager"
-      ? buildWorkspacePageBreadcrumbs("manager", MANAGER_PAGE_CONTRACTS.integrity, { label: "Run" })
+      ? buildWorkspacePageBreadcrumbs("manager", MANAGER_PAGE_CONTRACTS.integrity, { label: surfaceText("Run") })
       : props.mode === "ceph-admin"
-        ? buildWorkspacePageBreadcrumbs("ceph-admin", CEPH_ADMIN_PAGE_CONTRACTS.buckets, { label: "Integrity check" })
-        : buildWorkspacePageBreadcrumbs("storage-ops", STORAGE_OPS_PAGE_CONTRACTS.buckets, { label: "Integrity check" });
+        ? buildWorkspacePageBreadcrumbs("ceph-admin", CEPH_ADMIN_PAGE_CONTRACTS.buckets, { label: surfaceText("Integrity check") })
+        : buildWorkspacePageBreadcrumbs("storage-ops", STORAGE_OPS_PAGE_CONTRACTS.buckets, { label: surfaceText("Integrity check") });
 
   return (
     <WorkflowPage
-      title="Check bucket integrity"
-      description="Configure the read strategy, follow progress and review every affected bucket without blocking the bucket list."
+      title={surfaceText("Check bucket integrity")}
+      description={surfaceText("Configure the read strategy, follow progress and review every affected bucket without blocking the bucket list.")}
       breadcrumbs={breadcrumbs}
       onBack={closeModal}
-      backLabel={running ? "Stop and return" : "Back to bucket selection"}
+      backLabel={running ? surfaceText("Stop and return") : surfaceText("Back to bucket selection")}
       contentClassName="min-w-0"
     >
       <div className="space-y-4">
@@ -256,8 +269,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
           contextLabel={props.mode === "manager" ? props.contextName || props.contextId : props.mode === "ceph-admin" ? props.endpointName || `Endpoint ${props.endpointId}` : "Storage Ops"}
           actions={running ? (
             <UiButton type="button" onClick={cancelCheck} variant="danger" size="sm">
-              Cancel
-            </UiButton>
+              {surfaceText("Cancel")}</UiButton>
           ) : (
             <UiButton
               type="button"
@@ -266,23 +278,26 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
               variant="primary"
               size="sm"
             >
-              Run check
-            </UiButton>
+              {surfaceText("Run check")}</UiButton>
           )}
         >
           <div className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[auto_minmax(80px,0.6fr)_minmax(0,1fr)_minmax(120px,0.8fr)_auto]">
             <fieldset className="bucket-operation-mode min-w-0">
-              <legend>Mode</legend>
+              <legend>{surfaceText("Mode")}</legend>
               <UiSegmentedControl
-                ariaLabel="Bucket integrity check mode"
-                options={CHECK_MODE_OPTIONS.map((option) => ({ ...option, disabled: running }))}
+                ariaLabel={surfaceText("Bucket integrity check mode")}
+                options={CHECK_MODE_OPTIONS.map((option) => ({
+                  ...option,
+                  label: surfaceText(option.value === "head" ? "HEAD only" : "GET body"),
+                  disabled: running,
+                }))}
                 value={checkMode}
                 onChange={setCheckMode}
               />
             </fieldset>
             <UiInput
               size="compact"
-              label="Parallelism"
+              label={surfaceText("Parallelism")}
               type="number"
               min={1}
               max={64}
@@ -292,7 +307,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
             />
             <UiInput
               size="compact"
-              label="Since"
+              label={surfaceText("Since")}
               type="datetime-local"
               value={since}
               disabled={running}
@@ -300,7 +315,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
             />
             <UiInput
               size="compact"
-              label="Max MB per object"
+              label={surfaceText("Max MB per object")}
               type="number"
               min={0}
               step="0.1"
@@ -314,66 +329,85 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
               onChange={(event) => setAllVersions(event.target.checked)}
               className="bucket-operation-checkbox"
             >
-              All versions
-            </UiCheckboxField>
+              {surfaceText("All versions")}</UiCheckboxField>
           </div>
         </BucketOperationSetup>
 
         {progress && (
           <BucketOperationProgress
-            label="Bucket integrity progress"
+            label={surfaceText("Bucket integrity progress")}
             value={progressPercent}
             stage={progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
-            metrics={<>{formatNumber(progress.checked_count)} / {formatNumber(progress.listed_count)} objects - {formatBytes(progress.bytes_read)}</>}
+            metrics={surfaceText("Objects: {checked} / {listed} · Read: {bytes}", {
+              checked: formatNumber(progress.checked_count),
+              listed: formatNumber(progress.listed_count),
+              bytes: formatBytes(progress.bytes_read),
+            })}
           >
-            {formatNumber(progress.completed_buckets)} / {formatNumber(progress.total_buckets)} buckets completed
-            {progress.failed_count > 0 ? ` - ${formatNumber(progress.failed_count)} errors` : ""}
+            {surfaceText(
+              progress.failed_count > 0
+                ? "Buckets: {completed} / {total} · Errors: {errors}"
+                : "Buckets: {completed} / {total}",
+              {
+                completed: formatNumber(progress.completed_buckets),
+                total: formatNumber(progress.total_buckets),
+                errors: formatNumber(progress.failed_count),
+              },
+            )}
           </BucketOperationProgress>
         )}
 
         {result && (
           <div className="space-y-3">
             <div className="grid gap-2 sm:grid-cols-4">
-              <BucketOperationSummaryStat label="Objects listed" value={formatNumber(result.listed_count)} />
-              <BucketOperationSummaryStat label="Objects checked" value={formatNumber(result.checked_count)} />
-              <BucketOperationSummaryStat label="Errors" value={formatNumber(result.failed_count)} />
-              <BucketOperationSummaryStat label="Bytes read" value={formatBytes(result.bytes_read)} />
+              <BucketOperationSummaryStat label={surfaceText("Objects listed")} value={formatNumber(result.listed_count)} />
+              <BucketOperationSummaryStat label={surfaceText("Objects checked")} value={formatNumber(result.checked_count)} />
+              <BucketOperationSummaryStat label={surfaceText("Errors")} value={formatNumber(result.failed_count)} />
+              <BucketOperationSummaryStat label={surfaceText("Bytes read")} value={formatBytes(result.bytes_read)} />
             </div>
             <ListToolbar
               variant="section"
-              title="Bucket results"
-              countLabel={`Showing ${formatNumber(filteredBucketResults.length)} / ${formatNumber(result.buckets.length)} bucket result(s).`}
+              title={surfaceText("Bucket results")}
+              countLabel={surfaceText(
+                result.buckets.length === 1
+                  ? "Showing {visible} / {total} bucket result."
+                  : "Showing {visible} / {total} bucket results.",
+                {
+                  visible: formatNumber(filteredBucketResults.length),
+                  total: formatNumber(result.buckets.length),
+                },
+              )}
               search={
                 <ToolbarSearchInput
-                  label="Filter integrity results"
+                  label={surfaceText("Filter integrity results")}
                   value={resultSearch}
                   onChange={setResultSearch}
-                  placeholder="Filter by bucket, context, object, or error"
+                  placeholder={surfaceText("Filter by bucket, context, object, or error")}
                 />
               }
               filters={
                 <>
                   <UiSelect
-                    label="Status"
-                    aria-label="Filter integrity status"
+                    label={surfaceText("Status")}
+                    aria-label={surfaceText("Filter integrity status")}
                     value={statusFilter}
                     onChange={(event) => setStatusFilter(event.target.value as "all" | BucketIntegrityResult["status"])}
                   >
-                    <option value="all">All statuses</option>
-                    <option value="passed">Passed</option>
-                    <option value="completed_with_errors">Completed with errors</option>
-                    <option value="failed">Failed</option>
-                    <option value="canceled">Canceled</option>
+                    <option value="all">{surfaceText("All statuses")}</option>
+                    <option value="passed">{surfaceText("Passed")}</option>
+                    <option value="completed_with_errors">{surfaceText("Completed with errors")}</option>
+                    <option value="failed">{surfaceText("Failed")}</option>
+                    <option value="canceled">{surfaceText("Canceled")}</option>
                   </UiSelect>
                   <UiSelect
-                    label="Errors"
-                    aria-label="Filter integrity errors"
+                    label={surfaceText("Errors")}
+                    aria-label={surfaceText("Filter integrity errors")}
                     value={errorFilter}
                     onChange={(event) => setErrorFilter(event.target.value as "all" | "with_errors" | "without_errors")}
                   >
-                    <option value="all">All error states</option>
-                    <option value="with_errors">With errors</option>
-                    <option value="without_errors">Without errors</option>
+                    <option value="all">{surfaceText("All error states")}</option>
+                    <option value="with_errors">{surfaceText("With errors")}</option>
+                    <option value="without_errors">{surfaceText("Without errors")}</option>
                   </UiSelect>
                 </>
               }
@@ -388,8 +422,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
                     setErrorFilter("all");
                   }}
                 >
-                  Reset filters
-                </ListActionButton>
+                  {surfaceText("Reset filters")}</ListActionButton>
               }
             />
             <div className="space-y-2">
@@ -398,32 +431,34 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
                   key={`${bucket.context_id ?? ""}:${bucket.bucket_name}`}
                   bucketName={bucket.bucket_name}
                   contextLabel={bucket.context_name || bucket.context_id}
-                  status={<ListBadge tone={bucketStatusTone(bucket.status)}>{statusLabel(bucket.status)}</ListBadge>}
+                  status={<ListBadge tone={bucketStatusTone(bucket.status)}>{surfaceText(statusLabel(bucket.status))}</ListBadge>}
                   durationSeconds={bucket.duration_seconds}
                   metrics={[
-                    { label: "Listed", value: formatNumber(bucket.listed_count) },
-                    { label: "Checked", value: formatNumber(bucket.checked_count) },
-                    { label: "Errors", value: formatNumber(bucket.failed_count) },
-                    { label: "Read", value: formatBytes(bucket.bytes_read) },
+                    { label: surfaceText("Listed"), value: formatNumber(bucket.listed_count) },
+                    { label: surfaceText("Checked"), value: formatNumber(bucket.checked_count) },
+                    { label: surfaceText("Errors"), value: formatNumber(bucket.failed_count) },
+                    { label: surfaceText("Read"), value: formatBytes(bucket.bytes_read) },
                   ]}
                 >
                   <BucketOperationFailures
                     bucketName={bucket.bucket_name}
-                    title="Affected objects"
-                    targetLabel="Object"
+                    title={surfaceText("Affected objects")}
+                    targetLabel={surfaceText("Object")}
                     total={bucket.failed_count}
                     failures={bucket.failures_sample.map((failure) => ({
                       stage: failure.stage,
-                      target: formatFailureTarget(failure),
+                      target: failure.key
+                        ? failure.key
+                        : surfaceText(formatFailureTarget(failure)),
                       version: failure.version_id,
                       message: failure.message,
                     }))}
-                    emptyMessage="No affected objects reported for this bucket."
+                    emptyMessage={surfaceText("No affected objects reported for this bucket.")}
                   />
                 </BucketOperationResult>
               ))}
               {filteredBucketResults.length === 0 && (
-                <UiInlineMessage>No bucket result matches the current filters.</UiInlineMessage>
+                <UiInlineMessage>{surfaceText("No bucket result matches the current filters.")}</UiInlineMessage>
               )}
             </div>
           </div>

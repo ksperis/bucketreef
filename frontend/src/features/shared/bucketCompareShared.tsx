@@ -11,6 +11,7 @@ import type { CompareObjectDetailLike } from "./BucketCompareObjectDetails";
 import type { UiTone } from "../../components/ui/styles";
 import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { diffToneClasses, type DiffTone } from "./diffPresentation";
+import { useSharedI18n } from "./sharedI18n";
 
 type ParsedRawMappingResult = {
   mapping: Map<string, string>;
@@ -127,28 +128,28 @@ export function BucketCompareManualMappingEditor({
   availableTargetBucketNames,
   disabled,
 }: BucketCompareManualMappingEditorProps) {
+  const { text: surfaceText } = useSharedI18n();
   const targetOptionsId = useId();
 
   return (
     <div className="space-y-3">
       <UiDetails className="bucket-operation-disclosure">
         <summary>
-          Raw mapping (priority)
-        </summary>
+          {surfaceText("Raw mapping (priority)")}</summary>
         <div className="space-y-2 border-t border-[var(--ui-border-soft)] px-3 py-2">
           <UiTextarea
-            label="Raw bucket mapping"
-            hint={<>Accepted formats per line: <code>source =&gt; target</code>, <code>source -&gt; target</code>, <code>source = target</code>.</>}
+            label={surfaceText("Raw bucket mapping")}
+            hint={<>{surfaceText("Accepted formats per line:")}<code>{surfaceText("source =&gt; target")}</code>, <code>{surfaceText("source -&gt; target")}</code>, <code>{surfaceText("source = target")}</code>.</>}
             error={parsedRawMapping.invalidLines.length > 0 ? "Some mapping lines could not be parsed." : undefined}
             value={rawMappingText}
             onChange={(event) => onRawMappingTextChange(event.target.value)}
             disabled={disabled}
             rows={6}
-            placeholder={"source-bucket-a => target-bucket-a\nsource-bucket-b -> target-bucket-b"}
+            placeholder={surfaceText("source-bucket-a => target-bucket-a source-bucket-b -> target-bucket-b")}
             className="font-mono"
           />
           <p className="ui-caption text-slate-500 dark:text-slate-400">
-            Parsed entries: {parsedRawMapping.mapping.size}. Invalid lines: {parsedRawMapping.invalidLines.length}.
+            {surfaceText("Parsed entries:")}{parsedRawMapping.mapping.size}{surfaceText(". Invalid lines:")}{parsedRawMapping.invalidLines.length}.
           </p>
           {parsedRawMapping.invalidLines.length > 0 && (
             <pre className="whitespace-pre-wrap break-words rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-mono text-[11px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
@@ -157,12 +158,12 @@ export function BucketCompareManualMappingEditor({
           )}
         </div>
       </UiDetails>
-      <div className={bucketCompareMappingTableContainerClass} role="region" aria-label="Bucket mapping" tabIndex={0}>
-        <table className="ui-data-table" aria-label="Bucket mapping">
+      <div className={bucketCompareMappingTableContainerClass} role="region" aria-label={surfaceText("Bucket mapping")} tabIndex={0}>
+        <table className="ui-data-table" aria-label={surfaceText("Bucket mapping")}>
           <thead>
             <tr>
-              <th scope="col" className="text-left">Source</th>
-              <th scope="col" className="text-left">Target</th>
+              <th scope="col" className="text-left">{surfaceText("Source")}</th>
+              <th scope="col" className="text-left">{surfaceText("Target")}</th>
             </tr>
           </thead>
           <tbody>
@@ -174,21 +175,20 @@ export function BucketCompareManualMappingEditor({
                   <td className="min-w-[12rem] break-all ui-table-primary">{sourceBucket}</td>
                   <td className="min-w-[14rem] space-y-1">
                     <UiInput
-                      aria-label={`Target bucket for ${sourceBucket}`}
+                      aria-label={surfaceText("Target bucket for {bucket}", { bucket: sourceBucket })}
                       list={targetOptionsId}
                       value={rawTarget ?? (manualMapping[sourceBucket] ?? "")}
                       onChange={(event) => onManualMappingChange(sourceBucket, event.target.value)}
                       disabled={disabled || Boolean(rawTarget)}
-                      placeholder="target bucket"
+                      placeholder={surfaceText("target bucket")}
                     />
                     {rawTarget && (
                       <p className="ui-caption text-amber-700 dark:text-amber-200">
-                        Overridden by raw mapping.
-                      </p>
+                        {surfaceText("Overridden by raw mapping.")}</p>
                     )}
                     {!rawTarget && !manualMapping[sourceBucket] && effectiveTarget && (
                       <p className="ui-caption text-slate-500 dark:text-slate-400">
-                        Fallback 1:1 applied: {effectiveTarget}
+                        {surfaceText("Fallback 1:1 applied:")}{effectiveTarget}
                       </p>
                     )}
                   </td>

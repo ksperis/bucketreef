@@ -10,6 +10,7 @@ import {
   type FeatureKey,
 } from "./bucketOpsAdvancedFilterModel";
 import { buildAdvancedFilterFieldState } from "./bucketOpsAdvancedFilterUiProjection";
+import { useSharedI18n } from "./sharedI18n";
 
 type FeatureStateOption = {
   id: FeatureKey;
@@ -41,6 +42,7 @@ export default function BucketOpsFeatureStateFilterFields({
   featureStateOptions,
   onFeatureChange,
 }: BucketOpsFeatureStateFilterFieldsProps) {
+  const { text: surfaceText } = useSharedI18n();
   const hasUnsupportedFeature = featureStateOptions.some(
     (feature) => !feature.supported,
   );
@@ -49,8 +51,7 @@ export default function BucketOpsFeatureStateFilterFields({
     <>
       {hasUnsupportedFeature && (
         <p className="mb-3 ui-caption text-slate-500 dark:text-slate-400">
-          Some features are disabled on this endpoint and cannot be filtered.
-        </p>
+          {surfaceText("Some features are disabled on this endpoint and cannot be filtered.")}</p>
       )}
       <div className="grid gap-2 sm:grid-cols-2">
         {featureStateOptions.map((feature) => {

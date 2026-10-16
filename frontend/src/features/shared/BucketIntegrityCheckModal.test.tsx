@@ -82,7 +82,7 @@ async function runIntegrityCheck() {
   await waitFor(() => {
     expect(streamManagerBucketIntegrityCheckMock).toHaveBeenCalledTimes(1);
   });
-  expect(await screen.findByText("Showing 2 / 2 bucket result(s).")).toBeInTheDocument();
+  expect(await screen.findByText("Showing 2 / 2 bucket results.")).toBeInTheDocument();
   return user;
 }
 
@@ -124,7 +124,7 @@ describe("BucketIntegrityCheckModal results", () => {
     const user = await runIntegrityCheck();
     const failedBucket = closestDetails(screen.getByText("bucket-a"));
     await user.click(within(failedBucket).getByText("bucket-a"));
-    expect(within(failedBucket).getByText("Only 0 of 1 error(s) are visible.")).toBeInTheDocument();
+    expect(within(failedBucket).getByText("Only 0 of 1 error is visible.")).toBeInTheDocument();
     expect(within(failedBucket).getByText("Error details are unavailable for this bucket.")).toBeInTheDocument();
     expect(within(failedBucket).queryByText("No affected objects reported for this bucket.")).not.toBeInTheDocument();
 
@@ -220,8 +220,8 @@ describe("BucketIntegrityCheckModal results", () => {
     await user.click(screen.getByRole("button", { name: "Run check" }));
 
     expect(await screen.findByText("bucket-a - verify")).toBeInTheDocument();
-    expect(screen.getByText(`5 / ${knownTotal ? 10 : 0} objects - 2.0 KB`)).toBeInTheDocument();
-    expect(screen.getByText("1 / 2 buckets completed - 1 errors")).toBeInTheDocument();
+    expect(screen.getByText(`Objects: 5 / ${knownTotal ? 10 : 0} · Read: 2.0 KB`)).toBeInTheDocument();
+    expect(screen.getByText("Buckets: 1 / 2 · Errors: 1")).toBeInTheDocument();
     const bar = screen.getByRole("progressbar", { name: "Bucket integrity progress" });
     if (knownTotal) {
       expect(bar).toHaveAttribute("aria-valuenow", "50");
@@ -234,19 +234,19 @@ describe("BucketIntegrityCheckModal results", () => {
     const user = await runIntegrityCheck();
 
     await user.type(screen.getByPlaceholderText("Filter by bucket, context, object, or error"), "broken");
-    expect(screen.getByText("Showing 1 / 2 bucket result(s).")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 / 2 bucket results.")).toBeInTheDocument();
     expect(screen.getByText("bucket-a")).toBeInTheDocument();
     expect(screen.queryByText("bucket-b")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Reset filters" }));
     await user.selectOptions(screen.getByLabelText("Filter integrity status"), "passed");
-    expect(screen.getByText("Showing 1 / 2 bucket result(s).")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 / 2 bucket results.")).toBeInTheDocument();
     expect(screen.getByText("bucket-b")).toBeInTheDocument();
     expect(screen.queryByText("bucket-a")).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Filter integrity status"), "all");
     await user.selectOptions(screen.getByLabelText("Filter integrity errors"), "with_errors");
-    expect(screen.getByText("Showing 1 / 2 bucket result(s).")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 / 2 bucket results.")).toBeInTheDocument();
     expect(screen.getByText("bucket-a")).toBeInTheDocument();
     expect(screen.queryByText("bucket-b")).not.toBeInTheDocument();
   });

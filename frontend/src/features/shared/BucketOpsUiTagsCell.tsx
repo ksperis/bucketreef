@@ -7,6 +7,7 @@ import { UiTagBadge } from "../../components/UiTagSettings";
 import type { BucketUiTagTarget } from "./bucketUiTags";
 import BucketUiTagSettingsBadge from "./BucketUiTagSettingsBadge";
 import type { useBucketOpsRowTags } from "./useBucketOpsRowTags";
+import { useSharedI18n } from "./sharedI18n";
 
 type RowTagsController = ReturnType<typeof useBucketOpsRowTags>;
 
@@ -39,14 +40,14 @@ export default function BucketOpsUiTagsCell({
   target,
   updatingDefinitionIds,
 }: BucketOpsUiTagsCellProps) {
+  const { text: surfaceText } = useSharedI18n();
   if (!target) {
     return (
       <span
         className="ui-caption text-slate-500 dark:text-slate-400"
-        title="UI tags require a configured storage endpoint."
+        title={surfaceText("UI tags require a configured storage endpoint.")}
       >
-        Endpoint required
-      </span>
+        {surfaceText("Endpoint required")}</span>
     );
   }
 
@@ -98,7 +99,7 @@ export default function BucketOpsUiTagsCell({
       <div className="flex w-28 shrink-0 items-center gap-1">
         <input
           type="text"
-          aria-label={`Add UI tags to ${target.name}`}
+          aria-label={surfaceText("Add UI tags to {bucket}", { bucket: target.name })}
           value={draft}
           onChange={(event) =>
             controller.updateTagDraft(target.key, event.target.value)

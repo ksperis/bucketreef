@@ -67,6 +67,7 @@ import {
   prepareCreatePrivateConnectionPayload,
   prepareUpdatePrivateConnectionPayload,
 } from "./s3ConnectionFormModel";
+import { useSharedI18n } from "./sharedI18n";
 
 type PendingPrivateConnectionDelete = {
   scope: "single" | "bulk";
@@ -91,6 +92,7 @@ export default function ProfilePage({
   showConnectionsSection: showConnectionsSectionProp = false,
   onUnsavedChangesChange,
 }: ProfilePageProps) {
+  const { text: surfaceText } = useSharedI18n();
   const [searchParams] = useSearchParams();
   const profileView = searchParams.get("view");
   const showConnectionsSection = showConnectionsSectionProp || profileView === "connections";
@@ -323,7 +325,7 @@ export default function ProfilePage({
         setConnections([]);
         setConnectionDrafts({});
         setConnectionCredentialDrafts({});
-        setConnectionsError(extractApiError(error, "Unable to load private S3 connections."));
+        setConnectionsError(extractApiError(error, surfaceText("Unable to load private S3 connections.")));
       })
       .finally(() => {
         if (!cancelled) {
@@ -333,7 +335,7 @@ export default function ProfilePage({
     return () => {
       cancelled = true;
     };
-  }, [canAccessConnectionsSection, showConnectionsSection]);
+  }, [canAccessConnectionsSection, showConnectionsSection, surfaceText]);
 
   useEffect(() => {
     if (!showConnectionsSection || !canCreateManualConnections) {
@@ -353,7 +355,7 @@ export default function ProfilePage({
       .catch((error) => {
         if (cancelled) return;
         setAvailableStorageEndpoints([]);
-        setStorageEndpointsError(extractApiError(error, "Unable to load configured endpoints."));
+        setStorageEndpointsError(extractApiError(error, surfaceText("Unable to load configured endpoints.")));
       })
       .finally(() => {
         if (!cancelled) {
@@ -363,7 +365,7 @@ export default function ProfilePage({
     return () => {
       cancelled = true;
     };
-  }, [canCreateManualConnections, showConnectionsSection]);
+  }, [canCreateManualConnections, showConnectionsSection, surfaceText]);
 
   useEffect(() => {
     if (!showConnectionsSection) return;
@@ -405,7 +407,7 @@ export default function ProfilePage({
       setConnectionCredentialDrafts(editorState.credentialDrafts);
     } catch (error) {
       console.error(error);
-      setConnectionsError(extractApiError(error, "Unable to refresh private S3 connections."));
+      setConnectionsError(extractApiError(error, surfaceText("Unable to refresh private S3 connections.")));
     } finally {
       setConnectionsLoading(false);
     }
@@ -485,12 +487,12 @@ export default function ProfilePage({
       setCreateConnectionEndpointId("");
       setShowCreateConnectionModal(false);
       setConnectionsPage(1);
-      setConnectionsMessage("Private S3 connection created.");
+      setConnectionsMessage(surfaceText("Private S3 connection created."));
       await refreshConnections();
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(extractApiError(error, "Unable to create private S3 connection."));
+      setConnectionsError(extractApiError(error, surfaceText("Unable to create private S3 connection.")));
     } finally {
       setCreatingConnection(false);
     }
@@ -536,13 +538,13 @@ export default function ProfilePage({
         ...prev,
         [connectionId]: createEmptyConnectionCredentialDraft(),
       }));
-      setConnectionsMessage("Private S3 connection updated.");
+      setConnectionsMessage(surfaceText("Private S3 connection updated."));
       await refreshConnections();
       notifyExecutionContextsRefresh();
       return true;
     } catch (error) {
       console.error(error);
-      setConnectionsError(extractApiError(error, "Unable to update private S3 connection."));
+      setConnectionsError(extractApiError(error, surfaceText("Unable to update private S3 connection.")));
       return false;
     } finally {
       setSavingConnectionBusyId(null);
@@ -589,12 +591,12 @@ export default function ProfilePage({
     try {
       await deleteConnection(connectionId);
       setSelectedConnectionIds((prev) => prev.filter((id) => id !== connectionId));
-      setConnectionsMessage("Private S3 connection deleted.");
+      setConnectionsMessage(surfaceText("Private S3 connection deleted."));
       await refreshConnections();
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(extractApiError(error, "Unable to delete private S3 connection."));
+      setConnectionsError(extractApiError(error, surfaceText("Unable to delete private S3 connection.")));
     } finally {
       setDeletingConnectionBusyId(null);
     }
@@ -606,12 +608,12 @@ export default function ProfilePage({
     setDeletingConnectionBusyId(connectionId);
     try {
       await retryManagedPrivateAccessCleanup(connectionId);
-      setConnectionsMessage("Managed private access cleanup completed.");
+      setConnectionsMessage(surfaceText("Managed private access cleanup completed."));
       await refreshConnections();
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(extractApiError(error, "Unable to complete managed private access cleanup."));
+      setConnectionsError(extractApiError(error, surfaceText("Unable to complete managed private access cleanup.")));
     } finally {
       setDeletingConnectionBusyId(null);
     }
@@ -646,11 +648,22 @@ export default function ProfilePage({
       notifyExecutionContextsRefresh();
     }
     if (failedIds.length > 0) {
-      setConnectionsError(`${failedIds.length} private connection${failedIds.length > 1 ? "s" : ""} failed to activate.`);
+      setConnectionsError(surfaceText(
+        failedIds.length === 1
+          ? "{count} private connection failed to activate."
+          : "{count} private connections failed to activate.",
+        { count: failedIds.length },
+      ));
     }
     setConnectionsMessage(
-      `${successCount} private connection${successCount > 1 ? "s" : ""} activated.` +
-        (failedIds.length > 0 ? ` ${failedIds.length} failed.` : "")
+      surfaceText(
+        successCount === 1
+          ? "{count} private connection activated."
+          : "{count} private connections activated.",
+        { count: successCount },
+      ) + (failedIds.length > 0
+        ? ` ${surfaceText("{count} failed.", { count: failedIds.length })}`
+        : "")
     );
     setBulkActivatingConnections(false);
   };
@@ -663,12 +676,14 @@ export default function ProfilePage({
     setTogglingConnectionBusyId(connection.id);
     try {
       await updateConnection(connection.id, { is_active: nextIsActive });
-      setConnectionsMessage(nextIsActive ? "Private S3 connection activated." : "Private S3 connection disabled.");
+      setConnectionsMessage(surfaceText(
+        nextIsActive ? "Private S3 connection activated." : "Private S3 connection disabled.",
+      ));
       await refreshConnections();
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(extractApiError(error, "Unable to update private S3 connection."));
+      setConnectionsError(extractApiError(error, surfaceText("Unable to update private S3 connection.")));
     } finally {
       setTogglingConnectionBusyId(null);
     }
@@ -690,11 +705,22 @@ export default function ProfilePage({
       notifyExecutionContextsRefresh();
     }
     if (failedIds.length > 0) {
-      setConnectionsError(`${failedIds.length} private connection${failedIds.length > 1 ? "s" : ""} failed to disable.`);
+      setConnectionsError(surfaceText(
+        failedIds.length === 1
+          ? "{count} private connection failed to disable."
+          : "{count} private connections failed to disable.",
+        { count: failedIds.length },
+      ));
     }
     setConnectionsMessage(
-      `${successCount} private connection${successCount > 1 ? "s" : ""} disabled.` +
-        (failedIds.length > 0 ? ` ${failedIds.length} failed.` : "")
+      surfaceText(
+        successCount === 1
+          ? "{count} private connection disabled."
+          : "{count} private connections disabled.",
+        { count: successCount },
+      ) + (failedIds.length > 0
+        ? ` ${surfaceText("{count} failed.", { count: failedIds.length })}`
+        : "")
     );
     setBulkDisablingConnections(false);
   };
@@ -722,11 +748,22 @@ export default function ProfilePage({
         notifyExecutionContextsRefresh();
       }
       if (failedIds.length > 0) {
-        setConnectionsError(`${failedIds.length} private connection${failedIds.length > 1 ? "s" : ""} failed to delete.`);
+        setConnectionsError(surfaceText(
+          failedIds.length === 1
+            ? "{count} private connection failed to delete."
+            : "{count} private connections failed to delete.",
+          { count: failedIds.length },
+        ));
       }
       setConnectionsMessage(
-        `${successCount} private connection${successCount > 1 ? "s" : ""} deleted.` +
-          (failedIds.length > 0 ? ` ${failedIds.length} failed.` : "")
+        surfaceText(
+          successCount === 1
+            ? "{count} private connection deleted."
+            : "{count} private connections deleted.",
+          { count: successCount },
+        ) + (failedIds.length > 0
+          ? ` ${surfaceText("{count} failed.", { count: failedIds.length })}`
+          : "")
       );
     } finally {
       setBulkDeletingConnections(false);
@@ -762,12 +799,12 @@ export default function ProfilePage({
   const privateConnectionTableColumns: Array<DataTableColumn<S3Connection>> = [
     {
       id: "select",
-      label: "Select",
+      label: surfaceText("Select"),
       headerClassName: "w-10",
       cellClassName: "w-10",
       header: (
         <ListSelectionCheckbox
-          aria-label="Select all filtered private connections"
+          aria-label={surfaceText("Select all filtered private connections")}
           checked={allFilteredConnectionsSelected}
           onChange={toggleSelectAllFilteredConnections}
           disabled={
@@ -780,7 +817,7 @@ export default function ProfilePage({
       ),
       render: (connection) => (
         <ListSelectionCheckbox
-          aria-label={`Select private connection ${connection.name || connection.id}`}
+          aria-label={surfaceText("Select private connection {connection}", { connection: connection.name || connection.id })}
           checked={selectedFilteredConnectionIdSet.has(connection.id)}
           onChange={() => togglePrivateConnectionSelection(connection.id)}
           disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
@@ -789,7 +826,7 @@ export default function ProfilePage({
     },
     {
       id: "connection",
-      label: "Connection",
+      label: surfaceText("Connection"),
       primary: true,
       render: (connection) => {
         const connectionTagItems = buildUiTagItems(connection.tags);
@@ -799,11 +836,14 @@ export default function ProfilePage({
               <p className="truncate">{connection.name || "-"}</p>
               {connection.server_managed && (
                 <ListBadge tone="primary" className="mt-1">
-                  Server managed{connection.managed_access_state === "cleanup_pending" ? " - cleanup required" : ""}
+                  {surfaceText("Server managed")}
+                  {connection.managed_access_state === "cleanup_pending"
+                    ? ` - ${surfaceText("cleanup required")}`
+                    : ""}
                 </ListBadge>
               )}
               <p className="ui-caption font-normal text-slate-500 dark:text-slate-400">
-                Access Key: {connection.access_key_id || "-"}
+                {surfaceText("Access Key:")}{connection.access_key_id || "-"}
               </p>
             </div>
             {connectionTagItems.length > 0 && (
@@ -821,11 +861,11 @@ export default function ProfilePage({
     },
     {
       id: "endpoint",
-      label: "Endpoint",
+      label: surfaceText("Endpoint"),
       render: (connection) => {
         const endpointLabel = connection.storage_endpoint_id
           ? storageEndpointLabelById.get(connection.storage_endpoint_id) ||
-            `Managed endpoint #${connection.storage_endpoint_id}`
+            surfaceText("Managed endpoint #{id}", { id: connection.storage_endpoint_id })
           : connection.endpoint_url || "-";
         return connection.storage_endpoint_id ? (
           <ListBadge tone="neutral">{endpointLabel}</ListBadge>
@@ -836,30 +876,34 @@ export default function ProfilePage({
     },
     {
       id: "provider",
-      label: "Provider",
+      label: surfaceText("Provider"),
       render: (connection) => connection.provider_hint || "-",
     },
     {
       id: "status",
-      label: "Status",
+      label: surfaceText("Status"),
       render: (connection) => {
         const isActive = connection.is_active !== false;
-        return <ListBadge tone={isActive ? "success" : "neutral"}>{isActive ? "Active" : "Inactive"}</ListBadge>;
+        return (
+          <ListBadge tone={isActive ? "success" : "neutral"}>
+            {surfaceText(isActive ? "Active" : "Inactive")}
+          </ListBadge>
+        );
       },
     },
     {
       id: "updated-at",
-      label: "Last update",
+      label: surfaceText("Last update"),
       render: (connection) => formatLocalDateTime(connection.updated_at ?? connection.created_at),
     },
     {
       id: "last-used-at",
-      label: "Last used",
+      label: surfaceText("Last used"),
       render: (connection) => formatLocalDateTime(connection.last_used_at),
     },
     {
       id: "actions",
-      label: "Actions",
+      label: surfaceText("Actions"),
       align: "right",
       mobileRole: "actions",
       render: (connection) => {
@@ -872,7 +916,7 @@ export default function ProfilePage({
                 disabled={deletingConnectionBusyId === connection.id}
                 onClick={() => void handleRetryManagedCleanup(connection.id)}
               >
-                {deletingConnectionBusyId === connection.id ? "Retrying..." : "Retry cleanup"}
+                {surfaceText(deletingConnectionBusyId === connection.id ? "Retrying..." : "Retry cleanup")}
               </ListActionButton>
             )}
             <ListActionButton
@@ -885,15 +929,14 @@ export default function ProfilePage({
               }
               onClick={() => void handleTogglePrivateConnectionStatus(connection)}
             >
-              {togglingConnectionBusyId === connection.id ? "Saving..." : isActive ? "Deactivate" : "Activate"}
+              {surfaceText(togglingConnectionBusyId === connection.id ? "Saving..." : isActive ? "Deactivate" : "Activate")}
             </ListActionButton>
             <ListActionButton
               type="button"
               onClick={() => openEditConnectionModal(connection)}
               disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
             >
-              Edit
-            </ListActionButton>
+              {surfaceText("Edit")}</ListActionButton>
             <ListActionButton
               type="button"
               variant="danger"
@@ -905,7 +948,7 @@ export default function ProfilePage({
               }
               onClick={() => handleDeletePrivateConnection(connection)}
             >
-              {deletingConnectionBusyId === connection.id ? "Deleting..." : "Delete"}
+              {surfaceText(deletingConnectionBusyId === connection.id ? "Deleting..." : "Delete")}
             </ListActionButton>
           </ListActions>
         );
@@ -921,36 +964,49 @@ export default function ProfilePage({
         <div className="space-y-4">
           {!canCreateManualConnections && (
             <PageBanner tone="info">
-              Creation, endpoint changes, identity changes, and credential replacement are disabled. Existing connections remain available for metadata, workspace access, activation, cleanup, and deletion.
-            </PageBanner>
+              {surfaceText("Creation, endpoint changes, identity changes, and credential replacement are disabled. Existing connections remain available for metadata, workspace access, activation, cleanup, and deletion.")}</PageBanner>
           )}
             <>
               {connectionsError && <PageBanner tone="error">{connectionsError}</PageBanner>}
               {connectionsMessage && <PageBanner tone="success">{connectionsMessage}</PageBanner>}
               {listPresentation && headerActionsTarget && canCreateManualConnections && !showCreateConnectionModal && !editingConnection ? createPortal(
-                <ListActionButton variant="primary" onClick={openCreateConnectionModal}>Add connection</ListActionButton>,
+                <ListActionButton variant="primary" onClick={openCreateConnectionModal}>{surfaceText("Add connection")}</ListActionButton>,
                 headerActionsTarget,
               ) : null}
               <div className="rounded-lg border border-[color:var(--ui-border)]">
-                {listPresentation ? <ListToolbar variant="page" title="Private S3 connections"
-                  countLabel={`${filteredConnections.length} connections shown${filteredConnections.length !== connections.length ? ` of ${connections.length}` : ""}`}
+                {listPresentation ? <ListToolbar variant="page" title={surfaceText("Private S3 connections")}
+                  countLabel={surfaceText(
+                    filteredConnections.length === connections.length
+                      ? "{count} connections shown"
+                      : "{count} connections shown of {total}",
+                    {
+                      count: filteredConnections.length,
+                      total: connections.length,
+                    },
+                  )}
                   search={<ToolbarSearchInput value={connectionsFilter} onChange={handleConnectionsFilterChange}
-                    placeholder="Name, endpoint, provider, tag..." label="Search connections" />} /> : (
+                    placeholder={surfaceText("Name, endpoint, provider, tag...")} label={surfaceText("Search connections")} />} /> : (
                 <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
                   <p className="ui-caption text-slate-500 dark:text-slate-400">
-                    {filteredConnections.length} connections shown
-                    {filteredConnections.length !== connections.length ? ` of ${connections.length}` : ""}
+                    {surfaceText(
+                      filteredConnections.length === connections.length
+                        ? "{count} connections shown"
+                        : "{count} connections shown of {total}",
+                      {
+                        count: filteredConnections.length,
+                        total: connections.length,
+                      },
+                    )}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Search
-                      </span>
+                        {surfaceText("Search")}</span>
                       <ToolbarSearchInput
                         value={connectionsFilter}
                         onChange={handleConnectionsFilterChange}
-                        placeholder="Name, endpoint, provider, tag..."
-                        label="Search connections"
+                        placeholder={surfaceText("Name, endpoint, provider, tag...")}
+                        label={surfaceText("Search connections")}
                         labelClassName="sr-only"
                         className="min-w-0 w-full sm:w-72"
                         inputClassName="w-full"
@@ -958,8 +1014,7 @@ export default function ProfilePage({
                     </div>
                     {canCreateManualConnections && (
                       <UiButton size="sm" onClick={openCreateConnectionModal}>
-                        Add connection
-                      </UiButton>
+                        {surfaceText("Add connection")}</UiButton>
                     )}
                   </div>
                 </div>
@@ -967,8 +1022,10 @@ export default function ProfilePage({
                 {selectedFilteredConnectionIds.length > 0 && (
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2 dark:border-slate-800 dark:bg-slate-900/50">
                     <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                      {selectedFilteredConnectionIds.length} selected
-                      {hiddenSelectedConnectionCount > 0 ? ` (${hiddenSelectedConnectionCount} not visible)` : ""}
+                      {surfaceText("{count} selected", { count: selectedFilteredConnectionIds.length })}
+                      {hiddenSelectedConnectionCount > 0
+                        ? ` (${surfaceText("{count} not visible", { count: hiddenSelectedConnectionCount })})`
+                        : ""}
                     </span>
                     <ListActions>
                       <ListActionButton
@@ -976,14 +1033,14 @@ export default function ProfilePage({
                         onClick={() => void handleBulkActivatePrivateConnections()}
                         disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                       >
-                        {bulkActivatingConnections ? "Activating..." : "Activate selected"}
+                        {surfaceText(bulkActivatingConnections ? "Activating..." : "Activate selected")}
                       </ListActionButton>
                       <ListActionButton
                         type="button"
                         onClick={() => void handleBulkDisablePrivateConnections()}
                         disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                       >
-                        {bulkDisablingConnections ? "Disabling..." : "Disable selected"}
+                        {surfaceText(bulkDisablingConnections ? "Disabling..." : "Disable selected")}
                       </ListActionButton>
                       <ListActionButton
                         type="button"
@@ -991,7 +1048,7 @@ export default function ProfilePage({
                         onClick={handleBulkDeletePrivateConnections}
                         disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                       >
-                        {bulkDeletingConnections ? "Deleting..." : "Delete selected"}
+                        {surfaceText(bulkDeletingConnections ? "Deleting..." : "Delete selected")}
                       </ListActionButton>
                     </ListActions>
                   </div>
@@ -1001,9 +1058,9 @@ export default function ProfilePage({
                   rows={connectionsLoading ? [] : pagedConnections}
                   rowKey={(connection) => connection.id}
                   status={privateConnectionsTableStatus}
-                  loadingMessage="Loading connections..."
-                  errorMessage="Unable to load private S3 connections."
-                  emptyMessage="No private S3 connection configured."
+                  loadingMessage={surfaceText("Loading connections...")}
+                  errorMessage={surfaceText("Unable to load private S3 connections.")}
+                  emptyMessage={surfaceText("No private S3 connection configured.")}
                   pagination={!connectionsLoading && filteredConnections.length > 0 ? {
                     page: connectionsPage,
                     pageSize: connectionsPageSize,
@@ -1027,31 +1084,39 @@ export default function ProfilePage({
 
       {pendingConnectionDelete && (
         <ConfirmActionDialog
-          title={pendingConnectionDelete.scope === "single" ? "Delete private S3 connection?" : "Delete selected private S3 connections?"}
+          title={surfaceText(
+            pendingConnectionDelete.scope === "single"
+              ? "Delete private S3 connection?"
+              : "Delete selected private S3 connections?",
+          )}
           description={
             pendingConnectionDelete.scope === "single"
-              ? "Remove this private connection from your profile."
-              : "Remove all selected private connections from your profile."
+              ? surfaceText("Remove this private connection from your profile.")
+              : surfaceText("Remove all selected private connections from your profile.")
           }
-          confirmLabel={pendingConnectionDelete.scope === "single" ? "Delete connection" : "Delete selected connections"}
+          confirmLabel={surfaceText(
+            pendingConnectionDelete.scope === "single"
+              ? "Delete connection"
+              : "Delete selected connections",
+          )}
           details={
             pendingConnectionDelete.scope === "single"
               ? [
                   {
-                    label: "Connection",
+                    label: surfaceText("Connection"),
                     value: pendingConnectionDelete.connections[0]?.name || `#${pendingConnectionDelete.connections[0]?.id}`,
                   },
                   {
-                    label: "Endpoint",
-                    value: pendingConnectionDelete.connections[0]?.endpoint_url || "Managed endpoint",
+                    label: surfaceText("Endpoint"),
+                    value: pendingConnectionDelete.connections[0]?.endpoint_url || surfaceText("Managed endpoint"),
                     mono: true,
                   },
                 ]
-              : [{ label: "Connections", value: pendingConnectionDelete.connections.length }]
+              : [{ label: surfaceText("Connections"), value: pendingConnectionDelete.connections.length }]
           }
           impacts={[
-            "Access through the selected connection will be removed from Manager and Browser.",
-            "Remote buckets and their objects will not be deleted.",
+            surfaceText("Access through the selected connection will be removed from Manager and Browser."),
+            surfaceText("Remote buckets and their objects will not be deleted."),
           ]}
           loading={
             pendingConnectionDelete.scope === "bulk"
@@ -1065,10 +1130,14 @@ export default function ProfilePage({
 
       {showConnectionsSection && canCreateManualConnections && showCreateConnectionModal && (
         <WorkflowPage
-          title="Add private S3 connection"
-          description="Configure endpoint access, credentials, and workspace availability for this private connection."
-          breadcrumbs={[{ label: "Profile", to: profilePath }, { label: "Private connections", to: `${profilePath}?tab=connections` }, { label: "Create" }]}
-          backLabel="Back to connections"
+          title={surfaceText("Add private S3 connection")}
+          description={surfaceText("Configure endpoint access, credentials, and workspace availability for this private connection.")}
+          breadcrumbs={[
+            { label: surfaceText("Profile"), to: profilePath },
+            { label: surfaceText("Private connections"), to: `${profilePath}?tab=connections` },
+            { label: surfaceText("Create") },
+          ]}
+          backLabel={surfaceText("Back to connections")}
           onBack={createConnectionCloseGuard.requestClose}
           backDisabled={creatingConnection}
           contentVariant="plain"
@@ -1080,30 +1149,32 @@ export default function ProfilePage({
               {connectionsError}
             </UiInlineMessage>
           )}
-          <SettingsForm label="Create private S3 connection" onSubmit={handleCreatePrivateConnection} busy={creatingConnection}
-            onCancel={createConnectionCloseGuard.requestClose} submitLabel="Create connection" busyLabel="Creating...">
+          <SettingsForm label={surfaceText("Create private S3 connection")} onSubmit={handleCreatePrivateConnection} busy={creatingConnection}
+            onCancel={createConnectionCloseGuard.requestClose} submitLabel={surfaceText("Create connection")} busyLabel={surfaceText("Creating...")}>
               <S3ConnectionIdentityFields name={createConnectionForm.name} onNameChange={(name) => setCreateConnectionForm((current) => ({ ...current, name }))}
                 nameError={createFormValidation.errorFor("name")} catalogError={privateTagCatalogError}
                 tagEditor={{ tags: createConnectionForm.tags, catalog: privateTagCatalog, onChange: (tags) => setCreateConnectionForm((current) => ({ ...current, tags })),
-                  catalogMode: "private", placeholder: "Add a tag for this private connection", disabled: creatingConnection,
-                  hint: privateTagCatalogLoading ? "Loading existing private tags..." : undefined }} />
+                  catalogMode: "private", placeholder: surfaceText("Add a tag for this private connection"), disabled: creatingConnection,
+                  hint: privateTagCatalogLoading ? surfaceText("Loading existing private tags...") : undefined }} />
               <S3ConnectionEndpointFields mode={createConnectionEndpointMode}
                 onModeChange={(mode) => { setCreateConnectionEndpointMode(mode); if (mode === "preset") setCreateConnectionEndpointId(preferredS3ConnectionEndpointId(createConnectionEndpointId, availableStorageEndpoints)); }}
                 modeInputName="create-connection-endpoint-mode" endpointId={createConnectionEndpointId}
                 onEndpointIdChange={setCreateConnectionEndpointId} endpoints={availableStorageEndpoints} loadingEndpoints={loadingStorageEndpoints}
                 form={createConnectionForm} onFormChange={(field, value) => setCreateConnectionForm((current) => ({ ...current, [field]: value }))}
                 endpointIdError={createFormValidation.errorFor("endpointId")} endpointUrlError={createFormValidation.errorFor("endpointUrl")}
-                errorMessage={storageEndpointsError ? `Unable to load configured endpoints (${storageEndpointsError}). Use custom mode.` : null} />
-              <SettingsSection title="Credentials" presentation="compact">
+                errorMessage={storageEndpointsError
+                  ? surfaceText("Unable to load configured endpoints ({error}). Use custom mode.", { error: storageEndpointsError })
+                  : null} />
+              <SettingsSection title={surfaceText("Credentials")} presentation="compact">
                 <div className="settings-stack">
 
                   <S3ConnectionCredentialFields accessKeyId={createConnectionForm.access_key_id} secretAccessKey={createConnectionForm.secret_access_key}
                     onAccessKeyIdChange={(value) => setCreateConnectionForm((current) => ({ ...current, access_key_id: value }))} onSecretAccessKeyChange={(value) => setCreateConnectionForm((current) => ({ ...current, secret_access_key: value }))}
-                    error={createFormValidation.errorFor("credentials")} required accessKeyLabel="Access key ID" secretAccessKeyLabel="Secret access key" />
+                    error={createFormValidation.errorFor("credentials")} required accessKeyLabel={surfaceText("Access key ID")} secretAccessKeyLabel={surfaceText("Secret access key")} />
                   <S3CredentialsValidationMessage validation={createConnectionValidation} />
                 </div>
               </SettingsSection>
-              <SettingsSection title="Access" presentation="compact">
+              <SettingsSection title={surfaceText("Access")} presentation="compact">
                 <S3ConnectionAccessFields accessManager={Boolean(createConnectionForm.access_manager)} accessBrowser={Boolean(createConnectionForm.access_browser)}
                   onAccessManagerChange={(checked) => setCreateConnectionForm((current) => ({ ...current, access_manager: checked }))} onAccessBrowserChange={(checked) => setCreateConnectionForm((current) => ({ ...current, access_browser: checked }))}
                   className="settings-fields" error={createFormValidation.errorFor("access")} />
@@ -1115,12 +1186,16 @@ export default function ProfilePage({
 
       {showConnectionsSection && editingConnection && (
         <WorkflowPage
-          title={`Edit connection - ${editingConnection.name}`}
+          title={surfaceText("Edit connection - {connection}", { connection: editingConnection.name })}
           description={editingConnection.server_managed
-            ? "Manage the name, tags, status, and workspace availability. Endpoint and credentials are controlled by server provisioning."
-            : "Manage endpoint access, credentials, and workspace availability for this private connection."}
-          breadcrumbs={[{ label: "Profile", to: profilePath }, { label: "Private connections", to: `${profilePath}?tab=connections` }, { label: "Edit" }]}
-          backLabel="Back to connections"
+            ? surfaceText("Manage the name, tags, status, and workspace availability. Endpoint and credentials are controlled by server provisioning.")
+            : surfaceText("Manage endpoint access, credentials, and workspace availability for this private connection.")}
+          breadcrumbs={[
+            { label: surfaceText("Profile"), to: profilePath },
+            { label: surfaceText("Private connections"), to: `${profilePath}?tab=connections` },
+            { label: surfaceText("Edit") },
+          ]}
+          backLabel={surfaceText("Back to connections")}
           onBack={editConnectionCloseGuard.requestClose}
           backDisabled={savingConnectionBusyId === editingConnection.id}
           contentVariant="plain"
@@ -1132,8 +1207,8 @@ export default function ProfilePage({
               {connectionsError}
             </UiInlineMessage>
           )}
-          <SettingsForm label="Edit private S3 connection" busy={savingConnectionBusyId === editingConnection.id}
-            onCancel={editConnectionCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
+          <SettingsForm label={surfaceText("Edit private S3 connection")} busy={savingConnectionBusyId === editingConnection.id}
+            onCancel={editConnectionCloseGuard.requestClose} submitLabel={surfaceText("Save")} busyLabel={surfaceText("Saving...")}
             onSubmit={async (event) => {
               const success = await handleUpdatePrivateConnection(editingConnection.id, event.currentTarget);
               if (success) closeEditConnectionModal();
@@ -1145,8 +1220,8 @@ export default function ProfilePage({
               <S3ConnectionIdentityFields name={draft.name} onNameChange={(name) => handleUpdateConnectionDraft(editingConnection.id, "name", name)}
                 nameError={editFormValidation.errorFor("name")} catalogError={privateTagCatalogError}
                 tagEditor={{ tags: draft.tags, catalog: privateTagCatalog, onChange: (tags) => handleUpdateConnectionDraft(editingConnection.id, "tags", tags),
-                  catalogMode: "private", placeholder: "Add a tag for this private connection", disabled: savingConnectionBusyId === editingConnection.id,
-                  hint: privateTagCatalogLoading ? "Loading existing private tags..." : undefined }} />
+                  catalogMode: "private", placeholder: surfaceText("Add a tag for this private connection"), disabled: savingConnectionBusyId === editingConnection.id,
+                  hint: privateTagCatalogLoading ? surfaceText("Loading existing private tags...") : undefined }} />
                 {canCreateManualConnections && !editingConnection.server_managed && (
               <S3ConnectionEndpointFields mode={editConnectionEndpointMode}
                 onModeChange={(mode) => { setEditConnectionEndpointMode(mode); if (mode === "preset") setEditConnectionEndpointId(preferredS3ConnectionEndpointId(editConnectionEndpointId, availableStorageEndpoints)); }}
@@ -1154,20 +1229,22 @@ export default function ProfilePage({
                 onEndpointIdChange={setEditConnectionEndpointId} endpoints={availableStorageEndpoints} loadingEndpoints={loadingStorageEndpoints}
                 form={draft} onFormChange={(field, value) => handleUpdateConnectionDraft(editingConnection.id, field, value)}
                 endpointIdError={editFormValidation.errorFor("endpointId")} endpointUrlError={editFormValidation.errorFor("endpointUrl")}
-                errorMessage={storageEndpointsError ? `Unable to load configured endpoints (${storageEndpointsError}). Use custom mode.` : null} />
+                errorMessage={storageEndpointsError
+                  ? surfaceText("Unable to load configured endpoints ({error}). Use custom mode.", { error: storageEndpointsError })
+                  : null} />
                 )}
                 {editingConnection.server_managed ? (
-                  <SettingsSection title="Endpoint and credentials" presentation="compact">
-                    <PageBanner tone="info">This connection is server managed. Its source context, endpoint, remote principal, access key, and secret are immutable here.</PageBanner>
+                  <SettingsSection title={surfaceText("Endpoint and credentials")} presentation="compact">
+                    <PageBanner tone="info">{surfaceText("This connection is server managed. Its source context, endpoint, remote principal, access key, and secret are immutable here.")}</PageBanner>
                   </SettingsSection>
                 ) : !canCreateManualConnections ? (
-                  <SettingsSection title="Endpoint and credentials" presentation="compact">
-                    <PageBanner tone="info">Endpoint, identity, and credentials are locked because manual private connection creation is not granted. You can still edit the name, tags, and workspace access.</PageBanner>
+                  <SettingsSection title={surfaceText("Endpoint and credentials")} presentation="compact">
+                    <PageBanner tone="info">{surfaceText("Endpoint, identity, and credentials are locked because manual private connection creation is not granted. You can still edit the name, tags, and workspace access.")}</PageBanner>
                   </SettingsSection>
                 ) : (
-              <SettingsSection title="Credentials" presentation="compact" description="Leave blank to keep current credentials.">
+              <SettingsSection title={surfaceText("Credentials")} presentation="compact" description={surfaceText("Leave blank to keep current credentials.")}>
                 <div className="settings-stack">
-                  <p className="settings-description [overflow-wrap:anywhere]">Current Access Key: <span className="ui-mono">{editingConnection.access_key_id || "-"}</span></p>
+                  <p className="settings-description [overflow-wrap:anywhere]">{surfaceText("Current Access Key:")}<span className="ui-mono">{editingConnection.access_key_id || "-"}</span></p>
                   <S3ConnectionCredentialFields accessKeyId={credentialDraft.access_key_id} secretAccessKey={credentialDraft.secret_access_key}
                     onAccessKeyIdChange={(value) => handleUpdateConnectionCredentialDraft(editingConnection.id, "access_key_id", value)} onSecretAccessKeyChange={(value) => handleUpdateConnectionCredentialDraft(editingConnection.id, "secret_access_key", value)}
                     error={editFormValidation.errorFor("credentials")} />
@@ -1175,7 +1252,7 @@ export default function ProfilePage({
                 </div>
               </SettingsSection>
                 )}
-              <SettingsSection title="Access" presentation="compact">
+              <SettingsSection title={surfaceText("Access")} presentation="compact">
                 <S3ConnectionAccessFields accessManager={Boolean(draft.access_manager)} accessBrowser={Boolean(draft.access_browser)}
                   onAccessManagerChange={(checked) => handleUpdateConnectionDraft(editingConnection.id, "access_manager", checked)} onAccessBrowserChange={(checked) => handleUpdateConnectionDraft(editingConnection.id, "access_browser", checked)}
                   className="settings-fields" error={editFormValidation.errorFor("access")} />

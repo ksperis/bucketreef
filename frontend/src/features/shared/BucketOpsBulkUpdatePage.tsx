@@ -10,6 +10,7 @@ import {
   STORAGE_OPS_PAGE_CONTRACTS,
   buildWorkspacePageBreadcrumbs,
 } from "../../navigation/workspacePages";
+import { useSharedI18n } from "./sharedI18n";
 
 type BucketOpsBulkUpdatePageProps = {
   open: boolean;
@@ -19,23 +20,24 @@ type BucketOpsBulkUpdatePageProps = {
 };
 
 export default function BucketOpsBulkUpdatePage({ open, mode, onClose, children }: BucketOpsBulkUpdatePageProps) {
+  const { text: surfaceText } = useSharedI18n();
   if (!open) return null;
   const breadcrumbs =
     mode === "ceph-admin"
       ? buildWorkspacePageBreadcrumbs("ceph-admin", CEPH_ADMIN_PAGE_CONTRACTS.buckets, {
-          label: "Configure selected buckets",
+          label: surfaceText("Configure selected buckets"),
         })
       : buildWorkspacePageBreadcrumbs("storage-ops", STORAGE_OPS_PAGE_CONTRACTS.buckets, {
-          label: "Configure selected buckets",
+          label: surfaceText("Configure selected buckets"),
         });
 
   return (
     <WorkflowPage
-      title="Configure selected buckets"
-      description="Choose an S3 API operation, preview every selected bucket and keep the apply progress visible."
+      title={surfaceText("Configure selected buckets")}
+      description={surfaceText("Choose an S3 API operation, preview every selected bucket and keep the apply progress visible.")}
       breadcrumbs={breadcrumbs}
       onBack={onClose}
-      backLabel="Back to bucket selection"
+      backLabel={surfaceText("Back to bucket selection")}
       contentClassName="min-w-0"
     >
       {children}

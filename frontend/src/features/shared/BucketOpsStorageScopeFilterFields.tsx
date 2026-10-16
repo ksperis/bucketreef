@@ -14,6 +14,7 @@ import {
 import { buildAdvancedFilterFieldState } from "./bucketOpsAdvancedFilterUiProjection";
 import { formatBucketNamesPreview } from "./bucketOpsPresentation";
 import type { useBucketOpsStorageScopeFilters } from "./useBucketOpsStorageScopeFilters";
+import { useSharedI18n } from "./sharedI18n";
 
 type StorageScopeFilters = ReturnType<typeof useBucketOpsStorageScopeFilters>;
 type AdvancedFilterFieldState = ReturnType<
@@ -57,7 +58,11 @@ function StorageScopeFilterField({
   title,
   totalCount,
 }: StorageScopeFilterFieldProps) {
+  const { text: surfaceText } = useSharedI18n();
   const filterId = useId();
+  const filterLabel = surfaceText(pluralLabel === "contexts" ? "Filter contexts" : "Filter endpoints");
+  const loadingLabel = surfaceText(pluralLabel === "contexts" ? "Loading contexts..." : "Loading endpoints...");
+  const emptyLabel = surfaceText(pluralLabel === "contexts" ? "No matching context." : "No matching endpoint.");
   return (
     <div className={advancedFilterFieldCardClass("md:col-span-2")}>
       <div className="flex items-center justify-between gap-2">
@@ -66,7 +71,7 @@ function StorageScopeFilterField({
           costTooltip={costTooltip}
           fieldState={fieldState}
           htmlFor={filterId}
-          label={title}
+          label={surfaceText(title)}
         />
         <span className="ui-caption text-slate-500 dark:text-slate-400">
           {selectedCount}/{totalCount}
@@ -78,8 +83,8 @@ function StorageScopeFilterField({
           value={filterValue}
           onChange={(event) => onFilterChange(event.target.value)}
           onKeyDown={(event) => event.stopPropagation()}
-          aria-label={`Filter ${pluralLabel}`}
-          placeholder={`Filter ${pluralLabel}`}
+          aria-label={filterLabel}
+          placeholder={filterLabel}
           size="compact"
           fieldClassName="min-w-0 flex-1"
           className={`ui-list-control font-normal ${fieldState.fieldClass}`}
@@ -91,8 +96,7 @@ function StorageScopeFilterField({
           variant="secondary"
           size="xs"
         >
-          Select filtered
-        </UiButton>
+          {surfaceText("Select filtered")}</UiButton>
         <UiButton
           type="button"
           onClick={onDeselectFiltered}
@@ -100,13 +104,12 @@ function StorageScopeFilterField({
           variant="secondary"
           size="xs"
         >
-          Deselect filtered
-        </UiButton>
+          {surfaceText("Deselect filtered")}</UiButton>
       </div>
       <div className="mt-2 max-h-36 overflow-y-auto rounded-md border border-slate-200 dark:border-slate-700">
         {loading ? (
           <p className="px-2 py-2 ui-caption text-slate-500 dark:text-slate-400">
-            Loading {pluralLabel}...
+            {loadingLabel}
           </p>
         ) : error ? (
           <p className="px-2 py-2 ui-caption text-rose-600 dark:text-rose-300">
@@ -114,7 +117,7 @@ function StorageScopeFilterField({
           </p>
         ) : filteredCount === 0 ? (
           <p className="px-2 py-2 ui-caption text-slate-500 dark:text-slate-400">
-            No matching {title.toLowerCase()}.
+            {emptyLabel}
           </p>
         ) : (
           children

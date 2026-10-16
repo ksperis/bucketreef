@@ -7,6 +7,7 @@ import type { ReactNode, RefObject } from "react";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
 import type { PropertySummaryTone } from "../../components/PropertySummaryChip";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
+import { useSharedI18n } from "./sharedI18n";
 
 export type BucketFeatureTooltipState =
   | { status: "loading" }
@@ -36,7 +37,7 @@ export function BucketSummaryTooltip({
   onClose,
   cacheKey,
   children,
-  loadingLabel = "Loading configuration...",
+  loadingLabel,
   buttonClassName = "inline-flex cursor-default",
 }: {
   label: string;
@@ -49,6 +50,7 @@ export function BucketSummaryTooltip({
   loadingLabel?: string;
   buttonClassName?: string;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   return (
     <div className="relative inline-flex max-w-full" onMouseEnter={onOpen} onMouseLeave={onClose}>
@@ -58,7 +60,7 @@ export function BucketSummaryTooltip({
         className={buttonClassName}
         onFocus={onOpen}
         onBlur={onClose}
-        aria-label={`${label} details`}
+        aria-label={surfaceText("{label} details", { label })}
       >
         {children}
       </button>
@@ -75,7 +77,7 @@ export function BucketSummaryTooltip({
           {(!tooltip || tooltip.status === "loading") && (
             <div className="mt-1.5 inline-flex items-center gap-1.5 ui-caption text-slate-500 dark:text-slate-300">
               <BucketTooltipSpinnerIcon />
-              {loadingLabel}
+              {loadingLabel ?? surfaceText("Loading configuration...")}
             </div>
           )}
           {tooltip?.status === "error" && (

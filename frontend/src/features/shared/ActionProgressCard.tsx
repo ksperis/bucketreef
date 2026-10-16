@@ -4,6 +4,7 @@
  */
 import UiProgressBar from "../../components/ui/UiProgressBar";
 import { calculateActionProgressPercent, type ActionProgressState } from "./actionProgress";
+import { useSharedI18n } from "./sharedI18n";
 
 type ActionProgressCardProps = {
   progress: ActionProgressState;
@@ -32,6 +33,7 @@ export default function ActionProgressCard({
   className = "",
   unitLabel,
 }: ActionProgressCardProps) {
+  const { text: surfaceText } = useSharedI18n();
   const percent = calculateActionProgressPercent(progress);
 
   return (
@@ -50,13 +52,13 @@ export default function ActionProgressCard({
       </div>
       <UiProgressBar
         value={percent}
-        label={`${progress.label} progress`}
+        label={surfaceText("{label} progress", { label: progress.label })}
         className="h-2.5 overflow-hidden bg-slate-200 dark:bg-slate-800"
         barClassName="bg-primary-500 transition-[width] duration-200"
       />
       {progress.failed > 0 && (
         <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
-          Failures so far: {progress.failed}
+          {surfaceText("Failures so far: {count}", { count: progress.failed })}
         </p>
       )}
     </div>

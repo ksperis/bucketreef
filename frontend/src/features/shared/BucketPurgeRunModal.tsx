@@ -36,6 +36,7 @@ import {
   STORAGE_OPS_PAGE_CONTRACTS,
   buildWorkspacePageBreadcrumbs,
 } from "../../navigation/workspacePages";
+import { useSharedI18n, type SharedText } from "./sharedI18n";
 
 type CommonProps = {
   targets: BucketOperationUiTarget[];
@@ -117,19 +118,25 @@ function progressTotalEntries(progress: BucketPurgeProgress): number | null {
   return Math.max(estimatedTotal, discoveredTotal);
 }
 
-function progressEntriesLabel(progress: BucketPurgeProgress): string {
+function progressEntriesLabel(progress: BucketPurgeProgress, text: SharedText): string {
   const deletedTotal = progressDeletedEntries(progress);
   const totalEntries = progressTotalEntries(progress);
   if (totalEntries === null) {
-    return `${formatCompactNumber(deletedTotal)} entries deleted`;
+    return text("{count} entries deleted", {
+      count: formatCompactNumber(deletedTotal),
+    });
   }
   const totalLabel = progress.total_entries_final
     ? formatCompactNumber(totalEntries)
-    : `at least ${formatCompactNumber(totalEntries)}`;
-  return `${formatCompactNumber(deletedTotal)} / ${totalLabel} entries deleted`;
+    : text("at least {count}", { count: formatCompactNumber(totalEntries) });
+  return text("{deleted} / {total} entries deleted", {
+    deleted: formatCompactNumber(deletedTotal),
+    total: totalLabel,
+  });
 }
 
 export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
+  const { text: surfaceText } = useSharedI18n();
   const [parallelism, setParallelism] = useState(10);
   const [confirmation, setConfirmation] = useState("");
   const [progress, setProgress] = useState<BucketPurgeProgress | null>(null);
@@ -144,8 +151,11 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
   const deleteTarget = isDeleteMode ? props.targets[0]?.bucketName ?? "" : "";
   const expectedConfirmation = isDeleteMode ? `DELETE BUCKET ${deleteTarget}` : `PURGE ${targetCount} BUCKETS`;
   const confirmationValid = confirmation === expectedConfirmation;
-  const targetLabel = isDeleteMode ? "Delete bucket" : `${targetCount} bucket${targetCount > 1 ? "s" : ""}`;
-  const operationLabel = isDeleteMode ? "Bucket deletion" : "Purge";
+  const targetLabel = isDeleteMode
+    ? surfaceText("Delete bucket")
+    : surfaceText(targetCount === 1 ? "{count} bucket" : "{count} buckets", {
+        count: targetCount,
+      });
   const progressPercent = useMemo(() => {
     if (!progress) return null;
     const totalEntries = progressTotalEntries(progress);
@@ -195,7 +205,7 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
     try {
       payload = buildPayload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid options.");
+      setError(surfaceText(err instanceof Error ? err.message : "Invalid options."));
       return;
     }
 
@@ -217,12 +227,31 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
             : await streamStorageOpsBucketPurge(payload as BucketPurgePayload, streamOptions);
       setResult(nextResult);
       props.onFinished?.(nextResult);
-      setMessage(`${operationLabel} ${statusLabel(nextResult.status).toLowerCase()}.`);
+      setMessage(surfaceText(
+        isDeleteMode
+          ? nextResult.status === "completed"
+            ? "Bucket deletion completed."
+            : nextResult.status === "completed_with_errors"
+              ? "Bucket deletion completed with errors."
+              : nextResult.status === "canceled"
+                ? "Bucket deletion canceled."
+                : "Bucket deletion failed."
+          : nextResult.status === "completed"
+            ? "Purge completed."
+            : nextResult.status === "completed_with_errors"
+              ? "Purge completed with errors."
+              : nextResult.status === "canceled"
+                ? "Purge canceled."
+                : "Purge failed.",
+      ));
     } catch (err) {
       if (isAbortError(err)) {
-        setMessage(isDeleteMode ? "Bucket deletion canceled." : "Purge canceled.");
+        setMessage(surfaceText(isDeleteMode ? "Bucket deletion canceled." : "Purge canceled."));
       } else {
-        setError(extractApiError(err, isDeleteMode ? "Bucket deletion failed." : "Bucket purge failed."));
+        setError(extractApiError(
+          err,
+          surfaceText(isDeleteMode ? "Bucket deletion failed." : "Bucket purge failed."),
+        ));
       }
     } finally {
       setRunning(false);
@@ -239,7 +268,8 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
     props.onClose();
   };
 
-  const workflowLabel = isDeleteMode ? "Purge and delete" : "Purge";
+  const workflowLabel = surfaceText(isDeleteMode ? "Purge and delete" : "Purge");
+  const resolvedContextLabel = contextLabel(props);
   const breadcrumbs =
     props.mode === "manager" || props.mode === "manager-delete"
       ? buildWorkspacePageBreadcrumbs("manager", MANAGER_PAGE_CONTRACTS.buckets, { label: workflowLabel })
@@ -249,15 +279,15 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
 
   return (
     <WorkflowPage
-      title={isDeleteMode ? "Purge and delete bucket" : "Purge buckets"}
+      title={surfaceText(isDeleteMode ? "Purge and delete bucket" : "Purge buckets")}
       description={
         isDeleteMode
-          ? "Review the target, confirm the destructive operation and follow deletion through completion."
-          : "Review the selected buckets, confirm the destructive operation and keep progress visible through completion."
+          ? surfaceText("Review the target, confirm the destructive operation and follow deletion through completion.")
+          : surfaceText("Review the selected buckets, confirm the destructive operation and keep progress visible through completion.")
       }
       breadcrumbs={breadcrumbs}
       onBack={closeModal}
-      backLabel={running ? "Stop and return" : "Back to buckets"}
+      backLabel={running ? surfaceText("Stop and return") : surfaceText("Back to buckets")}
       contentClassName="min-w-0"
     >
       <div className="space-y-4">
@@ -270,11 +300,14 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
 
         <BucketOperationSetup
           targetLabel={targetLabel}
-          contextLabel={`${surfaceLabel(props)} - ${contextLabel(props)}`}
+          contextLabel={`${surfaceLabel(props)} - ${
+            resolvedContextLabel === "All selected contexts"
+              ? surfaceText(resolvedContextLabel)
+              : resolvedContextLabel
+          }`}
           actions={running ? (
             <UiButton type="button" onClick={cancelPurge} variant="danger" size="sm">
-              Cancel
-            </UiButton>
+              {surfaceText("Cancel")}</UiButton>
           ) : (
             <UiButton
               type="button"
@@ -283,24 +316,22 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
               variant="danger"
               size="sm"
             >
-              {isDeleteMode ? "Delete bucket" : "Start purge"}
+              {surfaceText(isDeleteMode ? "Delete bucket" : "Start purge")}
             </UiButton>
           )}
         >
           {isDeleteMode ? (
             <PageBanner tone="warning">
-              This deletes current objects, historical versions, and delete markers, then removes the bucket and its S3 configuration.
-            </PageBanner>
+              {surfaceText("This deletes current objects, historical versions, and delete markers, then removes the bucket and its S3 configuration.")}</PageBanner>
           ) : (
             <PageBanner tone="warning">
-              This empties the selected buckets by deleting current objects, historical versions, and delete markers. Buckets and bucket configuration are kept.
-            </PageBanner>
+              {surfaceText("This empties the selected buckets by deleting current objects, historical versions, and delete markers. Buckets and bucket configuration are kept.")}</PageBanner>
           )}
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_120px_minmax(0,360px)]">
             <div className="min-w-0 rounded-md border border-[color:var(--ui-border-soft)] md:col-span-2 xl:col-span-1">
               <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-800">
-                <p className="ui-caption font-semibold uppercase text-slate-500 dark:text-slate-400">Targets</p>
+                <p className="ui-caption font-semibold uppercase text-slate-500 dark:text-slate-400">{surfaceText("Targets")}</p>
               </div>
               <div className="max-h-48 overflow-auto divide-y divide-slate-200 dark:divide-slate-800">
                 {props.targets.map((target) => (
@@ -316,7 +347,7 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
 
             <UiInput
               size="compact"
-              label="Parallelism"
+              label={surfaceText("Parallelism")}
               type="number"
               min={1}
               max={64}
@@ -327,7 +358,7 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
 
             <UiInput
               size="compact"
-              label={`Type ${expectedConfirmation}`}
+              label={surfaceText("Type {confirmation}", { confirmation: expectedConfirmation })}
               type="text"
               value={confirmation}
               disabled={running}
@@ -339,33 +370,37 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
 
         {progress && (
           <BucketOperationProgress
-            label="Bucket purge progress"
+            label={surfaceText("Bucket purge progress")}
             value={progressPercent}
             stage={progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
-            metrics={<>{progressEntriesLabel(progress)}</>}
+            metrics={<>{progressEntriesLabel(progress, surfaceText)}</>}
             destructive
           >
-            {formatCompactNumber(progress.completed_buckets)} / {formatCompactNumber(progress.total_buckets)} buckets completed
-            {" - "}
-            {formatCompactNumber(progress.deleted_objects)} current object(s),{" "}
-            {formatCompactNumber(progress.deleted_versions)} version/delete marker entries
-            {!progress.total_entries_final ? " - Total still being discovered" : ""}
-            {progress.failed_count > 0 ? ` - ${formatCompactNumber(progress.failed_count)} error(s)` : ""}
+            {formatCompactNumber(progress.completed_buckets)} / {formatCompactNumber(progress.total_buckets)} {surfaceText("buckets completed")}{" - "}
+            {formatCompactNumber(progress.deleted_objects)} {surfaceText("current object(s),")}{" "}
+            {formatCompactNumber(progress.deleted_versions)} {surfaceText("version/delete marker entries")}
+            {!progress.total_entries_final ? ` - ${surfaceText("Total still being discovered")}` : ""}
+            {progress.failed_count > 0
+              ? ` - ${surfaceText("{count} error(s)", { count: formatCompactNumber(progress.failed_count) })}`
+              : ""}
           </BucketOperationProgress>
         )}
 
         {result && (
           <div className="space-y-3">
             <div className={`grid gap-2 ${isDeleteMode ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
-              <BucketOperationSummaryStat label="Objects deleted" value={formatNumber(result.deleted_objects)} />
-              <BucketOperationSummaryStat label="Versions/delete markers deleted" value={formatNumber(result.deleted_versions)} />
+              <BucketOperationSummaryStat label={surfaceText("Objects deleted")} value={formatNumber(result.deleted_objects)} />
+              <BucketOperationSummaryStat label={surfaceText("Versions/delete markers deleted")} value={formatNumber(result.deleted_versions)} />
               <BucketOperationSummaryStat
-                label="Buckets completed"
+                label={surfaceText("Buckets completed")}
                 value={`${formatNumber(result.completed_buckets)} / ${formatNumber(result.total_buckets)}`}
               />
-              <BucketOperationSummaryStat label="Errors" value={formatNumber(result.failed_count)} />
+              <BucketOperationSummaryStat label={surfaceText("Errors")} value={formatNumber(result.failed_count)} />
               {isDeleteMode && (
-                <BucketOperationSummaryStat label="Bucket" value={result.bucket_deleted ? "Deleted" : "Not deleted"} />
+                <BucketOperationSummaryStat
+                  label={surfaceText("Bucket")}
+                  value={surfaceText(result.bucket_deleted ? "Deleted" : "Not deleted")}
+                />
               )}
             </div>
 
@@ -375,28 +410,30 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
                   key={`${bucket.context_id ?? ""}:${bucket.bucket_name}`}
                   bucketName={bucket.bucket_name}
                   contextLabel={bucket.context_name || bucket.context_id}
-                  status={<ListBadge tone={bucketStatusTone(bucket.status)}>{statusLabel(bucket.status)}</ListBadge>}
+                  status={<ListBadge tone={bucketStatusTone(bucket.status)}>{surfaceText(statusLabel(bucket.status))}</ListBadge>}
                   durationSeconds={bucket.duration_seconds}
                   metrics={[
-                    { label: "Objects", value: formatNumber(bucket.deleted_objects) },
-                    { label: "Versions", value: formatNumber(bucket.deleted_versions) },
-                    { label: "Errors", value: formatNumber(bucket.failed_count) },
+                    { label: surfaceText("Objects"), value: formatNumber(bucket.deleted_objects) },
+                    { label: surfaceText("Versions"), value: formatNumber(bucket.deleted_versions) },
+                    { label: surfaceText("Errors"), value: formatNumber(bucket.failed_count) },
                   ]}
                 >
                   <BucketOperationFailures
                     bucketName={bucket.bucket_name}
-                    title="Purge errors"
-                    targetLabel="Target"
+                    title={surfaceText("Purge errors")}
+                    targetLabel={surfaceText("Target")}
                     total={bucket.failed_count}
                     showCount
                     failures={bucket.failures_sample.map((failure) => ({
                       stage: failure.stage,
-                      target: failureTarget(failure),
+                      target: failure.key
+                        ? failure.key
+                        : surfaceText(failureTarget(failure)),
                       version: failure.version_id,
                       count: failure.count,
                       message: failure.message,
                     }))}
-                    emptyMessage="No purge error reported for this bucket."
+                    emptyMessage={surfaceText("No purge error reported for this bucket.")}
                   />
                 </BucketOperationResult>
               ))}

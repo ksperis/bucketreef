@@ -3,15 +3,17 @@ import type { UiLanguagePreference } from "../../components/language";
 import { SettingsItem, SettingsSection, SettingsSwitch } from "../../components/settings/SettingsLayout";
 import UiSelect from "../../components/ui/UiSelect";
 import type { ProfileText } from "./profileMessages";
+import { useSharedI18n } from "./sharedI18n";
 
 export function UserLanguageField({ value, onChange, disabled, text }: {
   value: UiLanguagePreference; onChange: (value: UiLanguagePreference) => void; disabled?: boolean; text: ProfileText;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   return <SettingsItem compact title={text("language")} action={
     <UiSelect aria-label={text("language")} className="settings-control w-full sm:w-56" value={value}
       disabled={disabled} onChange={event => onChange(event.target.value as UiLanguagePreference)}>
-      <option value="auto">{text("browserAuto")}</option><option value="fr">Français</option>
-      <option value="en">English</option><option value="de">Deutsch</option><option value="zh">简体中文</option>
+      <option value="auto">{text("browserAuto")}</option><option value="fr">{surfaceText("Français")}</option>
+      <option value="en">{surfaceText("English")}</option><option value="de">{surfaceText("Deutsch")}</option><option value="zh">简体中文</option>
     </UiSelect>
   } />;
 }

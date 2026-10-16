@@ -18,6 +18,7 @@ import {
   summarizeBulkPreview,
 } from "./bucketBulkPreviewModel";
 import { diffToneClasses } from "./diffPresentation";
+import { useSharedI18n } from "./sharedI18n";
 
 type AsyncAction = () => void | Promise<void>;
 
@@ -84,6 +85,7 @@ function BulkPreviewDetails({
   items: BulkPreviewItem[];
   operation: BulkOperation;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   if (items.length === 0) return null;
   return (
     <div className="max-h-[420px] space-y-2 overflow-auto rounded-lg border border-slate-200 p-2 dark:border-slate-800">
@@ -109,7 +111,7 @@ function BulkPreviewDetails({
                   {item.error ? "Error" : item.changed ? "Change" : "No change"}
                 </span>
                 <span className="ui-caption text-slate-500 dark:text-slate-400">
-                  Changed sections {changedSections}/{sections.length}
+                  {surfaceText("Changed sections")}{changedSections}/{sections.length}
                 </span>
               </div>
             </summary>
@@ -141,14 +143,12 @@ function BulkPreviewDetails({
                       <div className="grid gap-2 lg:grid-cols-2">
                         <div className="space-y-1">
                           <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Before
-                          </p>
+                            {surfaceText("Before")}</p>
                           {renderPreviewLines(section.before)}
                         </div>
                         <div className="space-y-1">
                           <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            After
-                          </p>
+                            {surfaceText("After")}</p>
                           {renderPreviewLines(section.after)}
                         </div>
                       </div>
@@ -189,6 +189,7 @@ export default function BucketOpsBulkExecutionPanel({
   previewProgress,
   previewReady,
 }: BucketOpsBulkExecutionPanelProps) {
+  const { text: surfaceText } = useSharedI18n();
   const previewStats = useMemo(
     () => summarizeBulkPreview(previewItems),
     [previewItems],
@@ -260,12 +261,11 @@ export default function BucketOpsBulkExecutionPanel({
               onClick={onExport}
               disabled={previewLoading || previewItems.length === 0}
             >
-              Export changes
-            </UiButton>
+              {surfaceText("Export changes")}</UiButton>
             {previewReady && (
               <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Changes: {previewStats.changed} / Unchanged:{" "}
-                {previewStats.unchanged} / Errors: {previewStats.errors}
+                {surfaceText("Changes:")}{previewStats.changed} {surfaceText("/ Unchanged:")}{" "}
+                {previewStats.unchanged} {surfaceText("/ Errors:")}{previewStats.errors}
               </p>
             )}
           </>
@@ -280,8 +280,7 @@ export default function BucketOpsBulkExecutionPanel({
           size="sm"
           onClick={onClose}
         >
-          Cancel
-        </UiButton>
+          {surfaceText("Cancel")}</UiButton>
         {operation !== "copy_configs" && (
           <UiButton
             size="sm"

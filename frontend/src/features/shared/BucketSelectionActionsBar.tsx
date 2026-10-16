@@ -32,6 +32,7 @@ import {
   createBucketUiTagDrafts,
   type BucketUiTagDraft,
 } from "./bucketOpsRowTagModel";
+import { useSharedI18n } from "./sharedI18n";
 
 type SelectionTagAction = "add" | "remove";
 type SelectionExportFormat = "text" | "csv" | "json";
@@ -93,6 +94,7 @@ export default function BucketSelectionActionsBar({
   onShowUsageStatsModal,
   openBulkUpdateModal,
 }: BucketSelectionActionsBarProps) {
+  const { text: surfaceText } = useSharedI18n();
   const [dialog, setDialog] = useState<"tags" | "export" | null>(null);
   const [tagMode, setTagMode] = useState<SelectionTagAction>("add");
   const [customTagDrafts, setCustomTagDrafts] = useState<BucketUiTagDraft[]>([]);
@@ -142,7 +144,7 @@ export default function BucketSelectionActionsBar({
         setDialog(null);
       }
     } catch (error) {
-      setTagError(extractApiError(error, "Unable to update UI tags."));
+      setTagError(extractApiError(error, surfaceText("Unable to update UI tags.")));
     } finally {
       tagSubmittingRef.current = false;
       setTagPending(false);
@@ -152,7 +154,11 @@ export default function BucketSelectionActionsBar({
   if (selectedCount <= 0) return null;
 
   const surface = isStorageOps ? "storage-ops" : "ceph-admin";
-  const indexSelectionAction = bucketAction("check-index-selection");
+  const action = (id: Parameters<typeof bucketAction>[0]) => {
+    const descriptor = bucketAction(id);
+    return { ...descriptor, label: surfaceText(descriptor.label) };
+  };
+  const indexSelectionAction = action("check-index-selection");
   const indexSelectionLimit = indexSelectionAction.maxSelection ?? 200;
   const runAndClose = (action: () => void) => {
     setDialog(null);
@@ -161,35 +167,35 @@ export default function BucketSelectionActionsBar({
   const sections: UiActionMenuSection[] = [
     {
       id: "selection",
-      label: BUCKET_ACTION_GROUP_LABELS.selection,
+      label: surfaceText(BUCKET_ACTION_GROUP_LABELS.selection),
       items: [
-        { ...bucketAction("manage-tags"), onSelect: () => setDialog("tags") },
-        { ...bucketAction("export-selection"), onSelect: () => setDialog("export") },
+        { ...action("manage-tags"), onSelect: () => setDialog("tags") },
+        { ...action("export-selection"), onSelect: () => setDialog("export") },
       ],
     },
     {
       id: "s3",
-      label: BUCKET_ACTION_GROUP_LABELS.s3,
+      label: surfaceText(BUCKET_ACTION_GROUP_LABELS.s3),
       items: [
-        { ...bucketAction("configure-selection"), onSelect: openBulkUpdateModal },
-        { ...bucketAction("check-integrity"), onSelect: onShowIntegrityModal },
-        { ...bucketAction("calculate-stats"), onSelect: onShowUsageStatsModal },
+        { ...action("configure-selection"), onSelect: openBulkUpdateModal },
+        { ...action("check-integrity"), onSelect: onShowIntegrityModal },
+        { ...action("calculate-stats"), onSelect: onShowUsageStatsModal },
         ...(!isStorageOps && onShowConfigBackupModal
-          ? [{ ...bucketAction("backup-configs"), onSelect: onShowConfigBackupModal }]
+          ? [{ ...action("backup-configs"), onSelect: onShowConfigBackupModal }]
           : []),
-        ...(!isStorageOps ? [{ ...bucketAction("compare-buckets"), onSelect: onShowCompareModal }] : []),
+        ...(!isStorageOps ? [{ ...action("compare-buckets"), onSelect: onShowCompareModal }] : []),
       ],
     },
     ...(!isStorageOps && onShowIndexCheckModal
       ? [
           {
             id: "rgw",
-            label: BUCKET_ACTION_GROUP_LABELS.rgw,
+            label: surfaceText(BUCKET_ACTION_GROUP_LABELS.rgw),
             items: [
               {
                 ...indexSelectionAction,
                 disabled: selectedCount > indexSelectionLimit,
-                disabledReason: `Bucket index checks are limited to ${indexSelectionLimit} buckets. Narrow the selection to continue.`,
+                disabledReason: surfaceText("Bucket index checks are limited to {count} buckets. Narrow the selection to continue.", { count: indexSelectionLimit }),
                 onSelect: onShowIndexCheckModal,
               },
             ],
@@ -200,8 +206,8 @@ export default function BucketSelectionActionsBar({
       ? [
           {
             id: "destructive-s3",
-            label: BUCKET_ACTION_GROUP_LABELS["destructive-s3"],
-            items: [{ ...bucketAction("purge-contents"), onSelect: onShowPurgeModal }],
+            label: surfaceText(BUCKET_ACTION_GROUP_LABELS["destructive-s3"]),
+            items: [{ ...action("purge-contents"), onSelect: onShowPurgeModal }],
           },
         ]
       : []),
@@ -214,20 +220,26 @@ export default function BucketSelectionActionsBar({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="ui-list-selection-summary">
-            {selectedCount} bucket{selectedCount > 1 ? "s" : ""} selected
-            {hiddenSelectedCount > 0 && (
+            {surfaceText(
+              selectedCount === 1 ? "{count} bucket selected" : "{count} buckets selected",
+              { count: selectedCount },
+            )}{hiddenSelectedCount > 0 && (
               <span className="ml-2 ui-caption font-semibold text-red-600 dark:text-red-400">
-                ({hiddenSelectedCount} not visible)
-              </span>
+                {surfaceText(
+                  hiddenSelectedCount === 1 ? " ({count} not visible)" : " ({count} not visible)",
+                  { count: hiddenSelectedCount },
+                )}</span>
             )}
           </p>
           <ListActionButton type="button" onClick={clearSelection} variant="secondary">
-            Clear selection
-          </ListActionButton>
+            {surfaceText("Clear selection")}</ListActionButton>
         </div>
         <UiActionMenu
-          ariaLabel={`Actions for ${selectedCount} selected bucket${selectedCount > 1 ? "s" : ""}`}
-          trigger="Actions…"
+          ariaLabel={surfaceText(
+            selectedCount === 1 ? "Actions for {count} selected bucket" : "Actions for {count} selected buckets",
+            { count: selectedCount },
+          )}
+          trigger={surfaceText("Actions…")}
           triggerClassName="ui-list-action ui-list-action-primary"
           sections={sections}
           minWidth={320}
@@ -238,25 +250,33 @@ export default function BucketSelectionActionsBar({
       {selectionActionProgress && <ActionProgressCard progress={selectionActionProgress} busy className="mt-3" />}
 
       {dialog === "tags" && (
-        <SettingsDialog title="Manage UI tags" onClose={tagCloseGuard.requestClose}
+        <SettingsDialog title={surfaceText("Manage UI tags")} onClose={tagCloseGuard.requestClose}
           closeDisabled={tagBusy} closeOnEscape={!tagBusy} closeOnBackdropClick={!tagBusy} maxWidthClass="max-w-lg">
           <div className="settings-stack">
             <p className={cx("ui-caption", uiMutedTextClass)}>
-              Update UI-only labels for {selectedCount} selected bucket{selectedCount > 1 ? "s" : ""} in {surface === "storage-ops" ? "Storage Ops" : "Ceph Admin"}.
+              {surfaceText(
+                selectedCount === 1
+                  ? "Update UI-only labels for {count} selected bucket in {surface}."
+                  : "Update UI-only labels for {count} selected buckets in {surface}.",
+                {
+                  count: selectedCount,
+                  surface: surface === "storage-ops" ? "Storage Ops" : "Ceph Admin",
+                },
+              )}
             </p>
             <UiSegmentedControl
-              ariaLabel="UI tag operation"
+              ariaLabel={surfaceText("UI tag operation")}
               value={tagMode}
               onChange={setTagMode}
               options={[
-                { value: "add", label: "Add tags", disabled: tagBusy },
-                { value: "remove", label: "Remove tags", disabled: tagBusy },
+                { value: "add", label: surfaceText("Add tags"), disabled: tagBusy },
+                { value: "remove", label: surfaceText("Remove tags"), disabled: tagBusy },
               ]}
             />
             <div className="max-h-56 space-y-1 overflow-auto rounded-md border border-[color:var(--ui-border-soft)] p-2">
               {tagOptions.length === 0 ? (
                 <p className={cx("px-2 py-3 ui-caption", uiMutedTextClass)}>
-                  {tagMode === "add" ? "No existing UI tags yet." : "No UI tags found on this selection."}
+                  {surfaceText(tagMode === "add" ? "No existing UI tags yet." : "No UI tags found on this selection.")}
                 </p>
               ) : (
                 tagOptions.map((tag) => (
@@ -273,23 +293,22 @@ export default function BucketSelectionActionsBar({
                     <UiButton
                       type="button" variant="secondary" size="sm"
                       disabled={tagBusy}
-                      aria-label={`${tagMode === "add" ? "Add" : "Remove"} UI tag ${tag.label}`}
+                      aria-label={surfaceText(tagMode === "add" ? "Add UI tag {tag}" : "Remove UI tag {tag}", { tag: tag.label })}
                       onClick={() => void applyTags(tag, tagMode)}
                     >
-                      {tagMode === "add" ? "Add" : "Remove"}
+                      {surfaceText(tagMode === "add" ? "Add" : "Remove")}
                     </UiButton>
                   </div>
                 ))
               )}
             </div>
             {tagMode === "add" && (
-              <form className="settings-stack" aria-label="New UI tags" onSubmit={(event) => {
+              <form className="settings-stack" aria-label={surfaceText("New UI tags")} onSubmit={(event) => {
                 event.preventDefault();
                 configureNewTags();
               }}>
                 <label htmlFor="bucket-selection-custom-tag" className={cx("ui-caption font-semibold", uiTitleTextClass)}>
-                  New UI tags
-                </label>
+                  {surfaceText("New UI tags")}</label>
                 {customTagDrafts.length > 0 && (
                   <div className="flex flex-wrap gap-2 rounded-md border border-[color:var(--ui-border-soft)] p-2">
                     {customTagDrafts.map((draft, index) => (
@@ -324,7 +343,7 @@ export default function BucketSelectionActionsBar({
                     disabled={tagBusy}
                     value={selectionTagAddInput}
                     onChange={(event) => setSelectionTagAddInput(event.target.value)}
-                    placeholder="new-tag"
+                    placeholder={surfaceText("new-tag")}
                     size="compact"
                     fieldClassName="min-w-0 flex-1"
                   />
@@ -333,8 +352,7 @@ export default function BucketSelectionActionsBar({
                     size="sm"
                     disabled={parsedSelectionTagAddInput.length === 0 || tagBusy}
                   >
-                    Configure
-                  </UiButton>
+                    {surfaceText("Configure")}</UiButton>
                 </div>
                 {customTagDrafts.length > 0 && (
                   <div className="flex justify-end">
@@ -345,8 +363,10 @@ export default function BucketSelectionActionsBar({
                       loading={tagBusy}
                       onClick={() => void applyTags(customTagDrafts, "add")}
                     >
-                      Add {customTagDrafts.length} tag
-                      {customTagDrafts.length > 1 ? "s" : ""}
+                      {surfaceText(
+                        customTagDrafts.length === 1 ? "Add {count} tag" : "Add {count} tags",
+                        { count: customTagDrafts.length },
+                      )}
                     </UiButton>
                   </div>
                 )}
@@ -355,7 +375,7 @@ export default function BucketSelectionActionsBar({
             {selectionActionProgress && <ActionProgressCard progress={selectionActionProgress} busy />}
             {tagError && <UiInlineMessage tone="error" role="alert">{tagError}</UiInlineMessage>}
             <ModalActions>
-              <UiButton variant="secondary" onClick={tagCloseGuard.requestClose} disabled={tagBusy}>Close</UiButton>
+              <UiButton variant="secondary" onClick={tagCloseGuard.requestClose} disabled={tagBusy}>{surfaceText("Close")}</UiButton>
             </ModalActions>
           </div>
         </SettingsDialog>
@@ -365,10 +385,15 @@ export default function BucketSelectionActionsBar({
       <SettingsNavigationGuard dirty={dialog === "tags" && (hasTagDraft || tagBusy)} discardDisabled={tagBusy} onDiscard={closeTagDialog} />
 
       {dialog === "export" && (
-        <SettingsDialog title="Export selection" onClose={() => setDialog(null)} maxWidthClass="max-w-md">
+        <SettingsDialog title={surfaceText("Export selection")} onClose={() => setDialog(null)} maxWidthClass="max-w-md">
           <div className="settings-stack">
             <p className={cx("ui-caption", uiMutedTextClass)}>
-              Choose the output for {selectedCount} selected bucket{selectedCount > 1 ? "s" : ""}.
+              {surfaceText(
+                selectedCount === 1
+                  ? "Choose the output for {count} selected bucket."
+                  : "Choose the output for {count} selected buckets.",
+                { count: selectedCount },
+              )}
             </p>
             <ModalOptions>
               {([
@@ -385,13 +410,13 @@ export default function BucketSelectionActionsBar({
                 >
                   <span className="modal-option-copy">
                     <span>{label}</span>
-                    <span className="modal-option-description">{helper}</span>
+                    <span className="modal-option-description">{surfaceText(helper)}</span>
                   </span>
                 </UiButton>
               ))}
             </ModalOptions>
             <ModalActions>
-              <UiButton variant="secondary" onClick={() => setDialog(null)}>Cancel</UiButton>
+              <UiButton variant="secondary" onClick={() => setDialog(null)}>{surfaceText("Cancel")}</UiButton>
             </ModalActions>
           </div>
         </SettingsDialog>

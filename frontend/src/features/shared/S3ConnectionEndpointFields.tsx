@@ -9,6 +9,7 @@ import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import type { S3ConnectionEndpointMode } from "./s3ConnectionFormModel";
+import { useSharedI18n } from "./sharedI18n";
 
 const S3_CONNECTION_PROVIDER_HINT_OPTIONS = [
   { value: "", label: "(auto)" },
@@ -56,21 +57,22 @@ export default function S3ConnectionEndpointFields({
   endpointIdError,
   endpointUrlError,
 }: S3ConnectionEndpointFieldsProps) {
+  const { text: surfaceText } = useSharedI18n();
   const hasConfiguredEndpoints = endpoints.length > 0;
 
   return (
-    <SettingsSection title="Endpoint" presentation="compact"
-      description="Choose a configured endpoint or enter an operator-approved public HTTPS custom endpoint.">
+    <SettingsSection title={surfaceText("Endpoint")} presentation="compact"
+      description={surfaceText("Choose a configured endpoint or enter an operator-approved public HTTPS custom endpoint.")}>
       <div className="settings-fields">
         <fieldset className="rounded-lg border border-[color:var(--ui-border-soft)] px-3 py-2">
-          <legend className="sr-only">Endpoint source</legend>
+          <legend className="sr-only">{surfaceText("Endpoint source")}</legend>
           <SettingsChoiceRow
             type="radio"
             name={modeInputName}
             value="preset"
-            title="Configured endpoint"
-            ariaLabel="Configured endpoint"
-            description="Use a storage endpoint configured by an administrator."
+            title={surfaceText("Configured endpoint")}
+            ariaLabel={surfaceText("Configured endpoint")}
+            description={surfaceText("Use a storage endpoint configured by an administrator.")}
             checked={mode === "preset"}
             onChange={() => onModeChange("preset")}
             disabled={!hasConfiguredEndpoints}
@@ -79,16 +81,16 @@ export default function S3ConnectionEndpointFields({
             type="radio"
             name={modeInputName}
             value="custom"
-            title="Custom endpoint"
-            ariaLabel="Custom endpoint"
-            description="Enter an operator-approved public HTTPS endpoint."
+            title={surfaceText("Custom endpoint")}
+            ariaLabel={surfaceText("Custom endpoint")}
+            description={surfaceText("Enter an operator-approved public HTTPS endpoint.")}
             checked={mode === "custom"}
             onChange={() => onModeChange("custom")}
           />
         </fieldset>
         {mode === "preset" ? (
           <UiSelect
-            label="Configured endpoint"
+            label={surfaceText("Configured endpoint")}
             value={endpointId}
             onChange={(event) => onEndpointIdChange(event.target.value)}
             disabled={loadingEndpoints}
@@ -96,13 +98,17 @@ export default function S3ConnectionEndpointFields({
           >
             <option value="">
               {loadingEndpoints
-                ? "Loading endpoints..."
+                ? surfaceText("Loading endpoints...")
                 : hasConfiguredEndpoints
-                  ? "Select endpoint"
-                  : "No configured endpoint"}
+                  ? surfaceText("Select endpoint")
+                  : surfaceText("No configured endpoint")}
             </option>
             {endpointId && !endpoints.some((endpoint) => String(endpoint.id) === endpointId) && (
-              <option value={endpointId} disabled>{loadingEndpoints ? "Loading endpoint..." : `Unavailable endpoint (#${endpointId})`}</option>
+              <option value={endpointId} disabled>
+                {loadingEndpoints
+                  ? surfaceText("Loading endpoint...")
+                  : surfaceText("Unavailable endpoint (#{id})", { id: endpointId })}
+              </option>
             )}
             {endpoints.map((endpoint) => (
               <option key={endpoint.id} value={endpoint.id}>
@@ -113,26 +119,26 @@ export default function S3ConnectionEndpointFields({
         ) : (
           <div className="settings-fields sm:grid-cols-2">
             <UiSelect
-              label="Provider"
+              label={surfaceText("Provider")}
               value={form.provider_hint}
               onChange={(event) => onFormChange("provider_hint", event.target.value)}
             >
               {S3_CONNECTION_PROVIDER_HINT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {surfaceText(option.label)}
                 </option>
               ))}
             </UiSelect>
             <UiInput
               type="text"
-              label="Region"
+              label={surfaceText("Region")}
               value={form.region}
               onChange={(event) => onFormChange("region", event.target.value)}
               placeholder="us-east-1"
             />
             <UiInput
               type="url"
-              label="Endpoint URL"
+              label={surfaceText("Endpoint URL")}
               error={endpointUrlError}
               fieldClassName="sm:col-span-2"
               value={form.endpoint_url}
@@ -145,15 +151,13 @@ export default function S3ConnectionEndpointFields({
                 onChange={(event) => onFormChange("force_path_style", event.target.checked)}
                 className="settings-choice"
               >
-                Force path style
-              </UiCheckboxField>
+                {surfaceText("Force path style")}</UiCheckboxField>
               <UiCheckboxField
                 checked={form.verify_tls}
                 onChange={(event) => onFormChange("verify_tls", event.target.checked)}
                 className="settings-choice"
               >
-                Verify TLS
-              </UiCheckboxField>
+                {surfaceText("Verify TLS")}</UiCheckboxField>
             </div>
           </div>
         )}

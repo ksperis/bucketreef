@@ -19,6 +19,7 @@ import {
 } from "./bucketOpsAdvancedFilterModel";
 import { buildBucketTagSummaryLines } from "./bucketFeatureSummaries";
 import { getBucketDisplayName, getTagColors } from "./bucketOpsPresentation";
+import { useSharedI18n } from "./sharedI18n";
 
 type OwnerTooltipState =
   | { status: "loading" }
@@ -44,10 +45,11 @@ export function BucketOpsSelectionHeader({
   inputRef: Ref<HTMLInputElement>;
   onChange: (checked: boolean) => void;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   return (
     <ListSelectionCheckbox
       ref={inputRef}
-      aria-label="Select all filtered buckets"
+      aria-label={surfaceText("Select all filtered buckets")}
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
       disabled={disabled}
@@ -68,11 +70,19 @@ export function BucketOpsSelectionCell({
   selected: boolean;
   useExplicitBucketName: boolean;
 }) {
-  const contextLabel =
-    isStorageOps && bucket.context_name ? ` in ${bucket.context_name}` : "";
+  const { text: surfaceText } = useSharedI18n();
+  const displayName = getBucketDisplayName(bucket, useExplicitBucketName);
   return (
     <ListSelectionCheckbox
-      aria-label={`Select bucket ${getBucketDisplayName(bucket, useExplicitBucketName)}${contextLabel}`}
+      aria-label={surfaceText(
+        isStorageOps && bucket.context_name
+          ? "Select bucket {bucket} in {context}"
+          : "Select bucket {bucket}",
+        {
+          bucket: displayName,
+          context: bucket.context_name ?? "",
+        },
+      )}
       checked={selected}
       onChange={onToggle}
     />
@@ -88,6 +98,7 @@ export function BucketOpsNameCell({
   onConfigure: () => void;
   useExplicitBucketName: boolean;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const displayName = getBucketDisplayName(bucket, useExplicitBucketName);
   return (
     <button
@@ -95,7 +106,7 @@ export function BucketOpsNameCell({
       onClick={onConfigure}
       data-bucket-row-key={bucket.name}
       className="block w-full truncate text-left hover:text-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:hover:text-primary-200"
-      title={`Configure ${displayName} with the S3 API`}
+      title={surfaceText("Configure {bucket} with the S3 API", { bucket: displayName })}
     >
       {displayName}
     </button>
@@ -113,6 +124,7 @@ export function BucketOpsS3TagsCell({
   onClose: () => void;
   onOpen: () => void;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const safeTags = Array.isArray(bucket.tags)
     ? bucket.tags.filter((tag) => (tag.key ?? "").trim())
     : [];
@@ -130,7 +142,7 @@ export function BucketOpsS3TagsCell({
 
   return (
     <BucketSummaryTooltip
-      label="S3 tags"
+      label={surfaceText("S3 tags")}
       tooltip={tooltip}
       open={open}
       onOpen={onOpen}
@@ -179,6 +191,7 @@ export function BucketOpsOwnerCell({
   open: boolean;
   tooltip?: OwnerTooltipState;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   const owner = (bucket.owner || "").trim();
   if (!owner) return "-";
@@ -195,7 +208,7 @@ export function BucketOpsOwnerCell({
         className="inline-flex cursor-help text-left decoration-dotted underline-offset-2 hover:underline focus:underline"
         onFocus={onOpen}
         onBlur={onClose}
-        aria-label="Resolve owner name"
+        aria-label={surfaceText("Resolve owner name")}
       >
         {owner}
       </button>
@@ -209,16 +222,14 @@ export function BucketOpsOwnerCell({
       >
         <div>
           <p className="ui-caption font-semibold text-slate-800 dark:text-slate-100">
-            Owner
-          </p>
+            {surfaceText("Owner")}</p>
           <p className="mt-1 ui-caption text-slate-600 dark:text-slate-300">
-            UID: {owner}
+            {surfaceText("UID:")}{owner}
           </p>
           {(!tooltip || tooltip.status === "loading") && (
             <div className="mt-1.5 inline-flex items-center gap-1.5 ui-caption text-slate-500 dark:text-slate-300">
               <BucketTooltipSpinnerIcon />
-              Resolving owner name...
-            </div>
+              {surfaceText("Resolving owner name...")}</div>
           )}
           {tooltip?.status === "error" && (
             <p className="mt-1.5 ui-caption text-rose-600 dark:text-rose-300">
@@ -227,7 +238,7 @@ export function BucketOpsOwnerCell({
           )}
           {tooltip?.status === "ready" && (
             <p className="mt-1.5 ui-caption text-slate-600 dark:text-slate-300">
-              Owner name: {tooltip.ownerName ? tooltip.ownerName : "Not found"}
+              {surfaceText("Owner name:")}{tooltip.ownerName ? tooltip.ownerName : surfaceText("Not found")}
             </p>
           )}
         </div>

@@ -12,6 +12,7 @@ import {
   type ColumnId,
   type FeatureDetailColumnOption,
 } from "./bucketOpsListState";
+import { useSharedI18n } from "./sharedI18n";
 
 type FeatureColumnOption = {
   id: FeatureKey;
@@ -35,6 +36,7 @@ export default function BucketOpsColumnControls({
   onToggle,
   visibleColumns,
 }: BucketOpsColumnControlsProps) {
+  const { text: surfaceText } = useSharedI18n();
   const columnsCustomized = useMemo(() => {
     if (visibleColumns.length !== defaultVisibleColumns.length) return true;
     const visible = new Set(visibleColumns);
@@ -60,7 +62,7 @@ export default function BucketOpsColumnControls({
       coreGroups={[
         {
           id: "core",
-          label: "Core",
+          label: surfaceText("Core"),
           options: BUCKET_CORE_COLUMN_OPTIONS.filter((option) =>
             isStorageOps
               ? true
@@ -69,7 +71,7 @@ export default function BucketOpsColumnControls({
                 option.id !== "endpoint_name",
           ).map((option) => ({
             id: option.id,
-            label: option.label,
+            label: surfaceText(option.label),
             checked: visibleColumns.includes(option.id),
             onToggle: () => onToggle(option.id),
           })),
@@ -77,29 +79,29 @@ export default function BucketOpsColumnControls({
       ]}
       detailGroups={BUCKET_QUOTA_COLUMN_GROUPS.map((group) => ({
         id: group.id,
-        label: group.label,
+        label: surfaceText(group.label),
         details: group.options.map((option) => ({
           id: option.id,
-          label: option.label,
+          label: surfaceText(option.label),
           checked: visibleColumns.includes(option.id),
           onToggle: () => onToggle(option.id),
         })),
       }))}
       featureGroups={featureColumnOptions.map((option) => ({
         id: option.id,
-        label: option.label,
+        label: surfaceText(option.label),
         checked: visibleColumns.includes(option.id),
         onToggle: () => onToggle(option.id),
         details: (featureDetailColumnsByFeature[option.id] ?? []).map(
           (detail) => ({
             id: detail.id,
-            label: detail.label,
+            label: surfaceText(detail.label),
             checked: visibleColumns.includes(detail.id),
             onToggle: () => onToggle(detail.id),
           }),
         ),
       }))}
-      footerNote="Feature checks and detail values are loaded only for enabled columns."
+      footerNote={surfaceText("Feature checks and detail values are loaded only for enabled columns.")}
     />
   );
 }

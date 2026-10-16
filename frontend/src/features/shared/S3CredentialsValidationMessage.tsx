@@ -5,6 +5,7 @@
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import type { S3CredentialsValidationResult } from "../../api/s3CredentialsValidation";
 import type { LiveS3CredentialsValidationState } from "./useLiveS3CredentialsValidation";
+import { useSharedI18n } from "./sharedI18n";
 
 type S3CredentialsValidationMessageProps = {
   validation: LiveS3CredentialsValidationState;
@@ -21,11 +22,11 @@ export default function S3CredentialsValidationMessage({
   validation,
   className,
 }: S3CredentialsValidationMessageProps) {
+  const { text: surfaceText } = useSharedI18n();
   if (validation.status === "loading") {
     return (
       <UiInlineMessage tone="info" className={className}>
-        Validating credentials...
-      </UiInlineMessage>
+        {surfaceText("Validating credentials...")}</UiInlineMessage>
     );
   }
 

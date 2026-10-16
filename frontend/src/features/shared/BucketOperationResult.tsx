@@ -10,6 +10,7 @@ import { cx, uiDividerClass, uiMutedTextClass } from "../../components/ui/styles
 import { ChevronDownIcon } from "../browser/browserIcons";
 import { formatNumber } from "../../utils/format";
 import "./bucketOperationRun.css";
+import { useSharedI18n } from "./sharedI18n";
 
 type BucketOperationResultProps = {
   bucketName: string;
@@ -30,6 +31,7 @@ function formatSeconds(value?: number | null): string {
 export default function BucketOperationResult({
   bucketName, contextLabel, status, durationSeconds, metrics, children,
 }: BucketOperationResultProps) {
+  const { text: surfaceText } = useSharedI18n();
   return (
     <UiDetails className="bucket-operation-result">
       <summary>
@@ -42,7 +44,7 @@ export default function BucketOperationResult({
           {status}
           <InlineSummary items={[
             ...metrics,
-            { label: "Duration", value: formatSeconds(durationSeconds) },
+            { label: surfaceText("Duration"), value: formatSeconds(durationSeconds) },
           ]} />
         </div>
       </summary>
@@ -70,30 +72,39 @@ export function BucketOperationFailures({
   showCount?: boolean;
   emptyMessage: string;
 }) {
+  const { text: surfaceText } = useSharedI18n();
   const tableLabel = `${title}: ${bucketName}`;
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 ui-caption">
         <p className="font-medium text-[var(--ui-text)]">{title}</p>
         <p className={uiMutedTextClass}>
-          {formatNumber(failures.length)} visible / {formatNumber(total)} total error(s)
-        </p>
+          {surfaceText(
+            total === 1
+              ? "{visible} visible / {total} total error"
+              : "{visible} visible / {total} total errors",
+            { visible: formatNumber(failures.length), total: formatNumber(total) },
+          )}</p>
       </div>
       {total > failures.length ? (
         <UiInlineMessage tone="warning">
-          Only {formatNumber(failures.length)} of {formatNumber(total)} error(s) are visible.
-        </UiInlineMessage>
+          {surfaceText(
+            total === 1
+              ? "Only {visible} of {total} error is visible."
+              : "Only {visible} of {total} errors are visible.",
+            { visible: formatNumber(failures.length), total: formatNumber(total) },
+          )}</UiInlineMessage>
       ) : null}
       {failures.length > 0 ? (
         <div className="bucket-operation-failures" role="region" aria-label={tableLabel} tabIndex={0}>
           <table className="ui-data-table" aria-label={tableLabel}>
             <thead>
               <tr>
-                <th scope="col">Stage</th>
+                <th scope="col">{surfaceText("Stage")}</th>
                 <th scope="col">{targetLabel}</th>
-                <th scope="col">Version</th>
-                {showCount ? <th scope="col">Count</th> : null}
-                <th scope="col">Message</th>
+                <th scope="col">{surfaceText("Version")}</th>
+                {showCount ? <th scope="col">{surfaceText("Count")}</th> : null}
+                <th scope="col">{surfaceText("Message")}</th>
               </tr>
             </thead>
             <tbody>
@@ -111,7 +122,7 @@ export function BucketOperationFailures({
         </div>
       ) : (
         <UiInlineMessage>
-          {total > 0 ? "Error details are unavailable for this bucket." : emptyMessage}
+          {total > 0 ? surfaceText("Error details are unavailable for this bucket.") : emptyMessage}
         </UiInlineMessage>
       )}
     </>
