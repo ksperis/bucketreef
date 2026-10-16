@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
-from app.services.deployment_checks import find_uncovered_outbound_targets, run_outbound_target_preflight
+from app.services.deployment_outbound_preflight import run_outbound_target_preflight
 
 
 run_preflight = run_outbound_target_preflight

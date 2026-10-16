@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from app.core.config import Settings
 from app.db import S3Connection, User, UserRole, WebhookEndpoint
-from app.scripts.preflight_outbound_targets import find_uncovered_outbound_targets, run_preflight
+from app.scripts.preflight_outbound_targets import run_preflight
+from app.services.deployment_outbound_preflight import find_uncovered_outbound_targets
 from app.utils.s3_connection_endpoint import build_custom_endpoint_config
 
 
