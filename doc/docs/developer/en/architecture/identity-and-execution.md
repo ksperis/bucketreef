@@ -35,8 +35,10 @@ for password, role, activation, MFA, and external-identity changes.
 ## Context and executor
 
 RGW Account IDs are independent of Ceph tenant names. `S3Account`, `S3User`
-and their `S3ExecutionContext` preserve `rgw_tenant`: `''` is the known default
-tenant and `NULL` is an unverified legacy scope. RGW users are identified by
+persist `rgw_tenant` canonically: `''` is the default tenant and non-empty
+values are explicit Ceph tenant names. Database-backed principals never use
+`NULL` for tenant scope. Transient execution contexts may still have no tenant
+until an access-key identity has been resolved. RGW users are identified by
 endpoint, tenant and UID. Admin Ops user/key/quota and usage requests use
 `tenant$uid`; merely adding a separate `tenant` query parameter does not scope
 those operations on Ceph. Owner-scoped bucket-info and bucket quota derive

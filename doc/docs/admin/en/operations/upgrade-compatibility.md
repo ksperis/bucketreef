@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical production-readiness CLI
+
+The deployment-check CLI now uses the same `production_readiness` terminology
+as the Admin surface and service contract:
+
+```bash
+python -m app.scripts.check_production_readiness
+```
+
+The former `app.scripts.check_production_hardening` module was only a naming
+compatibility holdover and has been removed rather than retained as an alias.
+Update local operational commands when deploying this backend version.
+
 ## 2026-10 canonical audit execution context
 
 Migration `0155_canonical_audit_context` completes the audit execution-context
@@ -620,8 +633,9 @@ non-object values with `{}`. Valid object fields remain unchanged.
 Deploy the migration and backend together. Once settings have been imported to
 the database, loading now uses the strict `AppSettings` contract and exposes
 invalid values instead of reverting silently to defaults. The optional disk
-bootstrap keeps its independent missing/invalid-file fallback. Data cleanup is
-not reversed on downgrade.
+bootstrap uses defaults only when the configured bootstrap file is absent; an
+invalid file fails validation and must already use the current schema. Data
+cleanup is not reversed on downgrade.
 
 ## 2026-08 canonical Portal request JSON
 

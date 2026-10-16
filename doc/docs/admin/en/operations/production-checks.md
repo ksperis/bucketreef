@@ -4,10 +4,10 @@ This page is the remediation reference for the checks shown in **Admin > Setting
 
 ```bash
 cd backend
-python -m app.scripts.check_production_hardening
+python -m app.scripts.check_production_readiness
 ```
 
-The CLI name is kept for compatibility. Startup diagnostics, the CLI, and the Admin page use the same deployment-check engine.
+Startup diagnostics, the CLI, and the Admin page use the same deployment-check engine.
 
 ## How to read a result
 
