@@ -243,7 +243,7 @@ def test_http_routes_reject_missing_or_denied_capabilities_before_storage_work(c
 
     assert response.status_code == 403
     if invalid == "missing-capabilities":
-        assert response.json()["detail"] == "Account context unavailable"
+        assert response.json()["detail"] == "Manager capabilities are unavailable for this context"
     else:
         assert response.json()["detail"] in {
             "Metrics are not available for this context",
