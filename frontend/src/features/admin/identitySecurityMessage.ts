@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
-import { useI18n } from "../../i18n";
+import { interpolateText, useI18n } from "../../i18n";
 import { adminMessage } from "./adminI18n";
 
 const m = (en: string, zh: string) => adminMessage(en, zh);
@@ -80,7 +80,7 @@ export type IdentitySecurityText = (key: IdentitySecurityMessageKey, values?: Re
 export function useIdentitySecurityI18n() {
   const { locale, t } = useI18n();
   const text = useCallback<IdentitySecurityText>(
-    (key, values) => t(identitySecurityMessage[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)),
+    (key, values) => interpolateText(t(identitySecurityMessage[key]), values),
     [t],
   );
   return { locale, text };

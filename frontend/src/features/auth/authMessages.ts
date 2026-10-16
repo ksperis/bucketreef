@@ -5,7 +5,7 @@
 import { useCallback } from "react";
 
 import { PRODUCT_SUBTITLE } from "../../constants/product";
-import { useI18n, type I18nMessage } from "../../i18n";
+import { interpolateText, useI18n, type I18nMessage } from "../../i18n";
 
 const m = (en: string, zh: string): I18nMessage => ({ en, zh });
 
@@ -236,10 +236,7 @@ export type AuthText = (
 export function useAuthI18n() {
   const { t, locale } = useI18n();
   const text: AuthText = useCallback(
-    (key, values) =>
-      t(authMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) =>
-        String(values?.[name] ?? match),
-      ),
+    (key, values) => interpolateText(t(authMessages[key]), values),
     [t],
   );
   return { text, locale };

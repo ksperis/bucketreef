@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
 
-import { useI18n } from "../../i18n";
+import { interpolateText, useI18n } from "../../i18n";
 import { adminMessage } from "./adminI18n";
 
 const m = (en: string, zh: string) => adminMessage(en, zh);
@@ -46,9 +46,7 @@ export function useAdminAssociationI18n() {
   const { t } = useI18n();
   const text = useCallback(
     (key: AdminAssociationMessageKey, values?: Record<string, string | number>) =>
-      t(adminAssociationMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) =>
-        String(values?.[name] ?? match),
-      ),
+      interpolateText(t(adminAssociationMessages[key]), values),
     [t],
   );
 

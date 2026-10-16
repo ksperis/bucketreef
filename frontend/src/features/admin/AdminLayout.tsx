@@ -5,6 +5,7 @@ import type { AdminPendingRequestCounts } from "../../api/adminNavigation";
 import Layout from "../../components/Layout";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { useAdminPendingRequestCounts } from "../../hooks/useAdminPendingRequestCounts";
+import { interpolateText } from "../../i18n";
 import {
   ADMIN_PAGE_CONTRACTS,
   workspacePageLink,
@@ -35,8 +36,7 @@ function pageLink(page: WorkspacePageContract, text: AdminNavText) {
   return { ...workspacePageLink(page), label: text(page.label) };
 }
 
-const identityText: AdminNavText = (message, values) =>
-  message.replace(/\{(\w+)\}/g, (match, key: string) => String(values?.[key] ?? match));
+const identityText: AdminNavText = interpolateText;
 
 export const buildAdminNav = (
   portalEnabled: boolean,

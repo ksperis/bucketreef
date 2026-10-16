@@ -17,7 +17,7 @@ import UiBadge from "../../components/ui/UiBadge";
 import UiCard from "../../components/ui/UiCard";
 import UiDetails from "../../components/ui/UiDetails";
 import { cx, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
-import { useI18n, type I18nMessage } from "../../i18n";
+import { interpolateText, useI18n, type I18nMessage } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import {
@@ -212,8 +212,10 @@ export default function ProductionReadinessPage() {
                     {level === "ok" ? (
                       <UiDetails className="border-t border-[color:var(--ui-border-soft)]">
                         <summary className="ui-list-control mx-4 my-2 w-fit cursor-pointer rounded-md px-2 py-1 ui-caption font-medium text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-focus-ring)] dark:text-primary-200">
-                          {t(findings.length === 1 ? messages.showSuccessfulCheck : messages.showSuccessfulChecks)
-                            .replace("{count}", String(findings.length))}
+                          {interpolateText(
+                            t(findings.length === 1 ? messages.showSuccessfulCheck : messages.showSuccessfulChecks),
+                            { count: findings.length },
+                          )}
                         </summary>
                         <FindingRows findings={findings} />
                       </UiDetails>

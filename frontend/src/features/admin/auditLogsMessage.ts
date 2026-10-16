@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
-import { useI18n, type I18nMessage } from "../../i18n";
+import { interpolateText, useI18n, type I18nMessage } from "../../i18n";
 import { adminMessage } from "./adminI18n";
 
 const m = (en: string, zh: string) => adminMessage(en, zh);
@@ -71,7 +71,7 @@ export type AuditLogsText = (key: AuditLogsMessageKey, values?: Record<string, s
 export function useAuditLogsI18n() {
   const { locale, t } = useI18n();
   const text: AuditLogsText = useCallback(
-    (key, values) => t(auditLogsMessage[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)),
+    (key, values) => interpolateText(t(auditLogsMessage[key]), values),
     [t],
   );
   return { locale, text };

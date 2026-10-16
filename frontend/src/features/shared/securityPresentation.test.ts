@@ -1,12 +1,14 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { describe, expect, it } from "vitest";
 import type { SecuritySession } from "../../api/security";
+import { interpolateText } from "../../i18n";
 import { profileMessages, type ProfileText } from "./profileMessages";
 import { openSecuritySessions, securityDate, sessionActivity, sessionDevice } from "./securityPresentation";
 
 const now = Date.parse("2026-09-09T12:00:00Z");
 const session = (values: Partial<SecuritySession>): SecuritySession => ({ id: "current", current: true, auth_type: "password", principal_type: "user", created_at: "2026-09-08T10:00:00Z", last_activity_at: "2026-09-09T11:59:00Z", idle_expires_at: "2026-09-09T20:00:00Z", absolute_expires_at: "2026-09-15T12:00:00Z", ...values });
-const text = (locale: "en" | "fr" | "de"): ProfileText => (key, values) => profileMessages[key][locale].replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match));
+const text = (locale: "en" | "fr" | "de"): ProfileText =>
+  (key, values) => interpolateText(profileMessages[key][locale], values);
 
 describe("security session presentation", () => {
   it("shows the current session first and excludes revoked, idle-expired and absolutely-expired sessions", () => {
