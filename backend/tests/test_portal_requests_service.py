@@ -217,6 +217,36 @@ def test_approve_user_access_rejects_noncanonical_missing_intent(db_session):
         service.approve_request(created.id, admin)
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("intent", " add ", "Invalid Portal collaborator request intent"),
+        ("portal_role", " portal_user ", "Invalid requested Portal role"),
+        ("portal_role", 1, "Invalid requested Portal role"),
+    ],
+)
+def test_approve_user_access_rejects_noncanonical_persisted_values(
+    db_session,
+    field,
+    value,
+    message,
+):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = _create_user_request(service, account, requester)
+    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    payload = json.loads(row.payload_json)
+    payload[field] = value
+    row.payload_json = json.dumps(payload)
+    db_session.add(row)
+    db_session.commit()
+
+    with pytest.raises(PortalRequestExecutionError, match=message):
+        service.approve_request(created.id, admin)
+
+
 def test_approve_user_access_preserves_existing_portal_manager_role(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
@@ -360,6 +390,55 @@ def test_role_change_request_promotes_direct_portal_user(db_session):
         "portal_role": PortalAccountRole.PORTAL_MANAGER.value,
     }
     assert link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("target_user_id", "7", "Target user is required"),
+        ("current_portal_role", " portal_user ", "Invalid current Portal role"),
+        ("portal_role", " portal_manager ", "Invalid requested Portal role"),
+    ],
+)
+def test_role_change_execution_rejects_noncanonical_persisted_values(
+    db_session,
+    field,
+    value,
+    message,
+):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    target = _seed_user(db_session, email="member@example.org", full_name="Project Member")
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    db_session.commit()
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = service.create_request(
+        requester,
+        _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
+        PortalUserAccessRequestCreate(
+            request_type="portal_user_access",
+            intent="role_change",
+            target_user_id=target.id,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        ),
+    )
+    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    payload = json.loads(row.payload_json)
+    payload[field] = value
+    row.payload_json = json.dumps(payload)
+    db_session.add(row)
+    db_session.commit()
+
+    with pytest.raises(PortalRequestExecutionError, match=message):
+        service.approve_request(created.id, admin)
 
 
 def test_role_change_request_rejects_unchanged_role(db_session):

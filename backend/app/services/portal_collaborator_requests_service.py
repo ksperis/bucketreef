@@ -23,6 +23,12 @@ from app.services.users_service import UsersService
 from app.utils.time import utcnow
 
 
+_PORTAL_ROLES = {
+    PortalAccountRole.PORTAL_USER.value,
+    PortalAccountRole.PORTAL_MANAGER.value,
+}
+
+
 class PortalCollaboratorRequestsService:
     """Validate and execute Portal collaborator request mutations."""
 
@@ -101,20 +107,17 @@ class PortalCollaboratorRequestsService:
         row: PortalAdminRequest,
         payload: dict[str, Any],
     ) -> dict[str, Any]:
-        intent = str(payload.get("intent") or "").strip()
+        intent = payload.get("intent")
         if intent == "role_change":
             return self._execute_user_role_change(row, payload)
         if intent != "add":
             raise ValueError("Invalid Portal collaborator request intent")
         target_name = str(payload.get("target_name") or "").strip()
         target_email = str(payload.get("target_email") or "").strip().lower()
-        requested_portal_role = str(payload.get("portal_role") or "").strip()
+        requested_portal_role = payload.get("portal_role")
         if not target_name or not target_email:
             raise ValueError("Target user name and email are required")
-        if requested_portal_role not in {
-            PortalAccountRole.PORTAL_USER.value,
-            PortalAccountRole.PORTAL_MANAGER.value,
-        }:
+        if requested_portal_role not in _PORTAL_ROLES:
             raise ValueError("Invalid requested Portal role")
 
         target = self.users_service.get_by_email_case_insensitive(target_email)
@@ -207,20 +210,14 @@ class PortalCollaboratorRequestsService:
         row: PortalAdminRequest,
         payload: dict[str, Any],
     ) -> dict[str, Any]:
-        target_user_id = int(payload.get("target_user_id") or 0)
-        expected_role = str(payload.get("current_portal_role") or "").strip()
-        requested_role = str(payload.get("portal_role") or "").strip()
-        if target_user_id <= 0:
+        target_user_id = payload.get("target_user_id")
+        expected_role = payload.get("current_portal_role")
+        requested_role = payload.get("portal_role")
+        if isinstance(target_user_id, bool) or not isinstance(target_user_id, int) or target_user_id <= 0:
             raise ValueError("Target user is required")
-        if expected_role not in {
-            PortalAccountRole.PORTAL_USER.value,
-            PortalAccountRole.PORTAL_MANAGER.value,
-        }:
+        if expected_role not in _PORTAL_ROLES:
             raise ValueError("Invalid current Portal role")
-        if requested_role not in {
-            PortalAccountRole.PORTAL_USER.value,
-            PortalAccountRole.PORTAL_MANAGER.value,
-        }:
+        if requested_role not in _PORTAL_ROLES:
             raise ValueError("Invalid requested Portal role")
         if requested_role == expected_role:
             raise ValueError("Requested Portal role is unchanged")
