@@ -23,7 +23,11 @@ from app.models.access_audit import (
     PaginatedAccessAuditResponse,
 )
 from app.models.access_context import EffectiveAccountLink
-from app.services.effective_access_service import EffectiveAccessService, EffectiveAccessSource
+from app.services.effective_access_service import (
+    EffectiveAccessService,
+    EffectiveAccessSource,
+    ResolvedUserAccess,
+)
 
 
 RIGHT_LABELS: dict[AccessAuditRightCode, str] = {
@@ -64,6 +68,13 @@ class AccessAuditFilters:
     target_id: int | None = None
     sort_by: str = "user"
     sort_dir: str = "asc"
+
+
+@dataclass(frozen=True)
+class _AccessAuditTargets:
+    accounts: dict[int, S3Account]
+    s3_users: dict[int, S3User]
+    connections: dict[int, S3Connection]
 
 
 class AccessAuditService:
@@ -155,10 +166,10 @@ class AccessAuditService:
             is_active=bool(user.is_active),
         )
 
-    def _build_rows(self, users: list[User]) -> list[AccessAuditRow]:
-        if not users:
-            return []
-        resolved_by_user = self.effective_access.resolve_users(users)
+    def _load_targets(
+        self,
+        resolved_by_user: dict[int, ResolvedUserAccess],
+    ) -> _AccessAuditTargets:
         account_ids = {
             link.account_id
             for resolved in resolved_by_user.values()
@@ -174,24 +185,52 @@ class AccessAuditService:
             for resolved in resolved_by_user.values()
             for connection_id in resolved.s3_connection_ids
         }
-        accounts = {
-            int(account.id): account
-            for account in self.db.query(S3Account).filter(S3Account.id.in_(account_ids)).all()
-        } if account_ids else {}
-        s3_users = {
-            int(s3_user.id): s3_user
-            for s3_user in self.db.query(S3User).filter(S3User.id.in_(s3_user_ids)).all()
-        } if s3_user_ids else {}
-        connections = {
-            int(connection.id): connection
-            for connection in self.db.query(S3Connection).filter(
-                S3Connection.id.in_(connection_ids),
-                S3Connection.is_shared.is_(True),
-            ).all()
-        } if connection_ids else {}
+        accounts = (
+            {
+                int(account.id): account
+                for account in self.db.query(S3Account)
+                .filter(S3Account.id.in_(account_ids))
+                .all()
+            }
+            if account_ids
+            else {}
+        )
+        s3_users = (
+            {
+                int(s3_user.id): s3_user
+                for s3_user in self.db.query(S3User)
+                .filter(S3User.id.in_(s3_user_ids))
+                .all()
+            }
+            if s3_user_ids
+            else {}
+        )
+        connections = (
+            {
+                int(connection.id): connection
+                for connection in self.db.query(S3Connection)
+                .filter(
+                    S3Connection.id.in_(connection_ids),
+                    S3Connection.is_shared.is_(True),
+                )
+                .all()
+            }
+            if connection_ids
+            else {}
+        )
+        return _AccessAuditTargets(
+            accounts=accounts,
+            s3_users=s3_users,
+            connections=connections,
+        )
 
-        rows: list[AccessAuditRow] = []
-        platform_order: list[AccessAuditRightCode] = [
+    def _platform_row(
+        self,
+        user_id: int,
+        principal: AccessAuditPrincipal,
+        resolved: ResolvedUserAccess,
+    ) -> AccessAuditRow | None:
+        platform_order: tuple[AccessAuditRightCode, ...] = (
             "ceph_admin",
             "storage_ops",
             "manager_bucket_compare",
@@ -202,99 +241,160 @@ class AccessAuditService:
             "private_connection_create",
             "managed_private_connection_provision",
             "browser_advanced_features",
+        )
+        rights = [
+            self._right(code, resolved.feature_sources[code])
+            for code in platform_order
+            if code in resolved.feature_sources
         ]
+        if not rights:
+            return None
+        return AccessAuditRow(
+            key=f"{user_id}:platform",
+            principal=principal,
+            scope="platform",
+            target=AccessAuditTarget(name="Platform"),
+            rights=rights,
+        )
+
+    def _account_rows(
+        self,
+        user_id: int,
+        principal: AccessAuditPrincipal,
+        resolved: ResolvedUserAccess,
+        accounts: dict[int, S3Account],
+    ) -> list[AccessAuditRow]:
+        rows: list[AccessAuditRow] = []
+        for link in resolved.account_links:
+            account = accounts.get(link.account_id)
+            rights = self._account_rights(link)
+            if account is None or not rights:
+                continue
+            rows.append(
+                AccessAuditRow(
+                    key=f"{user_id}:rgw_account:{account.id}",
+                    principal=principal,
+                    scope="rgw_account",
+                    target=AccessAuditTarget(
+                        id=int(account.id),
+                        name=str(account.name),
+                        identifier=str(account.rgw_account_id),
+                    ),
+                    rights=rights,
+                )
+            )
+        return rows
+
+    def _s3_user_rows(
+        self,
+        user_id: int,
+        principal: AccessAuditPrincipal,
+        resolved: ResolvedUserAccess,
+        s3_users: dict[int, S3User],
+    ) -> list[AccessAuditRow]:
+        rows: list[AccessAuditRow] = []
+        browser_s3_user_ids = set(resolved.manager_browser_s3_user_ids)
+        for s3_user_id in resolved.s3_user_ids:
+            s3_user = s3_users.get(s3_user_id)
+            if s3_user is None:
+                continue
+            rights = [
+                self._right(
+                    "rgw_user_access",
+                    resolved.s3_user_sources.get(s3_user_id, ()),
+                )
+            ]
+            if s3_user_id in browser_s3_user_ids:
+                rights.append(
+                    self._right(
+                        "manager_browser_data_access",
+                        resolved.s3_user_browser_sources.get(s3_user_id, ()),
+                    )
+                )
+            rows.append(
+                AccessAuditRow(
+                    key=f"{user_id}:rgw_user:{s3_user_id}",
+                    principal=principal,
+                    scope="rgw_user",
+                    target=AccessAuditTarget(
+                        id=int(s3_user.id),
+                        name=str(s3_user.name),
+                        identifier=str(s3_user.rgw_user_uid),
+                    ),
+                    rights=rights,
+                )
+            )
+        return rows
+
+    def _connection_rows(
+        self,
+        user_id: int,
+        principal: AccessAuditPrincipal,
+        resolved: ResolvedUserAccess,
+        connections: dict[int, S3Connection],
+    ) -> list[AccessAuditRow]:
+        rows: list[AccessAuditRow] = []
+        for connection_id in resolved.s3_connection_ids:
+            connection = connections.get(connection_id)
+            if connection is None:
+                continue
+            rows.append(
+                AccessAuditRow(
+                    key=f"{user_id}:s3_connection:{connection_id}",
+                    principal=principal,
+                    scope="s3_connection",
+                    target=AccessAuditTarget(
+                        id=int(connection.id),
+                        name=str(connection.name),
+                    ),
+                    rights=[
+                        self._right(
+                            "shared_connection_access",
+                            resolved.s3_connection_sources.get(connection_id, ()),
+                        )
+                    ],
+                )
+            )
+        return rows
+
+    def _build_rows(self, users: list[User]) -> list[AccessAuditRow]:
+        if not users:
+            return []
+        resolved_by_user = self.effective_access.resolve_users(users)
+        targets = self._load_targets(resolved_by_user)
+
+        rows: list[AccessAuditRow] = []
         for user in users:
             user_id = int(user.id)
             resolved = resolved_by_user[user_id]
             principal = self._principal(user)
-            platform_rights = [
-                self._right(code, resolved.feature_sources[code])
-                for code in platform_order
-                if code in resolved.feature_sources
-            ]
-            if platform_rights:
-                rows.append(
-                    AccessAuditRow(
-                        key=f"{user_id}:platform",
-                        principal=principal,
-                        scope="platform",
-                        target=AccessAuditTarget(name="Platform"),
-                        rights=platform_rights,
-                    )
+            platform_row = self._platform_row(user_id, principal, resolved)
+            if platform_row is not None:
+                rows.append(platform_row)
+            rows.extend(
+                self._account_rows(
+                    user_id,
+                    principal,
+                    resolved,
+                    targets.accounts,
                 )
-
-            for link in resolved.account_links:
-                account = accounts.get(link.account_id)
-                rights = self._account_rights(link)
-                if account is None or not rights:
-                    continue
-                rows.append(
-                    AccessAuditRow(
-                        key=f"{user_id}:rgw_account:{account.id}",
-                        principal=principal,
-                        scope="rgw_account",
-                        target=AccessAuditTarget(
-                            id=int(account.id),
-                            name=str(account.name),
-                            identifier=str(account.rgw_account_id),
-                        ),
-                        rights=rights,
-                    )
+            )
+            rows.extend(
+                self._s3_user_rows(
+                    user_id,
+                    principal,
+                    resolved,
+                    targets.s3_users,
                 )
-
-            browser_s3_user_ids = set(resolved.manager_browser_s3_user_ids)
-            for s3_user_id in resolved.s3_user_ids:
-                s3_user = s3_users.get(s3_user_id)
-                if s3_user is None:
-                    continue
-                rights = [
-                    self._right(
-                        "rgw_user_access",
-                        resolved.s3_user_sources.get(s3_user_id, ()),
-                    )
-                ]
-                if s3_user_id in browser_s3_user_ids:
-                    rights.append(
-                        self._right(
-                            "manager_browser_data_access",
-                            resolved.s3_user_browser_sources.get(s3_user_id, ()),
-                        )
-                    )
-                rows.append(
-                    AccessAuditRow(
-                        key=f"{user_id}:rgw_user:{s3_user_id}",
-                        principal=principal,
-                        scope="rgw_user",
-                        target=AccessAuditTarget(
-                            id=int(s3_user.id),
-                            name=str(s3_user.name),
-                            identifier=str(s3_user.rgw_user_uid),
-                        ),
-                        rights=rights,
-                    )
+            )
+            rows.extend(
+                self._connection_rows(
+                    user_id,
+                    principal,
+                    resolved,
+                    targets.connections,
                 )
-
-            for connection_id in resolved.s3_connection_ids:
-                connection = connections.get(connection_id)
-                if connection is None:
-                    continue
-                rows.append(
-                    AccessAuditRow(
-                        key=f"{user_id}:s3_connection:{connection_id}",
-                        principal=principal,
-                        scope="s3_connection",
-                        target=AccessAuditTarget(
-                            id=int(connection.id),
-                            name=str(connection.name),
-                        ),
-                        rights=[
-                            self._right(
-                                "shared_connection_access",
-                                resolved.s3_connection_sources.get(connection_id, ()),
-                            )
-                        ],
-                    )
-                )
+            )
         return rows
 
     @staticmethod
