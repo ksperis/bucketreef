@@ -4,7 +4,7 @@
  */
 import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AuditLogEntry, listAuditLogs } from "../../api/audit";
+import { AuditLogEntry, listAuditLogs, type AuditStatus } from "../../api/audit";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageShell from "../../components/PageShell";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
@@ -76,15 +76,12 @@ function ScopeBadge({ scope, text }: { scope: string; text: AuditLogsText }) {
   return <span className={`${base} ${styles}`}>{label}</span>;
 }
 
-function formatAuditStatus(status: string, text: AuditLogsText) {
-  if (status === "success" || status === "failure" || status === "failed" || status === "error") {
-    return text(status);
-  }
-  return status.charAt(0).toUpperCase() + status.slice(1);
+function formatAuditStatus(status: AuditStatus, text: AuditLogsText) {
+  return text(status);
 }
 
-function StatusBadge({ status, text }: { status: string; text: AuditLogsText }) {
-  const tone = status === "success" ? "success" : status === "failure" || status === "failed" ? "danger" : "neutral";
+function StatusBadge({ status, text }: { status: AuditStatus; text: AuditLogsText }) {
+  const tone = status === "success" ? "success" : status === "failure" ? "danger" : "neutral";
   return <UiBadge tone={tone}>{formatAuditStatus(status, text)}</UiBadge>;
 }
 
@@ -125,7 +122,7 @@ export default function AuditLogsPage() {
   const errorMessage = error ? error.message || text(error.fallback) : null;
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | AuditStatus>("all");
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [nextCursor, setNextCursor] = useState<number | null>(null);
@@ -251,7 +248,7 @@ export default function AuditLogsPage() {
           label={text("status")}
           aria-label={text("filterByStatus")}
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => setStatusFilter(e.target.value as "all" | AuditStatus)}
           size="compact"
         >
           <option value="all">{text("allStatuses")}</option>

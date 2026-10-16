@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import AuditLog, User
 from app.models.access_context import ManagerActor
+from app.models.audit import AuditStatus
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.audit_policy import should_persist_audit_action
 from app.services.webhook_service import WebhookEventPublisher
@@ -20,9 +21,6 @@ from app.services.webhook_service import WebhookEventPublisher
 logger = logging.getLogger(__name__)
 
 MAX_AUDIT_METADATA_LENGTH = 16384
-AuditStatus = Literal["success", "failure", "partial"]
-
-
 class AuditAccountSource(Protocol):
     id: int
     name: str
@@ -189,7 +187,7 @@ class AuditService:
         context_id: Optional[str] = None,
         cursor: Optional[int] = None,
         search: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[AuditStatus] = None,
         search_mode: Literal["all", "manager_activity"] = "all",
     ) -> list[AuditLog]:
         query = self.db.query(AuditLog)

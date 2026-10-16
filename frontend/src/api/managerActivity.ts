@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import type { AuditStatus } from "./audit";
 import client from "./client";
 
 export type ManagerActivityEntry = {
@@ -14,13 +15,13 @@ export type ManagerActivityEntry = {
   context_kind?: string | null;
   context_id?: string | null;
   context_name?: string | null;
-  status: "success" | "failure" | "partial";
+  status: AuditStatus;
   user_email: string;
 };
 
 export async function listManagerActivity(
   contextId: S3ExecutionContextSelector,
-  options?: { limit?: number; cursor?: number; search?: string; status?: string }
+  options?: { limit?: number; cursor?: number; search?: string; status?: AuditStatus }
 ): Promise<ManagerActivityEntry[]> {
   const { data } = await client.get<ManagerActivityEntry[]>("/manager/activity", {
     params: withS3ContextParam({

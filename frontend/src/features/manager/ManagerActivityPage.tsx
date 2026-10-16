@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 
+import type { AuditStatus } from "../../api/audit";
 import { listManagerActivity, type ManagerActivityEntry } from "../../api/managerActivity";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
@@ -45,7 +46,7 @@ export default function ManagerActivityPage() {
   } = useS3AccountContext();
   const [entries, setEntries] = useState<ManagerActivityEntry[]>([]);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<"" | AuditStatus>("");
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -199,7 +200,7 @@ export default function ManagerActivityPage() {
               label={text("Status")}
               size="compact"
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => setStatus(event.target.value as "" | AuditStatus)}
             >
               <option value="">{text("All statuses")}</option>
               <option value="success">{text("Success")}</option>

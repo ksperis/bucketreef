@@ -258,3 +258,12 @@ def test_manager_activity_filters_canonical_failure_status(client, db_session):
 
     assert response.status_code == 200, response.text
     assert [entry["id"] for entry in response.json()] == [failure.id]
+
+
+def test_manager_activity_rejects_legacy_audit_status_alias(client, db_session):
+    account = _account("account-legacy-status", db_session)
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: _context(account)
+
+    response = client.get("/api/manager/activity?status=failed")
+
+    assert response.status_code == 422, response.text

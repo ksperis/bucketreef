@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Optional
 
+from app.models.audit import AuditStatus
 from app.models.base import ApiModel
 
 
@@ -17,5 +18,5 @@ class ManagerActivityEntry(ApiModel):
     context_kind: Optional[str] = None
     context_id: Optional[str] = None
     context_name: Optional[str] = None
-    status: Literal["success", "failure", "partial"]
+    status: AuditStatus
     user_email: str

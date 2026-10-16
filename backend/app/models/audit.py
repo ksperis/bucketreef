@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from app.models.base import ApiModel
+
+AuditStatus = Literal["success", "failure", "partial"]
 
 
 class AuditLogEntry(ApiModel):
@@ -20,7 +22,7 @@ class AuditLogEntry(ApiModel):
     context_kind: Optional[str] = None
     context_id: Optional[str] = None
     context_name: Optional[str] = None
-    status: str
+    status: AuditStatus
     message: Optional[str] = None
     metadata: Optional[dict[str, Any]] = None
 
