@@ -293,7 +293,6 @@ export default function CreateManagedPrivateAccessModal({
                         hint={text("Provide a JSON object, then add it to the policies for this access.")}
                         onChange={(value) => { setInlineDocument(value); setInlineDocumentError(undefined); }}
                         rows={6}
-                        text={text}
                       />
                       <div className="flex justify-end">
                         <SettingsButton variant="secondary" onClick={addInlinePolicy}>{text("Add inline policy")}</SettingsButton>

@@ -236,7 +236,6 @@ export default function PoliciesPage() {
             <div className="settings-fields">
               <SettingsJsonEditor label={text("Policy document (JSON)")} value={documentText} onChange={setDocumentText}
                 rows={10} error={validationAttempted ? documentError : undefined}
-                text={text}
                 hint={text("Provide a valid IAM policy JSON document. You can start from the default template and customize statements.")} />
             </div>
           </SettingsSection>

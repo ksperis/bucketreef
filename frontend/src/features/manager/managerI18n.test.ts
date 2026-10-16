@@ -16,7 +16,6 @@ describe("Manager i18n", () => {
     expect(managerText("Object versions are retained.", "fr")).toBe("Les versions des objets sont conservées.");
     expect(managerText("{count} keys", "fr", { count: 2 })).toBe("2 clés");
     expect(managerText("Topic '{name}' created.", "fr", { name: "events" })).toBe("Topic « events » créé.");
-    expect(managerText("Valid JSON", "fr")).toBe("JSON valide");
     expect(managerText("IAM user details", "fr")).toBe("Détails de l’utilisateur IAM");
     expect(managerText("Role tags", "fr")).toBe("Tags du rôle");
   });
@@ -51,8 +50,6 @@ describe("Manager i18n", () => {
     expect(managerText("Delete bucket policy?", "zh")).toBe("删除存储桶策略？");
     expect(managerText("Logical bytes", "de")).toBe("Logische Bytes");
     expect(managerText("Logical bytes", "zh")).toBe("逻辑字节数");
-    expect(managerText("Valid JSON", "de")).toBe("Gültiges JSON");
-    expect(managerText("Valid JSON", "zh")).toBe("JSON 有效");
     expect(managerText("Maximum session duration (seconds)", "de")).toBe("Maximale Sitzungsdauer (Sekunden)");
     expect(managerText("IAM group details", "zh")).toBe("IAM 组详情");
     expect(managerText("S3 rejects new PUT ACLs that grant public access to buckets or objects.", "de"))

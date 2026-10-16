@@ -163,7 +163,6 @@ export default function InlinePolicyDraftEditor({
                 value={draftText}
                 onChange={onDraftTextChange}
                 rows={8}
-                text={text}
                 hint={text("Provide valid JSON. Blank defaults to an empty document.")}
               />
               <div className="flex flex-wrap items-center justify-end gap-2">

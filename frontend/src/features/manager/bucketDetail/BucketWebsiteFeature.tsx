@@ -202,7 +202,6 @@ export default function BucketWebsiteFeature({
                   rows={6}
                   placeholder="[]"
                   disabled={editorDisabled}
-                  text={text}
                 />
                 <div className="ui-caption">
                   <BucketFeatureJsonExample

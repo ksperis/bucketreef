@@ -337,7 +337,6 @@ export default function InlinePolicyEditor({
                 error={nameFormatError ? text(nameFormatError) : validationAttempted && !trimmedName ? text("Inline policy name is required.") : undefined} />
               <SettingsJsonEditor label={text("Inline policy document (JSON)")} value={policyText} onChange={setPolicyText}
                 rows={10} error={validationAttempted ? documentError : undefined}
-                text={text}
                 hint={text("Blank JSON will save as an empty document.")} placeholder={text("{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": []\n}")} />
               <div className="flex justify-end">
                 <SettingsButton variant="secondary" onClick={handleInsertTemplate}>{text("Insert template")}</SettingsButton>
