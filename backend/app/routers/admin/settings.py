@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.app_settings import AppSettings, GeneralFeatureLocks, QuotaNotificationSettings
-from app.models.ldap import LDAPProviderAdminItem, LDAPProviderAdminPayload
-from app.models.oidc import OIDCProviderAdminItem, OIDCProviderAdminPayload
+from app.models.ldap import LDAP_PROVIDER_CONFIG_FIELDS, LDAPProviderAdminItem, LDAPProviderAdminPayload
+from app.models.oidc import OIDC_PROVIDER_CONFIG_FIELDS, OIDCProviderAdminItem, OIDCProviderAdminPayload
 from app.routers.dependencies import get_audit_service, get_current_ui_superadmin
 from app.utils.http_errors import (
     raise_bad_gateway_from_runtime,
@@ -157,7 +157,12 @@ def create_oidc_provider_settings(
         action="oidc_provider.create",
         entity_type="oidc_provider",
         entity_id=item.provider_id,
-        metadata=_oidc_audit_metadata(payload, secret_action="set" if payload.client_secret else "none"),
+        metadata=_provider_audit_metadata(
+            payload,
+            fields=OIDC_PROVIDER_CONFIG_FIELDS,
+            secret_action_field="client_secret_action",
+            secret_action="set" if payload.client_secret else "none",
+        ),
     )
     return item
 
@@ -187,7 +192,15 @@ def update_oidc_provider_settings(
         action="oidc_provider.update",
         entity_type="oidc_provider",
         entity_id=item.provider_id,
-        metadata=_oidc_audit_metadata(payload, secret_action=_secret_update_action(payload)),
+        metadata=_provider_audit_metadata(
+            payload,
+            fields=OIDC_PROVIDER_CONFIG_FIELDS,
+            secret_action_field="client_secret_action",
+            secret_action=_secret_update_action(
+                secret=payload.client_secret,
+                clear=payload.clear_client_secret,
+            ),
+        ),
     )
     return item
 
@@ -253,7 +266,12 @@ def create_ldap_provider_settings(
         action="ldap_provider.create",
         entity_type="ldap_provider",
         entity_id=item.provider_id,
-        metadata=_ldap_audit_metadata(payload, secret_action="set" if payload.bind_password else "none"),
+        metadata=_provider_audit_metadata(
+            payload,
+            fields=LDAP_PROVIDER_CONFIG_FIELDS,
+            secret_action_field="bind_password_action",
+            secret_action="set" if payload.bind_password else "none",
+        ),
     )
     return item
 
@@ -283,7 +301,15 @@ def update_ldap_provider_settings(
         action="ldap_provider.update",
         entity_type="ldap_provider",
         entity_id=item.provider_id,
-        metadata=_ldap_audit_metadata(payload, secret_action=_bind_password_update_action(payload)),
+        metadata=_provider_audit_metadata(
+            payload,
+            fields=LDAP_PROVIDER_CONFIG_FIELDS,
+            secret_action_field="bind_password_action",
+            secret_action=_secret_update_action(
+                secret=payload.bind_password,
+                clear=payload.clear_bind_password or payload.bind_dn is None,
+            ),
+        ),
     )
     return item
 
@@ -331,64 +357,24 @@ def send_quota_notifications_test_email(
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
-def _secret_update_action(payload: OIDCProviderAdminPayload) -> str:
-    if payload.clear_client_secret:
+def _secret_update_action(*, secret: str | None, clear: bool) -> str:
+    if clear:
         return "cleared"
-    if payload.client_secret:
+    if secret:
         return "replaced"
     return "preserved"
 
 
-def _oidc_audit_metadata(payload: OIDCProviderAdminPayload, *, secret_action: str) -> dict:
+def _provider_audit_metadata(
+    payload: OIDCProviderAdminPayload | LDAPProviderAdminPayload,
+    *,
+    fields: tuple[str, ...],
+    secret_action_field: str,
+    secret_action: str,
+) -> dict:
     return {
         "provider_id": payload.provider_id,
-        "fields": [
-            "display_name",
-            "discovery_url",
-            "client_id",
-            "redirect_uri",
-            "scopes",
-            "prompt",
-            "enabled",
-            "icon_url",
-            "use_pkce",
-            "use_nonce",
-            "linking_policy",
-            "trusted_email_domains",
-        ],
+        "fields": list(fields),
         "enabled": payload.enabled,
-        "client_secret_action": secret_action,
-    }
-
-
-def _bind_password_update_action(payload: LDAPProviderAdminPayload) -> str:
-    if payload.clear_bind_password or payload.bind_dn is None:
-        return "cleared"
-    if payload.bind_password:
-        return "replaced"
-    return "preserved"
-
-
-def _ldap_audit_metadata(payload: LDAPProviderAdminPayload, *, secret_action: str) -> dict:
-    return {
-        "provider_id": payload.provider_id,
-        "fields": [
-            "display_name",
-            "url",
-            "bind_dn",
-            "user_base_dn",
-            "user_filter",
-            "email_attribute",
-            "name_attribute",
-            "subject_attribute",
-            "start_tls",
-            "tls_verify",
-            "tls_ca_file",
-            "allow_legacy_tls",
-            "timeout_seconds",
-            "enabled",
-            "allow_insecure",
-        ],
-        "enabled": payload.enabled,
-        "bind_password_action": secret_action,
+        secret_action_field: secret_action,
     }
