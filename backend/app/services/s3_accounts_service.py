@@ -36,6 +36,7 @@ from app.services.managed_resource_naming import (
 )
 from app.services.mappers.s3_account import s3_account_from_db, s3_account_summary_from_db
 from app.services.portal_role_sync import (
+    PortalRoleMap,
     capture_effective_portal_roles,
     sync_portal_role_downgrades,
     sync_portal_role_promotions,
@@ -679,19 +680,7 @@ class S3AccountsService:
             tags=self.tags.get_account_tags(account),
         )
 
-    def update_account(self, account_id: int, payload: S3AccountUpdate) -> S3AccountSchema:
-        account = self._get_account(account_id)
-
-        affected_portal_user_ids = self.associations.affected_portal_user_ids(
-            account,
-            payload,
-        )
-        portal_roles_before = capture_effective_portal_roles(
-            self.db,
-            user_ids=affected_portal_user_ids,
-            account_ids=[account.id],
-        )
-
+    def _apply_account_update_fields(self, account: S3Account, payload: S3AccountUpdate) -> None:
         app_settings = load_app_settings_for_db_readonly(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies, account)
         validate_project_overrides(payload, app_settings.general.project_feature_policies, account)
@@ -707,6 +696,7 @@ class S3AccountsService:
             self.tags.replace_account_tags(account, payload.tags)
         apply_resource_feature_overrides(payload, account)
 
+    def _apply_account_quota_update(self, account: S3Account, payload: S3AccountUpdate) -> None:
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None
             if quota_requested:
@@ -726,12 +716,19 @@ class S3AccountsService:
                         payload.quota_max_size_unit,
                     )
 
+    def _apply_account_associations(self, account: S3Account, payload: S3AccountUpdate) -> None:
         if payload.user_links is not None:
             self.associations.set_user_links(account, payload.user_links)
-
         if payload.group_links is not None:
             self.associations.set_group_links(account, payload.group_links)
 
+    def _commit_account_update_with_portal_sync(
+        self,
+        account: S3Account,
+        *,
+        affected_portal_user_ids: set[int],
+        portal_roles_before: PortalRoleMap,
+    ) -> None:
         self.db.add(account)
         self.db.flush()
         portal_roles_after = capture_effective_portal_roles(
@@ -756,6 +753,7 @@ class S3AccountsService:
         )
         self.db.refresh(account)
 
+    def _updated_account_schema(self, account: S3Account) -> S3AccountSchema:
         user_links = self.associations.load_user_links([account.id]).get(
             account.id,
             [],
@@ -777,6 +775,28 @@ class S3AccountsService:
             storage_endpoint_capabilities=self._endpoint_capabilities(endpoint),
             tags=self.tags.get_account_tags(account),
         )
+
+    def update_account(self, account_id: int, payload: S3AccountUpdate) -> S3AccountSchema:
+        account = self._get_account(account_id)
+        affected_portal_user_ids = self.associations.affected_portal_user_ids(
+            account,
+            payload,
+        )
+        portal_roles_before = capture_effective_portal_roles(
+            self.db,
+            user_ids=affected_portal_user_ids,
+            account_ids=[account.id],
+        )
+
+        self._apply_account_update_fields(account, payload)
+        self._apply_account_quota_update(account, payload)
+        self._apply_account_associations(account, payload)
+        self._commit_account_update_with_portal_sync(
+            account,
+            affected_portal_user_ids=affected_portal_user_ids,
+            portal_roles_before=portal_roles_before,
+        )
+        return self._updated_account_schema(account)
 
     def delete_account(self, account_id: int, delete_rgw: bool = False) -> None:
         account = self._get_account(account_id)
