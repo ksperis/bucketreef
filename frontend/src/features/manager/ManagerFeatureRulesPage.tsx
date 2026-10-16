@@ -20,7 +20,7 @@ import {
   FeatureRuleInventoryStatus,
   listFeatureRuleInventory,
 } from "../../api/managerBuckets";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { extractApiError } from "../../utils/apiError";
 import { useS3AccountContext } from "./S3AccountContext";
 import FeatureRulesTable from "./FeatureRulesTable";
@@ -89,7 +89,7 @@ export default function ManagerFeatureRulesPage() {
     let cancelled = false;
     setSelectedRule(null);
     setItems([]);
-    async function load(accountId: S3AccountSelector) {
+    async function load(accountId: S3ExecutionContextSelector) {
       setLoading(true);
       setError(null);
       try {

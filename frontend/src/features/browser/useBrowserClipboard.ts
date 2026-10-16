@@ -5,7 +5,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import {
-  normalizeS3SelectorId,
+  normalizeS3ExecutionContextId,
   type S3ExecutionContextSelector,
 } from "../../api/accountParams";
 import {
@@ -111,8 +111,8 @@ export function useBrowserClipboard({
 }: UseBrowserClipboardOptions) {
   const { text } = useBrowserI18n();
   const [clipboard, setClipboard] = useState<ClipboardState | null>(null);
-  const currentContextId = normalizeS3SelectorId(contextId);
-  const clipboardContextId = normalizeS3SelectorId(
+  const currentContextId = normalizeS3ExecutionContextId(contextId);
+  const clipboardContextId = normalizeS3ExecutionContextId(
     clipboard?.sourceSelector ?? null,
   );
   const clipboardMatchesContext = Boolean(
@@ -467,7 +467,7 @@ export function useBrowserClipboard({
         selector: S3ExecutionContextSelector,
         targetBucket: string,
       ) => {
-        const cacheKey = `${normalizeS3SelectorId(selector) ?? ""}::${targetBucket}`;
+        const cacheKey = `${normalizeS3ExecutionContextId(selector) ?? ""}::${targetBucket}`;
         const cached = transferModeCache.get(cacheKey);
         if (cached) return cached;
         const request = resolveTransferMode(selector, targetBucket);

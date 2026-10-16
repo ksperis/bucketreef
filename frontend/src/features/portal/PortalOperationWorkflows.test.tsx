@@ -34,8 +34,8 @@ afterEach(() => {
 });
 function renderWorkflow(kind: "restore" | "cleanup", enabled = true) {
   const element = kind === "restore"
-    ? <PortalDeletedPrefixRestoreWorkflow accountId="101" spaceId="research" spaceName="Research" target={{ key: " leading//folder/", isPrefix: true }} onClose={mocks.close} onBrowserRefresh={mocks.browser} onWorkspaceRefresh={mocks.refresh} />
-    : <PortalStorageSpaceHistoryCleanupWorkflow accountId="101" spaceId="research" spaceName="Research" usedBytes={4096} enabled={enabled} onClose={mocks.close} onStart={mocks.start} onCompleted={mocks.completed} onRefresh={mocks.refresh} />;
+    ? <PortalDeletedPrefixRestoreWorkflow accountId={101} spaceId="research" spaceName="Research" target={{ key: " leading//folder/", isPrefix: true }} onClose={mocks.close} onBrowserRefresh={mocks.browser} onWorkspaceRefresh={mocks.refresh} />
+    : <PortalStorageSpaceHistoryCleanupWorkflow accountId={101} spaceId="research" spaceName="Research" usedBytes={4096} enabled={enabled} onClose={mocks.close} onStart={mocks.start} onCompleted={mocks.completed} onRefresh={mocks.refresh} />;
   const router = createMemoryRouter([
     { path: "/portal/storage-spaces/research", element: <main>{element}</main> },
     { path: "/portal/storage-spaces", element: <p>Spaces destination</p> },
@@ -51,7 +51,7 @@ it("starts confirmed cleanup once under StrictMode and exposes indeterminate pro
   mocks.cleanup.mockImplementation((_account, _space, _payload, value) => { options = value; return new Promise(resolve => { finish = resolve; }); });
   renderWorkflow("cleanup");
   const bar = await screen.findByRole("progressbar", { name: "Storage Space history cleanup progress" });
-  expect(mocks.cleanup).toHaveBeenCalledExactlyOnceWith("101", "research", { confirmation: "CLEAN HISTORY RESEARCH" }, expect.any(Object));
+  expect(mocks.cleanup).toHaveBeenCalledExactlyOnceWith(101, "research", { confirmation: "CLEAN HISTORY RESEARCH" }, expect.any(Object));
   expect(options!.signal.aborted).toBe(false);
   expect(mocks.start).toHaveBeenCalledOnce();
   expect(bar).not.toHaveAttribute("aria-valuenow");
@@ -118,7 +118,7 @@ it("preserves literal restore scope, rejects duplicate starts and presents parti
   const { container, router } = renderWorkflow("restore");
   const start = screen.getByRole("button", { name: "Restore files" });
   act(() => { fireEvent.click(start); fireEvent.click(start); });
-  expect(mocks.restore).toHaveBeenCalledExactlyOnceWith("101", "research", " leading//folder/", expect.any(Object));
+  expect(mocks.restore).toHaveBeenCalledExactlyOnceWith(101, "research", " leading//folder/", expect.any(Object));
   expect(screen.getByRole("button", { name: "Back to files" })).toBeDisabled();
   await act(async () => { void router.navigate("/portal/storage-spaces"); });
   expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();

@@ -8,7 +8,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { IAMGroup, attachGroupPolicy, createIamGroup, deleteIamGroup, listIamGroups } from "../../api/managerIamGroups";
 import { IamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -90,7 +90,7 @@ export default function ManagerGroupsPage() {
   );
 
   const loadPolicies = useCallback(
-    (accountId: S3AccountSelector) =>
+    (accountId: S3ExecutionContextSelector) =>
       loadRelated(accountId, listIamPolicies, setPolicies),
     [loadRelated],
   );

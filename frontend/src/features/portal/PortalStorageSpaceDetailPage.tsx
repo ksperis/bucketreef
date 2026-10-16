@@ -689,7 +689,7 @@ function StorageSpaceDetail() {
         <div className="min-h-[520px] h-[min(72vh,760px)]">
           <BrowserEmbed
             onLoadedFilesChange={setLoadedObjectKeys}
-            contextIdForApi={accountIdForApi}
+            contextIdForApi={accountIdForApi == null ? null : String(accountIdForApi)}
             executionContextKind="portal_account"
             hasContext={hasAccountContext}
             workspaceSurface="portal"

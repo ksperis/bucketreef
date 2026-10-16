@@ -43,7 +43,7 @@ const mocks = vi.hoisted(() => ({
     browser_portal_enabled: true,
   },
   hookResult: {
-    accountIdForApi: "101",
+    accountIdForApi: 101,
     state: {
       portal_role: "portal_manager",
       bucket_usage_stats_enabled: true,
@@ -51,7 +51,7 @@ const mocks = vi.hoisted(() => ({
       storage_space_version_cleanup_enabled: true,
     },
     selectedAccount: {
-      id: "101",
+      id: 101,
       name: "Account 1",
       rgw_account_id: "portal-project",
       tags: [],
@@ -609,7 +609,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     );
     expect(screen.getByText("Loading links...")).toBeInTheDocument();
     expect(mocks.listPublicLinksMock).toHaveBeenCalledWith(
-      "101",
+      101,
       "research-data",
       { includeRevoked: true },
     );
@@ -637,7 +637,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await waitFor(() => {
       expect(mocks.revokePublicLinkMock).toHaveBeenCalledWith(
-        "101",
+        101,
         "research-data",
         42,
       );
@@ -656,7 +656,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     ).toBeInTheDocument();
     expect(await screen.findByText("active.csv")).toBeInTheDocument();
     expect(mocks.listPublicLinksMock).toHaveBeenCalledWith(
-      "101",
+      101,
       "research-data",
       { includeRevoked: true },
     );
@@ -672,7 +672,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     expect(await screen.findByText("active.csv")).toBeInTheDocument();
     expect(mocks.listPublicLinksMock).toHaveBeenCalledWith(
-      "101",
+      101,
       "research-data",
       { includeRevoked: true },
     );
@@ -744,8 +744,8 @@ describe("PortalStorageSpaceDetailPage", () => {
     });
     expect(screen.getByTestId("location-probe")).toHaveTextContent("?tab=statistics");
     await waitFor(() => {
-      expect(mocks.fetchUsageStatsMock).toHaveBeenCalledWith("101", "research-data");
-      expect(mocks.fetchTrafficMock).toHaveBeenCalledWith("101", "week", "research-data-internal");
+      expect(mocks.fetchUsageStatsMock).toHaveBeenCalledWith(101, "research-data");
+      expect(mocks.fetchTrafficMock).toHaveBeenCalledWith(101, "week", "research-data-internal");
     });
     expect(screen.getByText("Storage used")).toBeInTheDocument();
     expect(screen.getByText("File composition")).toBeInTheDocument();
@@ -756,11 +756,11 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("reloads only scoped traffic when the statistics period changes", async () => {
     await renderPage(["/portal/storage-spaces/research-data?tab=statistics"]);
-    await waitFor(() => expect(mocks.fetchTrafficMock).toHaveBeenCalledWith("101", "week", "research-data-internal"));
+    await waitFor(() => expect(mocks.fetchTrafficMock).toHaveBeenCalledWith(101, "week", "research-data-internal"));
 
     fireEvent.click(screen.getByRole("button", { name: "30d" }));
 
-    await waitFor(() => expect(mocks.fetchTrafficMock).toHaveBeenLastCalledWith("101", "month", "research-data-internal"));
+    await waitFor(() => expect(mocks.fetchTrafficMock).toHaveBeenLastCalledWith(101, "month", "research-data-internal"));
     expect(mocks.fetchUsageStatsMock).toHaveBeenCalledTimes(1);
   });
 
@@ -835,7 +835,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save history settings" }));
 
     await waitFor(() => {
-      expect(mocks.updateStorageSpaceSettingsMock).toHaveBeenCalledWith("101", "research-data", {
+      expect(mocks.updateStorageSpaceSettingsMock).toHaveBeenCalledWith(101, "research-data", {
         versioning_enabled: false,
         lifecycle_enabled: true,
         version_history_retention_days: 45,
@@ -853,7 +853,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save icon" }));
 
     await waitFor(() => {
-      expect(mocks.updateStorageSpaceIconMock).toHaveBeenCalledWith("101", "research-data", {
+      expect(mocks.updateStorageSpaceIconMock).toHaveBeenCalledWith(101, "research-data", {
         source: "preset",
         preset: "database",
       });
@@ -873,7 +873,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await waitFor(() => {
       expect(mocks.uploadStorageSpaceIconMock).toHaveBeenCalledWith(
-        "101",
+        101,
         "research-data",
         image,
       );
@@ -943,7 +943,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await waitFor(() => {
       expect(mocks.restoreObjectMock).toHaveBeenCalledWith(
-        "101",
+        101,
         "research-data",
         "reports/deleted.csv",
       );
@@ -957,7 +957,7 @@ describe("PortalStorageSpaceDetailPage", () => {
   it("restores all deleted files under a selected folder with progress", async () => {
     mocks.streamDeletedPrefixRestoreMock.mockImplementation(
       async (
-        _accountId: string,
+        _accountId: number,
         _spaceId: string,
         _prefix: string,
         options: {
@@ -1004,7 +1004,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await waitFor(() => {
       expect(mocks.streamDeletedPrefixRestoreMock).toHaveBeenCalledWith(
-        "101",
+        101,
         "research-data",
         "reports/",
         expect.objectContaining({ signal: expect.any(AbortSignal) }),
@@ -1081,7 +1081,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     await renderPage();
 
     await waitFor(() => {
-      expect(mocks.fetchAccessSummaryMock).toHaveBeenCalledWith("101", "research-data");
+      expect(mocks.fetchAccessSummaryMock).toHaveBeenCalledWith(101, "research-data");
     });
     expect(screen.queryByRole("heading", { name: "Start this space" })).not.toBeInTheDocument();
   });
@@ -1156,7 +1156,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith("101", "research-data", {
+      expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith(101, "research-data", {
         description: "Updated description",
       });
     });
@@ -1196,7 +1196,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Add people" }));
 
     await waitFor(() => {
-      expect(mocks.grantShareMock).toHaveBeenCalledWith("101", "research-data", {
+      expect(mocks.grantShareMock).toHaveBeenCalledWith(101, "research-data", {
         user_id: 13,
         role: "Editor",
       });
@@ -1238,7 +1238,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await waitFor(() => {
       expect(mocks.updateShareMock).toHaveBeenCalledWith(
-        "101",
+        101,
         "research-data",
         12,
         "Editor",
@@ -1282,7 +1282,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     );
 
     await waitFor(() => {
-      expect(mocks.createPortalRequestMock).toHaveBeenCalledWith("101", {
+      expect(mocks.createPortalRequestMock).toHaveBeenCalledWith(101, {
         request_type: "portal_user_access",
         intent: "add",
         target_name: "Missing Person",
@@ -1330,7 +1330,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await waitFor(() => {
       expect(mocks.streamHistoryCleanupMock).toHaveBeenCalledWith(
-        "101",
+        101,
         "research-data",
         { confirmation: "CLEAN HISTORY RESEARCH DATA" },
         expect.objectContaining({ signal: expect.any(AbortSignal), onProgress: expect.any(Function) })
@@ -1365,7 +1365,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update access" }));
 
     await waitFor(() => {
-      expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith("101", "research-data", {
+      expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith(101, "research-data", {
         visibility: "shared",
         share_scope: "account",
         account_member_role: "Editor",
@@ -1384,7 +1384,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));
 
     await waitFor(() => {
-      expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith("101", "research-data", { archived: false });
+      expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith(101, "research-data", { archived: false });
     });
     expect(mocks.hookResult.refreshWorkspaceData).toHaveBeenCalledTimes(1);
   });
@@ -1414,7 +1414,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete space" }));
 
     await waitFor(() => {
-      expect(mocks.deleteStorageSpaceMock).toHaveBeenCalledWith("101", "research-data");
+      expect(mocks.deleteStorageSpaceMock).toHaveBeenCalledWith(101, "research-data");
       expect(mocks.hookResult.refreshWorkspaceData).toHaveBeenCalledTimes(1);
       expect(screen.getByText("Spaces")).toBeInTheDocument();
     });
@@ -1500,7 +1500,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Archive space" }));
 
     await waitFor(() => {
-      expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith("101", "research-data", { archived: true });
+      expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith(101, "research-data", { archived: true });
     });
   });
   it("keeps an invalid history draft, focuses its error and cancels without saving", async () => {
@@ -1524,7 +1524,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.change(number, { target: { value: "45" } });
     mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: false, versioning_status: "Suspended", lifecycle_enabled: true, version_history_retention_days: 90, can_update: true });
     fireEvent.click(screen.getByRole("button", { name: "Save history settings" }));
-    await waitFor(() => expect(mocks.updateStorageSpaceSettingsMock).toHaveBeenCalledWith("101", "research-data", { versioning_enabled: false, lifecycle_enabled: true, version_history_retention_days: 45 }));
+    await waitFor(() => expect(mocks.updateStorageSpaceSettingsMock).toHaveBeenCalledWith(101, "research-data", { versioning_enabled: false, lifecycle_enabled: true, version_history_retention_days: 45 }));
     await screen.findByText("Version history settings saved.");
     fireEvent.change(number, { target: { value: "30" } });
     mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: false, versioning_status: "Suspended", lifecycle_enabled: true, version_history_retention_days: 60, can_update: true });
@@ -1612,7 +1612,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     let resolveOld!: (value: unknown) => void;
     mocks.fetchStorageSpaceSettingsMock.mockReturnValueOnce(new Promise((resolve) => { resolveOld = resolve; }));
     const space = mocks.hookResult.workspace.spaces[0] as unknown as ComponentProps<typeof PortalStorageSpaceSettings>["space"];
-    const view = (id: string) => <MemoryRouter><PortalStorageSpaceSettings key={id} accountId="101" space={{ ...space, id }} canConfigureIcon canCreateExternalAccess historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
+    const view = (id: string) => <MemoryRouter><PortalStorageSpaceSettings key={id} accountId={101} space={{ ...space, id }} canConfigureIcon canCreateExternalAccess historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
     const rendered = render(view("old-space"));
     mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: true, versioning_status: "Enabled", lifecycle_enabled: true, version_history_retention_days: 30, can_update: true });
     rendered.rerender(view("new-space"));
@@ -1623,7 +1623,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("retains history while refreshing existing space metadata", async () => {
     const space = mocks.hookResult.workspace.spaces[0] as unknown as ComponentProps<typeof PortalStorageSpaceSettings>["space"];
-    const view = (description: string) => <MemoryRouter><PortalStorageSpaceSettings accountId="101" space={{ ...space, description }} canConfigureIcon canCreateExternalAccess historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
+    const view = (description: string) => <MemoryRouter><PortalStorageSpaceSettings accountId={101} space={{ ...space, description }} canConfigureIcon canCreateExternalAccess historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
     const rendered = render(view("Before"));
     const retention = await screen.findByRole("spinbutton", { name: "Version history retention" });
     fireEvent.change(retention, { target: { value: "33" } });

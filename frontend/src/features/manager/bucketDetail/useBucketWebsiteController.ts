@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3AccountSelector } from "../../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../../api/accountParams";
 import {
   deleteBucketWebsite,
   getBucketWebsite,
@@ -30,7 +30,7 @@ type WebsiteDraft = {
 };
 
 type UseBucketWebsiteControllerOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;

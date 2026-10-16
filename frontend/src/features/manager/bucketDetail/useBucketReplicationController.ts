@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useMemo, useState } from "react";
-import type { S3AccountSelector } from "../../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../../api/accountParams";
 import {
   deleteBucketReplication,
   getBucketReplication,
@@ -42,7 +42,7 @@ import {
 } from "./replicationEditorModel";
 
 type UseBucketReplicationControllerOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;

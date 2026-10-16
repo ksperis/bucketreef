@@ -6,7 +6,7 @@ import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { IamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
 import PageShell from "../../components/PageShell";
 import PageBanner from "../../components/PageBanner";
@@ -33,17 +33,17 @@ type PageAction = {
 type ManagerEntityPoliciesPageProps = {
   entityType: ManagerPolicyEntityType;
   routeParam: "userName" | "groupName" | "roleName";
-  listPoliciesForEntity: (accountId: S3AccountSelector, entityName: string) => Promise<IamPolicy[]>;
-  attachPolicyToEntity: (accountId: S3AccountSelector, entityName: string, policy: IamPolicy) => Promise<IamPolicy>;
-  detachPolicyFromEntity: (accountId: S3AccountSelector, entityName: string, policyArn: string) => Promise<void>;
-  listInlinePoliciesForEntity: (accountId: S3AccountSelector, entityName: string) => Promise<{ name: string; document: Record<string, unknown> }[]>;
+  listPoliciesForEntity: (accountId: S3ExecutionContextSelector, entityName: string) => Promise<IamPolicy[]>;
+  attachPolicyToEntity: (accountId: S3ExecutionContextSelector, entityName: string, policy: IamPolicy) => Promise<IamPolicy>;
+  detachPolicyFromEntity: (accountId: S3ExecutionContextSelector, entityName: string, policyArn: string) => Promise<void>;
+  listInlinePoliciesForEntity: (accountId: S3ExecutionContextSelector, entityName: string) => Promise<{ name: string; document: Record<string, unknown> }[]>;
   putInlinePolicyForEntity: (
-    accountId: S3AccountSelector,
+    accountId: S3ExecutionContextSelector,
     entityName: string,
     policyName: string,
     document: Record<string, unknown>
   ) => Promise<{ name: string; document: Record<string, unknown> }>;
-  deleteInlinePolicyForEntity: (accountId: S3AccountSelector, entityName: string, policyName: string) => Promise<void>;
+  deleteInlinePolicyForEntity: (accountId: S3ExecutionContextSelector, entityName: string, policyName: string) => Promise<void>;
   extraActions?: (entityName: string) => PageAction[];
   embedded?: boolean;
 };
@@ -123,7 +123,7 @@ export default function ManagerEntityPoliciesPage({
 
   const noPoliciesAvailable = available.length === 0;
 
-  const load = useCallback(async (accountId: S3AccountSelector, entityName: string) => {
+  const load = useCallback(async (accountId: S3ExecutionContextSelector, entityName: string) => {
     setLoading(true);
     setError(null);
     try {

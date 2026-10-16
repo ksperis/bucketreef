@@ -4,7 +4,7 @@
  */
 import { isApiError } from "../../api/client";
 import { useCallback, useEffect, useState } from "react";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { fetchManagerStats, ManagerStats } from "../../api/stats";
 import { extractApiError } from "../../utils/apiError";
 
@@ -16,7 +16,7 @@ type UseManagerStatsResult = {
 };
 
 export function useManagerStats(
-  accountId: S3AccountSelector,
+  accountId: S3ExecutionContextSelector,
   enabled: boolean = true,
   refreshKey?: string | null
 ): UseManagerStatsResult {

@@ -69,10 +69,10 @@ describe("PortalRequestsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.usePortalAccountContext.mockReturnValue({
-      accountIdForApi: "101",
+      accountIdForApi: 101,
       hasAccountContext: true,
       selectedAccount: {
-        id: "101",
+        id: 101,
         name: "Research Account",
         tags: [],
         portal_role: "portal_manager",
@@ -169,7 +169,7 @@ describe("PortalRequestsPage", () => {
     );
 
     await waitFor(() => {
-      expect(mocks.createPortalRequest).toHaveBeenCalledWith("101", {
+      expect(mocks.createPortalRequest).toHaveBeenCalledWith(101, {
         request_type: "portal_user_access",
         intent: "add",
         target_name: "Jane Viewer",
@@ -205,7 +205,7 @@ describe("PortalRequestsPage", () => {
     );
 
     await waitFor(() => {
-      expect(mocks.createPortalRequest).toHaveBeenCalledWith("101", {
+      expect(mocks.createPortalRequest).toHaveBeenCalledWith(101, {
         request_type: "portal_user_removal",
         target_name: "Old User",
         target_email: "old@example.org",
@@ -240,7 +240,7 @@ describe("PortalRequestsPage", () => {
     );
 
     await waitFor(() => {
-      expect(mocks.createPortalRequest).toHaveBeenCalledWith("101", {
+      expect(mocks.createPortalRequest).toHaveBeenCalledWith(101, {
         request_type: "account_quota_change",
         direction: "decrease",
         target_quota_value: 18,
@@ -271,7 +271,7 @@ describe("PortalRequestsPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Send request" }));
 
     await waitFor(() => {
-      expect(mocks.createPortalRequest).toHaveBeenCalledWith("101", {
+      expect(mocks.createPortalRequest).toHaveBeenCalledWith(101, {
         request_type: "portal_setting_change",
         setting: "browser_access_enabled",
         mode: "override",
@@ -311,7 +311,7 @@ describe("PortalRequestsPage", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Help requests" })).toBeInTheDocument();
-    await waitFor(() => expect(mocks.fetchPortalProjectSettings).toHaveBeenCalledWith("101"));
+    await waitFor(() => expect(mocks.fetchPortalProjectSettings).toHaveBeenCalledWith(101));
     expect(screen.queryByRole("heading", { name: "Change a project setting" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Request change" })).not.toBeInTheDocument();
   });
@@ -380,10 +380,10 @@ describe("PortalRequestsPage", () => {
       can_manage_portal_users: false,
     });
     mocks.usePortalAccountContext.mockReturnValue({
-      accountIdForApi: "101",
+      accountIdForApi: 101,
       hasAccountContext: true,
       selectedAccount: {
-        id: "101",
+        id: 101,
         name: "Research Account",
         tags: [],
         portal_role: "portal_user",
@@ -406,10 +406,10 @@ describe("PortalRequestsPage", () => {
 
   it("uses the authoritative Portal capability when the account summary omits the manager role", async () => {
     mocks.usePortalAccountContext.mockReturnValue({
-      accountIdForApi: "101",
+      accountIdForApi: 101,
       hasAccountContext: true,
       selectedAccount: {
-        id: "101",
+        id: 101,
         name: "Research Account",
         tags: [],
       },

@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback, useState, type FormEvent } from "react";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { deleteRoleTag, getIamRole, putRoleTags, type IAMTag, updateIamRole } from "../../api/managerIamRoles";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsButton } from "../../components/settings/SettingsControls";
@@ -38,7 +38,7 @@ function sameTags(left: IAMTag[], right: IAMTag[]): boolean {
 
 /** A mounted role/executor owns the request and draft until save or dismissal. */
 export default function ManagerRoleEditor({ accountId, roleName, onClose, onSaved, mode = "all", embedded = false }: {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   roleName: string;
   onClose: () => void;
   onSaved: () => void;

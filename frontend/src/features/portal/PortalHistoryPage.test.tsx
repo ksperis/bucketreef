@@ -47,7 +47,7 @@ vi.mock("./usePortalWorkspaceData", () => ({
     error: mocks.workspaceError,
     accountError: null,
     hasAccountContext: true,
-    accountIdForApi: "101",
+    accountIdForApi: 101,
   }),
 }));
 
@@ -116,7 +116,7 @@ describe("PortalHistoryPage", () => {
     expect(screen.getByRole("button", { name: "Export logs" })).toBeInTheDocument();
     await waitFor(() => {
       expect(mocks.fetchPortalServerAccessLogPage).toHaveBeenCalledWith(
-        "101",
+        101,
         expect.objectContaining({ limit: 25, offset: 0 })
       );
     });
@@ -266,7 +266,7 @@ describe("PortalHistoryPage", () => {
 
     await waitFor(() => {
       expect(mocks.fetchPortalServerAccessLogPage).toHaveBeenCalledWith(
-        "101",
+        101,
         expect.objectContaining({ date: "2026-07-08", limit: 25, offset: 0 })
       );
     });
@@ -290,7 +290,7 @@ describe("PortalHistoryPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await waitFor(() => {
       expect(mocks.fetchPortalServerAccessLogPage).toHaveBeenCalledWith(
-        "101",
+        101,
         expect.objectContaining({ date: "2026-07-08", limit: 25, offset: 25 })
       );
     });
@@ -347,7 +347,7 @@ describe("PortalHistoryPage", () => {
 
     await waitFor(() => {
       expect(mocks.downloadPortalServerAccessRawLogs).toHaveBeenCalledWith(
-        "101",
+        101,
         expect.objectContaining({ dateFrom: "2026-07-07", dateTo: "2026-07-08", spaceId: "research-data" })
       );
     });

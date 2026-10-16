@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
   setSelectedAccountId: vi.fn(),
   selectedPortalRole: "portal_user" as "portal_user" | "portal_manager",
   portalAccounts: [
-    { id: "101", name: "Helios Retail", tags: [] },
-    { id: "102", name: "Northwind Ops", tags: [] },
+    { id: 101, name: "Helios Retail", tags: [] },
+    { id: 102, name: "Northwind Ops", tags: [] },
   ],
   getWorkspaceAccess: vi.fn().mockResolvedValue({
     admin: { available: true, context_count: 1 },
@@ -78,7 +78,7 @@ vi.mock("./PortalAccountContext", () => ({
     accounts: mocks.portalAccounts,
     selectedAccountId: "101",
     selectedAccount: {
-      id: "101",
+      id: 101,
       name: "Helios Retail",
       tags: [],
       portal_role: mocks.selectedPortalRole,
@@ -112,8 +112,8 @@ describe("PortalLayout", () => {
     mocks.portalAccounts.splice(
       0,
       mocks.portalAccounts.length,
-      { id: "101", name: "Helios Retail", tags: [] },
-      { id: "102", name: "Northwind Ops", tags: [] },
+      { id: 101, name: "Helios Retail", tags: [] },
+      { id: 102, name: "Northwind Ops", tags: [] },
     );
   });
 
@@ -234,8 +234,8 @@ describe("PortalLayout", () => {
     mocks.portalAccounts.splice(
       0,
       mocks.portalAccounts.length,
-      { id: "101", name: "Helios Retail", tags: [] },
-      { id: "102", name: "Northwind Ops", tags: [] },
+      { id: 101, name: "Helios Retail", tags: [] },
+      { id: 102, name: "Northwind Ops", tags: [] },
       { id: "103", name: "Atlas Research", tags: [] },
       { id: "104", name: "Borealis", tags: [] },
       { id: "105", name: "Cirrus", tags: [] },
@@ -275,8 +275,8 @@ describe("PortalLayout", () => {
     mocks.portalAccounts.splice(
       0,
       mocks.portalAccounts.length,
-      { id: "101", name: "Helios Retail", tags: [] },
-      { id: "102", name: "Northwind Ops", tags: [] },
+      { id: 101, name: "Helios Retail", tags: [] },
+      { id: 102, name: "Northwind Ops", tags: [] },
       { id: "103", name: "Atlas Research", tags: [] },
       { id: "104", name: "Borealis", tags: [] },
       { id: "105", name: "Cirrus", tags: [] },

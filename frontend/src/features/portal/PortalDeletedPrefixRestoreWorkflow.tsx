@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { streamPortalDeletedPrefixRestore, type PortalDeletedPrefixRestoreProgress, type PortalDeletedPrefixRestoreResult } from "../../api/portal";
+import type { S3AccountId } from "../../api/accountParams";
 import InlineSummary from "../../components/InlineSummary";
 import { WorkflowSection } from "../../components/WorkflowPage";
 import { SettingsButton } from "../../components/settings/SettingsControls";
@@ -13,7 +14,7 @@ import PortalOperationLayout, { PortalOperationProgress } from "./PortalOperatio
 import { usePortalStreamOperation } from "./usePortalStreamOperation";
 
 export default function PortalDeletedPrefixRestoreWorkflow({ accountId, spaceId, spaceName, target, onClose, onBrowserRefresh, onWorkspaceRefresh }: {
-  accountId: string | number; spaceId: string; spaceName: string; target: BrowserObjectDetailsRouteTarget;
+  accountId: S3AccountId; spaceId: string; spaceName: string; target: BrowserObjectDetailsRouteTarget;
   onClose: () => void; onBrowserRefresh: () => void; onWorkspaceRefresh: () => void;
 }) {
   const { t } = useI18n();

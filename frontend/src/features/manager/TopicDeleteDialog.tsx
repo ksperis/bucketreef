@@ -1,15 +1,15 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useEffect, useRef, useState } from "react";
 import { deleteTopic, type Topic } from "../../api/topics";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { extractApiError } from "../../utils/apiError";
 import { useManagerI18n } from "./managerI18n";
 
 export default function TopicDeleteDialog({ accountId, currentAccountId, topic, onDeleted, onClose }: {
-  accountId: S3AccountSelector;
-  currentAccountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
+  currentAccountId: S3ExecutionContextSelector;
   topic: Topic;
   onDeleted: () => void;
   onClose: () => void;

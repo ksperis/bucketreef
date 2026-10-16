@@ -5,7 +5,7 @@
 import { isApiError } from "../../api/client";
 import { useCallback, useEffect, useState } from "react";
 import { fetchIamOverview, IamOverview } from "../../api/iamOverview";
-import { S3AccountSelector } from "../../api/accountParams";
+import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { extractApiError } from "../../utils/apiError";
 
 type UseIamOverviewResult = {
@@ -16,7 +16,7 @@ type UseIamOverviewResult = {
 };
 
 export function useIamOverview(
-  accountId: S3AccountSelector,
+  accountId: S3ExecutionContextSelector,
   enabled: boolean,
   hasContext: boolean = true,
   refreshKey?: string | null

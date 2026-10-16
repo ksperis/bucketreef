@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { normalizeS3SelectorId } from "../../api/accountParams";
+import { normalizeS3AccountId } from "../../api/accountParams";
 import type { ManagerTrafficStats, ManagerUsageTrendsResponse, TrafficWindow } from "../../api/stats";
 import { fetchPortalWorkspaceHealthOverview, type WorkspaceEndpointHealthOverviewResponse } from "../../api/healthchecks";
 import { listPortalStorageSpaces, type PortalStorageSpaceSummary } from "../../api/portal";
@@ -97,7 +97,7 @@ export function usePortalWorkspaceData({
   const { locale, t } = useI18n();
   const accountContext = usePortalAccountContext();
   const { accountIdForApi, selectedAccount, hasAccountContext, loading: accountLoading, error: accountError } = accountContext;
-  const accountKey = normalizeS3SelectorId(accountIdForApi);
+  const accountKey = normalizeS3AccountId(accountIdForApi);
   const [stateResult, setStateResult] = useState<{
     accountKey: string;
     data: PortalState | null;

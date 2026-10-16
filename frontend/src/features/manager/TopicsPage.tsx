@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listTopics, type Topic } from "../../api/topics";
-import type { S3AccountSelector } from "../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import UiInput from "../../components/ui/UiInput";
 import { ListActions, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -20,8 +20,8 @@ import TopicCreateDialog from "./TopicCreateDialog";
 import TopicDeleteDialog from "./TopicDeleteDialog";
 import { useManagerI18n } from "./managerI18n";
 
-type TopicAction = { kind: "create"; accountId: S3AccountSelector }
-  | { kind: "delete"; accountId: S3AccountSelector; topic: Topic };
+type TopicAction = { kind: "create"; accountId: S3ExecutionContextSelector }
+  | { kind: "delete"; accountId: S3ExecutionContextSelector; topic: Topic };
 
 export default function TopicsPage() {
   const { text } = useManagerI18n();
@@ -38,7 +38,7 @@ export default function TopicsPage() {
   const requestSequence = useRef(0);
   const currentAccount = useRef(accountIdForApi);
   currentAccount.current = accountIdForApi;
-  const fetchTopics = useCallback(async (accountId: S3AccountSelector) => {
+  const fetchTopics = useCallback(async (accountId: S3ExecutionContextSelector) => {
     const request = ++requestSequence.current;
     setLoading(true); setError(null);
     try {
@@ -57,7 +57,7 @@ export default function TopicsPage() {
     return () => { requestSequence.current += 1; };
   }, [accountIdForApi, needsS3AccountSelection, accessMode, fetchTopics]);
   const close = () => setActive(null);
-  const refreshAfterMutation = (accountId: S3AccountSelector, message: string) => {
+  const refreshAfterMutation = (accountId: S3ExecutionContextSelector, message: string) => {
     setActive(null);
     if (currentAccount.current !== accountId) return;
     setActionMessage(message);

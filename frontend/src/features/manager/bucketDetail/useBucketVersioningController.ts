@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3AccountSelector } from "../../../api/accountParams";
+import type { S3ExecutionContextSelector } from "../../../api/accountParams";
 import {
   getBucketVersioning,
   setBucketVersioning,
@@ -15,7 +15,7 @@ import {
 import { extractApiError } from "../../../utils/apiError";
 
 type UseBucketVersioningControllerOptions = {
-  accountId: S3AccountSelector;
+  accountId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;

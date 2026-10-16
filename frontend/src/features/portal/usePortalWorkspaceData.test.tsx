@@ -4,7 +4,7 @@ import { LanguageProvider } from "../../components/language";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
 const mocks = vi.hoisted(() => ({
-  accountId: "101",
+  accountId: 101,
   fetchPortalActivityMock: vi.fn(),
   fetchPortalAlertsMock: vi.fn(),
   fetchPortalCollaboratorsMock: vi.fn(),
@@ -60,7 +60,7 @@ function Probe({ includeArchived = false }: { includeArchived?: boolean }) {
 describe("usePortalWorkspaceData", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.accountId = "101";
+    mocks.accountId = 101;
     mocks.fetchPortalActivityMock.mockResolvedValue([]);
     mocks.fetchPortalAlertsMock.mockResolvedValue([]);
     mocks.fetchPortalCollaboratorsMock.mockResolvedValue({
@@ -82,7 +82,7 @@ describe("usePortalWorkspaceData", () => {
 
     let resolveState!: (value: unknown) => void;
     mocks.fetchPortalStateMock.mockReturnValueOnce(new Promise((resolve) => { resolveState = resolve; }));
-    mocks.accountId = "102";
+    mocks.accountId = 102;
     rerender();
 
     expect(result.current.state).toBeNull();
@@ -96,7 +96,7 @@ describe("usePortalWorkspaceData", () => {
     let rejectPrevious!: (reason: Error) => void;
     mocks.fetchPortalStateMock.mockReturnValueOnce(new Promise((_, reject) => { rejectPrevious = reject; }));
     const { result, rerender } = renderHook(() => usePortalWorkspaceData(), { wrapper: LanguageProvider });
-    mocks.accountId = "102";
+    mocks.accountId = 102;
     mocks.fetchPortalStateMock.mockResolvedValueOnce({ portal_role: "portal_user" });
     rerender();
     await waitFor(() => expect(result.current.state).toEqual({ portal_role: "portal_user" }));
@@ -113,7 +113,7 @@ describe("usePortalWorkspaceData", () => {
     );
 
     await waitFor(() => {
-      expect(mocks.listPortalStorageSpacesMock).toHaveBeenCalledWith("101", { includeArchived: true });
+      expect(mocks.listPortalStorageSpacesMock).toHaveBeenCalledWith(101, { includeArchived: true });
     });
   });
 
@@ -125,7 +125,7 @@ describe("usePortalWorkspaceData", () => {
     );
 
     await waitFor(() => {
-      expect(mocks.listPortalStorageSpacesMock).toHaveBeenCalledWith("101", undefined);
+      expect(mocks.listPortalStorageSpacesMock).toHaveBeenCalledWith(101, undefined);
     });
   });
 });
