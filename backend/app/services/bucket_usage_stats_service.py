@@ -59,7 +59,7 @@ class BucketUsageStatsCancelled(RuntimeError):
 
 @dataclass(frozen=True)
 class BucketUsageStatsResolvedTarget:
-    account: S3ExecutionTarget
+    context: S3ExecutionTarget
     bucket_name: str
     scope_kind: str
     scope_id: str
@@ -126,9 +126,9 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
 
     @staticmethod
     def _bucket_lease_scope(target: BucketUsageStatsResolvedTarget) -> str:
-        endpoint_id = getattr(target.account, "storage_endpoint_id", None)
+        endpoint_id = getattr(target.context, "storage_endpoint_id", None)
         if endpoint_id is None:
-            endpoint_id = getattr(getattr(target.account, "storage_endpoint", None), "id", None)
+            endpoint_id = getattr(getattr(target.context, "storage_endpoint", None), "id", None)
         return f"endpoint:{endpoint_id}" if endpoint_id is not None else f"{target.scope_kind}:{target.scope_id}"
 
     def _acquire_bucket_lease(self, target: BucketUsageStatsResolvedTarget) -> OperationLeaseHandle | None:
@@ -216,7 +216,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         progress_callback: ProgressCallback | None = None,
         cancel_check: CancelCheck | None = None,
     ) -> BucketUsageStatsSnapshot:
-        with self._open_client(target.account) as client:
+        with self._open_client(target.context) as client:
             calculated_at = utcnow()
             warnings: list[str] = []
             scan_mode: BucketUsageStatsScanMode = "versions"

@@ -93,7 +93,7 @@ def _build_admin_managed_scope(
         for bucket_name in bucket_names:
             resolved_targets.append(
                 BucketUsageStatsResolvedTarget(
-                    account=account,
+                    context=account,
                     bucket_name=bucket_name,
                     scope_kind="manager",
                     scope_id=context_id,

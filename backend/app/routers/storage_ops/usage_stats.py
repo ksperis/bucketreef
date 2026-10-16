@@ -48,17 +48,17 @@ def stream_storage_ops_bucket_usage_stats(
     options = BucketUsageStatsOptions(parallelism=payload.parallelism)
     targets = []
     for target in requested_targets:
-        account = get_s3_execution_context(
+        context = get_s3_execution_context(
             request=request,
             context_ref=target.context_id,
             actor=user,
             db=db,
         )
-        resolved_context_id = account.context_id
+        resolved_context_id = context.context_id
         context_name = context_names.get(target.context_id) or context_names.get(resolved_context_id) or resolved_context_id
         targets.append(
             BucketUsageStatsResolvedTarget(
-                account=account,
+                context=context,
                 bucket_name=target.bucket_name,
                 scope_kind="manager",
                 scope_id=resolved_context_id,

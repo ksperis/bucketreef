@@ -54,7 +54,7 @@ class FakeUsageStatsService(BucketUsageStatsService):
 
 def _target(bucket_name: str = "bucket-a") -> BucketUsageStatsResolvedTarget:
     return BucketUsageStatsResolvedTarget(
-        account=SimpleNamespace(),
+        context=SimpleNamespace(),
         bucket_name=bucket_name,
         scope_kind="manager",
         scope_id="ctx-1",

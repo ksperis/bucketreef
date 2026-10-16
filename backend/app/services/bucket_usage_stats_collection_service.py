@@ -85,7 +85,7 @@ class BucketUsageStatsCollectionService:
                 (
                     priority,
                     BucketUsageStatsResolvedTarget(
-                        account=account,
+                        context=account,
                         bucket_name=bucket_name,
                         scope_kind="manager",
                         scope_id=scope_id,
