@@ -21,7 +21,7 @@ runtime environment that will start the application:
 
 ```bash
 cd backend
-python -m app.scripts.check_production_hardening
+python -m app.scripts.check_production_readiness
 ```
 
 The command uses `DEPLOYMENT_PROFILE`; `--profile` remains available as an

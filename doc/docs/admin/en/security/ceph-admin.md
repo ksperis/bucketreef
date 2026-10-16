@@ -156,7 +156,7 @@ login, the only workspace should be Ceph Admin. Enroll a passkey from **Profile
 > Security**, then enable **Require passkeys for administrators**.
 
 Before exposing the ingress, verify the runtime routes, run
-`python -m app.scripts.check_production_hardening`, check the restricted network
+`python -m app.scripts.check_production_readiness`, check the restricted network
 path and ensure the privileged RGW identity is absent from other instances.
 An intentional Ceph Admin-only runtime does not warn about disabled jobs.
 

@@ -121,9 +121,9 @@ excluded.
 Validate the complete runtime boundary with:
 
 ```bash
-python -m app.scripts.check_production_hardening
+python -m app.scripts.check_production_readiness
 # Optional diagnostic override:
-python -m app.scripts.check_production_hardening --profile admin
+python -m app.scripts.check_production_readiness --profile admin
 ```
 
 Without `--profile`, the checker evaluates the runtime `DEPLOYMENT_PROFILE`.

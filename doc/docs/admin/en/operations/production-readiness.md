@@ -51,7 +51,7 @@ An empty `TRUSTED_PROXY_CIDRS` is not a blocker: without trusted peers BucketRee
 
    ```bash
    cd backend
-   python -m app.scripts.check_production_hardening
+   python -m app.scripts.check_production_readiness
    ```
 
 7. In split deployments, compare both runtime reports and complete `manual-split-state`.

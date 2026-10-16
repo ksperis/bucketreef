@@ -11,7 +11,7 @@ import pytest
 from app.core.config import Settings
 from app.db import LdapProvider, OidcProvider, StorageEndpoint, User, UserRole, WebAuthnCredential
 from app.models.app_settings import AppSettings
-from app.scripts.check_production_hardening import run
+from app.scripts.check_production_readiness import run
 from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
 from tests.service_identity_helpers import service_identity
 
@@ -590,7 +590,7 @@ def test_cli_reports_app_settings_load_failure_as_critical(monkeypatch):
     def fail_load():
         raise RuntimeError("database unavailable")
 
-    monkeypatch.setattr("app.scripts.check_production_hardening.load_app_settings", fail_load)
+    monkeypatch.setattr("app.scripts.check_production_readiness.load_app_settings", fail_load)
 
     exit_code, output = run(profile="admin", settings=_production_settings())
 
