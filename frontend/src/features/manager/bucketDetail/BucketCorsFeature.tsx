@@ -430,7 +430,6 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
 
   const jsonEditor = (
     <BucketFeatureJsonPane
-      text={text}
       description={
         <>
         {text("Edit the complete S3 CORS")} <code>{text("CORSRules")}</code> {text("array. Switching back to Visual validates the JSON structure first.")}

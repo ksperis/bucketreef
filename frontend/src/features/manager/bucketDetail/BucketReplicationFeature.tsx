@@ -377,7 +377,6 @@ export default function BucketReplicationFeature({
 
   const jsonEditor = (
     <BucketFeatureJsonPane
-      text={text}
       description={text("Edit the complete S3 replication configuration. Switching back to Visual validates the JSON structure first.")}
       label={text("Replication configuration (JSON)")}
       value={jsonText}

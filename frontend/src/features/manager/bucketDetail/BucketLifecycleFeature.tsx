@@ -456,7 +456,6 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
 
   const jsonEditor = (
     <BucketFeatureJsonPane
-      text={text}
       description={
         <>
         {text("Edit the complete S3 Lifecycle")} <code>{text("Rules")}</code> {text("array. Switching back to Visual validates this JSON first.")}

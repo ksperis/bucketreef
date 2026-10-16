@@ -2,11 +2,24 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
+import { LanguageProvider, useLanguage, type UiLanguage } from "../language";
 import SettingsJsonEditor from "./SettingsJsonEditor";
 
 function EditorHarness({ initial = '{"name":"demo"}' }: { initial?: string }) {
   const [value, setValue] = useState(initial);
   return <SettingsJsonEditor label="JSON document" value={value} onChange={setValue} rows={6} />;
+}
+
+function LocalizedEditorHarness() {
+  const { setLanguage } = useLanguage();
+  return (
+    <>
+      {(["fr", "de", "zh"] as UiLanguage[]).map((locale) => (
+        <button key={locale} onClick={() => setLanguage(locale)}>{locale}</button>
+      ))}
+      <SettingsJsonEditor label="Document JSON" value="{}" onChange={() => {}} />
+    </>
+  );
 }
 
 describe("SettingsJsonEditor", () => {
@@ -110,22 +123,17 @@ describe("SettingsJsonEditor", () => {
     expect(screen.queryByRole("button", { name: "Format JSON" })).not.toBeInTheDocument();
   });
 
-  it("uses supplied UI translations for syntax status and formatting actions", () => {
-    const translations: Record<string, string> = {
-      "Valid JSON": "JSON valide",
-      "Format JSON": "Formater le JSON",
-    };
+  it("localizes its own syntax status and formatting actions", async () => {
+    render(<LanguageProvider><LocalizedEditorHarness /></LanguageProvider>);
 
-    render(
-      <SettingsJsonEditor
-        label="Document JSON"
-        value="{}"
-        onChange={() => {}}
-        text={(message) => translations[message] ?? message}
-      />,
-    );
-
-    expect(screen.getByText("JSON valide")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Formater le JSON" })).toBeInTheDocument();
+    for (const [locale, status, action] of [
+      ["fr", "JSON valide", "Formater le JSON"],
+      ["de", "Gültiges JSON", "JSON formatieren"],
+      ["zh", "JSON 有效", "格式化 JSON"],
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: locale }));
+      await waitFor(() => expect(screen.getByText(status)).toBeInTheDocument());
+      expect(screen.getByRole("button", { name: action })).toBeInTheDocument();
+    }
   });
 });

@@ -80,7 +80,6 @@ export function BucketFeatureJsonPane({
   onChange,
   rows = 16,
   disabled = false,
-  text,
   children,
 }: {
   description: ReactNode;
@@ -89,7 +88,6 @@ export function BucketFeatureJsonPane({
   onChange: (value: string) => void;
   rows?: number;
   disabled?: boolean;
-  text?: (message: string, values?: Record<string, string | number>) => string;
   children?: ReactNode;
 }) {
   return (
@@ -101,7 +99,6 @@ export function BucketFeatureJsonPane({
         onChange={onChange}
         rows={rows}
         disabled={disabled}
-        text={text}
       />
       {children}
     </div>
