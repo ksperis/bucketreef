@@ -183,20 +183,9 @@ def _to_admin_item(
     )
 
 
-@router.get("", response_model=PaginatedS3ConnectionsResponse)
-def list_s3_connections(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: Optional[str] = Query(None),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
-) -> PaginatedS3ConnectionsResponse:
-    _ = current_user
-    tags_service = TagsService(db)
+def _admin_s3_connections_query(db: Session, *, search: Optional[str]):
     linked_user = aliased(User)
-    q = (
+    query = (
         db.query(
             S3Connection,
             func.count(UserS3Connection.id).label("user_count"),
@@ -206,34 +195,38 @@ def list_s3_connections(
         .outerjoin(StorageEndpoint, StorageEndpoint.id == S3Connection.storage_endpoint_id)
         .outerjoin(UserS3Connection, UserS3Connection.s3_connection_id == S3Connection.id)
         .outerjoin(linked_user, linked_user.id == UserS3Connection.user_id)
+        .filter(*S3ConnectionsService.admin_shared_predicates())
         .group_by(S3Connection.id)
     )
-    q = q.filter(*S3ConnectionsService.admin_shared_predicates())
-    if search:
-        term = f"%{search.strip()}%"
-        tag_match = (
-            exists()
-            .where(S3ConnectionTag.s3_connection_id == S3Connection.id)
-            .where(TagDefinition.id == S3ConnectionTag.tag_definition_id)
-            .where(TagDefinition.label.ilike(term))
-        )
-        group_match = (
-            exists()
-            .where(UiGroupS3Connection.s3_connection_id == S3Connection.id)
-            .where(UiGroup.id == UiGroupS3Connection.group_id)
-            .where(UiGroup.name.ilike(term))
-        )
-        q = q.filter(
-            (S3Connection.name.ilike(term))
-            | (StorageEndpoint.endpoint_url.ilike(term))
-            | (S3Connection.custom_endpoint_config.ilike(term))
-            | (User.email.ilike(term))
-            | (linked_user.email.ilike(term))
-            | (linked_user.full_name.ilike(term))
-            | group_match
-            | tag_match
-        )
+    if not search:
+        return query
 
+    term = f"%{search.strip()}%"
+    tag_match = (
+        exists()
+        .where(S3ConnectionTag.s3_connection_id == S3Connection.id)
+        .where(TagDefinition.id == S3ConnectionTag.tag_definition_id)
+        .where(TagDefinition.label.ilike(term))
+    )
+    group_match = (
+        exists()
+        .where(UiGroupS3Connection.s3_connection_id == S3Connection.id)
+        .where(UiGroup.id == UiGroupS3Connection.group_id)
+        .where(UiGroup.name.ilike(term))
+    )
+    return query.filter(
+        (S3Connection.name.ilike(term))
+        | (StorageEndpoint.endpoint_url.ilike(term))
+        | (S3Connection.custom_endpoint_config.ilike(term))
+        | (User.email.ilike(term))
+        | (linked_user.email.ilike(term))
+        | (linked_user.full_name.ilike(term))
+        | group_match
+        | tag_match
+    )
+
+
+def _order_admin_s3_connections(query, *, sort_by: str, sort_dir: str):
     sort_map = {
         "name": S3Connection.name,
         "endpoint": StorageEndpoint.endpoint_url,
@@ -245,43 +238,66 @@ def list_s3_connections(
     descending = sort_dir.lower() == "desc"
     if requested_sort == "name":
         if descending:
-            q = q.order_by(
+            return query.order_by(
                 func.lower(S3Connection.name).desc(),
                 S3Connection.name.desc(),
                 S3Connection.id.desc(),
             )
-        else:
-            q = q.order_by(*name_order_by(S3Connection))
-    else:
-        sort_field = sort_map[requested_sort]
-        if descending:
-            q = q.order_by(sort_field.desc(), S3Connection.id.desc())
-        else:
-            q = q.order_by(sort_field.asc(), S3Connection.id.asc())
+        return query.order_by(*name_order_by(S3Connection))
 
-    total = q.count()
-    rows = q.offset((page - 1) * page_size).limit(page_size).all()
+    sort_field = sort_map[requested_sort]
+    if descending:
+        return query.order_by(sort_field.desc(), S3Connection.id.desc())
+    return query.order_by(sort_field.asc(), S3Connection.id.asc())
+
+
+def _admin_s3_connection_items(db: Session, rows) -> list[S3ConnectionAdminItem]:
     connection_ids = [conn.id for conn, _, _ in rows]
     creator_ids = {int(conn.created_by_user_id) for conn, _, _ in rows}
-    creators_by_id = {
-        int(creator.id): creator
-        for creator in db.query(User).filter(User.id.in_(creator_ids)).all()
-    } if creator_ids else {}
+    creators_by_id = (
+        {
+            int(creator.id): creator
+            for creator in db.query(User).filter(User.id.in_(creator_ids)).all()
+        }
+        if creator_ids
+        else {}
+    )
     user_details_by_connection = _linked_user_details_by_connection(db, connection_ids)
     group_details_by_connection = _linked_group_details_by_connection(db, connection_ids)
-    items: list[S3ConnectionAdminItem] = []
-    for conn, user_count, created_by_email in rows:
-        items.append(
-            _to_admin_item(
-                conn,
-                created_by_email=created_by_email,
-                created_by_user=creators_by_id.get(int(conn.created_by_user_id)),
-                user_count=int(user_count or 0),
-                user_details=user_details_by_connection.get(conn.id, []),
-                group_details=group_details_by_connection.get(conn.id, []),
-                tags_service=tags_service,
-            )
+    tags_service = TagsService(db)
+    return [
+        _to_admin_item(
+            conn,
+            created_by_email=created_by_email,
+            created_by_user=creators_by_id.get(int(conn.created_by_user_id)),
+            user_count=int(user_count or 0),
+            user_details=user_details_by_connection.get(conn.id, []),
+            group_details=group_details_by_connection.get(conn.id, []),
+            tags_service=tags_service,
         )
+        for conn, user_count, created_by_email in rows
+    ]
+
+
+@router.get("", response_model=PaginatedS3ConnectionsResponse)
+def list_s3_connections(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
+    search: Optional[str] = Query(None),
+    sort_by: str = Query("name"),
+    sort_dir: str = Query("asc"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_super_admin),
+) -> PaginatedS3ConnectionsResponse:
+    _ = current_user
+    query = _order_admin_s3_connections(
+        _admin_s3_connections_query(db, search=search),
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    items = _admin_s3_connection_items(db, rows)
     has_next = page * page_size < total
     return PaginatedS3ConnectionsResponse(items=items, total=total, page=page, page_size=page_size, has_next=has_next)
 
