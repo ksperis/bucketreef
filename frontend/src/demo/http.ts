@@ -50,7 +50,8 @@ export function spaceRole(c: DemoRequest, space: DemoSpace) {
   return space.shares.find(s => s.user_id === c.user.id)?.role ?? (space.share_scope === "account" ? space.account_member_role ?? "Viewer" : null);
 }
 export function scopedAccount(c: DemoRequest) {
-  const raw = c.url.searchParams.get("account_id") ?? c.url.searchParams.get("ctx");
+  const selectorParam = c.path.startsWith("/portal/") ? "account_id" : "context_id";
+  const raw = c.url.searchParams.get(selectorParam);
   if (!raw) throw new DemoError(422, "An explicit account context is required in the demo");
   const id = Number(raw.replace(/^(?:portal-)?(?:account-|acc-)?/, ""));
   const account = required(c.state.accounts.find(a => a.id === id || a.rgw_account_id === raw));

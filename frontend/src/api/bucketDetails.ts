@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { withS3ContextParam } from "./accountParams";
 import type {
   Bucket,
   BucketAcl,
@@ -32,7 +32,7 @@ function createManagerBucketDetailsApi() {
   const bucketPath = (bucketName: string) =>
     `${basePath}/${encodeURIComponent(bucketName)}`;
   const requestConfig = (accountId: S3AccountSelector) => ({
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   const read = async <T>(
     accountId: S3AccountSelector,
@@ -90,7 +90,7 @@ function createManagerBucketDetailsApi() {
       const { data } = await client.get<Bucket>(
         `${bucketPath(bucketName)}/stats`,
         {
-          params: withS3AccountParam(
+          params: withS3ContextParam(
             { with_stats: options?.with_stats },
             accountId,
           ),
@@ -294,7 +294,7 @@ function createBrowserBucketDetailsApi() {
   const bucketPath = (bucketName: string) =>
     `${BROWSER_BUCKET_CONFIG_PATH}/${encodeURIComponent(bucketName)}`;
   const requestConfig = (accountId: S3AccountSelector) => ({
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   const read = async <T>(
     accountId: S3AccountSelector,
@@ -317,7 +317,7 @@ function createBrowserBucketDetailsApi() {
       const { data } = await client.get<Bucket>(
         `${bucketPath(bucketName)}/stats`,
         {
-          params: withS3AccountParam(
+          params: withS3ContextParam(
             { with_stats: options?.with_stats },
             accountId,
           ),

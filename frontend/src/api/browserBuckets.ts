@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { withS3ContextParam } from "./accountParams";
 import type { BucketVersioningStatus } from "./bucketContracts";
 import type {
   BrowserSettings,
@@ -24,7 +24,7 @@ export async function searchBrowserBuckets(
     pageSize?: number;
   } & BrowserRequestOptions,
 ): Promise<PaginatedBrowserBucketsResponse> {
-  const params = withS3AccountParam(
+  const params = withS3ContextParam(
     {
       search: options?.search?.trim() || undefined,
       exact: options?.exact ? true : undefined,
@@ -50,7 +50,7 @@ export async function fetchBrowserUsageSummary(
   const { data } = await client.get<BrowserUsageSummary>(
     "/browser/usage-summary",
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );
@@ -69,7 +69,7 @@ export async function createBrowserBucket(
       versioning: options?.versioning ?? false,
     },
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );
@@ -83,7 +83,7 @@ export async function getBrowserBucketVersioning(
   const { data } = await client.get<BucketVersioningStatus>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/versioning`,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );
@@ -95,7 +95,7 @@ export async function fetchBrowserSettings(
   options?: BrowserRequestOptions,
 ): Promise<BrowserSettings> {
   const { data } = await client.get<BrowserSettings>("/browser/settings", {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
     headers: buildBrowserWorkspaceHeaders(options),
   });
   return data;
@@ -107,7 +107,7 @@ export async function getBrowserBucketCorsStatus(
   origin?: string,
   options?: BrowserRequestOptions,
 ): Promise<BucketCorsStatus> {
-  const params = withS3AccountParam(origin ? { origin } : undefined, accountId);
+  const params = withS3ContextParam(origin ? { origin } : undefined, accountId);
   const { data } = await client.get<BucketCorsStatus>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/cors`,
     { params, headers: buildBrowserWorkspaceHeaders(options) },
@@ -125,7 +125,7 @@ export async function ensureBrowserBucketCors(
     `/browser/buckets/${encodeURIComponent(bucketName)}/cors/ensure`,
     { origin },
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );

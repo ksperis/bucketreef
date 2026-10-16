@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 Manager and Browser execution-context selector
+
+Manager and Browser routes that select an S3 execution identity now use the
+`context_id` query parameter. The former `account_id` parameter is removed from
+those routes because the selector may represent an account, S3 connection,
+S3 user, or authorized Ceph Admin context. Portal routes continue to use
+`account_id` because Portal selects a real BucketReef account.
+
+There is no runtime alias from `account_id` to `context_id`. Deploy the matching
+backend and frontend together, and update local scripts or functional clients
+that call `/manager` or `/browser` directly.
+
 ## 2026-10 canonical production-readiness CLI
 
 The deployment-check CLI now uses the same `production_readiness` terminology

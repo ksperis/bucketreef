@@ -23,8 +23,8 @@ def _bucket_name(prefix: str, label: str = "browser-clipboard") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}-{label}"
 
 
-def _account_params(account_id: int) -> dict[str, int]:
-    return {"account_id": account_id}
+def _context_params(account_id: int) -> dict[str, int]:
+    return {"context_id": account_id}
 
 
 def _s3_verify(ceph_test_settings: CephTestSettings) -> bool | str:
@@ -47,7 +47,7 @@ def _create_bucket(
 ) -> None:
     manager_session.post(
         "/manager/buckets",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={
             "name": bucket_name,
             "versioning": versioning,
@@ -109,7 +109,7 @@ def _upload_bytes(
     response = session.request(
         "POST",
         f"/browser/buckets/{bucket_name}/proxy-upload",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         data={"key": key, "content_type": content_type},
         files={"file": (filename or key.rsplit("/", 1)[-1] or "upload.bin", io.BytesIO(payload), content_type)},
         expected_status=200,
@@ -125,7 +125,7 @@ def _create_folder(
 ) -> None:
     session.post(
         f"/browser/buckets/{bucket_name}/folders",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={"prefix": prefix},
     )
 
@@ -139,7 +139,7 @@ def _set_object_tags(
 ) -> None:
     session.put(
         f"/browser/buckets/{bucket_name}/object-tags",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={
             "key": key,
             "tags": [{"key": tag_key, "value": value} for tag_key, value in sorted(tags.items())],
@@ -158,7 +158,7 @@ def _set_object_metadata(
 ) -> None:
     session.put(
         f"/browser/buckets/{bucket_name}/object-meta",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={
             "key": key,
             "content_type": content_type,
@@ -179,7 +179,7 @@ def _copy_object(
 ) -> None:
     session.post(
         f"/browser/buckets/{destination_bucket}/copy",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={
             "source_bucket": source_bucket,
             "source_key": source_key,
@@ -197,7 +197,7 @@ def _delete_object(
 ) -> None:
     session.post(
         f"/browser/buckets/{bucket_name}/delete",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={"objects": [{"key": key}]},
     )
 
@@ -211,7 +211,7 @@ def _download_bytes(
     response = session.request(
         "GET",
         f"/browser/buckets/{bucket_name}/download",
-        params={"account_id": account_id, "key": key},
+        params={"context_id": account_id, "key": key},
         expected_status=200,
         stream=True,
     )
@@ -229,7 +229,7 @@ def _head_object(
 ) -> dict[str, Any]:
     return session.get(
         f"/browser/buckets/{bucket_name}/object-meta",
-        params={"account_id": account_id, "key": key},
+        params={"context_id": account_id, "key": key},
     )
 
 
@@ -241,7 +241,7 @@ def _get_object_tags(
 ) -> dict[str, str]:
     payload = session.get(
         f"/browser/buckets/{bucket_name}/object-tags",
-        params={"account_id": account_id, "key": key},
+        params={"context_id": account_id, "key": key},
     )
     return {
         str(entry.get("key") or ""): str(entry.get("value") or "")
@@ -335,7 +335,7 @@ def _list_versions(
 ) -> dict[str, Any]:
     return session.get(
         f"/browser/buckets/{bucket_name}/versions",
-        params={"account_id": account_id, "key": key, "max_keys": 1000},
+        params={"context_id": account_id, "key": key, "max_keys": 1000},
     )
 
 
@@ -440,7 +440,7 @@ def _presign_object(
         payload["content_type"] = content_type
     return session.post(
         f"/browser/buckets/{bucket_name}/presign",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json=payload,
     )
 
@@ -478,7 +478,7 @@ def _direct_copy_between_accounts(
     if multipart:
         init = session.post(
             f"/browser/buckets/{destination_bucket}/multipart/initiate",
-            params=_account_params(destination_account_id),
+            params=_context_params(destination_account_id),
             json={
                 "key": destination_key,
                 "content_type": source_meta.get("content_type") or "application/octet-stream",
@@ -491,7 +491,7 @@ def _direct_copy_between_accounts(
                 part = payload[start:start + _PART_SIZE]
                 presign_part = session.post(
                     f"/browser/buckets/{destination_bucket}/multipart/{upload_id}/presign",
-                    params=_account_params(destination_account_id),
+                    params=_context_params(destination_account_id),
                     json={
                         "key": destination_key,
                         "part_number": part_number,
@@ -513,13 +513,13 @@ def _direct_copy_between_accounts(
 
             session.post(
                 f"/browser/buckets/{destination_bucket}/multipart/{upload_id}/complete",
-                params={"account_id": destination_account_id, "key": destination_key},
+                params={"context_id": destination_account_id, "key": destination_key},
                 json={"parts": completed_parts},
             )
         except Exception:
             session.delete(
                 f"/browser/buckets/{destination_bucket}/multipart/{upload_id}",
-                params={"account_id": destination_account_id, "key": destination_key},
+                params={"context_id": destination_account_id, "key": destination_key},
                 expected_status=(200, 404),
             )
             raise

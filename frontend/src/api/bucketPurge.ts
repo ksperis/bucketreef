@@ -92,7 +92,7 @@ export function streamManagerBucketPurge(
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
   const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ account_id: String(contextId) });
+  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamBucketsWithSse<BucketPurgeProgress, BucketPurgeResult>({
     url: `${baseUrl}/manager/bucket-purge/stream?${query.toString()}`,
     options,
@@ -109,7 +109,7 @@ export function streamManagerBucketDeleteWithPurge(
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
   const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ account_id: String(contextId) });
+  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamBucketsWithSse<BucketPurgeProgress, BucketPurgeResult>({
     url: `${baseUrl}/manager/buckets/${encodeURIComponent(bucketName)}/delete/stream?${query.toString()}`,
     options,

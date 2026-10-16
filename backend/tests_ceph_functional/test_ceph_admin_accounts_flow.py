@@ -104,7 +104,7 @@ def test_ceph_admin_account_metrics_are_scoped_to_requested_account(
     bucket_name = f"{prefix}-acct-metrics-{uuid.uuid4().hex[:8]}"
     provisioned_account.manager_session.post(
         "/manager/buckets",
-        params={"account_id": provisioned_account.account_id},
+        params={"context_id": provisioned_account.account_id},
         json={"name": bucket_name},
         expected_status=201,
     )

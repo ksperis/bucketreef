@@ -26,7 +26,7 @@ from app.routers.storage_ops import purge as storage_ops_purge
 from tests.execution_context_factory import make_s3_execution_context
 
 
-def _build_request(path: str = "/api/manager/bucket-purge/stream", query_string: bytes = b"account_id=s3u-1") -> Request:
+def _build_request(path: str = "/api/manager/bucket-purge/stream", query_string: bytes = b"context_id=s3u-1") -> Request:
     return Request(
         {
             "type": "http",
@@ -102,7 +102,7 @@ def test_manager_purge_route_rejects_wrong_confirmation_with_400():
     try:
         with TestClient(app) as client:
             response = client.post(
-                "/api/manager/bucket-purge/stream?account_id=s3u-1",
+                "/api/manager/bucket-purge/stream?context_id=s3u-1",
                 json={"buckets": ["bucket-a", "bucket-b"], "confirmation": "PURGE 1 BUCKETS"},
             )
     finally:
@@ -125,7 +125,7 @@ def test_manager_delete_with_purge_route_rejects_wrong_confirmation_with_400():
     try:
         with TestClient(app) as client:
             response = client.post(
-                "/api/manager/buckets/bucket-a/delete/stream?account_id=s3u-1",
+                "/api/manager/buckets/bucket-a/delete/stream?context_id=s3u-1",
                 json={"confirmation": "DELETE BUCKET bucket-b"},
             )
     finally:
@@ -173,7 +173,7 @@ def test_manager_purge_route_streams_progress_and_result(monkeypatch):
     try:
         with TestClient(app) as client:
             response = client.post(
-                "/api/manager/bucket-purge/stream?account_id=s3u-1",
+                "/api/manager/bucket-purge/stream?context_id=s3u-1",
                 json={
                     "buckets": ["bucket-a"],
                     "parallelism": 4,
@@ -240,7 +240,7 @@ def test_manager_delete_with_purge_route_streams_progress_and_result(monkeypatch
     try:
         with TestClient(app) as client:
             response = client.post(
-                "/api/manager/buckets/bucket-a/delete/stream?account_id=s3u-1",
+                "/api/manager/buckets/bucket-a/delete/stream?context_id=s3u-1",
                 json={
                     "parallelism": 4,
                     "confirmation": "DELETE BUCKET bucket-a",

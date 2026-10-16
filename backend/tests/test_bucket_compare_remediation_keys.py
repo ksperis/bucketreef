@@ -106,7 +106,7 @@ def test_http_remediation_targets_only_selected_exact_keys(client, monkeypatch, 
     app.dependency_overrides[buckets.get_audit_service] = lambda: audit
     monkeypatch.setattr(buckets, "get_account_context", lambda **kwargs: target)
 
-    response = client.post("/api/manager/buckets/compare/action", params={"account_id": "1"}, json=_payload(selected, action))
+    response = client.post("/api/manager/buckets/compare/action", params={"context_id": "1"}, json=_payload(selected, action))
 
     assert response.status_code == 200, response.text
     assert response.json()["planned_count"] == len(selected)

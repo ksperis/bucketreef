@@ -78,12 +78,12 @@ describe("browser transfer api", () => {
     expect(clientMock.post).toHaveBeenCalledWith(
       "/browser/buckets/research%20data/presign",
       { key: "reports/a.csv", operation: "put_object" },
-      { params: { account_id: "account-1" }, headers },
+      { params: { context_id: "account-1" }, headers },
     );
     expect(clientMock.get).toHaveBeenCalledWith(
       "/browser/buckets/research%20data/download",
       {
-        params: { account_id: "account-1", key: "reports/a.csv" },
+        params: { context_id: "account-1", key: "reports/a.csv" },
         headers,
         responseType: "blob",
         signal,

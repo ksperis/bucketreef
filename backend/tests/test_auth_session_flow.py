@@ -366,7 +366,7 @@ def test_iam_overview_success(monkeypatch, client, db_session):
     app.dependency_overrides[dependencies.get_account_context] = lambda: account
     app.dependency_overrides[dependencies.require_iam_capable_manager] = lambda: {"ok": True}
     try:
-        resp = client.get(f"/api/manager/iam/overview?account_id={account.id}")
+        resp = client.get(f"/api/manager/iam/overview?context_id={account.id}")
     finally:
         if previous_account_context is not None:
             app.dependency_overrides[dependencies.get_account_context] = previous_account_context
@@ -409,7 +409,7 @@ def test_iam_overview_handles_partial_failures(monkeypatch, client, db_session):
     app.dependency_overrides[dependencies.get_account_context] = lambda: account
     app.dependency_overrides[dependencies.require_iam_capable_manager] = lambda: {"ok": True}
     try:
-        resp = client.get(f"/api/manager/iam/overview?account_id={account.id}")
+        resp = client.get(f"/api/manager/iam/overview?context_id={account.id}")
     finally:
         if previous_account_context is not None:
             app.dependency_overrides[dependencies.get_account_context] = previous_account_context

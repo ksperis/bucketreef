@@ -69,7 +69,7 @@ def _upload(
     response = session.request(
         "POST",
         f"/browser/buckets/{bucket}/proxy-upload",
-        params={"account_id": account_ref},
+        params={"context_id": account_ref},
         headers={"X-S3-Workspace": workspace},
         data={"key": key, "content_type": "application/octet-stream"},
         files={"file": (key.rsplit("/", 1)[-1], io.BytesIO(body), "application/octet-stream")},
@@ -88,7 +88,7 @@ def _delete_object(
 ) -> None:
     session.post(
         f"/browser/buckets/{bucket}/delete",
-        params={"account_id": account_ref},
+        params={"context_id": account_ref},
         headers={"X-S3-Workspace": workspace},
         json={"objects": [{"key": key}]},
     )
@@ -284,14 +284,14 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
 
     account_context = actor.get(
         "/manager/context",
-        params={"account_id": account_id, "include_limits": "true"},
+        params={"context_id": account_id, "include_limits": "true"},
     )
     assert account_context["context_kind"] == "account"
     assert account_context["access_mode"] == "admin"
 
     actor.post(
         "/manager/buckets",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"name": account_bucket, "versioning": False},
         expected_status=201,
     )
@@ -305,7 +305,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     )
     account_overview = actor.get(
         "/manager/stats/overview",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     assert account_overview["total_buckets"] == 1
     assert [item["name"] for item in account_overview["bucket_usage"]] == [account_bucket]
@@ -329,7 +329,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
 
     user_context = actor.get(
         "/manager/context",
-        params={"account_id": s3_user_ref, "include_limits": "true"},
+        params={"context_id": s3_user_ref, "include_limits": "true"},
     )
     # ManagerContext keeps the historical account-shaped response contract;
     # access_mode identifies the selected S3-user execution context.
@@ -338,12 +338,12 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     assert user_context["manager_bucket_quota_enabled"] is False
     user_buckets = actor.get(
         "/manager/buckets",
-        params={"account_id": s3_user_ref},
+        params={"context_id": s3_user_ref},
     )
     assert [item["name"] for item in user_buckets] == [shared_bucket]
     user_overview = actor.get(
         "/manager/stats/overview",
-        params={"account_id": s3_user_ref},
+        params={"context_id": s3_user_ref},
     )
     assert user_overview["total_buckets"] == 1
     assert [item["name"] for item in user_overview["bucket_usage"]] == [shared_bucket]
@@ -355,7 +355,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     assert [item["name"] for item in user_admin_stats["bucket_usage"]] == [shared_bucket]
     usage_summary = actor.get(
         "/browser/usage-summary",
-        params={"account_id": s3_user_ref},
+        params={"context_id": s3_user_ref},
     )
     assert usage_summary["available"] is True
     assert usage_summary["source"] == "s3_user"
@@ -364,7 +364,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     for context_ref in (account_id, s3_user_ref):
         traffic = actor.get(
             "/manager/stats/traffic",
-            params={"account_id": context_ref, "window": "day"},
+            params={"context_id": context_ref, "window": "day"},
             expected_status=(200, 502),
         )
         if "detail" not in traffic:
@@ -464,7 +464,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     )
     actor.delete(
         f"/manager/buckets/{account_bucket}",
-        params={"account_id": account_id, "force": "true"},
+            params={"context_id": account_id, "force": "true"},
         expected_status=(200, 204),
     )
     resource_tracker.discard_ceph_admin_bucket(account_bucket, tenant=account_tenant)

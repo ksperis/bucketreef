@@ -13,7 +13,7 @@ from .clients import BackendAPIError, BackendSession
 from .config import CephTestSettings
 from .resources import ResourceTracker
 from .test_browser_clipboard_flow import (
-    _account_params,
+    _context_params,
     _assert_object_matches,
     _bucket_name,
     _create_bucket,
@@ -64,7 +64,7 @@ def _delete_version(
 ) -> None:
     session.post(
         f"/browser/buckets/{bucket_name}/delete",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={"objects": [{"key": key, "version_id": version_id}]},
     )
 
@@ -114,7 +114,7 @@ def _ensure_bucket_object_lock_if_supported(
     try:
         session.put(
             f"/manager/buckets/{bucket_name}/object-lock",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"enabled": True, "mode": "GOVERNANCE", "days": 1},
         )
         return True
@@ -190,7 +190,7 @@ def test_browser_object_properties_roundtrip_flow(
 
         metadata_payload = manager_session.put(
             f"/browser/buckets/{bucket_name}/object-meta",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "key": object_key,
                 "content_type": "text/markdown; charset=utf-8",
@@ -232,7 +232,7 @@ def test_browser_object_properties_roundtrip_flow(
 
         tags_payload = manager_session.put(
             f"/browser/buckets/{bucket_name}/object-tags",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "key": object_key,
                 "tags": [{"key": key, "value": value} for key, value in sorted(expected_tags.items())],
@@ -256,7 +256,7 @@ def test_browser_object_properties_roundtrip_flow(
         target_storage_class = "STANDARD"
         storage_payload = manager_session.put(
             f"/browser/buckets/{bucket_name}/object-meta",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "key": object_key,
                 "storage_class": target_storage_class,
@@ -324,7 +324,7 @@ def test_browser_object_access_and_protection_roundtrip_flow(
 
         acl_payload = manager_session.put(
             f"/browser/buckets/{bucket_name}/object-acl",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"key": object_key, "acl": "public-read", "version_id": version_id},
         )
         assert acl_payload["acl"] == "public-read"
@@ -340,7 +340,7 @@ def test_browser_object_access_and_protection_roundtrip_flow(
 
         presigned = manager_session.post(
             f"/browser/buckets/{bucket_name}/presign",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "key": object_key,
                 "operation": "get_object",
@@ -366,20 +366,20 @@ def test_browser_object_access_and_protection_roundtrip_flow(
         try:
             legal_hold = manager_session.put(
                 f"/browser/buckets/{bucket_name}/object-legal-hold",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"key": object_key, "status": "ON", "version_id": version_id},
             )
             assert legal_hold["status"] == "ON"
             fetched_legal_hold = manager_session.get(
                 f"/browser/buckets/{bucket_name}/object-legal-hold",
-                params={"account_id": account_id, "key": object_key, "version_id": version_id},
+                params={"context_id": account_id, "key": object_key, "version_id": version_id},
             )
             assert fetched_legal_hold["status"] == "ON"
 
             initial_retain_until = (datetime.now(timezone.utc) + timedelta(days=3)).replace(microsecond=0)
             retention = manager_session.put(
                 f"/browser/buckets/{bucket_name}/object-retention",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "key": object_key,
                     "mode": "GOVERNANCE",
@@ -390,7 +390,7 @@ def test_browser_object_access_and_protection_roundtrip_flow(
             assert retention["mode"] == "GOVERNANCE"
             fetched_retention = manager_session.get(
                 f"/browser/buckets/{bucket_name}/object-retention",
-                params={"account_id": account_id, "key": object_key, "version_id": version_id},
+                params={"context_id": account_id, "key": object_key, "version_id": version_id},
             )
             assert fetched_retention["mode"] == "GOVERNANCE"
             _assert_close_datetime(fetched_retention["retain_until"], initial_retain_until)
@@ -398,7 +398,7 @@ def test_browser_object_access_and_protection_roundtrip_flow(
             bypass_retain_until = (datetime.now(timezone.utc) + timedelta(days=1)).replace(microsecond=0)
             bypass_retention = manager_session.put(
                 f"/browser/buckets/{bucket_name}/object-retention",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "key": object_key,
                     "mode": "GOVERNANCE",
@@ -411,7 +411,7 @@ def test_browser_object_access_and_protection_roundtrip_flow(
             assert bypass_retention["bypass_governance"] is True
             fetched_bypass_retention = manager_session.get(
                 f"/browser/buckets/{bucket_name}/object-retention",
-                params={"account_id": account_id, "key": object_key, "version_id": version_id},
+                params={"context_id": account_id, "key": object_key, "version_id": version_id},
             )
             assert fetched_bypass_retention["mode"] == "GOVERNANCE"
             _assert_close_datetime(fetched_bypass_retention["retain_until"], bypass_retain_until)
@@ -444,7 +444,7 @@ def test_browser_object_access_and_protection_roundtrip_flow(
             try:
                 manager_session.put(
                     f"/browser/buckets/{bucket_name}/object-legal-hold",
-                    params=_account_params(account_id),
+                    params=_context_params(account_id),
                     json={"key": object_key, "status": "OFF", "version_id": version_id},
                 )
             except BackendAPIError:
@@ -452,7 +452,7 @@ def test_browser_object_access_and_protection_roundtrip_flow(
             try:
                 manager_session.put(
                     f"/browser/buckets/{bucket_name}/object-retention",
-                    params=_account_params(account_id),
+                    params=_context_params(account_id),
                     json={
                         "key": object_key,
                         "mode": "GOVERNANCE",
@@ -522,14 +522,14 @@ def test_browser_versions_cleanup_flow(
 
         before_cleanup = manager_session.get(
             f"/browser/buckets/{bucket_name}/versions",
-            params={"account_id": account_id, "prefix": "reports/", "max_keys": 1000},
+            params={"context_id": account_id, "prefix": "reports/", "max_keys": 1000},
         )
         assert len(before_cleanup.get("versions") or []) == 3
         assert len(before_cleanup.get("delete_markers") or []) == 2
 
         cleanup = manager_session.post(
             f"/browser/buckets/{bucket_name}/versions/cleanup",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"prefix": "reports/", "keep_last_n": 1, "delete_orphan_markers": True},
         )
         assert cleanup["deleted_versions"] == 2
@@ -539,7 +539,7 @@ def test_browser_versions_cleanup_flow(
 
         after_cleanup = manager_session.get(
             f"/browser/buckets/{bucket_name}/versions",
-            params={"account_id": account_id, "prefix": "reports/", "max_keys": 1000},
+            params={"context_id": account_id, "prefix": "reports/", "max_keys": 1000},
         )
         remaining_versions = [entry for entry in (after_cleanup.get("versions") or []) if entry.get("key") == key_main]
         remaining_delete_markers = [
@@ -569,7 +569,7 @@ def test_browser_sts_and_cors_ensure_flow(
         origin = "https://functional.browser.example.test"
         initial_cors = manager_session.get(
             f"/browser/buckets/{bucket_name}/cors",
-            params={"account_id": account_id, "origin": origin},
+            params={"context_id": account_id, "origin": origin},
         )
         assert initial_cors["enabled"] is False
         assert initial_cors["rules"] == []
@@ -578,7 +578,7 @@ def test_browser_sts_and_cors_ensure_flow(
             "browser bucket CORS ensure",
             lambda: manager_session.post(
                 f"/browser/buckets/{bucket_name}/cors/ensure",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"origin": origin},
             ),
         )
@@ -596,10 +596,10 @@ def test_browser_sts_and_cors_ensure_flow(
         assert {"GET", "PUT", "POST", "HEAD"}.issubset(set(matching_rule.get("allowed_methods") or []))
         assert "Content-Type" in (matching_rule.get("allowed_headers") or [])
 
-        sts_status = manager_session.get("/browser/sts", params=_account_params(account_id))
+        sts_status = manager_session.get("/browser/sts", params=_context_params(account_id))
         assert isinstance(sts_status.get("available"), bool)
         if sts_status["available"]:
-            credentials = manager_session.get("/browser/sts/credentials", params=_account_params(account_id))
+            credentials = manager_session.get("/browser/sts/credentials", params=_context_params(account_id))
             assert credentials["access_key_id"]
             assert credentials["secret_access_key"]
             assert credentials["session_token"]
@@ -611,7 +611,7 @@ def test_browser_sts_and_cors_ensure_flow(
             response = manager_session.request(
                 "GET",
                 "/browser/sts/credentials",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 expected_status=(502,),
             )
             try:
@@ -653,7 +653,7 @@ def test_browser_object_governance_flow(
 
         manager_session.put(
             f"/browser/buckets/{bucket_name}/object-acl",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"key": object_key, "acl": "public-read", "version_id": version_id},
         )
         acl_payload = _get_object_acl(
@@ -672,20 +672,20 @@ def test_browser_object_governance_flow(
         try:
             legal_hold = manager_session.put(
                 f"/browser/buckets/{bucket_name}/object-legal-hold",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"key": object_key, "status": "ON", "version_id": version_id},
             )
             assert legal_hold["status"] == "ON"
             fetched_legal_hold = manager_session.get(
                 f"/browser/buckets/{bucket_name}/object-legal-hold",
-                params={"account_id": account_id, "key": object_key, "version_id": version_id},
+                params={"context_id": account_id, "key": object_key, "version_id": version_id},
             )
             assert fetched_legal_hold["status"] == "ON"
 
             retain_until = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
             retention = manager_session.put(
                 f"/browser/buckets/{bucket_name}/object-retention",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "key": object_key,
                     "mode": "GOVERNANCE",
@@ -697,7 +697,7 @@ def test_browser_object_governance_flow(
             assert retention["mode"] == "GOVERNANCE"
             fetched_retention = manager_session.get(
                 f"/browser/buckets/{bucket_name}/object-retention",
-                params={"account_id": account_id, "key": object_key, "version_id": version_id},
+                params={"context_id": account_id, "key": object_key, "version_id": version_id},
             )
             assert fetched_retention["mode"] == "GOVERNANCE"
             assert _parse_iso_datetime(str(fetched_retention["retain_until"])) >= _parse_iso_datetime(retain_until)
@@ -740,7 +740,7 @@ def test_browser_multipart_listing_and_completion_flow(
     try:
         init = manager_session.post(
             f"/browser/buckets/{bucket_name}/multipart/initiate",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"key": object_key, "content_type": "application/octet-stream"},
         )
         upload_id = str(init["upload_id"])
@@ -748,7 +748,7 @@ def test_browser_multipart_listing_and_completion_flow(
         for part_number, part in enumerate((part_one, part_two), start=1):
             presigned_part = manager_session.post(
                 f"/browser/buckets/{bucket_name}/multipart/{upload_id}/presign",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"key": object_key, "part_number": part_number, "expires_in": 1800},
             )
             part_response = _perform_presigned_request(
@@ -765,14 +765,14 @@ def test_browser_multipart_listing_and_completion_flow(
 
         uploads = manager_session.get(
             f"/browser/buckets/{bucket_name}/multipart",
-            params={"account_id": account_id, "prefix": "multipart/"},
+            params={"context_id": account_id, "prefix": "multipart/"},
         )
         upload_ids = {str(entry.get("upload_id") or "") for entry in (uploads.get("uploads") or [])}
         assert upload_id in upload_ids
 
         manager_session.post(
             f"/browser/buckets/{bucket_name}/multipart/{upload_id}/complete",
-            params={"account_id": account_id, "key": object_key},
+            params={"context_id": account_id, "key": object_key},
             json={"parts": completed_parts},
         )
         assembled_payload = part_one + part_two
@@ -787,7 +787,7 @@ def test_browser_multipart_listing_and_completion_flow(
 
         uploads_after_complete = manager_session.get(
             f"/browser/buckets/{bucket_name}/multipart",
-            params={"account_id": account_id, "prefix": "multipart/"},
+            params={"context_id": account_id, "prefix": "multipart/"},
         )
         assert upload_id not in {
             str(entry.get("upload_id") or "")
@@ -796,18 +796,18 @@ def test_browser_multipart_listing_and_completion_flow(
 
         second_upload = manager_session.post(
             f"/browser/buckets/{bucket_name}/multipart/initiate",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"key": second_key, "content_type": "application/octet-stream"},
         )
         second_upload_id = str(second_upload["upload_id"])
         manager_session.delete(
             f"/browser/buckets/{bucket_name}/multipart/{second_upload_id}",
-            params={"account_id": account_id, "key": second_key},
+            params={"context_id": account_id, "key": second_key},
             expected_status=(200,),
         )
         uploads_after_abort = manager_session.get(
             f"/browser/buckets/{bucket_name}/multipart",
-            params={"account_id": account_id, "prefix": "multipart/"},
+            params={"context_id": account_id, "prefix": "multipart/"},
         )
         assert second_upload_id not in {
             str(entry.get("upload_id") or "")
@@ -852,7 +852,7 @@ def test_browser_copy_replace_metadata_tags_acl_flow(
 
         manager_session.post(
             f"/browser/buckets/{destination_bucket}/copy",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "source_bucket": source_bucket,
                 "source_key": source_key,

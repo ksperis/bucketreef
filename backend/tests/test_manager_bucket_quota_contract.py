@@ -85,7 +85,7 @@ def test_manager_bucket_quota_update_requires_effective_manager_access(client, d
     try:
         response = client.put(
             "/api/manager/buckets/demo-bucket/quota",
-            params={"account_id": account.id},
+            params={"context_id": account.id},
             json={"max_size_gb": 1, "max_objects": 1000},
         )
     finally:
@@ -105,7 +105,7 @@ def test_manager_bucket_quota_update_requires_target_grant(client, db_session):
     try:
         response = client.put(
             "/api/manager/buckets/demo-bucket/quota",
-            params={"account_id": account.id},
+            params={"context_id": account.id},
             json={"max_size_gb": 1, "max_objects": 1000},
         )
     finally:
@@ -140,7 +140,7 @@ def test_manager_bucket_quota_update_succeeds_with_privileged_access(client, db_
     try:
         response = client.put(
             "/api/manager/buckets/demo-bucket/quota",
-            params={"account_id": account.id},
+            params={"context_id": account.id},
             json={"max_size_gb": 2, "max_size_unit": "GiB", "max_objects": 2000},
         )
     finally:
@@ -193,7 +193,7 @@ def test_embedded_browser_private_connection_cannot_forge_manager_quota_update(c
     try:
         response = client.put(
             "/api/manager/buckets/demo-bucket/quota",
-            params={"account_id": "conn-44"},
+            params={"context_id": "conn-44"},
             json={"max_size_gb": 1},
         )
     finally:

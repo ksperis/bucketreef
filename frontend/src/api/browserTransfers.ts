@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 import {
   buildBrowserWorkspaceHeaders,
@@ -59,7 +59,7 @@ export async function presignObject(
     `/browser/buckets/${encodeURIComponent(bucketName)}/presign`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -94,7 +94,7 @@ export async function proxyUpload(
     `/browser/buckets/${encodeURIComponent(bucketName)}/proxy-upload`,
     form,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -118,7 +118,7 @@ export async function proxyDownload(
   const { data } = await client.get(
     `/browser/buckets/${encodeURIComponent(bucketName)}/download`,
     {
-      params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId),
+      params: withS3ContextParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),

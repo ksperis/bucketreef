@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 import { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 
 type IamEntitySegment = "users" | "groups" | "roles";
@@ -17,7 +17,7 @@ function entityPath(segment: IamEntitySegment, entityName: string): string {
 }
 
 function withAccount(accountId?: S3AccountSelector) {
-  return { params: withS3AccountParam(undefined, accountId) };
+  return { params: withS3ContextParam(undefined, accountId) };
 }
 
 export async function listIamEntities<T>(segment: IamEntitySegment, accountId?: S3AccountSelector): Promise<T[]> {

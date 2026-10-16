@@ -90,7 +90,7 @@ def test_cleanup_discovers_and_purges_buckets_through_account_scope() -> None:
 
     assert tracker.cleanup() == []
 
-    assert ("/manager/buckets", {"account_id": 7}) in admin.get_calls
+    assert ("/manager/buckets", {"context_id": 7}) in admin.get_calls
     assert (
         "/ceph-admin/endpoints/3/buckets/derived-portal-bucket",
         {},

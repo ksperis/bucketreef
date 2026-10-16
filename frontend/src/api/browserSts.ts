@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { withS3ContextParam } from "./accountParams";
 import type { StsCredentials, StsStatus } from "./browserContracts";
 import { buildBrowserWorkspaceHeaders } from "./browserRequestHeaders";
 import type { BrowserRequestOptions } from "./browserWorkspace";
@@ -14,7 +14,7 @@ export async function getBrowserStsStatus(
   options?: BrowserRequestOptions,
 ): Promise<StsStatus> {
   const { data } = await client.get<StsStatus>("/browser/sts", {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
     headers: buildBrowserWorkspaceHeaders(options),
   });
   return data;
@@ -27,7 +27,7 @@ export async function getBrowserStsCredentials(
   const { data } = await client.get<StsCredentials>(
     "/browser/sts/credentials",
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );

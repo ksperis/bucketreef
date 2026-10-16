@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 
 export type ManagerObject = {
   key: string;
@@ -29,7 +29,7 @@ export async function listManagerObjects(
   const { data } = await client.get<ManagerObjectListingResponse>(
     `/manager/buckets/${encodeURIComponent(bucketName)}/objects`,
     {
-      params: withS3AccountParam(
+      params: withS3ContextParam(
         {
           prefix,
           continuation_token: continuationToken,

@@ -30,8 +30,8 @@ def _iam_name(prefix: str, label: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}-{label}"
 
 
-def _account_params(account_id: int | str) -> dict[str, int | str]:
-    return {"account_id": account_id}
+def _context_params(account_id: int | str) -> dict[str, int | str]:
+    return {"context_id": account_id}
 
 
 def _stable_dump(value: Any) -> str:
@@ -115,7 +115,7 @@ def _create_bucket(
 ) -> None:
     manager_session.post(
         "/manager/buckets",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={
             "name": bucket_name,
             "versioning": versioning,
@@ -133,7 +133,7 @@ def _delete_bucket(
     try:
         manager_session.delete(
             f"/manager/buckets/{bucket_name}",
-            params={"account_id": account_id, "force": "true"},
+            params={"context_id": account_id, "force": "true"},
             expected_status=(200, 404),
         )
     except BackendAPIError:
@@ -166,7 +166,7 @@ def _allow_server_access_log_delivery(
     }
     manager_session.put(
         f"/manager/buckets/{target_bucket}/policy",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={"policy": policy},
     )
 
@@ -177,7 +177,7 @@ def _delete_topic(manager_session: BackendSession, account_id: int, topic_arn: s
     try:
         manager_session.delete(
             f"/manager/topics/{topic_arn}",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204, 404),
         )
     except BackendAPIError:
@@ -295,14 +295,14 @@ def test_manager_bucket_configuration_roundtrip(
     try:
         manager_session.put(
             f"/manager/buckets/{bucket_name}/versioning",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"enabled": True},
         )
         properties = _wait_for_value(
             "bucket versioning",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/properties",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: current.get("versioning_status") == "Enabled",
         )
@@ -318,27 +318,27 @@ def test_manager_bucket_configuration_roundtrip(
         ]
         manager_session.put(
             f"/manager/buckets/{bucket_name}/lifecycle",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"rules": lifecycle_rules},
         )
         _wait_for_equal(
             "bucket lifecycle rules",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/lifecycle",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             {"rules": lifecycle_rules},
         )
         manager_session.delete(
             f"/manager/buckets/{bucket_name}/lifecycle",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204,),
         )
         _wait_for_equal(
             "bucket lifecycle deletion",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/lifecycle",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             {"rules": []},
         )
@@ -354,27 +354,27 @@ def test_manager_bucket_configuration_roundtrip(
         ]
         manager_session.put(
             f"/manager/buckets/{bucket_name}/cors",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"rules": cors_rules},
         )
         _wait_for_equal(
             "bucket CORS rules",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/cors",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             {"rules": cors_rules},
         )
         manager_session.delete(
             f"/manager/buckets/{bucket_name}/cors",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204,),
         )
         _wait_for_equal(
             "bucket CORS deletion",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/cors",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             {"rules": []},
         )
@@ -387,27 +387,27 @@ def test_manager_bucket_configuration_roundtrip(
         }
         manager_session.put(
             f"/manager/buckets/{bucket_name}/tags",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json=tag_payload,
         )
         _wait_for_equal(
             "bucket tags",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/tags",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             tag_payload,
         )
         manager_session.delete(
             f"/manager/buckets/{bucket_name}/tags",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204,),
         )
         _wait_for_equal(
             "bucket tag deletion",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/tags",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             {"tags": []},
         )
@@ -426,27 +426,27 @@ def test_manager_bucket_configuration_roundtrip(
         }
         manager_session.put(
             f"/manager/buckets/{bucket_name}/policy",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"policy": policy_document},
         )
         _wait_for_equal(
             "bucket policy",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/policy",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             {"policy": policy_document},
         )
         manager_session.delete(
             f"/manager/buckets/{bucket_name}/policy",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204,),
         )
         _wait_for_value(
             "bucket policy deletion",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/policy",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: current.get("policy") is None,
         )
@@ -459,14 +459,14 @@ def test_manager_bucket_configuration_roundtrip(
         }
         manager_session.put(
             f"/manager/buckets/{bucket_name}/public-access-block",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json=public_access_block,
         )
         _wait_for_equal(
             "bucket public access block",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/public-access-block",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             public_access_block,
         )
@@ -507,14 +507,14 @@ def test_manager_bucket_logging_roundtrip(
         }
         manager_session.put(
             f"/manager/buckets/{bucket_name}/logging",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json=logging_payload,
         )
         _wait_for_value(
             "bucket access logging",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/logging",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: (
                 current.get("enabled") is True
@@ -524,14 +524,14 @@ def test_manager_bucket_logging_roundtrip(
         )
         manager_session.delete(
             f"/manager/buckets/{bucket_name}/logging",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204,),
         )
         _wait_for_value(
             "bucket access logging deletion",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/logging",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: (
                 current.get("enabled") is False
@@ -571,14 +571,14 @@ def test_manager_bucket_website_roundtrip(
         }
         manager_session.put(
             f"/manager/buckets/{bucket_name}/website",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json=website_payload,
         )
         _wait_for_value(
             "bucket website configuration",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/website",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: (
                 current.get("index_document") == "index.html"
@@ -588,14 +588,14 @@ def test_manager_bucket_website_roundtrip(
         )
         manager_session.delete(
             f"/manager/buckets/{bucket_name}/website",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204,),
         )
         _wait_for_value(
             "bucket website deletion",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/website",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: (
                 not current.get("index_document")
@@ -632,7 +632,7 @@ def test_manager_bucket_notifications_roundtrip(
             "manager topic creation",
             lambda: manager_session.post(
                 "/manager/topics",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"name": topic_name},
                 expected_status=201,
             ),
@@ -660,7 +660,7 @@ def test_manager_bucket_notifications_roundtrip(
             "manager bucket notifications update",
             lambda: manager_session.put(
                 f"/manager/buckets/{bucket_name}/notifications",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"configuration": notification_configuration},
             ),
         )
@@ -668,21 +668,21 @@ def test_manager_bucket_notifications_roundtrip(
             "bucket notification configuration",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/notifications",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             {"configuration": notification_configuration},
         )
 
         manager_session.delete(
             f"/manager/buckets/{bucket_name}/notifications",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204,),
         )
         _wait_for_equal(
             "bucket notification deletion",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/notifications",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             {"configuration": {}},
         )
@@ -718,7 +718,7 @@ def test_manager_bucket_replication_roundtrip(
             f"bucket versioning for {bucket_name}",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/properties",
-                params=_account_params(account_ref),
+                params=_context_params(account_ref),
             ),
             lambda current: current.get("versioning_status") == "Enabled",
         )
@@ -743,7 +743,7 @@ def test_manager_bucket_replication_roundtrip(
 
         manager_session.put(
             f"/manager/buckets/{bucket_name}/replication",
-            params=_account_params(account_ref),
+            params=_context_params(account_ref),
             json=replication_payload,
         )
         replication_configured = True
@@ -772,7 +772,7 @@ def test_manager_bucket_replication_roundtrip(
             "bucket replication configuration",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/replication",
-                params=_account_params(account_ref),
+                params=_context_params(account_ref),
             ),
             _replication_matches,
         )
@@ -808,7 +808,7 @@ def test_manager_bucket_replication_roundtrip(
             "replicated object on target zone",
             lambda: super_admin_session.get(
                 f"/browser/buckets/{bucket_name}/object-meta",
-                params={"account_id": f"ceph-admin-{target_endpoint_id}", "key": object_key},
+                params={"context_id": f"ceph-admin-{target_endpoint_id}", "key": object_key},
                 headers={"X-S3-Workspace": ""},
             ),
             lambda current: isinstance(current, dict)
@@ -821,7 +821,7 @@ def test_manager_bucket_replication_roundtrip(
 
         manager_session.delete(
             f"/manager/buckets/{bucket_name}/replication",
-            params=_account_params(account_ref),
+            params=_context_params(account_ref),
             expected_status=(204,),
         )
         replication_configured = False
@@ -829,7 +829,7 @@ def test_manager_bucket_replication_roundtrip(
             "bucket replication deletion",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/replication",
-                params=_account_params(account_ref),
+                params=_context_params(account_ref),
             ),
             lambda current: not ((current.get("configuration") or {}).get("Rules"))
             if isinstance(current, dict)
@@ -840,7 +840,7 @@ def test_manager_bucket_replication_roundtrip(
             try:
                 manager_session.delete(
                     f"/manager/buckets/{bucket_name}/replication",
-                    params=_account_params(account_ref),
+                    params=_context_params(account_ref),
                     expected_status=(204, 404),
                 )
             except BackendAPIError:
@@ -848,7 +848,7 @@ def test_manager_bucket_replication_roundtrip(
         try:
             manager_session.delete(
                 f"/manager/buckets/{bucket_name}",
-                params={"account_id": account_ref, "force": "true"},
+                params={"context_id": account_ref, "force": "true"},
                 expected_status=(200, 404),
             )
         except BackendAPIError:

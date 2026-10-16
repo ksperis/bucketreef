@@ -12,7 +12,7 @@ from .clients import BackendAPIError, BackendSession
 from .config import CephTestSettings
 from .resources import ResourceTracker
 from .test_browser_clipboard_flow import (
-    _account_params,
+    _context_params,
     _bucket_name,
     _download_bytes,
     _list_object_keys,
@@ -56,7 +56,7 @@ def _has_public_read_bucket_acl(payload: dict) -> bool:
 def _delete_role(session: BackendSession, account_id: int, role_name: str) -> None:
     session.delete(
         f"/manager/iam/roles/{role_name}",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         expected_status=(204, 404),
     )
 
@@ -64,7 +64,7 @@ def _delete_role(session: BackendSession, account_id: int, role_name: str) -> No
 def _delete_group(session: BackendSession, account_id: int, group_name: str) -> None:
     session.delete(
         f"/manager/iam/groups/{group_name}",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         expected_status=(204, 404),
     )
 
@@ -142,7 +142,7 @@ def test_manager_bucket_compare_and_remediation_flow(
         try:
             comparison = manager_session.post(
                 "/manager/buckets/compare",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "target_context_id": str(account_id),
                     "source_bucket": source_bucket,
@@ -172,7 +172,7 @@ def test_manager_bucket_compare_and_remediation_flow(
         ):
             remediation = manager_session.post(
                 "/manager/buckets/compare/action",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "target_context_id": str(account_id),
                     "source_bucket": source_bucket,
@@ -193,7 +193,7 @@ def test_manager_bucket_compare_and_remediation_flow(
 
         final_comparison = manager_session.post(
             "/manager/buckets/compare",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "target_context_id": str(account_id),
                 "source_bucket": source_bucket,
@@ -227,7 +227,7 @@ def test_manager_bucket_advanced_security_roundtrip(
     try:
         acl_payload = manager_session.put(
             f"/manager/buckets/{bucket_name}/acl",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"acl": "public-read"},
         )
         assert _has_public_read_bucket_acl(acl_payload)
@@ -235,7 +235,7 @@ def test_manager_bucket_advanced_security_roundtrip(
         try:
             encryption_payload = manager_session.put(
                 f"/manager/buckets/{bucket_name}/encryption",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]},
             )
         except BackendAPIError as exc:
@@ -249,24 +249,24 @@ def test_manager_bucket_advanced_security_roundtrip(
             assert encryption_payload["rules"] == [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]
             fetched_encryption = manager_session.get(
                 f"/manager/buckets/{bucket_name}/encryption",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             )
             assert fetched_encryption["rules"] == encryption_payload["rules"]
             manager_session.delete(
                 f"/manager/buckets/{bucket_name}/encryption",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 expected_status=(204,),
             )
             fetched_after_delete = manager_session.get(
                 f"/manager/buckets/{bucket_name}/encryption",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             )
             assert fetched_after_delete["rules"] == []
 
         try:
             object_lock_payload = manager_session.put(
                 f"/manager/buckets/{bucket_name}/object-lock",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"enabled": True, "mode": "GOVERNANCE", "days": 1},
             )
         except BackendAPIError as exc:
@@ -287,7 +287,7 @@ def test_manager_bucket_advanced_security_roundtrip(
         assert object_lock_payload["days"] == 1
         fetched_object_lock = manager_session.get(
             f"/manager/buckets/{bucket_name}/object-lock",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
         )
         assert fetched_object_lock["enabled"] is True
         assert fetched_object_lock["mode"] == "GOVERNANCE"
@@ -314,7 +314,7 @@ def test_manager_iam_roles_and_groups_flow(
     try:
         created_user = manager_session.post(
             "/manager/iam/users",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"name": user_name, "create_key": True},
             expected_status=201,
         )
@@ -322,7 +322,7 @@ def test_manager_iam_roles_and_groups_flow(
 
         created_group = manager_session.post(
             "/manager/iam/groups",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "name": group_name,
                 "inline_policies": [
@@ -341,7 +341,7 @@ def test_manager_iam_roles_and_groups_flow(
 
         created_role = manager_session.post(
             "/manager/iam/roles",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "name": role_name,
                 "path": "/functional/",
@@ -366,28 +366,28 @@ def test_manager_iam_roles_and_groups_flow(
 
         assert any(
             entry["name"] == group_name
-            for entry in manager_session.get("/manager/iam/groups", params=_account_params(account_id))
+            for entry in manager_session.get("/manager/iam/groups", params=_context_params(account_id))
         )
         assert any(
             entry["name"] == role_name
-            for entry in manager_session.get("/manager/iam/roles", params=_account_params(account_id))
+            for entry in manager_session.get("/manager/iam/roles", params=_context_params(account_id))
         )
 
         group_inline_policies = manager_session.get(
             f"/manager/iam/groups/{group_name}/inline-policies",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
         )
         assert [entry["name"] for entry in group_inline_policies] == ["GroupInlineAccess"]
 
         role_inline_policies = manager_session.get(
             f"/manager/iam/roles/{role_name}/inline-policies",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
         )
         assert [entry["name"] for entry in role_inline_policies] == ["RoleInlineAccess"]
 
         manager_session.put(
             f"/manager/iam/roles/{role_name}",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "assume_role_policy_document": {
                     "Version": "2012-10-17",
@@ -404,7 +404,7 @@ def test_manager_iam_roles_and_groups_flow(
         )
         updated_role = manager_session.get(
             f"/manager/iam/roles/{role_name}",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
         )
         statements = (updated_role.get("assume_role_policy_document") or {}).get("Statement") or []
         assert any(statement.get("Sid") == "FunctionalAssumeRole" for statement in statements)
@@ -412,7 +412,7 @@ def test_manager_iam_roles_and_groups_flow(
         try:
             managed_policy = manager_session.post(
                 "/manager/iam/policies",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "name": policy_name,
                     "document": {
@@ -431,38 +431,38 @@ def test_manager_iam_roles_and_groups_flow(
             encoded_policy_arn = quote(policy_arn, safe="")
             manager_session.post(
                 f"/manager/iam/groups/{group_name}/policies",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"arn": policy_arn, "name": policy_name, "path": managed_policy.get("path", "/")},
                 expected_status=201,
             )
             manager_session.post(
                 f"/manager/iam/roles/{role_name}/policies",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"arn": policy_arn, "name": policy_name, "path": managed_policy.get("path", "/")},
                 expected_status=201,
             )
 
             group_policies = manager_session.get(
                 f"/manager/iam/groups/{group_name}/policies",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             )
             assert any(entry["arn"] == policy_arn for entry in group_policies)
 
             role_policies = manager_session.get(
                 f"/manager/iam/roles/{role_name}/policies",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             )
             assert any(entry["arn"] == policy_arn for entry in role_policies)
 
         manager_session.post(
             f"/manager/iam/groups/{group_name}/users",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"name": user_name},
             expected_status=201,
         )
         group_users = manager_session.get(
             f"/manager/iam/groups/{group_name}/users",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
         )
         assert any(entry["name"] == user_name for entry in group_users)
     except BackendAPIError as exc:
@@ -472,7 +472,7 @@ def test_manager_iam_roles_and_groups_flow(
         try:
             manager_session.delete(
                 f"/manager/iam/groups/{group_name}/users/{user_name}",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 expected_status=(204, 404),
             )
         except BackendAPIError:
@@ -480,7 +480,7 @@ def test_manager_iam_roles_and_groups_flow(
         try:
             manager_session.delete(
                 f"/manager/iam/groups/{group_name}/inline-policies/GroupInlineAccess",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 expected_status=(204, 404),
             )
         except BackendAPIError:
@@ -488,7 +488,7 @@ def test_manager_iam_roles_and_groups_flow(
         try:
             manager_session.delete(
                 f"/manager/iam/roles/{role_name}/inline-policies/RoleInlineAccess",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 expected_status=(204, 404),
             )
         except BackendAPIError:
@@ -499,7 +499,7 @@ def test_manager_iam_roles_and_groups_flow(
                 f"/manager/iam/roles/{role_name}/policies/{encoded_policy_arn}",
             ):
                 try:
-                    manager_session.delete(path, params=_account_params(account_id), expected_status=(204, 404))
+                    manager_session.delete(path, params=_context_params(account_id), expected_status=(204, 404))
                 except BackendAPIError:
                     pass
         try:
@@ -518,7 +518,7 @@ def test_manager_iam_roles_and_groups_flow(
             try:
                 manager_session.delete(
                     f"/manager/iam/policies/{encoded_policy_arn}",
-                    params=_account_params(account_id),
+                    params=_context_params(account_id),
                     expected_status=(204, 404),
                 )
             except BackendAPIError:
@@ -540,7 +540,7 @@ def test_manager_topics_policy_and_configuration_flow(
             "manager topic creation",
             lambda: manager_session.post(
                 "/manager/topics",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"name": topic_name},
                 expected_status=201,
             ),
@@ -548,12 +548,12 @@ def test_manager_topics_policy_and_configuration_flow(
         topic_arn = str(topic.get("arn") or "")
         assert topic_arn
 
-        listed_topics = manager_session.get("/manager/topics", params=_account_params(account_id))
+        listed_topics = manager_session.get("/manager/topics", params=_context_params(account_id))
         assert any(entry["arn"] == topic_arn for entry in listed_topics)
 
         initial_policy = manager_session.get(
             f"/manager/topics/{topic_arn}/policy",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
         )
         assert isinstance(initial_policy.get("policy"), dict)
 
@@ -571,12 +571,12 @@ def test_manager_topics_policy_and_configuration_flow(
         }
         manager_session.put(
             f"/manager/topics/{topic_arn}/policy",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"policy": policy_document},
         )
         fetched_policy = manager_session.get(
             f"/manager/topics/{topic_arn}/policy",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
         )
         assert fetched_policy["policy"] == policy_document
 
@@ -586,22 +586,22 @@ def test_manager_topics_policy_and_configuration_flow(
         }
         manager_session.put(
             f"/manager/topics/{topic_arn}/configuration",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"configuration": configuration_payload},
         )
         fetched_configuration = manager_session.get(
             f"/manager/topics/{topic_arn}/configuration",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
         )
         assert fetched_configuration["configuration"] == configuration_payload
 
         manager_session.delete(
             f"/manager/topics/{topic_arn}",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204,),
         )
         topic_arn = ""
-        listed_after_delete = manager_session.get("/manager/topics", params=_account_params(account_id))
+        listed_after_delete = manager_session.get("/manager/topics", params=_context_params(account_id))
         assert not any(entry["name"] == topic_name for entry in listed_after_delete)
     except BackendAPIError as exc:
         _skip_if_feature_disabled_or_unavailable("manager topics", exc)
@@ -616,7 +616,7 @@ def test_manager_context_overview_and_endpoint_health_flow(
     manager_session: BackendSession = provisioned_account.manager_session
     account_id = provisioned_account.account_id
 
-    context = manager_session.get("/manager/context", params=_account_params(account_id))
+    context = manager_session.get("/manager/context", params=_context_params(account_id))
     assert context["context_kind"] == "account"
     assert context["access_mode"] == "admin"
     assert isinstance(context.get("manager_stats_enabled"), bool)
@@ -624,7 +624,7 @@ def test_manager_context_overview_and_endpoint_health_flow(
     assert isinstance(context.get("manager_ceph_keys_enabled"), bool)
     assert context.get("iam_identity")
 
-    iam_overview = manager_session.get("/manager/iam/overview", params=_account_params(account_id))
+    iam_overview = manager_session.get("/manager/iam/overview", params=_context_params(account_id))
     assert iam_overview["iam_users"] >= 0
     assert iam_overview["iam_groups"] >= 0
     assert iam_overview["iam_roles"] >= 0
@@ -634,7 +634,7 @@ def test_manager_context_overview_and_endpoint_health_flow(
     response = manager_session.request(
         "GET",
         "/manager/stats/endpoint-health",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         expected_status=(200, 403),
     )
     try:

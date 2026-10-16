@@ -45,7 +45,7 @@ describe("browser object api", () => {
       expect(clientMock.post).toHaveBeenCalledWith(
         "/browser/buckets/bucket-a/objects/columns",
         payload,
-        expect.objectContaining({ params: { account_id: "conn-7" } }),
+        expect.objectContaining({ params: { context_id: "conn-7" } }),
       );
 
       await listObjectVersions("conn-7", "bucket-a", {
@@ -77,7 +77,7 @@ describe("browser object api", () => {
       "/browser/buckets/bucket-a/objects",
       expect.objectContaining({
         params: expect.objectContaining({
-          account_id: "conn-7",
+          context_id: "conn-7",
           prefix: "uploads/",
           max_keys: 25,
           force_refresh: true,
@@ -103,7 +103,7 @@ describe("browser object api", () => {
       "/browser/buckets/research%20data/versions",
       {
         params: {
-          account_id: "101",
+          context_id: "101",
           prefix: "reports/",
           delimiter: "/",
           key: undefined,

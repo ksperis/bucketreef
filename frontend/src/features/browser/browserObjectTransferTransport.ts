@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import {
-  withS3AccountParam,
+  withS3ContextParam,
   type S3AccountSelector,
 } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
@@ -124,7 +124,7 @@ export const downloadBrowserTransferStream = async (
     options,
   } = params;
   if (mode === "proxy") {
-    const query = withS3AccountParam({ key, version_id: params.versionId }, selector);
+    const query = withS3ContextParam({ key, version_id: params.versionId }, selector);
     const url = buildApiUrl(
       `/browser/buckets/${encodeURIComponent(bucket)}/download`,
       query ?? undefined,

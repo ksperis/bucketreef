@@ -324,7 +324,7 @@ class ResourceTracker:
         tenant = str(account.get("rgw_tenant") or "").strip()
         payload = self.admin_session.get(
             "/manager/buckets",
-            params={"account_id": account_id},
+            params={"context_id": account_id},
         )
         items = payload.get("items", []) if isinstance(payload, dict) else payload
         bucket_names = [

@@ -395,11 +395,11 @@ def test_forged_browser_read_and_mutation_are_rejected_before_data_plane(
     try:
         headers = {"X-S3-Workspace": "manager-browser"}
         read_response = client.get(
-            f"/api/browser/buckets/demo/objects?account_id={account.id}",
+            f"/api/browser/buckets/demo/objects?context_id={account.id}",
             headers=headers,
         )
         mutation_response = client.post(
-            f"/api/browser/buckets/demo/delete?account_id={account.id}",
+            f"/api/browser/buckets/demo/delete?context_id={account.id}",
             headers=headers,
             json={"objects": [{"key": "forged.txt"}]},
         )

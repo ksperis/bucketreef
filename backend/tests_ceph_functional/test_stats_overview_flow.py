@@ -27,7 +27,7 @@ def test_manager_stats_overview_and_traffic(
     bucket_name = _bucket(ceph_test_settings.test_prefix)
     manager_session.post(
         "/manager/buckets",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={
             "name": bucket_name,
             "versioning": False,
@@ -40,7 +40,7 @@ def test_manager_stats_overview_and_traffic(
     manager_session.request(
         "POST",
         f"/browser/buckets/{bucket_name}/proxy-upload",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         data={"key": object_key, "content_type": "text/plain"},
         files={"file": ("info.txt", b"usage sample", "text/plain")},
         expected_status=200,
@@ -48,14 +48,14 @@ def test_manager_stats_overview_and_traffic(
 
     overview = manager_session.get(
         "/manager/stats/overview",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     assert "total_buckets" in overview
     assert "bucket_overview" in overview
 
     traffic = manager_session.get(
         "/manager/stats/traffic",
-        params={"account_id": account_id, "window": "day"},
+        params={"context_id": account_id, "window": "day"},
         expected_status=(200, 502),
     )
     if isinstance(traffic, dict) and traffic.get("detail"):
@@ -65,11 +65,11 @@ def test_manager_stats_overview_and_traffic(
 
     manager_session.post(
         f"/browser/buckets/{bucket_name}/delete",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"objects": [{"key": object_key}]},
     )
     manager_session.delete(
         f"/manager/buckets/{bucket_name}",
-        params={"account_id": account_id, "force": "true"},
+        params={"context_id": account_id, "force": "true"},
     )
     resource_tracker.discard_bucket(account_id, bucket_name)

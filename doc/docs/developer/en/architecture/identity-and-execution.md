@@ -97,7 +97,7 @@ attributes are not part of the contract.
 
 Manager usage scans, integrity checks, purges, and bucket-deletion workflows
 take their target identity and name from the resolved `S3ExecutionContext`,
-never from the raw `account_id` query string. Usage snapshots and aggregates
+never from the raw `context_id` query string. Usage snapshots and aggregates
 share that canonical `context_id` as their Manager `scope_id`; purge workflow
 audit metadata uses it too. A direct S3 session without a selector keeps its
 resolved local-account ID or explicit `session:<rgw-account-id>` identity.

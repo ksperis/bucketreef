@@ -343,7 +343,7 @@ def _resolve_requested_session_endpoint(
 
 def get_account_context(
     request: Request,
-    account_ref: Optional[str] = Query(default=None, alias="account_id"),
+    account_ref: Optional[str] = Query(default=None, alias="context_id"),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> S3ExecutionContext:

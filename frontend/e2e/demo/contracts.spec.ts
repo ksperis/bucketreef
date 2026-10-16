@@ -30,13 +30,13 @@ test("governance: users, groups, associations, endpoints and manual declarations
 
 test("iam: policies, membership and fictitious keys share Ceph inventory", async ({ page }) => {
   await open(page, "/manager/users");
-  const user = await api(page, "/manager/iam/users?account_id=101", "POST", { name: "demo-service", create_key: true });
+  const user = await api(page, "/manager/iam/users?context_id=101", "POST", { name: "demo-service", create_key: true });
   expect(user.status).toBe(200); expect(user.data.access_key.secret_access_key).toContain("DEMO-ONLY");
   const document = { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["s3:GetObject"], Resource: ["arn:aws:s3:::helios-documents/*"] }] };
-  const policy = (await api(page, "/manager/iam/policies?account_id=101", "POST", { name: "DemoReader", document })).data;
-  expect((await api(page, "/manager/iam/users/demo-service/policies?account_id=101", "POST", { arn: policy.arn })).status).toBe(200);
-  expect((await api(page, "/manager/iam/groups/applications/users?account_id=101", "POST", { name: "demo-service" })).status).toBe(200);
-  expect((await api(page, "/manager/iam/users/demo-service/inline-policies/ReadOnly?account_id=101", "PUT", { document })).status).toBe(200);
+  const policy = (await api(page, "/manager/iam/policies?context_id=101", "POST", { name: "DemoReader", document })).data;
+  expect((await api(page, "/manager/iam/users/demo-service/policies?context_id=101", "POST", { arn: policy.arn })).status).toBe(200);
+  expect((await api(page, "/manager/iam/groups/applications/users?context_id=101", "POST", { name: "demo-service" })).status).toBe(200);
+  expect((await api(page, "/manager/iam/users/demo-service/inline-policies/ReadOnly?context_id=101", "PUT", { document })).status).toBe(200);
   await open(page, "/ceph-admin/users");
   const rgw = (await api(page, "/ceph-admin/endpoints/11/users/101%3Ademo-service/detail")).data;
   expect(rgw.keys[0].access_key).toBe(user.data.access_key.access_key_id);
@@ -46,8 +46,8 @@ test("iam: policies, membership and fictitious keys share Ceph inventory", async
   expect(created.data.generated_key.secret_key).toContain("DEMO-ONLY"); expect(created.data.detail.quota.max_size_bytes).toBe(2 * 1024 ** 3);
   await open(page, "/manager/users");
   await expect(page.getByText("new-rgw-user", { exact: true }).first()).toBeVisible();
-  expect((await api(page, "/manager/context?account_id=101")).data.quota_max_size_gb).toBe(700);
-  expect((await api(page, "/manager/iam/users/demo-service/inline-policies?account_id=101")).data[0].document).toEqual(document);
+  expect((await api(page, "/manager/context?context_id=101")).data.quota_max_size_gb).toBe(700);
+  expect((await api(page, "/manager/iam/users/demo-service/inline-policies?context_id=101")).data[0].document).toEqual(document);
   expect(await page.evaluate(() => window.__bucketreefDemo.failures)).toEqual([]);
 });
 
@@ -58,9 +58,9 @@ test("portal: shared space, Viewer restrictions, settings, archive and removal",
   await api(page, `/portal/storage-spaces/${space.id}/settings?account_id=101`, "PUT", { versioning_enabled: true, lifecycle_enabled: true, version_history_retention_days: 45 });
   expect((await api(page, `/portal/storage-spaces/${space.id}/settings?account_id=101`)).data.version_history_retention_days).toBe(45);
   await open(page, "/browser?demoPersona=member");
-  const bucket = (await api(page, "/browser/buckets?account_id=101")).data.items.find((b: { name: string }) => b.name === space.internal_bucket_name);
+  const bucket = (await api(page, "/browser/buckets?context_id=101")).data.items.find((b: { name: string }) => b.name === space.internal_bucket_name);
   expect(bucket.role).toBe("Viewer");
-  expect((await api(page, `/browser/buckets/${bucket.name}/folders?account_id=101`, "POST", { prefix: "forbidden/" })).status).toBe(403);
+  expect((await api(page, `/browser/buckets/${bucket.name}/folders?context_id=101`, "POST", { prefix: "forbidden/" })).status).toBe(403);
   await open(page, "/portal/storage-spaces?demoPersona=project-manager");
   await api(page, `/portal/storage-spaces/${space.id}`, "PATCH", { archived: true }); // explicit context is required
   expect((await api(page, `/portal/storage-spaces/${space.id}?account_id=101`, "PATCH", { archived: true })).status).toBe(200);
@@ -75,14 +75,14 @@ test("files: import boundaries include retained versions and rejected writes are
   const statuses = await page.evaluate(async () => {
     const upload = async (bytes: number) => {
       const data = new FormData(); data.append("key", "limits.bin"); data.append("file", new Blob([new Uint8Array(bytes)]), "limits.bin");
-      return (await fetch("/api/browser/buckets/helios-documents/proxy-upload?account_id=101", { method: "POST", body: data })).status;
+      return (await fetch("/api/browser/buckets/helios-documents/proxy-upload?context_id=101", { method: "POST", body: data })).status;
     };
     const results = [await upload(20 * 1024 ** 2 + 1)];
     for (let i = 0; i < 5; i++) results.push(await upload(20 * 1024 ** 2));
     results.push(await upload(1)); return results;
   });
   expect(statuses).toEqual([413, 204, 204, 204, 204, 204, 413]);
-  expect((await api(page, "/browser/buckets/helios-documents/versions?account_id=101&prefix=limits.bin")).data.versions).toHaveLength(5);
+  expect((await api(page, "/browser/buckets/helios-documents/versions?context_id=101&prefix=limits.bin")).data.versions).toHaveLength(5);
   expect(await page.evaluate(() => window.__bucketreefDemo.failures)).toEqual([]);
 });
 

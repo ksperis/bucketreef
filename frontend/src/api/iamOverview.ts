@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 
 export type IamOverview = {
   iam_users: number;
@@ -15,7 +15,7 @@ export type IamOverview = {
 
 export async function fetchIamOverview(accountId?: S3AccountSelector): Promise<IamOverview> {
   const { data } = await client.get<IamOverview>("/manager/iam/overview", {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }

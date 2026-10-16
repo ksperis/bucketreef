@@ -69,7 +69,7 @@ describe("bucket usage stats streams", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "/api/manager/usage-stats/stream?account_id=s3u-1",
+      "/api/manager/usage-stats/stream?context_id=s3u-1",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ parallelism: 6 }),

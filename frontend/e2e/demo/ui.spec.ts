@@ -25,7 +25,7 @@ test("files UI: folder, upload, preview, download and multiple deletion", async 
   await page.getByRole("checkbox", { name: "Select ui-second.txt", exact: true }).check();
   await page.getByRole("button", { name: "Delete", exact: true }).first().click();
   await page.getByRole("dialog").getByRole("button", { name: /Delete/, exact: false }).click();
-  await expect.poll(async () => (await api(page, "/browser/buckets/helios-documents/objects?account_id=101&query=ui-demo.txt")).data.objects.length).toBe(0);
+  await expect.poll(async () => (await api(page, "/browser/buckets/helios-documents/objects?context_id=101&query=ui-demo.txt")).data.objects.length).toBe(0);
   expect(await page.evaluate(() => window.__bucketreefDemo.failures)).toEqual([]);
 });
 

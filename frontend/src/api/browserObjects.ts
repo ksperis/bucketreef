@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 import {
   buildBrowserWorkspaceHeaders,
   mergeBrowserHeaders,
@@ -34,7 +34,7 @@ export async function listBrowserObjects(
   bucketName: string,
   options?: { prefix?: string; continuationToken?: string | null; maxKeys?: number; signal?: AbortSignal; forceRefresh?: boolean } & BrowserObjectsQuery & BrowserRequestOptions
 ): Promise<ListBrowserObjectsResponse> {
-  const params = withS3AccountParam(
+  const params = withS3ContextParam(
     {
       prefix: options?.prefix ?? "",
       continuation_token: options?.continuationToken ?? undefined,
@@ -81,7 +81,7 @@ export async function fetchBrowserObjectColumns(
     `/browser/buckets/${encodeURIComponent(bucketName)}/objects/columns`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(options?.sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -106,7 +106,7 @@ export async function listObjectVersions(
     requestOptions?: BrowserRequestOptions;
   }
 ): Promise<ListObjectVersionsResponse> {
-  const params = withS3AccountParam(
+  const params = withS3ContextParam(
     {
       prefix: options?.prefix ?? "",
       delimiter: options?.delimiter ?? undefined,
@@ -137,7 +137,7 @@ export async function fetchObjectMetadata(
   signal?: AbortSignal,
   options?: BrowserRequestOptions,
 ): Promise<ObjectMetadata> {
-  const params = withS3AccountParam({ key, version_id: versionId ?? undefined }, accountId);
+  const params = withS3ContextParam({ key, version_id: versionId ?? undefined }, accountId);
   const { data } = await client.get<ObjectMetadata>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-meta`,
     {
@@ -159,7 +159,7 @@ export async function getObjectTags(
   versionId?: string | null,
   options?: BrowserRequestOptions,
 ): Promise<ObjectTags> {
-  const params = withS3AccountParam({ key, version_id: versionId ?? undefined }, accountId);
+  const params = withS3ContextParam({ key, version_id: versionId ?? undefined }, accountId);
   const { data } = await client.get<ObjectTags>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-tags`,
     { params, headers: buildBrowserWorkspaceHeaders(options) }
@@ -178,7 +178,7 @@ export async function updateObjectTags(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-tags`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
       signal,
     }
@@ -197,7 +197,7 @@ export async function updateObjectMetadata(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-meta`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
       signal,
     }
@@ -216,7 +216,7 @@ export async function updateObjectAcl(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-acl`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
       signal,
     }
@@ -231,7 +231,7 @@ export async function getObjectLegalHold(
   versionId?: string | null,
   options?: BrowserRequestOptions,
 ): Promise<ObjectLegalHold> {
-  const params = withS3AccountParam({ key, version_id: versionId ?? undefined }, accountId);
+  const params = withS3ContextParam({ key, version_id: versionId ?? undefined }, accountId);
   const { data } = await client.get<ObjectLegalHold>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-legal-hold`,
     { params, headers: buildBrowserWorkspaceHeaders(options) }
@@ -250,7 +250,7 @@ export async function updateObjectLegalHold(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-legal-hold`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
       signal,
     }
@@ -265,7 +265,7 @@ export async function getObjectRetention(
   versionId?: string | null,
   options?: BrowserRequestOptions,
 ): Promise<ObjectRetention> {
-  const params = withS3AccountParam({ key, version_id: versionId ?? undefined }, accountId);
+  const params = withS3ContextParam({ key, version_id: versionId ?? undefined }, accountId);
   const { data } = await client.get<ObjectRetention>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-retention`,
     { params, headers: buildBrowserWorkspaceHeaders(options) }
@@ -284,7 +284,7 @@ export async function updateObjectRetention(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-retention`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
       signal,
     }
@@ -302,7 +302,7 @@ export async function restoreObject(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-restore`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
     }
   );
@@ -316,7 +316,7 @@ export async function copyObject(
   options?: BrowserRequestOptions,
 ): Promise<void> {
   await client.post(`/browser/buckets/${encodeURIComponent(bucketName)}/copy`, payload, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
     headers: buildBrowserWorkspaceHeaders(options),
     signal,
   });
@@ -332,7 +332,7 @@ export async function deleteObjects(
   const { data } = await client.post<{ deleted: number }>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/delete`,
     { objects },
-    { params: withS3AccountParam(undefined, accountId), headers: buildBrowserWorkspaceHeaders(options), signal }
+    { params: withS3ContextParam(undefined, accountId), headers: buildBrowserWorkspaceHeaders(options), signal }
   );
   return data.deleted;
 }
@@ -348,7 +348,7 @@ export async function cleanupObjectVersions(
     `/browser/buckets/${encodeURIComponent(bucketName)}/versions/cleanup`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
       signal,
     }
@@ -365,6 +365,6 @@ export async function createFolder(
   await client.post(
     `/browser/buckets/${encodeURIComponent(bucketName)}/folders`,
     { prefix },
-    { params: withS3AccountParam(undefined, accountId), headers: buildBrowserWorkspaceHeaders(options) }
+    { params: withS3ContextParam(undefined, accountId), headers: buildBrowserWorkspaceHeaders(options) }
   );
 }

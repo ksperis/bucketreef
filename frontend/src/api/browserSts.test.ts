@@ -23,7 +23,7 @@ describe("browser STS api", () => {
     await getBrowserStsStatus("101", { workspaceSurface: "portal" });
 
     expect(clientMock.get).toHaveBeenCalledWith("/browser/sts", {
-      params: { account_id: "101" },
+      params: { context_id: "101" },
       headers: { "X-S3-Workspace": "portal" },
     });
   });
@@ -34,7 +34,7 @@ describe("browser STS api", () => {
     expect(clientMock.get).toHaveBeenCalledWith(
       "/browser/sts/credentials",
       {
-        params: { account_id: "12" },
+        params: { context_id: "12" },
         headers: { "X-S3-Workspace": "manager-browser" },
       },
     );
