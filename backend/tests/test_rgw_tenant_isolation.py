@@ -101,7 +101,7 @@ def test_manager_bucket_stats_and_quota_preserve_explicit_tenant(monkeypatch):
     context = S3ExecutionContext(context_id="s3u-1", context_kind="s3_user", name="Analyst",
         access_key="ACCESS", secret_key="SECRET", rgw_user_uid="analyst", rgw_tenant="customer01")
     service = BucketsService()
-    monkeypatch.setattr(service, "_rgw_runtime_for_account", lambda _: client)
+    monkeypatch.setattr(service, "_rgw_runtime_for_context", lambda _: client)
     monkeypatch.setattr("app.services.buckets_service.s3_client.list_buckets",
                         lambda **kwargs: [{"name": "same-name"}])
     summary = service.get_bucket_stats("same-name", context)

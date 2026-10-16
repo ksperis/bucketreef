@@ -68,7 +68,7 @@ def test_live_stats_client_uses_admin_ops_without_monitoring_feature(monkeypatch
         fake_get_endpoint_runtime_rgw_client,
     )
 
-    client = BucketsService()._rgw_runtime_for_account(account)
+    client = BucketsService()._rgw_runtime_for_context(account)
 
     assert client is expected_client
     assert captured["endpoint"] is endpoint
@@ -134,7 +134,7 @@ def test_get_bucket_stats_skips_admin_for_bucket_outside_s3_scope(monkeypatch):
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
     monkeypatch.setattr(
         service,
-        "_rgw_runtime_for_account",
+        "_rgw_runtime_for_context",
         lambda *_args: (_ for _ in ()).throw(AssertionError("Admin Ops must not be used for an out-of-scope bucket")),
     )
 
@@ -157,7 +157,7 @@ def test_get_bucket_stats_uses_single_scoped_admin_lookup(monkeypatch):
             calls.append((bucket_name, kwargs))
             return None
 
-    monkeypatch.setattr(service, "_rgw_runtime_for_account", lambda *_args: FakeAdmin())
+    monkeypatch.setattr(service, "_rgw_runtime_for_context", lambda *_args: FakeAdmin())
 
     bucket = service.get_bucket_stats("bucket-a", account, with_stats=True)
 
@@ -369,7 +369,7 @@ def test_set_bucket_quota_calls_single_scope_without_user_lookup(monkeypatch):
             captured.update(kwargs)
             return {"ok": True}
 
-    monkeypatch.setattr(service, "_rgw_bucket_quota_admin_for_account", lambda *_: FakeRGWAdmin())
+    monkeypatch.setattr(service, "_rgw_bucket_quota_admin_for_context", lambda *_: FakeRGWAdmin())
 
     service.set_bucket_quota(
         "bucket-a",
@@ -402,7 +402,7 @@ def test_set_bucket_quota_uses_injected_rgw_admin_client(monkeypatch):
 
     monkeypatch.setattr(
         service,
-        "_rgw_bucket_quota_admin_for_account",
+        "_rgw_bucket_quota_admin_for_context",
         lambda *_: (_ for _ in ()).throw(AssertionError("injected rgw_admin must be used")),
     )
 
@@ -478,7 +478,7 @@ def test_set_bucket_quota_raises_when_rgw_reports_not_found(monkeypatch):
         def set_bucket_quota(self, **kwargs):
             return {"not_found": True}
 
-    monkeypatch.setattr(service, "_rgw_bucket_quota_admin_for_account", lambda *_: FakeRGWAdmin())
+    monkeypatch.setattr(service, "_rgw_bucket_quota_admin_for_context", lambda *_: FakeRGWAdmin())
 
     try:
         service.set_bucket_quota(
