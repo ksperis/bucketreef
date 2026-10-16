@@ -30,7 +30,10 @@ from app.services.bucket_usage_stats_service import (
 from app.services.feature_policy_service import bucket_usage_stats_state
 from app.services.portal_service import PortalService
 from app.services.usage_history_service import UsageHistoryService
-from app.services.usage_trends_service import account_usage_trend_filters, build_account_usage_trends
+from app.services.usage_trends_service import (
+    build_execution_context_usage_trends,
+    execution_context_usage_trend_filters,
+)
 from app.utils.http_errors import raise_bad_gateway_from_runtime
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
@@ -77,7 +80,7 @@ def portal_usage_trends(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
     if not load_app_settings().general.usage_history_enabled:
         return UsageTrendsResponse()
-    return build_account_usage_trends(db, access.account, reference_date=utcnow().date())
+    return build_execution_context_usage_trends(db, access.account, reference_date=utcnow().date())
 
 
 @router.get("/usage-stats/latest", response_model=BucketUsageStatsAggregateResponse)
@@ -126,11 +129,11 @@ def portal_usage_history_trends(
     service = UsageHistoryService(db)
     if not load_app_settings().general.usage_history_enabled:
         return service.empty_trends(window=window, unavailable_reason="Usage history is disabled.")
-    if account_usage_trend_filters(access.account, QuotaUsageDaily) is None:
+    if execution_context_usage_trend_filters(access.account, QuotaUsageDaily) is None:
         return service.empty_trends(window=window, unavailable_reason="Usage history trends are unavailable for this context.")
     return service.aggregate_trends(
         window=window,
-        extra_filter_builder=lambda model: account_usage_trend_filters(access.account, model) or [],
+        extra_filter_builder=lambda model: execution_context_usage_trend_filters(access.account, model) or [],
     )
 
 

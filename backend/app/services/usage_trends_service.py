@@ -18,28 +18,31 @@ USAGE_TREND_WINDOWS: tuple[tuple[UsageTrendWindow, str, int], ...] = (
 )
 
 
-def account_usage_trend_filters(account: S3ExecutionTarget, model=QuotaUsageDaily) -> list | None:
-    endpoint_id = account.storage_endpoint_id
+def execution_context_usage_trend_filters(
+    execution_context: S3ExecutionTarget,
+    model=QuotaUsageDaily,
+) -> list | None:
+    endpoint_id = execution_context.storage_endpoint_id
     if endpoint_id is None:
         return None
 
-    if isinstance(account, S3ExecutionContext):
-        if account.context_kind == "s3_user":
-            if account.s3_user_id is None:
+    if isinstance(execution_context, S3ExecutionContext):
+        if execution_context.context_kind == "s3_user":
+            if execution_context.s3_user_id is None:
                 return None
             return [
                 model.storage_endpoint_id == endpoint_id,
-                model.s3_user_id == account.s3_user_id,
+                model.s3_user_id == execution_context.s3_user_id,
                 model.s3_account_id.is_(None),
             ]
-        if account.context_kind not in {"account", "portal_account", "session"}:
+        if execution_context.context_kind not in {"account", "portal_account", "session"}:
             return None
 
-    if account.id is None:
+    if execution_context.id is None:
         return None
     return [
         model.storage_endpoint_id == endpoint_id,
-        model.s3_account_id == account.id,
+        model.s3_account_id == execution_context.id,
         model.s3_user_id.is_(None),
     ]
 
@@ -82,13 +85,13 @@ def select_usage_trend_baseline(
     return None
 
 
-def build_account_usage_trends(
+def build_execution_context_usage_trends(
     db: Session,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     reference_date: date | None = None,
 ) -> UsageTrendsResponse:
-    filters = account_usage_trend_filters(account)
+    filters = execution_context_usage_trend_filters(execution_context)
     if not filters:
         return UsageTrendsResponse()
     return UsageTrendsResponse(

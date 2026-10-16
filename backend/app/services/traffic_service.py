@@ -393,16 +393,16 @@ def aggregate_usage(
 class TrafficService:
     def __init__(
         self,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         rgw_client: Optional[RGWAdminClient] = None,
         admin_client: Optional[RGWAdminClient] = None,
     ) -> None:
-        self.account = account
+        self.execution_context = execution_context
         _ = rgw_client
-        self.admin_client = admin_client or self._admin_for_account(account)
+        self.admin_client = admin_client or self._admin_for_execution_context(execution_context)
 
-    def _admin_for_account(self, account: S3ExecutionTarget) -> RGWAdminClient:
-        endpoint = account.storage_endpoint
+    def _admin_for_execution_context(self, execution_context: S3ExecutionTarget) -> RGWAdminClient:
+        endpoint = execution_context.storage_endpoint
         if endpoint is None:
             raise ValueError("Supervision credentials are not configured for this endpoint")
         flags = resolve_feature_flags(endpoint)
@@ -452,13 +452,20 @@ class TrafficService:
         bucket: Optional[str],
     ) -> Dict[str, Any]:
         account_uid = None
-        if self.account.rgw_account_id:
-            account_uid = self.account.rgw_account_id.strip()
+        if self.execution_context.rgw_account_id:
+            account_uid = self.execution_context.rgw_account_id.strip()
         else:
-            account_uid = resolve_admin_uid(self.account.rgw_account_id, self.account.rgw_user_uid)
+            account_uid = resolve_admin_uid(
+                self.execution_context.rgw_account_id,
+                self.execution_context.rgw_user_uid,
+            )
         if not account_uid:
             return {}
-        tenant = resolve_target_tenant(self.account) if not self.account.rgw_account_id else ""
+        tenant = (
+            resolve_target_tenant(self.execution_context)
+            if not self.execution_context.rgw_account_id
+            else ""
+        )
         payload = self.admin_client.get_usage(
             uid=rgw_qualified_uid(account_uid, tenant),
             tenant=tenant or None,
@@ -470,7 +477,7 @@ class TrafficService:
         entries = flatten_usage_entries(payload)
         logger.debug(
             "S3 execution context %s fetched %s usage entries via RGW admin (uid=%s)",
-            self.account.rgw_account_id or self.account.id,
+            self.execution_context.rgw_account_id or self.execution_context.id,
             len(entries),
             account_uid,
         )

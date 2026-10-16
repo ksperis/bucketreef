@@ -21,12 +21,12 @@ def _supervision_credentials_from_endpoint(endpoint: StorageEndpoint | None) -> 
     return access_key, secret_key
 
 
-def get_supervision_credentials(account: S3ExecutionTarget) -> tuple[str, str] | None:
-    return _supervision_credentials_from_endpoint(account.storage_endpoint)
+def get_supervision_credentials(execution_context: S3ExecutionTarget) -> tuple[str, str] | None:
+    return _supervision_credentials_from_endpoint(execution_context.storage_endpoint)
 
 
-def has_supervision_credentials(account: S3ExecutionTarget) -> bool:
-    return get_supervision_credentials(account) is not None
+def has_supervision_credentials(execution_context: S3ExecutionTarget) -> bool:
+    return get_supervision_credentials(execution_context) is not None
 
 
 def get_supervision_rgw_client(endpoint: StorageEndpoint) -> RGWAdminClient:
