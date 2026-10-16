@@ -2,10 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 import json
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Query, Session, aliased
 
 from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
 from app.core.security import (
@@ -484,36 +484,29 @@ class UsersService:
             for row in rows
         ]
 
-    def paginate_users(
-        self,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-        sort_field: str = "name",
-        sort_direction: str = "asc",
-    ) -> tuple[list[UserOut], int]:
-        query = self.db.query(User)
-        search_value = search.strip() if isinstance(search, str) else ""
-        if search_value:
-            linked_connection = aliased(S3Connection)
-            pattern = f"%{search_value}%"
-            query = (
-                query.outerjoin(UserS3Account, User.id == UserS3Account.user_id)
-                .outerjoin(S3Account, UserS3Account.account_id == S3Account.id)
-                .outerjoin(UserS3User, User.id == UserS3User.user_id)
-                .outerjoin(S3User, UserS3User.s3_user_id == S3User.id)
-                .outerjoin(UserS3Connection, User.id == UserS3Connection.user_id)
-                .outerjoin(
-                    linked_connection,
-                    and_(
-                        UserS3Connection.s3_connection_id == linked_connection.id,
-                        linked_connection.is_shared.is_(True),
-                    ),
-                )
-                .outerjoin(UserUiGroup, User.id == UserUiGroup.user_id)
-                .outerjoin(UiGroup, UserUiGroup.group_id == UiGroup.id)
+    @staticmethod
+    def _apply_user_search(query: Query, search_value: str) -> Query:
+        if not search_value:
+            return query
+
+        linked_connection = aliased(S3Connection)
+        pattern = f"%{search_value}%"
+        return (
+            query.outerjoin(UserS3Account, User.id == UserS3Account.user_id)
+            .outerjoin(S3Account, UserS3Account.account_id == S3Account.id)
+            .outerjoin(UserS3User, User.id == UserS3User.user_id)
+            .outerjoin(S3User, UserS3User.s3_user_id == S3User.id)
+            .outerjoin(UserS3Connection, User.id == UserS3Connection.user_id)
+            .outerjoin(
+                linked_connection,
+                and_(
+                    UserS3Connection.s3_connection_id == linked_connection.id,
+                    linked_connection.is_shared.is_(True),
+                ),
             )
-            query = query.filter(
+            .outerjoin(UserUiGroup, User.id == UserUiGroup.user_id)
+            .outerjoin(UiGroup, UserUiGroup.group_id == UiGroup.id)
+            .filter(
                 or_(
                     User.email.ilike(pattern),
                     User.full_name.ilike(pattern),
@@ -526,7 +519,11 @@ class UsersService:
                     func.coalesce(UiGroup.name, "").ilike(pattern),
                 )
             )
-            query = query.distinct()
+            .distinct()
+        )
+
+    @staticmethod
+    def _user_order_columns(sort_field: str, sort_direction: str) -> list[Any]:
         name_sort = func.lower(
             func.coalesce(
                 func.nullif(func.trim(User.full_name), ""),
@@ -548,17 +545,30 @@ class UsersService:
             order_column = order_column.desc()
         if sort_field in {"last_login_at", "last_login"}:
             order_column = order_column.nulls_last()
-        total_query = query.with_entities(func.count(func.distinct(User.id)))
-        total = total_query.scalar() or 0
-        offset = max(page - 1, 0) * page_size
+
         order_columns = [order_column]
         if not uses_email_sort:
             order_columns.append(
                 User.email.desc() if sort_direction == "desc" else User.email.asc()
             )
         order_columns.append(User.id.asc())
+        return order_columns
+
+    def paginate_users(
+        self,
+        page: int,
+        page_size: int,
+        search: Optional[str] = None,
+        sort_field: str = "name",
+        sort_direction: str = "asc",
+    ) -> tuple[list[UserOut], int]:
+        search_value = search.strip() if isinstance(search, str) else ""
+        query = self._apply_user_search(self.db.query(User), search_value)
+        total_query = query.with_entities(func.count(func.distinct(User.id)))
+        total = total_query.scalar() or 0
+        offset = max(page - 1, 0) * page_size
         rows = (
-            query.order_by(*order_columns)
+            query.order_by(*self._user_order_columns(sort_field, sort_direction))
             .offset(offset)
             .limit(page_size)
             .all()
