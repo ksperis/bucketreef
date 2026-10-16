@@ -267,15 +267,18 @@ def _build_app_settings_payload() -> str:
             "endpoint_status_enabled": True,
             "quota_alerts_enabled": False,
             "usage_history_enabled": False,
-            "bucket_migration_enabled": True,
-            "bucket_compare_enabled": True,
-            "bucket_integrity_check_enabled": True,
-            "bucket_usage_stats_enabled": True,
-            "manager_ceph_s3_user_keys_enabled": True,
             "allow_login_access_keys": False,
             "allow_login_endpoint_list": False,
             "allow_login_custom_endpoint": False,
-        }
+        },
+        "manager": {
+            "feature_policies": {
+                "bucket_migration": "default_on",
+                "bucket_compare": "default_on",
+                "bucket_integrity_check": "default_on",
+                "ceph_s3_user_keys": "default_on",
+            }
+        },
     }
     return json.dumps(payload)
 

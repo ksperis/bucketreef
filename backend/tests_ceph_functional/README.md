@@ -169,3 +169,8 @@ responses without keys, and confirmed Ceph Admin deletion through that operator.
 Cleanup never purges data. If remote revocation fails, it reports the UIDs and
 preserves the operator for retry. This scenario is skipped unless explicitly
 selected; ordinary fixture tests do not qualify a real RGW release.
+
+The isolated CI settings payload uses the current `manager.feature_policies`
+contract to activate migration, compare, integrity checks and Ceph S3 user keys.
+Its schema is validated by `tests/test_ceph_functional_run_ci.py`; removed legacy
+`general.*_enabled` switches must not be added to the payload.
