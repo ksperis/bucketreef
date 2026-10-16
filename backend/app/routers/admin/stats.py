@@ -139,7 +139,7 @@ def summary_stats(
 def account_stats(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-    account_id: int = Query(..., alias="account_id"),
+    account_id: int = Query(...),
 ) -> dict:
     account = db.query(S3Account).filter(S3Account.id == account_id).first()
     if not account:
@@ -154,7 +154,7 @@ def account_stats(
 def s3_user_stats(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-    user_id: int = Query(..., alias="user_id"),
+    user_id: int = Query(...),
 ) -> dict:
     s3_user = db.query(S3User).filter(S3User.id == user_id).first()
     if not s3_user:
@@ -169,7 +169,7 @@ def s3_user_stats(
 def storage_stats(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-    endpoint_id: Optional[int] = Query(default=None, alias="endpoint_id"),
+    endpoint_id: Optional[int] = Query(default=None),
 ) -> dict:
     endpoint = _resolve_endpoint(db, endpoint_id, require_storage_metrics=True)
     rgw_admin = _build_rgw_client(endpoint)
@@ -186,7 +186,7 @@ def traffic_stats(
     window: TrafficWindow = Query(TrafficWindow.WEEK),
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-    endpoint_id: Optional[int] = Query(default=None, alias="endpoint_id"),
+    endpoint_id: Optional[int] = Query(default=None),
 ) -> dict:
     endpoint = _resolve_endpoint(db, endpoint_id, require_usage_logs=True)
     rgw_admin = _build_rgw_client(endpoint)

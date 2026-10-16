@@ -125,7 +125,7 @@ def _build_admin_managed_scope(
 
 @router.get("/admin/usage-stats/latest", response_model=BucketUsageStatsAggregateResponse)
 def get_admin_managed_usage_stats_aggregate(
-    endpoint_id: int = Query(..., alias="endpoint_id"),
+    endpoint_id: int = Query(...),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_super_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
@@ -152,7 +152,7 @@ def get_admin_managed_usage_stats_aggregate(
 def stream_admin_managed_usage_stats_aggregate(
     payload: BucketUsageStatsScopeRequest,
     request: Request,
-    endpoint_id: int = Query(..., alias="endpoint_id"),
+    endpoint_id: int = Query(...),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_super_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),

@@ -56,7 +56,7 @@ def health_summary(
 
 @router.get("/series", response_model=EndpointHealthSeries)
 def health_series(
-    endpoint_id: int = Query(..., alias="endpoint_id"),
+    endpoint_id: int = Query(...),
     window: HealthWindow = Query(HealthWindow.WEEK, description="Window: day, week, month, quarter, half_year, year"),
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
@@ -71,7 +71,7 @@ def health_series(
 
 @router.get("/incidents", response_model=EndpointHealthIncidentsResponse)
 def health_incidents(
-    endpoint_id: int = Query(..., alias="endpoint_id"),
+    endpoint_id: int = Query(...),
     window: HealthWindow = Query(HealthWindow.MONTH, description="Window: day, week, month, quarter, half_year, year"),
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
@@ -86,7 +86,7 @@ def health_incidents(
 
 @router.get("/raw-checks", response_model=EndpointHealthRawChecksResponse)
 def health_raw_checks(
-    endpoint_id: int = Query(..., alias="endpoint_id"),
+    endpoint_id: int = Query(...),
     window: HealthWindow = Query(HealthWindow.WEEK, description="Window: day, week, month, quarter, half_year, year"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
