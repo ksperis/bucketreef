@@ -19,10 +19,10 @@ settings = get_settings()
 
 class BucketMigrationExecutionContextMixin:
     def _context_client(self, ctx: _ResolvedContext):
-        access_key, secret_key = ctx.account.effective_rgw_credentials()
+        access_key, secret_key = ctx.execution_context.effective_rgw_credentials()
         if not access_key or not secret_key:
             raise RuntimeError(f"Context '{ctx.context_id}' has no credentials")
-        token = ctx.account.session_token()
+        token = ctx.execution_context.session_token()
         return get_s3_client(
             access_key=access_key,
             secret_key=secret_key,
@@ -70,19 +70,19 @@ class BucketMigrationExecutionContextMixin:
             )
 
     def _resolve_context(self, context_id: str) -> _ResolvedContext:
-        account = self._context_to_account(context_id)
-        endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(account)
+        execution_context = self._context_to_execution_target(context_id)
+        endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(execution_context)
         endpoint = normalize_s3_endpoint(endpoint)
         return _ResolvedContext(
             context_id=context_id,
-            account=account,
+            execution_context=execution_context,
             endpoint=endpoint,
             region=region,
             force_path_style=force_path_style,
             verify_tls=verify_tls,
         )
 
-    def _context_to_account(self, context_id: str) -> S3ExecutionTarget:
+    def _context_to_execution_target(self, context_id: str) -> S3ExecutionTarget:
         value = (context_id or "").strip()
         if not value:
             raise ValueError("Invalid context id")

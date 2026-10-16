@@ -245,7 +245,7 @@ class BucketMigrationObjectSyncMixin:
 
     def _finalize_target_versioning_state(
         self,
-        target_account: S3ExecutionTarget,
+        target_execution_context: S3ExecutionTarget,
         target_bucket: str,
         migration: BucketMigration,
         item: BucketMigrationItem,
@@ -255,7 +255,11 @@ class BucketMigrationObjectSyncMixin:
         replication_state = self._load_item_replication_state(item)
         if replication_state.get("target_versioning_finalized") == "suspended":
             return
-        self._configuration.set_versioning(target_bucket, target_account, enabled=False)
+        self._configuration.set_versioning(
+            target_bucket,
+            target_execution_context,
+            enabled=False,
+        )
         replication_state["target_versioning_finalized"] = "suspended"
         self._store_item_replication_state(item, replication_state)
         self._add_event(
@@ -313,7 +317,7 @@ class _VersionAwareObjectSyncRunner:
         self._select_replay_plan()
         self.service._configuration.set_versioning(
             self.target_bucket,
-            self.target_ctx.account,
+            self.target_ctx.execution_context,
             enabled=True,
         )
         self._purge_target_if_needed()

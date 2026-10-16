@@ -202,12 +202,12 @@ class BucketMigrationProgressMixin:
                 self._assert_workflow_lease()
                 expected_policy = _json_loads(item.target_policy_backup_json)
                 if item.target_policy_backup_json:
-                    self._restore_target_write_lock_policy(target_ctx.account, item.target_bucket, item)
+                    self._restore_target_write_lock_policy(target_ctx.execution_context, item.target_bucket, item)
                 else:
-                    self._remove_managed_target_write_lock_statement(item.target_bucket, target_ctx.account)
+                    self._remove_managed_target_write_lock_statement(item.target_bucket, target_ctx.execution_context)
                 if verify_restored:
                     self._verify_restored_bucket_policy(
-                        target_ctx.account,
+                        target_ctx.execution_context,
                         item.target_bucket,
                         expected_policy,
                     )
@@ -250,10 +250,10 @@ class BucketMigrationProgressMixin:
             try:
                 self._assert_workflow_lease()
                 expected_policy = _json_loads(item.source_policy_backup_json)
-                self._restore_checked_policy(source_ctx.account, item.source_bucket, expected_policy)
+                self._restore_checked_policy(source_ctx.execution_context, item.source_bucket, expected_policy)
                 if verify_restored:
                     self._verify_restored_bucket_policy(
-                        source_ctx.account,
+                        source_ctx.execution_context,
                         item.source_bucket,
                         expected_policy,
                     )
@@ -279,11 +279,11 @@ class BucketMigrationProgressMixin:
 
     def _verify_restored_bucket_policy(
         self,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
         bucket_name: str,
         expected_policy: Any,
     ) -> None:
-        current_policy = self._configuration.get_policy(bucket_name, account)
+        current_policy = self._configuration.get_policy(bucket_name, execution_context)
         expected = expected_policy if isinstance(expected_policy, dict) else None
         current = current_policy if isinstance(current_policy, dict) else None
         if _json_dumps(expected) == _json_dumps(current):

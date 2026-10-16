@@ -24,18 +24,18 @@ class _BucketSettingsCopyRunner:
         self,
         *,
         service: BucketMigrationItemRunnerMixin,
-        source_account: S3ExecutionTarget,
+        source_execution_context: S3ExecutionTarget,
         source_bucket: str,
-        target_account: S3ExecutionTarget,
+        target_execution_context: S3ExecutionTarget,
         target_bucket: str,
         migration: BucketMigration,
         item: BucketMigrationItem,
         strategy: str | None = None,
     ) -> None:
         self.service = service
-        self.source_account = source_account
+        self.source_execution_context = source_execution_context
         self.source_bucket = source_bucket
-        self.target_account = target_account
+        self.target_execution_context = target_execution_context
         self.target_bucket = target_bucket
         self.migration = migration
         self.item = item
@@ -116,19 +116,19 @@ class _BucketSettingsCopyRunner:
         else:
             properties = self.service._configuration.get_bucket_properties(
                 self.source_bucket,
-                self.source_account,
+                self.source_execution_context,
             )
             enabled = str(properties.versioning_status or "").strip().lower() == "enabled"
         self.service._configuration.set_versioning(
             self.target_bucket,
-            self.target_account,
+            self.target_execution_context,
             enabled=enabled,
         )
 
     def _copy_object_lock(self) -> None:
         object_lock = self.service._configuration.get_bucket_object_lock(
             self.source_bucket,
-            self.source_account,
+            self.source_execution_context,
         )
         if object_lock and (
             object_lock.enabled is not None
@@ -138,115 +138,115 @@ class _BucketSettingsCopyRunner:
         ):
             self.service._configuration.set_object_lock(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
                 object_lock,
             )
 
     def _copy_encryption(self) -> None:
         encryption = self.service._configuration.get_bucket_encryption(
             self.source_bucket,
-            self.source_account,
+            self.source_execution_context,
         )
         rules = list(encryption.rules or [])
         if rules:
             self.service._configuration.set_bucket_encryption(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
                 rules,
             )
         else:
             self.service._configuration.delete_bucket_encryption(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
             )
 
     def _copy_public_access_block(self) -> None:
         public_access_block = self.service._configuration.get_public_access_block(
             self.source_bucket,
-            self.source_account,
+            self.source_execution_context,
         )
         self.service._configuration.set_public_access_block(
             self.target_bucket,
-            self.target_account,
+            self.target_execution_context,
             public_access_block,
         )
 
     def _copy_lifecycle(self) -> None:
         lifecycle = self.service._configuration.get_lifecycle(
             self.source_bucket,
-            self.source_account,
+            self.source_execution_context,
         )
         rules = lifecycle.rules or []
         if rules:
             self.service._configuration.set_lifecycle(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
                 rules,
             )
         else:
             self.service._configuration.delete_lifecycle(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
             )
 
     def _copy_cors(self) -> None:
         cors = self.service._configuration.get_bucket_cors(
             self.source_bucket,
-            self.source_account,
+            self.source_execution_context,
         )
         if cors:
             self.service._configuration.set_cors(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
                 cors,
             )
         else:
             self.service._configuration.delete_cors(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
             )
 
     def _copy_policy(self) -> None:
         policy = self.service._configuration.get_policy(
             self.source_bucket,
-            self.source_account,
+            self.source_execution_context,
         )
         if policy:
             self.service._configuration.put_policy(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
                 policy,
             )
         else:
             self.service._configuration.delete_policy(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
             )
 
     def _copy_tags(self) -> None:
         tags = self.service._configuration.get_bucket_tags(
             self.source_bucket,
-            self.source_account,
+            self.source_execution_context,
         )
         if tags:
             self.service._configuration.set_bucket_tags(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
                 [{"key": tag.key, "value": tag.value} for tag in tags],
             )
         else:
             self.service._configuration.delete_bucket_tags(
                 self.target_bucket,
-                self.target_account,
+                self.target_execution_context,
             )
 
     def _copy_access_logging(self) -> None:
         logging = self.service._configuration.get_bucket_logging(
             self.source_bucket,
-            self.source_account,
+            self.source_execution_context,
         )
         self.service._configuration.set_bucket_logging(
             self.target_bucket,
-            self.target_account,
+            self.target_execution_context,
             logging,
         )

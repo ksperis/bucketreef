@@ -302,7 +302,7 @@ class BucketMigrationInspector:
         return _ALWAYS_PROBED_FEATURES
 
     def _endpoint_capabilities(self, ctx: _ResolvedContext) -> dict[str, bool]:
-        endpoint = ctx.account.storage_endpoint
+        endpoint = ctx.execution_context.storage_endpoint
         if endpoint is None:
             return {}
         try:
@@ -440,78 +440,78 @@ class BucketMigrationInspector:
         *,
         scan_versions: bool = True,
     ) -> _BucketInspectionValues:
-        account = ctx.account
+        execution_context = ctx.execution_context
         configuration = self._service._configuration
-        properties = configuration.get_bucket_properties(bucket_name, account)
+        properties = configuration.get_bucket_properties(bucket_name, execution_context)
         probe.mark("versioning", state="available")
         versioning_status = (
             str(properties.versioning_status or "").strip() or None
         )
-        object_lock = configuration.get_bucket_object_lock(bucket_name, account)
+        object_lock = configuration.get_bucket_object_lock(bucket_name, execution_context)
         probe.mark("object_lock", state="available")
         encryption = probe.fetch(
             "encryption",
-            lambda: configuration.get_bucket_encryption(bucket_name, account),
+            lambda: configuration.get_bucket_encryption(bucket_name, execution_context),
             soft_unavailable=True,
             default=None,
         )
         policy = probe.fetch(
             "bucket_policy",
-            lambda: configuration.get_policy(bucket_name, account),
+            lambda: configuration.get_policy(bucket_name, execution_context),
             soft_unavailable=False,
             default=None,
         )
         logging_cfg = probe.fetch(
             "access_logging",
-            lambda: configuration.get_bucket_logging(bucket_name, account),
+            lambda: configuration.get_bucket_logging(bucket_name, execution_context),
             soft_unavailable=False,
             default=None,
         )
         tags = probe.fetch(
             "tags",
-            lambda: configuration.get_bucket_tags(bucket_name, account),
+            lambda: configuration.get_bucket_tags(bucket_name, execution_context),
             soft_unavailable=False,
             default=[],
         )
         lifecycle = probe.fetch(
             "lifecycle",
-            lambda: configuration.get_lifecycle(bucket_name, account),
+            lambda: configuration.get_lifecycle(bucket_name, execution_context),
             soft_unavailable=False,
             default=None,
         )
         cors = probe.fetch(
             "cors",
-            lambda: configuration.get_bucket_cors(bucket_name, account),
+            lambda: configuration.get_bucket_cors(bucket_name, execution_context),
             soft_unavailable=False,
             default=[],
         )
         public_access_block = probe.fetch(
             "public_access_block",
-            lambda: configuration.get_public_access_block(bucket_name, account),
+            lambda: configuration.get_public_access_block(bucket_name, execution_context),
             soft_unavailable=False,
             default=None,
         )
         website = probe.fetch(
             "website",
-            lambda: configuration.get_bucket_website(bucket_name, account),
+            lambda: configuration.get_bucket_website(bucket_name, execution_context),
             soft_unavailable=True,
             default=None,
         )
         notifications = probe.fetch(
             "notifications",
-            lambda: configuration.get_bucket_notifications(bucket_name, account),
+            lambda: configuration.get_bucket_notifications(bucket_name, execution_context),
             soft_unavailable=True,
             default=None,
         )
         replication = probe.fetch(
             "replication",
-            lambda: configuration.get_bucket_replication(bucket_name, account),
+            lambda: configuration.get_bucket_replication(bucket_name, execution_context),
             soft_unavailable=True,
             default=None,
         )
         acl = probe.fetch(
             "acl",
-            lambda: configuration.get_bucket_acl(bucket_name, account),
+            lambda: configuration.get_bucket_acl(bucket_name, execution_context),
             soft_unavailable=True,
             default=None,
         )

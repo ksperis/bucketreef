@@ -233,7 +233,7 @@ class BucketMigrationItemRunnerMixin:
         target_ctx: _ResolvedContext,
     ) -> None:
         self._finalize_target_versioning_state(
-            target_ctx.account,
+            target_ctx.execution_context,
             item.target_bucket,
             migration,
             item,
@@ -256,7 +256,10 @@ class BucketMigrationItemRunnerMixin:
     ) -> bool:
         object_lock_enabled = False
         if migration.copy_bucket_settings:
-            object_lock = self._configuration.get_bucket_object_lock(item.source_bucket, source_ctx.account)
+            object_lock = self._configuration.get_bucket_object_lock(
+                item.source_bucket,
+                source_ctx.execution_context,
+            )
             object_lock_enabled = bool(object_lock and object_lock.enabled)
         exists = self._precheck_bucket_exists(target_ctx, item.target_bucket)
         if exists is None:
@@ -265,7 +268,9 @@ class BucketMigrationItemRunnerMixin:
             raise RuntimeError("Destination already exists and was not created by this migration. Choose a new name.")
         if not exists:
             self._buckets.create_bucket(
-                item.target_bucket, target_ctx.account, versioning=(strategy == "version_aware"),
+                item.target_bucket,
+                target_ctx.execution_context,
+                versioning=(strategy == "version_aware"),
                 location_constraint=target_ctx.region, object_lock_enabled=object_lock_enabled,
             )
             item.target_created_by_migration = True
@@ -299,10 +304,21 @@ class BucketMigrationItemRunnerMixin:
             lock_error = str(exc)
             try:
                 if item.target_policy_backup_json:
-                    self._restore_target_write_lock_policy(target_ctx.account, item.target_bucket, item)
+                    self._restore_target_write_lock_policy(
+                        target_ctx.execution_context,
+                        item.target_bucket,
+                        item,
+                    )
                 else:
-                    self._remove_managed_target_write_lock_statement(item.target_bucket, target_ctx.account)
-                self._verify_restored_bucket_policy(target_ctx.account, item.target_bucket, _json_loads(item.target_policy_backup_json))
+                    self._remove_managed_target_write_lock_statement(
+                        item.target_bucket,
+                        target_ctx.execution_context,
+                    )
+                self._verify_restored_bucket_policy(
+                    target_ctx.execution_context,
+                    item.target_bucket,
+                    _json_loads(item.target_policy_backup_json),
+                )
             except Exception as restore_exc:
                 lock_error = f"{lock_error}; restore attempt failed: {restore_exc}"
             else:
@@ -345,9 +361,9 @@ class BucketMigrationItemRunnerMixin:
 
     def _copy_bucket_settings(
         self,
-        source_account: S3ExecutionTarget,
+        source_execution_context: S3ExecutionTarget,
         source_bucket: str,
-        target_account: S3ExecutionTarget,
+        target_execution_context: S3ExecutionTarget,
         target_bucket: str,
         migration: BucketMigration,
         item: BucketMigrationItem,
@@ -356,9 +372,9 @@ class BucketMigrationItemRunnerMixin:
     ) -> None:
         _BucketSettingsCopyRunner(
             service=self,
-            source_account=source_account,
+            source_execution_context=source_execution_context,
             source_bucket=source_bucket,
-            target_account=target_account,
+            target_execution_context=target_execution_context,
             target_bucket=target_bucket,
             migration=migration,
             item=item,

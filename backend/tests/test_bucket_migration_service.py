@@ -386,7 +386,7 @@ def test_migration_context_resolution_types_missing_resources(db_session, contex
     service = BucketMigrationService(db_session)
 
     with pytest.raises(error_type):
-        service._context_to_account(context_id)
+        service._context_to_execution_target(context_id)
 
 
 def test_create_migration_uses_admin_default_parallelism(db_session):
@@ -1085,7 +1085,11 @@ def test_apply_target_write_lock_policy_uses_migration_user_agent_condition(db_s
 
     item = SimpleNamespace(target_policy_backup_json=None, target_lock_applied=False)
     service._validate_target_lock_worker_access = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
-    service._apply_target_write_lock_policy(SimpleNamespace(account=target), "bucket-a", item)
+    service._apply_target_write_lock_policy(
+        SimpleNamespace(execution_context=target),
+        "bucket-a",
+        item,
+    )
 
     statement = (captured["policy"] or {}).get("Statement", [])[0]
     actions = statement.get("Action", [])
@@ -1155,10 +1159,10 @@ def test_precheck_same_endpoint_copy_source_access_can_use_temporary_auto_grant(
     db_session.add(recovery)
     db_session.commit()
     service._preparation_item = recovery.items[0]
-    source_ctx = SimpleNamespace(context_id=str(source.id), account=source)
+    source_ctx = SimpleNamespace(context_id=str(source.id), execution_context=source)
     target_ctx = SimpleNamespace(
         context_id=f"s3u-{target_user.id}",
-        account=SimpleNamespace(
+        execution_context=SimpleNamespace(
             rgw_account_id=None,
             rgw_user_uid=target_user.rgw_user_uid,
         ),
@@ -1448,8 +1452,8 @@ def test_failed_strong_transfer_verification_retains_source(db_session):
         ["large-object.bin"],
         {"head_checksum": 0, "stream_sha256": 0},
     )
-    source_ctx = SimpleNamespace(account=source)
-    target_ctx = SimpleNamespace(account=target)
+    source_ctx = SimpleNamespace(execution_context=source)
+    target_ctx = SimpleNamespace(execution_context=target)
 
     service._run_item(migration, item, source_ctx, target_ctx, control_check=lambda: "run")
 
@@ -1499,8 +1503,8 @@ def test_verified_copy_retains_source_even_when_strong_check_is_selected(db_sess
     deleted: list[str] = []
     service._set_managed_block_policy = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
     service._delete_source_bucket_with_retry = lambda bucket, *_args, **_kwargs: deleted.append(bucket)  # type: ignore[method-assign]
-    source_ctx = SimpleNamespace(account=source)
-    target_ctx = SimpleNamespace(account=target)
+    source_ctx = SimpleNamespace(execution_context=source)
+    target_ctx = SimpleNamespace(execution_context=target)
 
     service._run_item(migration, item, source_ctx, target_ctx, control_check=lambda: "run")
 
@@ -1549,8 +1553,8 @@ def test_verified_copy_retains_source_without_optional_strong_check(db_session):
     deleted: list[str] = []
     service._set_managed_block_policy = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
     service._delete_source_bucket_with_retry = lambda bucket, *_args, **_kwargs: deleted.append(bucket)  # type: ignore[method-assign]
-    source_ctx = SimpleNamespace(account=source)
-    target_ctx = SimpleNamespace(account=target)
+    source_ctx = SimpleNamespace(execution_context=source)
+    target_ctx = SimpleNamespace(execution_context=target)
 
     service._run_item(migration, item, source_ctx, target_ctx, control_check=lambda: "run")
 
@@ -1626,7 +1630,7 @@ def test_run_precheck_passed_then_start_allowed(db_session):
     def _resolve_context(context_id: str):
         return SimpleNamespace(
             context_id=context_id,
-            account=source if context_id == str(source.id) else target,
+            execution_context=source if context_id == str(source.id) else target,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
@@ -1673,7 +1677,7 @@ def test_run_precheck_failed_blocks_start(db_session):
     def _resolve_context(context_id: str):
         return SimpleNamespace(
             context_id=context_id,
-            account=source if context_id == str(source.id) else target,
+            execution_context=source if context_id == str(source.id) else target,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
@@ -1803,7 +1807,7 @@ def test_run_precheck_skips_disabled_endpoint_website_probe_when_copy_bucket_set
     def _resolve_context(context_id: str):
         return SimpleNamespace(
             context_id=context_id,
-            account=source if context_id == str(source.id) else target,
+            execution_context=source if context_id == str(source.id) else target,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
@@ -1861,7 +1865,7 @@ def test_run_precheck_skips_non_required_bucket_setting_probes_when_copy_bucket_
     def _resolve_context(context_id: str):
         return SimpleNamespace(
             context_id=context_id,
-            account=source if context_id == str(source.id) else target,
+            execution_context=source if context_id == str(source.id) else target,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
@@ -1930,7 +1934,7 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
     def _resolve_context(context_id: str):
         return SimpleNamespace(
             context_id=context_id,
-            account=source if context_id == str(source.id) else target,
+            execution_context=source if context_id == str(source.id) else target,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
@@ -2019,7 +2023,7 @@ def test_run_precheck_passes_when_source_bucket_requires_version_aware_strategy(
     def _resolve_context(context_id: str):
         return SimpleNamespace(
             context_id=context_id,
-            account=source if context_id == str(source.id) else target,
+            execution_context=source if context_id == str(source.id) else target,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
@@ -2073,7 +2077,7 @@ def test_run_precheck_fails_when_source_bucket_uses_unsupported_default_encrypti
     def _resolve_context(context_id: str):
         return SimpleNamespace(
             context_id=context_id,
-            account=source if context_id == str(source.id) else target,
+            execution_context=source if context_id == str(source.id) else target,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
@@ -2129,7 +2133,7 @@ def test_run_precheck_fails_when_copy_bucket_settings_hits_unsupported_source_se
     def _resolve_context(context_id: str):
         return SimpleNamespace(
             context_id=context_id,
-            account=source if context_id == str(source.id) else target,
+            execution_context=source if context_id == str(source.id) else target,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
@@ -2160,8 +2164,16 @@ def test_run_precheck_fails_when_copy_bucket_settings_hits_unsupported_source_se
 
 def test_sync_bucket_uses_stream_copy_when_same_endpoint_copy_option_is_disabled(db_session):
     service = BucketMigrationService(db_session)
-    source_ctx = SimpleNamespace(endpoint="https://same.example.test", context_id="src", account=SimpleNamespace())
-    target_ctx = SimpleNamespace(endpoint="https://same.example.test", context_id="dst", account=SimpleNamespace())
+    source_ctx = SimpleNamespace(
+        endpoint="https://same.example.test",
+        context_id="src",
+        execution_context=SimpleNamespace(),
+    )
+    target_ctx = SimpleNamespace(
+        endpoint="https://same.example.test",
+        context_id="dst",
+        execution_context=SimpleNamespace(),
+    )
     migration = SimpleNamespace(
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=True,
@@ -2228,8 +2240,16 @@ def test_sync_bucket_uses_stream_copy_when_same_endpoint_copy_option_is_disabled
 
 def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session):
     service = BucketMigrationService(db_session)
-    source_ctx = SimpleNamespace(endpoint="https://source.example.test", context_id="src", account=SimpleNamespace())
-    target_ctx = SimpleNamespace(endpoint="https://target.example.test", context_id="dst", account=SimpleNamespace())
+    source_ctx = SimpleNamespace(
+        endpoint="https://source.example.test",
+        context_id="src",
+        execution_context=SimpleNamespace(),
+    )
+    target_ctx = SimpleNamespace(
+        endpoint="https://target.example.test",
+        context_id="dst",
+        execution_context=SimpleNamespace(),
+    )
     migration = SimpleNamespace(
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
@@ -2353,8 +2373,16 @@ def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session
 
 def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_markers(db_session):
     service = BucketMigrationService(db_session)
-    source_ctx = SimpleNamespace(context_id="src", endpoint="https://source.example.test", account=SimpleNamespace())
-    target_ctx = SimpleNamespace(context_id="dst", endpoint="https://target.example.test", account=SimpleNamespace())
+    source_ctx = SimpleNamespace(
+        context_id="src",
+        endpoint="https://source.example.test",
+        execution_context=SimpleNamespace(),
+    )
+    target_ctx = SimpleNamespace(
+        context_id="dst",
+        endpoint="https://target.example.test",
+        execution_context=SimpleNamespace(),
+    )
     migration = SimpleNamespace(
         mode="one_shot",
         use_same_endpoint_copy=False,
@@ -2494,8 +2522,16 @@ def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_ma
 
 def test_stream_copy_object_preserves_headers_metadata_and_tags(db_session):
     service = BucketMigrationService(db_session)
-    source_ctx = SimpleNamespace(context_id="src", endpoint="https://source.example.test", account=SimpleNamespace())
-    target_ctx = SimpleNamespace(context_id="dst", endpoint="https://target.example.test", account=SimpleNamespace())
+    source_ctx = SimpleNamespace(
+        context_id="src",
+        endpoint="https://source.example.test",
+        execution_context=SimpleNamespace(),
+    )
+    target_ctx = SimpleNamespace(
+        context_id="dst",
+        endpoint="https://target.example.test",
+        execution_context=SimpleNamespace(),
+    )
 
     class _SourceClient:
         def head_object(self, *, Bucket, Key, VersionId=None):
@@ -2598,8 +2634,16 @@ def test_version_replay_sort_key_orders_objects_before_delete_markers_for_same_t
 
 def test_sync_bucket_version_aware_same_endpoint_uses_copy_source_version_id(db_session):
     service = BucketMigrationService(db_session)
-    source_ctx = SimpleNamespace(context_id="src", endpoint="https://same.example.test", account=SimpleNamespace())
-    target_ctx = SimpleNamespace(context_id="dst", endpoint="https://same.example.test", account=SimpleNamespace())
+    source_ctx = SimpleNamespace(
+        context_id="src",
+        endpoint="https://same.example.test",
+        execution_context=SimpleNamespace(),
+    )
+    target_ctx = SimpleNamespace(
+        context_id="dst",
+        endpoint="https://same.example.test",
+        execution_context=SimpleNamespace(),
+    )
     migration = SimpleNamespace(
         mode="one_shot",
         use_same_endpoint_copy=True,
@@ -2692,8 +2736,16 @@ def test_sync_bucket_version_aware_same_endpoint_uses_copy_source_version_id(db_
 
 def test_sync_bucket_version_aware_presync_stores_watermark_and_cutover_replays_only_delta(db_session):
     service = BucketMigrationService(db_session)
-    source_ctx = SimpleNamespace(context_id="src", endpoint="https://source.example.test", account=SimpleNamespace())
-    target_ctx = SimpleNamespace(context_id="dst", endpoint="https://target.example.test", account=SimpleNamespace())
+    source_ctx = SimpleNamespace(
+        context_id="src",
+        endpoint="https://source.example.test",
+        execution_context=SimpleNamespace(),
+    )
+    target_ctx = SimpleNamespace(
+        context_id="dst",
+        endpoint="https://target.example.test",
+        execution_context=SimpleNamespace(),
+    )
     migration = SimpleNamespace(
         mode="pre_sync",
         use_same_endpoint_copy=False,
@@ -2861,12 +2913,12 @@ def test_sync_bucket_version_aware_cutover_fallbacks_purge_before_full_replay(
         source_ctx = SimpleNamespace(
             context_id="src",
             endpoint="https://source.example.test",
-            account=SimpleNamespace(),
+            execution_context=SimpleNamespace(),
         )
         target_ctx = SimpleNamespace(
             context_id="dst",
             endpoint="https://target.example.test",
-            account=SimpleNamespace(),
+            execution_context=SimpleNamespace(),
         )
         migration = SimpleNamespace(
             mode="pre_sync",
@@ -3254,7 +3306,10 @@ def test_finalize_releases_target_lock_policy(db_session):
 
     service._restore_target_write_lock_policy = _restore_target_write_lock_policy  # type: ignore[method-assign]
 
-    service._finalize_or_wait_cutover(migration, target_ctx=SimpleNamespace(account=target))
+    service._finalize_or_wait_cutover(
+        migration,
+        target_ctx=SimpleNamespace(execution_context=target),
+    )
 
     assert migration.status == "completed"
     assert restored == ["bucket-a-dst"]
@@ -3532,7 +3587,7 @@ def test_sync_bucket_updates_object_counters_incrementally(db_session):
 
     source_ctx = SimpleNamespace(
         context_id=str(source.id),
-        account=source,
+        execution_context=source,
         endpoint="https://source.example.test",
         region="us-east-1",
         force_path_style=False,
@@ -3540,7 +3595,7 @@ def test_sync_bucket_updates_object_counters_incrementally(db_session):
     )
     target_ctx = SimpleNamespace(
         context_id=str(target.id),
-        account=target,
+        execution_context=target,
         endpoint="https://target.example.test",
         region="us-east-1",
         force_path_style=False,
@@ -3618,7 +3673,7 @@ def test_sync_bucket_force_flushes_progress_when_pause_is_requested(db_session):
 
     source_ctx = SimpleNamespace(
         context_id=str(source.id),
-        account=source,
+        execution_context=source,
         endpoint="https://source.example.test",
         region="us-east-1",
         force_path_style=False,
@@ -3626,7 +3681,7 @@ def test_sync_bucket_force_flushes_progress_when_pause_is_requested(db_session):
     )
     target_ctx = SimpleNamespace(
         context_id=str(target.id),
-        account=target,
+        execution_context=target,
         endpoint="https://target.example.test",
         region="us-east-1",
         force_path_style=False,
@@ -3840,8 +3895,8 @@ def test_apply_target_lock_fails_when_lock_cannot_be_applied(db_session):
         ),
     )
 
-    source_ctx = SimpleNamespace(account=source)
-    target_ctx = SimpleNamespace(account=target)
+    source_ctx = SimpleNamespace(execution_context=source)
+    target_ctx = SimpleNamespace(execution_context=target)
     control_calls = {"count": 0}
 
     def _control_check() -> str:

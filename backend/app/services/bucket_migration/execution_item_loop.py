@@ -107,9 +107,9 @@ class _MigrationItemExecutionLoop:
 
     def _run_copy_bucket_settings(self, _strategy: str) -> bool:
         self.service._copy_bucket_settings(
-            self.source_ctx.account,
+            self.source_ctx.execution_context,
             self.item.source_bucket,
-            self.target_ctx.account,
+            self.target_ctx.execution_context,
             self.item.target_bucket,
             self.migration,
             self.item,
@@ -157,7 +157,7 @@ class _MigrationItemExecutionLoop:
 
     def _run_apply_read_only(self, _strategy: str) -> bool:
         self.service._apply_read_only_policy(
-            self.source_ctx.account,
+            self.source_ctx.execution_context,
             self.item.source_bucket,
             self.item,
         )

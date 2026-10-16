@@ -314,7 +314,7 @@ class BucketMigrationPrecheckRules:
             return
         try:
             self._service._precheck_policy_roundtrip(
-                source_context.account, item.source_bucket
+                source_context.execution_context, item.source_bucket
             )
             add_check(
                 code="source_read_only_policy_validated",
