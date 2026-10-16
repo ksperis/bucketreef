@@ -34,9 +34,9 @@ def test_browser_bucket_config_update_runs_action_before_cache_and_audit():
         def record_action(self, **kwargs):  # noqa: ANN003
             calls.append(("audit", kwargs))
 
-    def action(*, service, account: S3ExecutionContext, bucket_name: str, payload: str):  # noqa: ANN001
+    def action(*, service, context: S3ExecutionContext, bucket_name: str, payload: str):  # noqa: ANN001
         assert service is buckets_service
-        assert account is expected_account
+        assert context is expected_account
         assert bucket_name == "demo"
         assert payload == "value"
         calls.append("action")
@@ -51,7 +51,7 @@ def test_browser_bucket_config_update_runs_action_before_cache_and_audit():
 
     result = service.update(
         actor=actor,
-        account=account,
+        context=account,
         bucket_name="demo",
         audit_action="update_bucket_policy",
         action=action,
@@ -99,7 +99,7 @@ def test_browser_bucket_config_delete_does_not_invalidate_or_audit_failed_action
     with pytest.raises(RuntimeError, match="failed"):
         service.delete(
             actor=User(email="browser-config@example.com", role="admin"),
-            account=account,
+            context=account,
             bucket_name="demo",
             audit_action="delete_bucket_policy",
             action=failing_action,
@@ -132,7 +132,7 @@ def test_browser_bucket_config_delete_records_no_synthetic_metadata():
 
     service.delete(
         actor=actor,
-        account=account,
+        context=account,
         bucket_name="demo",
         audit_action="delete_bucket_policy",
         action=action,
@@ -171,7 +171,7 @@ def test_bucket_config_mutation_uses_configured_manager_scope_and_cache() -> Non
 
     assert service.update(
         actor=actor,
-        account=account,
+        context=account,
         bucket_name="demo",
         audit_action="update_bucket_policy",
         action=action,

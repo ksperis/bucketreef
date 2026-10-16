@@ -41,10 +41,10 @@ def bucket_properties(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketProperties:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_properties_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -55,10 +55,10 @@ def get_versioning(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketVersioningStatus:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_versioning_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -85,7 +85,7 @@ def update_quota(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     try:
         bucket_info = ctx.rgw_admin.get_bucket_info(bucket_name, stats=False, allow_not_found=True)
     except RGWAdminError as exc:
@@ -99,11 +99,11 @@ def update_quota(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unable to resolve bucket owner for quota update",
         )
-    account.rgw_account_id = owner_account_id
-    account.rgw_user_uid = owner_uid
+    context.rgw_account_id = owner_account_id
+    context.rgw_user_uid = owner_uid
 
     try:
-        service.set_bucket_quota(bucket_name, account, payload, rgw_admin=ctx.rgw_admin)
+        service.set_bucket_quota(bucket_name, context, payload, rgw_admin=ctx.rgw_admin)
         invalidate_bucket_listing_cache(ctx.endpoint.id)
         record_ceph_admin_action(
             ctx,
@@ -133,10 +133,10 @@ def get_object_lock(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketObjectLock:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_object_lock_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -163,10 +163,10 @@ def get_bucket_encryption(
 ) -> BucketEncryptionConfiguration:
     _require_sse_feature(ctx)
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_encryption_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
