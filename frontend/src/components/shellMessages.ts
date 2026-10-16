@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
-import { useI18n, type I18nMessage } from "../i18n";
+import { interpolateText, useI18n, type I18nMessage } from "../i18n";
 
 const m = (en: string, zh: string): I18nMessage => ({ en, zh });
 const m4 = (en: string, fr: string, de: string, zh: string): I18nMessage => ({
@@ -92,8 +92,7 @@ export type ShellText = (key: ShellMessageKey, values?: Record<string, string | 
 export function useShellI18n() {
   const { t, locale } = useI18n();
   const text: ShellText = useCallback(
-    (key, values) =>
-      t(shellMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)),
+    (key, values) => interpolateText(t(shellMessages[key]), values),
     [t],
   );
   return { text, locale };

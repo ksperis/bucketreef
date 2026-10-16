@@ -10,6 +10,7 @@ import {
   useRef,
 } from "react";
 
+import { interpolateText } from "../../i18n";
 import UiField from "../ui/UiField";
 import { cx } from "../ui/styles";
 import { SettingsButton } from "./SettingsControls";
@@ -36,12 +37,7 @@ type SettingsJsonEditorProps = {
   text?: (message: string, values?: Record<string, string | number>) => string;
 };
 
-function fallbackText(message: string, values?: Record<string, string | number>): string {
-  if (!values) return message;
-  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-  );
-}
+const fallbackText = interpolateText;
 
 const JSON_TOKEN_PATTERN = /"(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b/g;
 

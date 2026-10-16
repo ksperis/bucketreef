@@ -4,14 +4,10 @@
  */
 import type { ReactNode } from "react";
 import UiProgressBar from "../../components/ui/UiProgressBar";
+import { interpolateText } from "../../i18n";
 import type { SharedText } from "./sharedI18n";
 
-const identityText: SharedText = (message, values) => {
-  if (!values) return message;
-  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-  );
-};
+const identityText: SharedText = interpolateText;
 
 export type TextMatchMode = "contains" | "exact";
 export type FilterCostLevel = "none" | "low" | "medium" | "high";

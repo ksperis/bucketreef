@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
-import { useI18n } from "../../i18n";
+import { interpolateText, useI18n } from "../../i18n";
 import { classifyApiError } from "../../utils/apiError";
 
 const m = (en: string, fr: string, de: string, zh: string) => ({ en, fr, de, zh });
@@ -168,7 +168,10 @@ export type ProfileText = (key: ProfileMessageKey, values?: Record<string, strin
 
 export function useProfileI18n() {
   const { t, locale } = useI18n();
-  const text: ProfileText = useCallback((key, values) => t(profileMessages[key]).replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match)), [t]);
+  const text: ProfileText = useCallback(
+    (key, values) => interpolateText(t(profileMessages[key]), values),
+    [t],
+  );
   return { text, locale };
 }
 
