@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
-import { translate, useI18n, type I18nMessage } from "../../../i18n";
+import { interpolateText, translate, useI18n, type I18nMessage } from "../../../i18n";
 import { adminMessage } from "../adminI18n";
 
 const m = (en: string, zh: string) => adminMessage(en, zh);
@@ -36,18 +36,14 @@ const appSettingsMessage = {
 export type AppSettingsMessageKey = keyof typeof appSettingsMessage;
 export type AppSettingsText = (key: AppSettingsMessageKey, values?: Record<string, string | number>) => string;
 
-function interpolate(message: string, values?: Record<string, string | number>): string {
-  return message.replace(/\{(\w+)\}/g, (match, name: string) => String(values?.[name] ?? match));
-}
-
 /** Pure utilities retain their English default without reading UI language state. */
 export const appSettingsSource: AppSettingsText = (key, values) =>
-  interpolate(translate(appSettingsMessage[key], "en"), values);
+  interpolateText(translate(appSettingsMessage[key], "en"), values);
 
 export function useAppSettingsI18n() {
   const { locale, t } = useI18n();
   const text: AppSettingsText = useCallback(
-    (key, values) => interpolate(t(appSettingsMessage[key]), values),
+    (key, values) => interpolateText(t(appSettingsMessage[key]), values),
     [t],
   );
   return { locale, text };
