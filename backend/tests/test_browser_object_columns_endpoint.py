@@ -49,7 +49,7 @@ def test_browser_get_object_columns_passes_keys_and_columns(client):
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.post(
-        "/api/browser/buckets/my-bucket/objects/columns?account_id=s3u-1",
+        "/api/browser/buckets/my-bucket/objects/columns?context_id=s3u-1",
         json={
             "keys": ["folder/demo.txt"],
             "columns": ["content_type", "tags_count"],
@@ -91,7 +91,7 @@ def test_browser_get_object_columns_maps_runtime_error_to_bad_gateway(client):
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.post(
-        "/api/browser/buckets/my-bucket/objects/columns?account_id=s3u-1",
+        "/api/browser/buckets/my-bucket/objects/columns?context_id=s3u-1",
         json={
             "keys": ["folder/demo.txt"],
             "columns": ["content_type"],

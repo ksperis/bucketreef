@@ -31,7 +31,7 @@ describe("bucket details api", () => {
 
     expect(clientMock.get).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/stats",
-      { params: { with_stats: true, account_id: "account-a" } },
+      { params: { with_stats: true, context_id: "account-a" } },
     );
   });
 
@@ -40,7 +40,7 @@ describe("bucket details api", () => {
 
     expect(clientMock.get).toHaveBeenCalledWith(
       "/browser/buckets/config/reports%2F2026/properties",
-      { params: { account_id: 7 } },
+      { params: { context_id: 7 } },
     );
   });
 
@@ -63,11 +63,11 @@ describe("bucket details api", () => {
     expect(clientMock.put).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/policy",
       { policy },
-      { params: { account_id: 7 } },
+      { params: { context_id: 7 } },
     );
     expect(clientMock.delete).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/policy",
-      { params: { account_id: 7 } },
+      { params: { context_id: 7 } },
     );
   });
 });

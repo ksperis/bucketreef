@@ -39,7 +39,7 @@ def _upload(session: BackendSession, account_id: int, bucket_name: str, key: str
     session.request(
         "POST",
         f"/browser/buckets/{bucket_name}/proxy-upload",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         data={"key": key, "content_type": "application/octet-stream"},
         files={"file": (filename, payload, "application/octet-stream")},
         expected_status=200,
@@ -50,7 +50,7 @@ def _run_manager_usage_stats(session: BackendSession, account_id: int, bucket_na
     response = session.request(
         "POST",
         f"/manager/buckets/{bucket_name}/usage-stats/stream",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"parallelism": 1},
     )
     return _parse_sse_result(response.text)
@@ -60,7 +60,7 @@ def _run_manager_scope_usage_stats(session: BackendSession, account_id: int) -> 
     response = session.request(
         "POST",
         "/manager/usage-stats/stream",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"parallelism": 1},
     )
     return _parse_sse_result(response.text)
@@ -144,7 +144,7 @@ def test_bucket_usage_stats_counts_current_and_noncurrent_version_bytes(
     bucket_name = _bucket(ceph_test_settings.test_prefix)
     manager_session.post(
         "/manager/buckets",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={
             "name": bucket_name,
             "versioning": True,
@@ -155,7 +155,7 @@ def test_bucket_usage_stats_counts_current_and_noncurrent_version_bytes(
 
     properties = manager_session.get(
         f"/manager/buckets/{bucket_name}/properties",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     if properties.get("versioning_status") != "Enabled":
         pytest.skip(f"Bucket versioning was not enabled by this endpoint: {properties.get('versioning_status')}")
@@ -165,7 +165,7 @@ def test_bucket_usage_stats_counts_current_and_noncurrent_version_bytes(
     _upload(manager_session, account_id, bucket_name, "images/logo.png", b"12345", "logo.png")
     manager_session.post(
         f"/browser/buckets/{bucket_name}/delete",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"objects": [{"key": "images/logo.png"}]},
     )
 
@@ -188,7 +188,7 @@ def test_bucket_usage_stats_counts_current_and_noncurrent_version_bytes(
 
     latest = manager_session.get(
         f"/manager/buckets/{bucket_name}/usage-stats",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     assert latest["snapshot"]["bucket_name"] == bucket_name
     assert latest["snapshot"]["current_bytes"] == snapshot["current_bytes"]
@@ -201,7 +201,7 @@ def test_bucket_usage_stats_counts_current_and_noncurrent_version_bytes(
 
     manager_aggregate = manager_session.get(
         "/manager/usage-stats/latest",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )["aggregate"]
     assert manager_aggregate["bucket_count"] >= 1
     assert manager_aggregate["buckets_with_snapshot"] >= 1

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 import { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 import {
   attachEntityPolicy,
@@ -61,7 +61,7 @@ export async function listIamUsers(accountId?: S3AccountSelector): Promise<IAMUs
 
 export async function getIamUser(accountId: S3AccountSelector, userName: string): Promise<IAMUser> {
   const { data } = await client.get<IAMUser>(`/manager/iam/users/${encodeURIComponent(userName)}`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -72,7 +72,7 @@ export async function updateIamUser(
   payload: { name?: string; path?: string },
 ): Promise<IAMUser> {
   const { data } = await client.put<IAMUser>(`/manager/iam/users/${encodeURIComponent(userName)}`, payload, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -100,7 +100,7 @@ export async function deleteIamUser(accountId: S3AccountSelector, name: string):
 
 export async function listIamAccessKeys(accountId: S3AccountSelector, userName: string): Promise<AccessKey[]> {
   const { data } = await client.get<AccessKey[]>(`/manager/iam/users/${encodeURIComponent(userName)}/keys`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -113,7 +113,7 @@ export async function createIamAccessKey(
   const { data } = await client.post<AccessKey>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys`,
     metadata ?? {},
-    { params: withS3AccountParam(undefined, accountId) }
+    { params: withS3ContextParam(undefined, accountId) }
   );
   return data;
 }
@@ -127,7 +127,7 @@ export async function updateIamAccessKeyMetadata(
   const { data } = await client.put<AccessKeyMetadataInput>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
-    { params: withS3AccountParam(undefined, accountId) },
+    { params: withS3ContextParam(undefined, accountId) },
   );
   return data;
 }
@@ -138,7 +138,7 @@ export async function deleteIamAccessKey(
   accessKeyId: string
 ): Promise<void> {
   await client.delete(`/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
 }
 
@@ -151,7 +151,7 @@ export async function updateIamAccessKeyStatus(
   const { data } = await client.put<AccessKey>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}/status`,
     { active },
-    { params: withS3AccountParam(undefined, accountId) }
+    { params: withS3ContextParam(undefined, accountId) }
   );
   return data;
 }

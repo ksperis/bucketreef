@@ -127,7 +127,7 @@ def test_manager_integrity_route_streams_progress_and_result(monkeypatch):
     try:
         with TestClient(app) as client:
             response = client.post(
-                "/api/manager/bucket-integrity/stream?account_id=s3u-1",
+                "/api/manager/bucket-integrity/stream?context_id=s3u-1",
                 json={"buckets": ["bucket-a"], "parallelism": 4, "check_mode": "get"},
             )
     finally:
@@ -161,7 +161,7 @@ def test_manager_integrity_route_returns_403_when_flag_disabled(monkeypatch):
     try:
         with TestClient(app) as client:
             response = client.post(
-                "/api/manager/bucket-integrity/stream?account_id=s3u-1",
+                "/api/manager/bucket-integrity/stream?context_id=s3u-1",
                 json={"buckets": ["bucket-a"]},
             )
     finally:

@@ -38,7 +38,7 @@ describe("browser bucket api", () => {
 
     expect(clientMock.get).toHaveBeenCalledWith("/browser/buckets/search", {
       params: {
-        account_id: "account-1",
+        context_id: "account-1",
         search: "reports",
         exact: true,
         page: 2,
@@ -62,14 +62,14 @@ describe("browser bucket api", () => {
     );
 
     expect(clientMock.get).toHaveBeenNthCalledWith(1, "/browser/settings", {
-      params: { account_id: "101" },
+      params: { context_id: "101" },
       headers: { "X-S3-Workspace": "portal" },
     });
     expect(clientMock.get).toHaveBeenNthCalledWith(
       2,
       "/browser/usage-summary",
       {
-        params: { account_id: "101" },
+        params: { context_id: "101" },
         headers: { "X-S3-Workspace": "portal" },
       },
     );
@@ -77,7 +77,7 @@ describe("browser bucket api", () => {
       3,
       "/browser/buckets/research%20data/versioning",
       {
-        params: { account_id: "101" },
+        params: { context_id: "101" },
         headers: { "X-S3-Workspace": "portal" },
       },
     );
@@ -86,7 +86,7 @@ describe("browser bucket api", () => {
       "/browser/buckets/research%20data/cors",
       {
         params: {
-          account_id: "101",
+          context_id: "101",
           origin: "https://portal.example.test",
         },
         headers: { "X-S3-Workspace": "portal" },
@@ -113,7 +113,7 @@ describe("browser bucket api", () => {
       "/browser/buckets",
       { name: "bucket-a", versioning: true },
       {
-        params: { account_id: "12" },
+        params: { context_id: "12" },
         headers: { "X-S3-Workspace": "manager-browser" },
       },
     );
@@ -122,7 +122,7 @@ describe("browser bucket api", () => {
       "/browser/buckets/bucket-a/cors/ensure",
       { origin: "https://manager.example.test" },
       {
-        params: { account_id: "12" },
+        params: { context_id: "12" },
         headers: { "X-S3-Workspace": "manager-browser" },
       },
     );

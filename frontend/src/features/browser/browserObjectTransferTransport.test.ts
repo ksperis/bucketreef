@@ -112,7 +112,7 @@ describe("browser object transfer transport", () => {
     const parsedUrl = new URL(url);
     expect(parsedUrl.pathname).toBe("/api/browser/buckets/bucket%20name/download");
     expect(parsedUrl.searchParams.get("key")).toBe("folder/report.csv");
-    expect(parsedUrl.searchParams.get("account_id")).toBe("acc-3");
+    expect(parsedUrl.searchParams.get("context_id")).toBe("acc-3");
     expect(request).toMatchObject({
       credentials: "include",
       signal,

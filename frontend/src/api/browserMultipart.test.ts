@@ -56,7 +56,7 @@ describe("browser multipart api", () => {
       "/browser/buckets/research%20data/multipart/initiate",
       { key: "archive.tar", content_type: "application/x-tar" },
       {
-        params: { account_id: "account-1" },
+        params: { context_id: "account-1" },
         headers: expectedHeaders,
       },
     );
@@ -65,7 +65,7 @@ describe("browser multipart api", () => {
       "/browser/buckets/research%20data/multipart/upload%2F1/presign",
       { key: "archive.tar", part_number: 2 },
       {
-        params: { account_id: "account-1" },
+        params: { context_id: "account-1" },
         headers: expectedHeaders,
       },
     );
@@ -99,7 +99,7 @@ describe("browser multipart api", () => {
       "/browser/buckets/research%20data/multipart",
       {
         params: {
-          account_id: "account-1",
+          context_id: "account-1",
           prefix: "exports/",
           key_marker: "exports/a.tar",
           upload_id_marker: "upload-1",
@@ -112,14 +112,14 @@ describe("browser multipart api", () => {
       "/browser/buckets/research%20data/multipart/upload-1/complete",
       { parts: [{ part_number: 1, etag: "etag-1" }] },
       {
-        params: { account_id: "account-1", key: "exports/a.tar" },
+        params: { context_id: "account-1", key: "exports/a.tar" },
         headers: { "X-S3-Workspace": "portal" },
       },
     );
     expect(clientMock.delete).toHaveBeenCalledWith(
       "/browser/buckets/research%20data/multipart/upload-2",
       {
-        params: { account_id: "account-1", key: "exports/b.tar" },
+        params: { context_id: "account-1", key: "exports/b.tar" },
         headers: { "X-S3-Workspace": "portal" },
       },
     );

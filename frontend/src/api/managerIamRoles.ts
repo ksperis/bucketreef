@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 import { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 import {
   attachEntityPolicy,
@@ -50,7 +50,7 @@ export async function listIamRoles(accountId?: S3AccountSelector): Promise<IAMRo
 
 export async function getIamRole(accountId: S3AccountSelector, roleName: string): Promise<IAMRole> {
   const { data } = await client.get<IAMRole>(`/manager/iam/roles/${encodeURIComponent(roleName)}`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -61,14 +61,14 @@ export async function createIamRole(accountId: S3AccountSelector, payload: Creat
 
 export async function updateIamRole(accountId: S3AccountSelector, roleName: string, payload: UpdateRolePayload): Promise<IAMRole> {
   const { data } = await client.put<IAMRole>(`/manager/iam/roles/${encodeURIComponent(roleName)}`, payload, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
 
 export async function putRoleTags(accountId: S3AccountSelector, roleName: string, tags: IAMTag[]): Promise<IAMTag[]> {
   const { data } = await client.put<IAMTag[]>(`/manager/iam/roles/${encodeURIComponent(roleName)}/tags`, tags, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -76,7 +76,7 @@ export async function putRoleTags(accountId: S3AccountSelector, roleName: string
 export async function deleteRoleTag(accountId: S3AccountSelector, roleName: string, tagKey: string): Promise<IAMTag[]> {
   const { data } = await client.delete<IAMTag[]>(
     `/manager/iam/roles/${encodeURIComponent(roleName)}/tags/${encodeURIComponent(tagKey)}`,
-    { params: withS3AccountParam(undefined, accountId) },
+    { params: withS3ContextParam(undefined, accountId) },
   );
   return data;
 }

@@ -82,7 +82,7 @@ export function streamManagerBucketIntegrityCheck(
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ account_id: String(contextId) });
+  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamBucketsWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
     url: `${baseUrl}/manager/bucket-integrity/stream?${query.toString()}`,
     options,

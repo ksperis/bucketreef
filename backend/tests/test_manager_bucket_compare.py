@@ -19,8 +19,8 @@ from app.services.bucket_comparison_service import BucketComparisonService
 from app.services.s3_execution_context import S3ExecutionContext
 
 
-def _build_request(account_id: str | None = None, path: str = "/api/manager/buckets/compare") -> Request:
-    query_string = f"account_id={account_id}".encode("utf-8") if account_id else b""
+def _build_request(context_id: str | None = None, path: str = "/api/manager/buckets/compare") -> Request:
+    query_string = f"context_id={context_id}".encode("utf-8") if context_id else b""
     scope = {
         "type": "http",
         "method": "POST",
@@ -103,7 +103,7 @@ def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
 
     response = buckets_router.compare_bucket_pair(
         payload=payload,
-        request=_build_request(account_id="1"),
+        request=_build_request(context_id="1"),
         db=SimpleNamespace(),
         source_account=source_account,
         actor=SimpleNamespace(),
@@ -148,7 +148,7 @@ def test_compare_bucket_pair_returns_no_diff(monkeypatch):
 
     response = buckets_router.compare_bucket_pair(
         payload=payload,
-        request=_build_request(account_id="1"),
+        request=_build_request(context_id="1"),
         db=SimpleNamespace(),
         source_account=source_account,
         actor=SimpleNamespace(),
@@ -177,7 +177,7 @@ def test_compare_bucket_pair_translates_runtime_errors(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         buckets_router.compare_bucket_pair(
             payload=payload,
-            request=_build_request(account_id="1"),
+            request=_build_request(context_id="1"),
             db=SimpleNamespace(),
             source_account=source_account,
             actor=SimpleNamespace(),
@@ -212,7 +212,7 @@ def test_compare_bucket_pair_supports_config_only(monkeypatch):
 
     response = buckets_router.compare_bucket_pair(
         payload=payload,
-        request=_build_request(account_id="1"),
+        request=_build_request(context_id="1"),
         db=SimpleNamespace(),
         source_account=source_account,
         actor=SimpleNamespace(),
@@ -254,7 +254,7 @@ def test_compare_bucket_pair_forwards_selected_config_features(monkeypatch):
 
     response = buckets_router.compare_bucket_pair(
         payload=payload,
-        request=_build_request(account_id="1"),
+        request=_build_request(context_id="1"),
         db=SimpleNamespace(),
         source_account=source_account,
         actor=SimpleNamespace(),
@@ -282,7 +282,7 @@ def test_compare_bucket_pair_rejects_source_equals_target_for_same_context(monke
     with pytest.raises(HTTPException) as exc:
         buckets_router.compare_bucket_pair(
             payload=payload,
-            request=_build_request(account_id="1"),
+            request=_build_request(context_id="1"),
             db=SimpleNamespace(),
             source_account=source_account,
             actor=SimpleNamespace(),
@@ -368,7 +368,7 @@ def test_compare_bucket_action_sync_source_only(monkeypatch):
 
     response = buckets_router.run_compare_bucket_action(
         payload=payload,
-        request=_build_request(account_id="1", path="/api/manager/buckets/compare/action"),
+        request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
         db=SimpleNamespace(),
         source_account=source_account,
         actor=SimpleNamespace(),
@@ -424,7 +424,7 @@ def test_compare_bucket_action_runs_sync_different(monkeypatch):
 
     response = buckets_router.run_compare_bucket_action(
         payload=payload,
-        request=_build_request(account_id="1", path="/api/manager/buckets/compare/action"),
+        request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
         db=SimpleNamespace(),
         source_account=source_account,
         actor=SimpleNamespace(),
@@ -464,7 +464,7 @@ def test_compare_bucket_action_forwards_object_keys(monkeypatch):
 
     response = buckets_router.run_compare_bucket_action(
         payload=payload,
-        request=_build_request(account_id="1", path="/api/manager/buckets/compare/action"),
+        request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
         db=SimpleNamespace(),
         source_account=source_account,
         actor=SimpleNamespace(),
@@ -504,7 +504,7 @@ def test_compare_bucket_action_delete_returns_partial_failure(monkeypatch):
 
     response = buckets_router.run_compare_bucket_action(
         payload=payload,
-        request=_build_request(account_id="1", path="/api/manager/buckets/compare/action"),
+        request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
         db=SimpleNamespace(),
         source_account=source_account,
         actor=SimpleNamespace(),
@@ -535,7 +535,7 @@ def test_compare_bucket_action_rejects_source_equals_target_for_same_context(mon
     with pytest.raises(HTTPException) as exc:
         buckets_router.run_compare_bucket_action(
             payload=payload,
-            request=_build_request(account_id="1", path="/api/manager/buckets/compare/action"),
+            request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
             db=SimpleNamespace(),
             source_account=source_account,
             actor=SimpleNamespace(),
@@ -566,7 +566,7 @@ def test_compare_bucket_action_translates_runtime_error(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         buckets_router.run_compare_bucket_action(
             payload=payload,
-            request=_build_request(account_id="1", path="/api/manager/buckets/compare/action"),
+            request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
             db=SimpleNamespace(),
             source_account=source_account,
             actor=SimpleNamespace(),
@@ -595,7 +595,7 @@ def test_compare_bucket_action_rejects_unauthorized_target_context(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         buckets_router.run_compare_bucket_action(
             payload=payload,
-            request=_build_request(account_id="1", path="/api/manager/buckets/compare/action"),
+            request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
             db=SimpleNamespace(),
             source_account=source_account,
             actor=SimpleNamespace(),
@@ -670,7 +670,7 @@ def test_compare_bucket_action_feature_off_returns_403(db_session, monkeypatch):
     with pytest.raises(HTTPException) as exc:
         buckets_router.run_compare_bucket_action(
             payload=payload,
-            request=_build_request(account_id="1", path="/api/manager/buckets/compare/action"),
+            request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
             db=SimpleNamespace(),
             source_account=_build_account(1),
             actor=SimpleNamespace(),

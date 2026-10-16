@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 
 export type BucketUsagePoint = {
   name: string;
@@ -251,14 +251,14 @@ export async function fetchAdminTraffic(window: TrafficWindow = "week", endpoint
 
 export async function fetchManagerStats(accountId?: S3AccountSelector): Promise<ManagerStats> {
   const { data } = await client.get<ManagerStats>("/manager/stats/overview", {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
 
 export async function fetchManagerUsageTrends(accountId?: S3AccountSelector): Promise<ManagerUsageTrendsResponse> {
   const { data } = await client.get<ManagerUsageTrendsResponse>("/manager/stats/usage-trends", {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -286,7 +286,7 @@ export async function fetchManagerTraffic(
   if (bucket) {
     baseParams.bucket = bucket;
   }
-  const params = withS3AccountParam(baseParams, accountId);
+  const params = withS3ContextParam(baseParams, accountId);
   const { data } = await client.get<ManagerTrafficStats>("/manager/stats/traffic", { params });
   return data;
 }

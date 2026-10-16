@@ -115,7 +115,7 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   }
   if (action === "presign" && method === "POST" && body.operation === "put_object") {
     const destination = new URL(`/api/browser/buckets/${encodeURIComponent(bucket.name)}/local-upload`, location.origin);
-    destination.searchParams.set("key", key); destination.searchParams.set("account_id", String(bucket.accountId));
+    destination.searchParams.set("key", key); destination.searchParams.set("context_id", String(bucket.accountId));
     return json({ url: destination.href, method: "PUT", expires_in: 900, headers: { "Content-Type": String(body.content_type || "application/octet-stream") } });
   }
   const object = required(bucket.objects.find(o => o.key === key), "Object not found");

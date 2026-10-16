@@ -83,7 +83,7 @@ def test_manager_usage_stats_latest_aggregates_snapshots_and_coverage(client: Te
     app.dependency_overrides[manager_usage_stats_router.require_bucket_usage_stats_enabled] = _tool_user
     app.dependency_overrides[manager_usage_stats_router.get_buckets_service] = lambda: object()
 
-    response = client.get("/api/manager/usage-stats/latest", params={"account_id": 1})
+    response = client.get("/api/manager/usage-stats/latest", params={"context_id": 1})
 
     assert response.status_code == 200, response.text
     aggregate = response.json()["aggregate"]
@@ -129,7 +129,7 @@ def test_manager_usage_stats_stream_builds_scope_targets(client: TestClient, mon
     app.dependency_overrides[manager_usage_stats_router.require_bucket_usage_stats_enabled] = _tool_user
     app.dependency_overrides[manager_usage_stats_router.get_buckets_service] = lambda: object()
 
-    response = client.post("/api/manager/usage-stats/stream", params={"account_id": 1}, json={"parallelism": 3})
+    response = client.post("/api/manager/usage-stats/stream", params={"context_id": 1}, json={"parallelism": 3})
 
     assert response.status_code == 200, response.text
     targets = captured["targets"]
@@ -298,9 +298,9 @@ def test_manager_scan_persists_and_reads_resolved_scope(
     monkeypatch.setattr(manager_usage_stats_router, "_list_manager_bucket_names", lambda *_args: ["bucket-a"])
     monkeypatch.setattr(manager_usage_stats_router, "SessionLocal", sessionmaker(bind=test_engine))
     monkeypatch.setattr(BucketUsageStatsService, "_build_client", build_client)
-    canonical_params = {} if selector is None else {"account_id": expected_scope}
+    canonical_params = {} if selector is None else {"context_id": expected_scope}
 
-    for params in ({} if selector is None else {"account_id": selector}, canonical_params):
+    for params in ({} if selector is None else {"context_id": selector}, canonical_params):
         response = client.post("/api/manager/buckets/bucket-a/usage-stats/stream", params=params)
         assert response.status_code == 200, response.text
         assert '"status":"completed"' in response.text

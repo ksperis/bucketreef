@@ -46,7 +46,7 @@ def test_ceph_admin_bucket_configuration_and_compare(
     for bucket_name in (main_bucket, logging_bucket):
         manager_session.post(
             "/manager/buckets",
-            params={"account_id": account_id},
+            params={"context_id": account_id},
             json={
                 "name": bucket_name,
                 "versioning": False,
@@ -59,7 +59,7 @@ def test_ceph_admin_bucket_configuration_and_compare(
     manager_session.request(
         "POST",
         f"/browser/buckets/{main_bucket}/proxy-upload",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         data={"key": object_key, "content_type": "text/plain"},
         files={"file": ("payload.txt", io.BytesIO(b"ceph-admin compare payload"), "text/plain")},
         expected_status=200,
@@ -267,7 +267,7 @@ def test_ceph_admin_bucket_configuration_and_compare(
             "browser object cleanup",
             lambda: manager_session.post(
                 f"/browser/buckets/{main_bucket}/delete",
-                params={"account_id": account_id},
+                params={"context_id": account_id},
                 json={"objects": [{"key": object_key}]},
                 expected_status=(200, 404),
             ),
@@ -276,7 +276,7 @@ def test_ceph_admin_bucket_configuration_and_compare(
             try:
                 manager_session.delete(
                     f"/manager/buckets/{bucket_name}",
-                    params={"account_id": account_id, "force": "true"},
+                    params={"context_id": account_id, "force": "true"},
                     expected_status=(200, 404),
                 )
                 resource_tracker.discard_bucket(account_id, bucket_name)

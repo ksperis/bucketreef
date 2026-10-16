@@ -18,7 +18,7 @@ from .clients import BackendAPIError, BackendSession
 from .config import CephTestSettings
 from .resources import ResourceTracker
 from .test_bucket_configuration_flow import (
-    _account_params,
+    _context_params,
     _skip_if_cluster_unavailable,
     _wait_for_value,
 )
@@ -28,6 +28,10 @@ pytestmark = pytest.mark.ceph_functional
 
 def _storage_space_name(prefix: str) -> str:
     return f"{prefix}-portal-logs-{uuid.uuid4().hex[:8]}"
+
+
+def _portal_account_params(account_id: int) -> dict[str, int]:
+    return {"account_id": account_id}
 
 
 def _portal_log_bucket_name(account_id: int, rgw_account_id: str | None, account_name: str) -> str:
@@ -78,7 +82,7 @@ def _upload_via_portal_browser(
     response = session.request(
         "POST",
         f"/browser/buckets/{bucket_name}/proxy-upload",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         headers={"X-S3-Workspace": "portal"},
         data={"key": key, "content_type": "text/plain"},
         files={"file": (key.rsplit("/", 1)[-1], io.BytesIO(payload), "text/plain")},
@@ -233,7 +237,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
 
         storage_space = manager_session.post(
             "/portal/storage-spaces",
-            params=_account_params(account_id),
+        params=_portal_account_params(account_id),
             json={
                 "name": _storage_space_name(ceph_test_settings.test_prefix),
                 "naming_mode": "generic_uuid",
@@ -250,7 +254,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             "Portal Storage Space server access logging",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/logging",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: (
                 current.get("enabled") is True
@@ -264,7 +268,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             "Portal access log bucket policy",
             lambda: manager_session.get(
                 f"/manager/buckets/{log_bucket}/policy",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: bool(
                 _statement_by_sid(current.get("policy") or {}, "BucketReefPortalServerAccessLogging")
@@ -289,14 +293,14 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
 
         personal_key = manager_session.post(
             "/portal/access-keys",
-            params=_account_params(account_id),
+            params=_portal_account_params(account_id),
             json={"target_type": "self"},
             expected_status=201,
         )
         personal_access_key_id = str(personal_key["access_key_id"])
         personal_secret_access_key = str(personal_key.get("secret_access_key") or "")
         assert personal_secret_access_key
-        access_key_state = manager_session.get("/portal/access-keys", params=_account_params(account_id))
+        access_key_state = manager_session.get("/portal/access-keys", params=_portal_account_params(account_id))
         endpoint_url = str(access_key_state.get("s3_endpoint") or ceph_test_settings.rgw_admin_endpoint or "")
         assert endpoint_url
         _assert_s3_bucket_access_denied(
@@ -308,7 +312,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
         )
         manager_session.delete(
             f"/portal/access-keys/{personal_access_key_id}",
-            params=_account_params(account_id),
+            params=_portal_account_params(account_id),
             expected_status=204,
         )
         personal_access_key_id = None
@@ -323,7 +327,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
 
         external_key = manager_session.post(
             "/portal/access-keys",
-            params=_account_params(account_id),
+            params=_portal_account_params(account_id),
             json={
                 "target_type": "external",
                 "storage_space_id": storage_space["id"],
@@ -335,7 +339,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
         external_access_key_id = str(external_key["access_key_id"])
         secret_access_key = str(external_key.get("secret_access_key") or "")
         assert secret_access_key
-        access_key_state = manager_session.get("/portal/access-keys", params=_account_params(account_id))
+        access_key_state = manager_session.get("/portal/access-keys", params=_portal_account_params(account_id))
         endpoint_url = str(access_key_state.get("s3_endpoint") or ceph_test_settings.rgw_admin_endpoint or "")
         assert endpoint_url
         _put_external_s3_object(
@@ -391,7 +395,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             "Portal Storage Space server access logging disable",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/logging",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: current.get("enabled") is False and not current.get("target_bucket"),
         )
@@ -407,7 +411,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             try:
                 manager_session.delete(
                     f"/portal/access-keys/{personal_access_key_id}",
-                    params=_account_params(account_id),
+                    params=_portal_account_params(account_id),
                     expected_status=(204, 404),
                 )
             except BackendAPIError:
@@ -416,7 +420,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             try:
                 manager_session.delete(
                     f"/portal/access-keys/{external_access_key_id}",
-                    params=_account_params(account_id),
+                    params=_portal_account_params(account_id),
                     expected_status=(204, 404),
                 )
             except BackendAPIError:
@@ -427,7 +431,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
             try:
                 manager_session.delete(
                     f"/portal/storage-spaces/{storage_space_id}",
-                    params=_account_params(account_id),
+                    params=_portal_account_params(account_id),
                     expected_status=(204, 404),
                 )
             except BackendAPIError:

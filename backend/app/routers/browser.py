@@ -11,7 +11,7 @@ They are credential-first and can be used with:
 - User-scoped S3 connections (selector `conn-<id>`)
 - Ceph Admin endpoint context (selector `ceph-admin-<endpoint_id>`)
 
-The endpoints reuse the existing `account_id` selector and context resolution
+The endpoints reuse the `context_id` selector and context resolution
 logic implemented in :func:`app.routers.dependencies.get_account_context`.
 """
 

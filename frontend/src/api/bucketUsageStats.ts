@@ -4,7 +4,7 @@
  */
 import type { S3AccountSelector } from "./accountParams";
 import type { BucketOperationTarget } from "./bucketOperation";
-import { withS3AccountParam } from "./accountParams";
+import { withS3ContextParam } from "./accountParams";
 import client from "./client";
 import {
   buildJsonPostRequestInit,
@@ -138,7 +138,7 @@ export async function getManagerUsageStatsAggregate(
 ): Promise<BucketUsageStatsAggregateResponse> {
   const { data } = await client.get<BucketUsageStatsAggregateResponse>(
     "/manager/usage-stats/latest",
-    { params: withS3AccountParam(null, contextId) }
+    { params: withS3ContextParam(null, contextId) }
   );
   return data;
 }
@@ -168,7 +168,7 @@ export async function getManagerBucketUsageStats(
 ): Promise<BucketUsageStatsLatestResponse> {
   const { data } = await client.get<BucketUsageStatsLatestResponse>(
     `/manager/buckets/${encodeURIComponent(bucketName)}/usage-stats`,
-    { params: withS3AccountParam(null, contextId) }
+    { params: withS3ContextParam(null, contextId) }
   );
   return data;
 }
@@ -189,7 +189,7 @@ export function streamManagerUsageStatsAggregate(
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ account_id: String(contextId) });
+  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/manager/usage-stats/stream?${query.toString()}`,
     options,
@@ -205,7 +205,7 @@ export function streamManagerBucketUsageStatsForBucket(
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ account_id: String(contextId) });
+  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/manager/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream?${query.toString()}`,
     options,

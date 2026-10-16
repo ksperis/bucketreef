@@ -5,7 +5,7 @@
 import client from "./client";
 import type { FeatureState } from "./featurePolicies";
 import type { NamingValidationProfile } from "../utils/resourceNames";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 
 export type ManagerAccessMode = "admin" | "session" | "s3_user" | "connection";
 
@@ -36,7 +36,7 @@ export async function fetchManagerContext(
   options: { includeLimits?: boolean } = {}
 ): Promise<ManagerContext> {
   const { data } = await client.get<ManagerContext>("/manager/context", {
-    params: withS3AccountParam(
+    params: withS3ContextParam(
       options.includeLimits ? { include_limits: true } : undefined,
       accountId
     ),

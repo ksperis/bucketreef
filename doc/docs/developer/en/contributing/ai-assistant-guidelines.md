@@ -157,13 +157,13 @@ as:
 
 Execution rules:
 
-- `/manager` and `/browser` APIs that depend on account context require explicit
-  `account_id` for UI users.
+- `/manager` and `/browser` APIs that depend on execution context require explicit
+  `context_id` for UI users.
 - `/portal` APIs require explicit account context and must reject connection,
   S3 user, and Ceph Admin contexts.
 - `X-Manager-Access-Mode` is ignored in manager account context; account root
   credentials remain the source of execution.
-- Session principals may default to their bound account when `account_id` is
+- Session principals may default to their bound account when `context_id` is
   omitted.
 - The backend must not silently switch to a different context than the one
   requested or resolved.

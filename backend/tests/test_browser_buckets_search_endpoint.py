@@ -51,7 +51,7 @@ def test_browser_bucket_search_endpoint_contract(client):
 
     response = client.get(
         "/api/browser/buckets/search",
-        params={"search": "al", "exact": "true", "page": 2, "page_size": 2, "account_id": "conn-9"},
+        params={"search": "al", "exact": "true", "page": 2, "page_size": 2, "context_id": "conn-9"},
     )
 
     assert response.status_code == 200
@@ -81,6 +81,14 @@ def test_browser_bucket_openapi_excludes_removed_duplicate_collections() -> None
     assert "/api/browser/buckets/search" in paths
     assert "/api/browser/buckets/config" not in paths
     assert "/api/browser/buckets/config/{bucket_name}" not in paths
+
+    query_params = {
+        parameter["name"]
+        for parameter in paths["/api/browser/buckets/search"]["get"].get("parameters", [])
+        if parameter.get("in") == "query"
+    }
+    assert "context_id" in query_params
+    assert "account_id" not in query_params
 
 
 def test_browser_bucket_search_endpoint_paginates_results(client):

@@ -48,7 +48,7 @@ describe("bucket integrity streams", () => {
     expect(result.status).toBe("passed");
     expect(progressEvents).toEqual([{ checked: 1, listed: 2 }]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/manager/bucket-integrity/stream?account_id=s3u-1",
+      "/api/manager/bucket-integrity/stream?context_id=s3u-1",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ buckets: ["bucket-a"], parallelism: 4, all_versions: true }),

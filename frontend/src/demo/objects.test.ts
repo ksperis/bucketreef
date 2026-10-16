@@ -9,7 +9,7 @@ function fixture() {
   const account = state.accounts[0];
   const bucket = newBucket("browser-fixture", account);
   state.buckets = [bucket];
-  const request = (body: Record<string, unknown>, action = "copy"): DemoRequest => ({ state, body, method: "POST", path: `/browser/buckets/${bucket.name}/${action}`, url: new URL(`https://demo.test/?account_id=${account.id}`), request: new Request("https://demo.test"), persona: "admin", user: currentUser(state, "admin") });
+  const request = (body: Record<string, unknown>, action = "copy"): DemoRequest => ({ state, body, method: "POST", path: `/browser/buckets/${bucket.name}/${action}`, url: new URL(`https://demo.test/?context_id=${account.id}`), request: new Request("https://demo.test"), persona: "admin", user: currentUser(state, "admin") });
   return { state, bucket, request };
 }
 

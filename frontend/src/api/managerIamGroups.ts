@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 import { IAMUser } from "./managerIamUsers";
 import { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 import {
@@ -33,7 +33,7 @@ export async function listIamGroups(accountId?: S3AccountSelector): Promise<IAMG
 
 export async function getIamGroup(accountId: S3AccountSelector, groupName: string): Promise<IAMGroup> {
   const { data } = await client.get<IAMGroup>(`/manager/iam/groups/${encodeURIComponent(groupName)}`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -44,7 +44,7 @@ export async function updateIamGroup(
   payload: { name?: string; path?: string },
 ): Promise<IAMGroup> {
   const { data } = await client.put<IAMGroup>(`/manager/iam/groups/${encodeURIComponent(groupName)}`, payload, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -63,7 +63,7 @@ export async function deleteIamGroup(accountId: S3AccountSelector, name: string)
 
 export async function listIamGroupUsers(accountId: S3AccountSelector, groupName: string): Promise<IAMUser[]> {
   const { data } = await client.get<IAMUser[]>(`/manager/iam/groups/${encodeURIComponent(groupName)}/users`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -72,14 +72,14 @@ export async function addIamGroupUser(accountId: S3AccountSelector, groupName: s
   const { data } = await client.post<IAMUser>(
     `/manager/iam/groups/${encodeURIComponent(groupName)}/users`,
     { name: userName },
-    { params: withS3AccountParam(undefined, accountId) }
+    { params: withS3ContextParam(undefined, accountId) }
   );
   return data;
 }
 
 export async function removeIamGroupUser(accountId: S3AccountSelector, groupName: string, userName: string): Promise<void> {
   await client.delete(`/manager/iam/groups/${encodeURIComponent(groupName)}/users/${encodeURIComponent(userName)}`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
 }
 

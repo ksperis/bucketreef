@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 
 export type ManagerCephAccessKey = {
   access_key_id: string;
@@ -40,7 +40,7 @@ type ManagerAccessKeyMetadataInput = {
 
 export async function listManagerCephAccessKeys(accountId?: S3AccountSelector): Promise<ManagerCephAccessKey[]> {
   const { data } = await client.get<ManagerCephAccessKey[]>("/manager/ceph/keys", {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -52,7 +52,7 @@ export async function createManagerCephAccessKey(
   const { data } = await client.post<ManagerCephGeneratedAccessKey>(
     "/manager/ceph/keys",
     metadata ?? {},
-    { params: withS3AccountParam(undefined, accountId) }
+    { params: withS3ContextParam(undefined, accountId) }
   );
   return data;
 }
@@ -65,7 +65,7 @@ export async function updateManagerCephAccessKeyMetadata(
   const { data } = await client.put<ManagerAccessKeyMetadataInput>(
     `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
-    { params: withS3AccountParam(undefined, accountId) },
+    { params: withS3ContextParam(undefined, accountId) },
   );
   return data;
 }
@@ -78,13 +78,13 @@ export async function updateManagerCephAccessKeyStatus(
   const { data } = await client.put<ManagerCephAccessKey>(
     `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}/status`,
     { active },
-    { params: withS3AccountParam(undefined, accountId) }
+    { params: withS3ContextParam(undefined, accountId) }
   );
   return data;
 }
 
 export async function deleteManagerCephAccessKey(accountId: S3AccountSelector, accessKeyId: string): Promise<void> {
   await client.delete(`/manager/ceph/keys/${encodeURIComponent(accessKeyId)}`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
 }

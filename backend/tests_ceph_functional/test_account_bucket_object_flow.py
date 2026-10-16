@@ -30,7 +30,7 @@ def _wait_for_object_absence(
     while time.monotonic() < deadline:
         listed_objects = manager_session.get(
             f"/manager/buckets/{bucket_name}/objects",
-            params={"account_id": account_id, "prefix": "tests/"},
+            params={"context_id": account_id, "prefix": "tests/"},
         )
         if not any(obj["key"] == object_key for obj in listed_objects["objects"]):
             return
@@ -53,7 +53,7 @@ def _wait_for_manager_activity(
     while time.monotonic() < deadline:
         last_entries = manager_session.get(
             "/manager/activity",
-            params={"account_id": account_id, "limit": 20},
+            params={"context_id": account_id, "limit": 20},
         )
         for entry in last_entries:
             if entry.get("action") != action:
@@ -88,7 +88,7 @@ def test_account_bucket_object_flow(
     bucket_name = _bucket_name(ceph_test_settings.test_prefix)
     manager_session.post(
         "/manager/buckets",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={
             "name": bucket_name,
             "versioning": False,
@@ -109,18 +109,18 @@ def test_account_bucket_object_flow(
     assert create_activity["status"] == "success"
     assert create_activity["user_email"] == manager_email
 
-    buckets = manager_session.get("/manager/buckets", params={"account_id": account_id})
+    buckets = manager_session.get("/manager/buckets", params={"context_id": account_id})
     assert any(bucket["name"] == bucket_name for bucket in buckets), "Bucket creation not reflected in listing"
 
     properties = manager_session.get(
         f"/manager/buckets/{bucket_name}/properties",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     assert "versioning_status" in properties
 
     tags_response = manager_session.put(
         f"/manager/buckets/{bucket_name}/tags",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"tags": [{"key": "env", "value": "functional"}]},
     )
     assert tags_response["tags"][0]["key"] == "env"
@@ -139,17 +139,17 @@ def test_account_bucket_object_flow(
     }
     manager_session.put(
         f"/manager/buckets/{bucket_name}/policy",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"policy": policy_document},
     )
     retrieved_policy = manager_session.get(
         f"/manager/buckets/{bucket_name}/policy",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     assert retrieved_policy["policy"] == policy_document
     manager_session.delete(
         f"/manager/buckets/{bucket_name}/policy",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         expected_status=(204,),
     )
 
@@ -173,7 +173,7 @@ def test_account_bucket_object_flow(
     upload_response = manager_session.request(
         "POST",
         f"/browser/buckets/{bucket_name}/proxy-upload",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         data={"key": object_key, "content_type": "text/plain"},
         files={"file": ("payload.txt", io.BytesIO(object_body), "text/plain")},
         expected_status=200,
@@ -183,14 +183,14 @@ def test_account_bucket_object_flow(
 
     listed_objects = manager_session.get(
         f"/manager/buckets/{bucket_name}/objects",
-        params={"account_id": account_id, "prefix": "tests/"},
+        params={"context_id": account_id, "prefix": "tests/"},
     )
     assert any(obj["key"] == object_key for obj in listed_objects["objects"]), "Object not found in listing"
 
     download_response = manager_session.request(
         "GET",
         f"/browser/buckets/{bucket_name}/download",
-        params={"account_id": account_id, "key": object_key},
+        params={"context_id": account_id, "key": object_key},
         stream=True,
     )
     try:
@@ -200,7 +200,7 @@ def test_account_bucket_object_flow(
 
     manager_session.post(
         f"/browser/buckets/{bucket_name}/delete",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"objects": [{"key": object_key}]},
         expected_status=200,
     )
@@ -212,18 +212,18 @@ def test_account_bucket_object_flow(
     )
     manager_session.put(
         f"/manager/buckets/{bucket_name}/versioning",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"enabled": True},
     )
     properties = manager_session.get(
         f"/manager/buckets/{bucket_name}/properties",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     assert properties.get("versioning_status") == "Enabled"
 
     delete_response = manager_session.delete(
         f"/manager/buckets/{bucket_name}",
-        params={"account_id": account_id, "force": "true"},
+        params={"context_id": account_id, "force": "true"},
     )
     assert delete_response["message"].startswith("Bucket"), "Bucket deletion acknowledgement missing"
     resource_tracker.discard_bucket(account_id, bucket_name)

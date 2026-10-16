@@ -24,6 +24,13 @@ def test_portal_usage_routes_preserve_their_openapi_contracts() -> None:
     assert usage["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/PortalUsage"
     }
+    usage_query_params = {
+        parameter["name"]
+        for parameter in usage.get("parameters", [])
+        if parameter.get("in") == "query"
+    }
+    assert "account_id" in usage_query_params
+    assert "context_id" not in usage_query_params
 
     storage_stats = paths["/api/portal/storage-spaces/{space_id}/usage-stats"]["get"]
     assert storage_stats["responses"]["200"]["content"]["application/json"]["schema"] == {
@@ -87,5 +94,5 @@ def test_portal_usage_rejects_non_account_contexts_before_resolving_services(cli
 
     response = client.get(f"/api/portal{path}", params={"account_id": account_id})
 
-    assert response.status_code == 403
-    assert response.json() == {"detail": "S3 user context is not supported here"}
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid account identifier"}

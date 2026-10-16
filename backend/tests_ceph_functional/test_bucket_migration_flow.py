@@ -35,8 +35,8 @@ def _topic_name(prefix: str, label: str = "topic") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}-{label}"
 
 
-def _account_params(account_id: int) -> dict[str, int]:
-    return {"account_id": account_id}
+def _context_params(account_id: int) -> dict[str, int]:
+    return {"context_id": account_id}
 
 
 def _stable_dump(value: Any) -> str:
@@ -129,7 +129,7 @@ def _create_bucket(
 ) -> None:
     manager_session.post(
         "/manager/buckets",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={
             "name": bucket_name,
             "versioning": versioning,
@@ -147,7 +147,7 @@ def _delete_bucket(
     try:
         manager_session.delete(
             f"/manager/buckets/{bucket_name}",
-            params={"account_id": account_id, "force": "true"},
+            params={"context_id": account_id, "force": "true"},
             expected_status=(200, 404),
         )
     except BackendAPIError:
@@ -163,7 +163,7 @@ def _delete_topic(
     try:
         manager_session.delete(
             f"/manager/topics/{topic_arn}",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             expected_status=(204, 404),
         )
     except BackendAPIError:
@@ -183,7 +183,7 @@ def _upload_bytes(
     response = manager_session.request(
         "POST",
         f"/browser/buckets/{bucket_name}/proxy-upload",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         data={"key": key, "content_type": content_type},
         files={
             "file": (
@@ -207,7 +207,7 @@ def _set_object_tags(
 ) -> dict[str, Any]:
     return manager_session.put(
         f"/browser/buckets/{bucket_name}/object-tags",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={
             "key": key,
             "version_id": version_id,
@@ -241,7 +241,7 @@ def _set_object_metadata(
     }
     return manager_session.put(
         f"/browser/buckets/{bucket_name}/object-meta",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json=payload,
     )
 
@@ -262,7 +262,7 @@ def _copy_object(
 ) -> None:
     manager_session.post(
         f"/browser/buckets/{bucket_name}/copy",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={
             "source_bucket": source_bucket,
             "source_key": source_key,
@@ -287,7 +287,7 @@ def _delete_browser_objects(
 ) -> None:
     manager_session.post(
         f"/browser/buckets/{bucket_name}/delete",
-        params=_account_params(account_id),
+        params=_context_params(account_id),
         json={"objects": objects},
     )
 
@@ -339,7 +339,7 @@ def _list_current_objects(
 
 def _list_bucket_names(manager_session: BackendSession, account_id: int) -> list[str]:
     payload = manager_session.get(
-        "/browser/buckets/search", params=_account_params(account_id)
+        "/browser/buckets/search", params=_context_params(account_id)
     )
     return sorted(
         str(entry.get("name") or "")
@@ -372,11 +372,11 @@ def _snapshot_current_bucket(
         key = str(entry.get("key") or "")
         meta = manager_session.get(
             f"/browser/buckets/{bucket_name}/object-meta",
-            params={"account_id": account_id, "key": key},
+            params={"context_id": account_id, "key": key},
         )
         tags = manager_session.get(
             f"/browser/buckets/{bucket_name}/object-tags",
-            params={"account_id": account_id, "key": key},
+            params={"context_id": account_id, "key": key},
         )
         snapshot[key] = {
             "size": int(meta.get("size") or 0),
@@ -484,11 +484,11 @@ def _snapshot_versioned_bucket(
                 continue
             meta = manager_session.get(
                 f"/browser/buckets/{bucket_name}/object-meta",
-                params={"account_id": account_id, "key": key, "version_id": version_id},
+                params={"context_id": account_id, "key": key, "version_id": version_id},
             )
             tags = manager_session.get(
                 f"/browser/buckets/{bucket_name}/object-tags",
-                params={"account_id": account_id, "key": key, "version_id": version_id},
+                params={"context_id": account_id, "key": key, "version_id": version_id},
             )
             normalized_entry = {
                 "kind": "object",
@@ -705,7 +705,7 @@ def _configure_supported_bucket_settings(
             "tags",
             lambda: manager_session.put(
                 f"/manager/buckets/{bucket_name}/tags",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "tags": [
                         {"key": "suite", "value": "migration-live"},
@@ -715,14 +715,14 @@ def _configure_supported_bucket_settings(
             ),
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/tags",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
         ),
         (
             "lifecycle",
             lambda: manager_session.put(
                 f"/manager/buckets/{bucket_name}/lifecycle",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "rules": [
                         {
@@ -736,14 +736,14 @@ def _configure_supported_bucket_settings(
             ),
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/lifecycle",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
         ),
         (
             "cors",
             lambda: manager_session.put(
                 f"/manager/buckets/{bucket_name}/cors",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "rules": [
                         {
@@ -758,14 +758,14 @@ def _configure_supported_bucket_settings(
             ),
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/cors",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
         ),
         (
             "public_access_block",
             lambda: manager_session.put(
                 f"/manager/buckets/{bucket_name}/public-access-block",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={
                     "block_public_acls": False,
                     "ignore_public_acls": False,
@@ -775,7 +775,7 @@ def _configure_supported_bucket_settings(
             ),
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/public-access-block",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
         ),
     ]
@@ -809,14 +809,14 @@ def _configure_unsupported_bucket_setting(
     try:
         manager_session.put(
             f"/manager/buckets/{bucket_name}/website",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json=website_payload,
         )
         _wait_for_value(
             "bucket website configuration",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/website",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: current.get("index_document") == "index.html",
             timeout=20.0,
@@ -832,7 +832,7 @@ def _configure_unsupported_bucket_setting(
             "manager topic creation",
             lambda: manager_session.post(
                 "/manager/topics",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
                 json={"name": topic_name},
                 expected_status=201,
             ),
@@ -841,7 +841,7 @@ def _configure_unsupported_bucket_setting(
         topic_arn_holder["arn"] = topic_arn
         manager_session.put(
             f"/manager/buckets/{bucket_name}/notifications",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "configuration": {
                     "TopicConfigurations": [
@@ -858,7 +858,7 @@ def _configure_unsupported_bucket_setting(
             "bucket notifications configuration",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/notifications",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: bool(
                 (current.get("configuration") or {}).get("TopicConfigurations")
@@ -878,35 +878,35 @@ def _configure_unsupported_bucket_setting(
     try:
         manager_session.put(
             f"/manager/buckets/{bucket_name}/versioning",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"enabled": True},
         )
         _wait_for_value(
             "bucket versioning",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/properties",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: current.get("versioning_status") == "Enabled",
             timeout=20.0,
         )
         manager_session.put(
             f"/manager/buckets/{replication_target}/versioning",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={"enabled": True},
         )
         _wait_for_value(
             "replication target versioning",
             lambda: manager_session.get(
                 f"/manager/buckets/{replication_target}/properties",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: current.get("versioning_status") == "Enabled",
             timeout=20.0,
         )
         manager_session.put(
             f"/manager/buckets/{bucket_name}/replication",
-            params=_account_params(account_id),
+            params=_context_params(account_id),
             json={
                 "configuration": {
                     "Role": "arn:aws:iam::000000000000:role/manager-functional-replication",
@@ -929,7 +929,7 @@ def _configure_unsupported_bucket_setting(
             "bucket replication configuration",
             lambda: manager_session.get(
                 f"/manager/buckets/{bucket_name}/replication",
-                params=_account_params(account_id),
+                params=_context_params(account_id),
             ),
             lambda current: bool((current.get("configuration") or {}).get("Rules")),
             timeout=20.0,
@@ -1244,19 +1244,19 @@ def test_bucket_migration_one_shot_current_only_copy_bucket_settings(
     fetch_map = {
         "tags": lambda: target.manager_session.get(
             f"/manager/buckets/{target_bucket}/tags",
-            params=_account_params(target.account_id),
+            params=_context_params(target.account_id),
         ),
         "lifecycle": lambda: target.manager_session.get(
             f"/manager/buckets/{target_bucket}/lifecycle",
-            params=_account_params(target.account_id),
+            params=_context_params(target.account_id),
         ),
         "cors": lambda: target.manager_session.get(
             f"/manager/buckets/{target_bucket}/cors",
-            params=_account_params(target.account_id),
+            params=_context_params(target.account_id),
         ),
         "public_access_block": lambda: target.manager_session.get(
             f"/manager/buckets/{target_bucket}/public-access-block",
-            params=_account_params(target.account_id),
+            params=_context_params(target.account_id),
         ),
     }
     for setting_name, expected_value in configured_settings.items():
@@ -1624,7 +1624,7 @@ def test_bucket_migration_precheck_fails_for_object_lock_governance_when_support
     try:
         source.manager_session.put(
             f"/manager/buckets/{source_bucket}/object-lock",
-            params=_account_params(source.account_id),
+            params=_context_params(source.account_id),
             json={"enabled": True, "mode": "GOVERNANCE", "days": 1},
         )
     except BackendAPIError as exc:
@@ -1750,7 +1750,7 @@ def test_bucket_migration_revoked_read_access_can_be_corrected_and_rechecked(
     try:
         source.manager_session.put(
             f"/manager/buckets/{source_bucket}/policy",
-            params=_account_params(source.account_id),
+            params=_context_params(source.account_id),
             json={"policy": policy},
         )
         _start_migration(super_admin_session, migration["id"], expected_status=400)
@@ -1767,7 +1767,7 @@ def test_bucket_migration_revoked_read_access_can_be_corrected_and_rechecked(
     finally:
         source.manager_session.delete(
             f"/manager/buckets/{source_bucket}/policy",
-            params=_account_params(source.account_id),
+            params=_context_params(source.account_id),
             expected_status=(200, 204),
         )
     assert (

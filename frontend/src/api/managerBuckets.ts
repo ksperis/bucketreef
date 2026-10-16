@@ -4,7 +4,7 @@
  */
 import client, { timeoutForRequestProfile } from "./client";
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { withS3ContextParam } from "./accountParams";
 import type { Bucket } from "./bucketContracts";
 
 const MANAGER_BUCKETS_PATH = "/manager/buckets";
@@ -34,7 +34,7 @@ export async function listBuckets(
   options?: { include?: string[]; with_stats?: boolean; signal?: AbortSignal }
 ): Promise<Bucket[]> {
   const { data } = await client.get<Bucket[]>(MANAGER_BUCKETS_PATH, {
-    params: withS3AccountParam(
+    params: withS3ContextParam(
       {
         include: options?.include?.join(","),
         with_stats: options?.with_stats,
@@ -51,7 +51,7 @@ export async function listFeatureRuleInventory(
   feature: FeatureRuleFeature
 ): Promise<FeatureRuleInventoryBucket[]> {
   const { data } = await client.get<FeatureRuleInventoryBucket[]>("/manager/feature-rules", {
-    params: withS3AccountParam({ feature }, accountId),
+    params: withS3ContextParam({ feature }, accountId),
     timeout: timeoutForRequestProfile("long_running"),
   });
   return data;
@@ -71,13 +71,13 @@ export async function createBucket(name: string, accountId: S3AccountSelector, o
       versioning: options?.versioning ?? false,
       location_constraint: locationConstraint || undefined,
     },
-    { params: withS3AccountParam(undefined, accountId) }
+    { params: withS3ContextParam(undefined, accountId) }
   );
 }
 
 export async function deleteBucket(name: string, accountId: S3AccountSelector): Promise<void> {
   await client.delete(`${MANAGER_BUCKETS_PATH}/${encodeURIComponent(name)}`, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
 }
 
@@ -197,7 +197,7 @@ export async function compareManagerBucketPair(
     `${MANAGER_BUCKETS_PATH}/compare`,
     payload,
     {
-      params: withS3AccountParam(undefined, sourceContextId),
+      params: withS3ContextParam(undefined, sourceContextId),
       signal: options?.signal,
       timeout: timeoutForRequestProfile("long_running"),
     }
@@ -214,7 +214,7 @@ export async function runManagerBucketCompareAction(
     `${MANAGER_BUCKETS_PATH}/compare/action`,
     payload,
     {
-      params: withS3AccountParam(undefined, sourceContextId),
+      params: withS3ContextParam(undefined, sourceContextId),
       signal: options?.signal,
       timeout: timeoutForRequestProfile("long_running"),
     }

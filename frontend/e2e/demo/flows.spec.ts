@@ -14,8 +14,8 @@ test("cross-workspace: real bucket form, shared configuration, persistence and r
   await page.getByLabel("Bucket name", { exact: true }).fill("demo-created-bucket");
   await page.getByRole("button", { name: "Create bucket", exact: true }).click();
   await expect(page.getByText("demo-created-bucket", { exact: true })).toBeVisible();
-  expect((await api(page, "/manager/buckets/demo-created-bucket/versioning?account_id=101", "PUT", { enabled: true })).status).toBe(204);
-  expect((await api(page, "/manager/buckets/demo-created-bucket/lifecycle?account_id=101", "PUT", { rules: [{ ID: "archive", Status: "Enabled", Filter: { Prefix: "archive/" }, Expiration: { Days: 30 } }] })).status).toBe(200);
+  expect((await api(page, "/manager/buckets/demo-created-bucket/versioning?context_id=101", "PUT", { enabled: true })).status).toBe(204);
+  expect((await api(page, "/manager/buckets/demo-created-bucket/lifecycle?context_id=101", "PUT", { rules: [{ ID: "archive", Status: "Enabled", Filter: { Prefix: "archive/" }, Expiration: { Days: 30 } }] })).status).toBe(200);
   await open(page, "/ceph-admin/buckets");
   await expect(page.getByText("demo-created-bucket", { exact: true }).first()).toBeVisible();
   expect((await api(page, "/ceph-admin/endpoints/11/buckets/demo-created-bucket/versioning")).data.enabled).toBe(true);
@@ -46,19 +46,19 @@ test("files: bytes, tags, versions, restore, deletion and reload", async ({ page
   await open(page, "/manager/browser?bucket=helios-documents&ctx=101");
   const upload = (text: string) => page.evaluate(async text => {
     const form = new FormData(); form.append("key", "demo-note.txt"); form.append("file", new Blob([text], { type: "text/plain" }), "demo-note.txt");
-    return (await fetch("/api/browser/buckets/helios-documents/proxy-upload?account_id=101", { method: "POST", body: form })).status;
+    return (await fetch("/api/browser/buckets/helios-documents/proxy-upload?context_id=101", { method: "POST", body: form })).status;
   }, text);
   expect(await upload("first version")).toBe(204); expect(await upload("second version")).toBe(204);
-  expect((await api(page, "/browser/buckets/helios-documents/object-tags?account_id=101", "PUT", { key: "demo-note.txt", tags: [{ key: "project", value: "demo" }] })).status).toBe(200);
-  const versions = (await api(page, "/browser/buckets/helios-documents/versions?account_id=101&prefix=demo-note.txt")).data.versions;
+  expect((await api(page, "/browser/buckets/helios-documents/object-tags?context_id=101", "PUT", { key: "demo-note.txt", tags: [{ key: "project", value: "demo" }] })).status).toBe(200);
+  const versions = (await api(page, "/browser/buckets/helios-documents/versions?context_id=101&prefix=demo-note.txt")).data.versions;
   expect(versions).toHaveLength(2);
   await open(page, "/portal/storage-spaces/space-1");
   expect((await api(page, "/portal/storage-spaces/space-1/objects/restore?account_id=101", "POST", { key: "demo-note.txt", version_id: versions[1].version_id })).status).toBe(200);
   await page.reload(); await expect(page.locator("main")).toBeVisible();
   expect(await page.evaluate(async () => (await fetch("/api/portal/storage-spaces/space-1/objects/download?account_id=101&key=demo-note.txt")).text())).toBe("first version");
-  expect((await api(page, "/browser/buckets/helios-documents/object-tags?account_id=101&key=demo-note.txt")).data.tags[0].value).toBe("demo");
-  expect((await api(page, "/browser/buckets/helios-documents/delete?account_id=101", "POST", { objects: [{ key: "demo-note.txt" }] })).data.deleted).toBe(1);
-  expect((await api(page, "/browser/buckets/helios-documents/objects?account_id=101&query=demo-note.txt")).data.objects).toHaveLength(0);
+  expect((await api(page, "/browser/buckets/helios-documents/object-tags?context_id=101&key=demo-note.txt")).data.tags[0].value).toBe("demo");
+  expect((await api(page, "/browser/buckets/helios-documents/delete?context_id=101", "POST", { objects: [{ key: "demo-note.txt" }] })).data.deleted).toBe(1);
+  expect((await api(page, "/browser/buckets/helios-documents/objects?context_id=101&query=demo-note.txt")).data.objects).toHaveLength(0);
   expect(await page.evaluate(() => window.__bucketreefDemo.failures)).toEqual([]);
 });
 

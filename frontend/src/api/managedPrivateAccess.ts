@@ -4,7 +4,7 @@
  */
 import client from "./client";
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { withS3ContextParam } from "./accountParams";
 import type { S3Connection } from "./connections";
 
 export type ManagedInlinePolicy = {
@@ -35,7 +35,7 @@ export async function createManagedIAMPrivateAccess(
   payload: ManagedIAMPrivateAccessPayload
 ): Promise<ManagedPrivateAccessResult> {
   const { data } = await client.post<ManagedPrivateAccessResult>("/manager/private-access/iam", payload, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }
@@ -45,7 +45,7 @@ export async function createManagedRGWUserPrivateAccess(
   payload: ManagedPrivateAccessBasePayload
 ): Promise<ManagedPrivateAccessResult> {
   const { data } = await client.post<ManagedPrivateAccessResult>("/manager/private-access/rgw-user", payload, {
-    params: withS3AccountParam(undefined, accountId),
+    params: withS3ContextParam(undefined, accountId),
   });
   return data;
 }

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import { S3AccountSelector, withS3ContextParam } from "./accountParams";
 import type { ObjectTag } from "./browserContracts";
 import {
   buildBrowserWorkspaceHeaders,
@@ -68,7 +68,7 @@ export async function initiateMultipartUpload(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/initiate`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -88,7 +88,7 @@ export async function listMultipartUploads(
     maxUploads?: number;
   } & BrowserRequestOptions,
 ): Promise<ListMultipartUploadsResponse> {
-  const params = withS3AccountParam(
+  const params = withS3ContextParam(
     {
       prefix: options?.prefix ?? undefined,
       key_marker: options?.keyMarker ?? undefined,
@@ -116,7 +116,7 @@ export async function presignPart(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}/presign`,
     payload,
     {
-      params: withS3AccountParam(undefined, accountId),
+      params: withS3ContextParam(undefined, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
@@ -138,7 +138,7 @@ export async function completeMultipartUpload(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}/complete`,
     payload,
     {
-      params: withS3AccountParam({ key }, accountId),
+      params: withS3ContextParam({ key }, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );
@@ -154,7 +154,7 @@ export async function abortMultipartUpload(
   await client.delete(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}`,
     {
-      params: withS3AccountParam({ key }, accountId),
+      params: withS3ContextParam({ key }, accountId),
       headers: buildBrowserWorkspaceHeaders(options),
     },
   );

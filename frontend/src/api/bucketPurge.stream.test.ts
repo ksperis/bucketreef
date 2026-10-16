@@ -54,7 +54,7 @@ describe("bucket purge streams", () => {
     expect(result.status).toBe("completed");
     expect(progressEvents).toEqual([{ deleted: 1, listed: 3 }]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/manager/bucket-purge/stream?account_id=s3u-1",
+      "/api/manager/bucket-purge/stream?context_id=s3u-1",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify(payload),
@@ -118,7 +118,7 @@ describe("bucket purge streams", () => {
 
     expect(result.bucket_deleted).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/manager/buckets/bucket-a/delete/stream?account_id=s3u-1",
+      "/api/manager/buckets/bucket-a/delete/stream?context_id=s3u-1",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify(payload),

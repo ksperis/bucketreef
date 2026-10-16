@@ -13,17 +13,17 @@ from .clients import BackendAPIError, BackendSession
 def _cleanup_iam_user(session: BackendSession, account_id: int, user_name: str) -> None:
     keys = session.get(
         f"/manager/iam/users/{user_name}/keys",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     for key in keys or []:
         session.delete(
             f"/manager/iam/users/{user_name}/keys/{key['access_key_id']}",
-            params={"account_id": account_id},
+            params={"context_id": account_id},
             expected_status=(204,),
         )
     session.delete(
         f"/manager/iam/users/{user_name}",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         expected_status=(204,),
     )
 from .config import CephTestSettings
@@ -46,14 +46,14 @@ def test_iam_policy_and_user_flow(
 
     created_user = manager_session.post(
         "/manager/iam/users",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"name": iam_user, "create_key": True},
         expected_status=201,
     )
     assert created_user["name"] == iam_user
     created_key = (created_user.get("access_key") or {}).get("access_key_id")
 
-    users = manager_session.get("/manager/iam/users", params={"account_id": account_id})
+    users = manager_session.get("/manager/iam/users", params={"context_id": account_id})
     assert any(entry["name"] == iam_user for entry in users)
 
     policy_document = {
@@ -71,7 +71,7 @@ def test_iam_policy_and_user_flow(
     try:
         policy = manager_session.post(
             "/manager/iam/policies",
-            params={"account_id": account_id},
+            params={"context_id": account_id},
             json={"name": policy_name, "document": policy_document},
             expected_status=201,
         )
@@ -88,31 +88,31 @@ def test_iam_policy_and_user_flow(
 
     manager_session.post(
         f"/manager/iam/users/{iam_user}/policies",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         json={"arn": policy_arn, "name": policy_name, "path": policy.get("path", "/")},
         expected_status=201,
     )
     attached = manager_session.get(
         f"/manager/iam/users/{iam_user}/policies",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     assert any(entry["arn"] == policy_arn for entry in attached)
 
     new_key = manager_session.post(
         f"/manager/iam/users/{iam_user}/keys",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
         expected_status=201,
     )
     keys = manager_session.get(
         f"/manager/iam/users/{iam_user}/keys",
-        params={"account_id": account_id},
+        params={"context_id": account_id},
     )
     assert keys, "IAM user should expose at least one access key"
 
     if created_key:
         manager_session.delete(
             f"/manager/iam/users/{iam_user}/keys/{created_key}",
-            params={"account_id": account_id},
+            params={"context_id": account_id},
             expected_status=(204,),
         )
 
@@ -120,6 +120,6 @@ def test_iam_policy_and_user_flow(
     if encoded_policy_arn:
         manager_session.delete(
             f"/manager/iam/policies/{encoded_policy_arn}",
-            params={"account_id": account_id},
+            params={"context_id": account_id},
             expected_status=(204,),
         )

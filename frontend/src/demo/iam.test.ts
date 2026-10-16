@@ -13,7 +13,7 @@ describe("demo IAM mutations", () => {
     body: Record<string, unknown> | unknown[] = {},
   ): DemoRequest => {
     const account = state.accounts[0];
-    const url = new URL(`https://demo.test${path}?ctx=${account.id}`);
+    const url = new URL(`https://demo.test${path}?context_id=${account.id}`);
     return {
       state,
       url,
