@@ -2,7 +2,7 @@
 import { useCallback } from "react";
 import type { BucketUsageStatsDistributionEntry } from "../../api/bucketUsageStats";
 import type { UiLanguage } from "../../components/language";
-import { translate, useI18n, type I18nMessage } from "../../i18n";
+import { interpolateText, translate, useI18n, type I18nMessage } from "../../i18n";
 
 const m = (en: string, zh: string) => ({ en, zh });
 
@@ -143,13 +143,6 @@ const distributionKeys: Record<BucketUsageStatsDistributionKind, Readonly<Record
   storageClass: {},
 };
 
-function interpolate(message: string, values?: TextValues): string {
-  if (!values) return message;
-  return message.replace(/\{(\w+)\}/g, (match, key: string) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
-  );
-}
-
 export function bucketUsageStatsErrorMessage(message: string | null, locale: UiLanguage): string | null {
   const keys = ["invalidOptions", "calculationError", "loadError", "recalculateError"] as const;
   const key = keys.find((candidate) => bucketUsageStatsMessage[candidate].en === message);
@@ -161,7 +154,7 @@ export function useBucketUsageStatsI18n(overrideText?: BucketUsageStatsTextOverr
   const text = useCallback(
     (key: BucketUsageStatsMessageKey, values?: TextValues) => overrideText
       ? overrideText(bucketUsageStatsMessage[key].en, values)
-      : interpolate(t(bucketUsageStatsMessage[key]), values),
+      : interpolateText(t(bucketUsageStatsMessage[key]), values),
     [overrideText, t],
   );
   const distributionLabel = useCallback(
