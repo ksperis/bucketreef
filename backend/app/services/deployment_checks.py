@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import ipaddress
-from dataclasses import dataclass
-from typing import Callable
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
@@ -13,12 +11,10 @@ from app.core.config import DeploymentProfile, Settings, is_local_origin, is_wea
 from app.core.database import is_sqlite_url
 from app.core.runtime_surfaces import RuntimeSurface, ceph_admin_only_runtime, runtime_surface_enabled
 from app.db import (
-    S3Connection,
     StorageEndpoint,
     User,
     UserRole,
     WebAuthnCredential,
-    WebhookEndpoint,
 )
 from app.models.app_settings import AppSettings
 from app.services.deployment_check_models import (
@@ -34,15 +30,7 @@ from app.services.deployment_identity_checks import (
     environment_oidc_findings,
     persisted_provider_findings,
 )
-from app.services.webhook_service import webhook_dispatcher_enabled, webhook_runtime_config
-from app.utils.network_targets import host_matches_allowlist
-from app.utils.s3_connection_endpoint import parse_custom_endpoint_config
-
-
-@dataclass(frozen=True, order=True)
-class UncoveredTarget:
-    target_type: str
-    hostname: str
+from app.services.deployment_outbound_preflight import find_uncovered_outbound_targets
 
 
 _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
@@ -101,39 +89,6 @@ def _origin_problem(settings: Settings) -> str | None:
         if host != rp_id and not host.endswith(f".{rp_id}"):
             return "WEBAUTHN_RP_ID must cover every configured WebAuthn origin."
     return None
-
-
-def _hostname(url: str) -> str:
-    return str(urlparse(url).hostname or "").strip().lower().rstrip(".")
-
-
-def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[UncoveredTarget]:
-    uncovered: set[UncoveredTarget] = set()
-    connections = (
-        db.query(S3Connection)
-        .filter(
-            S3Connection.is_shared.is_(False),
-            S3Connection.server_managed.is_(False),
-            S3Connection.storage_endpoint_id.is_(None),
-            S3Connection.custom_endpoint_config.is_not(None),
-        )
-        .all()
-    )
-    for connection in connections:
-        try:
-            hostname = _hostname(parse_custom_endpoint_config(connection.custom_endpoint_config).endpoint_url or "")
-        except (TypeError, ValueError):
-            hostname = "<invalid>"
-        if not host_matches_allowlist(hostname, settings.user_supplied_s3_endpoint_allowed_hosts):
-            uncovered.add(UncoveredTarget("user-s3-endpoint", hostname or "<invalid>"))
-
-    if webhook_dispatcher_enabled(settings):
-        webhook_hosts = webhook_runtime_config(settings).allowed_hosts
-        for (webhook_url,) in db.query(WebhookEndpoint.url).all():
-            hostname = _hostname(webhook_url or "") or "<invalid>"
-            if not host_matches_allowlist(hostname, webhook_hosts):
-                uncovered.add(UncoveredTarget("webhook", hostname))
-    return sorted(uncovered)
 
 
 def _persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
@@ -712,19 +667,3 @@ def deployment_exit_code(findings: list[DeploymentCheckFinding]) -> int:
 
 def startup_blocking_findings(findings: list[DeploymentCheckFinding]) -> list[DeploymentCheckFinding]:
     return [finding for finding in findings if finding.result == "fail" and finding.blocks_startup]
-
-
-def run_outbound_target_preflight(
-    db: Session,
-    settings: Settings,
-    *,
-    emit: Callable[[str], None] = print,
-) -> int:
-    targets = find_uncovered_outbound_targets(db, settings)
-    for target in targets:
-        emit(f"{target.target_type}: {target.hostname}")
-    if targets:
-        emit(f"Blocked outbound hostnames: {len(targets)}")
-        return 1
-    emit("All persisted outbound hostnames are covered by the configured allowlists.")
-    return 0
