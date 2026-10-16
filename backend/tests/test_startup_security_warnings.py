@@ -82,6 +82,36 @@ def test_same_weak_keys_do_not_block_development_startup():
     assert startup_blocking_findings(findings) == []
 
 
+def test_weak_scheduler_token_blocks_production_when_scheduled_jobs_are_enabled():
+    findings = _checks(
+        _base_settings(
+            scheduled_jobs_enabled=True,
+            internal_cron_token="change-me",
+        )
+    )
+
+    finding = next(finding for finding in findings if finding.code == "cron-token")
+
+    assert finding.level == "blocked"
+    assert finding.blocks_startup is True
+    assert finding in startup_blocking_findings(findings)
+
+
+def test_weak_scheduler_token_is_warning_when_scheduled_jobs_are_disabled():
+    findings = _checks(
+        _base_settings(
+            scheduled_jobs_enabled=False,
+            internal_cron_token="change-me",
+        )
+    )
+
+    finding = next(finding for finding in findings if finding.code == "cron-token")
+
+    assert finding.level == "warning"
+    assert finding.blocks_startup is False
+    assert finding not in startup_blocking_findings(findings)
+
+
 def test_insecure_public_authentication_cookie_blocks_production_startup():
     findings = _checks(_base_settings(refresh_token_cookie_secure=False))
 
