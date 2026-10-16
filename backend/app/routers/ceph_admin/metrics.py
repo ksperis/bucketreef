@@ -21,7 +21,7 @@ from app.services.rgw_supervision import get_supervision_rgw_client
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_feature_flags
-from app.utils.usage_stats import extract_usage_stats
+from app.utils.usage_stats import aggregate_bucket_usage, summarize_bucket_usage
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/metrics", tags=["ceph-admin-metrics"])
 
@@ -61,6 +61,40 @@ def _normalize_owner(entry: dict[str, Any]) -> str:
     return "unknown"
 
 
+def _normalized_named_buckets(payload: Any) -> list[dict[str, Any]]:
+    buckets: list[dict[str, Any]] = []
+    for entry in extract_bucket_list(payload):
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("bucket") or entry.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        normalized = dict(entry)
+        normalized["bucket"] = name.strip()
+        buckets.append(normalized)
+    return buckets
+
+
+def _summarize_owner_usage(buckets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    buckets_by_owner: dict[str, list[dict[str, Any]]] = {}
+    for bucket in buckets:
+        buckets_by_owner.setdefault(_normalize_owner(bucket), []).append(bucket)
+
+    owner_usage = []
+    for owner, owner_buckets in buckets_by_owner.items():
+        used_bytes, object_count, bucket_count = aggregate_bucket_usage(owner_buckets)
+        owner_usage.append(
+            {
+                "owner": owner,
+                "used_bytes": used_bytes,
+                "object_count": object_count,
+                "bucket_count": bucket_count,
+            }
+        )
+    owner_usage.sort(key=lambda item: item.get("used_bytes") or 0, reverse=True)
+    return owner_usage
+
+
 @router.get("/storage")
 def cluster_storage_metrics(
     endpoint: StorageEndpoint = Depends(get_ceph_admin_workspace_endpoint),
@@ -72,76 +106,18 @@ def cluster_storage_metrics(
     except RGWAdminError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
-    bucket_usage: list[dict[str, Any]] = []
-    owner_totals: dict[str, dict[str, Any]] = {}
-    total_bytes = 0
-    total_objects = 0
-    has_bytes = False
-    has_objects = False
-
-    for entry in extract_bucket_list(payload):
-        if not isinstance(entry, dict):
-            continue
-        name = entry.get("bucket") or entry.get("name")
-        if not isinstance(name, str) or not name.strip():
-            continue
-        bucket_name = name.strip()
-        used_bytes, object_count = extract_usage_stats(entry.get("usage"))
-        bucket_usage.append(
-            {
-                "name": bucket_name,
-                "used_bytes": used_bytes,
-                "object_count": object_count,
-            }
-        )
-
-        owner = _normalize_owner(entry)
-        owner_stats = owner_totals.get(owner)
-        if owner_stats is None:
-            owner_stats = {
-                "owner": owner,
-                "used_bytes": 0,
-                "object_count": 0,
-                "bucket_count": 0,
-                "_has_bytes": False,
-                "_has_objects": False,
-            }
-            owner_totals[owner] = owner_stats
-
-        owner_stats["bucket_count"] = int(owner_stats["bucket_count"]) + 1
-        if used_bytes is not None:
-            has_bytes = True
-            total_bytes += int(used_bytes)
-            owner_stats["used_bytes"] = int(owner_stats["used_bytes"]) + int(used_bytes)
-            owner_stats["_has_bytes"] = True
-        if object_count is not None:
-            has_objects = True
-            total_objects += int(object_count)
-            owner_stats["object_count"] = int(owner_stats["object_count"]) + int(object_count)
-            owner_stats["_has_objects"] = True
-
-    bucket_usage.sort(key=lambda item: item.get("used_bytes") or 0, reverse=True)
-
-    owner_usage: list[dict[str, Any]] = []
-    for owner, stats in owner_totals.items():
-        owner_usage.append(
-            {
-                "owner": owner,
-                "used_bytes": stats["used_bytes"] if stats["_has_bytes"] else None,
-                "object_count": stats["object_count"] if stats["_has_objects"] else None,
-                "bucket_count": stats["bucket_count"],
-            }
-        )
-    owner_usage.sort(key=lambda item: item.get("used_bytes") or 0, reverse=True)
+    buckets = _normalized_named_buckets(payload)
+    bucket_usage, total_bytes, total_objects, total_buckets = summarize_bucket_usage(buckets)
+    owner_usage = _summarize_owner_usage(buckets)
 
     return {
-        "total_buckets": len(bucket_usage),
+        "total_buckets": total_buckets,
         "bucket_usage": bucket_usage,
         "owner_usage": owner_usage,
         "storage_totals": {
-            "used_bytes": total_bytes if has_bytes else None,
-            "object_count": total_objects if has_objects else None,
-            "bucket_count": len(bucket_usage),
+            "used_bytes": total_bytes,
+            "object_count": total_objects,
+            "bucket_count": total_buckets,
             "owners_with_usage": len(owner_usage),
         },
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),

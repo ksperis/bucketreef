@@ -67,6 +67,38 @@ def test_ceph_admin_cluster_storage_aggregates_bucket_and_owner_usage(monkeypatc
     assert payload["bucket_usage"][0]["name"] == "gamma"
 
 
+def test_ceph_admin_cluster_storage_preserves_partial_metrics_and_normalization(monkeypatch: pytest.MonkeyPatch):
+    fake_admin = FakeRGWAdmin(
+        buckets_payload={
+            "buckets": [
+                {"bucket": " measured ", "owner": " owner-a ", "usage": {"total_bytes": 10}},
+                {"name": "objects-only", "owner": "owner-a", "usage": {"total_objects": 2}},
+                {"bucket": "unknown", "tenant": " tenant-b "},
+                {"bucket": "   ", "owner": "ignored", "usage": {"total_bytes": 999}},
+            ]
+        }
+    )
+    monkeypatch.setattr(metrics_router, "get_supervision_rgw_client", lambda endpoint: fake_admin)
+
+    payload = metrics_router.cluster_storage_metrics(endpoint=_build_endpoint())
+
+    assert payload["storage_totals"] == {
+        "used_bytes": 10,
+        "object_count": 2,
+        "bucket_count": 3,
+        "owners_with_usage": 2,
+    }
+    assert payload["bucket_usage"] == [
+        {"name": "measured", "used_bytes": 10, "object_count": None},
+        {"name": "objects-only", "used_bytes": None, "object_count": 2},
+        {"name": "unknown", "used_bytes": None, "object_count": None},
+    ]
+    assert payload["owner_usage"] == [
+        {"owner": "owner-a", "used_bytes": 10, "object_count": 2, "bucket_count": 2},
+        {"owner": "tenant-b", "used_bytes": None, "object_count": None, "bucket_count": 1},
+    ]
+
+
 def test_ceph_admin_cluster_traffic_aggregates_usage_entries(monkeypatch: pytest.MonkeyPatch):
     now = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
     usage_payload = {
