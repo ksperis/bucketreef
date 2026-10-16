@@ -22,11 +22,11 @@ def list_manager_activity(
     cursor: int | None = Query(None, ge=1),
     search: str | None = Query(None, max_length=200),
     status: str | None = Query(None, max_length=32),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> list[ManagerActivityEntry]:
-    resource = manager_activity_resource(db, account)
+    resource = manager_activity_resource(db, context)
     if resource is None:
         raise HTTPException(status_code=404, detail="Activity history is unavailable for this Manager context")
     settings = load_app_settings_for_db_readonly(db)
@@ -37,8 +37,8 @@ def list_manager_activity(
     logs = audit_service.list_logs(
         limit=limit,
         scope="manager",
-        context_kind=account.context_kind,
-        context_id=account.context_id,
+        context_kind=context.context_kind,
+        context_id=context.context_id,
         cursor=cursor,
         search=search,
         status=status,
