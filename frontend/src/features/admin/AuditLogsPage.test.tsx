@@ -67,13 +67,13 @@ describe("AuditLogsPage", () => {
   it("filters loaded entries locally while searching and workspace selection query the server", async () => {
     const first = await listAuditLogsMock();
     listAuditLogsMock.mockClear();
-    const page = { logs: [{ ...first.logs[0], id: 4 }, { ...first.logs[0], id: 3, status: "error", action: "users.create" }], next_cursor: 3 };
+    const page = { logs: [{ ...first.logs[0], id: 4 }, { ...first.logs[0], id: 3, status: "failure", action: "users.create" }], next_cursor: 3 };
     listAuditLogsMock.mockResolvedValue(page).mockResolvedValueOnce(page).mockResolvedValueOnce({
       logs: page.logs.map((entry) => ({ ...entry, id: entry.id - 2 })), next_cursor: null,
     });
     render(<MemoryRouter><AuditLogsPage /></MemoryRouter>);
     await screen.findByText("2 of 2 loaded entries");
-    fireEvent.change(screen.getByLabelText("Filter by status"), { target: { value: "error" } });
+    fireEvent.change(screen.getByLabelText("Filter by status"), { target: { value: "failure" } });
     expect(screen.getByText("1 of 2 loaded entries")).toBeInTheDocument();
     expect(listAuditLogsMock).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Load older" }));

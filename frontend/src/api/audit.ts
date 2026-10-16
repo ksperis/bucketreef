@@ -4,6 +4,8 @@
  */
 import client from "./client";
 
+export type AuditStatus = "success" | "failure" | "partial";
+
 export type AuditLogEntry = {
   id: number;
   created_at: string;
@@ -16,7 +18,7 @@ export type AuditLogEntry = {
   context_kind?: string | null;
   context_id?: string | null;
   context_name?: string | null;
-  status: string;
+  status: AuditStatus;
   message?: string | null;
   metadata?: Record<string, unknown> | null;
 };

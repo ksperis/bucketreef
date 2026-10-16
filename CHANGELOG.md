@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- Enforce the canonical `success`, `failure`, and `partial` audit-status contract across Admin audit logs and Manager activity; legacy `failed` and `error` aliases are no longer accepted at runtime.
+
+### Upgrade notes
+
+- **Breaking change:** upgrade the backend and bundled frontend together and apply the normal Alembic path. Migration `0157_canonical_audit_status` converts persisted `failed` and `error` audit values to `failure` before the application enforces the canonical status set.
+
 ## 0.2.15 - 2026-10-11
 
 ### Added

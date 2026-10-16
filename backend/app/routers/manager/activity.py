@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.services.s3_execution_context import S3ExecutionContext
+from app.models.audit import AuditStatus
 from app.models.manager_activity import ManagerActivityEntry
 from app.routers.dependencies import get_s3_execution_context, get_audit_service
 from app.services.app_settings_service import load_app_settings_for_db_readonly
@@ -21,7 +22,7 @@ def list_manager_activity(
     limit: int = Query(5, ge=1, le=20),
     cursor: int | None = Query(None, ge=1),
     search: str | None = Query(None, max_length=200),
-    status: str | None = Query(None, max_length=32),
+    status: AuditStatus | None = Query(None),
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
