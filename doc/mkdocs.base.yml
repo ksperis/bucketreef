@@ -50,4 +50,5 @@ extra_css:
   - /assets/stylesheets/screenshots-gallery.css
 
 extra_javascript:
+  - /assets/javascripts/guide-switcher.js
   - /assets/javascripts/screenshots-gallery.js
