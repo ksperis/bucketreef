@@ -48,7 +48,6 @@ import { useProfileI18n } from "../shared/profileMessages";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
 import { extractApiError } from "../../utils/apiError";
-import { stableSignature } from "../../utils/stableSignature";
 import { isAdminLikeRole, isSuperAdminRole, readStoredUser, setSessionUserCache } from "../../utils/workspaces";
 import {
   clearAdminPrincipalEditRequest,
@@ -61,6 +60,7 @@ import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
 import AdminUserProfilePanel from "./AdminUserProfilePanel";
 import useAdminUserAssociationOptions from "./useAdminUserAssociationOptions";
+import { adminUserEditorSignature, emptyAdminUserEditorSignature } from "./adminUserEditorSignature";
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 
@@ -159,18 +159,7 @@ export default function UsersPage() {
   });
   const [form, setForm] = useState<CreateUserPayload>(() => createFormTemplate());
   const [createInitialSignature, setCreateInitialSignature] = useState(() =>
-    stableSignature({
-      form: createFormTemplate(),
-      selectedAccounts: [],
-      selectedS3Users: [],
-      selectedS3Connections: [],
-      selectedGroups: [],
-      pendingAccountSelections: [],
-      pendingS3UserSelections: [],
-      pendingConnectionSelections: [],
-      pendingGroupSelections: [],
-      accountAccessChoice: {},
-    })
+    emptyAdminUserEditorSignature(createFormTemplate())
   );
   const [createSelectedS3Accounts, setCreateSelectedS3Accounts] = useState<AccountSelection[]>([]);
   const [createSelectedS3Users, setCreateSelectedS3Users] = useState<S3UserMembership[]>([]);
@@ -196,18 +185,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<UpdateUserPayload>({});
   const [editInitialSignature, setEditInitialSignature] = useState(() =>
-    stableSignature({
-      form: {},
-      selectedAccounts: [],
-      selectedS3Users: [],
-      selectedS3Connections: [],
-      selectedGroups: [],
-      pendingAccountSelections: [],
-      pendingS3UserSelections: [],
-      pendingConnectionSelections: [],
-      pendingGroupSelections: [],
-      accountAccessChoice: {},
-    })
+    emptyAdminUserEditorSignature({})
   );
   const [editSelectedS3Accounts, setEditSelectedS3Accounts] = useState<AccountSelection[]>([]);
   const [editSelectedS3Users, setEditSelectedS3Users] = useState<S3UserMembership[]>([]);
@@ -451,23 +429,11 @@ export default function UsersPage() {
     );
   };
 
-  const emptyCreateSignature = () =>
-    stableSignature({
-      form: createFormTemplate(),
-      selectedAccounts: [],
-      selectedS3Users: [],
-      selectedS3Connections: [],
-      selectedGroups: [],
-      pendingAccountSelections: [],
-      pendingS3UserSelections: [],
-      pendingConnectionSelections: [],
-      pendingGroupSelections: [],
-      accountAccessChoice: {},
-    });
+  const emptyCreateSignature = () => emptyAdminUserEditorSignature(createFormTemplate());
 
   const createCurrentSignature = useMemo(
     () =>
-      stableSignature({
+      adminUserEditorSignature({
         form,
         selectedAccounts: createSelectedS3Accounts,
         selectedS3Users: createSelectedS3Users,
@@ -527,7 +493,7 @@ export default function UsersPage() {
 
   const editCurrentSignature = useMemo(
     () =>
-      stableSignature({
+      adminUserEditorSignature({
         form: editForm,
         selectedAccounts: editSelectedS3Accounts,
         selectedS3Users: editSelectedS3Users,
@@ -577,20 +543,7 @@ export default function UsersPage() {
     setEditAccountAccessChoice({});
     setEditForm({});
     setEditRoleHelpOpen(false);
-    setEditInitialSignature(
-      stableSignature({
-        form: {},
-        selectedAccounts: [],
-        selectedS3Users: [],
-        selectedS3Connections: [],
-        selectedGroups: [],
-        pendingAccountSelections: [],
-        pendingS3UserSelections: [],
-        pendingConnectionSelections: [],
-        pendingGroupSelections: [],
-        accountAccessChoice: {},
-      })
-    );
+    setEditInitialSignature(emptyAdminUserEditorSignature({}));
     clearAdminPrincipalEditRequest();
   };
 
@@ -791,7 +744,7 @@ export default function UsersPage() {
     setEditGroupSelections([]);
     setEditAccountAccessChoice({});
     setEditInitialSignature(
-      stableSignature({
+      adminUserEditorSignature({
         form: nextEditForm,
         selectedAccounts,
         selectedS3Users: nextSelectedS3Users,
@@ -801,7 +754,7 @@ export default function UsersPage() {
         pendingS3UserSelections: [],
         pendingConnectionSelections: [],
         pendingGroupSelections: [],
-      accountAccessChoice: {},
+        accountAccessChoice: {},
       })
     );
     setEditModalTab("general");
@@ -918,7 +871,7 @@ export default function UsersPage() {
       setEditConnectionSelections([]);
       setEditGroupSelections([]);
       setEditAccountAccessChoice({});
-      setEditInitialSignature(stableSignature({
+      setEditInitialSignature(adminUserEditorSignature({
         form: savedForm,
         selectedAccounts: editSelectedS3Accounts,
         selectedS3Users: editSelectedS3Users,
