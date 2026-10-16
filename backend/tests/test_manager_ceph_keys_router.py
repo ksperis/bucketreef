@@ -81,7 +81,7 @@ class _FakeValidationWithNotFoundWording(_FakeS3UsersService):
         raise ValueError("Upstream metadata was not found in a valid format")
 
 
-def _account_context(*, s3_user_id: int | None = 77) -> S3ExecutionContext:
+def _s3_user_context(*, s3_user_id: int | None = 77) -> S3ExecutionContext:
     return S3ExecutionContext(
         context_id=f"s3u-{s3_user_id}" if s3_user_id is not None else "s3u-missing",
         context_kind="s3_user",
@@ -106,7 +106,7 @@ def _ui_user() -> User:
 def test_manager_ceph_keys_list_ok(client):
     service = _FakeS3UsersService()
 
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
 
@@ -122,7 +122,7 @@ def test_manager_ceph_keys_create_records_audit(client):
     service = _FakeS3UsersService()
     audit = _FakeAuditService()
 
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
     app.dependency_overrides[manager_ceph_keys_router.get_audit_service] = lambda: audit
@@ -141,7 +141,7 @@ def test_manager_ceph_keys_update_status_records_audit(client):
     service = _FakeS3UsersService()
     audit = _FakeAuditService()
 
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
     app.dependency_overrides[manager_ceph_keys_router.get_audit_service] = lambda: audit
@@ -164,7 +164,7 @@ def test_manager_ceph_keys_rejects_reenable_when_expiration_is_due(client, monke
         lambda _self, **_kwargs: True,
     )
 
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
     app.dependency_overrides[manager_ceph_keys_router.get_audit_service] = lambda: audit
@@ -181,7 +181,7 @@ def test_manager_ceph_keys_delete_records_audit(client):
     service = _FakeS3UsersService()
     audit = _FakeAuditService()
 
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
     app.dependency_overrides[manager_ceph_keys_router.get_audit_service] = lambda: audit
@@ -233,7 +233,7 @@ def test_manager_ceph_key_endpoints_forbid_operations_before_ceph_call(
 def test_manager_ceph_keys_forbidden_when_context_is_not_s3_user(client):
     service = _FakeS3UsersService()
 
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context(s3_user_id=None)
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context(s3_user_id=None)
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
 
@@ -247,7 +247,7 @@ def test_manager_ceph_keys_forbidden_when_context_is_not_s3_user(client):
 def test_manager_ceph_keys_rejects_disabling_portal_key(client):
     service = _FakePortalKeyLockedService()
 
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
 
@@ -260,7 +260,7 @@ def test_manager_ceph_keys_rejects_disabling_portal_key(client):
 def test_manager_ceph_keys_rejects_deleting_portal_key(client):
     service = _FakePortalKeyLockedService()
 
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = lambda: service
 
@@ -271,7 +271,7 @@ def test_manager_ceph_keys_rejects_deleting_portal_key(client):
 
 
 def test_manager_ceph_keys_maps_typed_missing_key_to_not_found(client):
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = _FakeMissingKeyService
 
@@ -282,7 +282,7 @@ def test_manager_ceph_keys_maps_typed_missing_key_to_not_found(client):
 
 
 def test_manager_ceph_keys_does_not_infer_not_found_from_validation_text(client):
-    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _s3_user_context()
     app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
     app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = _FakeValidationWithNotFoundWording
 
