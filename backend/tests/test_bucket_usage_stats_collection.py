@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from app.db import S3Account, StorageEndpoint
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as SnapshotRow
 from app.models.app_settings import AppSettings
+from app.models.bucket_usage_stats import BucketUsageStatsSnapshot
 from app.services import bucket_usage_stats_collection_service as collection_module
 from app.services.bucket_usage_stats_collection_service import BucketUsageStatsCollectionService
 from app.services.bucket_usage_stats_service import (
@@ -164,3 +165,73 @@ def test_bucket_scan_is_skipped_when_bucket_lease_is_already_held(db_session, mo
     assert result.status == "completed_with_warnings"
     assert result.skipped_buckets == 1
     assert result.buckets[0].status == "skipped"
+
+
+def test_usage_run_aggregates_mixed_results_and_completion_progress(monkeypatch):
+    service = BucketUsageStatsService()
+    progress = []
+
+    def target(bucket_name: str) -> BucketUsageStatsResolvedTarget:
+        return BucketUsageStatsResolvedTarget(
+            context=S3ExecutionContext(
+                context_id="1",
+                context_kind="account",
+                name="Account",
+                access_key="ak",
+                secret_key="sk",
+                id=1,
+                storage_endpoint_id=7,
+            ),
+            bucket_name=bucket_name,
+            scope_kind="manager",
+            scope_id="1",
+            context_id="1",
+            context_name="Account",
+        )
+
+    def calculate(target, **_kwargs):
+        if target.bucket_name == "failed":
+            raise RuntimeError("synthetic failure")
+        warning = ["partial scan"] if target.bucket_name == "warning" else []
+        return BucketUsageStatsSnapshot(
+            scope_kind="manager",
+            scope_id="1",
+            scope_name="Account",
+            bucket_name=target.bucket_name,
+            scan_mode="versions",
+            object_version_count=2,
+            current_version_count=2,
+            delete_marker_count=1,
+            total_bytes=100,
+            current_bytes=100,
+            warnings=warning,
+            calculated_at=utcnow(),
+        )
+
+    monkeypatch.setattr(service, "calculate_and_persist", calculate)
+
+    result = service.run(
+        [target("success"), target("warning"), target("failed")],
+        BucketUsageStatsOptions(parallelism=3),
+        progress_callback=progress.append,
+    )
+
+    assert result.status == "completed_with_warnings"
+    assert result.completed_buckets == 3
+    assert result.failed_buckets == 1
+    assert result.skipped_buckets == 0
+    assert result.listed_versions == 4
+    assert result.listed_delete_markers == 2
+    assert result.total_bytes == 200
+    assert {item.bucket_name: item.status for item in result.buckets} == {
+        "failed": "failed",
+        "success": "completed",
+        "warning": "completed_with_warnings",
+    }
+    completed = [event for event in progress if event.stage == "completed"]
+    assert len(completed) == 3
+    final_progress = max(completed, key=lambda event: event.completed_buckets)
+    assert final_progress.completed_buckets == 3
+    assert final_progress.listed_versions == 4
+    assert final_progress.listed_delete_markers == 2
+    assert final_progress.total_bytes == 200
