@@ -197,12 +197,12 @@ def test_private_access_prevalidates_before_claim_or_remote_work():
     service._ensure_managed_private_connection_provisioning_allowed = Mock()
     service.sources = Mock()
     service._claim = Mock()
-    service._iam_service_for_account = Mock()
+    service._iam_service_for_context = Mock()
     payload = ManagedIAMPrivateAccessRequest(connection_name="private", access_browser=True, access_manager=False, inline_policies=[{"name": "invalid_under", "document": {}}])
     with pytest.raises(RequestValidationError):
         service.provision_iam(
             user=Mock(),
-            account=S3ExecutionContext(
+            context=S3ExecutionContext(
                 context_id="test",
                 context_kind="account",
                 name="Test",
@@ -214,7 +214,7 @@ def test_private_access_prevalidates_before_claim_or_remote_work():
         )
     assert service.sources.mock_calls == []
     service._claim.assert_not_called()
-    service._iam_service_for_account.assert_not_called()
+    service._iam_service_for_context.assert_not_called()
 
 
 def test_external_inline_policy_read_model_remains_unrestricted():

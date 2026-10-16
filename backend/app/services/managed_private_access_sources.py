@@ -51,14 +51,14 @@ class ManagedPrivateAccessDestination:
     custom_endpoint_config: str | None
 
 
-def _source_ids(account: S3ExecutionTarget) -> tuple[int | None, int | None, int | None]:
-    if isinstance(account, S3ExecutionContext):
-        return account.s3_connection_id, account.s3_user_id, account.id
-    return None, None, account.id
+def _source_ids(context: S3ExecutionTarget) -> tuple[int | None, int | None, int | None]:
+    if isinstance(context, S3ExecutionContext):
+        return context.s3_connection_id, context.s3_user_id, context.id
+    return None, None, context.id
 
 
-def iam_source_reference(account: S3ExecutionTarget) -> tuple[str, int] | None:
-    connection_id, s3_user_id, account_id = _source_ids(account)
+def iam_source_reference(context: S3ExecutionTarget) -> tuple[str, int] | None:
+    connection_id, s3_user_id, account_id = _source_ids(context)
     if isinstance(connection_id, int) and connection_id > 0:
         return "connection", connection_id
     if s3_user_id is not None:
@@ -76,10 +76,10 @@ class ManagedPrivateAccessSourceResolver:
     def resolve_iam_source(
         self,
         user: User,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
     ) -> ManagedPrivateAccessSource:
         effective = self.access.resolve_user(user)
-        connection_id, s3_user_id, account_id = _source_ids(account)
+        connection_id, s3_user_id, account_id = _source_ids(context)
         if isinstance(connection_id, int):
             connection = (
                 self.db.query(S3Connection)
@@ -149,9 +149,9 @@ class ManagedPrivateAccessSourceResolver:
     def resolve_rgw_user_source(
         self,
         user: User,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
     ) -> ManagedPrivateAccessSource:
-        _, s3_user_id, _ = _source_ids(account)
+        _, s3_user_id, _ = _source_ids(context)
         if not isinstance(s3_user_id, int) or s3_user_id <= 0:
             raise ManagedPrivateAccessForbidden(
                 "An assigned RGW User context is required"
