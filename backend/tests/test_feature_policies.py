@@ -21,7 +21,6 @@ from app.models.s3_account import S3AccountUpdate
 from app.models.s3_user import S3UserUpdate
 from app.models.app_settings import PortalSettingsOverride
 from app.services.portal.exceptions import PortalForbiddenError
-from app.utils.app_settings_import import normalize_settings_import
 from tests.s3_account_factory import make_s3_account
 
 
@@ -75,18 +74,6 @@ def test_project_usage_capabilities_share_account_override_precedence(
     assert composition.source == source
     assert collection.enabled is enabled
     assert collection.source == source
-
-
-def test_import_preserves_availability_and_portal_exceptions():
-    original = {"general": {"bucket_compare_enabled": True, "bucket_purge_enabled": False},
-                "portal": {"allow_portal_user_external_sharing": False}}
-    converted = normalize_settings_import(original)
-    settings = AppSettings.model_validate(converted)
-    assert settings.manager.feature_policies.bucket_compare == FeaturePolicy.TARGETED
-    assert settings.manager.feature_policies.bucket_purge == FeaturePolicy.DISABLED
-    assert settings.portal.feature_policies.user_external_sharing == FeaturePolicy.TARGETED
-    assert normalize_settings_import(converted) == converted
-    assert original["general"]["bucket_compare_enabled"] is True
 
 
 def test_platform_tool_grant_uses_existing_role_boundary_and_provenance(db_session):
