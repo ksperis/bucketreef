@@ -4,6 +4,33 @@ import type { PortalStorageSpaceShare } from "../api/portalSharing";
 import { bucketView, newBucket, settings, type DemoSpace } from "./state";
 import { accountGrant, spaceRole, DemoError, done, json, required, scopedAccount, textField, type DemoRequest } from "./http";
 
+type PortalAccessIntent = "add" | "role_change";
+type PortalAccessRole = "portal_user" | "portal_manager";
+
+function portalAccessRequest(payload: Record<string, unknown>): {
+  intent: PortalAccessIntent;
+  portalRole: PortalAccessRole;
+} {
+  const intent = payload.intent;
+  if (intent !== "add" && intent !== "role_change") {
+    throw new DemoError(422, "intent must be add or role_change");
+  }
+  const portalRole = payload.portal_role;
+  if (portalRole !== "portal_user" && portalRole !== "portal_manager") {
+    throw new DemoError(422, "portal_role must be portal_user or portal_manager");
+  }
+  if (intent === "add") {
+    textField(payload, "target_name");
+    textField(payload, "target_email");
+  } else {
+    const targetUserId = Number(payload.target_user_id);
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+      throw new DemoError(422, "target_user_id is required for role changes");
+    }
+  }
+  return { intent, portalRole };
+}
+
 function spaceView(c: DemoRequest, s: DemoSpace) {
   const bucket = required(c.state.buckets.find(b => b.name === s.bucketName));
   const role = required(spaceRole(c, s), "This space is not shared with the selected identity");
@@ -27,6 +54,7 @@ export function portal(c: DemoRequest): Response | undefined {
       const type = textField(body, "request_type") as PortalAdminRequest["request_type"];
       if (!["portal_user_access", "portal_user_removal", "account_quota_change"].includes(type)) throw new DemoError(403, "Global and project settings stay locked in this demo. Try a membership or quota request.");
       const now = new Date().toISOString(); const { request_type: _type, ...payload } = body;
+      if (type === "portal_user_access") portalAccessRequest(payload);
       const request: PortalAdminRequest = { id: state.nextId++, account_id: account!.id, account_name: account!.name, request_type: type, status: "pending", payload, requester_user_id: c.user.id, requester_email: c.user.email, created_at: now, updated_at: now, messages: [] };
       state.requests.push(request); return json(request, 201);
     }
@@ -43,8 +71,8 @@ export function portal(c: DemoRequest): Response | undefined {
             if (!Number.isFinite(quota) || quota <= 0) throw new DemoError(422, "Quota must be positive");
             account.quota_max_size_gb = quota; request.result = { quota_max_size_gb: quota };
           } else if (request.request_type === "portal_user_access") {
-            const portalRole = request.payload.portal_role === "portal_manager" ? "portal_manager" : "portal_user";
-            if (request.payload.intent === "role_change") {
+            const { intent, portalRole } = portalAccessRequest(request.payload);
+            if (intent === "role_change") {
               const user = required(state.users.find(u => u.id === Number(request.payload.target_user_id)));
               user.account_links = [...(user.account_links ?? []).filter(l => l.account_id !== account.id), { account_id: account.id, manager_role: null, portal_role: portalRole }];
               account.user_links = [...account.user_links.filter(l => l.user_id !== user.id), { user_id: user.id, user_email: user.email, user_full_name: user.full_name, manager_role: null, portal_role: portalRole }];

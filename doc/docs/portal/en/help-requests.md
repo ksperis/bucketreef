@@ -74,12 +74,11 @@ messages. Non-delegated collaborator actions, removals, and storage-limit
 changes remain unchanged until an Admin validates them. Delegated collaborator
 actions are recorded directly as **Approved**, do not notify an Admin for a
 decision, and include an audit entry identifying delegated execution.
-For collaborator additions, execution applies the requested Portal role. A
-legacy request without an explicit role or intent continues to add a Workspace
-member. For role changes, execution first verifies that the collaborator still
-has the same direct Portal role recorded when the request was created. If their
-membership or role changed in the meantime, the action fails instead of
-overwriting the newer state.
+For collaborator additions, every request carries an explicit intent and Portal
+role, and execution applies that requested role. For role changes, execution
+first verifies that the collaborator still has the same direct Portal role
+recorded when the request was created. If their membership or role changed in
+the meantime, the action fails instead of overwriting the newer state.
 Portal blocks storage-limit requests that would set the new limit below the
 space already used.
 For a project-setting request, approval changes only the requested setting and
