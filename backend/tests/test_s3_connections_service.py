@@ -505,6 +505,42 @@ def test_update_connection_supports_active_flag_and_keeps_inactive_visible_in_ma
     assert "active-flag-conn" in owned_private_names
 
 
+def test_update_connection_rejects_endpoint_and_credentials_for_active_managed_source(
+    db_session,
+    monkeypatch,
+):
+    owner = _user(db_session, "managed-source-update@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="managed-source-update",
+    )
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_connection_endpoint_planner.validate_user_supplied_s3_endpoint",
+        lambda value, field_name="Endpoint URL": value.rstrip("/"),
+    )
+    monkeypatch.setattr(
+        service,
+        "is_active_managed_source",
+        lambda connection_id: connection_id == row.id,
+    )
+
+    with pytest.raises(S3ConnectionConflictError, match="endpoint and credentials are locked"):
+        service.update(
+            owner.id,
+            row.id,
+            S3ConnectionUpdate(access_key_id="AKIA-REPLACEMENT"),
+        )
+
+    renamed = service.update(
+        owner.id,
+        row.id,
+        S3ConnectionUpdate(name="managed-source-renamed"),
+    )
+    assert renamed.name == "managed-source-renamed"
+
+
 def test_delete(db_session):
     owner = _user(db_session, "owner5@example.test")
     row = _create_row(

@@ -51,6 +51,22 @@ _ADMIN_SHARED_SOURCE_IMMUTABLE_FIELDS = S3_CONNECTION_ENDPOINT_FIELDS | {
     "rgw_tenant",
     "rgw_account_id",
 }
+_RGW_IDENTITY_FIELDS = {"rgw_user_uid", "rgw_tenant", "rgw_account_id"}
+_CONNECTION_CREDENTIAL_FIELDS = {"access_key_id", "secret_access_key"}
+_CAPABILITY_PROBE_FIELDS = {
+    "storage_endpoint_id",
+    "endpoint_url",
+    "region",
+    "verify_tls",
+}
+_PRIVATE_SERVER_MANAGED_IMMUTABLE_FIELDS = (
+    S3_CONNECTION_ENDPOINT_FIELDS
+    | _RGW_IDENTITY_FIELDS
+    | _CONNECTION_CREDENTIAL_FIELDS
+)
+_PRIVATE_MANAGED_SOURCE_IMMUTABLE_FIELDS = (
+    S3_CONNECTION_ENDPOINT_FIELDS | _CONNECTION_CREDENTIAL_FIELDS
+)
 
 
 class S3ConnectionsService:
@@ -182,8 +198,7 @@ class S3ConnectionsService:
             row.remediation_reason = None
             row.is_active = True
         self._apply_rgw_identity_update(row, payload, payload_data)
-        identity_fields = {"rgw_user_uid", "rgw_tenant", "rgw_account_id"}
-        if endpoint_changed and not identity_fields.intersection(payload_data):
+        if endpoint_changed and not _RGW_IDENTITY_FIELDS.intersection(payload_data):
             row.rgw_user_uid = None
             row.rgw_tenant = None
             row.rgw_account_id = None
@@ -200,17 +215,11 @@ class S3ConnectionsService:
             access_key_changed = row.access_key_id != payload.credentials.access_key_id
             row.access_key_id = payload.credentials.access_key_id
             row.secret_access_key = payload.credentials.secret_access_key
-            if access_key_changed and not identity_fields.intersection(payload_data):
+            if access_key_changed and not _RGW_IDENTITY_FIELDS.intersection(payload_data):
                 row.rgw_user_uid = None
                 row.rgw_tenant = None
                 row.rgw_account_id = None
-        probe_fields = {
-            "storage_endpoint_id",
-            "endpoint_url",
-            "region",
-            "verify_tls",
-        }
-        if probe_fields & payload_data.keys() or update_credentials:
+        if _CAPABILITY_PROBE_FIELDS & payload_data.keys() or update_credentials:
             self._refresh_detected_capabilities(row)
         row.updated_at = utcnow()
         self.db.commit()
@@ -277,40 +286,44 @@ class S3ConnectionsService:
     def update(self, user_id: int, connection_id: int, payload: S3ConnectionUpdate) -> S3Connection:
         row = self.get_owned(user_id, connection_id)
         payload_data = payload.model_dump(exclude_unset=True)
-        if row.server_managed:
-            immutable_fields = {
-                "provider_hint",
-                "storage_endpoint_id",
-                "rgw_user_uid",
-                "rgw_tenant",
-                "rgw_account_id",
-                "endpoint_url",
-                "region",
-                "access_key_id",
-                "secret_access_key",
-                "force_path_style",
-                "verify_tls",
-            }
-            attempted = sorted(immutable_fields.intersection(payload_data))
-            if attempted:
-                raise S3ConnectionConflictError(
-                    "Server-managed connection provenance, endpoint, and credentials are immutable"
-                )
-        source_immutable_fields = {
-            "provider_hint",
-            "storage_endpoint_id",
-            "endpoint_url",
-            "region",
-            "access_key_id",
-            "secret_access_key",
-            "force_path_style",
-            "verify_tls",
-        }
-        if self.is_active_managed_source(row.id) and source_immutable_fields.intersection(payload_data):
+        self._validate_private_update_mutability(row, payload_data)
+        endpoint_plan = self._plan_private_endpoint_update(row, payload, payload_data)
+        should_probe_iam = self._apply_private_update(
+            row,
+            payload,
+            payload_data,
+            endpoint_plan=endpoint_plan,
+        )
+        if should_probe_iam:
+            self._refresh_detected_capabilities(row)
+        row.updated_at = utcnow()
+        self.db.commit()
+        self.db.refresh(row)
+        return self._to_model(row)
+
+    def _validate_private_update_mutability(
+        self,
+        row: DBS3Connection,
+        payload_data: dict[str, Any],
+    ) -> None:
+        if row.server_managed and _PRIVATE_SERVER_MANAGED_IMMUTABLE_FIELDS.intersection(payload_data):
+            raise S3ConnectionConflictError(
+                "Server-managed connection provenance, endpoint, and credentials are immutable"
+            )
+        if (
+            self.is_active_managed_source(row.id)
+            and _PRIVATE_MANAGED_SOURCE_IMMUTABLE_FIELDS.intersection(payload_data)
+        ):
             raise S3ConnectionConflictError(
                 "Connection endpoint and credentials are locked while managed private accesses depend on it"
             )
-        endpoint_plan = None
+
+    def _plan_private_endpoint_update(
+        self,
+        row: DBS3Connection,
+        payload: S3ConnectionUpdate,
+        payload_data: dict[str, Any],
+    ) -> Optional[tuple[Optional[int], Optional[str]]]:
         should_validate_existing_manual_endpoint = (
             not row.server_managed and row.storage_endpoint_id is None
         )
@@ -318,11 +331,21 @@ class S3ConnectionsService:
             S3_CONNECTION_ENDPOINT_FIELDS & payload_data.keys()
             or should_validate_existing_manual_endpoint
         ):
-            endpoint_plan = self.endpoint_planner.plan(
+            return self.endpoint_planner.plan(
                 row,
                 payload,
                 enforce_manual_endpoint_policy=True,
             )
+        return None
+
+    def _apply_private_update(
+        self,
+        row: DBS3Connection,
+        payload: S3ConnectionUpdate,
+        payload_data: dict[str, Any],
+        *,
+        endpoint_plan: Optional[tuple[Optional[int], Optional[str]]],
+    ) -> bool:
         endpoint_changed = endpoint_plan is not None and endpoint_plan != (
             row.storage_endpoint_id,
             row.custom_endpoint_config,
@@ -334,13 +357,7 @@ class S3ConnectionsService:
             row.is_active = bool(payload.is_active)
         if endpoint_plan is not None:
             row.storage_endpoint_id, row.custom_endpoint_config = endpoint_plan
-            probe_fields = {
-                "storage_endpoint_id",
-                "endpoint_url",
-                "region",
-                "verify_tls",
-            }
-            should_probe_iam = bool(probe_fields & payload_data.keys())
+            should_probe_iam = bool(_CAPABILITY_PROBE_FIELDS & payload_data.keys())
         access_key_changed = payload.access_key_id is not None and row.access_key_id != payload.access_key_id
         if payload.access_key_id is not None:
             row.access_key_id = payload.access_key_id
@@ -356,19 +373,13 @@ class S3ConnectionsService:
             row.access_manager = access_manager
             row.access_browser = access_browser
         self._apply_rgw_identity_update(row, payload, payload_data)
-        identity_fields = {"rgw_user_uid", "rgw_tenant", "rgw_account_id"}
-        if (access_key_changed or endpoint_changed) and not identity_fields.intersection(payload_data):
+        if (access_key_changed or endpoint_changed) and not _RGW_IDENTITY_FIELDS.intersection(payload_data):
             row.rgw_user_uid = None
             row.rgw_tenant = None
             row.rgw_account_id = None
         if "tags" in payload_data:
             self.tags.replace_connection_tags(row, payload.tags)
-        if should_probe_iam:
-            self._refresh_detected_capabilities(row)
-        row.updated_at = utcnow()
-        self.db.commit()
-        self.db.refresh(row)
-        return self._to_model(row)
+        return should_probe_iam
 
     def delete(self, user_id: int, connection_id: int) -> None:
         row = self.get_owned(user_id, connection_id)
@@ -448,8 +459,7 @@ class S3ConnectionsService:
         payload: S3ConnectionUpdate | S3ConnectionAdminUpdate,
         payload_data: dict[str, Any],
     ) -> None:
-        identity_fields = {"rgw_user_uid", "rgw_tenant", "rgw_account_id"}
-        if not identity_fields.intersection(payload_data):
+        if not _RGW_IDENTITY_FIELDS.intersection(payload_data):
             return
         user_uid, tenant, account_id = normalize_connection_rgw_identity(
             payload.rgw_user_uid if "rgw_user_uid" in payload_data else row.rgw_user_uid,
