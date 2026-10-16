@@ -6,7 +6,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from time import monotonic
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Protocol
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -37,6 +37,16 @@ _PROGRESS_MIN_INTERVAL_SECONDS = 0.5
 
 class BucketIntegrityCheckCancelled(RuntimeError):
     pass
+
+
+class _BucketProgressEmitter(Protocol):
+    def __call__(
+        self,
+        stage: BucketIntegrityProgressStage,
+        *,
+        force: bool = False,
+        message: str | None = None,
+    ) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -430,44 +440,14 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
 
         emit("list", force=True, message=f"Listing {target.bucket_name}...")
         try:
-            worker_count = max(1, min(int(options.parallelism), 64))
-            pending = set()
-            with (
-                self._open_client(target.context) as client,
-                ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-integrity") as executor,
-            ):
-                for obj in self._iter_objects(
-                    client,
-                    target.bucket_name,
-                    all_versions=options.all_versions,
-                    since=options.since,
-                    cancel_check=cancel_check,
-                ):
-                    if cancel_check:
-                        cancel_check()
-                    state.listed_count += 1
-                    pending.add(
-                        executor.submit(
-                            self._check_object,
-                            client,
-                            target.bucket_name,
-                            obj,
-                            check_mode=options.check_mode,
-                            max_bytes=max_bytes,
-                            cancel_check=cancel_check,
-                        )
-                    )
-                    if len(pending) >= worker_count * 2:
-                        done, pending = wait(pending, return_when=FIRST_COMPLETED)
-                        self._record_completed_checks(done, state, target.bucket_name)
-                        emit("verify")
-                emit("verify", force=True, message=f"Verifying {target.bucket_name}...")
-                while pending:
-                    if cancel_check:
-                        cancel_check()
-                    done, pending = wait(pending, timeout=1.0)
-                    self._record_completed_checks(done, state, target.bucket_name)
-                    emit("verify")
+            self._execute_bucket_checks(
+                target,
+                options,
+                state=state,
+                max_bytes=max_bytes,
+                progress_callback=emit,
+                cancel_check=cancel_check,
+            )
         except BucketIntegrityCheckCancelled:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -494,3 +474,52 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             duration_seconds=round(monotonic() - started, 3),
             failures_sample=state.failures,
         )
+
+    def _execute_bucket_checks(
+        self,
+        target: BucketIntegrityResolvedTarget,
+        options: BucketIntegrityOptions,
+        *,
+        state: _BucketCheckState,
+        max_bytes: int | None,
+        progress_callback: _BucketProgressEmitter,
+        cancel_check: CancelCheck | None,
+    ) -> None:
+        worker_count = max(1, min(int(options.parallelism), 64))
+        pending: set[Future[_ObjectCheckResult]] = set()
+        with (
+            self._open_client(target.context) as client,
+            ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-integrity") as executor,
+        ):
+            for obj in self._iter_objects(
+                client,
+                target.bucket_name,
+                all_versions=options.all_versions,
+                since=options.since,
+                cancel_check=cancel_check,
+            ):
+                if cancel_check:
+                    cancel_check()
+                state.listed_count += 1
+                pending.add(
+                    executor.submit(
+                        self._check_object,
+                        client,
+                        target.bucket_name,
+                        obj,
+                        check_mode=options.check_mode,
+                        max_bytes=max_bytes,
+                        cancel_check=cancel_check,
+                    )
+                )
+                if len(pending) >= worker_count * 2:
+                    done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                    self._record_completed_checks(done, state, target.bucket_name)
+                    progress_callback("verify")
+            progress_callback("verify", force=True, message=f"Verifying {target.bucket_name}...")
+            while pending:
+                if cancel_check:
+                    cancel_check()
+                done, pending = wait(pending, timeout=1.0)
+                self._record_completed_checks(done, state, target.bucket_name)
+                progress_callback("verify")
