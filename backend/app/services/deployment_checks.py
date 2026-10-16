@@ -10,12 +10,6 @@ from sqlalchemy.orm import Session
 from app.core.config import DeploymentProfile, Settings, is_local_origin, is_weak_secret_value
 from app.core.database import is_sqlite_url
 from app.core.runtime_surfaces import RuntimeSurface, ceph_admin_only_runtime, runtime_surface_enabled
-from app.db import (
-    StorageEndpoint,
-    User,
-    UserRole,
-    WebAuthnCredential,
-)
 from app.models.app_settings import AppSettings
 from app.services.deployment_check_models import (
     CheckLevel,
@@ -31,6 +25,7 @@ from app.services.deployment_identity_checks import (
     persisted_provider_findings,
 )
 from app.services.deployment_outbound_preflight import find_uncovered_outbound_targets
+from app.services.deployment_persisted_security_checks import persisted_security_findings
 
 
 _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
@@ -89,79 +84,6 @@ def _origin_problem(settings: Settings) -> str | None:
         if host != rp_id and not host.endswith(f".{rp_id}"):
             return "WEBAUTHN_RP_ID must cover every configured WebAuthn origin."
     return None
-
-
-def _persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
-    active_admins = (
-        db.query(User.id)
-        .filter(
-            User.is_active.is_(True),
-            User.role.in_([UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value]),
-        )
-        .all()
-    )
-    admin_ids = [row[0] for row in active_admins]
-    enrolled_admin_ids: set[int] = set()
-    if admin_ids:
-        enrolled_admin_ids = {
-            row[0]
-            for row in db.query(WebAuthnCredential.user_id)
-            .filter(
-                WebAuthnCredential.user_id.in_(admin_ids),
-                WebAuthnCredential.revoked_at.is_(None),
-            )
-            .distinct()
-            .all()
-        }
-    missing_passkeys = len(admin_ids) - len(enrolled_admin_ids)
-
-    endpoints = db.query(StorageEndpoint).all()
-    unverified_tls = sum(1 for endpoint in endpoints if not endpoint.verify_tls)
-    reused_privileged_identity = 0
-    for endpoint in endpoints:
-        supervision = endpoint.service_identity("supervision")
-        ceph_admin = endpoint.service_identity("ceph_admin")
-        privileged_access_keys = [
-            value.strip()
-            for value in (
-                endpoint.admin_access_key,
-                supervision.access_key if supervision else None,
-                ceph_admin.access_key if ceph_admin else None,
-            )
-            if value and value.strip()
-        ]
-        if len(privileged_access_keys) != len(set(privileged_access_keys)):
-            reused_privileged_identity += 1
-
-    return [
-        _finding(
-            "admin-passkey-enrollment",
-            "Administrator passkey enrollment",
-            passed=missing_passkeys == 0,
-            severity="critical",
-            pass_message="Every active administrator has at least one enrolled passkey.",
-            fail_message=f"{missing_passkeys} active administrator account(s) have no enrolled passkey.",
-        ),
-        _finding(
-            "storage-endpoint-tls",
-            "Storage endpoint TLS verification",
-            passed=unverified_tls == 0,
-            severity="warning",
-            pass_message="Stored storage endpoints verify TLS certificates.",
-            fail_message=f"{unverified_tls} storage endpoint(s) have TLS certificate verification disabled.",
-        ),
-        _finding(
-            "storage-identity-separation",
-            "Privileged storage identity separation",
-            passed=reused_privileged_identity == 0,
-            severity="warning",
-            pass_message="Configured Admin Ops, supervision, and Ceph Admin identities are distinct per endpoint.",
-            fail_message=(
-                f"{reused_privileged_identity} storage endpoint(s) reuse the same access key across privileged roles; "
-                "use distinct identities where practical."
-            ),
-        ),
-    ]
 
 
 def _app_settings_findings(
@@ -336,7 +258,7 @@ def _database_profile_findings(
 
 def _persisted_findings(settings: Settings, db: Session) -> list[DeploymentCheckFinding]:
     findings = [
-        *_persisted_security_findings(db),
+        *persisted_security_findings(db),
         *persisted_provider_findings(settings, db),
     ]
     uncovered = find_uncovered_outbound_targets(db, settings)
