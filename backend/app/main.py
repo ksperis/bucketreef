@@ -97,7 +97,8 @@ from app.services.bucket_migration.worker import get_bucket_migration_worker
 from app.services.webhook_service import webhook_dispatcher_enabled
 from app.services.webhook_worker import get_webhook_delivery_worker
 from app.services.app_settings_service import load_app_settings_for_db_readonly
-from app.services.deployment_checks import DeploymentCheckFinding, run_deployment_checks, startup_blocking_findings
+from app.services.deployment_check_models import DeploymentCheckFinding
+from app.services.deployment_checks import run_deployment_checks, startup_blocking_findings
 from app.routers.dependencies import (
     require_browser_enabled,
     require_ceph_admin_enabled,
