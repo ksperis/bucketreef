@@ -21,6 +21,7 @@ from app.services.listing_progress import (
     ListingCancelled,
     ListingProgressSnapshot,
 )
+from app.services.rgw_admin import RGWAdminError
 from app.utils.cache import prune_expired_lru_cache
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.core.sensitive_data import sanitize_error_detail
@@ -231,6 +232,16 @@ class EndpointListingCache:
         return self._get_or_set(
             self._payloads, EndpointPayloadCacheKey(endpoint_id), self._payload_max_entries, builder,
         )
+
+    def get_rgw_payload(self, endpoint_id: int, builder: Callable[[], list[Any] | None]) -> list[Any]:
+        def load() -> list[Any]:
+            try:
+                payload = builder()
+            except RGWAdminError as exc:
+                raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            return payload or []
+
+        return self.get_payload(endpoint_id, load)
 
     def get_listing(self, key: EndpointListCacheKey, builder: Callable[[], list[_T]]) -> list[_T]:
         return self._get_or_set(self._listings, key, self._listing_max_entries, builder)
