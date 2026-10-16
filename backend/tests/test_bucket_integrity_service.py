@@ -107,7 +107,7 @@ class FakeIntegrityService(BucketIntegrityCheckService):
 
 def _target(bucket_name: str = "bucket-a") -> BucketIntegrityResolvedTarget:
     return BucketIntegrityResolvedTarget(
-        account=SimpleNamespace(),
+        context=SimpleNamespace(),
         bucket_name=bucket_name,
         context_id="ctx-1",
         context_name="Context 1",

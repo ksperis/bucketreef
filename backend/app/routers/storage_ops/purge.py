@@ -50,7 +50,7 @@ def stream_storage_ops_bucket_purge(
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
     targets = [
         BucketPurgeResolvedTarget(
-            account=get_s3_execution_context(
+            context=get_s3_execution_context(
                 request=request,
                 context_ref=target.context_id,
                 actor=user,

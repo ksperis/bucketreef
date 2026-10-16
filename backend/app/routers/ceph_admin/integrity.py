@@ -45,7 +45,7 @@ def stream_ceph_admin_bucket_integrity_check(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> StreamingResponse:
     bucket_names = _require_buckets_payload(payload)
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     options = BucketIntegrityOptions(
         parallelism=payload.parallelism,
         all_versions=payload.all_versions,
@@ -55,7 +55,7 @@ def stream_ceph_admin_bucket_integrity_check(
     )
     targets = [
         BucketIntegrityResolvedTarget(
-            account=account,
+            context=context,
             bucket_name=bucket_name,
             context_id=f"ceph-admin-{ctx.endpoint.id}",
             context_name=ctx.endpoint.name,

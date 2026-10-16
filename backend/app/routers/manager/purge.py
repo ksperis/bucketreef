@@ -45,18 +45,18 @@ def stream_manager_bucket_purge(
     payload: BucketPurgeRequest,
     request: Request,
     tool_user: User = Depends(require_bucket_purge_enabled),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
     bucket_names = _require_buckets_payload(payload)
-    require_bucket_management_context(account)
+    require_bucket_management_context(context)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
     targets = [
         BucketPurgeResolvedTarget(
-            account=account,
+            context=context,
             bucket_name=bucket_name,
-            context_id=account.context_id,
-            context_name=account.name,
+            context_id=context.context_id,
+            context_name=context.name,
         )
         for bucket_name in bucket_names
     ]
@@ -66,7 +66,7 @@ def stream_manager_bucket_purge(
         "bucket_sample": bucket_names[:20],
         "parallelism": options.parallelism,
         "include_versions": options.include_versions,
-        "context_id": account.context_id,
+        "context_id": context.context_id,
     }
     audit = BucketPurgeAuditLifecycle(
         record=partial(
@@ -75,7 +75,7 @@ def stream_manager_bucket_purge(
             user_email=str(tool_user.email),
             user_role=str(tool_user.role),
             scope="manager",
-            execution_context=account,
+            execution_context=context,
         ),
         base_metadata=base_metadata,
     )

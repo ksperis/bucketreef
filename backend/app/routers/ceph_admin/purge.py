@@ -47,7 +47,7 @@ def stream_ceph_admin_bucket_purge(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> StreamingResponse:
     bucket_names = _require_buckets_payload(payload)
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     options = BucketPurgeOptions(
         parallelism=payload.parallelism,
         include_versions=payload.include_versions,
@@ -56,7 +56,7 @@ def stream_ceph_admin_bucket_purge(
     context_id = f"ceph-admin-{ctx.endpoint.id}"
     targets = [
         BucketPurgeResolvedTarget(
-            account=account,
+            context=context,
             bucket_name=bucket_name,
             context_id=context_id,
             context_name=ctx.endpoint.name,
@@ -80,7 +80,7 @@ def stream_ceph_admin_bucket_purge(
             user_email=str(user.email),
             user_role=str(user.role),
             scope="ceph_admin",
-            execution_context=account,
+            execution_context=context,
         ),
         base_metadata=base_metadata,
     )

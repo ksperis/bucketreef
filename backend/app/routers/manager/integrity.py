@@ -43,11 +43,11 @@ def stream_manager_bucket_integrity_check(
     payload: BucketIntegrityCheckRequest,
     request: Request,
     _tool_user: User = Depends(require_bucket_integrity_check_enabled),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
     bucket_names = _require_buckets_payload(payload)
-    require_bucket_management_context(account)
+    require_bucket_management_context(context)
     options = BucketIntegrityOptions(
         parallelism=payload.parallelism,
         all_versions=payload.all_versions,
@@ -57,10 +57,10 @@ def stream_manager_bucket_integrity_check(
     )
     targets = [
         BucketIntegrityResolvedTarget(
-            account=account,
+            context=context,
             bucket_name=bucket_name,
-            context_id=account.context_id,
-            context_name=account.name,
+            context_id=context.context_id,
+            context_name=context.name,
         )
         for bucket_name in bucket_names
     ]

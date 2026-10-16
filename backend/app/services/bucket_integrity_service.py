@@ -41,7 +41,7 @@ class BucketIntegrityCheckCancelled(RuntimeError):
 
 @dataclass(frozen=True)
 class BucketIntegrityResolvedTarget:
-    account: S3ExecutionTarget
+    context: S3ExecutionTarget
     bucket_name: str
     context_id: str | None = None
     context_name: str | None = None
@@ -433,7 +433,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             worker_count = max(1, min(int(options.parallelism), 64))
             pending = set()
             with (
-                self._open_client(target.account) as client,
+                self._open_client(target.context) as client,
                 ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-integrity") as executor,
             ):
                 for obj in self._iter_objects(
