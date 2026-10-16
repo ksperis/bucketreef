@@ -69,8 +69,6 @@ def test_batch_service_is_read_only_and_keeps_partial_results():
     result = service.run(
         admin,
         [CephAdminBucketIndexCheckTarget(name="bucket-a"), CephAdminBucketIndexCheckTarget(name="bucket-b")],
-        endpoint_id=7,
-        endpoint_name="Lab",
         parallelism=2,
         progress_callback=progress.append,
     )
@@ -88,6 +86,18 @@ def test_batch_service_is_read_only_and_keeps_partial_results():
     assert progress[-1].completed_buckets == 2
 
 
+def test_batch_service_reports_failed_when_every_target_fails():
+    result = BucketIndexCheckService().run(
+        FakeAdmin(),
+        [CephAdminBucketIndexCheckTarget(name="bucket-b")],
+        parallelism=1,
+    )
+
+    assert result.status == "failed"
+    assert result.completed_buckets == 1
+    assert result.failed_buckets == 1
+
+
 def test_batch_service_honors_cooperative_cancellation():
     service = BucketIndexCheckService()
 
@@ -95,8 +105,6 @@ def test_batch_service_honors_cooperative_cancellation():
         service.run(
             FakeAdmin(),
             [CephAdminBucketIndexCheckTarget(name="bucket-a")],
-            endpoint_id=7,
-            endpoint_name="Lab",
             parallelism=1,
             cancel_check=lambda: (_ for _ in ()).throw(BucketIndexCheckCancelled()),
         )
@@ -117,7 +125,7 @@ def test_batch_route_builds_stream_runner_and_invalidates_once(client: TestClien
         def run(self, rgw_admin, targets, **kwargs):
             captured["rgw_admin"] = rgw_admin
             captured["targets"] = targets
-            captured["parallelism"] = kwargs["parallelism"]
+            captured["kwargs"] = kwargs
             return SimpleNamespace(status="completed")
 
     def fake_stream(_request, *, run_check, **_kwargs):
@@ -149,5 +157,6 @@ def test_batch_route_builds_stream_runner_and_invalidates_once(client: TestClien
     assert response.status_code == 200, response.text
     assert response.json() == {"status": "completed"}
     assert [(target.tenant, target.name) for target in captured["targets"]] == [("tenant-a", "bucket-a")]
-    assert captured["parallelism"] == 6
+    assert set(captured["kwargs"]) == {"parallelism", "progress_callback", "cancel_check"}
+    assert captured["kwargs"]["parallelism"] == 6
     assert invalidated == [7]
