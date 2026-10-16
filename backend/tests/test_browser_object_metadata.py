@@ -166,6 +166,92 @@ def test_copy_object_preserves_literal_tag_pairs(monkeypatch):
     )
 
 
+def test_move_object_preserves_source_and_destination_version_identity(monkeypatch):
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeClient:
+        def copy_object(self, **kwargs):  # noqa: ANN001
+            calls.append(("copy", kwargs))
+            return {"VersionId": "destination-version"}
+
+        def put_object_tagging(self, **kwargs):  # noqa: ANN001
+            calls.append(("put_tags", kwargs))
+
+        def head_object(self, **kwargs):  # noqa: ANN001
+            calls.append(("head", kwargs))
+            return {"ContentLength": 42, "ETag": '"same-etag"'}
+
+        def delete_object(self, **kwargs):  # noqa: ANN001
+            calls.append(("delete", kwargs))
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: FakeClient())
+
+    service.copy_object(
+        "target",
+        _account(),
+        CopyObjectPayload(
+            source_bucket="source",
+            source_key="source.txt",
+            source_version_id="source-version",
+            destination_key="destination.txt",
+            move=True,
+            replace_tags=True,
+            tags=[ObjectTag(key="team", value="platform")],
+        ),
+    )
+
+    assert calls == [
+        (
+            "copy",
+            {
+                "Bucket": "target",
+                "Key": "destination.txt",
+                "CopySource": {
+                    "Bucket": "source",
+                    "Key": "source.txt",
+                    "VersionId": "source-version",
+                },
+                "TaggingDirective": "REPLACE",
+                "Tagging": "team=platform",
+            },
+        ),
+        (
+            "put_tags",
+            {
+                "Bucket": "target",
+                "Key": "destination.txt",
+                "VersionId": "destination-version",
+                "Tagging": {"TagSet": [{"Key": "team", "Value": "platform"}]},
+            },
+        ),
+        (
+            "head",
+            {
+                "Bucket": "source",
+                "Key": "source.txt",
+                "VersionId": "source-version",
+            },
+        ),
+        (
+            "head",
+            {
+                "Bucket": "target",
+                "Key": "destination.txt",
+                "VersionId": "destination-version",
+            },
+        ),
+        (
+            "delete",
+            {
+                "Bucket": "source",
+                "Key": "source.txt",
+                "VersionId": "source-version",
+            },
+        ),
+    ]
+
+
 def test_update_object_metadata_copies_empty_tag_set_without_restoration(monkeypatch):
     copy_requests: list[dict[str, object]] = []
 
