@@ -19,7 +19,7 @@ def test_get_bucket_cors_config_uses_dedicated_cors_service():
 
     result = bucket_config_actions.get_bucket_cors_config(
         service=FakeBucketsService(),
-        account=S3Account(name="account-a"),
+        context=S3Account(name="account-a"),
         bucket_name="demo-bucket",
     )
 

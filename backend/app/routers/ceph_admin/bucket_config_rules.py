@@ -36,10 +36,10 @@ def get_lifecycle(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketLifecycleConfig:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_lifecycle_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -78,10 +78,10 @@ def get_cors(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_cors_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -120,10 +120,10 @@ def get_notifications(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketNotificationConfiguration:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_notifications_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -163,10 +163,10 @@ def get_replication(
 ) -> BucketReplicationConfiguration:
     _require_replication_feature(ctx)
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_replication_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -207,10 +207,10 @@ def get_logging(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketLoggingConfiguration:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_logging_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -249,10 +249,10 @@ def get_website(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketWebsiteConfiguration:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_website_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -291,10 +291,10 @@ def get_tags(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_tags_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 

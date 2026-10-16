@@ -33,10 +33,10 @@ def get_policy(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketPolicyOut:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_policy_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -75,10 +75,10 @@ def get_acl(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketAcl:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_acl_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -104,10 +104,10 @@ def get_public_access_block(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketPublicAccessBlock:
     service = BucketConfigurationService()
-    account = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_public_access_block_config(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
     )
 

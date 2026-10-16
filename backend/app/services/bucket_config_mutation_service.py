@@ -33,19 +33,19 @@ class BucketConfigMutationService:
         self,
         *,
         actor: ManagerActor,
-        account: S3ExecutionContext,
+        context: S3ExecutionContext,
         bucket_name: str,
         audit_action: str,
         metadata: dict[str, Any] | None,
     ) -> None:
-        self.cache_invalidator(account, bucket_name)
+        self.cache_invalidator(context, bucket_name)
         self.audit_service.record_action(
             user=actor,
             scope=self.audit_scope,
             action=audit_action,
             entity_type="bucket",
             entity_id=bucket_name,
-            execution_context=account,
+            execution_context=context,
             metadata=metadata,
         )
 
@@ -53,7 +53,7 @@ class BucketConfigMutationService:
         self,
         *,
         actor: ManagerActor,
-        account: S3ExecutionContext,
+        context: S3ExecutionContext,
         bucket_name: str,
         audit_action: str,
         action: Callable[..., tuple[_T, dict[str, Any]]],
@@ -61,12 +61,12 @@ class BucketConfigMutationService:
     ) -> _T:
         return bucket_config_actions.apply_bucket_config_update(
             service=self.configuration_service,
-            account=account,
+            context=context,
             bucket_name=bucket_name,
             action=action,
             audit_recorder=lambda metadata: self._record(
                 actor=actor,
-                account=account,
+                context=context,
                 bucket_name=bucket_name,
                 audit_action=audit_action,
                 metadata=metadata,
@@ -78,7 +78,7 @@ class BucketConfigMutationService:
         self,
         *,
         actor: ManagerActor,
-        account: S3ExecutionContext,
+        context: S3ExecutionContext,
         bucket_name: str,
         audit_action: str,
         action: Callable[..., None],
@@ -86,12 +86,12 @@ class BucketConfigMutationService:
     ) -> None:
         bucket_config_actions.apply_bucket_config_delete(
             service=self.configuration_service,
-            account=account,
+            context=context,
             bucket_name=bucket_name,
             action=action,
             audit_recorder=lambda _metadata: self._record(
                 actor=actor,
-                account=account,
+                context=context,
                 bucket_name=bucket_name,
                 audit_action=audit_action,
                 metadata=None,

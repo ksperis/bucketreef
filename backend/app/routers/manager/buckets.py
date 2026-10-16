@@ -123,7 +123,7 @@ def update_quota(
 ) -> dict[str, str]:
     response, audit_metadata = bucket_config_actions.update_bucket_quota_config(
         service=service,
-        account=account,
+        context=account,
         bucket_name=bucket_name,
         payload=payload,
     )
@@ -226,7 +226,7 @@ def create_bucket(
 ):
     response, audit_metadata = bucket_config_actions.create_bucket_config(
         service=service,
-        account=account,
+        context=account,
         payload=payload,
     )
     _invalidate_bucket_listing_for_context(account)
@@ -252,7 +252,7 @@ def delete_bucket(
 ):
     response, _audit_metadata = bucket_config_actions.delete_bucket_config(
         service=service,
-        account=account,
+        context=account,
         bucket_name=bucket_name,
     )
     _invalidate_bucket_listing_for_context(account)

@@ -54,7 +54,7 @@ def _record_bucket_config_mutation(
     )
 
 
-def _ceph_admin_bucket_config_account(ctx: CephAdminContext) -> tuple[BucketConfigurationService, S3ExecutionContext]:
+def _ceph_admin_bucket_config_context(ctx: CephAdminContext) -> tuple[BucketConfigurationService, S3ExecutionContext]:
     return BucketConfigurationService(), build_ceph_admin_s3_context(ctx)
 
 
@@ -66,10 +66,10 @@ def _run_bucket_config_update(
     action: Callable[..., tuple[Any, dict[str, Any]]],
     **kwargs: Any,
 ) -> Any:
-    service, account = _ceph_admin_bucket_config_account(ctx)
+    service, context = _ceph_admin_bucket_config_context(ctx)
     return bucket_config_actions.apply_bucket_config_update(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
         action=action,
         audit_recorder=lambda metadata: _record_bucket_config_mutation(
@@ -90,10 +90,10 @@ def _run_bucket_config_delete(
     config_area: str,
     action: Callable[..., None],
 ) -> Response:
-    service, account = _ceph_admin_bucket_config_account(ctx)
+    service, context = _ceph_admin_bucket_config_context(ctx)
     return bucket_config_actions.apply_bucket_config_delete(
         service=service,
-        account=account,
+        context=context,
         bucket_name=bucket_name,
         action=action,
         audit_recorder=lambda metadata: _record_bucket_config_mutation(

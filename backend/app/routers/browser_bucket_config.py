@@ -35,7 +35,7 @@ def get_bucket_config_stats(
 ) -> Bucket:
     return bucket_config_actions.get_bucket_config_stats(
         service=service,
-        account=context,
+        context=context,
         bucket_name=bucket_name,
         with_stats=with_stats,
     )
@@ -50,7 +50,7 @@ def get_bucket_properties_config(
 ) -> BucketProperties:
     return bucket_config_actions.get_bucket_properties_config(
         service=service,
-        account=context,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -64,7 +64,7 @@ def get_bucket_policy_config(
 ) -> BucketPolicyOut:
     return bucket_config_actions.get_bucket_policy_config(
         service=service,
-        account=context,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -78,7 +78,7 @@ def get_bucket_logging_config(
 ) -> BucketLoggingConfiguration:
     return bucket_config_actions.get_bucket_logging_config(
         service=service,
-        account=context,
+        context=context,
         bucket_name=bucket_name,
     )
 
@@ -92,6 +92,6 @@ def get_bucket_website_config(
 ) -> BucketWebsiteConfiguration:
     return bucket_config_actions.get_bucket_website_config(
         service=service,
-        account=context,
+        context=context,
         bucket_name=bucket_name,
     )
