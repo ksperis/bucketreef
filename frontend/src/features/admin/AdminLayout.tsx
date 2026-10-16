@@ -76,7 +76,7 @@ export const buildAdminNav = (
 
   return [
     {
-      links: [{ ...pageLink(ADMIN_PAGE_CONTRACTS.dashboard, text), end: true }],
+      links: [{ ...pageLink(ADMIN_PAGE_CONTRACTS.dashboard, text), end: true, iconName: "home" as const }],
     },
     ...(showOnboarding
       ? [

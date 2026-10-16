@@ -129,6 +129,7 @@ describe("CephAdminLayout", () => {
       "Data",
     ]);
     expect(capturedNavSections[0]?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(capturedNavSections[0]?.links[0]?.iconName).toBe("home");
     expect(capturedNavSections[1]?.links.map((link) => link.label)).toEqual(["Usage & Metrics"]);
   });
 

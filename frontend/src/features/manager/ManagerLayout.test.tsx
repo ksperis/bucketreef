@@ -189,6 +189,7 @@ describe("ManagerLayout", () => {
 
     expect(capturedNavSections[0]?.label).toBeUndefined();
     expect(capturedNavSections[0]?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(capturedNavSections[0]?.links[0]?.iconName).toBe("home");
     expect(capturedNavSections.at(-1)?.label).toBe("Monitoring");
     expect(capturedNavSections.at(-1)?.links.map((link) => link.label)).toEqual(["Activity", "Usage & Metrics"]);
   });

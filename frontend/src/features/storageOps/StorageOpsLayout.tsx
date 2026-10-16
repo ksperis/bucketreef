@@ -12,7 +12,7 @@ import {
 
 const navSections: SidebarSection[] = [
   {
-    links: [{ ...workspacePageLink(STORAGE_OPS_PAGE_CONTRACTS.dashboard), end: true }],
+    links: [{ ...workspacePageLink(STORAGE_OPS_PAGE_CONTRACTS.dashboard), end: true, iconName: "home" }],
   },
   {
     label: "Operations",

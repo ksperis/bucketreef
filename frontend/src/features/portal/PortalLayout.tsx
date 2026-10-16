@@ -43,7 +43,7 @@ function usePortalNavSections(): SidebarSection[] {
               zh: "仪表盘",
             }),
             end: true,
-            icon: <HomeIcon />,
+            iconName: "home",
           },
           {
             to: "/portal/storage-spaces",
@@ -290,19 +290,6 @@ function IconBase({ children }: { children: ReactNode }) {
     >
       {children}
     </svg>
-  );
-}
-
-function HomeIcon() {
-  return (
-    <IconBase>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.7}
-        d="M3 9.3 10 4l7 5.3V16H3V9.3Z"
-      />
-    </IconBase>
   );
 }
 
