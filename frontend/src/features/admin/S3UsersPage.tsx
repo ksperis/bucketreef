@@ -205,8 +205,9 @@ export default function S3UsersPage() {
   const [userToDelete, setUserToDelete] = useState<S3User | null>(null);
   const [deleteFromRgw, setDeleteFromRgw] = useState(false);
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
-  const deleteModalHasResources =
-    userToDelete != null && (userToDelete.bucket_count == null || userToDelete.bucket_count > 0);
+  const deleteModalBucketCountUnknown = userToDelete != null && userToDelete.bucket_count == null;
+  const deleteModalHasResources = userToDelete != null && (userToDelete.bucket_count ?? 0) > 0;
+  const deleteModalBlocksRgwDeletion = deleteModalBucketCountUnknown || deleteModalHasResources;
   const editingUserId = editingUser?.id ?? null;
   const {
     stats: editingUsageStats,
@@ -1415,20 +1416,22 @@ export default function S3UsersPage() {
           loading={deleteModalBusy}
           error={deleteModalError}
           warningTone="warning"
-          warning={deleteModalHasResources && (
+          warning={deleteModalBlocksRgwDeletion && (
             <div className="space-y-2">
-              <p>{adminText("This RGW user still has linked resources. Remove owned buckets before deleting it from RGW.")}</p>
+              <p>{adminText(deleteModalBucketCountUnknown
+                ? "Bucket ownership could not be verified. RGW deletion is unavailable, but you can still remove this user from BucketReef."
+                : "This RGW user still has linked resources. Remove owned buckets before deleting it from RGW.")}</p>
               <p className="settings-label">{adminText("Buckets:")}{userToDelete.bucket_count ?? "unknown"}</p>
             </div>
           )}
           options={
             <UiCheckboxField
               checked={deleteFromRgw}
-              disabled={deleteModalBusy || deleteModalHasResources}
+              disabled={deleteModalBusy || deleteModalBlocksRgwDeletion}
               onChange={(event) => setDeleteFromRgw(event.target.checked)}
             >
               <span className="modal-option-copy">
-                {adminText("Also delete RGW user")}<code className="break-all font-mono">{userToDelete.rgw_user_uid}</code>
+                {adminText("Also delete RGW user")} <code className="break-all font-mono">{userToDelete.rgw_user_uid}</code>
               </span>
             </UiCheckboxField>
           }

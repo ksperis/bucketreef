@@ -116,6 +116,38 @@ class S3UsersService:
             raise ValueError("RGW user no longer owns its stored access key")
         return tenant
 
+    def _verified_user_for_deletion(
+        self,
+        s3_user: S3UserModel,
+        admin: RGWAdminClient,
+    ) -> tuple[str, bool]:
+        """Verify a deletion target while accepting a confirmed missing remote user."""
+        tenant = self._tenant_for_user(s3_user)
+        try:
+            remote = admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=True)
+        except RGWAdminError as exc:
+            raise ValueError(
+                f"Unable to verify RGW user before deletion: {sanitized_error_log_detail(exc)}"
+            ) from exc
+        if remote:
+            require_rgw_user_identity(remote, s3_user.rgw_user_uid, tenant)
+            if not any(key.get("access_key") == s3_user.rgw_access_key for key in admin.extract_keys(remote)):
+                raise ValueError("RGW user no longer owns its stored access key")
+            return tenant, True
+
+        # get_user(..., allow_not_found=True) intentionally collapses every HTTP 404
+        # to None. Re-run strictly so only Ceph's explicit NoSuchUser response is
+        # treated as a stale local entry; endpoint/path failures must still block.
+        try:
+            admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=False)
+        except RGWAdminError as exc:
+            if exc.status_code == 404 and exc.error_code == "NoSuchUser":
+                return tenant, False
+            raise ValueError(
+                f"Unable to verify RGW user before deletion: {sanitized_error_log_detail(exc)}"
+            ) from exc
+        raise ValueError("RGW user could not be verified")
+
     def _existing_identity(self, uid: str, tenant: str, endpoint_id: int):
         return self.db.query(S3UserModel).filter(
             S3UserModel.storage_endpoint_id == endpoint_id,
@@ -661,7 +693,10 @@ class S3UsersService:
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
-        tenant = self._verified_user(s3_user, admin)
+        tenant, remote_exists = self._verified_user_for_deletion(s3_user, admin)
+        if not remote_exists:
+            self._delete_user_entry(s3_user)
+            return
         if delete_rgw:
             bucket_count = self._interface_bucket_count(s3_user)
             if bucket_count is None:

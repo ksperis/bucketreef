@@ -643,13 +643,19 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.queryByText("rgw-user-2")).not.toBeInTheDocument();
     expect(screen.getByText("legacy").parentElement?.className).toContain("text-[10px]");
   });
-  it.each([null, 2])("blocks RGW deletion when the owned-bucket count is %s", async (bucket_count) => {
+  it.each([
+    [null, "Bucket ownership could not be verified. RGW deletion is unavailable, but you can still remove this user from BucketReef."],
+    [2, "This RGW user still has linked resources. Remove owned buckets before deleting it from RGW."],
+  ])("blocks RGW deletion when the owned-bucket count is %s", async (bucket_count, warning) => {
     getS3UserWithBucketsMock.mockResolvedValueOnce({ id: 5, name: "rgw-user-1", rgw_user_uid: "rgw-uid-1", bucket_count });
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
     fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete rgw-user-1" }));
     expect(dialog.getByRole("checkbox", { name: "Also delete RGW user rgw-uid-1" })).toBeDisabled();
-    expect(dialog.getByText(`Buckets: ${bucket_count ?? "unknown"}`)).toBeInTheDocument();
+    expect(dialog.getByText(warning)).toBeInTheDocument();
+    expect(dialog.getByText("Buckets:", { exact: false })).toHaveTextContent(
+      `Buckets:${bucket_count ?? "unknown"}`,
+    );
     expect(deleteS3UserMock).not.toHaveBeenCalled();
     fireEvent.click(dialog.getByRole("button", { name: "Delete user" }));
     await waitFor(() => expect(deleteS3UserMock).toHaveBeenCalledWith(5, { deleteRgw: false }));

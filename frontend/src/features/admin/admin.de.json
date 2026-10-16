@@ -1311,6 +1311,7 @@
   "These options enable the surface. Storage permissions still apply.": "Diese Optionen aktivieren den Bereich. Die Speicherberechtigungen gelten weiterhin.",
   "These origins are added to the Portal CORS rule for new Storage Spaces.": "Diese Origins werden der Portal-CORS-Regel für neue Speicherbereiche hinzugefügt.",
   "These settings changed on the server. Cancel to load their current values, or review your changes before trying again.": "Diese Einstellungen wurden auf dem Server geändert. Brechen Sie ab, um die aktuellen Werte zu laden, oder prüfen Sie Ihre Änderungen vor einem erneuten Versuch.",
+  "Bucket ownership could not be verified. RGW deletion is unavailable, but you can still remove this user from BucketReef.": "Der Bucket-Besitz dieses Benutzers konnte nicht überprüft werden. Das Löschen in RGW ist nicht verfügbar, aber Sie können den Benutzer weiterhin aus BucketReef entfernen.",
   "This RGW user still has linked resources. Remove owned buckets before deleting it from RGW.": "Dieser RGW-Benutzer besitzt noch verknüpfte Ressourcen. Entfernen Sie eigene Buckets, bevor Sie ihn aus RGW löschen.",
   "This endpoint is read-only; Ceph service configuration cannot be changed.": "Dieser Endpunkt ist schreibgeschützt; die Konfiguration der Ceph-Dienste kann nicht geändert werden.",
   "This external identity will be linked to the selected local account.": "Diese externe Identität wird mit dem ausgewählten lokalen Konto verknüpft.",

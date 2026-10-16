@@ -844,6 +844,102 @@ def test_delete_user_with_delete_rgw_checks_buckets_then_deletes(db_session, mon
     assert db_session.query(S3User).filter_by(id=created.id).first() is None
 
 
+@pytest.mark.parametrize("delete_rgw", [False, True])
+def test_delete_user_removes_local_entry_when_remote_user_is_confirmed_missing(
+    db_session,
+    monkeypatch,
+    delete_rgw,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(name="MissingRemote", uid="missing-remote-delete", storage_endpoint_id=endpoint.id)
+    )
+
+    lookup_modes: list[bool] = []
+
+    def missing_remote(uid, tenant=None, allow_not_found=False):
+        assert uid == "missing-remote-delete"
+        assert tenant is None
+        lookup_modes.append(allow_not_found)
+        if allow_not_found:
+            return None
+        raise RGWAdminError("missing", status_code=404, error_code="NoSuchUser")
+
+    monkeypatch.setattr(fake, "get_user", missing_remote)
+    monkeypatch.setattr(
+        fake,
+        "delete_access_key",
+        lambda *_args, **_kwargs: pytest.fail("No remote key deletion expected for a missing RGW user"),
+    )
+    monkeypatch.setattr(
+        fake,
+        "delete_user",
+        lambda *_args, **_kwargs: pytest.fail("No remote user deletion expected for a missing RGW user"),
+    )
+
+    service.delete_user(created.id, delete_rgw=delete_rgw)
+
+    assert lookup_modes == [True, False]
+    assert db_session.query(S3User).filter_by(id=created.id).first() is None
+
+
+def test_delete_user_keeps_local_entry_when_remote_absence_is_not_confirmed(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(name="UnknownRemote", uid="unknown-remote-delete", storage_endpoint_id=endpoint.id)
+    )
+
+    def ambiguous_not_found(uid, tenant=None, allow_not_found=False):
+        assert uid == "unknown-remote-delete"
+        assert tenant is None
+        if allow_not_found:
+            return None
+        raise RGWAdminError("missing endpoint", status_code=404, error_code="NoSuchKey")
+
+    monkeypatch.setattr(fake, "get_user", ambiguous_not_found)
+
+    with pytest.raises(ValueError, match="Unable to verify RGW user before deletion"):
+        service.delete_user(created.id, delete_rgw=False)
+
+    assert db_session.query(S3User).filter_by(id=created.id).one().rgw_user_uid == "unknown-remote-delete"
+
+
+def test_delete_user_confirms_missing_remote_in_stored_tenant(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    row = S3User(
+        name="TenantMissing",
+        rgw_user_uid="analyst",
+        rgw_tenant="team-a",
+        rgw_access_key="AK-team-a-analyst",
+        rgw_secret_key="SECRET",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(row)
+    db_session.commit()
+
+    calls: list[tuple[str | None, bool]] = []
+
+    class MissingTenantAdmin:
+        def get_user(self, uid, tenant=None, allow_not_found=False):
+            assert uid == "analyst"
+            calls.append((tenant, allow_not_found))
+            if allow_not_found:
+                return None
+            raise RGWAdminError("missing", status_code=404, error_code="NoSuchUser")
+
+    service = S3UsersService(db_session)
+    monkeypatch.setattr(service, "_admin_for_user", lambda _s3_user: MissingTenantAdmin())
+
+    service.delete_user(row.id, delete_rgw=False)
+
+    assert calls == [("team-a", True), ("team-a", False)]
+    assert db_session.query(S3User).filter_by(id=row.id).first() is None
+
+
 def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
