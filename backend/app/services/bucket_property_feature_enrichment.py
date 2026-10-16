@@ -20,24 +20,24 @@ BUCKET_PROPERTY_FEATURES = frozenset(
 
 
 class BucketPropertyFeatureReader(Protocol):
-    def get_bucket_properties(self, name: str, account: S3ExecutionTarget) -> BucketProperties: ...
+    def get_bucket_properties(self, name: str, execution_context: S3ExecutionTarget) -> BucketProperties: ...
 
-    def get_bucket_versioning_status(self, name: str, account: S3ExecutionTarget) -> str | None: ...
+    def get_bucket_versioning_status(self, name: str, execution_context: S3ExecutionTarget) -> str | None: ...
 
-    def get_bucket_object_lock(self, name: str, account: S3ExecutionTarget) -> BucketObjectLock | None: ...
+    def get_bucket_object_lock(self, name: str, execution_context: S3ExecutionTarget) -> BucketObjectLock | None: ...
 
-    def get_public_access_block(self, name: str, account: S3ExecutionTarget) -> BucketPublicAccessBlock: ...
+    def get_public_access_block(self, name: str, execution_context: S3ExecutionTarget) -> BucketPublicAccessBlock: ...
 
-    def get_lifecycle(self, name: str, account: S3ExecutionTarget) -> BucketLifecycleConfig: ...
+    def get_lifecycle(self, name: str, execution_context: S3ExecutionTarget) -> BucketLifecycleConfig: ...
 
-    def get_bucket_cors(self, name: str, account: S3ExecutionTarget) -> list[dict]: ...
+    def get_bucket_cors(self, name: str, execution_context: S3ExecutionTarget) -> list[dict]: ...
 
 
 @dataclass(frozen=True)
 class BucketPropertiesContext:
     bucket_name: str
     reader: BucketPropertyFeatureReader
-    account: S3ExecutionTarget
+    execution_context: S3ExecutionTarget
     uses_bundle: bool
     properties: BucketProperties | None
     unavailable: bool
@@ -46,7 +46,7 @@ class BucketPropertiesContext:
 def load_bucket_properties_context(
     reader: BucketPropertyFeatureReader,
     bucket_name: str,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     uses_bundle: bool,
 ) -> BucketPropertiesContext:
@@ -54,13 +54,13 @@ def load_bucket_properties_context(
     unavailable = False
     if uses_bundle:
         try:
-            properties = reader.get_bucket_properties(bucket_name, account)
+            properties = reader.get_bucket_properties(bucket_name, execution_context)
         except RuntimeError:
             unavailable = True
     return BucketPropertiesContext(
         bucket_name=bucket_name,
         reader=reader,
-        account=account,
+        execution_context=execution_context,
         uses_bundle=uses_bundle,
         properties=properties,
         unavailable=unavailable,
@@ -79,7 +79,10 @@ def enrich_versioning(
         raw_versioning = context.properties.versioning_status if context.properties else None
     else:
         try:
-            raw_versioning = context.reader.get_bucket_versioning_status(context.bucket_name, context.account)
+            raw_versioning = context.reader.get_bucket_versioning_status(
+                context.bucket_name,
+                context.execution_context,
+            )
         except RuntimeError:
             feature_map["versioning"] = unavailable_feature_status()
             return
@@ -105,7 +108,10 @@ def enrich_object_lock(
         enabled = bool((context.properties.object_lock_enabled if context.properties else None) is True)
     else:
         try:
-            object_lock = context.reader.get_bucket_object_lock(context.bucket_name, context.account)
+            object_lock = context.reader.get_bucket_object_lock(
+                context.bucket_name,
+                context.execution_context,
+            )
         except RuntimeError:
             feature_map["object_lock"] = unavailable_feature_status()
             return
@@ -127,7 +133,10 @@ def enrich_public_access_block(
         config = context.properties.public_access_block if context.properties else None
     else:
         try:
-            config = context.reader.get_public_access_block(context.bucket_name, context.account)
+            config = context.reader.get_public_access_block(
+                context.bucket_name,
+                context.execution_context,
+            )
         except RuntimeError:
             feature_map["block_public_access"] = unavailable_feature_status()
             return
@@ -161,7 +170,10 @@ def enrich_lifecycle(
         rules = context.properties.lifecycle_rules if context.properties else []
     else:
         try:
-            rules = context.reader.get_lifecycle(context.bucket_name, context.account).rules or []
+            rules = context.reader.get_lifecycle(
+                context.bucket_name,
+                context.execution_context,
+            ).rules or []
         except RuntimeError:
             feature_map["lifecycle_rules"] = unavailable_feature_status()
             return
@@ -182,7 +194,10 @@ def enrich_cors(
         rules = context.properties.cors_rules if context.properties else []
     else:
         try:
-            rules = context.reader.get_bucket_cors(context.bucket_name, context.account) or []
+            rules = context.reader.get_bucket_cors(
+                context.bucket_name,
+                context.execution_context,
+            ) or []
         except RuntimeError:
             feature_map["cors"] = unavailable_feature_status()
             return

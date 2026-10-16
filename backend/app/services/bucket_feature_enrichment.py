@@ -13,7 +13,7 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
 )
 from app.services.bucket_notification_state import (
-    account_sns_feature_enabled,
+    execution_context_sns_feature_enabled,
     is_bucket_notification_configuration_configured,
 )
 from app.services.bucket_property_feature_enrichment import (
@@ -47,21 +47,21 @@ ALLOWED_BUCKET_FEATURES = {
 
 
 class BucketFeatureReader(BucketPropertyFeatureReader, Protocol):
-    def get_bucket_tags(self, name: str, account: S3ExecutionTarget) -> list[BucketTag]: ...
+    def get_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> list[BucketTag]: ...
 
-    def get_bucket_website(self, name: str, account: S3ExecutionTarget) -> BucketWebsiteConfiguration: ...
+    def get_bucket_website(self, name: str, execution_context: S3ExecutionTarget) -> BucketWebsiteConfiguration: ...
 
-    def get_policy(self, name: str, account: S3ExecutionTarget) -> dict | None: ...
+    def get_policy(self, name: str, execution_context: S3ExecutionTarget) -> dict | None: ...
 
-    def get_bucket_logging(self, name: str, account: S3ExecutionTarget) -> BucketLoggingConfiguration: ...
+    def get_bucket_logging(self, name: str, execution_context: S3ExecutionTarget) -> BucketLoggingConfiguration: ...
 
-    def get_bucket_notifications(self, name: str, account: S3ExecutionTarget) -> BucketNotificationConfiguration: ...
+    def get_bucket_notifications(self, name: str, execution_context: S3ExecutionTarget) -> BucketNotificationConfiguration: ...
 
 
 def enrich_bucket_features(
     reader: BucketFeatureReader,
     buckets: list[Bucket],
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     include: set[str],
 ) -> list[Bucket]:
     requested = {key for key in include if key in ALLOWED_BUCKET_FEATURES}
@@ -70,14 +70,14 @@ def enrich_bucket_features(
 
     wants_tags = "tags" in requested
     use_props_bundle = len(requested & BUCKET_PROPERTY_FEATURES) > 1
-    sns_feature_enabled = account_sns_feature_enabled(account)
+    sns_feature_enabled = execution_context_sns_feature_enabled(execution_context)
 
     result: list[Bucket] = []
     for bucket in buckets:
         tags: list[BucketTag] | None = None
         if wants_tags:
             try:
-                tags = reader.get_bucket_tags(bucket.name, account)
+                tags = reader.get_bucket_tags(bucket.name, execution_context)
             except RuntimeError:
                 tags = []
 
@@ -85,7 +85,7 @@ def enrich_bucket_features(
         properties_context = load_bucket_properties_context(
             reader,
             bucket.name,
-            account,
+            execution_context,
             uses_bundle=use_props_bundle,
         )
 
@@ -106,7 +106,7 @@ def enrich_bucket_features(
 
         if "static_website" in requested:
             try:
-                website = reader.get_bucket_website(bucket.name, account)
+                website = reader.get_bucket_website(bucket.name, execution_context)
                 routing_rules = website.routing_rules or []
                 configured = bool(
                     (website.redirect_all_requests_to and (website.redirect_all_requests_to.host_name or "").strip())
@@ -121,7 +121,7 @@ def enrich_bucket_features(
 
         if "bucket_policy" in requested:
             try:
-                policy = reader.get_policy(bucket.name, account)
+                policy = reader.get_policy(bucket.name, execution_context)
                 configured = bool(policy and isinstance(policy, dict) and len(policy) > 0)
                 feature_map["bucket_policy"] = (
                     active_feature_status("Configured") if configured else inactive_feature_status("Not set")
@@ -131,7 +131,7 @@ def enrich_bucket_features(
 
         if "access_logging" in requested:
             try:
-                logging_config = reader.get_bucket_logging(bucket.name, account)
+                logging_config = reader.get_bucket_logging(bucket.name, execution_context)
                 enabled = bool(logging_config.enabled and (logging_config.target_bucket or "").strip())
                 feature_map["access_logging"] = (
                     active_feature_status("Enabled") if enabled else inactive_feature_status("Disabled")
@@ -144,7 +144,7 @@ def enrich_bucket_features(
                 feature_map["notifications"] = unavailable_feature_status()
             else:
                 try:
-                    notifications = reader.get_bucket_notifications(bucket.name, account)
+                    notifications = reader.get_bucket_notifications(bucket.name, execution_context)
                     configured = is_bucket_notification_configuration_configured(notifications.configuration)
                     feature_map["notifications"] = (
                         active_feature_status("Configured")
