@@ -47,6 +47,17 @@ def _same_policy_document(left: object, right: object) -> bool:
     )
 
 
+def _ensure_role_tags_persisted(requested: list[IAMTag], current: list[IAMTag]) -> None:
+    current_pairs = {(tag.key, tag.value) for tag in current}
+    if any((tag.key, tag.value) not in current_pairs for tag in requested):
+        raise RuntimeError("IAM role tag update did not persist on the storage backend")
+
+
+def _ensure_role_tag_removed(tag_key: str, current: list[IAMTag]) -> None:
+    if any(tag.key == tag_key for tag in current):
+        raise RuntimeError("IAM role tag deletion did not persist on the storage backend")
+
+
 @router.get("", response_model=list[IAMRole])
 def list_roles(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
@@ -246,6 +257,7 @@ def put_role_tags(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
         service.tag_role(role_name, payload)
         tags = service.list_role_tags(role_name)
+        _ensure_role_tags_persisted(payload, tags)
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -274,6 +286,7 @@ def delete_role_tag(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
         service.untag_role(role_name, [tag_key])
         tags = service.list_role_tags(role_name)
+        _ensure_role_tag_removed(tag_key, tags)
         audit_service.record_action(
             user=current_user,
             scope="manager",
