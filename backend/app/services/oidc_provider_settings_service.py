@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Iterable, Literal, Optional
+from typing import Literal, Optional
 from urllib.parse import urlparse
 
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +17,12 @@ from app.models.oidc import (
     OIDCProviderAdminItem,
     OIDCProviderAdminPayload,
     OIDCProviderFieldLock,
+)
+from app.services.identity_provider_resolution import (
+    get_persisted_identity_provider,
+    list_effective_identity_providers,
+    list_persisted_identity_providers,
+    resolve_identity_provider_map,
 )
 from app.utils.identity_provider_ids import (
     identity_provider_environment_source,
@@ -76,16 +82,12 @@ def list_effective_oidc_providers(
 ) -> list[OIDCProviderAdminItem]:
     settings = settings or get_settings()
     env_providers = _environment_provider_map(settings)
-    items: list[OIDCProviderAdminItem] = [
-        _environment_provider_item(provider_id, provider)
-        for provider_id, provider in env_providers.items()
-    ]
-    for provider in _ui_provider_query(db):
-        provider_id = provider.provider_id.lower()
-        if provider_id in env_providers:
-            continue
-        items.append(_ui_provider_item(provider))
-    return items
+    return list_effective_identity_providers(
+        env_providers,
+        list_persisted_identity_providers(db, OidcProvider),
+        environment_item=_environment_provider_item,
+        persisted_item=_ui_provider_item,
+    )
 
 
 def resolve_oidc_provider_map(
@@ -94,13 +96,11 @@ def resolve_oidc_provider_map(
 ) -> dict[str, OIDCProviderSettings]:
     settings = settings or get_settings()
     env_providers = _environment_provider_map(settings)
-    resolved: dict[str, OIDCProviderSettings] = dict(env_providers)
-    for provider in _ui_provider_query(db):
-        provider_id = provider.provider_id.lower()
-        if provider_id in resolved:
-            continue
-        resolved[provider_id] = _ui_provider_to_settings(provider)
-    return resolved
+    return resolve_identity_provider_map(
+        env_providers,
+        list_persisted_identity_providers(db, OidcProvider),
+        persisted_to_settings=_ui_provider_to_settings,
+    )
 
 
 def create_oidc_provider(db: Session, payload: OIDCProviderAdminPayload) -> OIDCProviderAdminItem:
@@ -108,7 +108,7 @@ def create_oidc_provider(db: Session, payload: OIDCProviderAdminPayload) -> OIDC
     provider_id = normalize_oidc_provider_id(payload.provider_id)
     if provider_id in _environment_provider_map():
         raise OIDCProviderManagedByEnvironmentError("OIDC provider is managed by environment settings")
-    if _get_ui_provider(db, provider_id):
+    if get_persisted_identity_provider(db, OidcProvider, provider_id):
         raise OIDCProviderAlreadyExistsError("OIDC provider already exists")
 
     provider = OidcProvider(provider_id=provider_id)
@@ -135,7 +135,7 @@ def update_oidc_provider(
         raise ValueError("provider_id cannot be changed")
     if normalized_id in _environment_provider_map():
         raise OIDCProviderManagedByEnvironmentError("OIDC provider is managed by environment settings")
-    provider = _get_ui_provider(db, normalized_id)
+    provider = get_persisted_identity_provider(db, OidcProvider, normalized_id)
     if not provider:
         raise OIDCProviderNotFoundError("OIDC provider not found")
 
@@ -150,7 +150,7 @@ def delete_oidc_provider(db: Session, provider_id: str) -> None:
     normalized_id = normalize_oidc_provider_id(provider_id)
     if normalized_id in _environment_provider_map():
         raise OIDCProviderManagedByEnvironmentError("OIDC provider is managed by environment settings")
-    provider = _get_ui_provider(db, normalized_id)
+    provider = get_persisted_identity_provider(db, OidcProvider, normalized_id)
     if not provider:
         raise OIDCProviderNotFoundError("OIDC provider not found")
     db.delete(provider)
@@ -160,14 +160,6 @@ def delete_oidc_provider(db: Session, provider_id: str) -> None:
 def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, OIDCProviderSettings]:
     settings = settings or get_settings()
     return dict(settings.oidc_providers)
-
-
-def _ui_provider_query(db: Session) -> Iterable[OidcProvider]:
-    return db.query(OidcProvider).order_by(OidcProvider.provider_id.asc()).all()
-
-
-def _get_ui_provider(db: Session, provider_id: str) -> Optional[OidcProvider]:
-    return db.query(OidcProvider).filter(OidcProvider.provider_id == provider_id).first()
 
 
 def _apply_payload(provider: OidcProvider, payload: OIDCProviderAdminPayload, *, replace_secret: bool) -> None:
