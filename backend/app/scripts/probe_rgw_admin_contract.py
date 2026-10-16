@@ -17,6 +17,9 @@ else:
     load_dotenv = _load_dotenv
 
 
+ProbeCheck = tuple[str, int, int]
+
+
 def _load_local_env_files() -> None:
     if load_dotenv is None:
         return
@@ -91,6 +94,65 @@ def _pick_sample_user(client: RGWAdminClient) -> tuple[str | None, str | None]:
     return None, None
 
 
+def _account_checks(client: RGWAdminClient, account_id: str) -> list[ProbeCheck]:
+    cases = (
+        ("id", {"id": account_id}, 200),
+        ("account-id", {"account-id": account_id}, 400),
+        ("account_id", {"account_id": account_id}, 400),
+        ("sync-stats + id", {"id": account_id, "sync-stats": "true"}, 200),
+        (
+            "sync-stats + account-id",
+            {"account-id": account_id, "sync-stats": "true"},
+            400,
+        ),
+    )
+    return [
+        (
+            f"GET /admin/account {label}",
+            _raw_status(client, "/admin/account", params={**params, "format": "json"}),
+            expected,
+        )
+        for label, params, expected in cases
+    ]
+
+
+def _user_checks(
+    client: RGWAdminClient,
+    *,
+    tenant: str | None,
+    uid: str,
+) -> list[ProbeCheck]:
+    base_params = {"format": "json"}
+    if tenant:
+        base_params["tenant"] = tenant
+    cases = (
+        ("uid", "uid", 200),
+        ("user-id", "user-id", 400),
+        ("user_id", "user_id", 400),
+    )
+    return [
+        (
+            f"GET /admin/user {label}",
+            _raw_status(
+                client,
+                "/admin/user",
+                params={**base_params, param_name: uid},
+            ),
+            expected,
+        )
+        for label, param_name, expected in cases
+    ]
+
+
+def _print_check_results(checks: list[ProbeCheck]) -> int:
+    failed = False
+    for label, got, expected in checks:
+        ok = got == expected
+        failed = failed or not ok
+        print(f"[{'OK' if ok else 'KO'}] {label}: got={got} expected={expected}")
+    return 1 if failed else 0
+
+
 def main() -> int:
     _load_local_env_files()
     endpoint = _env_str("CEPH_TEST_RGW_ADMIN_ENDPOINT", "SEED_RGW_ADMIN_ENDPOINT", "SEED_S3_ENDPOINT")
@@ -128,83 +190,11 @@ def main() -> int:
         print("unable to probe /admin/user strictness: no uid available")
         return 2
 
-    checks: list[tuple[str, int, int]] = []
-    checks.append(
-        (
-            "GET /admin/account id",
-            _raw_status(client, "/admin/account", params={"id": account_id, "format": "json"}),
-            200,
-        )
-    )
-    checks.append(
-        (
-            "GET /admin/account account-id",
-            _raw_status(client, "/admin/account", params={"account-id": account_id, "format": "json"}),
-            400,
-        )
-    )
-    checks.append(
-        (
-            "GET /admin/account account_id",
-            _raw_status(client, "/admin/account", params={"account_id": account_id, "format": "json"}),
-            400,
-        )
-    )
-    checks.append(
-        (
-            "GET /admin/account sync-stats + id",
-            _raw_status(client, "/admin/account", params={"id": account_id, "sync-stats": "true", "format": "json"}),
-            200,
-        )
-    )
-    checks.append(
-        (
-            "GET /admin/account sync-stats + account-id",
-            _raw_status(
-                client,
-                "/admin/account",
-                params={"account-id": account_id, "sync-stats": "true", "format": "json"},
-            ),
-            400,
-        )
-    )
-    user_params = {"uid": uid, "format": "json"}
-    if tenant:
-        user_params["tenant"] = tenant
-    checks.append(
-        (
-            "GET /admin/user uid",
-            _raw_status(client, "/admin/user", params=user_params),
-            200,
-        )
-    )
-    user_id_params = dict(user_params)
-    user_id_params.pop("uid", None)
-    user_id_params["user-id"] = uid
-    checks.append(
-        (
-            "GET /admin/user user-id",
-            _raw_status(client, "/admin/user", params=user_id_params),
-            400,
-        )
-    )
-    user_id_snake_params = dict(user_params)
-    user_id_snake_params.pop("uid", None)
-    user_id_snake_params["user_id"] = uid
-    checks.append(
-        (
-            "GET /admin/user user_id",
-            _raw_status(client, "/admin/user", params=user_id_snake_params),
-            400,
-        )
-    )
-
-    failed = False
-    for label, got, expected in checks:
-        ok = got == expected
-        failed = failed or not ok
-        print(f"[{'OK' if ok else 'KO'}] {label}: got={got} expected={expected}")
-    return 1 if failed else 0
+    checks = [
+        *_account_checks(client, account_id),
+        *_user_checks(client, tenant=tenant, uid=uid),
+    ]
+    return _print_check_results(checks)
 
 
 if __name__ == "__main__":
