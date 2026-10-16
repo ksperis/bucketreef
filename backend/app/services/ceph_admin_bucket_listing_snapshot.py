@@ -290,16 +290,21 @@ class CephAdminBucketSnapshotBuilder:
             field_matched, candidates = self._partition_cheap_matches(results, plan.cheap_field_rules)
 
         service = BucketConfigurationService()
-        account = build_ceph_admin_s3_context(self.ctx)
+        execution_context = build_ceph_admin_s3_context(self.ctx)
         candidates = self._enrich_expensive_candidates(
             candidates,
             plan,
             owner_usage_by_key,
             service,
-            account,
+            execution_context,
         )
         if plan.feature_param_rules:
-            return self._filter_feature_param_candidates(candidates, plan, service, account)
+            return self._filter_feature_param_candidates(
+                candidates,
+                plan,
+                service,
+                execution_context,
+            )
 
         matched = self._filter_nonparam_candidates(candidates, plan)
         return field_matched + matched
@@ -322,7 +327,7 @@ class CephAdminBucketSnapshotBuilder:
         plan: CephAdminAdvancedFilterPlan,
         owner_usage_by_key: dict[str, BucketOwnerUsage] | None,
         service: BucketConfigurationService,
-        account: S3ExecutionContext,
+        execution_context: S3ExecutionContext,
     ) -> list[BucketListingSummary]:
         if plan.requires_owner_name_lookup and candidates:
             self._enrich_owner_names(candidates)
@@ -356,7 +361,7 @@ class CephAdminBucketSnapshotBuilder:
             {feature for feature in plan.filter_features if feature != "tags"},
             include_tags=plan.requires_tag_lookup or ("tags" in plan.filter_features),
             service=service,
-            account=account,
+            account=execution_context,
             progress=self.progress,
             cancel_check=self.cancel_check,
             progress_stage="bucket_enrichment",
@@ -384,7 +389,7 @@ class CephAdminBucketSnapshotBuilder:
         candidates: list[BucketListingSummary],
         plan: CephAdminAdvancedFilterPlan,
         service: BucketConfigurationService,
-        account: S3ExecutionContext,
+        execution_context: S3ExecutionContext,
     ) -> list[BucketListingSummary]:
         if candidates:
             self.progress.emit(
@@ -399,7 +404,7 @@ class CephAdminBucketSnapshotBuilder:
             candidates,
             plan.feature_param_rules,
             service=service,
-            account=account,
+            account=execution_context,
             progress=self.progress,
             cancel_check=self.cancel_check,
             progress_stage="feature_param_enrichment",
