@@ -48,12 +48,12 @@ def response_factory(request, monkeypatch, db_session):
         if request.param == "browser":
             service = BrowserService()
             monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: client)
-            account = S3ExecutionContext(
+            context = S3ExecutionContext(
                 context_id="conn-42", context_kind="connection", name="Download",
                 access_key="TEST-AK", secret_key="TEST-SK",
             )
             return browser_transfers.download_object(
-                "bucket", "folder/file.txt", account=account, service=service, sse_customer=None,
+                "bucket", "folder/file.txt", context=context, service=service, sse_customer=None,
             )
 
         account = make_s3_account(db_session, name="portal-download", rgw_access_key="TEST-AK", rgw_secret_key="TEST-SK")

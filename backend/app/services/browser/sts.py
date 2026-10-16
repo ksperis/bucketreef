@@ -50,9 +50,9 @@ class BrowserStsSession:
     region: Optional[str]
 
 
-def _sts_cache_key(account: S3ExecutionTarget, endpoint: str, cache_partition: Optional[str]) -> StsCacheKey:
+def _sts_cache_key(context: S3ExecutionTarget, endpoint: str, cache_partition: Optional[str]) -> StsCacheKey:
     partition = (cache_partition or "shared-runtime").strip() or "shared-runtime"
-    return s3_execution_cache_key(account), endpoint, partition
+    return s3_execution_cache_key(context), endpoint, partition
 
 
 def _get_cached_sts_credentials(cache_key: StsCacheKey) -> Optional[CachedStsCredentials]:
@@ -75,33 +75,33 @@ def _store_sts_credentials(cache_key: StsCacheKey, credentials: CachedStsCredent
         )
 
 
-def browser_sts_enabled(account: S3ExecutionTarget) -> bool:
-    if isinstance(account, S3ExecutionContext) and account.context_kind in {"s3_user", "connection"}:
+def browser_sts_enabled(context: S3ExecutionTarget) -> bool:
+    if isinstance(context, S3ExecutionContext) and context.context_kind in {"s3_user", "connection"}:
         return False
-    endpoint = account.storage_endpoint
+    endpoint = context.storage_endpoint
     if not endpoint:
         return False
     return resolve_feature_flags(endpoint).sts_enabled
 
 
 def request_browser_sts_session(
-    account: S3ExecutionTarget,
+    context: S3ExecutionTarget,
     *,
     cache_partition: Optional[str] = None,
 ) -> BrowserStsSession:
-    if not browser_sts_enabled(account):
+    if not browser_sts_enabled(context):
         raise RuntimeError("STS is disabled for this endpoint")
 
     access_key, secret_key = require_s3_execution_credentials(
-        account, error_message="S3 credentials missing for this account",
+        context, error_message="S3 credentials missing for this context",
     )
 
-    endpoint = resolve_sts_endpoint(account.storage_endpoint) if account.storage_endpoint else None
+    endpoint = resolve_sts_endpoint(context.storage_endpoint) if context.storage_endpoint else None
     if not endpoint:
-        raise RuntimeError("STS endpoint is not configured for this account")
+        raise RuntimeError("STS endpoint is not configured for this context")
 
-    _, region, _, verify_tls = resolve_s3_client_options(account)
-    cache_key = _sts_cache_key(account, endpoint, cache_partition)
+    _, region, _, verify_tls = resolve_s3_client_options(context)
+    cache_key = _sts_cache_key(context, endpoint, cache_partition)
     cached = _get_cached_sts_credentials(cache_key)
     if cached:
         return BrowserStsSession(credentials=cached, region=region)
@@ -112,7 +112,7 @@ def request_browser_sts_session(
             access_key,
             secret_key,
             endpoint=endpoint,
-            session_token=account.session_token(),
+            session_token=context.session_token(),
             region=region,
             verify_tls=verify_tls,
         )

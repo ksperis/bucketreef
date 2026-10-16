@@ -45,14 +45,14 @@ def list_versions(
     key_marker: Optional[str] = None,
     version_id_marker: Optional[str] = None,
     max_keys: int = Query(default=1000, ge=1, le=1000),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListObjectVersionsResponse:
     try:
         return service.list_object_versions(
             bucket_name,
-            account,
+            context,
             prefix=prefix,
             delimiter=delimiter,
             key=key,
@@ -69,7 +69,7 @@ def head_object(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -77,11 +77,11 @@ def head_object(
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
-        require_sse_feature(account)
+        require_sse_feature(context)
     try:
         return service.head_object(
             bucket_name,
-            account,
+            context,
             key,
             version_id=version_id,
             sse_customer=sse_customer,
@@ -94,12 +94,12 @@ def head_object(
 def update_object_metadata(
     bucket_name: str,
     payload: ObjectMetadataUpdate,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectMetadata:
     try:
-        return service.update_object_metadata(bucket_name, account, payload)
+        return service.update_object_metadata(bucket_name, context, payload)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -109,14 +109,14 @@ def get_object_tags(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectTags:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     try:
-        return service.get_object_tags(bucket_name, account, key, version_id=version_id)
+        return service.get_object_tags(bucket_name, context, key, version_id=version_id)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -125,7 +125,7 @@ def get_object_tags(
 def put_object_tags(
     bucket_name: str,
     payload: ObjectTags,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectTags:
@@ -134,7 +134,7 @@ def put_object_tags(
     try:
         return service.put_object_tags(
             bucket_name,
-            account,
+            context,
             payload.key,
             payload.tags,
             version_id=payload.version_id,
@@ -148,14 +148,14 @@ def get_object_acl(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectAcl:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     try:
-        return service.get_object_acl(bucket_name, account, key, version_id=version_id)
+        return service.get_object_acl(bucket_name, context, key, version_id=version_id)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -164,12 +164,12 @@ def get_object_acl(
 def put_object_acl(
     bucket_name: str,
     payload: ObjectAcl,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectAcl:
     try:
-        return service.put_object_acl(bucket_name, account, payload)
+        return service.put_object_acl(bucket_name, context, payload)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -179,14 +179,14 @@ def get_object_legal_hold(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectLegalHold:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     try:
-        return service.get_object_legal_hold(bucket_name, account, key, version_id=version_id)
+        return service.get_object_legal_hold(bucket_name, context, key, version_id=version_id)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -195,12 +195,12 @@ def get_object_legal_hold(
 def put_object_legal_hold(
     bucket_name: str,
     payload: ObjectLegalHold,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectLegalHold:
     try:
-        return service.put_object_legal_hold(bucket_name, account, payload)
+        return service.put_object_legal_hold(bucket_name, context, payload)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -210,14 +210,14 @@ def get_object_retention(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectRetention:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     try:
-        return service.get_object_retention(bucket_name, account, key, version_id=version_id)
+        return service.get_object_retention(bucket_name, context, key, version_id=version_id)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -226,12 +226,12 @@ def get_object_retention(
 def put_object_retention(
     bucket_name: str,
     payload: ObjectRetention,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectRetention:
     try:
-        return service.put_object_retention(bucket_name, account, payload)
+        return service.put_object_retention(bucket_name, context, payload)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -240,14 +240,14 @@ def put_object_retention(
 def delete_objects(
     bucket_name: str,
     payload: DeleteObjectsPayload,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
     if not payload.objects:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing objects")
     try:
-        deleted = service.delete_objects(bucket_name, account, payload)
+        deleted = service.delete_objects(bucket_name, context, payload)
         return {"deleted": deleted}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -257,7 +257,7 @@ def delete_objects(
 def copy_object(
     bucket_name: str,
     payload: CopyObjectPayload,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
@@ -267,7 +267,7 @@ def copy_object(
             detail="Missing source or destination key",
         )
     try:
-        service.copy_object(bucket_name, account, payload)
+        service.copy_object(bucket_name, context, payload)
         return {"message": "ok"}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -277,14 +277,14 @@ def copy_object(
 def create_folder(
     bucket_name: str,
     payload: CreateFolderPayload,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
     if not payload.prefix:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing prefix")
     try:
-        service.create_folder(bucket_name, account, payload.prefix)
+        service.create_folder(bucket_name, context, payload.prefix)
         return {"message": "created", "prefix": payload.prefix}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -294,12 +294,12 @@ def create_folder(
 def restore_object(
     bucket_name: str,
     payload: ObjectRestoreRequest,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
     try:
-        return service.restore_object(bucket_name, account, payload)
+        return service.restore_object(bucket_name, context, payload)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -308,11 +308,11 @@ def restore_object(
 def cleanup_object_versions(
     bucket_name: str,
     payload: CleanupObjectVersionsPayload,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> CleanupObjectVersionsResponse:
     try:
-        return service.cleanup_object_versions(bucket_name, account, payload)
+        return service.cleanup_object_versions(bucket_name, context, payload)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)

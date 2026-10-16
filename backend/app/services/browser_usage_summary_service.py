@@ -21,12 +21,12 @@ class BrowserUsageSummaryService:
         self.db = db
 
     @staticmethod
-    def _source(account: S3ExecutionContext) -> tuple[BrowserUsageSource, str]:
-        if account.portal_browser_role:
+    def _source(context: S3ExecutionContext) -> tuple[BrowserUsageSource, str]:
+        if context.portal_browser_role:
             return "portal", "Storage Spaces"
-        if account.s3_connection_id is not None:
+        if context.s3_connection_id is not None:
             return "connection", "Connection"
-        if account.s3_user_id is not None:
+        if context.s3_user_id is not None:
             return "s3_user", "S3 User"
         return "account", "Account"
 
@@ -67,16 +67,16 @@ class BrowserUsageSummaryService:
 
     def _for_account(
         self,
-        account: S3ExecutionContext,
+        context: S3ExecutionContext,
         *,
         source: BrowserUsageSource,
         label: str,
     ) -> BrowserUsageSummary:
         service = S3AccountsService(self.db)
-        used_bytes, object_count, _bucket_count = service.get_account_usage(account)
+        used_bytes, object_count, _bucket_count = service.get_account_usage(context)
         if used_bytes is None:
             return self._unavailable(source=source, label=label)
-        quota_max_size_gb, quota_max_objects = service.get_account_quota(account)
+        quota_max_size_gb, quota_max_objects = service.get_account_quota(context)
         return self._available(
             source=source,
             label=label,
@@ -88,12 +88,12 @@ class BrowserUsageSummaryService:
 
     def _for_s3_user(
         self,
-        account: S3ExecutionContext,
+        context: S3ExecutionContext,
         *,
         source: BrowserUsageSource,
         label: str,
     ) -> BrowserUsageSummary:
-        s3_user_id = account.s3_user_id
+        s3_user_id = context.s3_user_id
         if not isinstance(s3_user_id, int) or s3_user_id <= 0:
             return self._unavailable(source=source, label=label)
         s3_user = self.db.query(S3UserModel).filter(S3UserModel.id == s3_user_id).first()
@@ -113,13 +113,13 @@ class BrowserUsageSummaryService:
             quota_max_objects=quota_max_objects,
         )
 
-    def build(self, account: S3ExecutionContext) -> BrowserUsageSummary:
-        source, label = self._source(account)
+    def build(self, context: S3ExecutionContext) -> BrowserUsageSummary:
+        source, label = self._source(context)
         if source == "connection":
             return self._unavailable(source=source, label=label)
         if source == "s3_user":
-            return self._for_s3_user(account, source=source, label=label)
-        return self._for_account(account, source=source, label=label)
+            return self._for_s3_user(context, source=source, label=label)
+        return self._for_account(context, source=source, label=label)
 
 
 def get_browser_usage_summary_service(db: Session) -> BrowserUsageSummaryService:

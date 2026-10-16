@@ -152,10 +152,10 @@ _OBJECT_LAZY_TAGS_CACHE: _TtlLruCache[tuple, _ObjectLazyTagsCacheValue] = _TtlLr
 )
 
 
-def _resolve_endpoint(account: S3ExecutionTarget) -> str:
-    endpoint, _, _, _ = resolve_s3_client_options(account)
+def _resolve_endpoint(context: S3ExecutionTarget) -> str:
+    endpoint, _, _, _ = resolve_s3_client_options(context)
     if not endpoint:
-        raise RuntimeError("S3 endpoint is not configured for this account")
+        raise RuntimeError("S3 endpoint is not configured for this context")
     return endpoint
 
 

@@ -378,7 +378,7 @@ def test_maintenance_bucket_delete_invalidates_bucket_list_caches(prepared, monk
         "BrowserService",
         Mock(
             return_value=SimpleNamespace(
-                invalidate_bucket_list_cache_for_account=browser_cache_invalidate
+                invalidate_bucket_list_cache_for_context=browser_cache_invalidate
             )
         ),
     )

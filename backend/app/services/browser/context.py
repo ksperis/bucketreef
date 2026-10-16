@@ -41,17 +41,17 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserContextMixin:
-    def _resolve_s3_credentials(self, account: S3ExecutionTarget) -> tuple[str, str, Optional[str]]:
+    def _resolve_s3_credentials(self, context: S3ExecutionTarget) -> tuple[str, str, Optional[str]]:
         access_key, secret_key = require_s3_execution_credentials(
-            account, error_message="S3 credentials missing for this account",
+            context, error_message="S3 credentials missing for this context",
         )
-        session_token = account.session_token()
-        if not browser_sts_enabled(account):
+        session_token = context.session_token()
+        if not browser_sts_enabled(context):
             return access_key, secret_key, session_token
         try:
-            credentials = request_browser_sts_session(account).credentials
+            credentials = request_browser_sts_session(context).credentials
         except RuntimeError as exc:
-            context_id = account.context_id if isinstance(account, S3ExecutionContext) else account.id
+            context_id = context.context_id if isinstance(context, S3ExecutionContext) else context.id
             logger.info(
                 "STS session token unavailable for context %s: %s", context_id, sanitized_error_log_detail(exc),
             )
@@ -59,12 +59,12 @@ class BrowserContextMixin:
             return credentials.access_key_id, credentials.secret_access_key, credentials.session_token
         return access_key, secret_key, session_token
 
-    def _s3_client_kwargs(self, account: S3ExecutionTarget) -> dict:
-        return resolve_s3_client_kwargs(account)
+    def _s3_client_kwargs(self, context: S3ExecutionTarget) -> dict:
+        return resolve_s3_client_kwargs(context)
 
-    def _client(self, account: S3ExecutionTarget, *, request_profile: StorageRequestProfile = "interactive"):
-        access_key, secret_key, session_token = self._resolve_s3_credentials(account)
-        client_options = self._s3_client_kwargs(account)
+    def _client(self, context: S3ExecutionTarget, *, request_profile: StorageRequestProfile = "interactive"):
+        access_key, secret_key, session_token = self._resolve_s3_credentials(context)
+        client_options = self._s3_client_kwargs(context)
         client_options["session_token"] = session_token
         if request_profile != "interactive":
             client_options["request_profile"] = request_profile
@@ -97,16 +97,16 @@ class BrowserContextMixin:
             return None
         return etag.strip('"')
 
-    def _account_cache_key(self, account: S3ExecutionTarget) -> str:
-        access_key, _ = account.effective_rgw_credentials()
+    def _context_cache_key(self, context: S3ExecutionTarget) -> str:
+        access_key, _ = context.effective_rgw_credentials()
         if not access_key:
-            raise RuntimeError("S3 credentials missing for this account")
-        return s3_execution_cache_key(account)
+            raise RuntimeError("S3 credentials missing for this context")
+        return s3_execution_cache_key(context)
 
     def _object_list_cache_key(
         self,
         *,
-        account_cache_key: str,
+        context_cache_key: str,
         bucket_name: str,
         prefix: str,
         continuation_token: Optional[str],
@@ -120,7 +120,7 @@ class BrowserContextMixin:
         include_folder_markers: bool = False,
     ) -> tuple:
         return (
-            account_cache_key,
+            context_cache_key,
             bucket_name,
             prefix,
             continuation_token or "",
@@ -137,7 +137,7 @@ class BrowserContextMixin:
     def _object_sort_snapshot_cache_key(
         self,
         *,
-        account_cache_key: str,
+        context_cache_key: str,
         bucket_name: str,
         prefix: str,
         query: Optional[str],
@@ -151,7 +151,7 @@ class BrowserContextMixin:
         include_folder_markers: bool = False,
     ) -> tuple:
         return (
-            account_cache_key,
+            context_cache_key,
             bucket_name,
             prefix,
             (query or "").strip(),
@@ -168,13 +168,13 @@ class BrowserContextMixin:
     def _object_lazy_head_cache_key(
         self,
         *,
-        account_cache_key: str,
+        context_cache_key: str,
         bucket_name: str,
         key: str,
         sse_customer: Optional[SseCustomerContext],
     ) -> tuple:
         return (
-            account_cache_key,
+            context_cache_key,
             bucket_name,
             key,
             "head",
@@ -184,12 +184,12 @@ class BrowserContextMixin:
     def _object_lazy_tags_cache_key(
         self,
         *,
-        account_cache_key: str,
+        context_cache_key: str,
         bucket_name: str,
         key: str,
     ) -> tuple:
         return (
-            account_cache_key,
+            context_cache_key,
             bucket_name,
             key,
             "tags",
@@ -216,63 +216,63 @@ class BrowserContextMixin:
         except ValueError:
             return "Restored"
 
-    def invalidate_bucket_list_cache(self, account_key: str) -> None:
-        if not account_key:
+    def invalidate_bucket_list_cache(self, context_key: str) -> None:
+        if not context_key:
             return
-        removed = _BUCKET_LIST_CACHE.invalidate_where(lambda key: key == account_key)
+        removed = _BUCKET_LIST_CACHE.invalidate_where(lambda key: key == context_key)
         if removed > 0:
-            logger.debug("Browser bucket cache invalidated: account=%s entries=%s", account_key, removed)
+            logger.debug("Browser bucket cache invalidated: context=%s entries=%s", context_key, removed)
 
-    def invalidate_object_list_cache(self, account_key: str, bucket_name: str) -> None:
-        if not account_key or not bucket_name:
+    def invalidate_object_list_cache(self, context_key: str, bucket_name: str) -> None:
+        if not context_key or not bucket_name:
             return
         removed = _OBJECT_LIST_CACHE.invalidate_where(
-            lambda key: len(key) >= 2 and key[0] == account_key and key[1] == bucket_name
+            lambda key: len(key) >= 2 and key[0] == context_key and key[1] == bucket_name
         )
         removed += _OBJECT_SORT_SNAPSHOT_CACHE.invalidate_where(
-            lambda key: len(key) >= 2 and key[0] == account_key and key[1] == bucket_name
+            lambda key: len(key) >= 2 and key[0] == context_key and key[1] == bucket_name
         )
         removed += _OBJECT_LAZY_HEAD_CACHE.invalidate_where(
-            lambda key: len(key) >= 2 and key[0] == account_key and key[1] == bucket_name
+            lambda key: len(key) >= 2 and key[0] == context_key and key[1] == bucket_name
         )
         removed += _OBJECT_LAZY_TAGS_CACHE.invalidate_where(
-            lambda key: len(key) >= 2 and key[0] == account_key and key[1] == bucket_name
+            lambda key: len(key) >= 2 and key[0] == context_key and key[1] == bucket_name
         )
         if removed > 0:
-            logger.debug("Browser object cache invalidated: account=%s bucket=%s entries=%s", account_key, bucket_name, removed)
+            logger.debug("Browser object cache invalidated: context=%s bucket=%s entries=%s", context_key, bucket_name, removed)
 
-    def invalidate_bucket_list_cache_for_account(self, account: S3ExecutionTarget) -> None:
+    def invalidate_bucket_list_cache_for_context(self, context: S3ExecutionTarget) -> None:
         try:
-            account_key = self._account_cache_key(account)
+            context_key = self._context_cache_key(context)
         except RuntimeError:
             return
-        self.invalidate_bucket_list_cache(account_key)
+        self.invalidate_bucket_list_cache(context_key)
 
-    def invalidate_object_list_cache_for_account(self, account: S3ExecutionTarget, bucket_name: str) -> None:
+    def invalidate_object_list_cache_for_context(self, context: S3ExecutionTarget, bucket_name: str) -> None:
         if not bucket_name:
             return
         try:
-            account_key = self._account_cache_key(account)
+            context_key = self._context_cache_key(context)
         except RuntimeError:
             return
-        self.invalidate_object_list_cache(account_key, bucket_name)
+        self.invalidate_object_list_cache(context_key, bucket_name)
 
     @contextmanager
-    def _object_mutation(self, account: S3ExecutionTarget, *bucket_names: str) -> Iterator[None]:
+    def _object_mutation(self, context: S3ExecutionTarget, *bucket_names: str) -> Iterator[None]:
         """Expire object views even when a mutation fails after changing storage."""
         try:
             yield
         finally:
             for bucket_name in dict.fromkeys(bucket_names):
-                self.invalidate_object_list_cache_for_account(account, bucket_name)
+                self.invalidate_object_list_cache_for_context(context, bucket_name)
 
     def get_bucket_cors_status(
         self,
         bucket_name: str,
-        account: S3ExecutionTarget,
+        context: S3ExecutionTarget,
         origin: Optional[str] = None,
     ) -> BucketCorsStatus:
-        client = self._client(account)
+        client = self._client(context)
         try:
             resp = client.get_bucket_cors(Bucket=bucket_name)
         except (ClientError, BotoCoreError) as exc:
@@ -325,10 +325,10 @@ class BrowserContextMixin:
             enabled = any(rule_allows(rule) for rule in raw_rules)
         return BucketCorsStatus(enabled=enabled, rules=rules)
 
-    def ensure_bucket_cors(self, bucket_name: str, account: S3ExecutionTarget, origin: str) -> BucketCorsStatus:
+    def ensure_bucket_cors(self, bucket_name: str, context: S3ExecutionTarget, origin: str) -> BucketCorsStatus:
         if not origin:
             raise RuntimeError("Missing origin")
-        client = self._client(account)
+        client = self._client(context)
         try:
             resp = client.get_bucket_cors(Bucket=bucket_name)
             rules = resp.get("CORSRules", []) or []
@@ -412,4 +412,4 @@ class BrowserContextMixin:
             except (ClientError, BotoCoreError) as exc:
                 raise RuntimeError(f"Unable to update CORS for '{bucket_name}': {exc}") from exc
 
-        return self.get_bucket_cors_status(bucket_name, account, origin=origin)
+        return self.get_bucket_cors_status(bucket_name, context, origin=origin)
