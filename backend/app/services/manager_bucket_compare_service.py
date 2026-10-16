@@ -27,12 +27,12 @@ class ManagerBucketCompareActionOutcome:
 
 def _validate_distinct_buckets(
     *,
-    source_account: S3ExecutionContext,
-    target_account: S3ExecutionContext,
+    source_context: S3ExecutionContext,
+    target_context: S3ExecutionContext,
     source_bucket: str,
     target_bucket: str,
 ) -> None:
-    if source_account.context_id == target_account.context_id and source_bucket == target_bucket:
+    if source_context.context_id == target_context.context_id and source_bucket == target_bucket:
         raise InvalidManagerBucketComparisonError(
             "When source and target contexts are the same, source_bucket and target_bucket must differ."
         )
@@ -42,12 +42,12 @@ def compare_manager_buckets(
     *,
     service: BucketComparisonService,
     payload: ManagerBucketCompareRequest,
-    source_account: S3ExecutionContext,
-    target_account: S3ExecutionContext,
+    source_context: S3ExecutionContext,
+    target_context: S3ExecutionContext,
 ) -> ManagerBucketCompareResult:
     _validate_distinct_buckets(
-        source_account=source_account,
-        target_account=target_account,
+        source_context=source_context,
+        target_context=target_context,
         source_bucket=payload.source_bucket,
         target_bucket=payload.target_bucket,
     )
@@ -57,17 +57,17 @@ def compare_manager_buckets(
     if payload.include_content:
         content_diff = service.compare_bucket_content(
             payload.source_bucket,
-            source_account,
+            source_context,
             payload.target_bucket,
-            target_account,
+            target_context,
             ignore_modified_after=payload.ignore_modified_after,
         )
     if payload.include_config:
         config_diff = service.compare_bucket_configuration(
             payload.source_bucket,
-            source_account,
+            source_context,
             payload.target_bucket,
-            target_account,
+            target_context,
             include_sections=set(payload.config_features) if payload.config_features is not None else None,
         )
 
@@ -80,8 +80,8 @@ def compare_manager_buckets(
         )
     )
     return ManagerBucketCompareResult(
-        source_context_id=source_account.context_id,
-        target_context_id=target_account.context_id,
+        source_context_id=source_context.context_id,
+        target_context_id=target_context.context_id,
         source_bucket=payload.source_bucket,
         target_bucket=payload.target_bucket,
         has_differences=has_content_differences or bool(config_diff and config_diff.changed),
@@ -116,20 +116,20 @@ def remediate_manager_bucket_comparison(
     *,
     service: BucketComparisonService,
     payload: ManagerBucketCompareActionRequest,
-    source_account: S3ExecutionContext,
-    target_account: S3ExecutionContext,
+    source_context: S3ExecutionContext,
+    target_context: S3ExecutionContext,
 ) -> ManagerBucketCompareActionOutcome:
     _validate_distinct_buckets(
-        source_account=source_account,
-        target_account=target_account,
+        source_context=source_context,
+        target_context=target_context,
         source_bucket=payload.source_bucket,
         target_bucket=payload.target_bucket,
     )
     action_result = service.run_compare_content_remediation(
         payload.source_bucket,
-        source_account,
+        source_context,
         payload.target_bucket,
-        target_account,
+        target_context,
         action=payload.action,
         object_keys=payload.object_keys,
         parallelism=payload.parallelism,
@@ -137,8 +137,8 @@ def remediate_manager_bucket_comparison(
 
     result = ManagerBucketCompareActionResult(
         action=action_result.action,
-        source_context_id=source_account.context_id,
-        target_context_id=target_account.context_id,
+        source_context_id=source_context.context_id,
+        target_context_id=target_context.context_id,
         source_bucket=payload.source_bucket,
         target_bucket=payload.target_bucket,
         planned_count=action_result.planned_count,
@@ -156,8 +156,8 @@ def remediate_manager_bucket_comparison(
         result=result,
         audit_metadata={
             "compare_action": payload.action,
-            "source_context_id": source_account.context_id,
-            "target_context_id": target_account.context_id,
+            "source_context_id": source_context.context_id,
+            "target_context_id": target_context.context_id,
             "source_bucket": payload.source_bucket,
             "target_bucket": payload.target_bucket,
             "object_keys_count": len(payload.object_keys),

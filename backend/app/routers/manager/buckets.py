@@ -82,17 +82,17 @@ def _invalidate_bucket_listing_for_context(context: S3ExecutionContext) -> None:
 def list_buckets(
     include: list[str] = Query(default=[], description="Optional extra fields to include (e.g. tags, versioning, cors)"),
     with_stats: bool = Query(True, description="Include usage/quota stats from admin listing"),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> list[Bucket]:
     try:
         include_set = parse_includes(include)
         return get_cached_bucket_listing_for_context(
-            context=account,
+            context=context,
             include=include_set,
             with_stats=with_stats,
-            builder=lambda: service.list_buckets(account, include=include_set, with_stats=with_stats),
+            builder=lambda: service.list_buckets(context, include=include_set, with_stats=with_stats),
         )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -102,12 +102,12 @@ def list_buckets(
 def get_bucket_stats(
     bucket_name: str,
     with_stats: bool = Query(True, description="Include usage/quota stats when available"),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> Bucket:
     try:
-        return service.get_bucket_stats(bucket_name, account, with_stats=with_stats)
+        return service.get_bucket_stats(bucket_name, context, with_stats=with_stats)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -116,25 +116,25 @@ def get_bucket_stats(
 def update_quota(
     bucket_name: str,
     payload: BucketQuotaUpdate,
-    account: S3ExecutionContext = Depends(require_manager_bucket_quota),
+    context: S3ExecutionContext = Depends(require_manager_bucket_quota),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     current_user: User = Depends(get_current_user),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> dict[str, str]:
     response, audit_metadata = bucket_config_actions.update_bucket_quota_config(
         service=service,
-        context=account,
+        context=context,
         bucket_name=bucket_name,
         payload=payload,
     )
-    _invalidate_bucket_listing_for_context(account)
+    _invalidate_bucket_listing_for_context(context)
     audit_service.record_action(
         user=current_user,
         scope="manager",
         action="update_bucket_quota",
         entity_type="bucket",
         entity_id=bucket_name,
-        execution_context=account,
+        execution_context=context,
         metadata=audit_metadata,
     )
     return response
@@ -146,11 +146,11 @@ def compare_bucket_pair(
     request: Request,
     db: Session = Depends(get_db),
     _tool_user: User = Depends(require_bucket_compare_enabled),
-    source_account: S3ExecutionContext = Depends(get_s3_execution_context),
+    source_context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_account_admin),
     service: BucketComparisonService = Depends(get_bucket_comparison_service),
 ) -> ManagerBucketCompareResult:
-    target_account = get_s3_execution_context(
+    target_context = get_s3_execution_context(
         request=request,
         context_ref=payload.target_context_id,
         actor=actor,
@@ -161,8 +161,8 @@ def compare_bucket_pair(
         return compare_manager_buckets(
             service=service,
             payload=payload,
-            source_account=source_account,
-            target_account=target_account,
+            source_context=source_context,
+            target_context=target_context,
         )
     except InvalidManagerBucketComparisonError as exc:
         raise_bad_request_from_value_error(exc)
@@ -176,12 +176,12 @@ def run_compare_bucket_action(
     request: Request,
     db: Session = Depends(get_db),
     _tool_user: User = Depends(require_bucket_compare_enabled),
-    source_account: S3ExecutionContext = Depends(get_s3_execution_context),
+    source_context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_account_admin),
     service: BucketComparisonService = Depends(get_bucket_comparison_service),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> ManagerBucketCompareActionResult:
-    target_account = get_s3_execution_context(
+    target_context = get_s3_execution_context(
         request=request,
         context_ref=payload.target_context_id,
         actor=actor,
@@ -192,23 +192,23 @@ def run_compare_bucket_action(
         outcome = remediate_manager_bucket_comparison(
             service=service,
             payload=payload,
-            source_account=source_account,
-            target_account=target_account,
+            source_context=source_context,
+            target_context=target_context,
         )
     except InvalidManagerBucketComparisonError as exc:
         raise_bad_request_from_value_error(exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
-    _invalidate_bucket_listing_for_context(source_account)
-    _invalidate_bucket_listing_for_context(target_account)
+    _invalidate_bucket_listing_for_context(source_context)
+    _invalidate_bucket_listing_for_context(target_context)
     audit_service.record_action(
         user=actor,
         scope="manager",
         action="bucket_compare_remediation",
         entity_type="bucket",
         entity_id=payload.target_bucket,
-        execution_context=source_account,
+        execution_context=source_context,
         metadata=outcome.audit_metadata,
     )
     return outcome.result
@@ -219,24 +219,24 @@ def run_compare_bucket_action(
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_bucket(
     payload: BucketCreate,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ):
     response, audit_metadata = bucket_config_actions.create_bucket_config(
         service=service,
-        context=account,
+        context=context,
         payload=payload,
     )
-    _invalidate_bucket_listing_for_context(account)
+    _invalidate_bucket_listing_for_context(context)
     audit_service.record_action(
         user=current_user,
         scope="manager",
         action="create_bucket",
         entity_type="bucket",
         entity_id=payload.name,
-        execution_context=account,
+        execution_context=context,
         metadata=audit_metadata,
     )
     return response
@@ -245,33 +245,33 @@ def create_bucket(
 @router.delete("/{bucket_name}")
 def delete_bucket(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ):
     response, _audit_metadata = bucket_config_actions.delete_bucket_config(
         service=service,
-        context=account,
+        context=context,
         bucket_name=bucket_name,
     )
-    _invalidate_bucket_listing_for_context(account)
+    _invalidate_bucket_listing_for_context(context)
     audit_service.record_action(
         user=current_user,
         scope="manager",
         action="delete_bucket",
         entity_type="bucket",
         entity_id=bucket_name,
-        execution_context=account,
+        execution_context=context,
     )
-    endpoint_id = int(account.storage_endpoint_id or 0)
+    endpoint_id = int(context.storage_endpoint_id or 0)
     if endpoint_id > 0:
         tag_service = BucketUiTagsService(audit_service.db)
         with tag_service.transaction():
             tag_service.remove_all_namespaces_for_bucket(
                 PhysicalBucketTarget.create(
                     endpoint_id,
-                    resolve_storage_ops_context_tenant(account),
+                    resolve_storage_ops_context_tenant(context),
                     bucket_name,
                 )
             )
@@ -284,33 +284,33 @@ def stream_delete_bucket_with_purge(
     payload: BucketDeleteWithPurgeRequest,
     request: Request,
     tool_user: User = Depends(require_bucket_purge_enabled),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
     expected = bucket_delete_with_purge_confirmation_phrase(bucket_name)
     if (payload.confirmation or "").strip() != expected:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Confirmation must be exactly '{expected}'.")
-    require_bucket_management_context(account)
+    require_bucket_management_context(context)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=True)
     target = BucketPurgeResolvedTarget(
-        context=account,
+        context=context,
         bucket_name=bucket_name,
-        context_id=account.context_id,
-        context_name=account.name,
+        context_id=context.context_id,
+        context_name=context.name,
     )
     service = BucketPurgeService()
     base_metadata = {
         "bucket_name": bucket_name,
-        "context_id": account.context_id,
+        "context_id": context.context_id,
         "parallelism": options.parallelism,
         "include_versions": True,
         "confirmation": "matched",
     }
-    endpoint_id = int(account.storage_endpoint_id or 0)
+    endpoint_id = int(context.storage_endpoint_id or 0)
     deleted_bucket_target = (
         PhysicalBucketTarget.create(
             endpoint_id,
-            resolve_storage_ops_context_tenant(account),
+            resolve_storage_ops_context_tenant(context),
             bucket_name,
         )
         if endpoint_id > 0
@@ -319,7 +319,7 @@ def stream_delete_bucket_with_purge(
 
     def after_result(result: BucketPurgeResult) -> None:
         if result.bucket_deleted:
-            _invalidate_bucket_listing_for_context(account)
+            _invalidate_bucket_listing_for_context(context)
             if deleted_bucket_target is not None:
                 cleanup_db = SessionLocal()
                 try:
@@ -352,7 +352,7 @@ def stream_delete_bucket_with_purge(
             scope="manager",
             entity_type="bucket",
             entity_id=bucket_name,
-            execution_context=account,
+            execution_context=context,
         ),
         base_metadata=base_metadata,
         start_action="start_bucket_delete_with_purge",
