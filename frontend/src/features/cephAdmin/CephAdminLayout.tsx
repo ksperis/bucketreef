@@ -27,8 +27,10 @@ import {
   CEPH_ADMIN_PAGE_CONTRACTS,
   workspacePageLink,
 } from "../../navigation/workspacePages";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 function CephAdminShell() {
+  const { text: surfaceText } = useCephAdminI18n();
   const location = useLocation();
   const { generalSettings } = useGeneralSettings();
   const {
@@ -75,39 +77,39 @@ function CephAdminShell() {
   const onCephAdminBrowserRoute = normalizedPath === "/ceph-admin/browser";
   const browserLinkDisabled = !canBrowser || !onCephAdminBrowserRoute;
   const resolveCommonEndpointHint = () => {
-    if (!endpointSelected) return "Select a Ceph endpoint first.";
-    if (selectedEndpointAccessLoading) return "Endpoint access is loading.";
-    if (endpointUnavailable) return "The selected endpoint is currently unavailable.";
+    if (!endpointSelected) return surfaceText("Select a Ceph endpoint first.");
+    if (selectedEndpointAccessLoading) return surfaceText("Endpoint access is loading.");
+    if (endpointUnavailable) return surfaceText("The selected endpoint is currently unavailable.");
     return null;
   };
   const metricsDisabledHint = (() => {
     const commonHint = resolveCommonEndpointHint();
     if (commonHint) return commonHint;
-    if (!selectedEndpointAccess?.can_metrics && !canUsageStats) return "Metrics access is not granted for this endpoint.";
+    if (!selectedEndpointAccess?.can_metrics && !canUsageStats) return surfaceText("Metrics access is not granted for this endpoint.");
     if (!usageFeatureEnabled && !trafficFeatureEnabled && !canUsageStats)
-      return "Metrics are unavailable for this endpoint capabilities.";
+      return surfaceText("Metrics are unavailable for this endpoint capabilities.");
     return undefined;
   })();
   const accountsDisabledHint = (() => {
     const commonHint = resolveCommonEndpointHint();
     if (commonHint) return commonHint;
-    if (!selectedEndpointAccess?.can_admin) return "Administrator access is required for RGW account management.";
-    if (!selectedEndpointAccess?.can_accounts) return "RGW account management is not granted for this endpoint.";
+    if (!selectedEndpointAccess?.can_admin) return surfaceText("Administrator access is required for RGW account management.");
+    if (!selectedEndpointAccess?.can_accounts) return surfaceText("RGW account management is not granted for this endpoint.");
     return undefined;
   })();
   const endpointAdminDisabledHint = (() => {
     const commonHint = resolveCommonEndpointHint();
     if (commonHint) return commonHint;
-    if (!selectedEndpointAccess?.can_admin) return "Administrator access is required for this endpoint.";
+    if (!selectedEndpointAccess?.can_admin) return surfaceText("Administrator access is required for this endpoint.");
     return undefined;
   })();
   const browserDisabledHint = (() => {
     const commonHint = resolveCommonEndpointHint();
     if (commonHint) return commonHint;
-    if (!selectedEndpointAccess?.can_admin) return "Administrator access is required for this endpoint.";
-    if (!generalSettings.browser_enabled) return "Browser feature is disabled in General settings.";
-    if (!generalSettings.browser_ceph_admin_enabled) return "Ceph Admin Browser is disabled in Browser settings.";
-    if (!onCephAdminBrowserRoute) return "Open the bucket from the Buckets list.";
+    if (!selectedEndpointAccess?.can_admin) return surfaceText("Administrator access is required for this endpoint.");
+    if (!generalSettings.browser_enabled) return surfaceText("Browser feature is disabled in General settings.");
+    if (!generalSettings.browser_ceph_admin_enabled) return surfaceText("Ceph Admin Browser is disabled in Browser settings.");
+    if (!onCephAdminBrowserRoute) return surfaceText("Open the bucket from the Buckets list.");
     return undefined;
   })();
   const adminWarning = endpointSelected && !selectedEndpointAccessLoading ? selectedEndpointAccess?.admin_warning ?? null : null;
@@ -122,13 +124,14 @@ function CephAdminShell() {
 
   const navSections: SidebarSection[] = [
     {
-      links: [{ ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.dashboard), end: true, iconName: "home" }],
+      links: [{ ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.dashboard), label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.dashboard.label), end: true, iconName: "home" }],
     },
     {
-      label: "Monitoring",
+      label: surfaceText("Monitoring"),
       links: [
         {
           ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.metrics),
+          label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.metrics.label),
           disabled: !canMetrics,
           disabledHint: !canMetrics ? metricsDisabledHint : undefined,
         },
@@ -139,26 +142,30 @@ function CephAdminShell() {
       links: [
         {
           ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.accounts),
+          label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.accounts.label),
           disabled: !canAccounts,
           disabledHint: !canAccounts ? accountsDisabledHint : undefined,
         },
         {
           ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.users),
+          label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.users.label),
           disabled: !canAdmin,
           disabledHint: !canAdmin ? endpointAdminDisabledHint : undefined,
         },
         {
           ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.buckets),
+          label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.buckets.label),
           disabled: !canAdmin,
           disabledHint: !canAdmin ? endpointAdminDisabledHint : undefined,
         },
       ],
     },
     {
-      label: "Data",
+      label: surfaceText("Data"),
       links: [
         {
           ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.browser),
+          label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.browser.label),
           disabled: browserLinkDisabled,
           disabledHint: browserDisabledHint,
         },
@@ -170,7 +177,7 @@ function CephAdminShell() {
     const selectorEndpointTags = filterSelectorVisibleUiTags(endpoint.tags);
     return {
       value: String(endpoint.id),
-      label: `${endpoint.name}${endpoint.is_default ? " · Default" : ""}`,
+      label: `${endpoint.name}${endpoint.is_default ? ` · ${surfaceText("Default")}` : ""}`,
       description: endpoint.endpoint_url,
       title: endpoint.endpoint_url,
       icon: <EndpointItemIcon className="h-4 w-4" />,
@@ -194,17 +201,21 @@ function CephAdminShell() {
         ) : undefined,
     };
   });
-  const selectedEndpointLabel = selectedEndpoint ? selectedEndpoint.name : loading ? "Loading..." : "No endpoint selected";
+  const selectedEndpointLabel = selectedEndpoint
+    ? selectedEndpoint.name
+    : loading
+      ? surfaceText("Loading...")
+      : surfaceText("No endpoint selected");
 
   const renderStaticEndpointPill = (mode: "icon" | "icon_label") => {
     if (mode === "icon") {
       return (
         <TopbarStaticControl
           mode="icon"
-          label="Endpoint"
+          label={surfaceText("Endpoint")}
           value={selectedEndpointLabel}
           icon={<CephStorageIcon className="h-4 w-4" />}
-          ariaLabel={`Endpoint ${selectedEndpointLabel}`}
+          ariaLabel={`${surfaceText("Endpoint")} ${selectedEndpointLabel}`}
           title={selectedEndpoint?.endpoint_url ?? selectedEndpointLabel}
         />
       );
@@ -212,10 +223,10 @@ function CephAdminShell() {
     return (
       <TopbarStaticControl
         mode="icon_label"
-        label="Endpoint"
+        label={surfaceText("Endpoint")}
         value={selectedEndpointLabel}
         icon={<CephStorageIcon className="h-4 w-4" />}
-        ariaLabel={`Endpoint ${selectedEndpointLabel}`}
+        ariaLabel={`${surfaceText("Endpoint")} ${selectedEndpointLabel}`}
         title={selectedEndpoint?.endpoint_url ?? selectedEndpointLabel}
         className={TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS}
         valueClassName={TOPBAR_CONTEXT_SELECTOR_VALUE_WIDTH_CLASS}
@@ -237,8 +248,8 @@ function CephAdminShell() {
             value={selectedEndpointId ? String(selectedEndpointId) : ""}
             options={endpointOptions}
             onChange={handleChange}
-            ariaLabel="Select Ceph endpoint"
-            triggerLabel="Endpoint"
+            ariaLabel={surfaceText("Select Ceph endpoint")}
+            triggerLabel={surfaceText("Endpoint")}
             title={selectedEndpoint?.endpoint_url ?? undefined}
             widthClassName={mode === "icon" ? TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS : TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS}
             menuMinWidthClassName="min-w-[24rem]"
@@ -265,51 +276,51 @@ function CephAdminShell() {
           <ErrorState
             kind="unavailable"
             error={error}
-            title="Unable to load Ceph endpoints"
+            title={surfaceText("Unable to load Ceph endpoints")}
             description={error}
             onRetry={retryEndpoints}
-            secondaryAction={{ label: "Back to dashboard", to: "/ceph-admin" }}
+            secondaryAction={{ label: surfaceText("Back to dashboard"), to: "/ceph-admin" }}
           />
         ) : endpointDependentRoute && loading ? (
           <PageEmptyState
-            eyebrow="Loading"
-            title="Loading Ceph endpoints"
-            description="Ceph Admin operations will open as soon as the available endpoints are loaded."
+            eyebrow={surfaceText("Loading")}
+            title={surfaceText("Loading Ceph endpoints")}
+            description={surfaceText("Ceph Admin operations will open as soon as the available endpoints are loaded.")}
           />
         ) : endpointDependentRoute && endpoints.length === 0 ? (
           <PageEmptyState
-            eyebrow="Unavailable"
-            title="No Ceph endpoint available"
-            description="Ceph Admin requires at least one Ceph endpoint before cluster-level administration can be used."
+            eyebrow={surfaceText("Unavailable")}
+            title={surfaceText("No Ceph endpoint available")}
+            description={surfaceText("Ceph Admin requires at least one Ceph endpoint before cluster-level administration can be used.")}
             tone="warning"
           />
         ) : endpointDependentRoute && !endpointSelected ? (
           <PageEmptyState
-            eyebrow="Loading"
-            title="Selecting Ceph endpoint"
-            description="Ceph Admin is selecting the endpoint to use for this operation."
+            eyebrow={surfaceText("Loading")}
+            title={surfaceText("Selecting Ceph endpoint")}
+            description={surfaceText("Ceph Admin is selecting the endpoint to use for this operation.")}
           />
         ) : endpointDependentRoute && selectedEndpointAccessError ? (
           <ErrorState
             kind="unavailable"
-            title="Endpoint availability could not be checked"
-            description="The selected endpoint cannot be checked right now. Use the menu to continue elsewhere, or try again."
-            primaryAction={{ label: "Retry", onClick: retrySelectedEndpointAccess }}
-            secondaryAction={{ label: "Back to dashboard", to: "/ceph-admin" }}
+            title={surfaceText("Endpoint availability could not be checked")}
+            description={surfaceText("The selected endpoint cannot be checked right now. Use the menu to continue elsewhere, or try again.")}
+            primaryAction={{ label: surfaceText("Retry"), onClick: retrySelectedEndpointAccess }}
+            secondaryAction={{ label: surfaceText("Back to dashboard"), to: "/ceph-admin" }}
           />
         ) : endpointDependentRoute && selectedEndpointAccessLoading ? (
           <PageEmptyState
-            eyebrow="Checking"
-            title="Checking endpoint availability"
-            description="Ceph Admin operations will open as soon as the selected endpoint responds."
+            eyebrow={surfaceText("Checking")}
+            title={surfaceText("Checking endpoint availability")}
+            description={surfaceText("Ceph Admin operations will open as soon as the selected endpoint responds.")}
           />
         ) : endpointDependentRoute && endpointUnavailable ? (
           <ErrorState
             kind="unavailable"
-            title="Storage endpoint unavailable"
-            description="The selected storage endpoint is not responding. Use the menu to continue elsewhere, or try again."
-            primaryAction={{ label: "Retry", onClick: retrySelectedEndpointAccess }}
-            secondaryAction={{ label: "Back to dashboard", to: "/ceph-admin" }}
+            title={surfaceText("Storage endpoint unavailable")}
+            description={surfaceText("The selected storage endpoint is not responding. Use the menu to continue elsewhere, or try again.")}
+            primaryAction={{ label: surfaceText("Retry"), onClick: retrySelectedEndpointAccess }}
+            secondaryAction={{ label: surfaceText("Back to dashboard"), to: "/ceph-admin" }}
           />
         ) : (
           <>

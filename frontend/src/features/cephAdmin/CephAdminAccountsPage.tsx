@@ -39,7 +39,6 @@ import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
 import AdvancedFilterNumberRangeField from "../shared/AdvancedFilterNumberRangeField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
-  FILTER_COST_LABEL,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   buildTextFieldRules,
@@ -63,6 +62,7 @@ import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
 import { readClientJsonFromKey, writeClientJsonToKey } from "../../utils/clientStorage";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { nextSortState } from "../../utils/sortValues";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type ColumnId =
   | "account_name"
@@ -291,6 +291,7 @@ const persistVisibleColumns = (value: ColumnId[]) => {
 const rowKey = (account: CephAdminRgwAccount) => account.account_id;
 
 export default function CephAdminAccountsPage() {
+  const { text: surfaceText } = useCephAdminI18n();
   const navigate = useNavigate();
   const { selectedEndpointId, selectedEndpoint, selectedEndpointAccess } = useCephAdminEndpoint();
   const canViewMetrics = Boolean(selectedEndpointAccess?.can_metrics) && (selectedEndpoint?.capabilities?.metrics !== false);
@@ -421,17 +422,17 @@ export default function CephAdminAccountsPage() {
   const emailFieldState = advancedFilterFieldHighlight(Boolean(emailAppliedValue), emailPending);
 
   const numericRangeFields = useMemo<AdvancedNumericRangeField[]>(() => [
-    { label: "Max users", minKey: "minMaxUsers", maxKey: "maxMaxUsers" },
-    { label: "Max buckets", minKey: "minMaxBuckets", maxKey: "maxMaxBuckets" },
-    { label: "Quota bytes", minKey: "minQuotaBytes", maxKey: "maxQuotaBytes" },
-    { label: "Quota objects", minKey: "minQuotaObjects", maxKey: "maxQuotaObjects" },
-    { label: "Bucket count", minKey: "minBucketCount", maxKey: "maxBucketCount" },
-    { label: "User count", minKey: "minUserCount", maxKey: "maxUserCount" },
-  ], []);
+    { label: surfaceText("Max users"), minKey: "minMaxUsers", maxKey: "maxMaxUsers" },
+    { label: surfaceText("Max buckets"), minKey: "minMaxBuckets", maxKey: "maxMaxBuckets" },
+    { label: surfaceText("Quota bytes"), minKey: "minQuotaBytes", maxKey: "maxQuotaBytes" },
+    { label: surfaceText("Quota objects"), minKey: "minQuotaObjects", maxKey: "maxQuotaObjects" },
+    { label: surfaceText("Bucket count"), minKey: "minBucketCount", maxKey: "maxBucketCount" },
+    { label: surfaceText("User count"), minKey: "minUserCount", maxKey: "maxUserCount" },
+  ], [surfaceText]);
   const usageNumericRangeFields = useMemo<AdvancedNumericRangeField[]>(() => [
-    { label: "Quota usage size %", minKey: "minQuotaUsageSizePercent", maxKey: "maxQuotaUsageSizePercent" },
-    { label: "Quota usage objects %", minKey: "minQuotaUsageObjectPercent", maxKey: "maxQuotaUsageObjectPercent" },
-  ], []);
+    { label: surfaceText("Quota usage size %"), minKey: "minQuotaUsageSizePercent", maxKey: "maxQuotaUsageSizePercent" },
+    { label: surfaceText("Quota usage objects %"), minKey: "minQuotaUsageObjectPercent", maxKey: "maxQuotaUsageObjectPercent" },
+  ], [surfaceText]);
   const numericFields = useMemo<Array<{ key: AdvancedNumericField; label: string }>>(
     () => numericRangeFields.flatMap(({ label, minKey, maxKey }) => [
       { key: minKey, label: `${label} >=` },
@@ -502,13 +503,13 @@ export default function CephAdminAccountsPage() {
   const activeFilterSummaryItems = useMemo(() => {
     const items: ActiveFilterSummaryItem[] = [];
     if (quickFilterActive) {
-      const label = formatTextFilterSummary("Account ID", searchValue, effectiveQuickFilterMode);
+      const label = formatTextFilterSummary(surfaceText("Account ID"), searchValue, effectiveQuickFilterMode);
       if (label) items.push({ id: "quick", label, remove: { type: "quick" } });
     }
     if (advancedApplied && hasAdvancedFilters(advancedApplied, canViewMetrics)) {
-      const accountNameLabel = formatTextFilterSummary("Account name", advancedApplied.accountName, accountNameAppliedMode);
+      const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameAppliedMode);
       if (accountNameLabel) items.push({ id: "accountName", label: accountNameLabel, remove: { type: "advanced", field: "accountName" } });
-      const emailLabel = formatTextFilterSummary("Email", advancedApplied.email, emailAppliedMode);
+      const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailAppliedMode);
       if (emailLabel) items.push({ id: "email", label: emailLabel, remove: { type: "advanced", field: "email" } });
       buildNumericFilterSummaryItems(
         advancedApplied,
@@ -528,6 +529,7 @@ export default function CephAdminAccountsPage() {
     emailAppliedMode,
     numericFields,
     usageNumericFields,
+    surfaceText,
   ]);
   const showActiveFiltersCard =
     activeFilterSummaryItems.length > 0 &&
@@ -540,9 +542,9 @@ export default function CephAdminAccountsPage() {
 
   const advancedDraftSummaryItems = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [];
-    const accountNameLabel = formatTextFilterSummary("Account name", advancedDraft.accountName, accountNameDraftMode);
+    const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedDraft.accountName, accountNameDraftMode);
     if (accountNameLabel) items.push({ id: "draft-accountName", label: accountNameLabel });
-    const emailLabel = formatTextFilterSummary("Email", advancedDraft.email, emailDraftMode);
+    const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedDraft.email, emailDraftMode);
     if (emailLabel) items.push({ id: "draft-email", label: emailLabel });
     items.push(
       ...buildNumericFilterSummaryItems(
@@ -552,7 +554,7 @@ export default function CephAdminAccountsPage() {
       ).map(({ id, label }) => ({ id, label })),
     );
     return items;
-  }, [advancedDraft, accountNameDraftMode, emailDraftMode, numericFields, canViewMetrics, usageNumericFields]);
+  }, [advancedDraft, accountNameDraftMode, emailDraftMode, numericFields, canViewMetrics, usageNumericFields, surfaceText]);
 
   const advancedDraftTextCount = Number(accountNameDraftValue.length > 0) + Number(emailDraftValue.length > 0);
   const advancedDraftNumericCount =
@@ -569,16 +571,16 @@ export default function CephAdminAccountsPage() {
   }, [advancedDraftNumericCount, advancedDraftTextCount]);
   const advancedDraftGlobalCostTooltip = useMemo(() => {
     if (advancedDraftGlobalCostLevel === "high") {
-      return `${FILTER_COST_LABEL.high}: many numeric filters are active and may require heavier stats filtering.`;
+      return surfaceText("High cost: many numeric filters are active and may require heavier stats filtering.");
     }
     if (advancedDraftGlobalCostLevel === "medium") {
       if (advancedDraftTextCount > 0 && advancedDraftNumericCount === 0) {
-        return `${FILTER_COST_LABEL.medium}: account profile filters may require per-account detail lookups.`;
+        return surfaceText("Medium cost: account profile filters may require per-account detail lookups.");
       }
-      return `${FILTER_COST_LABEL.medium}: numeric filters are active and rely on usage/quota counters.`;
+      return surfaceText("Medium cost: numeric filters are active and rely on usage/quota counters.");
     }
-    return FILTER_COST_LABEL.none;
-  }, [advancedDraftGlobalCostLevel, advancedDraftNumericCount, advancedDraftTextCount]);
+    return surfaceText("No additional filter cost.");
+  }, [advancedDraftGlobalCostLevel, advancedDraftNumericCount, advancedDraftTextCount, surfaceText]);
 
   const columnsCustomized = useMemo(() => {
     if (visibleColumns.length !== defaultVisibleColumns.length) return true;
@@ -586,7 +588,7 @@ export default function CephAdminAccountsPage() {
     return defaultVisibleColumns.some((column) => !current.has(column));
   }, [visibleColumns]);
 
-  const detailPlaceholder = loadingDetails ? "Loading..." : "-";
+  const detailPlaceholder = loadingDetails ? surfaceText("Loading...") : "-";
 
   const applyUpdatedAccount = (updated: CephAdminRgwAccountDetail) => {
     updateEntity(updated.account_id, (account) => ({
@@ -609,7 +611,7 @@ export default function CephAdminAccountsPage() {
     const cols: ColumnDef[] = [
       {
         id: "account_id",
-        label: "Account ID",
+        label: surfaceText("Account ID"),
         field: "account_id",
         primary: true,
         headerClassName: "min-w-[12rem] max-w-[20rem]",
@@ -621,7 +623,7 @@ export default function CephAdminAccountsPage() {
     if (visible.has("account_name")) {
       cols.push({
         id: "account_name",
-        label: "Name",
+        label: surfaceText("Name"),
         field: "account_name",
         headerClassName: "min-w-[12rem] max-w-[18rem]",
         cellClassName: "min-w-[12rem] max-w-[18rem]",
@@ -631,7 +633,7 @@ export default function CephAdminAccountsPage() {
     if (visible.has("email")) {
       cols.push({
         id: "email",
-        label: "Email",
+        label: surfaceText("Email"),
         field: "email",
         headerClassName: "min-w-[14rem] max-w-[22rem]",
         cellClassName: "min-w-[14rem] max-w-[22rem]",
@@ -641,7 +643,7 @@ export default function CephAdminAccountsPage() {
     if (visible.has("max_users")) {
       cols.push({
         id: "max_users",
-        label: "Max users",
+        label: surfaceText("Max users"),
         field: "max_users",
         align: "right",
         headerClassName: "min-w-[8rem]",
@@ -652,7 +654,7 @@ export default function CephAdminAccountsPage() {
     if (visible.has("max_buckets")) {
       cols.push({
         id: "max_buckets",
-        label: "Max buckets",
+        label: surfaceText("Max buckets"),
         field: "max_buckets",
         align: "right",
         headerClassName: "min-w-[8rem]",
@@ -663,7 +665,7 @@ export default function CephAdminAccountsPage() {
     if (visible.has("quota_max_size_bytes")) {
       cols.push({
         id: "quota_max_size_bytes",
-        label: "Quota (size)",
+        label: surfaceText("Quota (size)"),
         field: "quota_max_size_bytes",
         align: "right",
         headerClassName: "min-w-[9rem]",
@@ -675,7 +677,7 @@ export default function CephAdminAccountsPage() {
     if (visible.has("quota_max_objects")) {
       cols.push({
         id: "quota_max_objects",
-        label: "Quota (objects)",
+        label: surfaceText("Quota (objects)"),
         field: "quota_max_objects",
         align: "right",
         headerClassName: "min-w-[10rem]",
@@ -687,7 +689,7 @@ export default function CephAdminAccountsPage() {
     if (visible.has("bucket_count")) {
       cols.push({
         id: "bucket_count",
-        label: "Buckets",
+        label: surfaceText("Buckets"),
         field: "bucket_count",
         align: "right",
         headerClassName: "min-w-[8rem]",
@@ -698,7 +700,7 @@ export default function CephAdminAccountsPage() {
     if (visible.has("user_count")) {
       cols.push({
         id: "user_count",
-        label: "Users",
+        label: surfaceText("Users"),
         field: "user_count",
         align: "right",
         headerClassName: "min-w-[8rem]",
@@ -709,7 +711,7 @@ export default function CephAdminAccountsPage() {
 
     cols.push({
       id: "actions",
-      label: "Act.",
+      label: surfaceText("Act."),
       field: null,
       align: "right",
       mobileRole: "actions",
@@ -718,21 +720,20 @@ export default function CephAdminAccountsPage() {
       render: (account) => (
         <ListActions>
           <ListActionButton {...dataTableDefaultActionProps} onClick={() => setEditingAccountId(account.account_id)}>
-            Configure
-          </ListActionButton>
+            {surfaceText("Configure")}</ListActionButton>
           <UiActionMenu
-            ariaLabel={`More actions for RGW account ${account.account_id}`}
+            ariaLabel={surfaceText("More actions for RGW account {id}", { id: account.account_id })}
             trigger={<span aria-hidden="true">⋮</span>}
             triggerClassName={tableCompactIconActionButtonClasses}
             sections={[
               { id: "navigation", items: [{
                 id: "owner-buckets",
-                label: "Owner buckets",
+                label: surfaceText("Owner buckets"),
                 onSelect: () => navigate(`/ceph-admin/buckets?owner=${encodeURIComponent(account.account_id)}`),
               }] },
               { id: "destructive", items: [{
                 id: "delete",
-                label: "Delete account",
+                label: surfaceText("Delete account"),
                 danger: true,
                 onSelect: () => setDeletingAccount(account),
               }] },
@@ -753,14 +754,14 @@ export default function CephAdminAccountsPage() {
   return (
     <div className={workflowPageHostClass(showCreateModal || Boolean(editingAccountId))}>
       <PageHeader actionPresentation="listing"
-        title="RGW Accounts"
-        description="Complete list of RGW accounts (admin ops)."
+        title={surfaceText("RGW Accounts")}
+        description={surfaceText("Complete list of RGW accounts (admin ops).")}
         breadcrumbs={cephAdminPageBreadcrumbs("accounts")}
         actions={
           selectedEndpointId
             ? [
                 {
-                  label: "Create account",
+                  label: surfaceText("Create account"),
                   onClick: () => setShowCreateModal(true),
                 },
               ]
@@ -771,24 +772,24 @@ export default function CephAdminAccountsPage() {
 
       {!selectedEndpointId ? (
         <PageEmptyState
-          title="Select a Ceph endpoint before listing RGW accounts"
-          description="RGW account administration is endpoint-scoped. Choose an endpoint to load account inventory, quotas, and owner navigation."
-          primaryAction={{ label: "Return to Ceph Admin", to: "/ceph-admin" }}
+          title={surfaceText("Select a Ceph endpoint before listing RGW accounts")}
+          description={surfaceText("RGW account administration is endpoint-scoped. Choose an endpoint to load account inventory, quotas, and owner navigation.")}
+          primaryAction={{ label: surfaceText("Return to Ceph Admin"), to: "/ceph-admin" }}
           tone="warning"
         />
       ) : (
         <ListPageSection
           variant="page"
-          mobileSort={<TableSortControls columns={SORT_COLUMNS} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-            title="Accounts"
-            countLabel={`${total} result(s)`}
+          mobileSort={<TableSortControls columns={SORT_COLUMNS.map((column) => ({ ...column, label: surfaceText(column.label) }))} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
+            title={surfaceText("Accounts")}
+            countLabel={surfaceText(total === 1 ? "{count} result" : "{count} results", { count: total })}
             search={
               <ToolbarSearchTextarea
-                label="Quick filter"
+                label={surfaceText("Quick filter")}
                 value={filter}
                 onChange={setFilter}
                 onKeyDown={(event) => event.stopPropagation()}
-                placeholder="Account ID(s)"
+                placeholder={surfaceText("Account ID(s)")}
                 inputClassName={quickFilterFieldState.fieldClass}
                 trailingControl={
                   <ToolbarMatchModeButton
@@ -796,7 +797,7 @@ export default function CephAdminAccountsPage() {
                     pending={quickFilterPending}
                     locked={quickFilterDraftForcesExact}
                     onClick={toggleQuickFilterMode}
-                    aria-label="Toggle quick filter match mode"
+                    aria-label={surfaceText("Toggle quick filter match mode")}
                   />
                 }
               />
@@ -806,7 +807,7 @@ export default function CephAdminAccountsPage() {
                 active={showAdvancedFilter || advancedFilterActive}
                 onClick={() => setShowAdvancedFilter(true)}
               >
-                Advanced filter{advancedFilterActive ? " · Active" : ""}
+                {surfaceText("Advanced filter")}{advancedFilterActive ? ` · ${surfaceText("Active")}` : ""}
               </ToolbarAdvancedFilterButton>
             }
             columns={
@@ -816,10 +817,10 @@ export default function CephAdminAccountsPage() {
                 resetDisabled={!columnsCustomized}
                 coreGroups={ACCOUNT_COLUMN_GROUPS.map((group) => ({
                   id: group.id,
-                  label: group.label,
+                  label: surfaceText(group.label),
                   options: group.options.map((option) => ({
                     id: option.id,
-                    label: option.label,
+                    label: surfaceText(option.label),
                     checked: visibleColumns.includes(option.id),
                     onToggle: () => toggleColumn(option.id),
                   })),
@@ -836,7 +837,7 @@ export default function CephAdminAccountsPage() {
                           id: item.id,
                           label: item.label,
                           onRemove: () => removeActiveFilterItem(item.remove),
-                          removeLabel: `Remove ${item.label}`,
+                          removeLabel: surfaceText("Remove {label}", { label: item.label }),
                         }))
                       : []
                   }
@@ -845,8 +846,8 @@ export default function CephAdminAccountsPage() {
 
                 {showAdvancedFilter && (
                   <AdvancedFilterDrawerShell
-                    title="Advanced filter"
-                    subtitle="RGW Accounts listing"
+                    title={surfaceText("Advanced filter")}
+                    subtitle={surfaceText("RGW Accounts listing")}
                     badges={
                       <>
                         {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount)}
@@ -864,11 +865,9 @@ export default function CephAdminAccountsPage() {
                           onClick={resetAdvancedFilter}
                           disabled={!hasAnyAdvancedToClear}
                         >
-                          Clear
-                        </ListActionButton>
+                          {surfaceText("Clear")}</ListActionButton>
                         <ListActionButton variant="primary" onClick={applyAdvancedFilter}>
-                          Apply filter
-                        </ListActionButton>
+                          {surfaceText("Apply filter")}</ListActionButton>
                       </div>
                     }
                   >
@@ -877,26 +876,25 @@ export default function CephAdminAccountsPage() {
 
                           <section className={advancedFilterSectionClass}>
                             <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Identity
-                            </p>
+                              {surfaceText("Identity")}</p>
                             <div className="grid gap-3 md:grid-cols-2">
                               <AdvancedFilterTextMatchField
-                                label="Account name"
+                                label={surfaceText("Account name")}
                                 costLevel="medium"
-                                costTooltip="Medium cost: account name filters may require per-account profile lookups."
+                                costTooltip={surfaceText("Medium cost: account name filters may require per-account profile lookups.")}
                                 fieldState={accountNameFieldState}
                                 forcesExact={accountNameDraftForcesExact}
                                 matchMode={accountNameDraftMode}
                                 onChange={(value) => updateAdvancedField("accountName", value)}
                                 onMatchModeChange={(value) => updateAdvancedMatchMode("accountNameMatchMode", value)}
-                                placeholder="account-a, account-b"
+                                placeholder={surfaceText("account-a, account-b")}
                                 value={advancedDraft.accountName}
                               />
 
                               <AdvancedFilterTextMatchField
-                                label="Email"
+                                label={surfaceText("Email")}
                                 costLevel="medium"
-                                costTooltip="Medium cost: email filters may require per-account profile lookups."
+                                costTooltip={surfaceText("Medium cost: email filters may require per-account profile lookups.")}
                                 fieldState={emailFieldState}
                                 forcesExact={emailDraftForcesExact}
                                 matchMode={emailDraftMode}
@@ -910,15 +908,14 @@ export default function CephAdminAccountsPage() {
 
                           <section className={advancedFilterSectionClass}>
                             <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Limits and Quotas
-                            </p>
+                              {surfaceText("Limits and Quotas")}</p>
                             <div className="grid gap-3 sm:grid-cols-2">
                               {numericRangeFields.map((field) => (
                                 <AdvancedFilterNumberRangeField
                                   key={`${field.minKey}:${field.maxKey}`}
                                   label={field.label}
                                   costLevel="medium"
-                                  costTooltip="Medium cost: numeric filters rely on counters/stats."
+                                  costTooltip={surfaceText("Medium cost: numeric filters rely on counters/stats.")}
                                   fieldState={numericRangeFieldState(field.minKey, field.maxKey)}
                                   minFieldState={numericFieldStates[field.minKey]}
                                   maxFieldState={numericFieldStates[field.maxKey]}
@@ -932,15 +929,14 @@ export default function CephAdminAccountsPage() {
                             {canViewMetrics && (
                               <div className="mt-4">
                                 <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                  Quota usage %
-                                </p>
+                                  {surfaceText("Quota usage %")}</p>
                                 <div className="grid gap-3 sm:grid-cols-2">
                                   {usageNumericRangeFields.map((field) => (
                                     <AdvancedFilterNumberRangeField
                                       key={`${field.minKey}:${field.maxKey}`}
                                       label={field.label}
                                       costLevel="medium"
-                                      costTooltip="Medium cost: usage percentage filters require bucket metrics aggregation."
+                                      costTooltip={surfaceText("Medium cost: usage percentage filters require bucket metrics aggregation.")}
                                       fieldState={numericRangeFieldState(field.minKey, field.maxKey)}
                                       minFieldState={numericFieldStates[field.minKey]}
                                       maxFieldState={numericFieldStates[field.maxKey]}
@@ -972,7 +968,7 @@ export default function CephAdminAccountsPage() {
             status={tableStatus}
             loadingMessage="Loading accounts..."
             errorMessage="Unable to load accounts."
-            emptyMessage="No accounts."
+            emptyMessage={surfaceText("No accounts.")}
             primaryColumnId="account_id"
             overflowXHidden={showAdvancedFilter}
             responsiveCards

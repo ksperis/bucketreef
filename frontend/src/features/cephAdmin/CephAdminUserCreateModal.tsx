@@ -35,6 +35,7 @@ import {
   parseQuotaBytes,
   type CephAdminQuotaUnit,
 } from "./quotaForm";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type Props = {
   endpointId: number;
@@ -49,6 +50,7 @@ type AccountOption = {
 };
 
 export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onClose, onCreated }: Props) {
+  const { text: surfaceText } = useCephAdminI18n();
   const canAddAsS3Connection = useMemo(
     () => canCreateManualPrivateConnections(readStoredUser()),
     []
@@ -145,7 +147,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         setAccounts(options);
       } catch (err) {
         if (cancelled) return;
-        setAccountsError(extractApiError(err, "Unexpected error"));
+        setAccountsError(extractApiError(err, surfaceText("Unexpected error")));
       } finally {
         if (!cancelled) {
           setAccountsLoading(false);
@@ -156,7 +158,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
     return () => {
       cancelled = true;
     };
-  }, [endpointId]);
+  }, [endpointId, surfaceText]);
 
   const [validationShown, setValidationShown] = useState(false);
   const uidFormatError = rgwUserNameErrorText(rgwUserUidFormatError(uid.trim(), tenant.trim()), locale);
@@ -166,7 +168,9 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
     ...(tenantFormatError ? { tenant: tenantFormatError } : {}),
     ...validateCephAdminUserLimits({ maxBuckets, quotaEnabled, quotaSize, quotaUnit, quotaObjects }),
     ...(!uid.trim() ? { uid: rgwUserNameErrorText("UID is required.", locale)! } : {}),
-    ...(selectedAccountId && tenant.trim() ? { tenant: "Tenant cannot be used when an account is selected." } : {}),
+    ...(selectedAccountId && tenant.trim()
+      ? { tenant: surfaceText("Tenant cannot be used when an account is selected.") }
+      : {}),
   };
   const fieldErrors = validationShown ? validationErrors : { uid: uidFormatError, tenant: tenantFormatError };
 
@@ -219,9 +223,9 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         onCreated?.(response.detail);
         setGeneratedKey(response.generated_key ?? null);
         setInitialSignature(currentSignature);
-        setStatus(`User ${response.detail.uid} created.`);
+        setStatus(surfaceText("User {uid} created.", { uid: response.detail.uid }));
       } catch (err) {
-        setError(extractApiError(err, "Unexpected error"));
+        setError(extractApiError(err, surfaceText("Unexpected error")));
       } finally {
         setSaving(false);
       }
@@ -237,30 +241,30 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
 
   return <>
     <SettingsWorkflowForm
-      title="Create user"
-      description="Create an RGW user with its initial quotas, capabilities and access key."
-      breadcrumbs={cephAdminPageBreadcrumbs("users", { label: "Create" })}
-      backLabel="Back to users"
+      title={surfaceText("Create user")}
+      description={surfaceText("Create an RGW user with its initial quotas, capabilities and access key.")}
+      breadcrumbs={cephAdminPageBreadcrumbs("users", { label: surfaceText("Create") })}
+      backLabel={surfaceText("Back to users")}
       width="wide"
       contentVariant="plain"
-      formLabel="Create RGW user"
+      formLabel={surfaceText("Create RGW user")}
       dirty={currentSignature !== initialSignature}
       busy={saving}
       error={error}
-      submitLabel="Create user"
-      busyLabel="Creating..."
+      submitLabel={surfaceText("Create user")}
+      busyLabel={surfaceText("Creating...")}
       onSubmit={submit}
       onClose={onClose}
     >
       {status && <PageBanner tone="success">{status}</PageBanner>}
-      {accountsError && <PageBanner tone="warning">Unable to load account list: {accountsError}</PageBanner>}
+      {accountsError && <PageBanner tone="warning">{surfaceText("Unable to load account list:")}{accountsError}</PageBanner>}
       {generatedKey && (
         <OneTimeSecretPanel
-          title="Access key created"
-          description="Secret is shown only once."
+          title={surfaceText("Access key created")}
+          description={surfaceText("Secret is shown only once.")}
           values={[
-            { label: "Access key", value: generatedKey.access_key, copyLabel: "Copy" },
-            { label: "Secret key", value: generatedKey.secret_key, copyLabel: "Copy" },
+            { label: surfaceText("Access key"), value: generatedKey.access_key, copyLabel: surfaceText("Copy") },
+            { label: surfaceText("Secret key"), value: generatedKey.secret_key, copyLabel: surfaceText("Copy") },
           ]}
           actions={canAddAsS3Connection ? (
             <SettingsButton
@@ -268,26 +272,25 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
               onClick={() => setShowAddConnectionModal(true)}
               variant="secondary"
             >
-              Add as S3 Connection
-            </SettingsButton>
+              {surfaceText("Add as S3 Connection")}</SettingsButton>
           ) : undefined}
         />
       )}
 
-      <SettingsSection title="Identity" presentation="compact">
+      <SettingsSection title={surfaceText("Identity")} presentation="compact">
         <div className="settings-stack">
           <div className="settings-fields md:grid-cols-2">
-            <UiSelect label="Account (optional)" value={selectedAccountId}
+            <UiSelect label={surfaceText("Account (optional)")} value={selectedAccountId}
               onChange={(event) => setSelectedAccountId(event.target.value)} disabled={accountsLoading}
-              fieldClassName="md:col-span-2" hint={selectedAccountId ? "The new user will be the account root." : undefined}>
-              <option value="">No account</option>
+              fieldClassName="md:col-span-2" hint={selectedAccountId ? surfaceText("The new user will be the account root.") : undefined}>
+              <option value="">{surfaceText("No account")}</option>
               {accounts.map((account) => <option key={account.account_id} value={account.account_id}>
                 {account.account_name ? `${account.account_name} (${account.account_id})` : account.account_id}
               </option>)}
             </UiSelect>
-            <UiInput label="UID" required value={uid} onChange={(event) => setUid(event.target.value)} error={fieldErrors.uid} />
-            <UiInput label="Tenant" value={tenant} onChange={(event) => setTenant(event.target.value)}
-              hint="Leave empty when an account is selected." error={fieldErrors.tenant} />
+            <UiInput label={surfaceText("UID")} required value={uid} onChange={(event) => setUid(event.target.value)} error={fieldErrors.uid} />
+            <UiInput label={surfaceText("Tenant")} value={tenant} onChange={(event) => setTenant(event.target.value)}
+              hint={surfaceText("Leave empty when an account is selected.")} error={fieldErrors.tenant} />
           </div>
           <CephAdminUserProfileFields values={{ displayName, email, maxBuckets, opMask }}
             onChange={(field, value) => ({ displayName: setDisplayName, email: setEmail, maxBuckets: setMaxBuckets, opMask: setOpMask })[field](value)}
@@ -300,10 +303,9 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
           if (field === "system") setSystemFlag(value);
         }}>
         <UiCheckboxField checked={generateKey} onChange={(event) => setGenerateKey(event.target.checked)} className="settings-choice">
-          Generate access key
-        </UiCheckboxField>
+          {surfaceText("Generate access key")}</UiCheckboxField>
       </CephAdminUserFlags>
-      <CephAdminQuotaFields title="User quota" enabledLabel="Enable user quota" enabled={quotaEnabled} onEnabledChange={setQuotaEnabled}
+      <CephAdminQuotaFields title={surfaceText("User quota")} enabledLabel={surfaceText("Enable user quota")} enabled={quotaEnabled} onEnabledChange={setQuotaEnabled}
         sizeValue={quotaSize} onSizeChange={setQuotaSize} unitValue={quotaUnit} onUnitChange={setQuotaUnit}
         objectValue={quotaObjects} onObjectChange={setQuotaObjects} sizeError={fieldErrors.quotaSize} objectError={fieldErrors.quotaObjects} />
       <CephAdminUserCapsFields mode={capsMode} onModeChange={setCapsMode} value={capsText} onChange={setCapsText} />
@@ -312,7 +314,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
     {canAddAsS3Connection && showAddConnectionModal && generatedKey && addConnectionDefaults && (
       <AddS3ConnectionFromKeyModal
         isOpen={showAddConnectionModal}
-        title="Add this key as S3 Connection"
+        title={surfaceText("Add this key as S3 Connection")}
         zIndexClass="z-[60]"
         lockEndpoint
         accessKeyId={generatedKey.access_key}
@@ -328,7 +330,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         defaultRgwAccountId={addConnectionDefaults.rgwIdentity.accountId}
         onClose={() => setShowAddConnectionModal(false)}
         onCreated={() => {
-          setStatus("S3 connection created.");
+          setStatus(surfaceText("S3 connection created."));
           setError(null);
         }}
       />

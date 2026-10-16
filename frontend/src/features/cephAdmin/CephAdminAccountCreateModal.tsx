@@ -22,6 +22,7 @@ import {
   parseQuotaBytes,
   type CephAdminQuotaUnit,
 } from "./quotaForm";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type Props = {
   endpointId: number;
@@ -30,6 +31,7 @@ type Props = {
 };
 
 export default function CephAdminAccountCreateModal({ endpointId, onClose, onCreated }: Props) {
+  const { text: surfaceText } = useCephAdminI18n();
   const [accountName, setAccountName] = useState("");
   const [email, setEmail] = useState("");
   const [maxUsers, setMaxUsers] = useState("");
@@ -132,9 +134,9 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
         const response = await createCephAdminAccount(endpointId, payload);
         onCreated?.(response.account);
         setInitialSignature(currentSignature);
-        setStatus(`Account ${response.account.account_id} created.`);
+        setStatus(surfaceText("Account {id} created.", { id: response.account.account_id }));
       } catch (err) {
-        setError(extractApiError(err, "Unexpected error"));
+        setError(extractApiError(err, surfaceText("Unexpected error")));
       } finally {
         setSaving(false);
       }
@@ -143,18 +145,18 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
 
   return (
     <SettingsWorkflowForm
-      title="Create account"
-      description="Define the RGW account identity and quotas in a dedicated Ceph Admin workflow."
-      breadcrumbs={cephAdminPageBreadcrumbs("accounts", { label: "Create" })}
-      backLabel="Back to accounts"
+      title={surfaceText("Create account")}
+      description={surfaceText("Define the RGW account identity and quotas in a dedicated Ceph Admin workflow.")}
+      breadcrumbs={cephAdminPageBreadcrumbs("accounts", { label: surfaceText("Create") })}
+      backLabel={surfaceText("Back to accounts")}
       width="standard"
       contentVariant="plain"
-      formLabel="Create RGW account"
+      formLabel={surfaceText("Create RGW account")}
       dirty={currentSignature !== initialSignature}
       busy={saving}
       error={error}
-      submitLabel="Create account"
-      busyLabel="Creating..."
+      submitLabel={surfaceText("Create account")}
+      busyLabel={surfaceText("Creating...")}
       onSubmit={submit}
       onClose={onClose}
     >
@@ -166,8 +168,8 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
           maxGroups: setMaxGroups, maxAccessKeys: setMaxAccessKeys })[field](value)} />
 
       <CephAdminQuotaFields
-        title="Account quota"
-        enabledLabel="Enable account quota"
+        title={surfaceText("Account quota")}
+        enabledLabel={surfaceText("Enable account quota")}
         enabled={accountQuotaEnabled}
         onEnabledChange={setAccountQuotaEnabled}
         sizeValue={accountQuotaSize}
@@ -181,8 +183,8 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
       />
 
       <CephAdminQuotaFields
-        title="Bucket quota"
-        enabledLabel="Enable bucket quota"
+        title={surfaceText("Bucket quota")}
+        enabledLabel={surfaceText("Enable bucket quota")}
         enabled={bucketQuotaEnabled}
         onEnabledChange={setBucketQuotaEnabled}
         sizeValue={bucketQuotaSize}

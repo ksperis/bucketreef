@@ -40,7 +40,6 @@ import AdvancedFilterNumberRangeField from "../shared/AdvancedFilterNumberRangeF
 import AdvancedFilterSelectField from "../shared/AdvancedFilterSelectField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
-  FILTER_COST_LABEL,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   buildTextFieldRules,
@@ -64,6 +63,7 @@ import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
 import { readClientJsonFromKey, writeClientJsonToKey } from "../../utils/clientStorage";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { nextSortState } from "../../utils/sortValues";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type ColumnId =
   | "tenant"
@@ -288,6 +288,7 @@ const bucketOwnerFilterForUser = (user: CephAdminRgwUser) => {
 };
 
 export default function CephAdminUsersPage() {
+  const { text: surfaceText } = useCephAdminI18n();
   const navigate = useNavigate();
   const { selectedEndpointId, selectedEndpoint, selectedEndpointAccess } = useCephAdminEndpoint();
   const canViewMetrics = Boolean(selectedEndpointAccess?.can_metrics) && (selectedEndpoint?.capabilities?.metrics !== false);
@@ -448,14 +449,14 @@ export default function CephAdminUsersPage() {
   const suspendedFieldState = advancedFilterFieldHighlight(suspendedAppliedValue !== "any", suspendedPending);
 
   const numericRangeFields = useMemo<AdvancedNumericRangeField[]>(() => [
-    { label: "Max buckets", minKey: "minMaxBuckets", maxKey: "maxMaxBuckets" },
-    { label: "Quota bytes", minKey: "minQuotaBytes", maxKey: "maxQuotaBytes" },
-    { label: "Quota objects", minKey: "minQuotaObjects", maxKey: "maxQuotaObjects" },
-  ], []);
+    { label: surfaceText("Max buckets"), minKey: "minMaxBuckets", maxKey: "maxMaxBuckets" },
+    { label: surfaceText("Quota bytes"), minKey: "minQuotaBytes", maxKey: "maxQuotaBytes" },
+    { label: surfaceText("Quota objects"), minKey: "minQuotaObjects", maxKey: "maxQuotaObjects" },
+  ], [surfaceText]);
   const usageNumericRangeFields = useMemo<AdvancedNumericRangeField[]>(() => [
-    { label: "Quota usage size %", minKey: "minQuotaUsageSizePercent", maxKey: "maxQuotaUsageSizePercent" },
-    { label: "Quota usage objects %", minKey: "minQuotaUsageObjectPercent", maxKey: "maxQuotaUsageObjectPercent" },
-  ], []);
+    { label: surfaceText("Quota usage size %"), minKey: "minQuotaUsageSizePercent", maxKey: "maxQuotaUsageSizePercent" },
+    { label: surfaceText("Quota usage objects %"), minKey: "minQuotaUsageObjectPercent", maxKey: "maxQuotaUsageObjectPercent" },
+  ], [surfaceText]);
   const numericFields = useMemo<Array<{ key: AdvancedNumericField; label: string }>>(
     () => numericRangeFields.flatMap(({ label, minKey, maxKey }) => [
       { key: minKey, label: `${label} >=` },
@@ -530,24 +531,24 @@ export default function CephAdminUsersPage() {
   const activeFilterSummaryItems = useMemo(() => {
     const items: ActiveFilterSummaryItem[] = [];
     if (quickFilterActive) {
-      const label = formatTextFilterSummary("UID", searchValue, effectiveQuickFilterMode);
+      const label = formatTextFilterSummary(surfaceText("UID"), searchValue, effectiveQuickFilterMode);
       if (label) items.push({ id: "quick", label, remove: { type: "quick" } });
     }
     if (advancedApplied && hasAdvancedFilters(advancedApplied, canViewMetrics)) {
-      const tenantLabel = formatTextFilterSummary("Tenant", advancedApplied.tenant, tenantAppliedMode);
+      const tenantLabel = formatTextFilterSummary(surfaceText("Tenant"), advancedApplied.tenant, tenantAppliedMode);
       if (tenantLabel) items.push({ id: "tenant", label: tenantLabel, remove: { type: "advanced", field: "tenant" } });
-      const accountIdLabel = formatTextFilterSummary("Account ID", advancedApplied.accountId, accountIdAppliedMode);
+      const accountIdLabel = formatTextFilterSummary(surfaceText("Account ID"), advancedApplied.accountId, accountIdAppliedMode);
       if (accountIdLabel) items.push({ id: "accountId", label: accountIdLabel, remove: { type: "advanced", field: "accountId" } });
-      const accountNameLabel = formatTextFilterSummary("Account name", advancedApplied.accountName, accountNameAppliedMode);
+      const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameAppliedMode);
       if (accountNameLabel) items.push({ id: "accountName", label: accountNameLabel, remove: { type: "advanced", field: "accountName" } });
-      const fullNameLabel = formatTextFilterSummary("Full name", advancedApplied.fullName, fullNameAppliedMode);
+      const fullNameLabel = formatTextFilterSummary(surfaceText("Full name"), advancedApplied.fullName, fullNameAppliedMode);
       if (fullNameLabel) items.push({ id: "fullName", label: fullNameLabel, remove: { type: "advanced", field: "fullName" } });
-      const emailLabel = formatTextFilterSummary("Email", advancedApplied.email, emailAppliedMode);
+      const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailAppliedMode);
       if (emailLabel) items.push({ id: "email", label: emailLabel, remove: { type: "advanced", field: "email" } });
       if (advancedApplied.suspended !== "any") {
         items.push({
           id: "suspended",
-          label: `Status: ${advancedApplied.suspended === "active" ? "Active" : "Suspended"}`,
+          label: `${surfaceText("Status")}: ${advancedApplied.suspended === "active" ? surfaceText("Active") : surfaceText("Suspended")}`,
           remove: { type: "advanced", field: "suspended" },
         });
       }
@@ -572,6 +573,7 @@ export default function CephAdminUsersPage() {
     emailAppliedMode,
     numericFields,
     usageNumericFields,
+    surfaceText,
   ]);
   const showActiveFiltersCard =
     activeFilterSummaryItems.length > 0 &&
@@ -584,20 +586,20 @@ export default function CephAdminUsersPage() {
 
   const advancedDraftSummaryItems = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [];
-    const tenantLabel = formatTextFilterSummary("Tenant", advancedDraft.tenant, tenantDraftMode);
+    const tenantLabel = formatTextFilterSummary(surfaceText("Tenant"), advancedDraft.tenant, tenantDraftMode);
     if (tenantLabel) items.push({ id: "draft-tenant", label: tenantLabel });
-    const accountIdLabel = formatTextFilterSummary("Account ID", advancedDraft.accountId, accountIdDraftMode);
+    const accountIdLabel = formatTextFilterSummary(surfaceText("Account ID"), advancedDraft.accountId, accountIdDraftMode);
     if (accountIdLabel) items.push({ id: "draft-accountId", label: accountIdLabel });
-    const accountNameLabel = formatTextFilterSummary("Account name", advancedDraft.accountName, accountNameDraftMode);
+    const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedDraft.accountName, accountNameDraftMode);
     if (accountNameLabel) items.push({ id: "draft-accountName", label: accountNameLabel });
-    const fullNameLabel = formatTextFilterSummary("Full name", advancedDraft.fullName, fullNameDraftMode);
+    const fullNameLabel = formatTextFilterSummary(surfaceText("Full name"), advancedDraft.fullName, fullNameDraftMode);
     if (fullNameLabel) items.push({ id: "draft-fullName", label: fullNameLabel });
-    const emailLabel = formatTextFilterSummary("Email", advancedDraft.email, emailDraftMode);
+    const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedDraft.email, emailDraftMode);
     if (emailLabel) items.push({ id: "draft-email", label: emailLabel });
     if (advancedDraft.suspended !== "any") {
       items.push({
         id: "draft-suspended",
-        label: `Status: ${advancedDraft.suspended === "active" ? "Active" : "Suspended"}`,
+        label: `${surfaceText("Status")}: ${advancedDraft.suspended === "active" ? surfaceText("Active") : surfaceText("Suspended")}`,
       });
     }
     items.push(
@@ -618,6 +620,7 @@ export default function CephAdminUsersPage() {
     emailDraftMode,
     numericFields,
     usageNumericFields,
+    surfaceText,
   ]);
 
   const advancedDraftTextCount =
@@ -649,19 +652,19 @@ export default function CephAdminUsersPage() {
   }, [advancedDraftDirectTextCount, advancedDraftEnrichedTextCount, advancedDraftNumericCount]);
   const advancedDraftGlobalCostTooltip = useMemo(() => {
     if (advancedDraftGlobalCostLevel === "high") {
-      return `${FILTER_COST_LABEL.high}: many numeric filters are active and may increase stats processing.`;
+      return surfaceText("High cost: many numeric filters are active and may increase stats processing.");
     }
     if (advancedDraftGlobalCostLevel === "medium") {
       if (advancedDraftEnrichedTextCount > 0 && advancedDraftNumericCount === 0) {
-        return `${FILTER_COST_LABEL.medium}: enriched identity/status filters require per-user detail lookups.`;
+        return surfaceText("Medium cost: enriched identity/status filters require per-user detail lookups.");
       }
-      return `${FILTER_COST_LABEL.medium}: numeric filters are active and rely on limits/quota counters.`;
+      return surfaceText("Medium cost: numeric filters are active and rely on limits/quota counters.");
     }
     if (advancedDraftGlobalCostLevel === "low") {
-      return `${FILTER_COST_LABEL.low}: direct metadata filters are active.`;
+      return surfaceText("Low cost: direct metadata filters are active.");
     }
-    return FILTER_COST_LABEL.none;
-  }, [advancedDraftEnrichedTextCount, advancedDraftGlobalCostLevel, advancedDraftNumericCount]);
+    return surfaceText("No additional filter cost.");
+  }, [advancedDraftEnrichedTextCount, advancedDraftGlobalCostLevel, advancedDraftNumericCount, surfaceText]);
 
   const columnsCustomized = useMemo(() => {
     if (visibleColumns.length !== defaultVisibleColumns.length) return true;
@@ -671,7 +674,7 @@ export default function CephAdminUsersPage() {
 
   const renderSuspended = (value?: boolean | null) => {
     if (value === null || value === undefined) {
-      return <span className="ui-body text-slate-500 dark:text-slate-400">{loadingDetails ? "Loading..." : "-"}</span>;
+      return <span className="ui-body text-slate-500 dark:text-slate-400">{loadingDetails ? surfaceText("Loading...") : "-"}</span>;
     }
     return (
       <ListBadge
@@ -681,7 +684,7 @@ export default function CephAdminUsersPage() {
             : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100"
         }`}
       >
-        {value ? "Suspended" : "Active"}
+        {value ? surfaceText("Suspended") : surfaceText("Active")}
       </ListBadge>
     );
   };
@@ -703,7 +706,7 @@ export default function CephAdminUsersPage() {
 
   type ColumnDef = DataTableColumn<CephAdminRgwUser, SortField>;
 
-  const detailPlaceholder = loadingDetails ? "Loading..." : "-";
+  const detailPlaceholder = loadingDetails ? surfaceText("Loading...") : "-";
   const activeRgwUserId = selectedEndpointAccess?.active_rgw_uid
     ? `${selectedEndpointAccess.active_rgw_tenant ? `${selectedEndpointAccess.active_rgw_tenant}$` : ""}${selectedEndpointAccess.active_rgw_uid}`
     : null;
@@ -712,7 +715,7 @@ export default function CephAdminUsersPage() {
     const cols: ColumnDef[] = [
       {
         id: "uid",
-        label: "UID",
+        label: surfaceText("UID"),
         field: "uid",
         primary: true,
         headerClassName: "min-w-[12rem] max-w-[20rem]",
@@ -725,7 +728,7 @@ export default function CephAdminUsersPage() {
     if (visible.has("tenant")) {
       cols.push({
         id: "tenant",
-        label: "Tenant",
+        label: surfaceText("Tenant"),
         field: "tenant",
         headerClassName: "min-w-[10rem] max-w-[16rem]",
         cellClassName: "min-w-[10rem] max-w-[16rem]",
@@ -735,7 +738,7 @@ export default function CephAdminUsersPage() {
     if (visible.has("account_name")) {
       cols.push({
         id: "account_name",
-        label: "Account",
+        label: surfaceText("Account"),
         field: "account_name",
         headerClassName: "min-w-[12rem] max-w-[18rem]",
         cellClassName: "min-w-[12rem] max-w-[18rem]",
@@ -745,7 +748,7 @@ export default function CephAdminUsersPage() {
     if (visible.has("full_name")) {
       cols.push({
         id: "full_name",
-        label: "Full name",
+        label: surfaceText("Full name"),
         field: "full_name",
         headerClassName: "min-w-[12rem] max-w-[18rem]",
         cellClassName: "min-w-[12rem] max-w-[18rem]",
@@ -755,7 +758,7 @@ export default function CephAdminUsersPage() {
     if (visible.has("email")) {
       cols.push({
         id: "email",
-        label: "Email",
+        label: surfaceText("Email"),
         field: "email",
         headerClassName: "min-w-[14rem] max-w-[22rem]",
         cellClassName: "min-w-[14rem] max-w-[22rem]",
@@ -765,7 +768,7 @@ export default function CephAdminUsersPage() {
     if (visible.has("suspended")) {
       cols.push({
         id: "suspended",
-        label: "Suspended",
+        label: surfaceText("Suspended"),
         field: "suspended",
         headerClassName: "min-w-[8rem]",
         cellClassName: "min-w-[8rem]",
@@ -775,7 +778,7 @@ export default function CephAdminUsersPage() {
     if (visible.has("max_buckets")) {
       cols.push({
         id: "max_buckets",
-        label: "Max buckets",
+        label: surfaceText("Max buckets"),
         field: "max_buckets",
         align: "right",
         headerClassName: "min-w-[8rem]",
@@ -786,7 +789,7 @@ export default function CephAdminUsersPage() {
     if (visible.has("quota_max_size_bytes")) {
       cols.push({
         id: "quota_max_size_bytes",
-        label: "Quota (size)",
+        label: surfaceText("Quota (size)"),
         field: "quota_max_size_bytes",
         align: "right",
         headerClassName: "min-w-[9rem]",
@@ -797,7 +800,7 @@ export default function CephAdminUsersPage() {
     if (visible.has("quota_max_objects")) {
       cols.push({
         id: "quota_max_objects",
-        label: "Quota (objects)",
+        label: surfaceText("Quota (objects)"),
         field: "quota_max_objects",
         align: "right",
         headerClassName: "min-w-[10rem]",
@@ -808,7 +811,7 @@ export default function CephAdminUsersPage() {
 
     cols.push({
       id: "actions",
-      label: "Act.",
+      label: surfaceText("Act."),
       field: null,
       align: "right",
       mobileRole: "actions",
@@ -820,26 +823,25 @@ export default function CephAdminUsersPage() {
         return (
           <ListActions>
             <ListActionButton {...dataTableDefaultActionProps} onClick={() => setEditingTarget(user)}>
-              Configure
-            </ListActionButton>
+              {surfaceText("Configure")}</ListActionButton>
             <UiActionMenu
-              ariaLabel={`More actions for RGW user ${owner ?? user.uid}`}
+              ariaLabel={surfaceText("More actions for RGW user {uid}", { uid: owner ?? user.uid })}
               trigger={<span aria-hidden="true">⋮</span>}
               triggerClassName={tableCompactIconActionButtonClasses}
               sections={[
                 { id: "navigation", items: [{
                   id: "owner-buckets",
-                  label: "Owner buckets",
+                  label: surfaceText("Owner buckets"),
                   disabled: !owner,
-                  disabledReason: "No RGW owner identity is available for this user.",
+                  disabledReason: surfaceText("No RGW owner identity is available for this user."),
                   onSelect: () => { if (owner) navigate(`/ceph-admin/buckets?owner=${encodeURIComponent(owner)}`); },
                 }] },
                 { id: "destructive", items: [{
                   id: "delete",
-                  label: "Delete user",
+                  label: surfaceText("Delete user"),
                   danger: true,
                   disabled: isActiveIdentity,
-                  disabledReason: "The active Ceph Admin service identity cannot delete itself",
+                  disabledReason: surfaceText("The active Ceph Admin service identity cannot delete itself"),
                   onSelect: () => { if (!isActiveIdentity) setDeletingTarget(user); },
                 }] },
               ]}
@@ -860,14 +862,14 @@ export default function CephAdminUsersPage() {
   return (
     <div className={workflowPageHostClass(showCreateModal || Boolean(editingTarget))}>
       <PageHeader actionPresentation="listing"
-        title="RGW Users"
-        description="Complete list of RGW users (admin ops)."
+        title={surfaceText("RGW Users")}
+        description={surfaceText("Complete list of RGW users (admin ops).")}
         breadcrumbs={cephAdminPageBreadcrumbs("users")}
         actions={
           selectedEndpointId
             ? [
                 {
-                  label: "Create user",
+                  label: surfaceText("Create user"),
                   onClick: () => setShowCreateModal(true),
                 },
               ]
@@ -878,24 +880,24 @@ export default function CephAdminUsersPage() {
 
       {!selectedEndpointId ? (
         <PageEmptyState
-          title="Select a Ceph endpoint before listing RGW users"
-          description="RGW user administration is endpoint-scoped. Choose an endpoint to load users, filters, and identity details."
-          primaryAction={{ label: "Return to Ceph Admin", to: "/ceph-admin" }}
+          title={surfaceText("Select a Ceph endpoint before listing RGW users")}
+          description={surfaceText("RGW user administration is endpoint-scoped. Choose an endpoint to load users, filters, and identity details.")}
+          primaryAction={{ label: surfaceText("Return to Ceph Admin"), to: "/ceph-admin" }}
           tone="warning"
         />
       ) : (
         <ListPageSection
           variant="page"
-          mobileSort={<TableSortControls columns={SORT_COLUMNS} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-            title="Users"
-            countLabel={`${total} result(s)`}
+          mobileSort={<TableSortControls columns={SORT_COLUMNS.map((column) => ({ ...column, label: surfaceText(column.label) }))} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
+            title={surfaceText("Users")}
+            countLabel={surfaceText(total === 1 ? "{count} result" : "{count} results", { count: total })}
             search={
               <ToolbarSearchTextarea
-                label="Quick filter"
+                label={surfaceText("Quick filter")}
                 value={filter}
                 onChange={setFilter}
                 onKeyDown={(event) => event.stopPropagation()}
-                placeholder="UID(s)"
+                placeholder={surfaceText("UID(s)")}
                 inputClassName={quickFilterFieldState.fieldClass}
                 trailingControl={
                   <ToolbarMatchModeButton
@@ -903,7 +905,7 @@ export default function CephAdminUsersPage() {
                     pending={quickFilterPending}
                     locked={quickFilterDraftForcesExact}
                     onClick={toggleQuickFilterMode}
-                    aria-label="Toggle quick filter match mode"
+                    aria-label={surfaceText("Toggle quick filter match mode")}
                   />
                 }
               />
@@ -913,7 +915,7 @@ export default function CephAdminUsersPage() {
                 active={showAdvancedFilter || advancedFilterActive}
                 onClick={() => setShowAdvancedFilter(true)}
               >
-                Advanced filter{advancedFilterActive ? " · Active" : ""}
+                {surfaceText("Advanced filter")}{advancedFilterActive ? ` · ${surfaceText("Active")}` : ""}
               </ToolbarAdvancedFilterButton>
             }
             columns={
@@ -923,10 +925,10 @@ export default function CephAdminUsersPage() {
                 resetDisabled={!columnsCustomized}
                 coreGroups={USER_COLUMN_GROUPS.map((group) => ({
                   id: group.id,
-                  label: group.label,
+                  label: surfaceText(group.label),
                   options: group.options.map((option) => ({
                     id: option.id,
-                    label: option.label,
+                    label: surfaceText(option.label),
                     checked: visibleColumns.includes(option.id),
                     onToggle: () => toggleColumn(option.id),
                   })),
@@ -943,7 +945,7 @@ export default function CephAdminUsersPage() {
                           id: item.id,
                           label: item.label,
                           onRemove: () => removeActiveFilterItem(item.remove),
-                          removeLabel: `Remove ${item.label}`,
+                          removeLabel: surfaceText("Remove {label}", { label: item.label }),
                         }))
                       : []
                   }
@@ -952,8 +954,8 @@ export default function CephAdminUsersPage() {
 
                 {showAdvancedFilter && (
                   <AdvancedFilterDrawerShell
-                    title="Advanced filter"
-                    subtitle="RGW Users listing"
+                    title={surfaceText("Advanced filter")}
+                    subtitle={surfaceText("RGW Users listing")}
                     badges={
                       <>
                         {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount)}
@@ -971,11 +973,9 @@ export default function CephAdminUsersPage() {
                           onClick={resetAdvancedFilter}
                           disabled={!hasAnyAdvancedToClear}
                         >
-                          Clear
-                        </ListActionButton>
+                          {surfaceText("Clear")}</ListActionButton>
                         <ListActionButton variant="primary" onClick={applyAdvancedFilter}>
-                          Apply filter
-                        </ListActionButton>
+                          {surfaceText("Apply filter")}</ListActionButton>
                       </div>
                     }
                   >
@@ -984,13 +984,12 @@ export default function CephAdminUsersPage() {
 
                           <section className={advancedFilterSectionClass}>
                             <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Identity
-                            </p>
+                              {surfaceText("Identity")}</p>
                             <div className="grid gap-3 md:grid-cols-2">
                               {[
                                 {
                                   id: "tenant" as const,
-                                  label: "Tenant",
+                                  label: surfaceText("Tenant"),
                                   value: advancedDraft.tenant,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("tenantMatchMode", value),
                                   mode: tenantDraftMode,
@@ -998,11 +997,11 @@ export default function CephAdminUsersPage() {
                                   fieldState: tenantFieldState,
                                   placeholder: "tenant-a, tenant-b",
                                   costLevel: "low" as const,
-                                  costTooltip: "Low cost: tenant filters run on direct user metadata.",
+                                  costTooltip: surfaceText("Low cost: tenant filters run on direct user metadata."),
                                 },
                                 {
                                   id: "accountId" as const,
-                                  label: "Account ID",
+                                  label: surfaceText("Account ID"),
                                   value: advancedDraft.accountId,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("accountIdMatchMode", value),
                                   mode: accountIdDraftMode,
@@ -1010,11 +1009,11 @@ export default function CephAdminUsersPage() {
                                   fieldState: accountIdFieldState,
                                   placeholder: "RGW123..., RGW456...",
                                   costLevel: "medium" as const,
-                                  costTooltip: "Medium cost: account ID filters require per-user account details.",
+                                  costTooltip: surfaceText("Medium cost: account ID filters require per-user account details."),
                                 },
                                 {
                                   id: "accountName" as const,
-                                  label: "Account name",
+                                  label: surfaceText("Account name"),
                                   value: advancedDraft.accountName,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("accountNameMatchMode", value),
                                   mode: accountNameDraftMode,
@@ -1022,11 +1021,11 @@ export default function CephAdminUsersPage() {
                                   fieldState: accountNameFieldState,
                                   placeholder: "Backup, Analytics",
                                   costLevel: "medium" as const,
-                                  costTooltip: "Medium cost: account name filters require account lookups.",
+                                  costTooltip: surfaceText("Medium cost: account name filters require account lookups."),
                                 },
                                 {
                                   id: "fullName" as const,
-                                  label: "Full name",
+                                  label: surfaceText("Full name"),
                                   value: advancedDraft.fullName,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("fullNameMatchMode", value),
                                   mode: fullNameDraftMode,
@@ -1034,11 +1033,11 @@ export default function CephAdminUsersPage() {
                                   fieldState: fullNameFieldState,
                                   placeholder: "John Doe",
                                   costLevel: "medium" as const,
-                                  costTooltip: "Medium cost: full name filters require per-user profile lookups.",
+                                  costTooltip: surfaceText("Medium cost: full name filters require per-user profile lookups."),
                                 },
                                 {
                                   id: "email" as const,
-                                  label: "Email",
+                                  label: surfaceText("Email"),
                                   value: advancedDraft.email,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("emailMatchMode", value),
                                   mode: emailDraftMode,
@@ -1046,7 +1045,7 @@ export default function CephAdminUsersPage() {
                                   fieldState: emailFieldState,
                                   placeholder: "user@example.com",
                                   costLevel: "medium" as const,
-                                  costTooltip: "Medium cost: email filters require per-user profile lookups.",
+                                  costTooltip: surfaceText("Medium cost: email filters require per-user profile lookups."),
                                 },
                               ].map((field) => (
                                 <AdvancedFilterTextMatchField
@@ -1065,31 +1064,30 @@ export default function CephAdminUsersPage() {
                               ))}
 
                               <AdvancedFilterSelectField
-                                label="Status"
+                                label={surfaceText("Status")}
                                 costLevel="medium"
-                                costTooltip="Medium cost: status filters require per-user status details."
+                                costTooltip={surfaceText("Medium cost: status filters require per-user status details.")}
                                 fieldState={suspendedFieldState}
                                 value={advancedDraft.suspended}
                                 onChange={(value) => updateAdvancedField("suspended", value as AdvancedStatusFilter)}
                               >
-                                <option value="any">Any</option>
-                                <option value="active">Active</option>
-                                <option value="suspended">Suspended</option>
+                                <option value="any">{surfaceText("Any")}</option>
+                                <option value="active">{surfaceText("Active")}</option>
+                                <option value="suspended">{surfaceText("Suspended")}</option>
                               </AdvancedFilterSelectField>
                             </div>
                           </section>
 
                           <section className={advancedFilterSectionClass}>
                             <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Limits and Quotas
-                            </p>
+                              {surfaceText("Limits and Quotas")}</p>
                             <div className="grid gap-3 sm:grid-cols-2">
                               {numericRangeFields.map((field) => (
                                 <AdvancedFilterNumberRangeField
                                   key={`${field.minKey}:${field.maxKey}`}
                                   label={field.label}
                                   costLevel="medium"
-                                  costTooltip="Medium cost: numeric filters rely on limits/quota counters."
+                                  costTooltip={surfaceText("Medium cost: numeric filters rely on limits/quota counters.")}
                                   fieldState={numericRangeFieldState(field.minKey, field.maxKey)}
                                   minFieldState={numericFieldStates[field.minKey]}
                                   maxFieldState={numericFieldStates[field.maxKey]}
@@ -1103,15 +1101,14 @@ export default function CephAdminUsersPage() {
                             {canViewMetrics && (
                               <div className="mt-4">
                                 <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                  Quota usage %
-                                </p>
+                                  {surfaceText("Quota usage %")}</p>
                                 <div className="grid gap-3 sm:grid-cols-2">
                                   {usageNumericRangeFields.map((field) => (
                                     <AdvancedFilterNumberRangeField
                                       key={`${field.minKey}:${field.maxKey}`}
                                       label={field.label}
                                       costLevel="medium"
-                                      costTooltip="Medium cost: usage percentage filters require bucket metrics aggregation."
+                                      costTooltip={surfaceText("Medium cost: usage percentage filters require bucket metrics aggregation.")}
                                       fieldState={numericRangeFieldState(field.minKey, field.maxKey)}
                                       minFieldState={numericFieldStates[field.minKey]}
                                       maxFieldState={numericFieldStates[field.maxKey]}
@@ -1143,7 +1140,9 @@ export default function CephAdminUsersPage() {
             status={tableStatus}
             loadingMessage="Loading users..."
             errorMessage="Unable to load users."
-            emptyMessage={quickFilterActive || advancedFilterActive ? "No users match the current filters." : "No users."}
+            emptyMessage={quickFilterActive || advancedFilterActive
+              ? surfaceText("No users match the current filters.")
+              : surfaceText("No users.")}
             primaryColumnId="uid"
             overflowXHidden={showAdvancedFilter}
             responsiveCards

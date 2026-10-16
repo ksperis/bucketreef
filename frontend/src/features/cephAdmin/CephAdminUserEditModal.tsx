@@ -49,6 +49,7 @@ import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { buildCephAdminQuotaPatch } from "./quotaPatch";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { parseOptionalNonNegativeInteger, parseQuotaBytes, quotaBytesToForm, type CephAdminQuotaUnit } from "./quotaForm";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type Props = {
   endpointId: number;
@@ -87,6 +88,7 @@ export default function CephAdminUserEditModal({
   onClose,
   onSaved,
 }: Props) {
+  const { text: surfaceText } = useCephAdminI18n();
   const keyConfirmation = useConfirmActionDialog();
   const canAddAsS3Connection = useMemo(
     () => canCreateManualPrivateConnections(readStoredUser()),
@@ -344,7 +346,7 @@ export default function CephAdminUserEditModal({
         setDetail(updated);
         setKeys(updated.keys ?? []);
         setInitialSignature(currentSignature);
-        setSaveStatus("User configuration updated.");
+        setSaveStatus(surfaceText("User configuration updated."));
         onSaved?.(updated);
         if (activeTab === "metrics") {
           try {
@@ -356,7 +358,7 @@ export default function CephAdminUserEditModal({
           }
         }
       } catch (err) {
-        setSaveError(extractApiError(err, "Unexpected error"));
+        setSaveError(extractApiError(err, surfaceText("Unexpected error")));
       } finally {
         setSaving(false);
       }
@@ -379,9 +381,9 @@ export default function CephAdminUserEditModal({
       const created = await createCephAdminUserKey(endpointId, uid, tenant, expectedAccountId ?? detail?.account_id);
       setCreatedKey(created);
       await refreshKeys();
-      setKeysStatus("Access key created.");
+      setKeysStatus(surfaceText("Access key created."));
     } catch (err) {
-      setKeysError(extractApiError(err, "Unexpected error"));
+      setKeysError(extractApiError(err, surfaceText("Unexpected error")));
     } finally {
       setKeysBusy(null);
     }
@@ -396,9 +398,9 @@ export default function CephAdminUserEditModal({
     try {
       await updateCephAdminUserKeyStatus(endpointId, uid, key.access_key, nextActive, tenant, expectedAccountId ?? detail?.account_id);
       await refreshKeys();
-      setKeysStatus(nextActive ? "Access key enabled." : "Access key disabled.");
+      setKeysStatus(nextActive ? surfaceText("Access key enabled.") : surfaceText("Access key disabled."));
     } catch (err) {
-      setKeysError(extractApiError(err, "Unexpected error"));
+      setKeysError(extractApiError(err, surfaceText("Unexpected error")));
     } finally {
       setKeysBusy(null);
     }
@@ -413,9 +415,9 @@ export default function CephAdminUserEditModal({
     try {
       await deleteCephAdminUserKey(endpointId, uid, key.access_key, tenant, expectedAccountId ?? detail?.account_id);
       await refreshKeys();
-      setKeysStatus("Access key deleted.");
+      setKeysStatus(surfaceText("Access key deleted."));
     } catch (err) {
-      setKeysError(extractApiError(err, "Unexpected error"));
+      setKeysError(extractApiError(err, surfaceText("Unexpected error")));
     } finally {
       setKeysBusy(null);
     }
@@ -429,63 +431,63 @@ export default function CephAdminUserEditModal({
   const handleDeleteKey = (key: CephAdminRgwAccessKey) => {
     if (key.is_private_access_managed) return;
     keyConfirmation.requestConfirmation({
-      title: "Delete access key?",
-      description: "Permanently remove this S3 access key from the Ceph user.",
-      confirmLabel: "Delete key",
+      title: surfaceText("Delete access key?"),
+      description: surfaceText("Permanently remove this S3 access key from the Ceph user."),
+      confirmLabel: surfaceText("Delete key"),
       details: [
-        { label: "Ceph user", value: identityLabel },
-        { label: "Access key", value: key.access_key, mono: true },
+        { label: surfaceText("Ceph user"), value: identityLabel },
+        { label: surfaceText("Access key"), value: key.access_key, mono: true },
       ],
-      impacts: ["Applications using this key will immediately lose access."],
+      impacts: [surfaceText("Applications using this key will immediately lose access.")],
       onConfirm: () => deleteKey(key),
     });
   };
 
   const overviewTab = (
     <section className="space-y-4">
-      {detailLoading && <PageBanner tone="info">Loading user details...</PageBanner>}
+      {detailLoading && <PageBanner tone="info">{surfaceText("Loading user details...")}</PageBanner>}
       {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
       {detail && (
         <>
           <div className="grid gap-3 md:grid-cols-2">
             <UsageTile
-              label="Buckets"
+              label={surfaceText("Buckets")}
               used={metrics?.bucket_count ?? null}
               quota={detail.max_buckets ?? null}
               formatter={formatNumber}
               quotaFormatter={(value) => (value != null ? value.toLocaleString() : "-")}
-              unitHint="buckets"
-              emptyHint="No bucket limit defined."
+              unitHint={surfaceText("buckets")}
+              emptyHint={surfaceText("No bucket limit defined.")}
             />
             <UsageTile
-              label="Storage quota"
+              label={surfaceText("Storage quota")}
               used={metrics?.total_bytes ?? null}
               quota={detail.quota?.max_size_bytes ?? null}
               formatter={formatBytes}
               quotaFormatter={formatBytes}
-              emptyHint="No storage quota defined."
+              emptyHint={surfaceText("No storage quota defined.")}
             />
           </div>
           <div className={cx(uiPanelMutedClass, "px-4 py-3")}>
             <dl className="grid gap-2 sm:grid-cols-2">
               <div>
-                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Account</dt>
+                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{surfaceText("Account")}</dt>
                 <dd className="ui-body font-semibold text-slate-800 dark:text-slate-100">
                   {detail.account_name ?? detail.account_id ?? "-"}
                 </dd>
               </div>
               <div>
-                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</dt>
+                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{surfaceText("Email")}</dt>
                 <dd className="ui-body font-semibold text-slate-800 dark:text-slate-100">{detail.email ?? "-"}</dd>
               </div>
               <div>
-                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</dt>
+                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{surfaceText("Status")}</dt>
                 <dd className="ui-body font-semibold text-slate-800 dark:text-slate-100">
-                  {detail.suspended ? "Suspended" : "Active"}
+                  {detail.suspended ? surfaceText("Suspended") : surfaceText("Active")}
                 </dd>
               </div>
               <div>
-                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Flags</dt>
+                <dt className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{surfaceText("Flags")}</dt>
                 <dd className="ui-body font-semibold text-slate-800 dark:text-slate-100">
                   {[detail.admin ? "admin" : null, detail.system ? "system" : null, detail.account_root ? "root" : null]
                     .filter(Boolean)
@@ -501,38 +503,38 @@ export default function CephAdminUserEditModal({
 
   const cephTab = (
     <SettingsForm
-      label="RGW user configuration"
+      label={surfaceText("RGW user configuration")}
       busy={formController.locked || detailLoading}
       disabled={!detail}
       submitDisabled={detailLoading || !detail}
       onSubmit={formController.submit}
       onCancel={formController.requestClose}
-      submitLabel="Save configuration"
-      busyLabel="Saving..."
+      submitLabel={surfaceText("Save configuration")}
+      busyLabel={surfaceText("Saving...")}
       actions={(
         <SettingsButton type="submit" disabled={formController.locked || detailLoading || !detail} loading={formController.locked}>
-          {formController.locked ? "Saving..." : "Save configuration"}
+          {formController.locked ? surfaceText("Saving...") : surfaceText("Save configuration")}
         </SettingsButton>
       )}
     >
       <div className="settings-compact settings-form settings-stack">
-        {detailLoading && <PageBanner tone="info">Loading user details...</PageBanner>}
+        {detailLoading && <PageBanner tone="info">{surfaceText("Loading user details...")}</PageBanner>}
         {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
         {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
         {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
-        <SettingsSection title="Profile" presentation="compact">
+        <SettingsSection title={surfaceText("Profile")} presentation="compact">
           <CephAdminUserProfileFields values={{ displayName, email, maxBuckets, opMask }}
             onChange={(field, value) => ({ displayName: setDisplayName, email: setEmail, maxBuckets: setMaxBuckets, opMask: setOpMask })[field](value)}
-            maxBucketsError={fieldErrors.maxBuckets} maxBucketsHint="Leave empty to clear the limit.">
-            <UiInput label="Default placement" value={defaultPlacement} onChange={(event) => setDefaultPlacement(event.target.value)} placeholder="e.g. default-placement" />
-            <UiInput label="Default storage class" value={defaultStorageClass} onChange={(event) => setDefaultStorageClass(event.target.value)} placeholder="e.g. STANDARD" />
+            maxBucketsError={fieldErrors.maxBuckets} maxBucketsHint={surfaceText("Leave empty to clear the limit.")}>
+            <UiInput label={surfaceText("Default placement")} value={defaultPlacement} onChange={(event) => setDefaultPlacement(event.target.value)} placeholder={surfaceText("e.g. default-placement")} />
+            <UiInput label={surfaceText("Default storage class")} value={defaultStorageClass} onChange={(event) => setDefaultStorageClass(event.target.value)} placeholder={surfaceText("e.g. STANDARD")} />
           </CephAdminUserProfileFields>
         </SettingsSection>
         <CephAdminUserFlags values={{ suspended, admin: adminFlag, system: systemFlag }} readOnlyFields={["admin", "system"]}
           onChange={(field, value) => ({ suspended: setSuspended, admin: setAdminFlag, system: setSystemFlag })[field](value)} />
-        <CephAdminQuotaFields title="User quota" enabledLabel="Enable user quota" enabled={quotaEnabled} onEnabledChange={setQuotaEnabled}
+        <CephAdminQuotaFields title={surfaceText("User quota")} enabledLabel={surfaceText("Enable user quota")} enabled={quotaEnabled} onEnabledChange={setQuotaEnabled}
           sizeValue={quotaSize} onSizeChange={setQuotaSize} unitValue={quotaUnit} onUnitChange={setQuotaUnit}
-          objectValue={quotaObjects} onObjectChange={setQuotaObjects} sizePlaceholder="Leave empty to clear" objectPlaceholder="Leave empty to clear"
+          objectValue={quotaObjects} onObjectChange={setQuotaObjects} sizePlaceholder={surfaceText("Leave empty to clear")} objectPlaceholder={surfaceText("Leave empty to clear")}
           sizeError={fieldErrors.quotaSize} objectError={fieldErrors.quotaObjects} />
         <CephAdminUserCapsFields mode={capsMode} onModeChange={setCapsMode} value={capsText} onChange={setCapsText} />
       </div>
@@ -547,11 +549,11 @@ export default function CephAdminUserEditModal({
 
       {createdKey && (
         <OneTimeSecretPanel
-          title="Key created"
-          description="Secret is shown only once."
+          title={surfaceText("Key created")}
+          description={surfaceText("Secret is shown only once.")}
           values={[
-            { label: "Access key", value: createdKey.access_key, copyLabel: "Copy" },
-            { label: "Secret key", value: createdKey.secret_key, copyLabel: "Copy" },
+            { label: surfaceText("Access key"), value: createdKey.access_key, copyLabel: surfaceText("Copy") },
+            { label: surfaceText("Secret key"), value: createdKey.secret_key, copyLabel: surfaceText("Copy") },
           ]}
           actions={canAddAsS3Connection ? (
             <SettingsButton
@@ -559,8 +561,7 @@ export default function CephAdminUserEditModal({
               onClick={() => setShowAddConnectionModal(true)}
               variant="secondary"
             >
-              Add as S3 Connection
-            </SettingsButton>
+              {surfaceText("Add as S3 Connection")}</SettingsButton>
           ) : undefined}
         />
       )}
@@ -573,7 +574,7 @@ export default function CephAdminUserEditModal({
           variant="secondary"
           size="sm"
         >
-          {keysLoading ? "Loading..." : "Refresh"}
+          {keysLoading ? surfaceText("Loading...") : surfaceText("Refresh")}
         </UiButton>
         <UiButton
           type="button"
@@ -581,7 +582,7 @@ export default function CephAdminUserEditModal({
           disabled={keysBusy === "create"}
           size="sm"
         >
-          {keysBusy === "create" ? "Creating..." : "New key"}
+          {keysBusy === "create" ? surfaceText("Creating...") : surfaceText("New key")}
         </UiButton>
       </div>
 
@@ -590,25 +591,20 @@ export default function CephAdminUserEditModal({
           <thead className="bg-slate-50 dark:bg-slate-900/50">
             <tr>
               <th className="text-left">
-                Access key
-              </th>
+                {surfaceText("Access key")}</th>
               <th className="text-left">
-                Status
-              </th>
+                {surfaceText("Status")}</th>
               <th className="text-left">
-                Created
-              </th>
+                {surfaceText("Created")}</th>
               <th className="text-right">
-                Actions
-              </th>
+                {surfaceText("Actions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {keys.length === 0 && (
               <tr>
                 <td colSpan={4} className="ui-table-secondary">
-                  No access keys for this user.
-                </td>
+                  {surfaceText("No access keys for this user.")}</td>
               </tr>
             )}
             {keys.map((key) => {
@@ -622,9 +618,8 @@ export default function CephAdminUserEditModal({
                     <div className="flex flex-wrap items-center gap-2">
                       <span>{key.access_key}</span>
                       {managedPrivate && (
-                        <ListBadge tone="neutral" title="Managed private access key">
-                          Private access
-                        </ListBadge>
+                        <ListBadge tone="neutral" title={surfaceText("Managed private access key")}>
+                          {surfaceText("Private access")}</ListBadge>
                       )}
                     </div>
                   </td>
@@ -636,19 +631,19 @@ export default function CephAdminUserEditModal({
                         type="button"
                         onClick={() => handleToggleKey(key, !active)}
                         disabled={toggleBusy || deleteBusy || managedPrivate}
-                        title={managedPrivate ? "Update the linked private connection instead" : undefined}
+                        title={managedPrivate ? surfaceText("Update the linked private connection instead") : undefined}
 
                       >
-                        {toggleBusy ? "Saving..." : active ? "Disable" : "Enable"}
+                        {toggleBusy ? surfaceText("Saving...") : active ? surfaceText("Disable") : surfaceText("Enable")}
                       </ListActionButton>
                       <ListActionButton
                         type="button"
                         onClick={() => handleDeleteKey(key)}
                         disabled={toggleBusy || deleteBusy || managedPrivate}
-                        title={managedPrivate ? "Delete the linked private connection instead" : undefined}
+                        title={managedPrivate ? surfaceText("Delete the linked private connection instead") : undefined}
                          variant="danger"
                       >
-                        {deleteBusy ? "Deleting..." : "Delete"}
+                        {deleteBusy ? surfaceText("Deleting...") : surfaceText("Delete")}
                       </ListActionButton>
                     </ListActions>
                   </td>
@@ -664,55 +659,53 @@ export default function CephAdminUserEditModal({
   const metricsTab = (
     <section className="space-y-4">
 
-      {metricsLoading && <PageBanner tone="info">Loading metrics...</PageBanner>}
+      {metricsLoading && <PageBanner tone="info">{surfaceText("Loading metrics...")}</PageBanner>}
       {metricsError && <PageBanner tone="error">{metricsError}</PageBanner>}
       {metrics && (
         <>
           <div className="grid gap-3 md:grid-cols-2">
             <UsageTile
-              label="Storage"
+              label={surfaceText("Storage")}
               used={metrics.total_bytes ?? null}
               quota={detail?.quota?.max_size_bytes ?? null}
               formatter={formatBytes}
               quotaFormatter={formatBytes}
-              emptyHint="No storage quota defined."
+              emptyHint={surfaceText("No storage quota defined.")}
             />
             <UsageTile
-              label="Objects"
+              label={surfaceText("Objects")}
               used={metrics.total_objects ?? null}
               quota={detail?.quota?.max_objects ?? null}
               formatter={formatNumber}
               quotaFormatter={(value) => (value != null ? value.toLocaleString() : "-")}
-              unitHint="objects"
-              emptyHint="No object quota defined."
+              unitHint={surfaceText("objects")}
+              emptyHint={surfaceText("No object quota defined.")}
             />
           </div>
           <div className={cx(uiPanelMutedClass, "px-4 py-3")}>
             <div className="flex items-center justify-between gap-2">
-              <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Top buckets by usage</p>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">{metrics.bucket_count} bucket(s)</p>
+              <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">{surfaceText("Top buckets by usage")}</p>
+              <p className="ui-caption text-slate-500 dark:text-slate-400">
+                {surfaceText(metrics.bucket_count === 1 ? "{count} bucket" : "{count} buckets", { count: metrics.bucket_count })}
+              </p>
             </div>
             <div className="mt-3 overflow-x-auto">
               <table className={uiDataTableClass}>
                 <thead className="bg-slate-100/80 dark:bg-slate-900/60">
                   <tr>
                     <th className="text-left">
-                      Bucket
-                    </th>
+                      {surfaceText("Bucket")}</th>
                     <th className="text-right">
-                      Used
-                    </th>
+                      {surfaceText("Used")}</th>
                     <th className="text-right">
-                      Objects
-                    </th>
+                      {surfaceText("Objects")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {metrics.bucket_usage.length === 0 && (
                     <tr>
                       <td colSpan={3} className="ui-table-secondary">
-                        No bucket usage data available.
-                      </td>
+                        {surfaceText("No bucket usage data available.")}</td>
                     </tr>
                   )}
                   {metrics.bucket_usage.slice(0, 50).map((entry) => (
@@ -736,10 +729,10 @@ export default function CephAdminUserEditModal({
   );
 
   const tabs = [
-    { id: "overview", label: "Overview", content: overviewTab },
+    { id: "overview", label: surfaceText("Overview"), content: overviewTab },
     { id: "ceph", label: "Ceph Admin", content: cephTab },
-    { id: "s3", label: "Key Management", content: s3Tab },
-    ...(canViewMetrics ? [{ id: "metrics", label: "Metrics", content: metricsTab }] : []),
+    { id: "s3", label: surfaceText("Key Management"), content: s3Tab },
+    ...(canViewMetrics ? [{ id: "metrics", label: surfaceText("Metrics"), content: metricsTab }] : []),
   ];
   const addConnectionDefaults = useMemo(() => {
     if (!createdKey) return null;
@@ -751,10 +744,10 @@ export default function CephAdminUserEditModal({
 
   return <>
     <WorkflowPage
-      title={`Configure user · ${identityLabel}`}
-      description="Manage this RGW user’s configuration, access keys, capabilities and metrics."
+      title={`${surfaceText("Configure user")} · ${identityLabel}`}
+      description={surfaceText("Manage this RGW user’s configuration, access keys, capabilities and metrics.")}
       breadcrumbs={cephAdminPageBreadcrumbs("users", { label: identityLabel })}
-      backLabel="Back to users"
+      backLabel={surfaceText("Back to users")}
       onBack={formController.requestClose}
       backDisabled={formController.locked}
       contentClassName="min-w-0"
@@ -765,13 +758,13 @@ export default function CephAdminUserEditModal({
         activeTab={activeTab}
         onChange={(tab) => setActiveTab(tab as TabId)}
         variant="line"
-        ariaLabel="User configuration sections"
+        ariaLabel={surfaceText("User configuration sections")}
         idPrefix="ceph-admin-user-editor"
       />
       {canAddAsS3Connection && showAddConnectionModal && createdKey && addConnectionDefaults && (
         <AddS3ConnectionFromKeyModal
           isOpen={showAddConnectionModal}
-          title="Add this key as S3 Connection"
+          title={surfaceText("Add this key as S3 Connection")}
           zIndexClass="z-[60]"
           lockEndpoint
           accessKeyId={createdKey.access_key}
@@ -787,7 +780,7 @@ export default function CephAdminUserEditModal({
           defaultRgwAccountId={addConnectionDefaults.rgwIdentity.accountId}
           onClose={() => setShowAddConnectionModal(false)}
           onCreated={() => {
-            setKeysStatus("S3 connection created.");
+            setKeysStatus(surfaceText("S3 connection created."));
             setKeysError(null);
           }}
         />

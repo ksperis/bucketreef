@@ -3,6 +3,7 @@ import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import { rgwAccountNameFormatError } from "../../utils/rgwAccountName";
 import { ACCOUNT_LIMIT_FIELDS, type CephAdminAccountProfileValues, type CephAdminAccountProfileErrors } from "./cephAdminAccountForm";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 export default function CephAdminAccountFormFields({ values, onChange, errors, creating = false }: {
   values: CephAdminAccountProfileValues;
@@ -10,21 +11,24 @@ export default function CephAdminAccountFormFields({ values, onChange, errors, c
   errors?: CephAdminAccountProfileErrors;
   creating?: boolean;
 }) {
+  const { text: surfaceText } = useCephAdminI18n();
   const liveNameError = rgwAccountNameFormatError(values.accountName);
   return <>
-    <SettingsSection title="Account" presentation="compact">
+    <SettingsSection title={surfaceText("Account")} presentation="compact">
       <div className="settings-fields md:grid-cols-2">
-        <UiInput label="Account name" required={creating} value={values.accountName}
+        <UiInput label={surfaceText("Account name")} required={creating} value={values.accountName}
           onChange={(event) => onChange("accountName", event.target.value)} error={errors?.accountName ?? liveNameError} />
-        <UiInput label="Email" type="email" value={values.email}
+        <UiInput label={surfaceText("Email")} type="email" value={values.email}
           onChange={(event) => onChange("email", event.target.value)} />
       </div>
     </SettingsSection>
-    <SettingsSection title="Limits" presentation="compact"
-      description={creating ? "Leave empty to use the cluster defaults." : "Leave empty to clear a limit."}>
+    <SettingsSection title={surfaceText("Limits")} presentation="compact"
+      description={creating
+        ? surfaceText("Leave empty to use the cluster defaults.")
+        : surfaceText("Leave empty to clear a limit.")}>
       <div className="settings-fields md:grid-cols-2">
         {ACCOUNT_LIMIT_FIELDS.map(([field, label]) => (
-          <UiInput key={field} label={label} type="number" min={0} step={1} value={values[field]}
+          <UiInput key={field} label={surfaceText(label)} type="number" min={0} step={1} value={values[field]}
             onChange={(event) => onChange(field, event.target.value)} error={errors?.[field]} />
         ))}
       </div>

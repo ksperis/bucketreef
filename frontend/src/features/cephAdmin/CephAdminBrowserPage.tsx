@@ -10,8 +10,10 @@ import PageHeader from "../../components/PageHeader";
 import BrowserEmbed from "../browser/BrowserEmbed";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 export default function CephAdminBrowserPage() {
+  const { text: surfaceText } = useCephAdminI18n();
   const navigate = useNavigate();
   const { selectedEndpointId, selectedEndpoint } = useCephAdminEndpoint();
   const [acceptedRisk, setAcceptedRisk] = useState(false);
@@ -36,15 +38,15 @@ export default function CephAdminBrowserPage() {
     <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Browser"
-        description="Endpoint-wide object browser for Ceph admin workflows."
+        description={surfaceText("Endpoint-wide object browser for Ceph admin workflows.")}
         breadcrumbs={breadcrumbs}
       />
       <div className="min-h-0 flex-1">
         {!selectedEndpointId ? (
           <PageEmptyState
-            title="Select a Ceph endpoint"
-            description="Choose an endpoint before opening the Ceph Admin browser."
-            primaryAction={{ label: "Return to Ceph Admin", to: "/ceph-admin" }}
+            title={surfaceText("Select a Ceph endpoint")}
+            description={surfaceText("Choose an endpoint before opening the Ceph Admin browser.")}
+            primaryAction={{ label: surfaceText("Return to Ceph Admin"), to: "/ceph-admin" }}
             tone="warning"
             className="h-full"
           />
@@ -69,17 +71,17 @@ export default function CephAdminBrowserPage() {
       </div>
       {showRiskModal && selectedEndpointId != null && (
         <ConfirmActionDialog
-          title="Ceph Admin browser warning"
-          description="This browser uses endpoint-wide ceph-admin credentials. Bucket and object operations may execute with an owner identity different from the expected tenant owner."
-          confirmLabel="I understand the risks"
+          title={surfaceText("Ceph Admin browser warning")}
+          description={surfaceText("This browser uses endpoint-wide ceph-admin credentials. Bucket and object operations may execute with an owner identity different from the expected tenant owner.")}
+          confirmLabel={surfaceText("I understand the risks")}
           tone="primary"
           details={[
-            { label: "Endpoint", value: selectedEndpoint?.name ?? "Unavailable" },
-            { label: "Execution", value: "Endpoint-wide ceph-admin credentials" },
+            { label: surfaceText("Endpoint"), value: selectedEndpoint?.name ?? surfaceText("Unavailable") },
+            { label: surfaceText("Execution"), value: surfaceText("Endpoint-wide ceph-admin credentials") },
           ]}
           impacts={[
-            "Bucket and object actions may not match the tenant owner you expect.",
-            "Prefer an S3 Connection with the correct owner credentials for regular object work.",
+            surfaceText("Bucket and object actions may not match the tenant owner you expect."),
+            surfaceText("Prefer an S3 Connection with the correct owner credentials for regular object work."),
           ]}
           onCancel={handleCloseModal}
           onConfirm={handleAcceptRisk}

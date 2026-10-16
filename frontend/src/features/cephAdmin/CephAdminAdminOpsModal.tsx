@@ -37,6 +37,7 @@ import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { cx, uiMutedTextClass, uiPanelMutedClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type AccountAction = {
   kind: "delete-account";
@@ -113,6 +114,7 @@ export default function CephAdminAdminOpsModal({
   onClose,
   onSuccess,
 }: Props) {
+  const { text: surfaceText } = useCephAdminI18n();
   const [purgeData, setPurgeData] = useState(false);
   const [purgeObjects, setPurgeObjects] = useState(false);
   const [bypassGc, setBypassGc] = useState(false);
@@ -156,42 +158,42 @@ export default function CephAdminAdminOpsModal({
   const title = useMemo(() => {
     switch (action.kind) {
       case "delete-account":
-        return "Delete RGW Account";
+        return surfaceText("Delete RGW Account");
       case "delete-user":
-        return "Delete RGW User";
+        return surfaceText("Delete RGW User");
       case "delete-bucket":
-        return "RGW Admin Ops · Delete bucket";
+        return surfaceText("RGW Admin Ops · Delete bucket");
       case "unlink-bucket":
-        return "RGW Admin Ops · Unlink bucket";
+        return surfaceText("RGW Admin Ops · Unlink bucket");
       case "link-bucket":
-        return "RGW Admin Ops · Link bucket";
+        return surfaceText("RGW Admin Ops · Link bucket");
       case "index-check":
-        return "RGW Admin Ops · Check bucket index";
+        return surfaceText("RGW Admin Ops · Check bucket index");
     }
-  }, [action.kind]);
+  }, [action.kind, surfaceText]);
 
   const impact = useMemo(() => {
     switch (action.kind) {
       case "delete-account":
-        return "The account is removed only when RGW considers it empty. Users and buckets must be removed first.";
+        return surfaceText("The account is removed only when RGW considers it empty. Users and buckets must be removed first.");
       case "delete-user":
         return purgeData
-          ? "RGW removes the user and purges data owned by it. This cannot be undone."
-          : "RGW removes the user only when no owned data prevents deletion.";
+          ? surfaceText("RGW removes the user and purges data owned by it. This cannot be undone.")
+          : surfaceText("RGW removes the user only when no owned data prevents deletion.");
       case "delete-bucket":
         return purgeObjects
-          ? "RGW permanently removes the bucket and all of its objects and versions."
-          : "RGW removes the bucket only when it is empty.";
+          ? surfaceText("RGW permanently removes the bucket and all of its objects and versions.")
+          : surfaceText("RGW removes the bucket only when it is empty.");
       case "unlink-bucket":
-        return "RGW removes the current owner association. The bucket data remains in place.";
+        return surfaceText("RGW removes the current owner association. The bucket data remains in place.");
       case "link-bucket":
-        return "RGW changes the bucket association. This is not a chown and object ACLs are not rewritten.";
+        return surfaceText("RGW changes the bucket association. This is not a chown and object ACLs are not rewritten.");
       case "index-check":
         return fixIndex
-          ? "RGW checks the bucket index and applies repairs."
-          : "RGW inspects the bucket index without applying changes.";
+          ? surfaceText("RGW checks the bucket index and applies repairs.")
+          : surfaceText("RGW inspects the bucket index without applying changes.");
     }
-  }, [action.kind, fixIndex, purgeData, purgeObjects]);
+  }, [action.kind, fixIndex, purgeData, purgeObjects, surfaceText]);
 
   useEffect(() => {
     if (action.kind !== "link-bucket") return;
@@ -341,12 +343,12 @@ export default function CephAdminAdminOpsModal({
     >
       <div className="space-y-3" aria-busy={submitting}>
         <InlineSummary items={[
-          { label: "Target", value: <span className="break-all font-mono">{target}</span> },
-          { label: "Endpoint", value: <span className="break-all">{endpointName || `#${endpointId}`}</span> },
+          { label: surfaceText("Target"), value: <span className="break-all font-mono">{target}</span> },
+          { label: surfaceText("Endpoint"), value: <span className="break-all">{endpointName || `#${endpointId}`}</span> },
         ]} />
 
         <UiInlineMessage tone="warning">
-          <p className="font-semibold">Impact</p>
+          <p className="font-semibold">{surfaceText("Impact")}</p>
           <p className="mt-1">{impact}</p>
         </UiInlineMessage>
 
@@ -361,8 +363,8 @@ export default function CephAdminAdminOpsModal({
               }}
             >
               <span className="modal-option-copy">
-                <span className="block font-semibold">Purge owned data</span>
-                <span className="modal-option-description">Passes purge-data to RGW. Disabled by default.</span>
+                <span className="block font-semibold">{surfaceText("Purge owned data")}</span>
+                <span className="modal-option-description">{surfaceText("Passes purge-data to RGW. Disabled by default.")}</span>
               </span>
             </UiCheckboxField>
           </ModalOptions>
@@ -382,15 +384,14 @@ export default function CephAdminAdminOpsModal({
                 }}
               >
                 <span className="modal-option-copy">
-                  <span className="block font-semibold">Purge objects and versions</span>
-                  <span className="modal-option-description">Passes purge-objects to RGW. Disabled by default.</span>
+                  <span className="block font-semibold">{surfaceText("Purge objects and versions")}</span>
+                  <span className="modal-option-description">{surfaceText("Passes purge-objects to RGW. Disabled by default.")}</span>
                 </span>
               </UiCheckboxField>
             </ModalOptions>
             <UiDetails className="modal-disclosure">
               <summary>
-                Advanced options
-              </summary>
+                {surfaceText("Advanced options")}</summary>
               <ModalOptions className="mt-2">
                 <UiCheckboxField
                   checked={bypassGc}
@@ -401,10 +402,9 @@ export default function CephAdminAdminOpsModal({
                   }}
                 >
                   <span className="modal-option-copy">
-                    <span className="block font-semibold">Bypass garbage collection</span>
+                    <span className="block font-semibold">{surfaceText("Bypass garbage collection")}</span>
                     <span className="modal-option-description">
-                      Exceptional recovery option. Ceph strongly recommends normal garbage collection.
-                    </span>
+                      {surfaceText("Exceptional recovery option. Ceph strongly recommends normal garbage collection.")}</span>
                   </span>
                 </UiCheckboxField>
               </ModalOptions>
@@ -425,8 +425,8 @@ export default function CephAdminAdminOpsModal({
               }}
             >
               <span className="modal-option-copy">
-                <span className="block font-semibold">Fix detected index issues</span>
-                <span className="modal-option-description">Turns this check into a modifying operation.</span>
+                <span className="block font-semibold">{surfaceText("Fix detected index issues")}</span>
+                <span className="modal-option-description">{surfaceText("Turns this check into a modifying operation.")}</span>
               </span>
             </UiCheckboxField>
             <UiCheckboxField
@@ -438,8 +438,8 @@ export default function CephAdminAdminOpsModal({
               }}
             >
               <span className="modal-option-copy">
-                <span className="block font-semibold">Check object state</span>
-                <span className="modal-option-description">Ceph requires fix to be enabled first.</span>
+                <span className="block font-semibold">{surfaceText("Check object state")}</span>
+                <span className="modal-option-description">{surfaceText("Ceph requires fix to be enabled first.")}</span>
               </span>
             </UiCheckboxField>
           </ModalOptions>
@@ -448,11 +448,11 @@ export default function CephAdminAdminOpsModal({
         {action.kind === "link-bucket" && (
           <div className="space-y-3">
             <UiSelect
-              label="Target type"
+              label={surfaceText("Target type")}
               size="compact"
               disabled={submitting}
               value={linkTargetType}
-              hint={canAccounts ? undefined : "RGW Accounts require Ceph Squid or later."}
+              hint={canAccounts ? undefined : surfaceText("RGW Accounts require Ceph Squid or later.")}
               onChange={(event) => {
                 setLinkTargetType(event.target.value as "user" | "account");
                 setSelectedLinkTarget(null);
@@ -460,11 +460,11 @@ export default function CephAdminAdminOpsModal({
                 resetOutcome();
               }}
             >
-              <option value="user">RGW Users</option>
-              <option value="account" disabled={!canAccounts}>RGW Accounts</option>
+              <option value="user">{surfaceText("RGW Users")}</option>
+              <option value="account" disabled={!canAccounts}>{surfaceText("RGW Accounts")}</option>
             </UiSelect>
             <UiInput
-              label="Search targets"
+              label={surfaceText("Search targets")}
               type="search"
               size="compact"
               disabled={submitting}
@@ -474,15 +474,15 @@ export default function CephAdminAdminOpsModal({
                 setSelectedLinkTarget(null);
                 resetOutcome();
               }}
-              placeholder={linkTargetType === "user" ? "Search RGW Users" : "Search RGW Accounts"}
+              placeholder={linkTargetType === "user" ? surfaceText("Search RGW Users") : surfaceText("Search RGW Accounts")}
             />
-            <div role="group" aria-label="RGW link targets" className={cx(uiPanelMutedClass, "max-h-44 space-y-1 overflow-y-auto p-2")}>
+            <div role="group" aria-label={surfaceText("RGW link targets")} className={cx(uiPanelMutedClass, "max-h-44 space-y-1 overflow-y-auto p-2")}>
               {targetsLoading ? (
-                <p role="status" className={cx("p-2 ui-caption", uiMutedTextClass)}>Loading targets...</p>
+                <p role="status" className={cx("p-2 ui-caption", uiMutedTextClass)}>{surfaceText("Loading targets...")}</p>
               ) : targetsError ? (
                 <UiInlineMessage tone="error" role="alert">{targetsError}</UiInlineMessage>
               ) : linkTargets.length === 0 ? (
-                <p className={cx("p-2 ui-caption", uiMutedTextClass)}>No matching target.</p>
+                <p className={cx("p-2 ui-caption", uiMutedTextClass)}>{surfaceText("No matching target.")}</p>
               ) : (
                 linkTargets.map((candidate) => (
                   <ListActionButton
@@ -507,10 +507,10 @@ export default function CephAdminAdminOpsModal({
 
         {requiresPhrase ? (
           <UiInput
-            label="Confirmation phrase"
+            label={surfaceText("Confirmation phrase")}
             size="compact"
-            hint={expectedPhrase ? <>Type <code className="whitespace-pre-wrap break-all font-semibold">{expectedPhrase}</code></> : "Select a target before confirming."}
-            error={confirmation && expectedPhrase && !confirmationMatches ? "Enter the exact confirmation phrase." : undefined}
+            hint={expectedPhrase ? <>{surfaceText("Type")}<code className="whitespace-pre-wrap break-all font-semibold">{expectedPhrase}</code></> : surfaceText("Select a target before confirming.")}
+            error={confirmation && expectedPhrase && !confirmationMatches ? surfaceText("Enter the exact confirmation phrase.") : undefined}
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
             disabled={!expectedPhrase || submitting || Boolean(result?.success)}
@@ -519,8 +519,7 @@ export default function CephAdminAdminOpsModal({
           />
         ) : (
           <p className={cx("ui-caption", uiMutedTextClass)}>
-            This read-only check requires a simple confirmation with the button below.
-          </p>
+            {surfaceText("This read-only check requires a simple confirmation with the button below.")}</p>
         )}
 
         {requestError && (
@@ -531,18 +530,18 @@ export default function CephAdminAdminOpsModal({
 
         {result && (
           <section
-            aria-label="RGW Admin Ops result"
+            aria-label={surfaceText("RGW Admin Ops result")}
             className="space-y-2"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <ListBadge tone={result.success ? "success" : "danger"}>{result.success ? "Completed" : "Failed"}</ListBadge>
+              <ListBadge tone={result.success ? "success" : "danger"}>{result.success ? surfaceText("Completed") : surfaceText("Failed")}</ListBadge>
               <InlineSummary items={[
-                { label: "RGW HTTP", value: result.rgw_status_code ?? "unavailable" },
-                ...(result.rgw_error_code ? [{ label: "Ceph code", value: <span className="break-all">{result.rgw_error_code}</span> }] : []),
+                { label: "RGW HTTP", value: result.rgw_status_code ?? surfaceText("unavailable") },
+                ...(result.rgw_error_code ? [{ label: surfaceText("Ceph code"), value: <span className="break-all">{result.rgw_error_code}</span> }] : []),
               ]} />
             </div>
             <UiInlineMessage tone={result.success ? "success" : "error"} role={result.success ? "status" : "alert"}>{result.message}</UiInlineMessage>
-            <pre tabIndex={0} role="region" aria-label="RGW response body" className={cx(uiPanelMutedClass, "max-h-56 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-xs")}>
+            <pre tabIndex={0} role="region" aria-label={surfaceText("RGW response body")} className={cx(uiPanelMutedClass, "max-h-56 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-xs")}>
               {formattedResult(result.result)}
             </pre>
           </section>
@@ -550,10 +549,17 @@ export default function CephAdminAdminOpsModal({
 
         <ModalActions>
           <UiButton variant="secondary" onClick={onClose} disabled={submitting}>
-            Close
-          </UiButton>
+            {surfaceText("Close")}</UiButton>
           <UiButton variant={action.kind === "index-check" && !fixIndex ? "primary" : "danger"} onClick={() => void run()} disabled={submitDisabled}>
-            {submitting ? "Running..." : result?.success ? "Completed" : result ? "Retry" : action.kind === "index-check" && !fixIndex ? "Run check" : "Run operation"}
+            {submitting
+              ? surfaceText("Running...")
+              : result?.success
+                ? surfaceText("Completed")
+                : result
+                  ? surfaceText("Retry")
+                  : action.kind === "index-check" && !fixIndex
+                    ? surfaceText("Run check")
+                    : surfaceText("Run operation")}
           </UiButton>
         </ModalActions>
       </div>

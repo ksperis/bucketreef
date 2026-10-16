@@ -3,17 +3,19 @@
  * Licensed under the Apache License, Version 2.0
  */
 import BucketOpsWorkbench from "../shared/BucketOpsWorkbench";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 export default function CephAdminBucketsPage() {
+  const { text: surfaceText } = useCephAdminI18n();
   return (
     <BucketOpsWorkbench
       mode="ceph-admin"
       shell={{
-        pageDescription: "Cluster-level bucket listing (Admin Ops + S3).",
+        pageDescription: surfaceText("Cluster-level bucket listing (Admin Ops + S3)."),
         emptyState: {
-          title: "Select a Ceph endpoint before listing buckets",
-          description: "The bucket workbench stays endpoint-scoped. Choose an endpoint to load inventory, filters, and bulk operations.",
-          primaryAction: { label: "Return to Ceph Admin", to: "/ceph-admin" },
+          title: surfaceText("Select a Ceph endpoint before listing buckets"),
+          description: surfaceText("The bucket workbench stays endpoint-scoped. Choose an endpoint to load inventory, filters, and bulk operations."),
+          primaryAction: { label: surfaceText("Return to Ceph Admin"), to: "/ceph-admin" },
           tone: "warning",
         },
       }}

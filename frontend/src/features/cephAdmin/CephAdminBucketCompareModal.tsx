@@ -53,6 +53,7 @@ import {
   formatDownloadTimestamp,
   triggerJsonDownload,
 } from "../../utils/download";
+import { useCephAdminI18n } from "./cephAdminI18n";
 
 type CompareRunItem = {
   sourceBucket: string;
@@ -84,6 +85,7 @@ export default function CephAdminBucketCompareModal({
   endpoints,
   onClose,
 }: CephAdminBucketCompareModalProps) {
+  const { text: surfaceText } = useCephAdminI18n();
   const sortedSourceBuckets = useMemo(() => [...sourceBuckets].sort((a, b) => a.localeCompare(b)), [sourceBuckets]);
   const targetEndpointOptions = useMemo(() => endpoints, [endpoints]);
   const [targetEndpointId, setTargetEndpointId] = useState<number | null>(null);
@@ -156,7 +158,7 @@ export default function CephAdminBucketCompareModal({
   useEffect(() => {
     if (!targetEndpointId) {
       setTargetBucketNames([]);
-      setTargetBucketsError("Select a target endpoint.");
+      setTargetBucketsError(surfaceText("Select a target endpoint."));
       return;
     }
     let cancelled = false;
@@ -202,7 +204,7 @@ export default function CephAdminBucketCompareModal({
     return () => {
       cancelled = true;
     };
-  }, [sourceEndpointId, targetEndpointId]);
+  }, [sourceEndpointId, targetEndpointId, surfaceText]);
 
   const {
     availableTargetBucketNames,
@@ -261,19 +263,19 @@ export default function CephAdminBucketCompareModal({
 
   const runCompare = async () => {
     if (!targetEndpointId) {
-      setRunError("Select a target endpoint.");
+      setRunError(surfaceText("Select a target endpoint."));
       return;
     }
     if (!hasScopeSelected) {
-      setRunError("Select at least one comparison scope: content and/or configuration.");
+      setRunError(surfaceText("Select at least one comparison scope: content and/or configuration."));
       return;
     }
     if (includeConfig && !hasConfigFeatureSelected) {
-      setRunError("Select at least one configuration feature or disable configuration scope.");
+      setRunError(surfaceText("Select at least one configuration feature or disable configuration scope."));
       return;
     }
     if (ignoreModifiedAfterInvalid) {
-      setRunError("Enter a valid modified-after cutoff or clear the field.");
+      setRunError(surfaceText("Enter a valid modified-after cutoff or clear the field."));
       return;
     }
     if (comparePlan.error) {
@@ -445,11 +447,11 @@ export default function CephAdminBucketCompareModal({
 
   return (
     <WorkflowPage
-      title="Compare buckets"
-      description="Map source and target buckets, run the comparison and review or export the resulting differences."
-      breadcrumbs={cephAdminPageBreadcrumbs("buckets", { label: "Compare" })}
+      title={surfaceText("Compare buckets")}
+      description={surfaceText("Map source and target buckets, run the comparison and review or export the resulting differences.")}
+      breadcrumbs={cephAdminPageBreadcrumbs("buckets", { label: surfaceText("Compare") })}
       onBack={handleClose}
-      backLabel={running ? "Stop and return" : "Back to buckets"}
+      backLabel={running ? surfaceText("Stop and return") : surfaceText("Back to buckets")}
       contentClassName="min-w-0"
     >
       <div className="space-y-4">
@@ -460,13 +462,13 @@ export default function CephAdminBucketCompareModal({
           sameTarget={sameEndpointSelected}
           targetSelector={
             <UiSelect
-              label="Target endpoint"
+              label={surfaceText("Target endpoint")}
               value={targetEndpointId ?? ""}
               onChange={(event) => setTargetEndpointId(event.target.value ? Number(event.target.value) : null)}
               disabled={running || targetEndpointOptions.length === 0}
             >
-              {targetEndpointOptions.length > 0 && <option value="">Select a target endpoint</option>}
-              {targetEndpointOptions.length === 0 && <option value="">No other endpoint available</option>}
+              {targetEndpointOptions.length > 0 && <option value="">{surfaceText("Select a target endpoint")}</option>}
+              {targetEndpointOptions.length === 0 && <option value="">{surfaceText("No other endpoint available")}</option>}
               {targetEndpointOptions.map((endpoint) => (
                 <option key={endpoint.id} value={endpoint.id}>
                   {endpoint.name}
@@ -481,14 +483,13 @@ export default function CephAdminBucketCompareModal({
                 disabled={!canRunComparison}
                 className="ui-body"
               >
-                {running ? "Comparing..." : "Run comparison"}
+                {running ? surfaceText("Comparing...") : surfaceText("Run comparison")}
               </UiButton>
               <UiButton onClick={stopComparison} disabled={!running} variant="warning" className="ui-body">
-                {stopping ? "Stopping..." : "Stop"}
+                {stopping ? surfaceText("Stopping...") : surfaceText("Stop")}
               </UiButton>
               <UiButton onClick={exportGlobalDiff} disabled={running || items.length === 0} variant="secondary" className="ui-body">
-                Export global diff
-              </UiButton>
+                {surfaceText("Export global diff")}</UiButton>
             </>
           }
           mappingMode={mappingMode}
@@ -507,12 +508,15 @@ export default function CephAdminBucketCompareModal({
           onConfigFeatureChange={toggleConfigFeature}
           running={running}
         >
-          {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">Loading target buckets...</p>}
+          {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">{surfaceText("Loading target buckets...")}</p>}
           {targetBucketsError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{targetBucketsError}</p>}
           {mappingMode === "by_name" && missingByName.length > 0 && (
             <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-              {missingByName.length} target bucket(s) do not exist with the same name.
-            </p>
+              {missingByName.length} {surfaceText(
+                missingByName.length === 1
+                  ? "target bucket does not exist with the same name."
+                  : "target buckets do not exist with the same name.",
+              )}</p>
           )}
           {mappingMode === "manual" && (
             <BucketCompareManualMappingEditor
@@ -534,8 +538,7 @@ export default function CephAdminBucketCompareModal({
         {(running || progress.total > 0) && <BucketCompareProgress running={running} progress={progress} percent={progressPercent} />}
         {items.length > 0 && !running && (
           <p className="ui-caption text-slate-600 dark:text-slate-300">
-            Done: {resultSummary.success} / Failed: {resultSummary.failed} / Cancelled: {resultSummary.cancelled} / With
-            differences: {resultSummary.withDiff}
+            {surfaceText("Done:")}{resultSummary.success} {surfaceText("/ Failed:")}{resultSummary.failed} {surfaceText("/ Cancelled:")}{resultSummary.cancelled} {surfaceText("/ With differences:")}{resultSummary.withDiff}
           </p>
         )}
         {items.length > 0 && (
@@ -583,7 +586,7 @@ export default function CephAdminBucketCompareModal({
                     return [
                       {
                         key: "source_only",
-                        label: `Source only (${content.only_source_count})`,
+                        label: surfaceText("Source only ({count})", { count: content.only_source_count }),
                         changed: content.only_source_count > 0,
                         objectCount: content.only_source_count,
                         visibleCount: onlySourceDetails.length,
@@ -594,7 +597,7 @@ export default function CephAdminBucketCompareModal({
                       },
                       {
                         key: "target_only",
-                        label: `Target only (${content.only_target_count})`,
+                        label: surfaceText("Target only ({count})", { count: content.only_target_count }),
                         changed: content.only_target_count > 0,
                         objectCount: content.only_target_count,
                         visibleCount: onlyTargetDetails.length,
@@ -605,7 +608,7 @@ export default function CephAdminBucketCompareModal({
                       },
                       {
                         key: "different",
-                        label: `Different objects (${content.different_count})`,
+                        label: surfaceText("Different objects ({count})", { count: content.different_count }),
                         changed: content.different_count > 0,
                         objectCount: content.different_count,
                         visibleCount: differentSourceDetails.length,
@@ -620,7 +623,7 @@ export default function CephAdminBucketCompareModal({
               const configSections =
                 item.result?.config_diff?.sections.map((section) => ({
                   key: section.key,
-                  label: section.label,
+                  label: surfaceText(section.label),
                   changed: section.changed,
                   before: [{ text: formatUnknown(section.source), tone: section.changed ? ("removed" as const) : undefined }],
                   after: [{ text: formatUnknown(section.target), tone: section.changed ? ("added" as const) : undefined }],
@@ -644,10 +647,9 @@ export default function CephAdminBucketCompareModal({
                         summary={
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                              Content diff (md5 or size)
-                            </span>
+                              {surfaceText("Content diff (md5 or size)")}</span>
                             <ListBadge tone={getChangedTone(contentHasDifferences)}>
-                              {contentHasDifferences ? "Different" : "Identical"}
+                              {contentHasDifferences ? surfaceText("Different") : surfaceText("Identical")}
                             </ListBadge>
                           </div>
                         }
@@ -669,11 +671,11 @@ export default function CephAdminBucketCompareModal({
                                     <div className="flex flex-wrap items-center gap-2">
                                       <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
                                       <ListBadge tone={getChangedTone(section.changed)}>
-                                        {section.changed ? "Different" : "Identical"}
+                                        {section.changed ? surfaceText("Different") : surfaceText("Identical")}
                                       </ListBadge>
                                       {displayLimitMessage && (
                                         <ListBadge tone="warning">
-                                          Showing {section.visibleCount} of {section.objectCount}
+                                          {surfaceText("Showing")}{section.visibleCount} {surfaceText("of")}{section.objectCount}
                                         </ListBadge>
                                       )}
                                     </div>
@@ -686,8 +688,7 @@ export default function CephAdminBucketCompareModal({
                                           void copyVisibleKeys(sectionFeedbackId, section.copyKeys);
                                         }}
                                       >
-                                        Copy keys
-                                      </ListActionButton>
+                                        {surfaceText("Copy keys")}</ListActionButton>
                                     )}
                                   </div>
                                 }
@@ -706,8 +707,7 @@ export default function CephAdminBucketCompareModal({
                                   <div className="grid gap-2 lg:grid-cols-2">
                                     <div className="space-y-1">
                                       <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                        Source
-                                      </p>
+                                        {surfaceText("Source")}</p>
                                       <BucketCompareObjectDetails rows={section.sourceDetails} options={{
                                         onExplore: openExploreConfirm,
                                         buildBrowserHref: (detail) =>
@@ -716,8 +716,7 @@ export default function CephAdminBucketCompareModal({
                                     </div>
                                     <div className="space-y-1">
                                       <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                        Target
-                                      </p>
+                                        {surfaceText("Target")}</p>
                                       <BucketCompareObjectDetails rows={section.targetDetails} options={{
                                         onExplore: openExploreConfirm,
                                         buildBrowserHref: (detail) =>
@@ -740,9 +739,9 @@ export default function CephAdminBucketCompareModal({
                       <BucketCompareSection
                         summary={
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Config diff</span>
+                            <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{surfaceText("Config diff")}</span>
                             <ListBadge tone={getChangedTone(configHasDifferences)}>
-                              {configHasDifferences ? "Different" : "Identical"}
+                              {configHasDifferences ? surfaceText("Different") : surfaceText("Identical")}
                             </ListBadge>
                           </div>
                         }
@@ -755,7 +754,7 @@ export default function CephAdminBucketCompareModal({
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
                                   <ListBadge tone={getChangedTone(section.changed)}>
-                                    {section.changed ? "Different" : "Identical"}
+                                    {section.changed ? surfaceText("Different") : surfaceText("Identical")}
                                   </ListBadge>
                                 </div>
                               }
@@ -763,14 +762,12 @@ export default function CephAdminBucketCompareModal({
                               <div className="mt-1 grid gap-2 pb-2 lg:grid-cols-2">
                                 <div className="space-y-1">
                                   <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Source
-                                  </p>
+                                    {surfaceText("Source")}</p>
                                   {renderDiffLines(section.before)}
                                 </div>
                                 <div className="space-y-1">
                                   <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Target
-                                  </p>
+                                    {surfaceText("Target")}</p>
                                   {renderDiffLines(section.after)}
                                 </div>
                               </div>
@@ -785,18 +782,17 @@ export default function CephAdminBucketCompareModal({
             })}
             {filteredItems.length === 0 && (
               <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 ui-body text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                No result matches the current filters.
-              </div>
+                {surfaceText("No result matches the current filters.")}</div>
             )}
           </div>
         )}
       </div>
       {pendingExplore && (
         <ConfirmActionDialog
-          title="Leave comparison page?"
-          description="This will leave the bucket comparison page and open this object in Browser."
-          details={[{ label: "Object key", value: pendingExplore.objectKey, mono: true }]}
-          confirmLabel="Open Browser"
+          title={surfaceText("Leave comparison page?")}
+          description={surfaceText("This will leave the bucket comparison page and open this object in Browser.")}
+          details={[{ label: surfaceText("Object key"), value: pendingExplore.objectKey, mono: true }]}
+          confirmLabel={surfaceText("Open Browser")}
           tone="primary"
           maxWidthClass="max-w-lg"
           zIndexClass="z-[60]"
