@@ -13,11 +13,8 @@ from app.core.config import DeploymentProfile, Settings
 from app.core.database import SessionLocal
 from app.models.app_settings import AppSettings
 from app.services.app_settings_service import load_app_settings, load_app_settings_for_db_readonly
-from app.services.deployment_checks import (
-    DeploymentCheckFinding,
-    deployment_exit_code,
-    run_deployment_checks,
-)
+from app.services.deployment_check_models import DeploymentCheckFinding
+from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
 
 
 def _validation_messages(exc: ValidationError) -> list[str]:
