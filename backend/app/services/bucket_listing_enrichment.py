@@ -113,7 +113,7 @@ def _mark_details_unavailable(column_details: dict[str, Any], detail_keys: set[s
 def _enrich_website_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     wants_feature: bool,
     detail_keys: set[str],
@@ -121,7 +121,7 @@ def _enrich_website_configuration(
     column_details: dict[str, Any],
 ) -> None:
     try:
-        website = service.get_bucket_website(bucket.name, account)
+        website = service.get_bucket_website(bucket.name, execution_context)
     except RuntimeError:
         if wants_feature:
             feature_map["static_website"] = _feature_status_unavailable()
@@ -156,7 +156,7 @@ def _enrich_website_configuration(
 def _enrich_policy_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     wants_feature: bool,
     detail_keys: set[str],
@@ -164,7 +164,7 @@ def _enrich_policy_configuration(
     column_details: dict[str, Any],
 ) -> None:
     try:
-        policy = service.get_policy(bucket.name, account)
+        policy = service.get_policy(bucket.name, execution_context)
     except RuntimeError:
         if wants_feature:
             feature_map["bucket_policy"] = _feature_status_unavailable()
@@ -186,7 +186,7 @@ def _enrich_policy_configuration(
 def _enrich_logging_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     wants_feature: bool,
     detail_keys: set[str],
@@ -194,7 +194,7 @@ def _enrich_logging_configuration(
     column_details: dict[str, Any],
 ) -> None:
     try:
-        logging_config = service.get_bucket_logging(bucket.name, account)
+        logging_config = service.get_bucket_logging(bucket.name, execution_context)
     except RuntimeError:
         if wants_feature:
             feature_map["access_logging"] = _feature_status_unavailable()
@@ -215,7 +215,7 @@ def _enrich_logging_configuration(
 def _enrich_notification_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     sns_feature_enabled: bool,
     wants_feature: bool,
@@ -230,7 +230,7 @@ def _enrich_notification_configuration(
         return
 
     try:
-        notifications = service.get_bucket_notifications(bucket.name, account)
+        notifications = service.get_bucket_notifications(bucket.name, execution_context)
     except RuntimeError:
         if wants_feature:
             feature_map["notifications"] = _feature_status_unavailable()
@@ -250,7 +250,7 @@ def _enrich_notification_configuration(
 def _enrich_encryption_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     wants_feature: bool,
     detail_keys: set[str],
@@ -258,7 +258,7 @@ def _enrich_encryption_configuration(
     column_details: dict[str, Any],
 ) -> None:
     try:
-        encryption = service.get_bucket_encryption(bucket.name, account)
+        encryption = service.get_bucket_encryption(bucket.name, execution_context)
     except RuntimeError:
         if wants_feature:
             feature_map["server_side_encryption"] = _feature_status_unavailable()
@@ -391,7 +391,7 @@ class _BucketEnrichmentPlan:
         requested: set[str],
         *,
         include_tags: bool,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
     ) -> "_BucketEnrichmentPlan":
         selected = set(requested)
         property_details = selected & _COLUMN_DETAIL_PROPS_KEYS
@@ -399,7 +399,7 @@ class _BucketEnrichmentPlan:
         return cls(
             requested=selected,
             include_tags=include_tags,
-            sns_feature_enabled=account_sns_feature_enabled(account),
+            sns_feature_enabled=account_sns_feature_enabled(execution_context),
             lifecycle_details=selected & _COLUMN_DETAIL_LIFECYCLE_KEYS,
             property_details=property_details,
             logging_details=selected & _COLUMN_DETAIL_LOGGING_KEYS,
@@ -422,11 +422,11 @@ class _BucketEnricher:
         *,
         plan: _BucketEnrichmentPlan,
         service: BucketConfigurationService,
-        account: S3ExecutionTarget,
+        execution_context: S3ExecutionTarget,
     ) -> None:
         self.plan = plan
         self.service = service
-        self.account = account
+        self.execution_context = execution_context
 
     def enrich(self, bucket: BucketListingSummary) -> BucketListingSummary:
         tags = self._load_tags(bucket)
@@ -435,7 +435,7 @@ class _BucketEnricher:
         properties = load_bucket_properties_context(
             self.service,
             bucket.name,
-            self.account,
+            self.execution_context,
             uses_bundle=self.plan.use_properties_bundle,
         )
         self._enrich_property_features(properties, feature_map, column_details)
@@ -449,7 +449,7 @@ class _BucketEnricher:
         if not self.plan.include_tags:
             return None
         try:
-            return self.service.get_bucket_tags(bucket.name, self.account)
+            return self.service.get_bucket_tags(bucket.name, self.execution_context)
         except RuntimeError:
             return []
 
@@ -492,7 +492,7 @@ class _BucketEnricher:
             _enrich_website_configuration(
                 bucket,
                 self.service,
-                self.account,
+                self.execution_context,
                 wants_feature=self.plan.wants("static_website"),
                 detail_keys=self.plan.website_details,
                 feature_map=feature_map,
@@ -502,7 +502,7 @@ class _BucketEnricher:
             _enrich_policy_configuration(
                 bucket,
                 self.service,
-                self.account,
+                self.execution_context,
                 wants_feature=self.plan.wants("bucket_policy"),
                 detail_keys=self.plan.policy_details,
                 feature_map=feature_map,
@@ -512,7 +512,7 @@ class _BucketEnricher:
             _enrich_logging_configuration(
                 bucket,
                 self.service,
-                self.account,
+                self.execution_context,
                 wants_feature=self.plan.wants("access_logging"),
                 detail_keys=self.plan.logging_details,
                 feature_map=feature_map,
@@ -522,7 +522,7 @@ class _BucketEnricher:
             _enrich_notification_configuration(
                 bucket,
                 self.service,
-                self.account,
+                self.execution_context,
                 sns_feature_enabled=self.plan.sns_feature_enabled,
                 wants_feature=self.plan.wants("notifications"),
                 detail_keys=self.plan.notification_details,
@@ -533,7 +533,7 @@ class _BucketEnricher:
             _enrich_encryption_configuration(
                 bucket,
                 self.service,
-                self.account,
+                self.execution_context,
                 wants_feature=self.plan.wants("server_side_encryption"),
                 detail_keys=self.plan.encryption_details,
                 feature_map=feature_map,
@@ -564,7 +564,7 @@ def enrich_buckets(
     requested: set[str],
     include_tags: bool,
     service: BucketConfigurationService,
-    account: S3ExecutionTarget,
+    execution_context: S3ExecutionTarget,
     *,
     progress: ListingProgressEmitter | None = None,
     progress_stage: str = "bucket_enrichment",
@@ -578,12 +578,12 @@ def enrich_buckets(
     plan = _BucketEnrichmentPlan.build(
         requested,
         include_tags=include_tags,
-        account=account,
+        execution_context=execution_context,
     )
     enricher = _BucketEnricher(
         plan=plan,
         service=service,
-        account=account,
+        execution_context=execution_context,
     )
 
     max_workers = min(BUCKET_ENRICH_MAX_WORKERS, len(buckets))

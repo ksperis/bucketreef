@@ -867,7 +867,7 @@ def test_ceph_admin_bucket_listing_any_mixed_filter_prefers_bulk_field_rules(mon
         requested: set[str],
         include_tags: bool,
         service,
-        account,
+        execution_context,
         **_progress,
     ) -> list[BucketListingSummary]:
         captured["names"] = [bucket.name for bucket in buckets]
@@ -1123,7 +1123,7 @@ def test_ceph_admin_bucket_listing_tag_filter_matches_s3_tags(monkeypatch: pytes
         requested: set[str],
         include_tags: bool,
         service,
-        account,
+        execution_context,
         **_progress,
     ) -> list[BucketListingSummary]:
         assert requested == set()
@@ -1176,7 +1176,7 @@ def test_ceph_admin_bucket_listing_any_tag_filter_prefers_bulk_field_rules(monke
         requested: set[str],
         include_tags: bool,
         service,
-        account,
+        execution_context,
         **_progress,
     ) -> list[BucketListingSummary]:
         captured["names"] = [bucket.name for bucket in buckets]

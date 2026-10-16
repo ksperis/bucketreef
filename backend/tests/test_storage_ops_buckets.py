@@ -615,7 +615,7 @@ def test_storage_ops_listing_fanout_runs_in_parallel(client, monkeypatch):
 def test_storage_ops_feature_param_filter_prefilters_base_candidates(monkeypatch):
     captured: dict[str, list[str]] = {}
 
-    def fake_load_feature_param_snapshots(buckets, rules, service, account):  # noqa: ANN001, ARG001
+    def fake_load_feature_param_snapshots(buckets, rules, service, execution_context):  # noqa: ANN001, ARG001
         captured["bucket_names"] = [bucket.name for bucket in buckets]
         return {}, set()
 
@@ -1258,7 +1258,7 @@ def test_storage_ops_applies_cheap_field_prefilter_before_feature_enrichment(cli
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
             return [Bucket(name="alpha", used_bytes=1), Bucket(name="beta", used_bytes=1)]
 
-    def fake_enrich_buckets(buckets, requested_features, include_tags, service, account):  # noqa: ANN001, ARG001
+    def fake_enrich_buckets(buckets, requested_features, include_tags, service, execution_context):  # noqa: ANN001, ARG001
         enrich_inputs.append([bucket.name for bucket in buckets])
         enriched: list[BucketListingSummary] = []
         for bucket in buckets:
@@ -1334,7 +1334,7 @@ def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
         def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
             return [Bucket(name="alpha"), Bucket(name="beta")]
 
-    def fake_enrich_buckets(buckets, requested_features, include_tags, service, account):  # noqa: ANN001, ARG001
+    def fake_enrich_buckets(buckets, requested_features, include_tags, service, execution_context):  # noqa: ANN001, ARG001
         captured["requested_features"] = requested_features
         captured["include_tags"] = include_tags
         enriched: list[BucketListingSummary] = []
