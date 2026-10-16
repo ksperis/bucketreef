@@ -72,3 +72,30 @@ def test_ensure_cors_repairs_missing_multipart_etag_exposure(monkeypatch):
     assert status.enabled is True
     assert client.put_calls
     assert "ETag" in client.rules[0]["ExposeHeaders"]
+
+
+def test_ensure_cors_does_not_write_when_browser_rule_is_already_complete(monkeypatch):
+    rule = _direct_transfer_rule(expose_headers=["ETag", "x-amz-request-id", "x-amz-id-2"])
+    rule["AllowedMethods"].append("DELETE")
+    rule["MaxAgeSeconds"] = 3000
+    client = CorsClient([rule])
+    service = _service_with_client(monkeypatch, client)
+
+    status = service.ensure_bucket_cors("bucket-a", object(), ORIGIN)
+
+    assert status.enabled is True
+    assert client.put_calls == []
+
+
+def test_ensure_cors_repairs_matching_wildcard_origin_rule(monkeypatch):
+    rule = _direct_transfer_rule(expose_headers=["ETag"])
+    rule["AllowedOrigins"] = ["*"]
+    client = CorsClient([rule])
+    service = _service_with_client(monkeypatch, client)
+
+    status = service.ensure_bucket_cors("bucket-a", object(), ORIGIN)
+
+    assert status.enabled is True
+    assert len(client.rules) == 1
+    assert client.rules[0]["AllowedOrigins"] == ["*"]
+    assert "DELETE" in client.rules[0]["AllowedMethods"]
