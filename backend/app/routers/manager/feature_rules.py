@@ -25,13 +25,13 @@ router = APIRouter(prefix="/manager/feature-rules", tags=["manager-feature-rules
 @router.get("", response_model=list[FeatureRuleInventoryBucket])
 def list_feature_rule_inventory(
     feature: FeatureRuleInventoryFeature = Query(..., description="Bucket feature to inventory."),
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     buckets_service: BucketsService = Depends(get_buckets_service),
     configuration_service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _tool_user: User = Depends(require_manager_feature_rules_enabled),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> list[FeatureRuleInventoryBucket]:
     try:
-        return FeatureRuleInventoryService(buckets_service, configuration_service).list_inventory(feature, account)
+        return FeatureRuleInventoryService(buckets_service, configuration_service).list_inventory(feature, context)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
