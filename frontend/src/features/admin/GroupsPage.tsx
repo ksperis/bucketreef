@@ -132,6 +132,34 @@ function emptyGroupForm(): UiGroupPayload {
   };
 }
 
+function groupFormFromGroup(group: UiGroup): UiGroupPayload {
+  return {
+    name: group.name,
+    description: group.description ?? "",
+    avatar_source: group.avatar?.source ?? "initials",
+    avatar_icon: group.avatar?.icon ?? null,
+    can_access_ceph_admin: Boolean(group.can_access_ceph_admin),
+    can_access_storage_ops: Boolean(group.can_access_storage_ops),
+    can_create_manual_private_connections: Boolean(group.can_create_manual_private_connections),
+    can_provision_managed_private_connections: Boolean(group.can_provision_managed_private_connections),
+    browser_advanced_features_enabled: Boolean(group.browser_advanced_features_enabled),
+    manager_tool_access: normalizeManagerToolAccess(group.manager_tool_access),
+    user_ids: (group.user_details ?? []).map((user) => Number(user.id)),
+    account_links:
+      group.account_links?.map((link) => ({
+        account_id: Number(link.account_id),
+        manager_role: link.manager_role,
+        portal_role: link.portal_role,
+        allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+      })) ?? [],
+    s3_user_links: (group.s3_user_links ?? []).map((link) => ({
+      s3_user_id: Number(link.s3_user_id),
+      allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+    })),
+    s3_connection_ids: (group.s3_connection_details ?? []).map((connection) => Number(connection.id)),
+  };
+}
+
 export default function GroupsPage() {
   type SortField = "name" | "created_at" | "updated_at";
 
@@ -357,31 +385,7 @@ export default function GroupsPage() {
   const openEditModal = (group: UiGroup) => {
     resetForm();
     setEditingGroup(group);
-    const draft: UiGroupPayload = {
-      name: group.name,
-      description: group.description ?? "",
-      avatar_source: group.avatar?.source ?? "initials",
-      avatar_icon: group.avatar?.icon ?? null,
-      can_access_ceph_admin: Boolean(group.can_access_ceph_admin),
-      can_access_storage_ops: Boolean(group.can_access_storage_ops),
-      can_create_manual_private_connections: Boolean(group.can_create_manual_private_connections),
-      can_provision_managed_private_connections: Boolean(group.can_provision_managed_private_connections),
-      browser_advanced_features_enabled: Boolean(group.browser_advanced_features_enabled),
-      manager_tool_access: normalizeManagerToolAccess(group.manager_tool_access),
-      user_ids: (group.user_details ?? []).map((user) => Number(user.id)),
-      account_links:
-        group.account_links?.map((link) => ({
-          account_id: Number(link.account_id),
-          manager_role: link.manager_role,
-          portal_role: link.portal_role,
-          allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
-        })) ?? [],
-      s3_user_links: (group.s3_user_links ?? []).map((link) => ({
-        s3_user_id: Number(link.s3_user_id),
-        allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
-      })),
-      s3_connection_ids: (group.s3_connection_details ?? []).map((connection) => Number(connection.id)),
-    };
+    const draft = groupFormFromGroup(group);
     setForm(draft);
     setInitialFormSignature(stableSignature(draft));
     setModalTab("general");
@@ -490,30 +494,7 @@ export default function GroupsPage() {
         savedGroup = await deleteGroupAvatar(savedGroup.id);
       }
       if (editingGroup) {
-        const savedDraft: UiGroupPayload = {
-          name: savedGroup.name,
-          description: savedGroup.description ?? "",
-          avatar_source: savedGroup.avatar?.source ?? "initials",
-          avatar_icon: savedGroup.avatar?.icon ?? null,
-          can_access_ceph_admin: Boolean(savedGroup.can_access_ceph_admin),
-          can_access_storage_ops: Boolean(savedGroup.can_access_storage_ops),
-          can_create_manual_private_connections: Boolean(savedGroup.can_create_manual_private_connections),
-          can_provision_managed_private_connections: Boolean(savedGroup.can_provision_managed_private_connections),
-          browser_advanced_features_enabled: Boolean(savedGroup.browser_advanced_features_enabled),
-          manager_tool_access: normalizeManagerToolAccess(savedGroup.manager_tool_access),
-          user_ids: (savedGroup.user_details ?? []).map((user) => Number(user.id)),
-          account_links: savedGroup.account_links?.map((link) => ({
-            account_id: Number(link.account_id),
-            manager_role: link.manager_role,
-            portal_role: link.portal_role,
-            allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
-          })) ?? [],
-          s3_user_links: (savedGroup.s3_user_links ?? []).map((link) => ({
-            s3_user_id: Number(link.s3_user_id),
-            allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
-          })),
-          s3_connection_ids: (savedGroup.s3_connection_details ?? []).map((connection) => Number(connection.id)),
-        };
+        const savedDraft = groupFormFromGroup(savedGroup);
         setEditingGroup(savedGroup);
         setForm(savedDraft);
         setInitialFormSignature(stableSignature(savedDraft));
