@@ -81,12 +81,7 @@ class ManagedPrivateAccessService:
         source = self.sources.resolve_iam_source(user, context)
         destination = self.sources.derive_destination(source)
         iam = self._iam_service_for_context(context)
-        try:
-            self._validate_iam_selections(iam, payload)
-        except ManagedPrivateAccessError:
-            raise
-        except Exception as exc:
-            raise ManagedPrivateAccessError("Unable to validate IAM groups and policies") from exc
+        self._validate_iam_provisioning_request(iam, payload)
         existing = self._active_for_source(user.id, source)
         if existing is not None:
             return self._resolve_idempotent_existing(existing, payload)
@@ -99,43 +94,20 @@ class ManagedPrivateAccessService:
             status="success",
         )
         try:
-            if iam.get_user(source.iam_username or "") is not None:
-                self._mark_failed(provisioning, "deterministic_remote_principal_exists")
-                raise ManagedPrivateAccessConflict(
-                    "The deterministic IAM user already exists and is not linked to a known provisioning"
-                )
-
-            iam.create_user(source.iam_username or "", create_key=False)
-            provisioning.created_remote_principal = True
-            self._checkpoint(provisioning)
-
-            for group_name in payload.groups:
-                iam.add_user_to_group(group_name, source.iam_username or "")
-                self._append_json_value(provisioning, "iam_groups_json", group_name)
-                self._checkpoint(provisioning)
-            for policy_arn in payload.managed_policies:
-                iam.attach_user_policy(source.iam_username or "", policy_arn)
-                self._append_json_value(provisioning, "iam_managed_policies_json", policy_arn)
-                self._checkpoint(provisioning)
-            for inline in payload.inline_policies:
-                iam.put_user_inline_policy(source.iam_username or "", inline.name, inline.document)
-                self._append_json_value(provisioning, "iam_inline_policy_names_json", inline.name)
-                self._checkpoint(provisioning)
-
-            key = iam.create_access_key(source.iam_username or "")
-            if not key.access_key_id or not key.secret_access_key:
-                raise ManagedPrivateAccessError("RGW IAM did not return complete access credentials")
-            provisioning.access_key_id = key.access_key_id
-            provisioning.created_access_key = True
-            self._checkpoint(provisioning)
+            access_key_id, secret_access_key = self._provision_iam_credentials(
+                provisioning,
+                iam,
+                payload,
+                username=source.iam_username or "",
+            )
 
             result = self._create_connection(
                 user=user,
                 provisioning=provisioning,
                 destination=destination,
                 connection_name=payload.connection_name,
-                access_key_id=key.access_key_id,
-                secret_access_key=key.secret_access_key,
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
                 access_browser=payload.access_browser,
                 access_manager=payload.access_manager,
             )
@@ -151,24 +123,17 @@ class ManagedPrivateAccessService:
             )
             raise
         except Exception as exc:
-            safe_error = str(sanitize_error_detail(str(exc)))
-            self.db.rollback()
-            failed = self.db.query(ManagedPrivateAccess).filter(ManagedPrivateAccess.id == provisioning.id).first()
-            if failed is not None:
-                self._record(
-                    user,
-                    failed,
-                    "managed_private_access.provision.failure",
-                    status="failure",
-                    message=safe_error,
-                )
-            self._compensate_iam(provisioning.id, iam, failure=safe_error, user=user)
-            pending = self.db.query(ManagedPrivateAccess).filter(ManagedPrivateAccess.id == provisioning.id).first()
-            if pending is not None and pending.state == "cleanup_pending":
-                raise ManagedPrivateAccessCleanupPending(
-                    pending.id,
-                    "Provisioning failed and remote cleanup requires remediation",
-                ) from exc
+            self._handle_provisioning_failure(
+                user=user,
+                provisioning_id=provisioning.id,
+                exc=exc,
+                compensate=lambda failure: self._compensate_iam(
+                    provisioning.id,
+                    iam,
+                    failure=failure,
+                    user=user,
+                ),
+            )
             raise ManagedPrivateAccessError("Unable to create managed private access") from exc
 
     def provision_rgw_user(
@@ -206,25 +171,103 @@ class ManagedPrivateAccessService:
             self._record(user, provisioning, "managed_private_access.provision.success")
             return result
         except Exception as exc:
-            safe_error = str(sanitize_error_detail(str(exc)))
-            self.db.rollback()
-            failed = self.db.query(ManagedPrivateAccess).filter(ManagedPrivateAccess.id == provisioning.id).first()
-            if failed is not None:
-                self._record(
-                    user,
-                    failed,
-                    "managed_private_access.provision.failure",
-                    status="failure",
-                    message=safe_error,
-                )
-            self._compensate_rgw_user(provisioning.id, failure=safe_error, user=user)
-            pending = self.db.query(ManagedPrivateAccess).filter(ManagedPrivateAccess.id == provisioning.id).first()
-            if pending is not None and pending.state == "cleanup_pending":
-                raise ManagedPrivateAccessCleanupPending(
-                    pending.id,
-                    "Provisioning failed and remote cleanup requires remediation",
-                ) from exc
+            self._handle_provisioning_failure(
+                user=user,
+                provisioning_id=provisioning.id,
+                exc=exc,
+                compensate=lambda failure: self._compensate_rgw_user(
+                    provisioning.id,
+                    failure=failure,
+                    user=user,
+                ),
+            )
             raise ManagedPrivateAccessError("Unable to create managed private access") from exc
+
+    def _validate_iam_provisioning_request(
+        self,
+        iam: RGWIAMService,
+        payload: ManagedIAMPrivateAccessRequest,
+    ) -> None:
+        try:
+            self._validate_iam_selections(iam, payload)
+        except ManagedPrivateAccessError:
+            raise
+        except Exception as exc:
+            raise ManagedPrivateAccessError("Unable to validate IAM groups and policies") from exc
+
+    def _provision_iam_credentials(
+        self,
+        provisioning: ManagedPrivateAccess,
+        iam: RGWIAMService,
+        payload: ManagedIAMPrivateAccessRequest,
+        *,
+        username: str,
+    ) -> tuple[str, str]:
+        if iam.get_user(username) is not None:
+            self._mark_failed(provisioning, "deterministic_remote_principal_exists")
+            raise ManagedPrivateAccessConflict(
+                "The deterministic IAM user already exists and is not linked to a known provisioning"
+            )
+
+        iam.create_user(username, create_key=False)
+        provisioning.created_remote_principal = True
+        self._checkpoint(provisioning)
+
+        for group_name in payload.groups:
+            iam.add_user_to_group(group_name, username)
+            self._append_json_value(provisioning, "iam_groups_json", group_name)
+            self._checkpoint(provisioning)
+        for policy_arn in payload.managed_policies:
+            iam.attach_user_policy(username, policy_arn)
+            self._append_json_value(provisioning, "iam_managed_policies_json", policy_arn)
+            self._checkpoint(provisioning)
+        for inline in payload.inline_policies:
+            iam.put_user_inline_policy(username, inline.name, inline.document)
+            self._append_json_value(provisioning, "iam_inline_policy_names_json", inline.name)
+            self._checkpoint(provisioning)
+
+        key = iam.create_access_key(username)
+        if not key.access_key_id or not key.secret_access_key:
+            raise ManagedPrivateAccessError("RGW IAM did not return complete access credentials")
+        provisioning.access_key_id = key.access_key_id
+        provisioning.created_access_key = True
+        self._checkpoint(provisioning)
+        return key.access_key_id, key.secret_access_key
+
+    def _handle_provisioning_failure(
+        self,
+        *,
+        user: User,
+        provisioning_id: int,
+        exc: Exception,
+        compensate: Callable[[str], None],
+    ) -> None:
+        safe_error = str(sanitize_error_detail(str(exc)))
+        self.db.rollback()
+        failed = (
+            self.db.query(ManagedPrivateAccess)
+            .filter(ManagedPrivateAccess.id == provisioning_id)
+            .first()
+        )
+        if failed is not None:
+            self._record(
+                user,
+                failed,
+                "managed_private_access.provision.failure",
+                status="failure",
+                message=safe_error,
+            )
+        compensate(safe_error)
+        pending = (
+            self.db.query(ManagedPrivateAccess)
+            .filter(ManagedPrivateAccess.id == provisioning_id)
+            .first()
+        )
+        if pending is not None and pending.state == "cleanup_pending":
+            raise ManagedPrivateAccessCleanupPending(
+                pending.id,
+                "Provisioning failed and remote cleanup requires remediation",
+            ) from exc
 
     def delete_owned_connection(self, *, user: User, connection_id: int) -> bool:
         provisioning = (
