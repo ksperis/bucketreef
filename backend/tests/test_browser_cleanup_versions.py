@@ -138,6 +138,59 @@ def test_cleanup_older_than_never_deletes_current_version(monkeypatch):
     assert captured_deletions == [{"Key": "docs/archive.zip", "VersionId": "old"}]
 
 
+def test_cleanup_combines_keep_last_and_age_criteria(monkeypatch):
+    captured_deletions: list[dict] = []
+    now = datetime.now(tz=timezone.utc)
+
+    class FakeClient:
+        def list_object_versions(self, **_kwargs):  # noqa: ANN001
+            return {
+                "Versions": [
+                    {
+                        "Key": "docs/report.txt",
+                        "VersionId": "current",
+                        "LastModified": now,
+                        "IsLatest": True,
+                    },
+                    {
+                        "Key": "docs/report.txt",
+                        "VersionId": "recent",
+                        "LastModified": now - timedelta(days=5),
+                        "IsLatest": False,
+                    },
+                    {
+                        "Key": "docs/report.txt",
+                        "VersionId": "old",
+                        "LastModified": now - timedelta(days=90),
+                        "IsLatest": False,
+                    },
+                ],
+                "DeleteMarkers": [],
+                "NextKeyMarker": None,
+                "NextVersionIdMarker": None,
+            }
+
+    def fake_delete_objects(_client, _bucket, items):  # noqa: ANN001
+        captured_deletions.extend(items)
+
+    service = browser_service.BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account, request_profile="interactive": FakeClient())
+    monkeypatch.setattr(browser_versions, "delete_objects", fake_delete_objects)
+
+    result = service.cleanup_object_versions(
+        "bucket-a",
+        _account(),
+        CleanupObjectVersionsPayload(
+            prefix="docs/",
+            keep_last_n=2,
+            older_than_days=30,
+        ),
+    )
+
+    assert result.deleted_versions == 1
+    assert captured_deletions == [{"Key": "docs/report.txt", "VersionId": "old"}]
+
+
 def test_cleanup_keeps_delete_markers_for_keys_with_remaining_versions(monkeypatch):
     captured_deletions: list[dict] = []
 
