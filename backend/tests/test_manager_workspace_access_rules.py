@@ -609,7 +609,7 @@ def test_manager_and_browser_workspace_reject_inactive_connection(db_session, pa
 
 
 @pytest.mark.parametrize("account_ref", ["-1", "null", "-42", "0"])
-def test_workspace_rejects_legacy_account_selectors(db_session, account_ref: str):
+def test_workspace_rejects_invalid_account_selectors(db_session, account_ref: str):
     user = User(
         email="legacy-account-selector@example.com",
         hashed_password="x",
@@ -625,6 +625,28 @@ def test_workspace_rejects_legacy_account_selectors(db_session, account_ref: str
             request=_request("/api/manager/buckets"),
             account_ref=account_ref,
             actor=user,
+            db=db_session,
+        )
+
+    assert exc.value.status_code == 400
+    assert "Invalid account identifier" in str(exc.value.detail)
+
+
+@pytest.mark.parametrize("account_ref", ["conn-1", "s3u-1", "ceph-admin-1"])
+def test_portal_access_rejects_non_account_context_selectors(db_session, account_ref: str):
+    user = User(
+        email=f"portal-selector-{account_ref}@example.com",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        dependencies.get_portal_account_access(
+            account_ref=account_ref,
+            user=user,
             db=db_session,
         )
 

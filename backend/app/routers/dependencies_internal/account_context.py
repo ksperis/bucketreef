@@ -59,28 +59,28 @@ def _resolve_portal_browser_context(
 
     return resolve_context(db, user, account, link, request=request)
 
-def _parse_account_selector(account_ref: Optional[str]) -> tuple[Optional[int], Optional[int], Optional[int], Optional[int]]:
-    if account_ref is None or account_ref == "":
+def _parse_execution_context_selector(
+    context_ref: Optional[str],
+) -> tuple[Optional[int], Optional[int], Optional[int], Optional[int]]:
+    if context_ref is None or context_ref == "":
         return None, None, None, None
-    if isinstance(account_ref, str) and account_ref.lower() in {"-1", "null"}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account identifier")
-    if isinstance(account_ref, str) and account_ref.startswith("conn-"):
-        suffix = account_ref.split("conn-", 1)[1]
+    if isinstance(context_ref, str) and context_ref.startswith("conn-"):
+        suffix = context_ref.split("conn-", 1)[1]
         if not suffix.isdigit():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid connection identifier")
         return None, None, int(suffix), None
-    if isinstance(account_ref, str) and account_ref.startswith("s3u-"):
-        suffix = account_ref.split("s3u-", 1)[1]
+    if isinstance(context_ref, str) and context_ref.startswith("s3u-"):
+        suffix = context_ref.split("s3u-", 1)[1]
         if not suffix.isdigit():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid S3 user identifier")
         return None, int(suffix), None, None
-    if isinstance(account_ref, str) and account_ref.startswith("ceph-admin-"):
-        suffix = account_ref.split("ceph-admin-", 1)[1]
+    if isinstance(context_ref, str) and context_ref.startswith("ceph-admin-"):
+        suffix = context_ref.split("ceph-admin-", 1)[1]
         if not suffix.isdigit():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Ceph Admin endpoint identifier")
         return None, None, None, int(suffix)
     try:
-        value = int(account_ref)
+        value = int(context_ref)
         if value <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account identifier")
         return value, None, None, None
@@ -347,7 +347,7 @@ def get_account_context(
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> S3ExecutionContext:
-    account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_account_selector(account_ref)
+    account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_execution_context_selector(account_ref)
     surface = _resolve_workspace_surface(request)
     requested_endpoint = normalize_s3_endpoint(request.headers.get("X-S3-Endpoint")) if request else None
     if isinstance(actor, ManagerSessionPrincipal):
