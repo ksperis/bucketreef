@@ -25,7 +25,7 @@ from app.models.browser import (
 )
 from app.routers.browser_common import require_sse_feature
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_current_account_admin,
     get_optional_sse_customer_context,
 )
@@ -45,7 +45,7 @@ def list_versions(
     key_marker: Optional[str] = None,
     version_id_marker: Optional[str] = None,
     max_keys: int = Query(default=1000, ge=1, le=1000),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListObjectVersionsResponse:
@@ -69,7 +69,7 @@ def head_object(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -94,7 +94,7 @@ def head_object(
 def update_object_metadata(
     bucket_name: str,
     payload: ObjectMetadataUpdate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectMetadata:
@@ -109,7 +109,7 @@ def get_object_tags(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectTags:
@@ -125,7 +125,7 @@ def get_object_tags(
 def put_object_tags(
     bucket_name: str,
     payload: ObjectTags,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectTags:
@@ -148,7 +148,7 @@ def get_object_acl(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectAcl:
@@ -164,7 +164,7 @@ def get_object_acl(
 def put_object_acl(
     bucket_name: str,
     payload: ObjectAcl,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectAcl:
@@ -179,7 +179,7 @@ def get_object_legal_hold(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectLegalHold:
@@ -195,7 +195,7 @@ def get_object_legal_hold(
 def put_object_legal_hold(
     bucket_name: str,
     payload: ObjectLegalHold,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectLegalHold:
@@ -210,7 +210,7 @@ def get_object_retention(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectRetention:
@@ -226,7 +226,7 @@ def get_object_retention(
 def put_object_retention(
     bucket_name: str,
     payload: ObjectRetention,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectRetention:
@@ -240,7 +240,7 @@ def put_object_retention(
 def delete_objects(
     bucket_name: str,
     payload: DeleteObjectsPayload,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
@@ -257,7 +257,7 @@ def delete_objects(
 def copy_object(
     bucket_name: str,
     payload: CopyObjectPayload,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
@@ -277,7 +277,7 @@ def copy_object(
 def create_folder(
     bucket_name: str,
     payload: CreateFolderPayload,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
@@ -294,7 +294,7 @@ def create_folder(
 def restore_object(
     bucket_name: str,
     payload: ObjectRestoreRequest,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
@@ -308,7 +308,7 @@ def restore_object(
 def cleanup_object_versions(
     bucket_name: str,
     payload: CleanupObjectVersionsPayload,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> CleanupObjectVersionsResponse:

@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, Depends
 
 from app.models.access_context import ManagerActor
-from app.routers.dependencies import get_account_context, require_iam_capable_manager
+from app.routers.dependencies import get_s3_execution_context, require_iam_capable_manager
 from app.routers.manager.iam_common import get_iam_service_for_account
 from app.services.s3_execution_context import S3ExecutionContext
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/manager/iam", tags=["manager-iam-overview"])
 
 @router.get("/overview")
 def iam_overview(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> dict:
     service = get_iam_service_for_account(account)

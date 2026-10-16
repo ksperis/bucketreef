@@ -60,7 +60,7 @@ from app.services.manager_bucket_compare_service import (
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_bad_request_from_value_error
 from app.routers.manager.access import require_bucket_management_context
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_audit_service,
     get_current_account_admin,
     get_current_user,
@@ -82,7 +82,7 @@ def _invalidate_bucket_listing_for_account(account: S3ExecutionContext) -> None:
 def list_buckets(
     include: list[str] = Query(default=[], description="Optional extra fields to include (e.g. tags, versioning, cors)"),
     with_stats: bool = Query(True, description="Include usage/quota stats from admin listing"),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> list[Bucket]:
@@ -102,7 +102,7 @@ def list_buckets(
 def get_bucket_stats(
     bucket_name: str,
     with_stats: bool = Query(True, description="Include usage/quota stats when available"),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> Bucket:
@@ -146,13 +146,13 @@ def compare_bucket_pair(
     request: Request,
     db: Session = Depends(get_db),
     _tool_user: User = Depends(require_bucket_compare_enabled),
-    source_account: S3ExecutionContext = Depends(get_account_context),
+    source_account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_account_admin),
     service: BucketComparisonService = Depends(get_bucket_comparison_service),
 ) -> ManagerBucketCompareResult:
-    target_account = get_account_context(
+    target_account = get_s3_execution_context(
         request=request,
-        account_ref=payload.target_context_id,
+        context_ref=payload.target_context_id,
         actor=actor,
         db=db,
     )
@@ -176,14 +176,14 @@ def run_compare_bucket_action(
     request: Request,
     db: Session = Depends(get_db),
     _tool_user: User = Depends(require_bucket_compare_enabled),
-    source_account: S3ExecutionContext = Depends(get_account_context),
+    source_account: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_account_admin),
     service: BucketComparisonService = Depends(get_bucket_comparison_service),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> ManagerBucketCompareActionResult:
-    target_account = get_account_context(
+    target_account = get_s3_execution_context(
         request=request,
-        account_ref=payload.target_context_id,
+        context_ref=payload.target_context_id,
         actor=actor,
         db=db,
     )
@@ -219,7 +219,7 @@ def run_compare_bucket_action(
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_bucket(
     payload: BucketCreate,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -245,7 +245,7 @@ def create_bucket(
 @router.delete("/{bucket_name}")
 def delete_bucket(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -284,7 +284,7 @@ def stream_delete_bucket_with_purge(
     payload: BucketDeleteWithPurgeRequest,
     request: Request,
     tool_user: User = Depends(require_bucket_purge_enabled),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
     expected = bucket_delete_with_purge_confirmation_phrase(bucket_name)

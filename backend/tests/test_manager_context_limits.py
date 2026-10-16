@@ -106,7 +106,7 @@ def test_manager_context_limits_http_contract(db_session, monkeypatch, params, s
     application = FastAPI()
     application.include_router(context_router.router)
     application.dependency_overrides.update({
-        context_router.get_account_context: lambda: account,
+        context_router.get_s3_execution_context: lambda: account,
         context_router.get_current_actor: lambda: actor,
         context_router.get_db: lambda: db_session,
     })

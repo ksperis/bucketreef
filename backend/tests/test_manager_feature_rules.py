@@ -64,7 +64,7 @@ def feature_rule_client(client, db_session, monkeypatch):
     )
     db_session.add(user)
     db_session.commit()
-    app.dependency_overrides[feature_rules_router.get_account_context] = lambda: account
+    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[feature_rules_router.get_buckets_service] = lambda: service
     app.dependency_overrides[feature_rules_router.get_bucket_configuration_service] = lambda: service
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
@@ -270,7 +270,7 @@ def test_feature_rules_requires_manager_tool_access(client, db_session, monkeypa
     )
     db_session.add(user)
     db_session.commit()
-    app.dependency_overrides[feature_rules_router.get_account_context] = lambda: account
+    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[feature_rules_router.get_buckets_service] = lambda: service
     app.dependency_overrides[feature_rules_router.get_bucket_configuration_service] = lambda: service
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
@@ -302,7 +302,7 @@ def test_feature_rules_allows_group_inherited_manager_tool_access(client, db_ses
     db_session.flush()
     db_session.add(UserUiGroup(user_id=user.id, group_id=group.id))
     db_session.commit()
-    app.dependency_overrides[feature_rules_router.get_account_context] = lambda: account
+    app.dependency_overrides[feature_rules_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[feature_rules_router.get_buckets_service] = lambda: service
     app.dependency_overrides[feature_rules_router.get_bucket_configuration_service] = lambda: service
     app.dependency_overrides[dependencies.get_current_user] = lambda: user

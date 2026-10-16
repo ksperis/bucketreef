@@ -12,7 +12,7 @@ from app.core.database import SessionLocal, get_db
 from app.db import User
 from app.models.bucket_usage_stats import BucketUsageStatsRequest
 from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
-from app.routers.dependencies import get_account_context, get_current_storage_ops_admin
+from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin
 from app.routers.execution_contexts import list_execution_contexts
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsOptions,
@@ -48,9 +48,9 @@ def stream_storage_ops_bucket_usage_stats(
     options = BucketUsageStatsOptions(parallelism=payload.parallelism)
     targets = []
     for target in requested_targets:
-        account = get_account_context(
+        account = get_s3_execution_context(
             request=request,
-            account_ref=target.context_id,
+            context_ref=target.context_id,
             actor=user,
             db=db,
         )

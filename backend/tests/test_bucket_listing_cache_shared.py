@@ -85,7 +85,7 @@ def test_manager_bucket_listing_uses_shared_cache(client):
     account = _build_account()
     service = _FakeBucketsService()
 
-    app.dependency_overrides[manager_buckets_router.get_account_context] = lambda: account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[manager_buckets_router.get_buckets_service] = lambda: service
     app.dependency_overrides[manager_buckets_router.get_current_account_admin] = _manager_user
     try:
@@ -95,7 +95,7 @@ def test_manager_bucket_listing_uses_shared_cache(client):
         assert second.status_code == 200, second.text
         assert service.list_calls == 1
     finally:
-        app.dependency_overrides.pop(manager_buckets_router.get_account_context, None)
+        app.dependency_overrides.pop(manager_buckets_router.get_s3_execution_context, None)
         app.dependency_overrides.pop(manager_buckets_router.get_buckets_service, None)
         app.dependency_overrides.pop(manager_buckets_router.get_current_account_admin, None)
         invalidate_bucket_listing_cache()
@@ -117,15 +117,15 @@ def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monke
             )
         ]
 
-    def fake_get_account_context(*, request=None, account_ref=None, actor=None, db=None):  # noqa: ARG001
+    def fake_get_s3_execution_context(*, request=None, context_ref=None, actor=None, db=None):  # noqa: ARG001
         return account
 
     monkeypatch.setattr(storage_ops_buckets_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_buckets_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_buckets_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
-    app.dependency_overrides[manager_buckets_router.get_account_context] = lambda: account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[manager_buckets_router.get_buckets_service] = lambda: service
     app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = lambda: service
     app.dependency_overrides[storage_ops_buckets_router.get_buckets_service] = lambda: service
@@ -147,7 +147,7 @@ def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monke
     finally:
         app.dependency_overrides.pop(dependencies.require_storage_ops_enabled, None)
         app.dependency_overrides.pop(dependencies.get_current_storage_ops_admin, None)
-        app.dependency_overrides.pop(manager_buckets_router.get_account_context, None)
+        app.dependency_overrides.pop(manager_buckets_router.get_s3_execution_context, None)
         app.dependency_overrides.pop(manager_buckets_router.get_buckets_service, None)
         app.dependency_overrides.pop(manager_buckets_router.get_bucket_configuration_service, None)
         app.dependency_overrides.pop(storage_ops_buckets_router.get_buckets_service, None)
@@ -172,11 +172,11 @@ def test_storage_ops_bucket_listing_cache_refresh_endpoint_invalidates_shared_ca
             )
         ]
 
-    def fake_get_account_context(*, request=None, account_ref=None, actor=None, db=None):  # noqa: ARG001
+    def fake_get_s3_execution_context(*, request=None, context_ref=None, actor=None, db=None):  # noqa: ARG001
         return account
 
     monkeypatch.setattr(storage_ops_buckets_router, "list_execution_contexts", fake_list_execution_contexts)
-    monkeypatch.setattr(storage_ops_buckets_router, "get_account_context", fake_get_account_context)
+    monkeypatch.setattr(storage_ops_buckets_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user

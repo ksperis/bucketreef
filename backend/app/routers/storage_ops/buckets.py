@@ -15,7 +15,7 @@ from app.models.bucket_listing import BucketListingRequest
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse
 from app.routers.ceph_admin.listing_common import stream_listing_response
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_current_storage_ops_admin,
 )
 from app.routers.execution_contexts import list_execution_contexts
@@ -51,7 +51,7 @@ def _resolve_context_account(
     user: User,
 ) -> S3ExecutionContext | None:
     try:
-        return get_account_context(request=request, account_ref=ref.context_id, actor=user, db=db)
+        return get_s3_execution_context(request=request, context_ref=ref.context_id, actor=user, db=db)
     except HTTPException as exc:
         if exc.status_code in {status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND}:
             return None

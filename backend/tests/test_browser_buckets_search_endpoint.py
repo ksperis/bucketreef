@@ -46,7 +46,7 @@ def test_browser_bucket_search_endpoint_contract(client):
                 has_next=True,
             )
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get(
@@ -119,7 +119,7 @@ def test_browser_bucket_search_endpoint_paginates_results(client):
                 has_next=end < len(filtered),
             )
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get("/api/browser/buckets/search", params={"search": "a", "page": 2, "page_size": 2})
@@ -156,7 +156,7 @@ def test_browser_bucket_search_endpoint_returns_enriched_display_fields(client):
                 has_next=False,
             )
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get("/api/browser/buckets/search", params={"search": "alpha"})
@@ -182,7 +182,7 @@ def test_browser_bucket_search_endpoint_maps_service_error(client):
         def search_buckets(self, account, *, search=None, exact=False, page=1, page_size=50):  # noqa: ANN001
             raise RuntimeError("bucket search failed")
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get("/api/browser/buckets/search")
@@ -206,7 +206,7 @@ def test_browser_usage_summary_uses_live_account_usage(client, db_session, monke
             return 2.0, 200
 
     monkeypatch.setattr(browser_usage_summary_service, "S3AccountsService", FakeS3AccountsService)
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
 
@@ -237,7 +237,7 @@ def test_browser_usage_summary_hides_account_when_live_usage_is_unavailable(clie
             raise AssertionError("quota should not be fetched when live usage is unavailable")
 
     monkeypatch.setattr(browser_usage_summary_service, "S3AccountsService", FakeS3AccountsService)
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
 
@@ -275,7 +275,7 @@ def test_browser_usage_summary_uses_live_s3_user_usage(client, db_session, monke
             return 1.0, 100
 
     monkeypatch.setattr(browser_usage_summary_service, "S3UsersService", FakeS3UsersService)
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
 
@@ -316,7 +316,7 @@ def test_browser_usage_summary_hides_s3_user_when_live_usage_is_unavailable(clie
             raise AssertionError("quota should not be fetched when live usage is unavailable")
 
     monkeypatch.setattr(browser_usage_summary_service, "S3UsersService", FakeS3UsersService)
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
 
@@ -347,7 +347,7 @@ def test_browser_usage_summary_uses_live_account_usage_for_portal_context(client
             return 5.0, 500
 
     monkeypatch.setattr(browser_usage_summary_service, "S3AccountsService", FakeS3AccountsService)
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
 
@@ -390,7 +390,7 @@ def test_browser_usage_summary_does_not_fallback_to_portal_storage_space_rows(cl
             raise AssertionError("quota should not be fetched when live usage is unavailable")
 
     monkeypatch.setattr(browser_usage_summary_service, "S3AccountsService", FakeS3AccountsService)
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
 
@@ -412,7 +412,7 @@ def test_browser_usage_summary_hides_connection_usage_without_bucket_listing(cli
         s3_connection_id=9,
     )
 
-    app.dependency_overrides[dependencies.get_account_context] = lambda: account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
 

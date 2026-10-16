@@ -400,9 +400,9 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
     assert [details.id for details in out.effective_access.s3_user_details] == [s3_user.id]
     assert [details.id for details in out.effective_access.s3_connection_details] == [connection.id]
 
-    account_ctx = dependencies.get_account_context(
+    account_ctx = dependencies.get_s3_execution_context(
         request=type("Request", (), {"url": type("Url", (), {"path": "/api/manager/buckets"})(), "headers": {}})(),
-        account_ref=str(account.id),
+        context_ref=str(account.id),
         actor=user,
         db=db_session,
     )

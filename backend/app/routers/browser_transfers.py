@@ -28,7 +28,7 @@ from app.routers.browser_common import require_sse_feature
 from app.routers.auth_session_guards import current_auth_session
 from app.routers.s3_download_response import S3DownloadResponse
 from app.routers.dependencies import (
-    get_account_context,
+    get_s3_execution_context,
     get_current_account_admin,
     get_optional_sse_customer_context,
 )
@@ -41,7 +41,7 @@ router = APIRouter()
 
 @router.get("/sts", response_model=StsStatus)
 def get_sts_status(
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StsStatus:
@@ -52,7 +52,7 @@ def get_sts_status(
 def get_sts_credentials(
     request: Request,
     response: Response,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -76,7 +76,7 @@ def upload_via_proxy(
     file: UploadFile = File(...),
     key: str = Form(...),
     content_type: Optional[str] = Form(default=None),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -104,7 +104,7 @@ def download_object(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -130,7 +130,7 @@ def download_object(
 def presign(
     bucket_name: str,
     payload: PresignRequest,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -147,7 +147,7 @@ def presign(
 def multipart_init(
     bucket_name: str,
     payload: MultipartUploadInitRequest,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -174,7 +174,7 @@ def list_multipart_uploads(
     key_marker: Optional[str] = None,
     upload_id_marker: Optional[str] = None,
     max_uploads: int = Query(default=1000, ge=1, le=1000),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListMultipartUploadsResponse:
@@ -197,7 +197,7 @@ def presign_part_for_upload(
     bucket_name: str,
     upload_id: str,
     payload: PresignPartRequest,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -219,7 +219,7 @@ def complete_multipart_upload(
     upload_id: str,
     key: str,
     payload: CompleteMultipartUploadRequest,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
@@ -237,7 +237,7 @@ def abort_multipart_upload(
     bucket_name: str,
     upload_id: str,
     key: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:

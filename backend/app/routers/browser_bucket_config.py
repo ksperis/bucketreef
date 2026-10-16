@@ -13,7 +13,7 @@ from app.models.bucket import (
     BucketProperties,
     BucketWebsiteConfiguration,
 )
-from app.routers.dependencies import get_account_context, get_current_account_admin
+from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.services import bucket_config_actions
 from app.services.bucket_configuration_service import (
     BucketConfigurationService,
@@ -29,7 +29,7 @@ router = APIRouter()
 def get_bucket_config_stats(
     bucket_name: str,
     with_stats: bool = Query(True, description="Include usage/quota stats when available"),
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> Bucket:
@@ -44,7 +44,7 @@ def get_bucket_config_stats(
 @router.get("/buckets/config/{bucket_name}/properties", response_model=BucketProperties)
 def get_bucket_properties_config(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketProperties:
@@ -58,7 +58,7 @@ def get_bucket_properties_config(
 @router.get("/buckets/config/{bucket_name}/policy", response_model=BucketPolicyOut)
 def get_bucket_policy_config(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketPolicyOut:
@@ -72,7 +72,7 @@ def get_bucket_policy_config(
 @router.get("/buckets/config/{bucket_name}/logging", response_model=BucketLoggingConfiguration)
 def get_bucket_logging_config(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketLoggingConfiguration:
@@ -86,7 +86,7 @@ def get_bucket_logging_config(
 @router.get("/buckets/config/{bucket_name}/website", response_model=BucketWebsiteConfiguration)
 def get_bucket_website_config(
     bucket_name: str,
-    account: S3ExecutionContext = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketWebsiteConfiguration:

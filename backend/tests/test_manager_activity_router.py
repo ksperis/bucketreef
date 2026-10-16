@@ -112,7 +112,7 @@ def test_manager_activity_filters_audit_logs_to_exact_execution_context(client, 
     db_session.add_all([expected, other_scope, other])
     db_session.commit()
 
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: context
 
     response = client.get("/api/manager/activity")
 
@@ -144,7 +144,7 @@ def test_manager_activity_supports_non_account_manager_contexts(client, db_sessi
     other = _audit_log(context=_context(account), action="delete_bucket")
     db_session.add_all([expected, other])
     db_session.commit()
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: context
 
     response = client.get("/api/manager/activity")
 
@@ -160,7 +160,7 @@ def test_manager_activity_does_not_expose_sensitive_audit_fields(client, db_sess
     log = _audit_log(context=context, action="put_bucket_policy")
     db_session.add(log)
     db_session.commit()
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: context
 
     response = client.get("/api/manager/activity")
 
@@ -174,7 +174,7 @@ def test_manager_activity_does_not_expose_sensitive_audit_fields(client, db_sess
 
 def test_manager_activity_rejects_limits_above_twenty(client, db_session):
     account = _account("account-limit", db_session)
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(account)
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: _context(account)
 
     response = client.get("/api/manager/activity?limit=21")
 
@@ -183,7 +183,7 @@ def test_manager_activity_rejects_limits_above_twenty(client, db_session):
 
 def test_manager_activity_rejects_unsaved_account_context(client):
     account = _account("transient-account")
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(account)
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: _context(account)
 
     response = client.get("/api/manager/activity")
 
@@ -192,7 +192,7 @@ def test_manager_activity_rejects_unsaved_account_context(client):
 
 def test_manager_activity_is_unavailable_for_private_connection(client, db_session):
     connection = _connection("private-connection", db_session, shared=False)
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(connection)
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: _context(connection)
 
     response = client.get("/api/manager/activity")
 
@@ -210,7 +210,7 @@ def test_manager_activity_respects_resource_override(client, db_session, resourc
     resource.allow_activity_history = False
     db_session.add(resource)
     db_session.commit()
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: _context(resource)
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: _context(resource)
 
     response = client.get("/api/manager/activity")
 
@@ -226,7 +226,7 @@ def test_manager_activity_supports_cursor_search_and_status_without_hidden_field
     third = _audit_log(context=context, action="delete_bucket", entity_id="temporary", status="success")
     db_session.add_all([first, second, third])
     db_session.commit()
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: context
 
     response = client.get("/api/manager/activity?search=research&status=failure")
     assert response.status_code == 200, response.text
@@ -252,7 +252,7 @@ def test_manager_activity_filters_canonical_failure_status(client, db_session):
     success = _audit_log(context=context, action="success", entity_id="two", status="success")
     db_session.add_all([failure, success])
     db_session.commit()
-    app.dependency_overrides[manager_activity_router.get_account_context] = lambda: context
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: context
 
     response = client.get("/api/manager/activity?status=failure&limit=20")
 

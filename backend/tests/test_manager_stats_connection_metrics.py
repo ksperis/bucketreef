@@ -174,9 +174,9 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
     db_session.refresh(user)
     db_session.refresh(connection)
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/stats/overview"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -250,9 +250,9 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
     db_session.refresh(user)
     db_session.refresh(connection)
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/stats/traffic"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )
@@ -357,9 +357,9 @@ def test_manager_stats_dependency_rejects_connection_without_resolved_identity(d
         lambda **kwargs: SimpleNamespace(get_user_by_access_key=lambda *args, **kw: None),
     )
 
-    account = dependencies.get_account_context(
+    account = dependencies.get_s3_execution_context(
         request=_request("/api/manager/stats/overview"),
-        account_ref=f"conn-{connection.id}",
+        context_ref=f"conn-{connection.id}",
         actor=user,
         db=db_session,
     )

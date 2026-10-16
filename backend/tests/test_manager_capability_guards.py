@@ -221,7 +221,7 @@ def test_http_routes_reject_missing_or_denied_capabilities_before_storage_work(c
     else:
         context.manager_capabilities.can_manage_buckets = False
     actor = _actor()
-    app.dependency_overrides[dependencies.get_account_context] = lambda: context
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: context
     app.dependency_overrides[dependencies.get_current_actor] = lambda: actor
     app.dependency_overrides[dependencies.require_bucket_integrity_check_enabled] = lambda: actor
     app.dependency_overrides[dependencies.require_bucket_purge_enabled] = lambda: actor

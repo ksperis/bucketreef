@@ -188,7 +188,7 @@ def test_embedded_browser_private_connection_cannot_forge_manager_quota_update(c
     context = S3ExecutionContext.from_connection(connection)
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
     app.dependency_overrides[dependencies.get_current_actor] = lambda: user
-    app.dependency_overrides[dependencies.get_account_context] = lambda: context
+    app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: context
     app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = fail_if_ceph_service_is_resolved
     try:
         response = client.put(
@@ -199,7 +199,7 @@ def test_embedded_browser_private_connection_cannot_forge_manager_quota_update(c
     finally:
         app.dependency_overrides.pop(dependencies.get_current_user, None)
         app.dependency_overrides.pop(dependencies.get_current_actor, None)
-        app.dependency_overrides.pop(dependencies.get_account_context, None)
+        app.dependency_overrides.pop(dependencies.get_s3_execution_context, None)
         app.dependency_overrides.pop(manager_buckets_router.get_bucket_configuration_service, None)
 
     assert response.status_code == 403

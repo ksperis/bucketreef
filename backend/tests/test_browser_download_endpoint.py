@@ -31,7 +31,7 @@ def test_browser_download_returns_stream(client):
             captured["sse_customer"] = sse_customer
             return S3ObjectDownload(StreamingBody(BytesIO(b"file-bytes"), 10), "text/plain", "demo.txt")
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get("/api/browser/buckets/my-bucket/download?key=folder/demo.txt&version_id=v1")
@@ -53,7 +53,7 @@ def test_browser_download_rejects_missing_key(client):
         def download_object(self, bucket_name, account, key, version_id=None, sse_customer=None):  # noqa: ANN001
             raise AssertionError("download_object should not be called when key is empty")
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get("/api/browser/buckets/my-bucket/download?key=")
@@ -66,7 +66,7 @@ def test_browser_download_maps_service_error_to_bad_gateway(client):
         def download_object(self, bucket_name, account, key, version_id=None, sse_customer=None):  # noqa: ANN001
             raise RuntimeError("S3 get_object failed")
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get("/api/browser/buckets/my-bucket/download?key=demo.txt")
@@ -87,7 +87,7 @@ def test_browser_download_passes_sse_customer_context_to_service(client):
             captured["sse_customer"] = sse_customer
             return S3ObjectDownload(StreamingBody(BytesIO(b"ok"), 2), "application/octet-stream", "demo.bin")
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get(
@@ -110,7 +110,7 @@ def test_browser_download_rejects_invalid_sse_customer_key(client):
         def download_object(self, bucket_name, account, key, version_id=None, sse_customer=None):  # noqa: ANN001
             raise AssertionError("download_object should not be called for invalid SSE-C key")
 
-    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
     response = client.get(
