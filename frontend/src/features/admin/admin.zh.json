@@ -1377,6 +1377,7 @@
   "These options enable the surface. Storage permissions still apply.": "这些选项用于启用该界面。存储权限仍然适用。",
   "These origins are added to the Portal CORS rule for new Storage Spaces.": "这些来源会添加到新 Storage Space 的 Portal CORS 规则中。",
   "These settings changed on the server. Cancel to load their current values, or review your changes before trying again.": "这些设置在服务器上已更改。请取消更改以加载当前值，或检查你的更改后再重试。",
+  "Bucket ownership could not be verified. RGW deletion is unavailable, but you can still remove this user from BucketReef.": "无法验证此用户拥有的 Bucket。当前无法从 RGW 删除该用户，但你仍可将其从 BucketReef 中移除。",
   "This RGW user still has linked resources. Remove owned buckets before deleting it from RGW.": "此 RGW 用户仍有关联资源。请先移除其拥有的 Bucket，再从 RGW 中删除该用户。",
   "This endpoint is read-only; Ceph service configuration cannot be changed.": "此端点为只读；无法更改 Ceph 服务配置。",
   "This external identity will be linked to the selected local account.": "此外部身份将关联到所选的本地账户。",
