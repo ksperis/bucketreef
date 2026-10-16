@@ -15,6 +15,8 @@ from app.db import (
     BillingRateCard,
     BillingStorageDaily,
     BillingUsageDaily,
+    BrowserFavorite,
+    BucketMigration,
     BucketUsageStatsSnapshot,
     QuotaAlertState,
     QuotaUsageDaily,
@@ -947,6 +949,28 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
     created = service.create_user(S3UserCreate(name="Derived", uid="derived-user", storage_endpoint_id=endpoint.id))
     s3_user = db_session.query(S3User).filter_by(id=created.id).one()
     _seed_s3_user_derived_rows(db_session, endpoint=endpoint, s3_user=s3_user)
+    favorite_owner = User(
+        email="s3-user-delete-favorite@example.test",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+        is_active=True,
+    )
+    db_session.add(favorite_owner)
+    db_session.flush()
+    db_session.add(
+        BrowserFavorite(
+            id="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            user_id=favorite_owner.id,
+            surface="browser",
+            name="RGW User favorite",
+            workspace="manager",
+            context=f"s3u-{created.id}",
+            bucket="bucket-u",
+            prefix="",
+            revision=1,
+        )
+    )
+    db_session.commit()
 
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [])
     service.delete_user(created.id, delete_rgw=True)
@@ -966,6 +990,30 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
         .count()
         == 0
     )
+    assert db_session.query(BrowserFavorite).filter(BrowserFavorite.context == f"s3u-{created.id}").count() == 0
+
+
+def test_delete_user_rejects_active_bucket_migration_before_remote_delete(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(name="MigrationSource", uid="migration-source", storage_endpoint_id=endpoint.id)
+    )
+    migration = BucketMigration(
+        source_context_id=f"s3u-{created.id}",
+        target_context_id="conn-999",
+        status="running",
+    )
+    db_session.add(migration)
+    db_session.commit()
+
+    with pytest.raises(ValueError, match=rf"bucket migration {migration.id}"):
+        service.delete_user(created.id, delete_rgw=True)
+
+    assert fake.deleted_users == []
+    assert fake.deleted_keys == []
+    assert db_session.query(S3User).filter(S3User.id == created.id).one()
 
 
 def test_list_users_and_minimal_are_sorted_case_insensitive_and_stable(db_session):

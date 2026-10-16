@@ -692,6 +692,7 @@ class S3UsersService:
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self._get_s3_user(user_id)
+        ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(f"s3u-{s3_user.id}")
         admin = self._admin_for_user(s3_user)
         tenant, remote_exists = self._verified_user_for_deletion(s3_user, admin)
         if not remote_exists:
@@ -725,7 +726,9 @@ class S3UsersService:
         self.db.query(UiGroupS3User).filter(UiGroupS3User.s3_user_id == s3_user.id).delete(
             synchronize_session=False
         )
-        ResourceDeletionPurgeService(self.db).purge_s3_user_derived_data(s3_user.id)
+        purge = ResourceDeletionPurgeService(self.db)
+        purge.purge_s3_user_derived_data(s3_user.id)
+        purge.purge_execution_context_data(f"s3u-{s3_user.id}")
         self.db.delete(s3_user)
         self.db.flush()
         self.tags.cleanup_orphan_definitions(

@@ -15,6 +15,8 @@ from app.db import (
     BillingRateCard,
     BillingStorageDaily,
     BillingUsageDaily,
+    BrowserFavorite,
+    BucketMigration,
     BucketUsageStatsSnapshot,
     QuotaAlertState,
     QuotaUsageDaily,
@@ -932,6 +934,28 @@ def test_delete_account_purges_derived_database_rows(db_session, monkeypatch):
     db_session.add(account)
     db_session.commit()
     _seed_account_derived_rows(db_session, endpoint=endpoint, account=account)
+    favorite_owner = User(
+        email="account-delete-favorite@example.test",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+        is_active=True,
+    )
+    db_session.add(favorite_owner)
+    db_session.flush()
+    db_session.add(
+        BrowserFavorite(
+            id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            user_id=favorite_owner.id,
+            surface="browser",
+            name="Account favorite",
+            workspace="portal",
+            context=str(account.id),
+            bucket="bucket-a",
+            prefix="",
+            revision=1,
+        )
+    )
+    db_session.commit()
 
     fake_admin = FakeRGWDeleteAdmin()
     svc = _build_service(db_session, monkeypatch, fake_admin)
@@ -951,6 +975,36 @@ def test_delete_account_purges_derived_database_rows(db_session, monkeypatch):
         .count()
         == 0
     )
+    assert db_session.query(BrowserFavorite).filter(BrowserFavorite.context == str(account.id)).count() == 0
+
+
+def test_delete_account_rejects_active_bucket_migration_before_remote_delete(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account = S3Account(
+        name="MigrationSource",
+        rgw_account_id="RGW00000000000000005",
+        rgw_user_uid="rgw00000000000000005-admin",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.flush()
+    migration = BucketMigration(
+        source_context_id=str(account.id),
+        target_context_id="conn-999",
+        status="running",
+    )
+    db_session.add(migration)
+    db_session.commit()
+
+    fake_admin = FakeRGWDeleteAdmin()
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+
+    with pytest.raises(ValueError, match=rf"bucket migration {migration.id}"):
+        svc.delete_account(account.id, delete_rgw=True)
+
+    assert fake_admin.deleted == []
+    assert fake_admin.deleted_users == []
+    assert db_session.query(S3Account).filter(S3Account.id == account.id).one()
 
 
 def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):

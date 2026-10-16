@@ -780,6 +780,7 @@ class S3AccountsService:
 
     def delete_account(self, account_id: int, delete_rgw: bool = False) -> None:
         account = self._get_account(account_id)
+        ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(str(account.id))
         if delete_rgw:
             admin = self._admin_for_account(account, allow_missing=False)
             account_identifier = account.rgw_account_id
@@ -912,7 +913,9 @@ class S3AccountsService:
         self.db.query(UiGroupS3Account).filter(UiGroupS3Account.account_id == account.id).delete(
             synchronize_session=False
         )
-        ResourceDeletionPurgeService(self.db).purge_account_derived_data(account.id)
+        purge = ResourceDeletionPurgeService(self.db)
+        purge.purge_account_derived_data(account.id)
+        purge.purge_execution_context_data(str(account.id))
         self.db.delete(account)
         self.db.flush()
         self.tags.cleanup_orphan_definitions(

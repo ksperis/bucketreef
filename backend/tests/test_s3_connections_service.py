@@ -10,6 +10,9 @@ from app.core.domain_errors import S3ConnectionConflictError, S3ConnectionNotFou
 from pydantic import ValidationError
 
 from app.db import (
+    BrowserFavorite,
+    BucketMigration,
+    BucketUsageStatsSnapshot,
     S3Connection,
     StorageEndpoint,
     StorageProvider,
@@ -509,10 +512,64 @@ def test_delete(db_session):
         created_by_user_id=owner.id,
         name="caps-conn",
     )
+    db_session.add_all(
+        [
+            BrowserFavorite(
+                id="cccccccc-cccc-cccc-cccc-cccccccccccc",
+                user_id=owner.id,
+                surface="browser",
+                name="Connection favorite",
+                workspace="browser",
+                context=f"conn-{row.id}",
+                bucket="bucket-c",
+                prefix="",
+                revision=1,
+            ),
+            BucketUsageStatsSnapshot(
+                scope_kind="manager",
+                scope_id=f"conn-{row.id}",
+                bucket_name="bucket-c",
+                data_type_distribution_json="[]",
+                storage_class_distribution_json="[]",
+                size_distribution_json="[]",
+                age_distribution_json="[]",
+                current_noncurrent_distribution_json="[]",
+            ),
+        ]
+    )
+    db_session.commit()
     service = S3ConnectionsService(db_session)
 
     service.delete(owner.id, row.id)
     assert db_session.query(S3Connection).filter(S3Connection.id == row.id).first() is None
+    assert db_session.query(BrowserFavorite).filter(BrowserFavorite.context == f"conn-{row.id}").count() == 0
+    assert (
+        db_session.query(BucketUsageStatsSnapshot)
+        .filter(BucketUsageStatsSnapshot.scope_kind == "manager", BucketUsageStatsSnapshot.scope_id == f"conn-{row.id}")
+        .count()
+        == 0
+    )
+
+
+def test_delete_rejects_active_bucket_migration(db_session):
+    owner = _user(db_session, "owner-active-migration@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="active-migration-conn",
+    )
+    migration = BucketMigration(
+        source_context_id=f"conn-{row.id}",
+        target_context_id="conn-999",
+        status="running",
+    )
+    db_session.add(migration)
+    db_session.commit()
+
+    with pytest.raises(S3ConnectionConflictError, match=rf"bucket migration {migration.id}"):
+        S3ConnectionsService(db_session).delete(owner.id, row.id)
+
+    assert db_session.query(S3Connection).filter(S3Connection.id == row.id).one()
 
 
 def test_delete_admin_shared_cleans_links_and_orphan_tags(db_session):
