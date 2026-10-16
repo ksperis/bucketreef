@@ -245,41 +245,7 @@ class BillingService:
         subject_type = subject_type.lower().strip()
         if subject_type not in {"account", "s3_user"}:
             raise ValueError("Invalid subject type")
-        subjects = self._load_subjects(endpoint_id, subject_type)
-        usage_totals = self._usage_totals_by_subject(period, endpoint_id, subject_type)
-        storage_totals = self._storage_totals_by_subject(period, endpoint_id, subject_type)
-
-        items: list[BillingSubjectSummary] = []
-        for subject in subjects:
-            subject_id = subject.id
-            usage = usage_totals.get(subject_id, (0, 0, 0))
-            storage = storage_totals.get(subject_id, (None, None, None))
-            totals = BillingTotals(
-                bytes_in=usage[0],
-                bytes_out=usage[1],
-                ops_total=usage[2],
-                ops_breakdown=None,
-                avg_storage_bytes=storage[0],
-                avg_storage_gb_month=_bytes_to_gb(storage[0]) if storage[0] is not None else None,
-                total_objects=storage[1],
-                days_with_data=storage[2] or 0,
-            )
-            cost = _compute_cost(_resolve_rate_card(self.db, endpoint_id, period, subject_type, subject_id), totals)
-            items.append(
-                BillingSubjectSummary(
-                    subject_type=subject_type,
-                    subject_id=subject_id,
-                    name=subject.name,
-                    rgw_identifier=subject.rgw_user_uid,
-                    storage=BillingStorageTotals(
-                        avg_bytes=totals.avg_storage_bytes,
-                        avg_gb_month=totals.avg_storage_gb_month,
-                        total_objects=totals.total_objects,
-                    ),
-                    usage=BillingUsageTotals(bytes_in=usage[0], bytes_out=usage[1], ops_total=usage[2]),
-                    cost=cost,
-                )
-            )
+        items = self._subject_summaries(period, endpoint_id, subject_type)
 
         def sort_key(entry: BillingSubjectSummary):
             if sort_by == "cost":
@@ -392,44 +358,11 @@ class BillingService:
 
     def export_csv(self, month: str, endpoint_id: int) -> tuple[str, str]:
         period = _parse_month(month)
-        rows: list[BillingSubjectSummary] = []
-        for subject_type in ("account", "s3_user"):
-            subjects = self._load_subjects(endpoint_id, subject_type)
-            usage_totals = self._usage_totals_by_subject(period, endpoint_id, subject_type)
-            storage_totals = self._storage_totals_by_subject(period, endpoint_id, subject_type)
-            for subject in subjects:
-                subject_id = subject.id
-                usage = usage_totals.get(subject_id, (0, 0, 0))
-                storage = storage_totals.get(subject_id, (None, None, None))
-                totals = BillingTotals(
-                    bytes_in=usage[0],
-                    bytes_out=usage[1],
-                    ops_total=usage[2],
-                    ops_breakdown=None,
-                    avg_storage_bytes=storage[0],
-                    avg_storage_gb_month=_bytes_to_gb(storage[0]) if storage[0] is not None else None,
-                    total_objects=storage[1],
-                    days_with_data=storage[2] or 0,
-                )
-                cost = _compute_cost(
-                    _resolve_rate_card(self.db, endpoint_id, period, subject_type, subject_id),
-                    totals,
-                )
-                rows.append(
-                    BillingSubjectSummary(
-                        subject_type=subject_type,
-                        subject_id=subject_id,
-                        name=subject.name,
-                        rgw_identifier=subject.rgw_user_uid,
-                        storage=BillingStorageTotals(
-                            avg_bytes=totals.avg_storage_bytes,
-                            avg_gb_month=totals.avg_storage_gb_month,
-                            total_objects=totals.total_objects,
-                        ),
-                        usage=BillingUsageTotals(bytes_in=usage[0], bytes_out=usage[1], ops_total=usage[2]),
-                        cost=cost,
-                    )
-                )
+        rows = [
+            item
+            for subject_type in ("account", "s3_user")
+            for item in self._subject_summaries(period, endpoint_id, subject_type)
+        ]
 
         output = io.StringIO()
         writer = csv.writer(output)
@@ -464,6 +397,59 @@ class BillingService:
             )
         filename = f"billing-{period.month}-endpoint-{endpoint_id}.csv"
         return filename, output.getvalue()
+
+    def _subject_summaries(
+        self,
+        period: BillingPeriod,
+        endpoint_id: int,
+        subject_type: str,
+    ) -> list[BillingSubjectSummary]:
+        usage_totals = self._usage_totals_by_subject(period, endpoint_id, subject_type)
+        storage_totals = self._storage_totals_by_subject(period, endpoint_id, subject_type)
+        items: list[BillingSubjectSummary] = []
+        for subject in self._load_subjects(endpoint_id, subject_type):
+            subject_id = subject.id
+            usage = usage_totals.get(subject_id, (0, 0, 0))
+            storage = storage_totals.get(subject_id, (None, None, None))
+            totals = BillingTotals(
+                bytes_in=usage[0],
+                bytes_out=usage[1],
+                ops_total=usage[2],
+                ops_breakdown=None,
+                avg_storage_bytes=storage[0],
+                avg_storage_gb_month=_bytes_to_gb(storage[0]) if storage[0] is not None else None,
+                total_objects=storage[1],
+                days_with_data=storage[2] or 0,
+            )
+            items.append(
+                BillingSubjectSummary(
+                    subject_type=subject_type,
+                    subject_id=subject_id,
+                    name=subject.name,
+                    rgw_identifier=subject.rgw_user_uid,
+                    storage=BillingStorageTotals(
+                        avg_bytes=totals.avg_storage_bytes,
+                        avg_gb_month=totals.avg_storage_gb_month,
+                        total_objects=totals.total_objects,
+                    ),
+                    usage=BillingUsageTotals(
+                        bytes_in=usage[0],
+                        bytes_out=usage[1],
+                        ops_total=usage[2],
+                    ),
+                    cost=_compute_cost(
+                        _resolve_rate_card(
+                            self.db,
+                            endpoint_id,
+                            period,
+                            subject_type,
+                            subject_id,
+                        ),
+                        totals,
+                    ),
+                )
+            )
+        return items
 
     def _load_subjects(self, endpoint_id: int, subject_type: str) -> list[BillingSubject]:
         if subject_type == "account":
