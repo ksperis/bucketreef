@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import AccountIAMUser
 from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
@@ -17,9 +16,11 @@ from app.routers.dependencies import (
 )
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
 from app.routers.manager.iam_common import (
+    ensure_unmanaged_iam_user,
     ensure_inline_policy_name,
     get_iam_service_for_account,
     load_inline_policies,
+    managed_iam_user_source,
     resolve_attached_policy,
     save_inline_policy,
 )
@@ -28,30 +29,24 @@ from app.services.resource_name_validation import validate_inline_policy_request
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_sources import iam_source_reference
+from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 
 router = APIRouter(prefix="/manager/iam/users", tags=["manager-iam-users"])
 
 
 def _annotate_managed_user(db: Session, account: S3ExecutionContext, item: IAMUser) -> IAMUser:
-    source = iam_source_reference(account)
-    if source is not None:
-        provisioning = ManagedPrivateAccessService(db).managed_iam_user(*source, item.name)
-        if provisioning is not None:
+    managed = managed_iam_user_source(db, account, item.name)
+    if managed is not None:
+        item.is_bucketreef_managed = True
+        item.management_source = managed[0]
+        if managed[0] == "private_access":
             item.is_private_access_managed = True
-            item.managed_connection_id = provisioning.s3_connection_id
-            item.is_bucketreef_managed = True
-            item.management_source = "private_access"
-            return item
-    if account.id is not None:
-        portal_identity = (
-            db.query(AccountIAMUser)
-            .filter(AccountIAMUser.account_id == account.id, AccountIAMUser.iam_username == item.name)
-            .first()
-        )
-        if portal_identity is not None:
-            item.is_bucketreef_managed = True
-            item.management_source = "portal"
+            item.managed_connection_id = managed[1]
     return item
+
+
+def _ensure_unmanaged_user(db: Session, account: S3ExecutionContext, user_name: str) -> None:
+    ensure_unmanaged_iam_user(db, account, user_name)
 
 
 @router.get("", response_model=list[IAMUser])
@@ -152,6 +147,11 @@ def create_user(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMUserWithKey:
+    if any(group in PORTAL_MANAGED_IAM_GROUP_NAMES for group in (payload.groups or [])):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Portal-managed IAM groups cannot be assigned through generic IAM user creation",
+        )
     validate_inline_policy_requests(payload.inline_policies, "user", account)
     service = get_iam_service_for_account(account)
     try:
@@ -195,6 +195,7 @@ def delete_user(
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> None:
+    _ensure_unmanaged_user(db, account, user_name)
     source = iam_source_reference(account)
     if source is not None:
         managed = ManagedPrivateAccessService(db).managed_iam_user(*source, user_name)
@@ -263,6 +264,7 @@ def create_access_key(
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> AccessKey:
+    _ensure_unmanaged_user(db, account, user_name)
     source = iam_source_reference(account)
     if source is not None and ManagedPrivateAccessService(db).managed_iam_user(*source, user_name) is not None:
         raise HTTPException(
@@ -310,6 +312,7 @@ def update_access_key_metadata(
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> AccessKeyMetadata:
+    _ensure_unmanaged_user(db, account, user_name)
     metadata_service = AccessKeyMetadataService(db)
     if account.id is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access-key details are not available for this context")
@@ -353,6 +356,7 @@ def update_access_key_status(
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> AccessKey:
+    _ensure_unmanaged_user(db, account, user_name)
     source = iam_source_reference(account)
     if source is not None and ManagedPrivateAccessService(db).managed_key(*source, access_key_id) is not None:
         raise HTTPException(
@@ -401,6 +405,7 @@ def delete_access_key(
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> None:
+    _ensure_unmanaged_user(db, account, user_name)
     source = iam_source_reference(account)
     if source is not None and ManagedPrivateAccessService(db).managed_key(*source, access_key_id) is not None:
         raise HTTPException(
@@ -450,7 +455,9 @@ def put_user_inline_policy(
     account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> InlinePolicy:
+    _ensure_unmanaged_user(db, account, user_name)
     validate_inline_policy_request(payload.name, "user", account)
     validate_inline_policy_request(policy_name, "user", account, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
@@ -484,7 +491,9 @@ def delete_user_inline_policy(
     account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> None:
+    _ensure_unmanaged_user(db, account, user_name)
     service = get_iam_service_for_account(account)
     try:
         service.delete_user_inline_policy(user_name, policy_name)
@@ -521,7 +530,9 @@ def attach_user_policy(
     account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> Policy:
+    _ensure_unmanaged_user(db, account, user_name)
     service = get_iam_service_for_account(account)
     try:
         service.attach_user_policy(user_name, payload.arn)
@@ -546,7 +557,9 @@ def detach_user_policy(
     account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> None:
+    _ensure_unmanaged_user(db, account, user_name)
     service = get_iam_service_for_account(account)
     try:
         service.detach_user_policy(user_name, policy_arn)

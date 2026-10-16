@@ -30,8 +30,11 @@ instead.
      Manager follows the new provider name automatically and keeps the active
      resource tab when possible.
    - BucketReef-managed identities used by Portal or managed private access
-     are read-only on the Details page. Change or remove them through the
-     BucketReef feature that owns them instead.
+     are read-only on the Details page and protected by the Manager API. Change
+     their keys, IAM policies and group memberships, or remove them, only through
+     the BucketReef workflow that owns them. Portal technical IAM groups
+     (`bkr-portal-manager` and `bkr-portal-user`) also reject generic creation,
+     deletion, membership and policy mutations in Manager.
    - For roles, edit the trust policy and **Maximum session duration**. Ceph
      RGW follows the IAM range of 3600 to 43200 seconds; BucketReef uses 3600
      seconds when the provider omits the field.

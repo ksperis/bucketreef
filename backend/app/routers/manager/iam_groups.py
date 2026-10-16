@@ -15,6 +15,7 @@ from app.routers.dependencies import (
 )
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
 from app.routers.manager.iam_common import (
+    ensure_unmanaged_iam_user,
     ensure_inline_policy_name,
     get_iam_service_for_account,
     load_inline_policies,
@@ -26,6 +27,15 @@ from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 router = APIRouter(prefix="/manager/iam/groups", tags=["manager-iam-groups"])
+
+
+def _ensure_unmanaged_group(group_name: str) -> None:
+    # Portal group membership and policies are controlled by Portal orchestration.
+    if group_name in PORTAL_MANAGED_IAM_GROUP_NAMES:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="BucketReef-managed IAM groups must be managed through Portal workflows",
+        )
 
 
 def _annotate_managed_group(item: IAMGroup) -> IAMGroup:
@@ -72,11 +82,7 @@ def update_group(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMGroup:
-    if group_name in PORTAL_MANAGED_IAM_GROUP_NAMES:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="BucketReef-managed IAM groups cannot be renamed or moved",
-        )
+    _ensure_unmanaged_group(group_name)
     service = get_iam_service_for_account(account)
     try:
         existing = service.get_group(group_name)
@@ -115,6 +121,7 @@ def create_group(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMGroup:
+    _ensure_unmanaged_group(payload.name)
     validate_inline_policy_requests(payload.inline_policies, "group", account)
     service = get_iam_service_for_account(account)
     try:
@@ -143,6 +150,7 @@ def delete_group(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
+    _ensure_unmanaged_group(group_name)
     service = get_iam_service_for_account(account)
     try:
         service.delete_group(group_name)
@@ -178,7 +186,10 @@ def add_user_to_group(
     account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> IAMUser:
+    _ensure_unmanaged_group(group_name)
+    ensure_unmanaged_iam_user(db, account, payload.name)
     service = get_iam_service_for_account(account)
     try:
         service.add_user_to_group(group_name, payload.name)
@@ -203,7 +214,10 @@ def remove_user_from_group(
     account: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> None:
+    _ensure_unmanaged_group(group_name)
+    ensure_unmanaged_iam_user(db, account, user_name)
     service = get_iam_service_for_account(account)
     try:
         service.remove_user_from_group(group_name, user_name)
@@ -246,6 +260,7 @@ def put_group_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
+    _ensure_unmanaged_group(group_name)
     validate_inline_policy_request(payload.name, "group", account)
     validate_inline_policy_request(policy_name, "group", account, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
@@ -280,6 +295,7 @@ def delete_group_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
+    _ensure_unmanaged_group(group_name)
     service = get_iam_service_for_account(account)
     try:
         service.delete_group_inline_policy(group_name, policy_name)
@@ -317,6 +333,7 @@ def attach_group_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
+    _ensure_unmanaged_group(group_name)
     service = get_iam_service_for_account(account)
     try:
         service.attach_group_policy(group_name, payload.arn)
@@ -342,6 +359,7 @@ def detach_group_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
+    _ensure_unmanaged_group(group_name)
     service = get_iam_service_for_account(account)
     try:
         service.detach_group_policy(group_name, policy_arn)
