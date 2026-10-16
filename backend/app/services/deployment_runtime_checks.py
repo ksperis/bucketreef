@@ -165,39 +165,9 @@ def _secret_findings(
     *,
     production: bool,
 ) -> list[DeploymentCheckFinding]:
-    ui_keys = settings.effective_ui_jwt_keys()
-    api_keys = settings.effective_api_jwt_keys()
-    credential_keys = list(settings.credential_keys)
-    strong_keys = bool(ui_keys and api_keys and credential_keys) and not any(
-        is_weak_secret_value(value)
-        for value in [*ui_keys, *api_keys, *credential_keys]
-    )
-    key_sets = (set(ui_keys), set(api_keys), set(credential_keys))
-    distinct_keys = not (
-        key_sets[0] & key_sets[1]
-        or key_sets[0] & key_sets[2]
-        or key_sets[1] & key_sets[2]
-    )
-
-    seed_endpoint_configured = "seed_s3_endpoint" in settings.model_fields_set
-    seed_endpoint = urlparse(settings.seed_s3_endpoint)
-    seed_issues: list[str] = []
-    if seed_endpoint_configured and (
-        seed_endpoint.scheme != "https" or not seed_endpoint.hostname
-    ):
-        seed_issues.append("SEED_S3_ENDPOINT must use HTTPS")
-    seed_secrets = {
-        "SEED_S3_SECRET_KEY": (
-            settings.seed_s3_secret_key if seed_endpoint_configured else None
-        ),
-        "SEED_RGW_ADMIN_SECRET_KEY": settings.seed_rgw_admin_secret_key,
-        "SEED_SUPERVISION_SECRET_KEY": settings.seed_supervision_secret_key,
-    }
-    for name, value in seed_secrets.items():
-        if value is not None and is_weak_secret_value(value):
-            seed_issues.append(f"{name} is weak/default")
-
-    findings = [
+    strong_keys, distinct_keys = _key_ring_state(settings)
+    seed_issues = _seed_security_issues(settings)
+    return [
         finding(
             "key-strength",
             "Secret key strength",
@@ -229,35 +199,74 @@ def _secret_findings(
                 else "Seed configuration requires review."
             ),
         ),
+        _scheduler_token_finding(settings, production=production),
     ]
 
+
+def _key_ring_state(settings: Settings) -> tuple[bool, bool]:
+    ui_keys = settings.effective_ui_jwt_keys()
+    api_keys = settings.effective_api_jwt_keys()
+    credential_keys = list(settings.credential_keys)
+    strong_keys = bool(ui_keys and api_keys and credential_keys) and not any(
+        is_weak_secret_value(value)
+        for value in [*ui_keys, *api_keys, *credential_keys]
+    )
+    key_sets = (set(ui_keys), set(api_keys), set(credential_keys))
+    distinct_keys = not (
+        key_sets[0] & key_sets[1]
+        or key_sets[0] & key_sets[2]
+        or key_sets[1] & key_sets[2]
+    )
+    return strong_keys, distinct_keys
+
+
+def _seed_security_issues(settings: Settings) -> list[str]:
+    seed_endpoint_configured = "seed_s3_endpoint" in settings.model_fields_set
+    seed_endpoint = urlparse(settings.seed_s3_endpoint)
+    seed_issues: list[str] = []
+    if seed_endpoint_configured and (
+        seed_endpoint.scheme != "https" or not seed_endpoint.hostname
+    ):
+        seed_issues.append("SEED_S3_ENDPOINT must use HTTPS")
+    seed_secrets = {
+        "SEED_S3_SECRET_KEY": (
+            settings.seed_s3_secret_key if seed_endpoint_configured else None
+        ),
+        "SEED_RGW_ADMIN_SECRET_KEY": settings.seed_rgw_admin_secret_key,
+        "SEED_SUPERVISION_SECRET_KEY": settings.seed_supervision_secret_key,
+    }
+    for name, value in seed_secrets.items():
+        if value is not None and is_weak_secret_value(value):
+            seed_issues.append(f"{name} is weak/default")
+    return seed_issues
+
+
+def _scheduler_token_finding(
+    settings: Settings,
+    *,
+    production: bool,
+) -> DeploymentCheckFinding:
     cron_weak = is_weak_secret_value(settings.internal_cron_token)
     if settings.scheduled_jobs_enabled:
-        findings.append(
-            finding(
-                "cron-token",
-                "Scheduler token",
-                passed=not cron_weak,
-                severity="blocker",
-                pass_message="The internal scheduler token is strong.",
-                fail_message="INTERNAL_CRON_TOKEN must be a strong non-default secret while scheduled jobs are enabled.",
-                docs_anchor="scheduler-token",
-                blocks_startup=production,
-            )
+        return finding(
+            "cron-token",
+            "Scheduler token",
+            passed=not cron_weak,
+            severity="blocker",
+            pass_message="The internal scheduler token is strong.",
+            fail_message="INTERNAL_CRON_TOKEN must be a strong non-default secret while scheduled jobs are enabled.",
+            docs_anchor="scheduler-token",
+            blocks_startup=production,
         )
-    else:
-        findings.append(
-            finding(
-                "cron-token",
-                "Scheduler token",
-                passed=settings.internal_cron_token is None or not cron_weak,
-                severity="warning",
-                pass_message="Scheduled jobs are disabled or the configured internal token is strong.",
-                fail_message="A weak INTERNAL_CRON_TOKEN is configured even though scheduled jobs are disabled; remove or rotate it.",
-                docs_anchor="scheduler-token",
-            )
-        )
-    return findings
+    return finding(
+        "cron-token",
+        "Scheduler token",
+        passed=settings.internal_cron_token is None or not cron_weak,
+        severity="warning",
+        pass_message="Scheduled jobs are disabled or the configured internal token is strong.",
+        fail_message="A weak INTERNAL_CRON_TOKEN is configured even though scheduled jobs are disabled; remove or rotate it.",
+        docs_anchor="scheduler-token",
+    )
 
 
 def runtime_configuration_findings(settings: Settings) -> list[DeploymentCheckFinding]:
