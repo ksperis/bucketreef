@@ -17,7 +17,7 @@ from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exc
 from app.routers.manager.iam_common import (
     ensure_unmanaged_iam_user,
     ensure_inline_policy_name,
-    get_iam_service_for_account,
+    get_iam_service_for_context,
     load_inline_policies,
     resolve_attached_policy,
     save_inline_policy,
@@ -47,11 +47,11 @@ def _annotate_managed_group(item: IAMGroup) -> IAMGroup:
 
 @router.get("", response_model=list[IAMGroup])
 def list_groups(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMGroup]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         return [_annotate_managed_group(group) for group in service.list_groups()]
     except RuntimeError as exc:
@@ -61,10 +61,10 @@ def list_groups(
 @router.get("/{group_name}", response_model=IAMGroup)
 def get_group(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> IAMGroup:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         group = service.get_group(group_name)
         if group is None:
@@ -78,12 +78,12 @@ def get_group(
 def update_group(
     group_name: str,
     payload: IAMGroupUpdate,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMGroup:
     _ensure_unmanaged_group(group_name)
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         existing = service.get_group(group_name)
         if existing is None:
@@ -102,7 +102,7 @@ def update_group(
                 action="update_iam_group",
                 entity_type="iam_group",
                 entity_id=effective_name,
-                execution_context=account,
+                execution_context=context,
                 metadata={
                     "previous_name": group_name if new_name is not None else None,
                     "name_updated": new_name is not None,
@@ -117,13 +117,13 @@ def update_group(
 @router.post("", response_model=IAMGroup, status_code=status.HTTP_201_CREATED)
 def create_group(
     payload: IAMGroupCreate,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMGroup:
     _ensure_unmanaged_group(payload.name)
-    validate_inline_policy_requests(payload.inline_policies, "group", account)
-    service = get_iam_service_for_account(account)
+    validate_inline_policy_requests(payload.inline_policies, "group", context)
+    service = get_iam_service_for_context(context)
     try:
         result = service.create_group(payload.name)
         if payload.inline_policies:
@@ -135,7 +135,7 @@ def create_group(
             action="create_iam_group",
             entity_type="iam_group",
             entity_id=payload.name,
-            execution_context=account,
+            execution_context=context,
             metadata={"inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else []},
         )
         return result
@@ -146,12 +146,12 @@ def create_group(
 @router.delete("/{group_name}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_group(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     _ensure_unmanaged_group(group_name)
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         service.delete_group(group_name)
         audit_service.record_action(
@@ -160,7 +160,7 @@ def delete_group(
             action="delete_iam_group",
             entity_type="iam_group",
             entity_id=group_name,
-            execution_context=account,
+            execution_context=context,
         )
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
@@ -169,10 +169,10 @@ def delete_group(
 @router.get("/{group_name}/users", response_model=list[IAMUser])
 def list_group_users(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMUser]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         return service.list_group_users(group_name)
     except RuntimeError as exc:
@@ -183,14 +183,14 @@ def list_group_users(
 def add_user_to_group(
     group_name: str,
     payload: IAMUser,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> IAMUser:
     _ensure_unmanaged_group(group_name)
-    ensure_unmanaged_iam_user(db, account, payload.name)
-    service = get_iam_service_for_account(account)
+    ensure_unmanaged_iam_user(db, context, payload.name)
+    service = get_iam_service_for_context(context)
     try:
         service.add_user_to_group(group_name, payload.name)
         audit_service.record_action(
@@ -199,7 +199,7 @@ def add_user_to_group(
             action="add_user_to_group",
             entity_type="iam_group",
             entity_id=group_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"user": payload.name},
         )
         return IAMUser(name=payload.name)
@@ -211,14 +211,14 @@ def add_user_to_group(
 def remove_user_from_group(
     group_name: str,
     user_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> None:
     _ensure_unmanaged_group(group_name)
-    ensure_unmanaged_iam_user(db, account, user_name)
-    service = get_iam_service_for_account(account)
+    ensure_unmanaged_iam_user(db, context, user_name)
+    service = get_iam_service_for_context(context)
     try:
         service.remove_user_from_group(group_name, user_name)
         audit_service.record_action(
@@ -227,7 +227,7 @@ def remove_user_from_group(
             action="remove_user_from_group",
             entity_type="iam_group",
             entity_id=group_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"user": user_name},
         )
     except RuntimeError as exc:
@@ -237,10 +237,10 @@ def remove_user_from_group(
 @router.get("/{group_name}/inline-policies", response_model=list[InlinePolicy])
 def list_group_inline_policies(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[InlinePolicy]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         return load_inline_policies(
             group_name,
@@ -256,15 +256,15 @@ def put_group_inline_policy(
     group_name: str,
     policy_name: str,
     payload: InlinePolicy,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
     _ensure_unmanaged_group(group_name)
-    validate_inline_policy_request(payload.name, "group", account)
-    validate_inline_policy_request(policy_name, "group", account, loc=("path", "policy_name"))
+    validate_inline_policy_request(payload.name, "group", context)
+    validate_inline_policy_request(policy_name, "group", context, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         saved = save_inline_policy(
             group_name,
@@ -279,7 +279,7 @@ def put_group_inline_policy(
             action="put_group_inline_policy",
             entity_type="iam_group",
             entity_id=group_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_name": policy_name},
         )
         return saved
@@ -291,12 +291,12 @@ def put_group_inline_policy(
 def delete_group_inline_policy(
     group_name: str,
     policy_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     _ensure_unmanaged_group(group_name)
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         service.delete_group_inline_policy(group_name, policy_name)
         audit_service.record_action(
@@ -305,7 +305,7 @@ def delete_group_inline_policy(
             action="delete_group_inline_policy",
             entity_type="iam_group",
             entity_id=group_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_name": policy_name},
         )
     except RuntimeError as exc:
@@ -315,10 +315,10 @@ def delete_group_inline_policy(
 @router.get("/{group_name}/policies", response_model=list[Policy])
 def list_group_policies(
     group_name: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         return service.list_group_policies(group_name)
     except RuntimeError as exc:
@@ -329,12 +329,12 @@ def list_group_policies(
 def attach_group_policy(
     group_name: str,
     payload: Policy,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
     _ensure_unmanaged_group(group_name)
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         service.attach_group_policy(group_name, payload.arn)
         audit_service.record_action(
@@ -343,7 +343,7 @@ def attach_group_policy(
             action="attach_group_policy",
             entity_type="iam_group",
             entity_id=group_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_arn": payload.arn},
         )
         return resolve_attached_policy(payload, get_policy_fn=service.get_policy)
@@ -355,12 +355,12 @@ def attach_group_policy(
 def detach_group_policy(
     group_name: str,
     policy_arn: str,
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     _ensure_unmanaged_group(group_name)
-    service = get_iam_service_for_account(account)
+    service = get_iam_service_for_context(context)
     try:
         service.detach_group_policy(group_name, policy_arn)
         audit_service.record_action(
@@ -369,7 +369,7 @@ def detach_group_policy(
             action="detach_group_policy",
             entity_type="iam_group",
             entity_id=group_name,
-            execution_context=account,
+            execution_context=context,
             metadata={"policy_arn": policy_arn},
         )
     except RuntimeError as exc:

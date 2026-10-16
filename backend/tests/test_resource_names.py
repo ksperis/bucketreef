@@ -129,7 +129,7 @@ def naming_client(monkeypatch):
     for module in [iam_users, iam_groups, iam_roles]:
         factory = Mock(return_value=service)
         factories.append(factory)
-        monkeypatch.setattr(module, "get_iam_service_for_account", factory)
+        monkeypatch.setattr(module, "get_iam_service_for_context", factory)
     application.dependency_overrides[topics.get_topics_service] = lambda: service
     application.dependency_overrides[dependencies.get_audit_service] = lambda: Mock()
     with TestClient(application) as client:
