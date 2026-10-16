@@ -19,6 +19,7 @@ from app.models.managed_private_access import (
 )
 from app.services import app_settings_service
 from app.services.resource_name_validation import validate_inline_policy_requests
+from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.audit_service import AuditService
 from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
 from app.services.managed_private_access_errors import (
@@ -239,6 +240,12 @@ class ManagedPrivateAccessService:
         connection = provisioning.connection
         if connection is None:
             raise ManagedPrivateAccessConflict("Managed private access connection is already absent")
+        context_id = f"conn-{connection.id}"
+        purge = ResourceDeletionPurgeService(self.db)
+        try:
+            purge.validate_execution_context_cleanup(context_id)
+        except ValueError as exc:
+            raise ManagedPrivateAccessConflict(str(exc)) from exc
         connection.is_active = False
         provisioning.state = "deleting"
         provisioning.updated_at = utcnow()
@@ -256,6 +263,7 @@ class ManagedPrivateAccessService:
         domain_kind, _owner_user_id = self.connections.tags.resolve_connection_domain(
             connection
         )
+        purge.purge_execution_context_data(context_id)
         self.db.delete(connection)
         self.db.flush()
         self.connections.tags.cleanup_orphan_definitions(

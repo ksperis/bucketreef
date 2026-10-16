@@ -18,6 +18,7 @@ from app.models.s3_connection_admin import (
     S3ConnectionAdminUpdate,
 )
 from app.services.mappers.s3_connection import s3_connection_from_db
+from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.s3_connection_associations_service import (
     S3ConnectionAssociationsService,
 )
@@ -417,8 +418,15 @@ class S3ConnectionsService:
         return endpoint_plan, group_ids, user_ids
 
     def _delete_entry(self, row: DBS3Connection) -> None:
+        context_id = f"conn-{row.id}"
+        purge = ResourceDeletionPurgeService(self.db)
+        try:
+            purge.validate_execution_context_cleanup(context_id)
+        except ValueError as exc:
+            raise S3ConnectionConflictError(str(exc)) from exc
         domain_kind, _owner_user_id = self.tags.resolve_connection_domain(row)
         self.associations.delete_links(row.id)
+        purge.purge_execution_context_data(context_id)
         self.db.delete(row)
         self.db.flush()
         self.tags.cleanup_orphan_definitions(domain_kinds=[domain_kind])
