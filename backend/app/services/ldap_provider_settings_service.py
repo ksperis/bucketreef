@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from typing import Iterable, Literal, Optional
 from urllib.parse import urlparse
 
 from sqlalchemy.exc import IntegrityError
@@ -247,30 +247,20 @@ def _ui_provider_to_settings(provider: LdapProvider) -> LDAPProviderSettings:
 
 
 def _ui_provider_item(provider: LdapProvider) -> LDAPProviderAdminItem:
-    return LDAPProviderAdminItem(
-        provider_id=provider.provider_id,
-        display_name=provider.display_name,
-        url=provider.url,
-        bind_dn=provider.bind_dn,
-        user_base_dn=provider.user_base_dn,
-        user_filter=provider.user_filter,
-        email_attribute=provider.email_attribute,
-        name_attribute=provider.name_attribute,
-        subject_attribute=provider.subject_attribute,
-        start_tls=bool(provider.start_tls),
-        tls_verify=bool(provider.tls_verify),
-        tls_ca_file=provider.tls_ca_file,
-        allow_legacy_tls=bool(provider.allow_legacy_tls),
-        timeout_seconds=provider.timeout_seconds,
-        enabled=bool(provider.enabled),
-        allow_insecure=bool(provider.allow_insecure),
+    return _provider_item(
+        provider.provider_id,
+        _ui_provider_to_settings(provider),
         source="ui",
-        editable=True,
-        has_bind_password=bool(provider.bind_password),
     )
 
 
-def _environment_provider_item(provider_id: str, provider: LDAPProviderSettings) -> LDAPProviderAdminItem:
+def _provider_item(
+    provider_id: str,
+    provider: LDAPProviderSettings,
+    *,
+    source: Literal["environment", "ui"],
+    field_locks: Optional[dict[str, LDAPProviderFieldLock]] = None,
+) -> LDAPProviderAdminItem:
     return LDAPProviderAdminItem(
         provider_id=provider_id,
         display_name=provider.display_name,
@@ -288,13 +278,22 @@ def _environment_provider_item(provider_id: str, provider: LDAPProviderSettings)
         timeout_seconds=provider.timeout_seconds,
         enabled=bool(provider.enabled),
         allow_insecure=bool(provider.allow_insecure),
+        source=source,
+        editable=source == "ui",
+        field_locks=field_locks or {},
+        has_bind_password=bool(provider.bind_password),
+    )
+
+
+def _environment_provider_item(provider_id: str, provider: LDAPProviderSettings) -> LDAPProviderAdminItem:
+    return _provider_item(
+        provider_id,
+        provider,
         source="environment",
-        editable=False,
         field_locks={
             field: LDAPProviderFieldLock(forced=True, source=_environment_source(provider_id, field))
             for field in LDAP_PROVIDER_FIELDS
         },
-        has_bind_password=bool(provider.bind_password),
     )
 
 
