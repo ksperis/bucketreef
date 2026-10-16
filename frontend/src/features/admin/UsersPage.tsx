@@ -45,12 +45,9 @@ import {
 } from "./adminAccessConfig";
 import PageBanner from "../../components/PageBanner";
 import SettingsForm from "../../components/settings/SettingsForm";
-import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton, SettingsPersistentEditActions, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import AdminUserIdentityFields, { userIdentityErrors, type UserIdentityErrors } from "./AdminUserIdentityFields";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
-import UserAvatarEditor from "../shared/UserAvatarEditor";
-import { UserLanguageField, UserNotificationFields } from "../shared/UserProfilePreferenceFields";
 import { useProfileI18n } from "../shared/profileMessages";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
@@ -66,6 +63,7 @@ import type { AccountSelection } from "./UserAccountAssociationsPanel";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
+import AdminUserProfilePanel from "./AdminUserProfilePanel";
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 
@@ -1365,37 +1363,29 @@ export default function UsersPage() {
             >
 
             {editModalTab === "general" && (
-              <>
-                <AdminUserIdentityFields
-                  idPrefix="edit-user"
-                  values={{ ...editForm, role: editRoleValue }}
-                  errors={editAttempted ? userIdentityErrors(editForm, false, adminUserText) : {}}
-                  onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))}
-                  canAssignAdmin={currentIsSuperAdmin}
-                  helpOpen={editRoleHelpOpen}
-                  onToggleHelp={() => setEditRoleHelpOpen((open) => !open)}
-                  onRoleChange={(value) => setEditForm((current) => ({ ...current, ...roleAccessPatch(value, current) }))}
-                >
-                  <UserAvatarEditor avatar={editingUser.avatar} name={editingUser.full_name} email={editingUser.email}
-                    text={adminProfileText} disabled={busyId === editingUser.id || avatarBusy}
-                    onDirtyChange={setAvatarDirty} onBusyChange={setAvatarBusy} onSave={async (draft) => {
-                      const updated = draft.file && draft.preference === "uploaded" ? await uploadUserAvatar(editingUser.id, draft.file)
-                        : draft.remove ? await deleteUserAvatar(editingUser.id) : await updateUser(editingUser.id, { avatar_preference: draft.preference });
-                      setEditingUser(current => current ? { ...current, avatar: updated.avatar } : current);
-                      setUsers(current => current.map(user => user.id === editingUser.id ? { ...user, avatar: updated.avatar } : user));
-                      if (currentUserId === editingUser.id) setSessionUserCache({ ...(readStoredUser() ?? {}), avatar: updated.avatar });
-                      setActionMessage(adminProfileText("imageSaved"));
-                    }} />
-                </AdminUserIdentityFields>
-                <SettingsSection title={adminProfileText("display")} presentation="compact">
-                  <UserLanguageField value={editForm.ui_language ?? "auto"} text={adminProfileText}
-                    onChange={value => setEditForm(current => ({ ...current, ui_language: value === "auto" ? null : value }))} />
-                </SettingsSection>
-                <UserNotificationFields quotaAlerts={editForm.quota_alerts_enabled !== false}
-                  quotaWatch={Boolean(editForm.quota_alerts_global_watch)} canWatch={editRoleValue === "ui_admin" || editRoleValue === "ui_superadmin"}
-                  text={adminProfileText} onQuotaAlertsChange={value => setEditForm(current => ({ ...current, quota_alerts_enabled: value }))}
-                  onQuotaWatchChange={value => setEditForm(current => ({ ...current, quota_alerts_global_watch: value }))} />
-              </>
+              <AdminUserProfilePanel
+                user={editingUser}
+                values={editForm}
+                role={editRoleValue}
+                errors={editAttempted ? userIdentityErrors(editForm, false, adminUserText) : {}}
+                canAssignAdmin={currentIsSuperAdmin}
+                roleHelpOpen={editRoleHelpOpen}
+                busy={busyId === editingUser.id || avatarBusy}
+                text={adminProfileText}
+                onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))}
+                onToggleRoleHelp={() => setEditRoleHelpOpen((open) => !open)}
+                onRoleChange={(value) => setEditForm((current) => ({ ...current, ...roleAccessPatch(value, current) }))}
+                onAvatarDirtyChange={setAvatarDirty}
+                onAvatarBusyChange={setAvatarBusy}
+                onAvatarSave={async (draft) => {
+                  const updated = draft.file && draft.preference === "uploaded" ? await uploadUserAvatar(editingUser.id, draft.file)
+                    : draft.remove ? await deleteUserAvatar(editingUser.id) : await updateUser(editingUser.id, { avatar_preference: draft.preference });
+                  setEditingUser(current => current ? { ...current, avatar: updated.avatar } : current);
+                  setUsers(current => current.map(user => user.id === editingUser.id ? { ...user, avatar: updated.avatar } : user));
+                  if (currentUserId === editingUser.id) setSessionUserCache({ ...(readStoredUser() ?? {}), avatar: updated.avatar });
+                  setActionMessage(adminProfileText("imageSaved"));
+                }}
+              />
             )}
 
             {editModalTab === "authentication" && (
