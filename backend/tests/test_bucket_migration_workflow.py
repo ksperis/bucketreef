@@ -708,6 +708,20 @@ def test_finished_cutover_does_not_wait_for_another_cutover(prepared):
     assert migration.status == "completed"
 
 
+def test_finalize_honors_pause_requested_after_item_stops(prepared):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    migration.status = "pause_requested"
+    migration.pause_requested = True
+    item.status = "paused"
+
+    service._finalize_or_wait_cutover(migration)
+
+    assert migration.status == "paused"
+    assert migration.pause_requested is False
+    assert item.status == "paused"
+
+
 def test_partial_precopy_preserves_successful_destination_lock(prepared):
     service, migration, _ = prepared
     migration.status = "running"

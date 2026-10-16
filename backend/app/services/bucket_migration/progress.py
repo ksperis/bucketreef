@@ -339,6 +339,9 @@ class BucketMigrationProgressMixin:
         if migration.cancel_requested or migration.status == "cancel_requested":
             self._mark_canceled(migration, source_ctx=source_ctx, target_ctx=target_ctx)
             return
+        if migration.pause_requested or migration.status == "pause_requested":
+            self._mark_paused(migration)
+            return
 
         total_actionable = len([item for item in migration.items if item.status not in {"skipped"}])
         awaiting_count = len([item for item in migration.items if item.status == "awaiting_cutover"])
