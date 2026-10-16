@@ -58,26 +58,26 @@ class _ManagerLimits:
 
 
 def _manager_stats_state(
-    account: S3ExecutionContext,
+    context: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
 ) -> tuple[bool, Optional[str], Optional[str]]:
     settings = load_app_settings_for_db_readonly(db)
     rgw_usage_metrics_enabled = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
-        project_account_resource(db, account),
+        project_account_resource(db, context),
     ).enabled
-    if account.context_kind == "connection":
-        if not account.manager_capabilities.can_manage_buckets:
+    if context.context_kind == "connection":
+        if not context.manager_capabilities.can_manage_buckets:
             return False, "Metrics are not available for this connection.", None
-        if account.source_connection is None:
+        if context.source_connection is None:
             return False, "Metrics are unavailable: connection context is incomplete.", None
-        resolution = ConnectionIdentityService().resolve_metrics_identity(account.source_connection)
+        resolution = ConnectionIdentityService().resolve_metrics_identity(context.source_connection)
         if not resolution.eligible:
             return False, (resolution.reason or "Metrics are unavailable for this connection."), None
         if not rgw_usage_metrics_enabled:
             return False, "RGW traffic and usage metrics are disabled.", resolution.iam_identity
-        if not has_supervision_credentials(account):
+        if not has_supervision_credentials(context):
             return False, "Supervision credentials are not configured for this endpoint.", resolution.iam_identity
         if isinstance(actor, ManagerSessionPrincipal) and not actor.capabilities.can_view_traffic:
             return False, "Metrics are not available for this profile.", resolution.iam_identity
@@ -85,11 +85,11 @@ def _manager_stats_state(
 
     if not rgw_usage_metrics_enabled:
         return False, "RGW traffic and usage metrics are disabled.", None
-    if not has_supervision_credentials(account):
+    if not has_supervision_credentials(context):
         return False, None, None
-    if account.context_kind == "s3_user" and not account.rgw_user_uid:
+    if context.context_kind == "s3_user" and not context.rgw_user_uid:
         return False, None, None
-    if not account.manager_capabilities.can_manage_buckets:
+    if not context.manager_capabilities.can_manage_buckets:
         return False, None, None
     if isinstance(actor, ManagerSessionPrincipal):
         return bool(actor.capabilities.can_view_traffic), None, None
@@ -98,16 +98,16 @@ def _manager_stats_state(
     return False, None, None
 
 
-def _manager_access_mode(account: S3ExecutionContext) -> str:
-    if account.context_kind == "account":
+def _manager_access_mode(context: S3ExecutionContext) -> str:
+    if context.context_kind == "account":
         return "admin"
-    if account.context_kind in {"session", "connection", "s3_user"}:
-        return account.context_kind
+    if context.context_kind in {"session", "connection", "s3_user"}:
+        return context.context_kind
     raise RuntimeError("Unsupported Manager execution context")
 
 
 def _manager_browser_state(
-    account: S3ExecutionContext,
+    context: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
     access_service: Optional[EffectiveAccessService],
@@ -127,8 +127,8 @@ def _manager_browser_state(
 
     if resolved_access is None or access_service is None:
         raise RuntimeError("UI user effective access was not resolved")
-    if account.context_kind == "connection":
-        connection = db.query(S3Connection).filter(S3Connection.id == account.s3_connection_id).first()
+    if context.context_kind == "connection":
+        connection = db.query(S3Connection).filter(S3Connection.id == context.s3_connection_id).first()
         enabled = bool(
             connection
             and access_service.manager_browser_connection_is_allowed(
@@ -144,12 +144,12 @@ def _manager_browser_state(
             )
         return _ManagerBrowserState(enabled, message)
 
-    if account.context_kind == "s3_user":
-        enabled = account.s3_user_id is not None and resolved_access.can_browse_s3_user(account.s3_user_id)
+    if context.context_kind == "s3_user":
+        enabled = context.s3_user_id is not None and resolved_access.can_browse_s3_user(context.s3_user_id)
         message = None if enabled else "Manager Browser data access is not allowed for this RGW user."
         return _ManagerBrowserState(enabled, message)
 
-    link = resolved_access.account_link_for(account.id) if account.id is not None else None
+    link = resolved_access.account_link_for(context.id) if context.id is not None else None
     enabled = bool(link and link.manager_browser_allowed)
     message = None
     if not enabled:
@@ -161,24 +161,24 @@ def _manager_browser_state(
 
 
 def _manager_iam_identity(
-    account: S3ExecutionContext,
+    context: S3ExecutionContext,
     actor: ManagerActor,
     access_mode: str,
     connection_iam_identity: Optional[str],
 ) -> Optional[str]:
     if access_mode == "admin":
-        return resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
+        return resolve_admin_uid(context.rgw_account_id, context.rgw_user_uid)
     if access_mode == "session" and isinstance(actor, ManagerSessionPrincipal):
         return actor.user_uid or actor.account_id or actor.account_name
     if access_mode == "s3_user":
-        return account.rgw_user_uid
+        return context.rgw_user_uid
     if access_mode == "connection":
         return connection_iam_identity
     return None
 
 
 def _manager_private_access_enabled(
-    account: S3ExecutionContext,
+    context: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
     resolved_access: Optional[ResolvedUserAccess],
@@ -188,34 +188,34 @@ def _manager_private_access_enabled(
     if resolved_access is None:
         raise RuntimeError("UI user effective access was not resolved")
     managed_private_access = ManagedPrivateAccessService(db)
-    if account.context_kind == "s3_user":
+    if context.context_kind == "s3_user":
         return managed_private_access.rgw_user_provisioning_available(
             actor,
-            account,
+            context,
             resolved=resolved_access,
         )
 
-    endpoint = account.storage_endpoint
+    endpoint = context.storage_endpoint
     return bool(
         managed_private_access.managed_provisioning_allowed(
             actor,
             resolved=resolved_access,
         )
-        and account.manager_capabilities.can_manage_iam
+        and context.manager_capabilities.can_manage_iam
         and (endpoint is None or resolve_feature_flags(endpoint).iam_enabled)
     )
 
 
 def _manager_limits(
-    account: S3ExecutionContext,
+    context: S3ExecutionContext,
     db: Session,
     *,
     include_limits: bool,
 ) -> _ManagerLimits:
-    if not include_limits or account.context_kind == "connection":
+    if not include_limits or context.context_kind == "connection":
         return _ManagerLimits()
-    if account.context_kind == "s3_user":
-        s3_user = db.query(S3User).filter(S3User.id == account.s3_user_id).first()
+    if context.context_kind == "s3_user":
+        s3_user = db.query(S3User).filter(S3User.id == context.s3_user_id).first()
         if s3_user is None:
             return _ManagerLimits()
         quota_max_size_gb, quota_max_objects, max_buckets = get_s3_users_service(db).get_user_limits(s3_user)
@@ -225,7 +225,7 @@ def _manager_limits(
             max_buckets=max_buckets,
         )
 
-    s3_account = db.query(S3Account).filter(S3Account.id == account.id).first() if account.id is not None else None
+    s3_account = db.query(S3Account).filter(S3Account.id == context.id).first() if context.id is not None else None
     if s3_account is None:
         return _ManagerLimits()
     (
@@ -248,58 +248,58 @@ def _manager_limits(
 
 @router.get("/context", response_model=ManagerContext)
 def get_manager_context(
-    account: S3ExecutionContext = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
     include_limits: Annotated[bool, Query()] = False,
 ) -> ManagerContext:
-    access_mode = _manager_access_mode(account)
-    manager_stats_enabled, manager_stats_message, connection_iam_identity = _manager_stats_state(account, actor, db)
+    access_mode = _manager_access_mode(context)
+    manager_stats_enabled, manager_stats_message, connection_iam_identity = _manager_stats_state(context, actor, db)
     access_service = EffectiveAccessService(db) if isinstance(actor, User) else None
     resolved_access = access_service.resolve_user(actor) if access_service else None
     browser_state = _manager_browser_state(
-        account,
+        context,
         actor,
         db,
         access_service,
         resolved_access,
     )
     iam_identity = _manager_iam_identity(
-        account,
+        context,
         actor,
         access_mode,
         connection_iam_identity,
     )
 
     manager_ceph_keys_enabled = (
-        is_manager_rgw_access_key_management_available(account, actor, db=db)
+        is_manager_rgw_access_key_management_available(context, actor, db=db)
         if isinstance(actor, User)
         else False
     )
-    manager_access_key_metadata_enabled = AccessKeyMetadataService(db).metadata_enabled_for_context(account)
-    manager_access_key_expiration_enabled = AccessKeyMetadataService(db).expiration_enabled_for_context(account)
+    manager_access_key_metadata_enabled = AccessKeyMetadataService(db).metadata_enabled_for_context(context)
+    manager_access_key_expiration_enabled = AccessKeyMetadataService(db).expiration_enabled_for_context(context)
     manager_private_access_enabled = _manager_private_access_enabled(
-        account,
+        context,
         actor,
         db,
         resolved_access,
     )
     manager_bucket_quota_enabled = (
-        is_manager_bucket_quota_available(account, actor, db=db)
+        is_manager_bucket_quota_available(context, actor, db=db)
         if isinstance(actor, User)
         else False
     )
     limits = _manager_limits(
-        account,
+        context,
         db,
         include_limits=include_limits,
     )
 
     resource = None
-    if account.context_kind == "account" and isinstance(account.id, int):
-        resource = db.get(S3Account, account.id)
-    elif account.context_kind == "s3_user" and account.s3_user_id is not None:
-        resource = db.get(S3User, account.s3_user_id)
+    if context.context_kind == "account" and isinstance(context.id, int):
+        resource = db.get(S3Account, context.id)
+    elif context.context_kind == "s3_user" and context.s3_user_id is not None:
+        resource = db.get(S3User, context.s3_user_id)
     provisioning_sources = resolved_access.feature_sources.get("managed_private_connection_provision", ()) if resolved_access else ()
     app_settings = load_app_settings_for_db_readonly(db)
     feature_states = manager_resource_states(
@@ -308,9 +308,9 @@ def get_manager_context(
          "access_key_metadata": manager_access_key_metadata_enabled, "access_key_expiration": manager_access_key_expiration_enabled,
          "managed_private_connection_provisioning": manager_private_access_enabled},
         provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
-        activity_resource=manager_activity_resource(db, account),
+        activity_resource=manager_activity_resource(db, context),
     )
-    project_resource = project_account_resource(db, account)
+    project_resource = project_account_resource(db, context)
     feature_states["rgw_usage_metrics"] = manager_rgw_usage_metrics_state(
         app_settings.manager.feature_policies,
         project_resource,
@@ -321,7 +321,7 @@ def get_manager_context(
     )
     return ManagerContext(
         feature_states=feature_states,
-        naming_validation_profile=naming_validation_profile(account),
+        naming_validation_profile=naming_validation_profile(context),
         access_mode=access_mode,
         context_kind=("connection" if access_mode == "connection" else "account"),
         iam_identity=iam_identity,
