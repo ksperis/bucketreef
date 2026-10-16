@@ -486,6 +486,126 @@ class EndpointServiceIdentityService:
                 desired.append(kind)
         return desired
 
+    @staticmethod
+    def _skip_unprovisioned_identity(
+        identity: EndpointServiceIdentity | None,
+        *,
+        provision_unprovisioned: bool,
+    ) -> bool:
+        return bool(
+            not provision_unprovisioned
+            and identity is not None
+            and identity.mode == "managed"
+            and identity.status == "not_provisioned"
+        )
+
+    def _record_admin_validation_failure(
+        self,
+        endpoint: StorageEndpoint,
+        desired: list[ManagedServiceIdentityKind],
+        exc: ValueError | RGWAdminError,
+        *,
+        provision_unprovisioned: bool,
+    ) -> None:
+        failure = (
+            classify_rgw_credential_failure(exc)
+            if isinstance(exc, RGWAdminError)
+            else None
+        )
+        for kind in desired:
+            identity = endpoint.service_identity(kind)
+            if self._skip_unprovisioned_identity(
+                identity,
+                provision_unprovisioned=provision_unprovisioned,
+            ):
+                continue
+            if identity is None or identity.status in ("ready", "revocation_pending", "disabled"):
+                continue
+            identity.status = "error"
+            identity.last_error = (
+                f"Unable to configure {kind}: {exc}"
+                if failure == "misconfigured"
+                else "Admin Ops validation failed; check its required read permissions and RGW connectivity."
+            )
+        self.db.commit()
+
+    def _record_identity_reconcile_failure(
+        self,
+        endpoint: StorageEndpoint,
+        kind: ManagedServiceIdentityKind,
+        exc: ValueError | RGWAdminError,
+        *,
+        default_mode: str,
+    ) -> EndpointServiceIdentity:
+        self.db.rollback()
+        identity = endpoint.service_identity(kind)
+        if identity is None:
+            identity = EndpointServiceIdentity(
+                kind=kind,
+                mode=default_mode,
+                status="error",
+            )
+            endpoint.service_identities.append(identity)
+        failure = (
+            classify_rgw_credential_failure(exc)
+            if isinstance(exc, RGWAdminError)
+            else None
+        )
+        unavailable = failure == "unavailable"
+        if identity.status != "revocation_pending":
+            if not (unavailable and identity.status == "ready"):
+                identity.status = "error"
+            identity.last_error = (
+                f"Unable to configure {kind}: {exc}"
+                if failure == "misconfigured"
+                else f"{kind} validation is temporarily unavailable; existing credentials remain configured."
+                if unavailable and identity.status == "ready"
+                else f"Unable to configure {kind}; check credentials, required caps, ownership and RGW connectivity."
+            )
+        self.db.commit()
+        return identity
+
+    def _reconcile_service_identity(
+        self,
+        endpoint: StorageEndpoint,
+        kind: ManagedServiceIdentityKind,
+        admin: RGWAdminClient,
+        permissions: StorageEndpointAdminOpsPermissions,
+        *,
+        default_mode: str,
+        provision_unprovisioned: bool,
+    ) -> dict[str, str]:
+        identity = endpoint.service_identity(kind)
+        if self._skip_unprovisioned_identity(
+            identity,
+            provision_unprovisioned=provision_unprovisioned,
+        ):
+            return {"kind": kind, "status": identity.status}
+        if identity is not None and identity.status == "revocation_pending":
+            self.revoke(endpoint, kind)
+            return {"kind": kind, "status": identity.status}
+        mode = identity.mode if identity is not None else default_mode
+        try:
+            identity = self._ensure(
+                endpoint,
+                kind,
+                admin,
+                permissions,
+                managed=mode == "managed",
+            )
+        except ManagedIdentityKeyDriftError as exc:
+            self.db.rollback()
+            identity = endpoint.service_identity(kind)
+            self._record_key_drift(endpoint, identity, exc)
+        except (ValueError, RGWAdminError) as exc:
+            identity = self._record_identity_reconcile_failure(
+                endpoint,
+                kind,
+                exc,
+                default_mode=default_mode,
+            )
+        return {"kind": kind, "status": identity.status}
+
     def reconcile(
         self,
         endpoint: StorageEndpoint,
@@ -505,83 +625,26 @@ class EndpointServiceIdentityService:
             try:
                 admin, permissions = self.admin_permissions(endpoint)
             except (ValueError, RGWAdminError) as exc:
-                failure = (
-                    classify_rgw_credential_failure(exc)
-                    if isinstance(exc, RGWAdminError)
-                    else None
+                self._record_admin_validation_failure(
+                    endpoint,
+                    desired,
+                    exc,
+                    provision_unprovisioned=provision_unprovisioned,
                 )
-                for kind in desired:
-                    identity = endpoint.service_identity(kind)
-                    if (
-                        not provision_unprovisioned
-                        and identity is not None
-                        and identity.mode == "managed"
-                        and identity.status == "not_provisioned"
-                    ):
-                        continue
-                    if identity is not None and identity.status not in ("ready", "revocation_pending", "disabled"):
-                        identity.status = "error"
-                        identity.last_error = (
-                            f"Unable to configure {kind}: {exc}"
-                            if failure == "misconfigured"
-                            else "Admin Ops validation failed; check its required read permissions and RGW connectivity."
-                        )
-                self.db.commit()
                 return [{"kind": "admin", "status": "error"}]
             runtime = endpoint.service_identity("runtime")
             default_mode = runtime.mode if runtime is not None else "managed"
             for kind in desired:
-                try:
-                    identity = endpoint.service_identity(kind)
-                    if (
-                        not provision_unprovisioned
-                        and identity is not None
-                        and identity.mode == "managed"
-                        and identity.status == "not_provisioned"
-                    ):
-                        results.append({"kind": kind, "status": identity.status})
-                        continue
-                    if identity is not None and identity.status == "revocation_pending":
-                        self.revoke(endpoint, kind)
-                        results.append({"kind": kind, "status": identity.status})
-                        continue
-                    mode = identity.mode if identity is not None else default_mode
-                    identity = self._ensure(endpoint, kind, admin, permissions,
-                                            managed=mode == "managed")
-                    results.append({"kind": kind, "status": identity.status})
-                except ManagedIdentityKeyDriftError as exc:
-                    self.db.rollback()
-                    identity = endpoint.service_identity(kind)
-                    self._record_key_drift(endpoint, identity, exc)
-                    results.append({"kind": kind, "status": identity.status})
-                except (ValueError, RGWAdminError) as exc:
-                    self.db.rollback()
-                    identity = endpoint.service_identity(kind)
-                    if identity is None:
-                        identity = EndpointServiceIdentity(
-                            kind=kind,
-                            mode=default_mode,
-                            status="error",
-                        )
-                        endpoint.service_identities.append(identity)
-                    failure = (
-                        classify_rgw_credential_failure(exc)
-                        if isinstance(exc, RGWAdminError)
-                        else None
+                results.append(
+                    self._reconcile_service_identity(
+                        endpoint,
+                        kind,
+                        admin,
+                        permissions,
+                        default_mode=default_mode,
+                        provision_unprovisioned=provision_unprovisioned,
                     )
-                    unavailable = failure == "unavailable"
-                    if identity.status != "revocation_pending":
-                        if not (unavailable and identity.status == "ready"):
-                            identity.status = "error"
-                        identity.last_error = (
-                            f"Unable to configure {kind}: {exc}"
-                            if failure == "misconfigured"
-                            else f"{kind} validation is temporarily unavailable; existing credentials remain configured."
-                            if unavailable and identity.status == "ready"
-                            else f"Unable to configure {kind}; check credentials, required caps, ownership and RGW connectivity."
-                        )
-                    self.db.commit()
-                    results.append({"kind": kind, "status": identity.status})
+                )
             return results
         finally:
             if lease is not None:
