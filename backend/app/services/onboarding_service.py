@@ -141,6 +141,22 @@ class OnboardingService:
     def _preview(self, actor, row):
         draft = self.draft(row)
         result = OnboardingPreview()
+        self._preview_features(draft, result)
+
+        endpoint = self.db.get(StorageEndpoint, draft.endpoint_id) if draft.endpoint_id else None
+        if draft.endpoint_id and endpoint is None:
+            result.blockers.append("endpoint_unavailable")
+            return result
+
+        self._preview_endpoint(draft, endpoint, result)
+        self._preview_access_changes(actor, row, draft, result)
+        return result
+
+    def _preview_features(
+        self,
+        draft: OnboardingDraft,
+        result: OnboardingPreview,
+    ) -> None:
         settings = load_app_settings_for_db(self.db)
         locks = get_general_feature_locks()
 
@@ -156,11 +172,12 @@ class OnboardingService:
             else:
                 result.features.append(field)
 
-        endpoint = self.db.get(StorageEndpoint, draft.endpoint_id) if draft.endpoint_id else None
-        if draft.endpoint_id and endpoint is None:
-            result.blockers.append("endpoint_unavailable")
-            return result
-
+    def _preview_endpoint(
+        self,
+        draft: OnboardingDraft,
+        endpoint: StorageEndpoint | None,
+        result: OnboardingPreview,
+    ) -> None:
         needs_ceph = draft.manager or draft.portal or draft.ceph_admin or draft.supervision
         if needs_ceph:
             result.changes.append("configure_endpoint_service_identities")
@@ -214,6 +231,13 @@ class OnboardingService:
                 ["validate_supervision", "enable_endpoint_supervision_features"]
             )
 
+    def _preview_access_changes(
+        self,
+        actor: User,
+        row: OnboardingJourney,
+        draft: OnboardingDraft,
+        result: OnboardingPreview,
+    ) -> None:
         if draft.manager or draft.portal:
             resources = json.loads(row.resources_json)
             result.changes.append(
@@ -232,8 +256,6 @@ class OnboardingService:
                 result.changes.append("allow_private_connections")
         if draft.ceph_admin and not self.access.resolve_user(actor).can_access_ceph_admin:
             result.changes.append("grant_ceph_admin_access")
-
-        return result
 
     def fingerprint(self, actor, row):
         draft = self.draft(row)
