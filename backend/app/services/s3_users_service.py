@@ -309,32 +309,23 @@ class S3UsersService:
             )
         return summaries
 
-    def paginate_users(
-        self,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-        sort_field: str = "name",
-        sort_direction: str = "asc",
-        include_quota: bool = False,
-    ) -> tuple[list[S3UserSchema], int]:
-        query = self.db.query(S3UserModel)
-        search_value = search.strip() if isinstance(search, str) else ""
-        if search_value:
-            pattern = f"%{search_value}%"
-            tag_match = (
-                exists()
-                .where(S3UserTag.s3_user_id == S3UserModel.id)
-                .where(TagDefinition.id == S3UserTag.tag_definition_id)
-                .where(TagDefinition.label.ilike(pattern))
-            )
-            query = (
-                query.outerjoin(UserS3UserModel, S3UserModel.id == UserS3UserModel.s3_user_id)
-                .outerjoin(User, UserS3UserModel.user_id == User.id)
-                .outerjoin(UiGroupS3User, S3UserModel.id == UiGroupS3User.s3_user_id)
-                .outerjoin(UiGroup, UiGroupS3User.group_id == UiGroup.id)
-            )
-            query = query.filter(
+    @staticmethod
+    def _apply_user_search(query, search_value: str):
+        if not search_value:
+            return query
+        pattern = f"%{search_value}%"
+        tag_match = (
+            exists()
+            .where(S3UserTag.s3_user_id == S3UserModel.id)
+            .where(TagDefinition.id == S3UserTag.tag_definition_id)
+            .where(TagDefinition.label.ilike(pattern))
+        )
+        return (
+            query.outerjoin(UserS3UserModel, S3UserModel.id == UserS3UserModel.s3_user_id)
+            .outerjoin(User, UserS3UserModel.user_id == User.id)
+            .outerjoin(UiGroupS3User, S3UserModel.id == UiGroupS3User.s3_user_id)
+            .outerjoin(UiGroup, UiGroupS3User.group_id == UiGroup.id)
+            .filter(
                 or_(
                     S3UserModel.name.ilike(pattern),
                     S3UserModel.rgw_user_uid.ilike(pattern),
@@ -344,7 +335,11 @@ class S3UsersService:
                     tag_match,
                 )
             )
-            query = query.distinct()
+            .distinct()
+        )
+
+    @staticmethod
+    def _user_order_columns(sort_field: str, sort_direction: str) -> list[Any]:
         sort_map = {
             "name": S3UserModel.name,
             "uid": S3UserModel.rgw_user_uid,
@@ -353,25 +348,39 @@ class S3UsersService:
         }
         requested_sort = sort_field if sort_field in sort_map else "name"
         descending = sort_direction.lower() == "desc"
-        total_query = query.with_entities(func.count(func.distinct(S3UserModel.id)))
-        total = total_query.scalar() or 0
-        offset = max(page - 1, 0) * page_size
         if requested_sort == "name":
             if descending:
-                query = query.order_by(
+                return [
                     func.lower(S3UserModel.name).desc(),
                     S3UserModel.name.desc(),
                     S3UserModel.id.desc(),
-                )
-            else:
-                query = query.order_by(*name_order_by(S3UserModel))
-        else:
-            sort_column = sort_map[requested_sort]
-            if descending:
-                query = query.order_by(sort_column.desc(), S3UserModel.id.desc())
-            else:
-                query = query.order_by(sort_column.asc(), S3UserModel.id.asc())
-        rows = query.offset(offset).limit(page_size).all()
+                ]
+            return list(name_order_by(S3UserModel))
+        sort_column = sort_map[requested_sort]
+        direction = sort_column.desc if descending else sort_column.asc
+        id_direction = S3UserModel.id.desc if descending else S3UserModel.id.asc
+        return [direction(), id_direction()]
+
+    def paginate_users(
+        self,
+        page: int,
+        page_size: int,
+        search: Optional[str] = None,
+        sort_field: str = "name",
+        sort_direction: str = "asc",
+        include_quota: bool = False,
+    ) -> tuple[list[S3UserSchema], int]:
+        search_value = search.strip() if isinstance(search, str) else ""
+        query = self._apply_user_search(self.db.query(S3UserModel), search_value)
+        total_query = query.with_entities(func.count(func.distinct(S3UserModel.id)))
+        total = total_query.scalar() or 0
+        offset = max(page - 1, 0) * page_size
+        rows = (
+            query.order_by(*self._user_order_columns(sort_field, sort_direction))
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
         s3_user_ids = [row.id for row in rows]
         user_links_map, group_links_map = self.associations.load_links(s3_user_ids)
         return [
