@@ -8,6 +8,7 @@ import { useGeneralSettings } from "./components/GeneralSettingsContext";
 import FeatureDisabledPage from "./features/shared/FeatureDisabledPage";
 import RouteErrorPage from "./features/shared/RouteErrorPage";
 import ErrorState from "./components/errors/ErrorState";
+import UnauthorizedPage from "./features/auth/UnauthorizedPage";
 import {
   RequireAuth,
   RequireBrowserSurface,
@@ -36,7 +37,6 @@ export { RequireManagerFeatureRulesTool, RequirePortalAccess } from "./routerGua
 const LoginPage = lazy(() => import("./features/auth/LoginPage"));
 const FirstAdminSetupPage = lazy(() => import("./features/auth/FirstAdminSetupPage"));
 const OidcCallbackPage = lazy(() => import("./features/auth/OidcCallbackPage"));
-const UnauthorizedPage = lazy(() => import("./features/auth/UnauthorizedPage"));
 const NotFoundPage = lazy(() => import("./features/auth/NotFoundPage"));
 const S3AccountsPage = lazy(() => import("./features/admin/AccountsPage"));
 const AccessAuditPage = lazy(() => import("./features/admin/AccessAuditPage"));
