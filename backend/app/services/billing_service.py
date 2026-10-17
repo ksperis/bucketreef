@@ -160,6 +160,32 @@ def _compute_cost(rate_card: Optional[BillingRateCard], totals: BillingTotals) -
     )
 
 
+def _usage_totals(totals: BillingTotals) -> BillingUsageTotals:
+    return BillingUsageTotals(
+        bytes_in=totals.bytes_in,
+        bytes_out=totals.bytes_out,
+        ops_total=totals.ops_total,
+        ops_breakdown=totals.ops_breakdown,
+    )
+
+
+def _storage_totals(totals: BillingTotals) -> BillingStorageTotals:
+    return BillingStorageTotals(
+        avg_bytes=totals.avg_storage_bytes,
+        avg_gb_month=totals.avg_storage_gb_month,
+        total_objects=totals.total_objects,
+    )
+
+
+def _coverage_for_period(period: BillingPeriod, totals: BillingTotals) -> BillingCoverage:
+    return _coverage(
+        totals.days_with_data,
+        period.days_in_month,
+        storage_days_collected=totals.storage_days_with_data,
+        usage_days_collected=totals.usage_days_with_data,
+    )
+
+
 def _resolve_rate_card(
     db: Session,
     endpoint_id: Optional[int],
@@ -211,23 +237,9 @@ class BillingService:
         return BillingSummary(
             month=period.month,
             storage_endpoint_id=endpoint_id,
-            usage=BillingUsageTotals(
-                bytes_in=totals.bytes_in,
-                bytes_out=totals.bytes_out,
-                ops_total=totals.ops_total,
-                ops_breakdown=totals.ops_breakdown,
-            ),
-            storage=BillingStorageTotals(
-                avg_bytes=totals.avg_storage_bytes,
-                avg_gb_month=totals.avg_storage_gb_month,
-                total_objects=totals.total_objects,
-            ),
-            coverage=_coverage(
-                totals.days_with_data,
-                period.days_in_month,
-                storage_days_collected=totals.storage_days_with_data,
-                usage_days_collected=totals.usage_days_with_data,
-            ),
+            usage=_usage_totals(totals),
+            storage=_storage_totals(totals),
+            coverage=_coverage_for_period(period, totals),
             cost=cost,
         )
 
@@ -294,19 +306,21 @@ class BillingService:
 
         usage_rows = self._usage_rows_for_subject(period, endpoint_id, subject_type, subject_id)
         storage_rows = self._storage_rows_for_subject(period, endpoint_id, subject_type, subject_id)
-        usage_totals = BillingUsageTotals(
+        total_storage_bytes = sum(row.total_bytes for row in storage_rows)
+        days_with_storage = len(storage_rows)
+        avg_storage_bytes = int(total_storage_bytes / days_with_storage) if days_with_storage else None
+        usage_days = len({row.day for row in usage_rows})
+        totals = BillingTotals(
             bytes_in=sum(row.bytes_in for row in usage_rows),
             bytes_out=sum(row.bytes_out for row in usage_rows),
             ops_total=sum(row.ops_total for row in usage_rows),
             ops_breakdown=_merge_ops_breakdown(usage_rows) if usage_rows else None,
-        )
-        total_storage_bytes = sum(row.total_bytes for row in storage_rows)
-        days_with_storage = len(storage_rows)
-        avg_storage_bytes = int(total_storage_bytes / days_with_storage) if days_with_storage else None
-        storage_totals = BillingStorageTotals(
-            avg_bytes=avg_storage_bytes,
-            avg_gb_month=_bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
+            avg_storage_bytes=avg_storage_bytes,
+            avg_storage_gb_month=_bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
             total_objects=(sum(row.total_objects for row in storage_rows) if storage_rows else None),
+            days_with_data=max(days_with_storage, usage_days),
+            storage_days_with_data=days_with_storage,
+            usage_days_with_data=usage_days,
         )
 
         daily_map: dict[str, BillingDailySeriesPoint] = {}
@@ -322,20 +336,6 @@ class BillingService:
             daily_map[key] = entry
 
         daily = sorted(daily_map.values(), key=lambda entry: entry.day)
-        usage_days = len({row.day for row in usage_rows})
-        coverage_days = max(days_with_storage, usage_days)
-        totals = BillingTotals(
-            bytes_in=usage_totals.bytes_in,
-            bytes_out=usage_totals.bytes_out,
-            ops_total=usage_totals.ops_total,
-            ops_breakdown=usage_totals.ops_breakdown,
-            avg_storage_bytes=storage_totals.avg_bytes,
-            avg_storage_gb_month=storage_totals.avg_gb_month,
-            total_objects=storage_totals.total_objects,
-            days_with_data=coverage_days,
-            storage_days_with_data=days_with_storage,
-            usage_days_with_data=usage_days,
-        )
         cost = _compute_cost(_resolve_rate_card(self.db, endpoint_id, period, subject_type, subject_id), totals)
 
         return BillingSubjectDetail(
@@ -345,14 +345,9 @@ class BillingService:
             name=subject.name,
             rgw_identifier=subject.rgw_user_uid,
             daily=daily,
-            usage=usage_totals,
-            storage=storage_totals,
-            coverage=_coverage(
-                coverage_days,
-                period.days_in_month,
-                storage_days_collected=days_with_storage,
-                usage_days_collected=usage_days,
-            ),
+            usage=_usage_totals(totals),
+            storage=_storage_totals(totals),
+            coverage=_coverage_for_period(period, totals),
             cost=cost,
         )
 
@@ -427,16 +422,8 @@ class BillingService:
                     subject_id=subject_id,
                     name=subject.name,
                     rgw_identifier=subject.rgw_user_uid,
-                    storage=BillingStorageTotals(
-                        avg_bytes=totals.avg_storage_bytes,
-                        avg_gb_month=totals.avg_storage_gb_month,
-                        total_objects=totals.total_objects,
-                    ),
-                    usage=BillingUsageTotals(
-                        bytes_in=usage[0],
-                        bytes_out=usage[1],
-                        ops_total=usage[2],
-                    ),
+                    storage=_storage_totals(totals),
+                    usage=_usage_totals(totals),
                     cost=_compute_cost(
                         _resolve_rate_card(
                             self.db,
