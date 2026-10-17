@@ -18,7 +18,7 @@ from app.models.ceph_admin import (
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_audit import record_ceph_admin_action
-from app.routers.ceph_admin.user_common import require_user_scope, serialize_access_keys
+from app.services.ceph_admin_user_access import require_user_scope, serialize_access_keys
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
@@ -63,7 +63,7 @@ def list_rgw_user_keys(
     db: Session = Depends(get_db),
 ) -> list[CephAdminRgwAccessKey]:
     uid = user_id.strip()
-    require_user_scope(uid, tenant, expected_account_id, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
     try:
         keys = ctx.rgw_admin.list_user_keys(uid, tenant=tenant)
     except RGWAdminError as exc:
@@ -91,7 +91,7 @@ def create_rgw_user_key(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwGeneratedAccessKey:
     uid = user_id.strip()
-    require_user_scope(uid, tenant, expected_account_id, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
     try:
         response = ctx.rgw_admin.create_access_key(uid, tenant=tenant)
     except RGWAdminError as exc:
@@ -133,7 +133,7 @@ def update_rgw_user_key_status(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; update or delete its private connection instead",
         )
-    require_user_scope(uid, tenant, expected_account_id, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
     try:
         ctx.rgw_admin.set_access_key_status(uid, normalized_key, update.active, tenant=tenant)
         keys = ctx.rgw_admin.list_user_keys(uid, tenant=tenant)
@@ -175,7 +175,7 @@ def delete_rgw_user_key(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; delete its private connection instead",
         )
-    require_user_scope(uid, tenant, expected_account_id, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
     try:
         ctx.rgw_admin.delete_access_key(uid, normalized_key, tenant=tenant)
     except RGWAdminError as exc:
