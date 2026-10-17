@@ -63,8 +63,11 @@ def resolve_ceph_admin_browser_context(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
     except CephAdminEndpointProviderError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
-    except CephAdminEndpointUnavailableError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except CephAdminEndpointUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ceph Admin is not active on this endpoint",
+        )
 
     identity_validation_error = validate_ceph_admin_service_identity(endpoint)
     if identity_validation_error:

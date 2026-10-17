@@ -24,6 +24,7 @@ SIGNAL_FIELDS = {
     "delegated_ceph_admin_bucket_config_audit": "_record_bucket_config_mutation(",
     "delegated_ceph_admin_bucket_config_wrapper": "_run_bucket_config_",
     "delegated_ceph_admin_bucket_ui_tags_audit": "CephAdminBucketUiTagsWorkflow = Depends(",
+    "delegated_ceph_admin_user_key_audit": "CephAdminUserKeyService(",
     "delegated_purge_stream": "stream_bucket_purge(",
     "delegated_integrity_stream": "stream_bucket_integrity_check(",
     "delegated_portal_request_create_audit": "service.create_request(",
@@ -46,6 +47,7 @@ DELEGATED_AUDIT_SIGNALS = frozenset(
         "delegated_ceph_admin_bucket_config_audit",
         "delegated_ceph_admin_bucket_config_wrapper",
         "delegated_ceph_admin_bucket_ui_tags_audit",
+        "delegated_ceph_admin_user_key_audit",
         "delegated_purge_stream",
         "delegated_integrity_stream",
         "delegated_portal_request_create_audit",
@@ -192,6 +194,15 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
             ] and (
                 "workflow.mutate(" in body
                 or "workflow.update_definition(" in body
+            )
+            signals["delegated_ceph_admin_user_key_audit"] = any(
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr in {"create_key", "update_status", "delete_key"}
+                and isinstance(call.func.value, ast.Call)
+                and isinstance(call.func.value.func, ast.Name)
+                and call.func.value.func.id == "CephAdminUserKeyService"
+                for call in ast.walk(node)
             )
             # Only the explicitly audited workflow methods qualify. Preview,
             # status, or a future method must not gain coverage by class name.
