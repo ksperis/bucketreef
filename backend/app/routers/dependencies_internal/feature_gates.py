@@ -30,6 +30,7 @@ from app.utils.storage_endpoint_features import resolve_feature_flags
 
 from .execution_context import get_s3_execution_context
 from .auth_session import get_current_actor, get_current_user
+from .workspace_context import browser_workspace_header
 
 ManagerToolKey = Literal[
     "bucket_compare",
@@ -318,7 +319,7 @@ def require_browser_enabled() -> None:
 
 
 def require_browser_workspace_surface(request: Request) -> None:
-    surface = (request.headers.get("X-S3-Workspace") or "").strip().lower()
+    surface = browser_workspace_header(request)
     if surface not in {"", "portal", "manager-browser"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -8,18 +8,23 @@ from urllib.parse import unquote
 from fastapi import Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.db import PortalAccountRole, S3Account, StorageProvider, User, UserS3Account
 from app.models.access_context import AccountAccess, EffectiveAccountLink
 from app.models.account_capabilities import AccountCapabilities
-from app.utils.http_errors import raise_http_exception_from_exception
 from app.services import app_settings_service
-from app.services.s3_execution_context import S3ExecutionContext
 from app.services.portal_access_service import portal_membership_capabilities
+from app.services.s3_execution_context import S3ExecutionContext
+from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.request_paths import relative_path_from_prefix
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
-from .auth_session import get_current_account_user, settings
-from .workspace_context import resolve_user_account_link, resolve_workspace_surface
+from .auth_session import get_current_account_user
+from .workspace_context import browser_workspace_header, resolve_user_account_link, resolve_workspace_surface
+
+
+settings = get_settings()
 
 def _portal_membership_capabilities(
     link: Optional[UserS3Account | EffectiveAccountLink],
@@ -52,19 +57,14 @@ def _parse_portal_account_id(account_ref: Optional[str]) -> Optional[int]:
 def is_portal_browser_request(request: Optional[Request], surface: str) -> bool:
     if surface != "browser" or request is None:
         return False
-    workspace = (request.headers.get("X-S3-Workspace") or "").strip().lower()
-    return workspace == "portal"
+    return browser_workspace_header(request) == "portal"
 
 
 def _portal_browser_relative_segments(request: Request) -> list[str]:
     browser_prefix = f"{settings.api_v1_prefix}/browser"
-    path = str(request.url.path)
-    if path.startswith(browser_prefix):
-        relative = path[len(browser_prefix) :]
-    elif path.startswith("/browser"):
-        relative = path[len("/browser") :]
-    else:
-        relative = path
+    relative = relative_path_from_prefix(str(request.url.path), browser_prefix)
+    if relative is None:
+        return []
     return [segment for segment in relative.strip("/").split("/") if segment]
 
 

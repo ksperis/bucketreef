@@ -18,6 +18,7 @@ from app.services import effective_access_service
 from app.services.api_token_service import ApiTokenService
 from app.services.auth_session_service import AuthSessionError, AuthSessionService
 from app.services.session_service import SessionService
+from app.utils.request_paths import path_matches_prefix
 from app.utils.request_security import require_trusted_origin
 
 
@@ -43,7 +44,7 @@ def _required_api_scope(request: Request) -> Optional[str]:
         (f"{settings.api_v1_prefix}/connections", "browser"),
     )
     for prefix, domain in mappings:
-        if path == prefix.rstrip("/") or path.startswith(prefix):
+        if path_matches_prefix(path, prefix):
             return f"{domain}:{access}"
     return None
 

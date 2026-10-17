@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from app.main import app
 from app.models.browser import BrowserStsCredentials
 from app.routers import dependencies
 from app.routers import browser as browser_router
+from app.routers.dependencies_internal import auth_session
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
 
 
@@ -203,6 +205,15 @@ def test_api_token_scope_is_enforced_and_unmapped_routes_are_denied_by_default(a
     unmapped = auth_client.get("/api/auth/session", headers={"Authorization": f"Bearer {token}"})
     assert unmapped.status_code == 403
     assert unmapped.json()["detail"] == "API tokens are not allowed for this route"
+
+
+def test_api_token_scope_matching_does_not_accept_sibling_route_prefixes():
+    request = SimpleNamespace(
+        url=SimpleNamespace(path="/api/browser-legacy/buckets"),
+        method="GET",
+    )
+
+    assert auth_session._required_api_scope(request) is None
 
 
 @pytest.mark.parametrize("scope", ["browser:read", "browser:write"])
