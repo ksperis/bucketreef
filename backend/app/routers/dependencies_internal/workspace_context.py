@@ -7,9 +7,11 @@ from typing import Optional
 from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import S3AccountNotFoundError
 from app.db import S3Account, User, UserS3Account
 from app.models.access_context import EffectiveAccountLink
 from app.services import effective_access_service
+from app.services.s3_accounts_service import get_s3_accounts_service
 
 from .auth_session import settings
 
@@ -34,10 +36,10 @@ def _resolve_default_account_id(db: Session, user: User) -> int:
 
 
 def resolve_account_by_id(db: Session, account_id: int) -> S3Account:
-    account = db.query(S3Account).filter(S3Account.id == account_id).first()
-    if not account:
+    try:
+        return get_s3_accounts_service(db).get_account_record(account_id)
+    except S3AccountNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Account not found")
-    return account
 
 
 def resolve_user_account_link(

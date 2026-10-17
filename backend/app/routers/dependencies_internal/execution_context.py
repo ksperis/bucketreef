@@ -8,14 +8,17 @@ from fastapi import Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_errors import S3ConnectionNotFoundError, S3UserNotFoundError
 from app.models.access_context import EffectiveAccountLink, ManagerActor
 from app.models.account_capabilities import AccountCapabilities
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account
 from app.models.session import ManagerSessionPrincipal
 from app.services import app_settings_service, effective_access_service
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
+from app.services.s3_users_service import get_s3_users_service
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import resolve_connection_details
@@ -103,8 +106,9 @@ def _resolve_s3_user_context(
             detail="Manager Browser data access is not allowed for this S3 user",
         )
 
-    s3_user = db.query(S3User).filter(S3User.id == s3_user_id).first()
-    if not s3_user:
+    try:
+        s3_user = get_s3_users_service(db).get_user_record(s3_user_id)
+    except S3UserNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3 user not found")
 
     return _build_s3_user_context(
@@ -126,8 +130,10 @@ def _resolve_connection_context(
     touch_usage: bool = True,
 ) -> S3ExecutionContext:
     """Resolve a connection through the same policy used by the catalogue."""
-    conn = db.query(S3Connection).filter(S3Connection.id == connection_id).first()
-    if not conn:
+    connections = S3ConnectionsService(db)
+    try:
+        conn = connections.get_record(connection_id)
+    except S3ConnectionNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Connection not found")
     service = effective_access_service.EffectiveAccessService(db)
     effective = service.resolve_user(user)
@@ -157,7 +163,7 @@ def _resolve_connection_context(
     # Keep a minimal usage signal for UX (recently used sorting / hints).
     if touch_usage:
         try:
-            S3ConnectionsService(db).touch_usage(conn)
+            connections.touch_usage(conn)
         except Exception:
             db.rollback()
     can_manage_iam = _connection_iam_capable(conn)
@@ -199,11 +205,7 @@ def _resolve_session_account(
         if account.rgw_account_id.lower() != actor.account_id.lower():
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this account")
     else:
-        account = (
-            db.query(S3Account)
-            .filter(S3Account.rgw_account_id == actor.account_id)
-            .first()
-        )
+        account = get_s3_accounts_service(db).find_account_by_rgw_id(actor.account_id)
     context_name = account.name if account is not None else actor.account_name or actor.account_id
     context_rgw_account_id = account.rgw_account_id if account is not None else actor.account_id
     context_rgw_user_uid = account.rgw_user_uid if account is not None else actor.user_uid
@@ -216,11 +218,7 @@ def _resolve_session_account(
         requested_endpoint = endpoint.endpoint_url
         resolved_endpoint = endpoint
     elif requested_endpoint:
-        resolved_endpoint = (
-            db.query(StorageEndpoint)
-            .filter(StorageEndpoint.endpoint_url == requested_endpoint)
-            .first()
-        )
+        resolved_endpoint = get_storage_endpoints_service(db).find_endpoint_record_by_url(requested_endpoint)
     if resolved_endpoint:
         context_endpoint_id = resolved_endpoint.id
         context_endpoint = resolved_endpoint
@@ -237,6 +235,7 @@ def _resolve_session_account(
         secret_key=actor.secret_key,
         storage_endpoint_id=context_endpoint_id,
         storage_endpoint=context_endpoint,
+        source_account=account,
         session_endpoint=requested_endpoint,
         manager_capabilities=AccountCapabilities(
             can_manage_buckets=actor.capabilities.can_manage_buckets,

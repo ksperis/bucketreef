@@ -149,16 +149,14 @@ def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision
     )
     reconciled = SimpleNamespace(id=7)
 
-    class FakeDB:
-        def get(self, model, endpoint_id):
-            assert model is storage_endpoints_router.DBStorageEndpoint
-            assert endpoint_id == 7
-            return endpoint
-
     class FakeService:
         def __init__(self):
-            self.db = FakeDB()
+            self.db = object()
             self.calls = []
+
+        def get_endpoint_record(self, endpoint_id):
+            assert endpoint_id == 7
+            return endpoint
 
         def reconcile_identities(self, endpoint_id):
             self.calls.append(endpoint_id)

@@ -15,7 +15,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import S3Account, S3Connection, S3User, User
+from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
+from app.db import User
 from app.models.access_context import ManagerActor
 from app.models.execution_context import ManagerContext
 from app.models.session import ManagerSessionPrincipal
@@ -30,6 +31,7 @@ from app.services.app_settings_service import load_app_settings
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.s3_accounts_service import get_s3_accounts_service
+from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_users_service import get_s3_users_service
 from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
 from app.services.managed_private_access_service import ManagedPrivateAccessService
@@ -128,7 +130,12 @@ def _manager_browser_state(
     if resolved_access is None or access_service is None:
         raise RuntimeError("UI user effective access was not resolved")
     if context.context_kind == "connection":
-        connection = db.query(S3Connection).filter(S3Connection.id == context.s3_connection_id).first()
+        connection = context.source_connection
+        if connection is None and context.s3_connection_id is not None:
+            try:
+                connection = S3ConnectionsService(db).get_record(context.s3_connection_id)
+            except S3ConnectionNotFoundError:
+                connection = None
         enabled = bool(
             connection
             and access_service.manager_browser_connection_is_allowed(
@@ -215,7 +222,12 @@ def _manager_limits(
     if not include_limits or context.context_kind == "connection":
         return _ManagerLimits()
     if context.context_kind == "s3_user":
-        s3_user = db.query(S3User).filter(S3User.id == context.s3_user_id).first()
+        s3_user = context.source_s3_user
+        if s3_user is None and context.s3_user_id is not None:
+            try:
+                s3_user = get_s3_users_service(db).get_user_record(context.s3_user_id)
+            except S3UserNotFoundError:
+                s3_user = None
         if s3_user is None:
             return _ManagerLimits()
         quota_max_size_gb, quota_max_objects, max_buckets = get_s3_users_service(db).get_user_limits(s3_user)
@@ -225,7 +237,12 @@ def _manager_limits(
             max_buckets=max_buckets,
         )
 
-    s3_account = db.query(S3Account).filter(S3Account.id == context.id).first() if context.id is not None else None
+    s3_account = context.source_account
+    if s3_account is None and context.id is not None:
+        try:
+            s3_account = get_s3_accounts_service(db).get_account_record(context.id)
+        except S3AccountNotFoundError:
+            s3_account = None
     if s3_account is None:
         return _ManagerLimits()
     (
@@ -297,9 +314,19 @@ def get_manager_context(
 
     resource = None
     if context.context_kind == "account" and isinstance(context.id, int):
-        resource = db.get(S3Account, context.id)
+        resource = context.source_account
+        if resource is None:
+            try:
+                resource = get_s3_accounts_service(db).get_account_record(context.id)
+            except S3AccountNotFoundError:
+                resource = None
     elif context.context_kind == "s3_user" and context.s3_user_id is not None:
-        resource = db.get(S3User, context.s3_user_id)
+        resource = context.source_s3_user
+        if resource is None:
+            try:
+                resource = get_s3_users_service(db).get_user_record(context.s3_user_id)
+            except S3UserNotFoundError:
+                resource = None
     provisioning_sources = resolved_access.feature_sources.get("managed_private_connection_provision", ()) if resolved_access else ()
     app_settings = load_app_settings_for_db_readonly(db)
     feature_states = manager_resource_states(

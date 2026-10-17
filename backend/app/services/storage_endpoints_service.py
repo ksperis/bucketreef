@@ -429,16 +429,25 @@ class StorageEndpointsService:
             .first()
         )
 
-    def get_endpoint(self, endpoint_id: int, *, include_admin_ops_permissions: bool = True) -> StorageEndpointSchema:
+    def find_endpoint_record_by_url(self, endpoint_url: str) -> Optional[StorageEndpoint]:
+        return (
+            self.db.query(StorageEndpoint)
+            .filter(StorageEndpoint.endpoint_url == endpoint_url)
+            .first()
+        )
+
+    def get_endpoint_record(self, endpoint_id: int) -> StorageEndpoint:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
+        return endpoint
+
+    def get_endpoint(self, endpoint_id: int, *, include_admin_ops_permissions: bool = True) -> StorageEndpointSchema:
+        endpoint = self.get_endpoint_record(endpoint_id)
         return self._serialize(endpoint, include_admin_ops_permissions=include_admin_ops_permissions)
 
     def update_endpoint_tags(self, endpoint_id: int, payload: StorageEndpointTagsUpdate) -> StorageEndpointSchema:
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.get_endpoint_record(endpoint_id)
         self.tags.replace_storage_endpoint_tags(endpoint, payload.tags)
         self.db.commit()
         self.db.refresh(endpoint)

@@ -51,7 +51,9 @@ class S3ExecutionContext:
     s3_connection_id: Optional[int] = None
     s3_user_id: Optional[int] = None
     ceph_admin_endpoint_id: Optional[int] = None
+    source_account: Optional[S3Account] = None
     source_connection: Optional[S3Connection] = None
+    source_s3_user: Optional[S3User] = None
     manager_capabilities: AccountCapabilities = field(default_factory=AccountCapabilities)
     portal_browser_role: Optional[str] = None
     portal_browser_access: Any = None
@@ -81,6 +83,7 @@ class S3ExecutionContext:
             secret_key=secret_key,
             storage_endpoint_id=account.storage_endpoint_id,
             storage_endpoint=account.storage_endpoint,
+            source_account=account,
             manager_capabilities=manager_capabilities or AccountCapabilities(),
         )
 
@@ -129,6 +132,7 @@ class S3ExecutionContext:
             storage_endpoint_id=user.storage_endpoint_id,
             storage_endpoint=user.storage_endpoint,
             s3_user_id=user.id,
+            source_s3_user=user,
             manager_capabilities=manager_capabilities or AccountCapabilities(),
         )
 

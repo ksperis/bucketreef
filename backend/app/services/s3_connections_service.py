@@ -120,6 +120,12 @@ class S3ConnectionsService:
             raise S3ConnectionNotFoundError("S3Connection not found")
         return row
 
+    def get_record(self, connection_id: int) -> DBS3Connection:
+        row = self.db.query(DBS3Connection).filter(DBS3Connection.id == connection_id).first()
+        if row is None:
+            raise S3ConnectionNotFoundError("S3Connection not found")
+        return row
+
     def create_admin_shared(
         self,
         created_by_user_id: int,
