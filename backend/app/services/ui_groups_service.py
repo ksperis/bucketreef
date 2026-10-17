@@ -39,6 +39,7 @@ from app.services.portal_role_sync import (
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
+from app.utils.name_ordering import name_order_by
 from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 
@@ -209,9 +210,64 @@ class UiGroupsService:
         return self.db.query(UiGroup).filter(UiGroup.id == group_id).first()
 
     def list_groups_minimal(self) -> list[UiGroupSummary]:
-        rows = self.db.query(UiGroup).order_by(UiGroup.name.asc()).all()
+        rows = self.db.query(UiGroup).order_by(*name_order_by(UiGroup)).all()
         avatar_service = UiGroupAvatarService(self.db)
         return [UiGroupSummary(id=row.id, name=row.name, avatar=avatar_service.descriptor(row)) for row in rows]
+
+    @staticmethod
+    def _apply_group_search(query, search_value: str):
+        if not search_value:
+            return query
+        member = aliased(User)
+        account = aliased(S3Account)
+        s3_user = aliased(S3User)
+        connection = aliased(S3Connection)
+        pattern = f"%{search_value}%"
+        return (
+            query.outerjoin(UserUiGroup, UiGroup.id == UserUiGroup.group_id)
+            .outerjoin(member, UserUiGroup.user_id == member.id)
+            .outerjoin(UiGroupS3Account, UiGroup.id == UiGroupS3Account.group_id)
+            .outerjoin(account, UiGroupS3Account.account_id == account.id)
+            .outerjoin(UiGroupS3User, UiGroup.id == UiGroupS3User.group_id)
+            .outerjoin(s3_user, UiGroupS3User.s3_user_id == s3_user.id)
+            .outerjoin(UiGroupS3Connection, UiGroup.id == UiGroupS3Connection.group_id)
+            .outerjoin(
+                connection,
+                and_(
+                    UiGroupS3Connection.s3_connection_id == connection.id,
+                    connection.is_shared.is_(True),
+                ),
+            )
+            .filter(
+                or_(
+                    UiGroup.name.ilike(pattern),
+                    func.coalesce(UiGroup.description, "").ilike(pattern),
+                    func.coalesce(member.email, "").ilike(pattern),
+                    func.coalesce(account.name, "").ilike(pattern),
+                    func.coalesce(account.rgw_account_id, "").ilike(pattern),
+                    func.coalesce(s3_user.name, "").ilike(pattern),
+                    func.coalesce(s3_user.rgw_user_uid, "").ilike(pattern),
+                    func.coalesce(connection.name, "").ilike(pattern),
+                )
+            )
+            .distinct()
+        )
+
+    @staticmethod
+    def _group_order_columns(sort_field: str, sort_direction: str):
+        descending = sort_direction == "desc"
+        if sort_field == "name" or sort_field not in {"created_at", "updated_at"}:
+            if descending:
+                return (
+                    func.lower(UiGroup.name).desc(),
+                    UiGroup.name.desc(),
+                    UiGroup.id.desc(),
+                )
+            return name_order_by(UiGroup)
+        sort_column = UiGroup.created_at if sort_field == "created_at" else UiGroup.updated_at
+        direction = sort_column.desc if descending else sort_column.asc
+        id_direction = UiGroup.id.desc if descending else UiGroup.id.asc
+        return direction(), id_direction()
 
     def paginate_groups(
         self,
@@ -222,54 +278,16 @@ class UiGroupsService:
         sort_field: str = "name",
         sort_direction: str = "asc",
     ) -> tuple[list[UiGroupOut], int]:
-        query = self.db.query(UiGroup)
         search_value = search.strip() if isinstance(search, str) else ""
-        if search_value:
-            member = aliased(User)
-            account = aliased(S3Account)
-            s3_user = aliased(S3User)
-            connection = aliased(S3Connection)
-            pattern = f"%{search_value}%"
-            query = (
-                query.outerjoin(UserUiGroup, UiGroup.id == UserUiGroup.group_id)
-                .outerjoin(member, UserUiGroup.user_id == member.id)
-                .outerjoin(UiGroupS3Account, UiGroup.id == UiGroupS3Account.group_id)
-                .outerjoin(account, UiGroupS3Account.account_id == account.id)
-                .outerjoin(UiGroupS3User, UiGroup.id == UiGroupS3User.group_id)
-                .outerjoin(s3_user, UiGroupS3User.s3_user_id == s3_user.id)
-                .outerjoin(UiGroupS3Connection, UiGroup.id == UiGroupS3Connection.group_id)
-                .outerjoin(
-                    connection,
-                    and_(
-                        UiGroupS3Connection.s3_connection_id == connection.id,
-                        connection.is_shared.is_(True),
-                    ),
-                )
-                .filter(
-                    or_(
-                        UiGroup.name.ilike(pattern),
-                        func.coalesce(UiGroup.description, "").ilike(pattern),
-                        func.coalesce(member.email, "").ilike(pattern),
-                        func.coalesce(account.name, "").ilike(pattern),
-                        func.coalesce(account.rgw_account_id, "").ilike(pattern),
-                        func.coalesce(s3_user.name, "").ilike(pattern),
-                        func.coalesce(s3_user.rgw_user_uid, "").ilike(pattern),
-                        func.coalesce(connection.name, "").ilike(pattern),
-                    )
-                )
-                .distinct()
-            )
-        sort_map = {
-            "name": UiGroup.name,
-            "created_at": UiGroup.created_at,
-            "updated_at": UiGroup.updated_at,
-        }
-        order_column = sort_map.get(sort_field, UiGroup.name)
-        if sort_direction == "desc":
-            order_column = order_column.desc()
+        query = self._apply_group_search(self.db.query(UiGroup), search_value)
         total = query.with_entities(func.count(func.distinct(UiGroup.id))).scalar() or 0
         offset = max(page - 1, 0) * page_size
-        rows = query.order_by(order_column).offset(offset).limit(page_size).all()
+        rows = (
+            query.order_by(*self._group_order_columns(sort_field, sort_direction))
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
         return [self.group_to_out(group) for group in rows], total
 
     def _preload_group_output(self, group_id: int) -> _UiGroupOutputPreload:

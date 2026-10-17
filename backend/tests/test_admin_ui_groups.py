@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import base64
+from datetime import datetime, timezone
 
 import pytest
 from fastapi import HTTPException
@@ -21,6 +22,7 @@ from app.db import (
     User,
     UserRole,
     UserS3Account,
+    UiGroup,
     UiGroupS3Connection,
 )
 from app.main import app
@@ -262,6 +264,37 @@ def test_ui_group_projection_and_search_hide_private_connection_links(
     )
     assert hidden_search.status_code == 200, hidden_search.text
     assert hidden_search.json()["total"] == 0
+
+
+def test_ui_group_listings_share_stable_case_insensitive_order(client: TestClient, db_session):
+    created = [
+        client.post("/api/admin/groups", json={"name": name}).json()
+        for name in ("Zulu", "alpha", "Beta")
+    ]
+    tied_at = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    db_session.query(UiGroup).filter(UiGroup.id.in_([item["id"] for item in created])).update(
+        {UiGroup.created_at: tied_at},
+        synchronize_session=False,
+    )
+    db_session.commit()
+
+    minimal = client.get("/api/admin/groups/minimal")
+    paginated = client.get(
+        "/api/admin/groups",
+        params={"sort_by": "name", "sort_dir": "asc", "page_size": 10},
+    )
+    created_desc = client.get(
+        "/api/admin/groups",
+        params={"sort_by": "created_at", "sort_dir": "desc", "page_size": 10},
+    )
+
+    assert minimal.status_code == paginated.status_code == created_desc.status_code == 200
+    assert [item["name"] for item in minimal.json()] == ["alpha", "Beta", "Zulu"]
+    assert [item["name"] for item in paginated.json()["items"]] == ["alpha", "Beta", "Zulu"]
+    assert [item["id"] for item in created_desc.json()["items"]] == sorted(
+        [item["id"] for item in created],
+        reverse=True,
+    )
 
 
 def test_ui_group_avatar_supports_presets_upload_and_initials_fallback(client: TestClient, db_session):
