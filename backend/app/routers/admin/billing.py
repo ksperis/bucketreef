@@ -2,44 +2,28 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from typing import NoReturn
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import StorageEndpoint, StorageProvider, User
+from app.core.domain_errors import BillingDisabledError
+from app.db import User
 from app.models.billing import BillingSubjectDetail, BillingSubjectsResponse, BillingSummary
 from app.routers.billing_common import parse_billing_day
 from app.routers.dependencies import get_current_super_admin
-from app.services.billing_collection_service import BillingCollector
-from app.services.billing_service import BillingService
-from app.services.app_settings_service import load_app_settings
-from app.services.operation_lease_service import (
-    OperationLeaseService,
-    billing_daily_operation_name,
-    billing_operation_lease_ttl_seconds,
-)
-from app.utils.http_errors import (
-    raise_bad_request_from_value_error,
-    raise_http_error_from_value_error,
-)
+from app.services.admin_billing_service import AdminBillingService
+from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
 
 
-def _ensure_billing_enabled() -> None:
-    app_settings = load_app_settings()
-    if not app_settings.general.billing_enabled:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Billing is disabled")
-
-
-def _resolve_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
-    endpoint = db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
-    if not endpoint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found")
-    if endpoint.provider != StorageProvider.CEPH.value:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This endpoint is not a Ceph endpoint")
-    return endpoint
+def _raise_billing_http_error(exc: ValueError) -> NoReturn:
+    if isinstance(exc, BillingDisabledError):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    raise_http_error_from_value_error(exc)
 
 
 @router.get("/summary", response_model=BillingSummary)
@@ -49,14 +33,10 @@ def billing_summary(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> BillingSummary:
-    _ensure_billing_enabled()
-    if endpoint_id is not None:
-        _resolve_endpoint(db, endpoint_id)
-    service = BillingService(db)
     try:
-        return service.summary(month, endpoint_id)
+        return AdminBillingService(db).summary(month, endpoint_id)
     except ValueError as exc:
-        raise_bad_request_from_value_error(exc)
+        _raise_billing_http_error(exc)
 
 
 @router.post("/collect/daily")
@@ -65,29 +45,11 @@ def billing_collect_daily(
     current_user: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> dict:
-    _ensure_billing_enabled()
     parsed = parse_billing_day(day)
-    operation_name = billing_daily_operation_name(parsed.isoformat())
-    lease_service = OperationLeaseService(db)
-    lease = lease_service.acquire(
-        operation_name,
-        ttl_seconds=billing_operation_lease_ttl_seconds(),
-        lease_context={"source": "admin", "day": parsed.isoformat(), "user_id": current_user.id},
-    )
-    if lease is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A billing collection is already running for this day.",
-        )
-    collector = BillingCollector(db)
     try:
-        result = collector.collect_daily(parsed)
+        return AdminBillingService(db).collect_daily(parsed, current_user)
     except ValueError as exc:
-        db.rollback()
-        raise_bad_request_from_value_error(exc)
-    finally:
-        lease_service.release(lease)
-    return result
+        _raise_billing_http_error(exc)
 
 
 @router.get("/subjects", response_model=BillingSubjectsResponse)
@@ -102,13 +64,18 @@ def billing_subjects(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> BillingSubjectsResponse:
-    _ensure_billing_enabled()
-    _resolve_endpoint(db, endpoint_id)
-    service = BillingService(db)
     try:
-        return service.list_subjects(month, endpoint_id, subject_type, page, page_size, sort_by, sort_dir)
+        return AdminBillingService(db).list_subjects(
+            month,
+            endpoint_id,
+            subject_type,
+            page,
+            page_size,
+            sort_by,
+            sort_dir,
+        )
     except ValueError as exc:
-        raise_bad_request_from_value_error(exc)
+        _raise_billing_http_error(exc)
 
 
 @router.get("/subject/{subject_type}/{subject_id}", response_model=BillingSubjectDetail)
@@ -120,13 +87,10 @@ def billing_subject_detail(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> BillingSubjectDetail:
-    _ensure_billing_enabled()
-    _resolve_endpoint(db, endpoint_id)
-    service = BillingService(db)
     try:
-        return service.subject_detail(month, endpoint_id, subject_type, subject_id)
+        return AdminBillingService(db).subject_detail(month, endpoint_id, subject_type, subject_id)
     except ValueError as exc:
-        raise_http_error_from_value_error(exc)
+        _raise_billing_http_error(exc)
 
 
 @router.get("/export.csv")
@@ -136,12 +100,9 @@ def billing_export_csv(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> Response:
-    _ensure_billing_enabled()
-    _resolve_endpoint(db, endpoint_id)
-    service = BillingService(db)
     try:
-        filename, payload = service.export_csv(month, endpoint_id)
+        filename, payload = AdminBillingService(db).export_csv(month, endpoint_id)
     except ValueError as exc:
-        raise_bad_request_from_value_error(exc)
+        _raise_billing_http_error(exc)
     headers = {"Content-Disposition": build_attachment_content_disposition(filename)}
     return Response(content=payload, media_type="text/csv", headers=headers)

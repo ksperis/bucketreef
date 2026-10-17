@@ -47,6 +47,10 @@ class BillingSubjectNotFoundError(ResourceNotFoundError):
     pass
 
 
+class BillingDisabledError(ValueError):
+    pass
+
+
 class S3ConnectionNotFoundError(ResourceNotFoundError):
     pass
 

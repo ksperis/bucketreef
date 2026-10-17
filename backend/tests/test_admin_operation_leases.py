@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from app.models.app_settings import AppSettings
-from app.routers.admin import billing as billing_router
 from app.routers.admin import healthchecks as healthchecks_router
 from app.routers.admin import usage_history as usage_history_router
+from app.services import admin_billing_service
 from app.services.billing_collection_service import BillingCollector
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import (
@@ -30,7 +30,7 @@ def _enabled_settings() -> AppSettings:
 
 
 def test_admin_billing_collect_returns_conflict_when_lease_is_active(client, db_session, monkeypatch):
-    monkeypatch.setattr(billing_router, "load_app_settings", _enabled_settings)
+    monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_settings)
     OperationLeaseService(db_session).acquire(
         billing_daily_operation_name("2026-07-03"),
         ttl_seconds=600,
@@ -45,7 +45,7 @@ def test_admin_billing_collect_returns_conflict_when_lease_is_active(client, db_
 
 
 def test_admin_billing_collect_rejects_invalid_day(client, monkeypatch):
-    monkeypatch.setattr(billing_router, "load_app_settings", _enabled_settings)
+    monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_settings)
 
     response = client.post("/api/admin/billing/collect/daily?day=2026-02-30")
 

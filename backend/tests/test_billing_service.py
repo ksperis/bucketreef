@@ -8,7 +8,8 @@ import pytest
 from app.core.domain_errors import BillingSubjectNotFoundError
 from app.db import BillingRateCard, BillingStorageDaily, BillingUsageDaily, S3Account, StorageEndpoint
 from app.models.app_settings import AppSettings
-from app.routers.admin import billing as billing_router
+from app.services import admin_billing_service
+from app.services.admin_billing_service import AdminBillingService
 from app.services.billing_collection_service import BillingCollector
 from app.services.billing_service import (
     BillingService,
@@ -262,7 +263,7 @@ def test_admin_billing_subject_detail_distinguishes_missing_from_invalid_input(
     expected_status,
 ):
     endpoint = _seed_endpoint(db_session)
-    monkeypatch.setattr(billing_router, "load_app_settings", _enabled_billing_settings)
+    monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_billing_settings)
 
     response = client.get(
         f"/api/admin/billing/subject/{subject_type}/{subject_id}",
@@ -270,6 +271,60 @@ def test_admin_billing_subject_detail_distinguishes_missing_from_invalid_input(
     )
 
     assert response.status_code == expected_status, response.text
+
+
+def test_admin_billing_service_rejects_missing_and_non_ceph_endpoints(db_session, monkeypatch):
+    monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_billing_settings)
+    service = AdminBillingService(db_session)
+
+    with pytest.raises(ValueError, match="Endpoint not found"):
+        service.summary("2026-01", 999)
+
+    endpoint = StorageEndpoint(
+        name="s3-generic",
+        endpoint_url="https://s3.example.test",
+        provider="aws",
+        is_default=False,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    with pytest.raises(ValueError, match="not a Ceph endpoint"):
+        service.summary("2026-01", endpoint.id)
+
+
+def test_admin_billing_routes_preserve_feature_and_endpoint_status_codes(client, db_session, monkeypatch):
+    disabled = AppSettings()
+    disabled.general.billing_enabled = False
+    monkeypatch.setattr(admin_billing_service, "load_app_settings", lambda: disabled)
+
+    response = client.get("/api/admin/billing/summary", params={"month": "2026-01"})
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Billing is disabled"
+
+    monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_billing_settings)
+    response = client.get(
+        "/api/admin/billing/summary",
+        params={"month": "2026-01", "endpoint_id": 999},
+    )
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Endpoint not found"
+
+    endpoint = StorageEndpoint(
+        name="aws-billing",
+        endpoint_url="https://s3.amazonaws.com",
+        provider="aws",
+        is_default=False,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    response = client.get(
+        "/api/admin/billing/summary",
+        params={"month": "2026-01", "endpoint_id": endpoint.id},
+    )
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == "This endpoint is not a Ceph endpoint"
 
 
 def test_billing_coverage_tracks_storage_and_usage_days_separately(db_session):
