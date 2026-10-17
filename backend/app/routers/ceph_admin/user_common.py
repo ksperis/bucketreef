@@ -32,34 +32,6 @@ def optional_account_lookup_enabled(ctx: CephAdminContext) -> bool | None:
         return None
 
 
-def parse_suspended(raw: Any) -> Optional[bool]:
-    if isinstance(raw, bool):
-        return raw
-    if isinstance(raw, (int, float)):
-        return bool(raw)
-    if isinstance(raw, str):
-        normalized = raw.strip().lower()
-        if normalized in {"true", "1", "yes", "suspended", "enabled"}:
-            return True
-        if normalized in {"false", "0", "no", "disabled", "active"}:
-            return False
-    return None
-
-
-def coerce_bool(value: object) -> bool | None:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"true", "1", "yes", "y", "on", "enabled", "suspended"}:
-            return True
-        if normalized in {"false", "0", "no", "n", "off", "disabled", "active"}:
-            return False
-    return None
-
-
 def serialize_access_keys(entries: list[dict]) -> list[CephAdminRgwAccessKey]:
     results: list[CephAdminRgwAccessKey] = []
     seen: set[str] = set()

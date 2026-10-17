@@ -24,17 +24,16 @@ from app.routers.ceph_admin.account_listing_enrichment import (
     enrich_accounts,
 )
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.ceph_admin.listing_common import (
+from app.routers.ceph_admin.listing_common import parse_filter_query
+from app.services.bucket_listing_shared import listing_sort_key, parse_includes, serialize_filter
+from app.services.ceph_admin_identity_listing_cache import EndpointListCacheKey
+from app.services.ceph_admin_identity_listing_support import (
     apply_advanced_filter,
     apply_simple_search,
     coerce_number,
     collect_filter_fields,
     paginate,
-    parse_filter_query,
-    parse_int,
 )
-from app.services.bucket_listing_shared import listing_sort_key, parse_includes, serialize_filter
-from app.services.ceph_admin_identity_listing_cache import EndpointListCacheKey
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
@@ -44,6 +43,7 @@ from app.services.listing_progress import (
 from app.services.listing_rule_matching import match_numeric_rule, match_text_rule
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
+from app.utils.rgw_payloads import parse_rgw_int
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 
@@ -145,8 +145,8 @@ def _account_from_entry(entry: object) -> CephAdminRgwAccountSummary | None:
             entry.get("account_name") or entry.get("name") or entry.get("display_name")
         ),
         email=normalize_optional_scalar(entry.get("email") or entry.get("mail")),
-        max_users=parse_int(entry.get("max_users") or limits.get("max_users")),
-        max_buckets=parse_int(entry.get("max_buckets") or limits.get("max_buckets")),
+        max_users=parse_rgw_int(entry.get("max_users") or limits.get("max_users")),
+        max_buckets=parse_rgw_int(entry.get("max_buckets") or limits.get("max_buckets")),
         quota_max_size_bytes=quota_size,
         quota_max_objects=quota_objects,
         bucket_count=extract_bucket_count(entry),

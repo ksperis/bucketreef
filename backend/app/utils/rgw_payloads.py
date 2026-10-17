@@ -7,6 +7,40 @@ from typing import Any
 from app.utils.normalize import normalize_optional_scalar, normalize_optional_string
 
 
+def parse_rgw_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value.is_integer():
+            return int(value)
+        return None
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        if cleaned.isdigit() or (cleaned.startswith("-") and cleaned[1:].isdigit()):
+            return int(cleaned)
+    return None
+
+
+def parse_rgw_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y", "enabled", "enable", "on", "suspended"}:
+            return True
+        if normalized in {"false", "0", "no", "n", "disabled", "disable", "off", "active"}:
+            return False
+    return None
+
+
 def extract_rgw_account_ids(*records: object) -> set[str]:
     """Collect account identifiers from RGW response records.
 

@@ -11,10 +11,8 @@ from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwUserSummary
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.ceph_admin.listing_common import parse_int
 from app.routers.ceph_admin.user_common import (
     optional_account_lookup_enabled,
-    parse_suspended,
 )
 from app.services.listing_progress import (
     ListingProgressEmitter,
@@ -25,7 +23,12 @@ from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import extract_bucket_list, extract_rgw_user_payload
+from app.utils.rgw_payloads import (
+    extract_bucket_list,
+    extract_rgw_user_payload,
+    parse_rgw_bool,
+    parse_rgw_int,
+)
 from app.utils.usage_stats import summarize_bucket_usage
 
 
@@ -121,11 +124,11 @@ class _UserDetailsEnricher:
                 user_payload.get("email") or payload.get("email")
             )
         if "status" in self.requested:
-            user.suspended = parse_suspended(
+            user.suspended = parse_rgw_bool(
                 user_payload.get("suspended") or payload.get("suspended")
             )
         if "limits" in self.requested:
-            user.max_buckets = parse_int(
+            user.max_buckets = parse_rgw_int(
                 user_payload.get("max_buckets") or payload.get("max_buckets")
             )
         if "quota" in self.requested:
