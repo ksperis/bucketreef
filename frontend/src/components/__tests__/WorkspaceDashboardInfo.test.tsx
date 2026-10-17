@@ -5,7 +5,7 @@ import WorkspaceDashboardInfo from "../WorkspaceDashboardInfo";
 import { WorkspaceDashboardCard } from "../WorkspaceDashboardKit";
 
 function setup() {
-  return render(<WorkspaceDashboardCard title="Metrics" presentation="compact"
+  return render(<WorkspaceDashboardCard title="Metrics"
     titleAccessory={<WorkspaceDashboardInfo label="About metrics"><p>Coverage and collection dates</p></WorkspaceDashboardInfo>}
   ><p>123</p></WorkspaceDashboardCard>);
 }

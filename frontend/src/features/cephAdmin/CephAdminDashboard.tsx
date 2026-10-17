@@ -102,7 +102,6 @@ export default function CephAdminDashboard() {
         ) : null}
         {generalSettings.endpoint_status_enabled && selectedEndpoint?.id && (
           <WorkspaceEndpointHealthCards
-            presentation="compact"
             data={workspaceHealth}
             loading={workspaceHealthLoading}
             error={workspaceHealthError}
@@ -116,7 +115,7 @@ export default function CephAdminDashboard() {
             className="grid gap-3"
           />
         )}
-        {selectedEndpoint?.id ? <WorkspaceNavCards presentation="compact" items={cards} columns={4} /> : null}
+        {selectedEndpoint?.id ? <WorkspaceNavCards items={cards} columns={4} /> : null}
       </div>
     </PageShell>
   );

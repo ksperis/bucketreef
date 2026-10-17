@@ -12,7 +12,7 @@ import UiBadge from "./ui/UiBadge";
 import UiButton, { UiButtonLink } from "./ui/UiButton";
 import "./compactDashboard.css";
 import UiMeterBar from "./ui/UiMeterBar";
-import { cx, uiCardClass, uiMutedTextClass } from "./ui/styles";
+import { cx, uiCardClass } from "./ui/styles";
 import { useWorkspaceDashboardI18n } from "./workspaceDashboardMessages";
 
 export type WorkspaceDashboardFeature = {
@@ -61,7 +61,6 @@ export type WorkspaceDashboardMetric = {
   trend?: WorkspaceDashboardMetricTrend;
   progress?: number | null;
   progressLabel?: string;
-  compactValue?: boolean;
   tone: WorkspaceDashboardTone;
   icon: ReactNode;
   to?: string;
@@ -127,67 +126,42 @@ function workspaceStatusDotClass(status: HealthCheckStatus): string {
   return "bg-slate-400";
 }
 
-function workspaceStatusPillClass(status: HealthCheckStatus): string {
-  if (status === "up") {
-    return "border-emerald-200/80 bg-emerald-50/80 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300";
-  }
-  if (status === "degraded") {
-    return "border-amber-200/80 bg-amber-50/80 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300";
-  }
-  if (status === "down") {
-    return "border-rose-200/80 bg-rose-50/80 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300";
-  }
-  return "border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] dark:border-slate-700 dark:bg-slate-800/40";
-}
-
 export function WorkspaceStatusDot({ status, className }: { status: HealthCheckStatus; className?: string }) {
   return <span className={cx("h-2 w-2 rounded-full", workspaceStatusDotClass(status), className)} />;
 }
 
-export function WorkspaceStatusPill({ status, className, presentation }: { status: HealthCheckStatus; className?: string; presentation?: "compact" }) {
+export function WorkspaceStatusPill({ status, className }: { status: HealthCheckStatus; className?: string }) {
   const { text } = useWorkspaceDashboardI18n();
-  if (presentation === "compact") {
-    return <UiBadge tone={status === "up" ? "success" : status === "degraded" ? "warning" : status === "down" ? "danger" : "neutral"} className={cx("ui-dashboard-badge", className)}>{workspaceStatusLabel(status, text)}</UiBadge>;
-  }
-  return (
-    <span className={cx("rounded-md border px-2 py-0.5 font-semibold leading-4", workspaceStatusPillClass(status), className)}>
-      {workspaceStatusLabel(status, text)}
-    </span>
-  );
+  return <UiBadge tone={status === "up" ? "success" : status === "degraded" ? "warning" : status === "down" ? "danger" : "neutral"} className={cx("ui-dashboard-badge", className)}>{workspaceStatusLabel(status, text)}</UiBadge>;
 }
 
 function workspaceDashboardToneClasses(tone: WorkspaceDashboardTone) {
   if (tone === "emerald") {
     return {
       icon: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300",
-      soft: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300",
       bar: "bg-emerald-500",
     };
   }
   if (tone === "violet") {
     return {
       icon: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300",
-      soft: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300",
       bar: "bg-violet-500",
     };
   }
   if (tone === "amber") {
     return {
       icon: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300",
-      soft: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300",
       bar: "bg-amber-500",
     };
   }
   if (tone === "indigo") {
     return {
       icon: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300",
-      soft: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300",
       bar: "bg-indigo-500",
     };
   }
   return {
     icon: "bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-200",
-    soft: "bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-200",
     bar: "bg-primary",
   };
 }
@@ -202,30 +176,6 @@ function metricToneClass(tone: WorkspacePlatformMetric["tone"]): string {
   if (tone === "violet") return "stroke-violet-500";
   if (tone === "emerald") return "stroke-emerald-500";
   return "stroke-primary";
-}
-
-function statusCounterPanelClass(status: HealthCheckStatus, value: number): string {
-  if (value <= 0) {
-    return "border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)]";
-  }
-  if (status === "up") {
-    return "border-emerald-200/80 bg-emerald-50/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:shadow-none";
-  }
-  if (status === "degraded") {
-    return "border-amber-200/80 bg-amber-50/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-amber-500/25 dark:bg-amber-500/10 dark:shadow-none";
-  }
-  if (status === "down") {
-    return "border-rose-200/80 bg-rose-50/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-rose-500/25 dark:bg-rose-500/10 dark:shadow-none";
-  }
-  return "border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)]";
-}
-
-function statusCounterLabelClass(status: HealthCheckStatus, value: number): string {
-  if (value <= 0) return "text-[var(--ui-text-muted)]";
-  if (status === "up") return "text-emerald-700 dark:text-emerald-300";
-  if (status === "degraded") return "text-amber-700 dark:text-amber-300";
-  if (status === "down") return "text-rose-700 dark:text-rose-300";
-  return "text-[var(--ui-text-muted)]";
 }
 
 function normalizeSeries(values: number[]): string {
@@ -333,34 +283,31 @@ export function WorkspaceDashboardMetricTrendLine({ trend }: { trend: WorkspaceD
   );
 }
 
-function WorkspaceDashboardMetricCard({ metric, presentation }: { metric: WorkspaceDashboardMetric; presentation?: "compact" }) {
+function WorkspaceDashboardMetricCard({ metric }: { metric: WorkspaceDashboardMetric }) {
   const { text } = useWorkspaceDashboardI18n();
   const content = (
     <div
-      className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-kpi" : "flex h-full min-h-[164px] items-center gap-3 overflow-hidden px-4 py-3.5 sm:gap-4 sm:px-5")}
+      className={cx(uiCardClass, "ui-dashboard-kpi")}
       data-kpi-card={metric.label}
     >
-      <WorkspaceDashboardIconBubble tone={metric.tone} className={presentation === "compact" ? "ui-dashboard-kpi-icon" : "h-12 w-12 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.55)] sm:h-14 sm:w-14"}>
+      <WorkspaceDashboardIconBubble tone={metric.tone} className="ui-dashboard-kpi-icon">
         {metric.icon}
       </WorkspaceDashboardIconBubble>
-      <div className={presentation === "compact" ? "ui-dashboard-kpi-content" : "grid min-h-[120px] min-w-0 flex-1 content-center grid-rows-[auto_2rem_minmax(1rem,auto)_0.375rem_minmax(1rem,auto)] gap-y-1"}>
+      <div className="ui-dashboard-kpi-content">
         <div className="flex min-w-0 items-center gap-1.5">
-          <p className={presentation === "compact" ? "ui-dashboard-note" : "min-w-0 whitespace-normal break-words text-[11px] font-bold uppercase leading-4 text-[var(--ui-text-muted)]"}>
+          <p className="ui-dashboard-note">
             {metric.label}
           </p>
         </div>
         <p
-          className={presentation === "compact" ? "ui-dashboard-value" : cx(
-            "min-w-0 font-semibold text-[var(--ui-text)]",
-            metric.compactValue ? "whitespace-nowrap text-[22px] leading-6" : "text-2xl leading-7"
-          )}
+          className="ui-dashboard-value"
           data-kpi-value={metric.label}
         >
           {metric.value}
         </p>
         <div className="min-w-0">
           {metric.detail ? (
-            <p className={presentation === "compact" ? "ui-dashboard-note" : cx("min-w-0 whitespace-normal break-words text-[13px] leading-4", uiMutedTextClass)}>
+            <p className="ui-dashboard-note">
               {metric.detail}
             </p>
           ) : (
@@ -390,11 +337,7 @@ function WorkspaceDashboardMetricCard({ metric, presentation }: { metric: Worksp
     </div>
   );
 
-  const framed = (
-    <WorkspaceDashboardUnavailableFrame reason={metric.unavailableReason ?? ""} className="h-full">
-      {content}
-    </WorkspaceDashboardUnavailableFrame>
-  );
+  const framed = <div className="h-full">{content}</div>;
   if (!metric.to || metric.unavailableReason) return framed;
   return (
     <Link
@@ -410,12 +353,10 @@ export function WorkspaceDashboardKpiRow({
   metrics,
   columns = 4,
   className,
-  presentation,
 }: {
   metrics: WorkspaceDashboardMetric[];
   columns?: 4 | 5;
   className?: string;
-  presentation?: "compact";
 }) {
   const gridColumnsClass = columns === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4";
 
@@ -425,7 +366,7 @@ export function WorkspaceDashboardKpiRow({
       data-workspace-dashboard-kpi-row="true"
     >
       {metrics.map((metric) => (
-        <WorkspaceDashboardMetricCard key={metric.label} metric={metric} presentation={presentation} />
+        <WorkspaceDashboardMetricCard key={metric.label} metric={metric} />
       ))}
     </div>
   );
@@ -438,7 +379,6 @@ export function WorkspaceDashboardStorageEvolutionChart({
   chartLabel,
   yLabelFormatter = formatBytes,
   xLabelFormatter = formatStorageEvolutionShortDate,
-  presentation,
 }: {
   points: WorkspaceDashboardStorageEvolutionPoint[];
   gradientId?: string;
@@ -446,11 +386,10 @@ export function WorkspaceDashboardStorageEvolutionChart({
   chartLabel?: string;
   yLabelFormatter?: (value: number) => string;
   xLabelFormatter?: (value: number) => string;
-  presentation?: "compact";
 }) {
   const { text } = useWorkspaceDashboardI18n();
   const fallbackId = useId();
-  const chartColor = presentation === "compact" ? "var(--ui-primary)" : "rgb(37 99 235)";
+  const chartColor = "var(--ui-primary)";
   const fillId = gradientId ?? `workspace-storage-evolution-fill-${fallbackId.replace(/:/g, "")}`;
   const chart = useMemo(() => {
     if (points.length < 2) return null;
@@ -568,7 +507,7 @@ export function WorkspaceDashboardStorageOverview({
   projection: { label: string; value: string };
 }) {
   return (
-    <WorkspaceDashboardCard title={title} action={action} presentation="compact" wrapHeading>
+    <WorkspaceDashboardCard title={title} action={action} wrapHeading>
       <div className="ui-dashboard-storage-values">
         <div className="min-w-0">
           <p className="ui-dashboard-note">{usedLabel}</p>
@@ -577,7 +516,7 @@ export function WorkspaceDashboardStorageOverview({
         <p className="ui-dashboard-value text-primary">{percentageLabel}</p>
       </div>
       {percentage != null ? <WorkspaceDashboardProgressBar value={percentage} className="mt-3 h-2.5" ariaLabel={progressLabel} /> : quotaFallback}
-      <WorkspaceDashboardStorageEvolutionChart {...chart} presentation="compact" />
+      <WorkspaceDashboardStorageEvolutionChart {...chart} />
       <div className="ui-dashboard-storage-outlook">
         <div className="ui-dashboard-inset">
           <p className="ui-dashboard-note">{growth.label}</p>
@@ -599,7 +538,6 @@ export function WorkspaceDashboardCard({
   children,
   className,
   bodyClassName,
-  presentation,
   wrapHeading = false,
   ...props
 }: {
@@ -609,33 +547,21 @@ export function WorkspaceDashboardCard({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
-  presentation?: "compact";
   wrapHeading?: boolean;
 } & Omit<HTMLAttributes<HTMLElement>, "title">) {
   const titleId = useId();
-  const heading = title ? <h2 id={titleId} className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{title}</h2> : <span />;
+  const heading = title ? <h2 id={titleId} className="ui-dashboard-title">{title}</h2> : <span />;
   return (
-    <section aria-labelledby={title ? titleId : undefined} className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-panel" : "h-full p-4", className)} {...props}>
+    <section aria-labelledby={title ? titleId : undefined} className={cx(uiCardClass, "ui-dashboard-panel", className)} {...props}>
       {title || action ? (
         <div className={wrapHeading ? "ui-dashboard-panel-heading" : "flex items-center justify-between gap-3"}>
           {titleAccessory ? <div className="inline-flex items-center gap-1.5">{heading}{titleAccessory}</div> : heading}
           {action}
         </div>
       ) : null}
-      <div className={cx(title || action ? (presentation === "compact" ? "ui-dashboard-panel-body" : "mt-3") : "", bodyClassName)}>{children}</div>
+      <div className={cx(title || action ? "ui-dashboard-panel-body" : "", bodyClassName)}>{children}</div>
     </section>
   );
-}
-
-export function WorkspaceDashboardUnavailableFrame({
-  children,
-  className,
-}: {
-  reason?: string | null;
-  children: ReactNode;
-  className?: string;
-}) {
-  return <div className={className}>{children}</div>;
 }
 
 function WorkspaceDashboardSparkline({
@@ -656,7 +582,7 @@ function WorkspaceDashboardSparkline({
   return chart;
 }
 
-/** Compact dashboard actions opt in without changing forms or other workspaces. */
+/** Dashboard actions share the compact workspace presentation. */
 export function WorkspaceDashboardAction({ className, ...props }: ComponentProps<typeof UiButton>) {
   return <UiButton size="xs" {...props} className={cx("ui-dashboard-action", className)} />;
 }
@@ -677,7 +603,7 @@ export function WorkspaceDashboardSummary({ items, loading, unavailableReason, t
 }) {
   const { text } = useWorkspaceDashboardI18n();
   return (
-    <WorkspaceDashboardCard title={title === undefined ? text("administration") : title} presentation="compact">
+    <WorkspaceDashboardCard title={title === undefined ? text("administration") : title}>
       {unavailableReason && <p role="status" className="ui-dashboard-note">{unavailableReason}</p>}
       <div className="ui-dashboard-summary">
         {items.map((item) => (
@@ -718,27 +644,12 @@ export function WorkspaceStatusCounter({
   label,
   value,
   status,
-  presentation,
 }: {
   label: string;
   value?: number | null;
   status: HealthCheckStatus;
-  presentation?: "compact";
 }) {
-  if (presentation === "compact") {
-    return <UiBadge className="ui-dashboard-badge" tone={!value ? "neutral" : status === "up" ? "success" : status === "degraded" ? "warning" : status === "down" ? "danger" : "neutral"}>{label} <strong>{value ?? "—"}</strong></UiBadge>;
-  }
-  return (
-    <div
-      className={cx(
-        "min-h-[48px] rounded-md border px-3 py-2",
-        statusCounterPanelClass(status, value ?? 0)
-      )}
-    >
-      <p className={cx("ui-caption font-semibold", statusCounterLabelClass(status, value ?? 0))}>{label}</p>
-      <p className="mt-1 text-[18px] font-semibold leading-5 text-[var(--ui-text)]">{value == null ? "" : value}</p>
-    </div>
-  );
+  return <UiBadge className="ui-dashboard-badge" tone={!value ? "neutral" : status === "up" ? "success" : status === "degraded" ? "warning" : status === "down" ? "danger" : "neutral"}>{label} <strong>{value ?? "—"}</strong></UiBadge>;
 }
 
 export function WorkspacePlatformMetricCard({ metric }: { metric: WorkspacePlatformMetric }) {

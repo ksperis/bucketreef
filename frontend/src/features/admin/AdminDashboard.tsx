@@ -190,7 +190,6 @@ function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarn
     <div className="ui-dashboard-operational-grid">
       <WorkspaceDashboardCard
         title={text("endpointHealth")}
-        presentation="compact"
         action={<WorkspaceDashboardActionLink to="/admin/endpoint-status">{text("openEndpointStatus")}</WorkspaceDashboardActionLink>}
       >
         <p className="ui-dashboard-note">{text("healthSamples")}{data && <>{text("dataRefreshed", { timestamp: formatLocalDateTime(data.generated_at) })}</>}</p>
@@ -198,10 +197,10 @@ function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarn
         {loading ? <p role="status" className="ui-dashboard-note mt-2">{text("loadingHealth")}</p> : unavailableReason ? <p role="status" className="ui-dashboard-note mt-2">{unavailableReason}</p> : (
           <>
             <div className="ui-dashboard-badges mt-2">
-              <WorkspaceStatusCounter presentation="compact" label={text("status_up")} value={data?.up_count} status="up" />
-              <WorkspaceStatusCounter presentation="compact" label={text("status_degraded")} value={data?.degraded_count} status="degraded" />
-              <WorkspaceStatusCounter presentation="compact" label={text("status_down")} value={data?.down_count} status="down" />
-              <WorkspaceStatusCounter presentation="compact" label={text("status_unknown")} value={data?.unknown_count} status="unknown" />
+              <WorkspaceStatusCounter label={text("status_up")} value={data?.up_count} status="up" />
+              <WorkspaceStatusCounter label={text("status_degraded")} value={data?.degraded_count} status="degraded" />
+              <WorkspaceStatusCounter label={text("status_down")} value={data?.down_count} status="down" />
+              <WorkspaceStatusCounter label={text("status_unknown")} value={data?.unknown_count} status="unknown" />
             </div>
             <ul className="ui-dashboard-endpoint-list" aria-label={text("endpointHealthSamples")}>
               {endpoints.map((endpoint) => <EndpointRow key={endpoint.endpoint_id} endpoint={endpoint} />)}
@@ -211,7 +210,6 @@ function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarn
         )}
       </WorkspaceDashboardCard>
       <WorkspaceIncidentsCard
-        presentation="compact"
         incidents={unavailableReason ? [] : data?.incidents ?? []}
         loading={loading}
         unavailableReason={unavailableReason}
@@ -332,7 +330,7 @@ function StorageTrafficSummary({
   ];
 
   return (
-    <WorkspaceDashboardCard aria-label={text("storageTraffic")} wrapHeading presentation="compact"
+    <WorkspaceDashboardCard aria-label={text("storageTraffic")} wrapHeading
       title={text("storageTraffic")}
       titleAccessory={<WorkspaceDashboardInfo label={text("aboutMetrics")}>
           <p className="ui-dashboard-note">{text("aggregation")}</p>
@@ -371,7 +369,7 @@ function RecentActivityCard({ logs, loading, unavailableReason }: {
 }) {
   const { text } = useAdminDashboardI18n();
   return (
-    <WorkspaceDashboardCard title={text("recentActivity")} presentation="compact">
+    <WorkspaceDashboardCard title={text("recentActivity")}>
       {loading ? <p role="status" className="ui-dashboard-note">{text("loadingActivity")}</p> : unavailableReason ? <p role="status" className="ui-dashboard-note">{unavailableReason}</p> : logs.length === 0 ? <p className="ui-dashboard-note">{text("noActivity")}</p> : (
         <ul className="ui-dashboard-activity">
           {logs.slice(0, 5).map((log) => (
@@ -833,7 +831,7 @@ export default function AdminDashboard() {
         <RecentActivityCard logs={auditLogs} loading={auditLoading} unavailableReason={auditError ? translateText(auditError) : null} />
         {generalSettings.endpoint_status_enabled && <AdminDashboardMap markers={mapMarkers} loading={mapEndpointsLoading} error={mapEndpointsError ? translateText(mapEndpointsError) : null} />}
       </div>
-      <WorkspaceDashboardCard title={text("enabledFeatures")} presentation="compact">
+      <WorkspaceDashboardCard title={text("enabledFeatures")}>
         <div className="ui-dashboard-features">
           {featureGroups.map((group) => <WorkspaceFeatureSummary key={group.title} group={group} />)}
         </div>

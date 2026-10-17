@@ -41,10 +41,10 @@ describe("WorkspaceDashboardKpiRow", () => {
   });
 });
 
-describe("dashboard presentation compatibility", () => {
-  it.each([undefined, "compact"] as const)("preserves metric contents, meters and unavailable link restrictions (%s)", (presentation) => {
+describe("dashboard presentation", () => {
+  it("preserves metric contents, meters and unavailable link restrictions", () => {
     const metric: WorkspaceDashboardMetric = { label: "Storage", value: "12 GB", detail: "of 40 GB", progress: 30, tone: "blue", icon: <span />, to: "/manager/metrics", trend: { label: "2 GB vs last month", tone: "positive" } };
-    render(<MemoryRouter><WorkspaceDashboardKpiRow presentation={presentation} metrics={[metric, { ...metric, label: "Unavailable", value: "", unavailableReason: "No access" }]} /></MemoryRouter>);
+    render(<MemoryRouter><WorkspaceDashboardKpiRow metrics={[metric, { ...metric, label: "Unavailable", value: "", unavailableReason: "No access" }]} /></MemoryRouter>);
     expect(screen.getByRole("link")).toHaveAttribute("href", "/manager/metrics");
     expect(screen.getByRole("link")).toHaveTextContent("12 GBof 40 GB");
     expect(screen.getByRole("link")).toHaveTextContent("2 GB vs last month");

@@ -37,7 +37,6 @@ import {
   WorkspaceDashboardStorageOverview,
   WorkspaceDashboardAction,
   WorkspaceDashboardActionLink,
-  WorkspaceDashboardUnavailableFrame as DashboardUnavailable,
   WorkspaceStatusDot,
   type WorkspaceDashboardTone as DashboardTone,
 } from "../../components/WorkspaceDashboardKit";
@@ -222,7 +221,7 @@ function StorageOverviewCard({
     years: (value) => text("~{count} years", { count: value }),
   });
   return (
-    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
+    <div className="ui-dashboard-equal-cell">
       <WorkspaceDashboardStorageOverview
         title={text("Storage overview")}
         action={<WorkspaceDashboardActionLink to="/manager/metrics">{text("Usage analytics")}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
@@ -241,17 +240,11 @@ function StorageOverviewCard({
         growth={{ label: growthLabel, value: formatWorkspaceSignedBytesDelta(growthDelta), className: growthToneClass }}
         projection={{ label: text("Projected full"), value: projectedFull }}
       />
-    </DashboardUnavailable>
+    </div>
   );
 }
 
-function TopBucketsCard({
-  rows,
-  unavailableReason,
-}: {
-  rows: BucketRankingRow[];
-  unavailableReason?: string | null;
-}) {
+function TopBucketsCard({ rows }: { rows: BucketRankingRow[] }) {
   const { text } = useManagerI18n();
   const content = (
     <section className={cx(uiCardClass, "ui-dashboard-panel")}>
@@ -292,9 +285,9 @@ function TopBucketsCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
+    <div className="ui-dashboard-equal-cell">
       {content}
-    </DashboardUnavailable>
+    </div>
   );
 }
 
@@ -348,9 +341,9 @@ function RecentActivityCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
+    <div className="ui-dashboard-equal-cell">
       {content}
-    </DashboardUnavailable>
+    </div>
   );
 }
 
@@ -504,9 +497,9 @@ function QuotaStatusCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
+    <div className="ui-dashboard-equal-cell">
       {content}
-    </DashboardUnavailable>
+    </div>
   );
 }
 
@@ -546,9 +539,9 @@ function BackendHealthCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
+    <div className="ui-dashboard-equal-cell">
       {content}
-    </DashboardUnavailable>
+    </div>
   );
 }
 
@@ -610,9 +603,9 @@ function IncidentStrip({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
+    <div className="ui-dashboard-equal-cell">
       {content}
-    </DashboardUnavailable>
+    </div>
   );
 }
 
@@ -955,11 +948,6 @@ export default function ManagerDashboard() {
   const transferBytes = uploadBytes == null || downloadBytes == null ? null : uploadBytes + downloadBytes;
   const bucketRows = buildBucketRows(stats?.bucket_usage ?? []);
   const activityRows = activityUnavailableReason ? [] : buildActivityRows(activityLogs, text);
-  const topBucketsUnavailableReason =
-    metricsUnavailableReason ||
-    (!loading && visibleBucketCount != null && visibleBucketCount > 0 && bucketRows.length === 0
-      ? text("Bucket storage ranking is not available.")
-      : null);
   const healthEndpoint = workspaceHealth?.endpoints[0] ?? null;
   const storageTrendBaseline = localizeTrendBaseline(metricsUnavailableReason ? null : usageTrends?.storage, text);
   const objectTrendBaseline = localizeTrendBaseline(metricsUnavailableReason ? null : usageTrends?.objects, text);
@@ -1065,7 +1053,7 @@ export default function ManagerDashboard() {
         }
       />
 
-      <KpiRow presentation="compact" metrics={metrics} />
+      <KpiRow metrics={metrics} />
 
       <div data-testid="manager-dashboard-overview-grid" className="grid ui-dashboard-equal-row gap-3 lg:grid-cols-2 xl:grid-cols-12">
         <div className="ui-dashboard-equal-cell xl:col-span-4">
@@ -1081,7 +1069,7 @@ export default function ManagerDashboard() {
           className={cx("ui-dashboard-equal-cell", canLoadUsageStatsDataTypes ? "xl:col-span-5" : "xl:col-span-8")}
           data-testid="manager-dashboard-top-buckets-card"
         >
-          <TopBucketsCard rows={bucketRows} unavailableReason={topBucketsUnavailableReason} />
+          <TopBucketsCard rows={bucketRows} />
         </div>
         {canLoadUsageStatsDataTypes && (
           <div className="ui-dashboard-equal-cell xl:col-span-3">

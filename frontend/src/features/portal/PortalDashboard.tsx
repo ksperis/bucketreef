@@ -251,7 +251,7 @@ function StorageOverviewCard({
 function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard presentation="compact" wrapHeading
+    <WorkspaceDashboardCard wrapHeading
       title={t({ en: "Top storage spaces", fr: "Principaux espaces de stockage", de: "Größte Speicherbereiche", zh: "用量最多的存储空间" })}
       action={
         <WorkspaceDashboardActionLink to="/portal/storage-spaces">
@@ -302,7 +302,7 @@ function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
 function RecentActivityCard({ rows }: { rows: ActivityRow[] }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard presentation="compact" wrapHeading
+    <WorkspaceDashboardCard wrapHeading
       title={t({ en: "Recent activity", fr: "Activité récente", de: "Letzte Aktivität", zh: "近期活动" })}
       action={<WorkspaceDashboardActionLink to="/portal/history">{t({ en: "View all", fr: "Tout voir", de: "Alle anzeigen", zh: "查看全部" })}</WorkspaceDashboardActionLink>}
     >
@@ -339,7 +339,7 @@ function AlertsCard({
 }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard presentation="compact" wrapHeading title={t({ en: "Alerts & service status", fr: "Alertes et statut du service", de: "Warnungen und Dienststatus", zh: "告警与服务状态" })}>
+    <WorkspaceDashboardCard wrapHeading title={t({ en: "Alerts & service status", fr: "Alertes et statut du service", de: "Warnungen und Dienststatus", zh: "告警与服务状态" })}>
       <div className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5">
         <div className="ui-dashboard-panel-heading">
           <p className="flex min-w-0 items-center gap-2 ui-dashboard-label">
@@ -384,7 +384,7 @@ function AlertsCard({
 function QuickLinksCard({ links }: { links: QuickLink[] }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard presentation="compact" wrapHeading title={t({ en: "Quick links", fr: "Raccourcis", de: "Schnellzugriffe", zh: "快捷链接" })}>
+    <WorkspaceDashboardCard wrapHeading title={t({ en: "Quick links", fr: "Raccourcis", de: "Schnellzugriffe", zh: "快捷链接" })}>
       <div className="grid gap-2">
         {links.map((link) => (
           <WorkspaceDashboardLinkRow
@@ -640,7 +640,7 @@ export default function PortalDashboard() {
         </PageBanner>
       )}
 
-      <KpiRow presentation="compact" metrics={metrics} columns={5} />
+      <KpiRow metrics={metrics} columns={5} />
 
       <div className="grid ui-dashboard-equal-row gap-3 lg:grid-cols-2 xl:grid-cols-12">
         <div className="ui-dashboard-equal-cell xl:col-span-4">
