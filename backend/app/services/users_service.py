@@ -95,6 +95,45 @@ class UsersService:
     def get_by_id(self, user_id: int) -> Optional[User]:
         return self.db.query(User).filter(User.id == user_id).first()
 
+    def _active_superadmin_count(self, actor: User) -> int:
+        count = (
+            self.db.query(User)
+            .filter(
+                User.role == UserRole.UI_SUPERADMIN.value,
+                User.is_active.is_(True),
+            )
+            .count()
+        )
+        actor_is_persisted = self.db.query(User.id).filter(User.id == actor.id).first()
+        if (
+            actor_is_persisted is None
+            and actor.role == UserRole.UI_SUPERADMIN.value
+            and actor.is_active
+        ):
+            count += 1
+        return count
+
+    def validate_superadmin_update(self, actor: User, target: User, payload: UserUpdate) -> None:
+        next_role = payload.role or target.role
+        next_active = target.is_active if payload.is_active is None else payload.is_active
+        removes_active_superadmin = (
+            target.role == UserRole.UI_SUPERADMIN.value
+            and target.is_active
+            and (next_role != UserRole.UI_SUPERADMIN.value or not next_active)
+        )
+        if actor.id == target.id and removes_active_superadmin:
+            raise ValueError("A superadmin cannot deactivate or demote their own account")
+        if removes_active_superadmin and self._active_superadmin_count(actor) <= 1:
+            raise ValueError("The last active superadmin cannot be deactivated or demoted")
+
+    def validate_superadmin_delete(self, actor: User, target: User) -> None:
+        if (
+            target.role == UserRole.UI_SUPERADMIN.value
+            and target.is_active
+            and self._active_superadmin_count(actor) <= 1
+        ):
+            raise ValueError("The last active superadmin cannot be deleted")
+
     def create_user(self, payload: UserCreate) -> User:
         existing = self.get_by_email(payload.email)
         if existing:
