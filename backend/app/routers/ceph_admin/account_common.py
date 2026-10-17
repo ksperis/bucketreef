@@ -1,131 +1,15 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-"""Shared Ceph Admin RGW account payload helpers."""
+"""Ceph Admin RGW account route helpers."""
 
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import HTTPException, status
 
-from app.models.ceph_admin import CephAdminRgwAccountDetail, CephAdminRgwQuotaConfig
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.normalize import normalize_optional_scalar
-from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import extract_bucket_list, parse_rgw_bool, parse_rgw_int
-
-
-def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
-    for key in keys:
-        parsed = parse_rgw_int(data.get(key))
-        if parsed is not None:
-            return parsed
-    return None
-
-
-def extract_bucket_count(payload: dict[str, Any]) -> Optional[int]:
-    direct = extract_count(payload, ("bucket_count", "num_buckets", "buckets_count"))
-    if direct is not None:
-        return direct
-    stats = payload.get("stats")
-    if isinstance(stats, dict):
-        from_stats = extract_count(stats, ("bucket_count", "num_buckets", "buckets_count"))
-        if from_stats is not None:
-            return from_stats
-    buckets = payload.get("bucket_list") or payload.get("buckets")
-    return len(buckets) if isinstance(buckets, list) else None
-
-
-def extract_user_count(payload: dict[str, Any]) -> Optional[int]:
-    direct = extract_count(payload, ("user_count", "users_count", "num_users", "users"))
-    if direct is not None:
-        return direct
-    stats = payload.get("stats")
-    if isinstance(stats, dict):
-        from_stats = extract_count(stats, ("user_count", "users_count", "num_users"))
-        if from_stats is not None:
-            return from_stats
-    users = payload.get("user_list")
-    return len(users) if isinstance(users, list) else None
-
-
-def extract_account_bucket_list(payload: Any, account_id: str) -> list[dict]:
-    """Defensively scope an RGW bucket listing to one account.
-
-    Some RGW versions accept ``account-id`` on ``/admin/bucket`` but still
-    return a cluster-wide listing. When ownership metadata is available, only
-    retain buckets that explicitly resolve to the requested RGW account. If
-    the payload exposes no ownership metadata at all, preserve the upstream
-    response for compatibility with older RGW payloads.
-    """
-
-    normalized_account_id = account_id.strip()
-    entries = extract_bucket_list(payload)
-    if not normalized_account_id or not entries:
-        return entries
-
-    matched: list[dict] = []
-    ownership_metadata_seen = False
-    for entry in entries:
-        explicit_account_id = normalize_optional_scalar(
-            entry.get("account_id") or entry.get("account-id")
-        )
-        owner = normalize_optional_scalar(entry.get("owner"))
-        if explicit_account_id or owner:
-            ownership_metadata_seen = True
-        if explicit_account_id:
-            if explicit_account_id == normalized_account_id:
-                matched.append(entry)
-            continue
-        if owner == normalized_account_id:
-            matched.append(entry)
-            continue
-        owner_account_id, _owner_uid = resolve_bucket_owner_identity(entry)
-        if owner_account_id == normalized_account_id:
-            matched.append(entry)
-
-    return matched if ownership_metadata_seen else entries
-
-
-def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> CephAdminRgwAccountDetail:
-    account_id = normalize_optional_scalar(payload.get("id") or payload.get("account_id")) or account_id_fallback
-    limits_payload = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
-    quota_size, quota_objects = extract_quota_limits(payload, keys=("quota", "account_quota"))
-    quota_enabled = _extract_quota_enabled(payload, keys=("quota", "account_quota"))
-    quota = None
-    if quota_enabled is not None or quota_size is not None or quota_objects is not None:
-        quota = CephAdminRgwQuotaConfig(
-            enabled=quota_enabled,
-            max_size_bytes=quota_size,
-            max_objects=quota_objects,
-        )
-    bucket_quota_size, bucket_quota_objects = extract_quota_limits(payload, keys=("bucket_quota",))
-    bucket_quota_enabled = _extract_quota_enabled(payload, keys=("bucket_quota",))
-    bucket_quota = None
-    if bucket_quota_enabled is not None or bucket_quota_size is not None or bucket_quota_objects is not None:
-        bucket_quota = CephAdminRgwQuotaConfig(
-            enabled=bucket_quota_enabled,
-            max_size_bytes=bucket_quota_size,
-            max_objects=bucket_quota_objects,
-        )
-    return CephAdminRgwAccountDetail(
-        account_id=account_id,
-        account_name=normalize_optional_scalar(
-            payload.get("name") or payload.get("account_name") or payload.get("display_name")
-        ),
-        email=normalize_optional_scalar(payload.get("email") or payload.get("mail")),
-        max_users=parse_rgw_int(payload.get("max_users") or limits_payload.get("max_users")),
-        max_buckets=parse_rgw_int(payload.get("max_buckets") or limits_payload.get("max_buckets")),
-        max_roles=parse_rgw_int(payload.get("max_roles") or limits_payload.get("max_roles")),
-        max_groups=parse_rgw_int(payload.get("max_groups") or limits_payload.get("max_groups")),
-        max_access_keys=parse_rgw_int(payload.get("max_access_keys") or limits_payload.get("max_access_keys")),
-        bucket_count=extract_bucket_count(payload),
-        user_count=extract_user_count(payload),
-        quota=quota,
-        bucket_quota=bucket_quota,
-    )
 
 
 def load_account_payload(account_id: str, ctx: CephAdminContext) -> dict[str, Any]:
@@ -141,16 +25,3 @@ def load_account_payload(account_id: str, ctx: CephAdminContext) -> dict[str, An
     if not isinstance(payload, dict):
         return {"payload": payload}
     return payload
-
-
-def _extract_quota_enabled(
-    payload: dict[str, Any],
-    keys: tuple[str, ...] = ("quota", "account_quota"),
-) -> Optional[bool]:
-    for key in keys:
-        value = payload.get(key)
-        if isinstance(value, dict):
-            parsed = parse_rgw_bool(value.get("enabled"))
-            if parsed is not None:
-                return parsed
-    return None

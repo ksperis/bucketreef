@@ -1,8 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-
-"""Detailed RGW account enrichment for Ceph Admin listings."""
-
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -10,18 +7,17 @@ from typing import Any, Callable
 from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwAccountSummary
-from app.routers.ceph_admin.account_common import (
+from app.services.ceph_admin_account_payloads import (
     extract_account_bucket_list,
     extract_bucket_count,
     extract_user_count,
 )
-from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.services.listing_progress import (
     ListingProgressEmitter,
     interpolate_progress_percent,
     invoke_cancel_check,
 )
-from app.services.rgw_admin import RGWAdminError
+from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
@@ -45,16 +41,13 @@ def account_field_needs_enrichment(
 def account_profile_needs_enrichment(
     account: CephAdminRgwAccountSummary,
 ) -> bool:
-    return (
-        account_field_needs_enrichment(account, "account_name")
-        or account.email is None
-    )
+    return account_field_needs_enrichment(account, "account_name") or account.email is None
 
 
 def enrich_accounts(
     accounts: list[CephAdminRgwAccountSummary],
     requested: set[str],
-    ctx: CephAdminContext,
+    rgw_admin: RGWAdminClient,
     *,
     progress: ListingProgressEmitter | None = None,
     progress_stage: str = "detail_enrichment",
@@ -68,7 +61,7 @@ def enrich_accounts(
     buckets_payload: Any | None = None
     if "usage" in requested:
         try:
-            buckets_payload = ctx.rgw_admin.get_all_buckets(with_stats=True)
+            buckets_payload = rgw_admin.get_all_buckets(with_stats=True)
         except RGWAdminError as exc:
             raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     enriched: list[CephAdminRgwAccountSummary] = []
@@ -77,7 +70,7 @@ def enrich_accounts(
         invoke_cancel_check(cancel_check)
         account = item.model_copy(deep=True)
         try:
-            payload = ctx.rgw_admin.get_account(
+            payload = rgw_admin.get_account(
                 account.account_id,
                 allow_not_found=True,
             )
@@ -118,30 +111,15 @@ def _apply_account_detail_payload(
     if "profile" in requested:
         if not account.account_name:
             account.account_name = normalize_optional_scalar(
-                payload.get("account_name")
-                or payload.get("name")
-                or payload.get("display_name")
+                payload.get("account_name") or payload.get("name") or payload.get("display_name")
             )
-        account.email = normalize_optional_scalar(
-            payload.get("email") or payload.get("mail")
-        )
+        account.email = normalize_optional_scalar(payload.get("email") or payload.get("mail"))
     if "limits" in requested:
-        limits = (
-            payload.get("limits")
-            if isinstance(payload.get("limits"), dict)
-            else {}
-        )
-        account.max_users = parse_rgw_int(
-            payload.get("max_users") or limits.get("max_users")
-        )
-        account.max_buckets = parse_rgw_int(
-            payload.get("max_buckets") or limits.get("max_buckets")
-        )
+        limits = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
+        account.max_users = parse_rgw_int(payload.get("max_users") or limits.get("max_users"))
+        account.max_buckets = parse_rgw_int(payload.get("max_buckets") or limits.get("max_buckets"))
     if "quota" in requested:
-        quota_size, quota_objects = extract_quota_limits(
-            payload,
-            keys=("quota", "account_quota"),
-        )
+        quota_size, quota_objects = extract_quota_limits(payload, keys=("quota", "account_quota"))
         account.quota_max_size_bytes = quota_size
         account.quota_max_objects = quota_objects
     if "stats" in requested:
