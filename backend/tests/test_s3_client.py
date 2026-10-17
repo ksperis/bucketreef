@@ -108,6 +108,44 @@ def test_s3_bucket_access_owns_access_contracts_without_legacy_exports():
     assert not hasattr(s3_client, "get_bucket_policy")
 
 
+def test_s3_bucket_access_client_forwards_all_connection_options(monkeypatch):
+    class PolicyClient:
+        def get_bucket_policy(self, **kwargs):
+            assert kwargs == {"Bucket": "reports"}
+            return {"Policy": '{"Version":"2012-10-17"}'}
+
+    client = PolicyClient()
+    captured = {}
+
+    def build_client(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return client
+
+    monkeypatch.setattr(s3_bucket_access, "get_s3_client", build_client)
+
+    assert s3_bucket_access.get_bucket_policy(
+        "reports",
+        access_key="access",
+        secret_key="secret",
+        session_token="token",
+        endpoint="https://s3.example.test",
+        region="eu-west-3",
+        force_path_style=True,
+        verify_tls=False,
+    ) == {"Version": "2012-10-17"}
+    assert captured == {
+        "args": ("access", "secret"),
+        "kwargs": {
+            "endpoint": "https://s3.example.test",
+            "session_token": "token",
+            "region": "eu-west-3",
+            "force_path_style": True,
+            "verify_tls": False,
+        },
+    }
+
+
 def test_s3_bucket_metadata_owns_metadata_contracts_without_legacy_exports():
     assert s3_bucket_metadata.get_bucket_tags.__module__ == "app.services.s3_bucket_metadata"
     assert s3_bucket_metadata.get_bucket_logging.__module__ == "app.services.s3_bucket_metadata"
