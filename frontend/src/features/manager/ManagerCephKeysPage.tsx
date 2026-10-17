@@ -5,6 +5,7 @@
 import UiInput from "../../components/ui/UiInput";
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useState } from "react";
+import type { AccessKeyMetadataInput } from "../../api/accessKeyContracts";
 
 import {
   createManagerCephAccessKey,
@@ -30,7 +31,7 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
-import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKeyMetadataDialog";
+import AccessKeyMetadataDialog from "./AccessKeyMetadataDialog";
 import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
 import { useManagerI18n } from "./managerI18n";
 
@@ -94,7 +95,7 @@ export default function ManagerCephKeysPage() {
     void loadKeys();
   }, [accessMode, loadKeys]);
 
-  const createKey = async (metadata?: AccessKeyMetadataDraft) => {
+  const createKey = async (metadata?: AccessKeyMetadataInput) => {
     if (!canManageCephKeys) return;
     setBusy("create");
     setError(null);
@@ -126,7 +127,7 @@ export default function ManagerCephKeysPage() {
     void createKey();
   };
 
-  const saveMetadata = async (metadata: AccessKeyMetadataDraft) => {
+  const saveMetadata = async (metadata: AccessKeyMetadataInput) => {
     if (!canManageCephKeys || metadataDialog?.mode !== "edit" || !metadataDialog.key) return;
     const key = metadataDialog.key;
     setBusy(`metadata:${key.access_key_id}`);
