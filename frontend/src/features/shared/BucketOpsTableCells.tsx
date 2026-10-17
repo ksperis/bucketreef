@@ -224,7 +224,7 @@ export function BucketOpsOwnerCell({
           <p className="ui-caption font-semibold text-slate-800 dark:text-slate-100">
             {surfaceText("Owner")}</p>
           <p className="mt-1 ui-caption text-slate-600 dark:text-slate-300">
-            {surfaceText("UID:")}{owner}
+            {surfaceText("UID: {uid}", { uid: owner })}
           </p>
           {(!tooltip || tooltip.status === "loading") && (
             <div className="mt-1.5 inline-flex items-center gap-1.5 ui-caption text-slate-500 dark:text-slate-300">
@@ -238,7 +238,9 @@ export function BucketOpsOwnerCell({
           )}
           {tooltip?.status === "ready" && (
             <p className="mt-1.5 ui-caption text-slate-600 dark:text-slate-300">
-              {surfaceText("Owner name:")}{tooltip.ownerName ? tooltip.ownerName : surfaceText("Not found")}
+              {surfaceText("Owner name: {name}", {
+                name: tooltip.ownerName ? tooltip.ownerName : surfaceText("Not found"),
+              })}
             </p>
           )}
         </div>

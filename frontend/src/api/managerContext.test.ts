@@ -17,14 +17,14 @@ describe("manager context API", () => {
   });
 
   it("only requests remote limits explicitly", async () => {
-    await fetchManagerContext(41);
+    await fetchManagerContext("account-41");
     expect(mocks.get).toHaveBeenLastCalledWith("/manager/context", {
-      params: { context_id: 41 },
+      params: { context_id: "account-41" },
     });
 
-    await fetchManagerContext(41, { includeLimits: true });
+    await fetchManagerContext("account-41", { includeLimits: true });
     expect(mocks.get).toHaveBeenLastCalledWith("/manager/context", {
-      params: { include_limits: true, context_id: 41 },
+      params: { include_limits: true, context_id: "account-41" },
     });
   });
 });

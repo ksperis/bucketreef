@@ -26,8 +26,8 @@ describe("long-running API operations", () => {
   });
 
   it("does not impose the interactive 15 second timeout", async () => {
-    await compareManagerBucketPair(1, {} as Parameters<typeof compareManagerBucketPair>[1]);
-    await runManagerBucketCompareAction(1, {} as Parameters<typeof runManagerBucketCompareAction>[1]);
+    await compareManagerBucketPair("account-1", {} as Parameters<typeof compareManagerBucketPair>[1]);
+    await runManagerBucketCompareAction("account-1", {} as Parameters<typeof runManagerBucketCompareAction>[1]);
     await backupCephAdminBucketConfigs(7, {} as Parameters<typeof backupCephAdminBucketConfigs>[1]);
     await compareCephAdminBucketPair(7, {} as Parameters<typeof compareCephAdminBucketPair>[1]);
     await importS3Accounts([{ rgw_account_id: "RGW-1", storage_endpoint_id: 7 }]);
