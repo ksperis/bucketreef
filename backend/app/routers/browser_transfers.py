@@ -25,13 +25,13 @@ from app.models.browser import (
     StsStatus,
 )
 from app.routers.browser_common import require_sse_feature
-from app.routers.auth_session_guards import current_auth_session
 from app.routers.s3_download_response import S3DownloadResponse
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_account_admin,
     get_optional_sse_customer_context,
 )
+from app.services.auth_session_guards import current_auth_session
 from app.services.browser_service import BrowserService, get_browser_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_bad_gateway_from_runtime

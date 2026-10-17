@@ -18,8 +18,8 @@ from app.db import (
 from app.models.s3_connection_admin import S3ConnectionAdminUpdate
 from app.models.ui_group import UiGroupCreate, UiGroupUpdate
 from app.models.user import ManagerToolAccess, UserUpdate
-from app.routers.auth_session_guards import current_auth_session, require_recent_mfa, require_recent_primary_auth
 from app.services.app_settings_service import load_app_settings_for_db
+from app.services.auth_session_guards import current_auth_session, require_recent_mfa, require_recent_primary_auth
 from app.services.manager_tool_access import read_manager_tool_access
 from app.services.webauthn_service import WebAuthnService
 from app.utils.normalize import normalize_optional_string
