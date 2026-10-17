@@ -162,10 +162,7 @@ def _resolve_connection_context(
 
     # Keep a minimal usage signal for UX (recently used sorting / hints).
     if touch_usage:
-        try:
-            connections.touch_usage(conn)
-        except Exception:
-            db.rollback()
+        connections.touch_usage_best_effort(conn)
     can_manage_iam = _connection_iam_capable(conn)
     return _build_s3_connection_context(
         conn,

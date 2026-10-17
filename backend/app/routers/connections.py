@@ -163,7 +163,6 @@ def create_connection(
         raise_bad_request_from_value_error(exc)
     except Exception as exc:
         # Avoid leaking internal details or sensitive hints.
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to create S3Connection (invalid payload or duplicate name)",

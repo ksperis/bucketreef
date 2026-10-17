@@ -124,7 +124,6 @@ def create_s3_connection(
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
     except Exception as exc:
-        db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to create S3Connection") from exc
     details = resolve_connection_details(conn)
     audit.record_action(

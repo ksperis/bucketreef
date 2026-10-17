@@ -162,12 +162,7 @@ class S3ConnectionsService:
             created_at=utcnow(),
             updated_at=utcnow(),
         )
-        self.db.add(row)
-        self.db.flush()
-        self.tags.replace_connection_tags(row, payload.tags)
-        self._refresh_detected_capabilities(row)
-        self.db.commit()
-        self.db.refresh(row)
+        self._persist_created_connection(row, payload.tags, commit=True)
         return row
 
     def update_admin_shared(
@@ -278,16 +273,30 @@ class S3ConnectionsService:
             created_at=utcnow(),
             updated_at=utcnow(),
         )
-        self.db.add(row)
-        self.db.flush()
-        self.tags.replace_connection_tags(row, payload.tags)
-        self._refresh_detected_capabilities(row)
-        if commit:
-            self.db.commit()
-            self.db.refresh(row)
-        else:
-            self.db.flush()
+        self._persist_created_connection(row, payload.tags, commit=commit)
         return self._to_model(row)
+
+    def _persist_created_connection(
+        self,
+        row: DBS3Connection,
+        tags: object,
+        *,
+        commit: bool,
+    ) -> None:
+        try:
+            self.db.add(row)
+            self.db.flush()
+            self.tags.replace_connection_tags(row, tags)
+            self._refresh_detected_capabilities(row)
+            if commit:
+                self.db.commit()
+                self.db.refresh(row)
+            else:
+                self.db.flush()
+        except Exception:
+            if commit:
+                self.db.rollback()
+            raise
 
     def update(self, user_id: int, connection_id: int, payload: S3ConnectionUpdate) -> S3Connection:
         row = self.get_owned(user_id, connection_id)
@@ -491,19 +500,29 @@ class S3ConnectionsService:
 
     def touch_usage(self, row: DBS3Connection) -> None:
         now = utcnow()
-        (
-            self.db.query(DBS3Connection)
-            .filter(DBS3Connection.id == row.id)
-            .update(
-                {
-                    DBS3Connection.last_used_at: now,
-                    DBS3Connection.updated_at: now,
-                },
-                synchronize_session=False,
+        try:
+            (
+                self.db.query(DBS3Connection)
+                .filter(DBS3Connection.id == row.id)
+                .update(
+                    {
+                        DBS3Connection.last_used_at: now,
+                        DBS3Connection.updated_at: now,
+                    },
+                    synchronize_session=False,
+                )
             )
-        )
-        self.db.commit()
-        self.db.refresh(row)
+            self.db.commit()
+            self.db.refresh(row)
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def touch_usage_best_effort(self, row: DBS3Connection) -> None:
+        try:
+            self.touch_usage(row)
+        except Exception:
+            return
 
     def is_active_managed_source(self, connection_id: int) -> bool:
         return (
