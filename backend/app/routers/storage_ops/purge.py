@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.bucket_purge import BucketPurgeTargetRequest
-from app.routers.bucket_purge_stream import (
+from app.routers.bucket_purge_stream import stream_bucket_purge
+from app.services.bucket_purge_audit import (
     BucketPurgeAuditLifecycle,
     record_bucket_purge_audit,
-    stream_bucket_purge,
 )
 from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin, require_bucket_purge_global_enabled
 from app.routers.execution_contexts import list_execution_contexts
