@@ -18,11 +18,11 @@ from app.routers.dependencies import (
     get_audit_service,
     get_current_bucket_migration_scope,
 )
-from app.routers.manager.migrations_common import (
-    _build_service,
-    _worker_wake_up,
-)
 from app.services.audit_service import AuditService
+from app.services.bucket_migration.runtime import (
+    build_bucket_migration_service,
+    wake_bucket_migration_worker,
+)
 from app.utils.http_errors import (
     raise_http_error_from_value_error,
     raise_http_exception_from_exception,
@@ -40,7 +40,7 @@ def start_migration(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.start_migration(
             migration_id,
@@ -52,7 +52,7 @@ def start_migration(
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
-    _worker_wake_up()
+    wake_bucket_migration_worker()
     audit.record_action(
         user=current_user,
         scope="manager",
@@ -73,7 +73,7 @@ def pause_migration(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.request_pause(migration_id)
     except PermissionError as exc:
@@ -81,7 +81,7 @@ def pause_migration(
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
-    _worker_wake_up()
+    wake_bucket_migration_worker()
     audit.record_action(
         user=current_user,
         scope="manager",
@@ -102,7 +102,7 @@ def resume_migration(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.resume_migration(migration_id)
     except PermissionError as exc:
@@ -110,7 +110,7 @@ def resume_migration(
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
-    _worker_wake_up()
+    wake_bucket_migration_worker()
     audit.record_action(
         user=current_user,
         scope="manager",
@@ -131,7 +131,7 @@ def stop_migration(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.stop_migration(migration_id)
     except PermissionError as exc:
@@ -139,7 +139,7 @@ def stop_migration(
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
-    _worker_wake_up()
+    wake_bucket_migration_worker()
     audit.record_action(
         user=current_user,
         scope="manager",
@@ -161,7 +161,7 @@ def continue_after_presync(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.continue_after_presync(
             migration_id, confirmed=payload.confirmed
@@ -171,7 +171,7 @@ def continue_after_presync(
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
-    _worker_wake_up()
+    wake_bucket_migration_worker()
     audit.record_action(
         user=current_user,
         scope="manager",
@@ -192,7 +192,7 @@ def rollback_migration(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.rollback_failed_migration(migration_id)
     except PermissionError as exc:
@@ -222,7 +222,7 @@ def retry_failed_items(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration, retried_count = service.retry_failed_items(migration_id)
     except PermissionError as exc:
@@ -230,7 +230,7 @@ def retry_failed_items(
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
-    _worker_wake_up()
+    wake_bucket_migration_worker()
     audit.record_action(
         user=current_user,
         scope="manager",
@@ -257,7 +257,7 @@ def rollback_failed_items(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration, rolled_back_count = service.rollback_failed_items(migration_id)
     except PermissionError as exc:
@@ -292,7 +292,7 @@ def retry_item(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.retry_item(migration_id, item_id)
     except PermissionError as exc:
@@ -300,7 +300,7 @@ def retry_item(
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
-    _worker_wake_up()
+    wake_bucket_migration_worker()
     audit.record_action(
         user=current_user,
         scope="manager",
@@ -327,7 +327,7 @@ def rollback_item(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.rollback_item(migration_id, item_id)
     except PermissionError as exc:
@@ -395,7 +395,7 @@ def cleanup_target(
 
 
 def _queue_maintenance(migration_id, operation, payload, db, scope, audit):
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.request_maintenance(
             migration_id,
@@ -414,7 +414,7 @@ def _queue_maintenance(migration_id, operation, payload, db, scope, audit):
         entity_type="bucket_migration",
         entity_id=str(migration.id),
     )
-    _worker_wake_up()
+    wake_bucket_migration_worker()
     return BucketMigrationActionResponse(
         id=migration.id, status=migration.status, message="Operation queued"
     )
