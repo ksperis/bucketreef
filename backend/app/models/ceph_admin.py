@@ -299,11 +299,9 @@ class CephAdminRgwAccountCreate(ApiModel):
     bucket_quota_max_objects: Optional[int] = Field(default=None, ge=0)
     extra_params: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("extra_params")
-    @classmethod
-    def validate_extra_params(cls, value: dict[str, Any]) -> dict[str, Any]:
-        validate_rgw_account_extra_params(value)
-        return value
+    _validate_extra_params = field_validator("extra_params")(
+        validate_rgw_account_extra_params
+    )
 
     @model_validator(mode="after")
     def validate_name(self):
@@ -380,11 +378,9 @@ class CephAdminRgwAccountConfigUpdate(ApiModel):
     bucket_quota_max_objects: Optional[int] = Field(default=None, ge=0)
     extra_params: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("extra_params")
-    @classmethod
-    def validate_extra_params(cls, value: dict[str, Any]) -> dict[str, Any]:
-        validate_rgw_account_extra_params(value)
-        return value
+    _validate_extra_params = field_validator("extra_params")(
+        validate_rgw_account_extra_params
+    )
 
 
 class CephAdminRgwUserConfigUpdate(ApiModel):
