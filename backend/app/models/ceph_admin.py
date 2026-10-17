@@ -335,20 +335,19 @@ class CephAdminRgwUserCreate(ApiModel):
 
     @field_validator("tenant")
     @classmethod
-    def validate_tenant(cls, value: str | None) -> str | None:
+    def validate_tenant(_cls, value: str | None) -> str | None:
         if value:
             validate_rgw_tenant(value.strip())
         return value
 
     @field_validator("uid")
     @classmethod
-    def validate_uid(cls, value: str, info: ValidationInfo) -> str:
+    def validate_uid(_cls, value: str, info: ValidationInfo) -> str:
         return validate_rgw_user_uid(value, info.data.get("tenant"))
 
-    @field_validator("extra_params")
-    @classmethod
-    def validate_extra_identifiers(cls, value: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
-        return _safe_rgw_user_extra_params(value)
+    _validate_extra_identifiers = field_validator("extra_params")(
+        _safe_rgw_user_extra_params
+    )
 
     @model_validator(mode="after")
     def validate_scope(self):
@@ -397,10 +396,9 @@ class CephAdminRgwUserConfigUpdate(ApiModel):
     caps: Optional[CephAdminRgwUserCapsUpdate] = None
     extra_params: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("extra_params")
-    @classmethod
-    def validate_extra_identifiers(cls, value: dict[str, Any]) -> dict[str, Any]:
-        return _safe_rgw_user_extra_params(value)
+    _validate_extra_identifiers = field_validator("extra_params")(
+        _safe_rgw_user_extra_params
+    )
 
 
 class CephAdminBucketUsagePoint(ApiModel):
