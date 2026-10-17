@@ -28,6 +28,7 @@ from app.models.s3_connection import (
     S3ConnectionCredentialsValidationRequest,
     S3ConnectionUpdate,
 )
+from app.models.s3_connection_admin import S3ConnectionAdminCreate
 from app.services.s3_connections_service import S3ConnectionsService
 
 
@@ -200,6 +201,88 @@ def test_create_connection_custom_endpoint_and_storage_endpoint_paths(db_session
     assert preset_conn.endpoint_url == endpoint.endpoint_url
     assert preset_conn.force_path_style is True
     assert preset_conn.verify_tls is False
+
+
+def test_create_connection_rolls_back_service_owned_transaction_on_failure(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, "creator-rollback@example.test")
+    endpoint = _endpoint(db_session)
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        service.tags,
+        "replace_connection_tags",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("tag write failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="tag write failed"):
+        service.create(
+            user.id,
+            S3ConnectionCreate(
+                name="rollback-private",
+                storage_endpoint_id=endpoint.id,
+                access_key_id="AKIA-ROLLBACK-PRIVATE",
+                secret_access_key="SECRET-ROLLBACK-PRIVATE",
+                access_browser=True,
+            ),
+        )
+
+    assert db_session.query(S3Connection).filter_by(name="rollback-private").count() == 0
+    assert db_session.get(User, user.id) is not None
+
+
+def test_create_admin_shared_rolls_back_service_owned_transaction_on_failure(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, "admin-rollback@example.test")
+    endpoint = _endpoint(db_session)
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        service.tags,
+        "replace_connection_tags",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("tag write failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="tag write failed"):
+        service.create_admin_shared(
+            user.id,
+            S3ConnectionAdminCreate(
+                name="rollback-shared",
+                storage_endpoint_id=endpoint.id,
+                access_key_id="AKIA-ROLLBACK-SHARED",
+                secret_access_key="SECRET-ROLLBACK-SHARED",
+            ),
+        )
+
+    assert db_session.query(S3Connection).filter_by(name="rollback-shared").count() == 0
+    assert db_session.get(User, user.id) is not None
+
+
+def test_touch_usage_rolls_back_failed_commit(db_session, monkeypatch):
+    user = _user(db_session, "touch-rollback@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=user.id,
+        name="touch-rollback",
+    )
+    service = S3ConnectionsService(db_session)
+    original_commit = db_session.commit
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("commit failed")),
+    )
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.touch_usage(row)
+
+    monkeypatch.setattr(db_session, "commit", original_commit)
+    db_session.expire_all()
+    persisted = db_session.get(S3Connection, row.id)
+    assert persisted is not None
+    assert persisted.last_used_at is None
 
 
 def test_create_and_update_connection_normalize_tags(db_session, monkeypatch):
