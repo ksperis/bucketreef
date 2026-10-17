@@ -26,7 +26,7 @@ from app.db import (
 )
 from app.routers import execution_contexts
 from app.models.app_settings import AppSettings, GeneralSettings
-from app.services import app_settings_service
+from app.services import app_settings_service, execution_context_catalog_service
 from app.services.portal import settings as portal_settings_module
 from app.services.portal_service import PortalService
 from app.utils.time import utcnow
@@ -660,7 +660,7 @@ def test_workspace_access_hides_admin_when_runtime_surface_is_disabled(db_sessio
         ),
     )
     monkeypatch.setattr(
-        execution_contexts,
+        execution_context_catalog_service,
         "get_runtime_settings",
         lambda: SimpleNamespace(
             feature_admin_enabled=False,
