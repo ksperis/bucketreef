@@ -12,7 +12,7 @@ export const CLIENT_STORAGE_KEYS = {
   theme: "theme",
   languagePreference: "languagePreference",
   brandingPrimaryColor: "branding.primary_color",
-  generalSettingsCache: "settings:general:v2",
+  generalSettingsCache: "settings:general:v3",
   selectorTagsPreference: "showSelectorTags",
   sidebarCompact: "shell:sidebar-compact:v1",
   browserRootUiStateV2: "browser:root-ui-state:v2",

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_GENERAL_SETTINGS, GeneralSettingsProvider, useGeneralSettings } from "./GeneralSettingsContext";
 import * as appSettingsApi from "../api/appSettings";
 import { isFeaturePolicyAvailable } from "../api/featurePolicies";
+import { CLIENT_STORAGE_KEYS } from "../utils/clientStorage";
 
 const sessionState = vi.hoisted(() => ({ authenticated: false }));
 
@@ -140,6 +141,23 @@ describe("GeneralSettingsProvider fallbacks", () => {
     expect(screen.getByTestId("bucket-quota-management").textContent).toBe("false");
   });
 
+  it("keeps current-schema cached settings when refresh fails", async () => {
+    sessionState.authenticated = true;
+    window.localStorage.setItem(CLIENT_STORAGE_KEYS.generalSettingsCache, JSON.stringify({
+      ...DEFAULT_GENERAL_SETTINGS,
+      manager_feature_policies: {
+        ...DEFAULT_GENERAL_SETTINGS.manager_feature_policies,
+        bucket_compare: "disabled",
+      },
+    }));
+    vi.mocked(appSettingsApi.fetchGeneralSettings).mockRejectedValueOnce(new Error("offline"));
+
+    render(<GeneralSettingsProvider><Probe /></GeneralSettingsProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("compare-policy")).toHaveTextContent("disabled");
+  });
+
   it("writes saved settings to the local cache immediately", async () => {
     render(
       <GeneralSettingsProvider>
@@ -150,14 +168,14 @@ describe("GeneralSettingsProvider fallbacks", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save locally" }));
 
     expect(screen.getByTestId("migration").textContent).toBe("true");
-    expect(JSON.parse(window.localStorage.getItem("settings:general:v2") ?? "{}")).toEqual(
+    expect(JSON.parse(window.localStorage.getItem(CLIENT_STORAGE_KEYS.generalSettingsCache) ?? "{}")).toEqual(
       expect.objectContaining({
         manager_feature_policies: expect.objectContaining({ bucket_migration: "targeted" }),
       })
     );
   });
 
-  it("fills policy fields missing from older cached settings while keeping saved values", async () => {
+  it("ignores settings cached with the previous schema", async () => {
     sessionState.authenticated = true;
     window.localStorage.setItem("settings:general:v2", JSON.stringify({
       ...DEFAULT_GENERAL_SETTINGS,
@@ -172,7 +190,8 @@ describe("GeneralSettingsProvider fallbacks", () => {
     await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
     expect(screen.getByTestId("usage-policy")).toHaveTextContent("default_on");
     expect(screen.getByTestId("activity-policy")).toHaveTextContent("default_on");
-    expect(screen.getByTestId("compare-policy")).toHaveTextContent("disabled");
+    expect(screen.getByTestId("compare-policy")).toHaveTextContent("targeted");
     expect(screen.getByTestId("portal-browser")).toHaveTextContent("true");
+    expect(window.localStorage.getItem(CLIENT_STORAGE_KEYS.generalSettingsCache)).toBeNull();
   });
 });
