@@ -16,7 +16,6 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError
 
-from app.services.bucket_listing_shared import parse_includes as parse_bucket_listing_includes
 from app.services.listing_progress import (
     ListingCancelled,
     ListingProgressSnapshot,
@@ -128,10 +127,6 @@ def stream_listing_response(
         operation="listing_stream",
         request_id=request_id,
     )
-
-
-def parse_includes(include: list[str]) -> set[str]:
-    return parse_bucket_listing_includes(include)
 
 
 def parse_int(value: Any) -> int | None:
