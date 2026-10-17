@@ -23,7 +23,7 @@ from app.models.auth import (
 )
 from app.models.session import ManagerSessionPrincipal, SessionDescriptor
 from app.routers.auth_cookies import clear_auth_cookies, set_auth_cookies
-from app.routers.auth_session_guards import (
+from app.services.auth_session_guards import (
     current_auth_session,
     require_recent_mfa,
     require_recent_primary_auth,
