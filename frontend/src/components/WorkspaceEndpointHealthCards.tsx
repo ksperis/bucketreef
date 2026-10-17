@@ -6,7 +6,6 @@ import type { WorkspaceEndpointHealthOverviewResponse } from "../api/healthcheck
 import { formatLocalDateTime } from "../utils/dateTime";
 import { WorkspaceDashboardActionLink, WorkspaceStatusCounter, WorkspaceStatusDot, WorkspaceStatusPill } from "./WorkspaceDashboardKit";
 import WorkspaceIncidentsCard from "./WorkspaceIncidentsCard";
-import { UiButtonLink } from "./ui/UiButton";
 import {
   cx,
   uiCardClass,
@@ -32,7 +31,6 @@ type WorkspaceEndpointHealthCardsProps = {
   action?: { to: string; label: string };
   className?: string;
   showStatusCounters?: boolean;
-  presentation?: "compact";
 };
 
 export default function WorkspaceEndpointHealthCards({
@@ -43,9 +41,7 @@ export default function WorkspaceEndpointHealthCards({
   action,
   className = "grid gap-4 xl:grid-cols-[1.7fr_1fr]",
   showStatusCounters = true,
-  presentation,
 }: WorkspaceEndpointHealthCardsProps) {
-  const compact = presentation === "compact";
   const incidents = data?.incidents ?? [];
   const effectiveCounts = {
     up: data?.up_count ?? 0,
@@ -57,27 +53,21 @@ export default function WorkspaceEndpointHealthCards({
 
   return (
     <div className={className}>
-      <section className={cx(uiCardClass, compact ? "ui-dashboard-panel" : "p-4")}>
+      <section className={cx(uiCardClass, "ui-dashboard-panel")}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className={compact ? "ui-dashboard-title" : cx("ui-body", uiTitleTextClass)}>{title}</h2>
+            <h2 className="ui-dashboard-title">{title}</h2>
             <p className={cx("ui-caption", uiMutedTextClass)}>
               Stored status from the latest endpoint check.
             </p>
           </div>
-          <div className={compact ? "flex flex-wrap items-center gap-2" : "flex items-center gap-2"}>
+          <div className="flex flex-wrap items-center gap-2">
             {data?.generated_at && (
-              <span className={cx(compact ? "ui-dashboard-note" : "rounded-full border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 py-1 ui-caption font-medium", uiMutedTextClass)}>
+              <span className={cx("ui-dashboard-note", uiMutedTextClass)}>
                 Updated {formatLocalDateTime(data.generated_at)}
               </span>
             )}
-            {action && (compact ? (
-              <WorkspaceDashboardActionLink to={action.to}>{action.label}</WorkspaceDashboardActionLink>
-            ) : (
-              <UiButtonLink to={action.to} variant="secondary" size="xs">
-                {action.label}
-              </UiButtonLink>
-            ))}
+            {action && <WorkspaceDashboardActionLink to={action.to}>{action.label}</WorkspaceDashboardActionLink>}
           </div>
         </div>
 
@@ -97,7 +87,7 @@ export default function WorkspaceEndpointHealthCards({
                   { key: "down" as const, label: "Down", value: effectiveCounts.down },
                   { key: "unknown" as const, label: "Unknown", value: effectiveCounts.unknown },
                 ].map((item) => (
-                  <WorkspaceStatusCounter presentation={presentation} key={item.key} label={item.label} value={item.value} status={item.key} />
+                  <WorkspaceStatusCounter key={item.key} label={item.label} value={item.value} status={item.key} />
                 ))}
               </div>
             )}
@@ -110,19 +100,19 @@ export default function WorkspaceEndpointHealthCards({
                 const effectiveStatus = stale ? "unknown" : endpoint.status;
                 return <div
                   key={endpoint.endpoint_id}
-                  className={compact ? "ui-dashboard-health-row" : "flex flex-wrap items-center justify-between gap-2 rounded-md border border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)]/45 px-3 py-2 dark:bg-transparent"}
+                  className="ui-dashboard-health-row"
                 >
                   <div className="min-w-0">
-                    <p className={cx(compact ? "flex min-w-0 items-center gap-2 ui-dashboard-label" : "flex min-w-0 items-center gap-2 truncate ui-caption", uiTitleTextClass)}>
+                    <p className={cx("flex min-w-0 items-center gap-2 ui-dashboard-label", uiTitleTextClass)}>
                       <WorkspaceStatusDot status={effectiveStatus} className="shrink-0" />
-                      <span className={compact ? "min-w-0 break-words" : "truncate"}>{endpoint.name}</span>
+                      <span className="min-w-0 break-words">{endpoint.name}</span>
                     </p>
-                    <p className={cx(compact ? "ui-dashboard-note" : "truncate ui-caption", uiMutedTextClass)}>
+                    <p className={cx("ui-dashboard-note", uiMutedTextClass)}>
                       {formatLatency(endpoint.latency_ms)} · {formatCheckMode(endpoint.check_mode)} · Last check {formatLocalDateTime(endpoint.checked_at)}
                       {stale ? " · Stale" : ""}
                     </p>
                   </div>
-                  <WorkspaceStatusPill presentation={presentation} status={effectiveStatus} className="ui-caption" />
+                  <WorkspaceStatusPill status={effectiveStatus} className="ui-caption" />
                 </div>
               })}
               {(data?.endpoints ?? []).length > 6 && (
@@ -137,7 +127,6 @@ export default function WorkspaceEndpointHealthCards({
 
       {showIncidents && (
         <WorkspaceIncidentsCard
-          presentation={presentation}
           incidents={incidents}
           loading={false}
           incidentHighlightMinutes={data?.incident_highlight_minutes}

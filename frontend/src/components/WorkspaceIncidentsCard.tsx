@@ -2,13 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { Link } from "react-router-dom";
 import { WorkspaceDashboardActionLink, WorkspaceDashboardCard } from "./WorkspaceDashboardKit";
 import UiBadge from "./ui/UiBadge";
 import type { WorkspaceEndpointIncidentEntry } from "../api/healthchecks";
 import { formatLocalDateTime } from "../utils/dateTime";
 import { OpenIcon } from "../features/browser/browserIcons";
-import { cx, uiCardClass, uiCardMutedClass, uiMutedTextClass } from "./ui/styles";
 import { useWorkspaceIncidentsI18n } from "./workspaceIncidentsMessages";
 
 const MAX_INCIDENT_ROWS = 5;
@@ -20,7 +18,6 @@ type WorkspaceIncidentsCardProps = {
   action?: { to: string; label: string };
   showEmptyState?: boolean;
   className?: string;
-  presentation?: "compact";
   unavailableReason?: string | null;
 };
 
@@ -44,24 +41,6 @@ function sortIncidents(incidents: WorkspaceEndpointIncidentEntry[]) {
   });
 }
 
-function incidentRowClass(ongoing: boolean) {
-  if (ongoing) {
-    return "border-amber-300/80 bg-amber-50/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-amber-500/35 dark:bg-amber-500/10 dark:shadow-none";
-  }
-  return "border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)]/45 dark:bg-transparent";
-}
-
-function incidentDotClass(ongoing: boolean) {
-  return ongoing ? "bg-amber-500" : "bg-emerald-500";
-}
-
-function incidentBadgeClass(ongoing: boolean) {
-  if (ongoing) {
-    return "border-amber-300/80 bg-amber-100/80 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300";
-  }
-  return "border-[color:var(--ui-border)] bg-transparent text-[var(--ui-text-muted)]";
-}
-
 export default function WorkspaceIncidentsCard({
   incidents,
   loading,
@@ -69,7 +48,6 @@ export default function WorkspaceIncidentsCard({
   action,
   showEmptyState = false,
   className,
-  presentation,
   unavailableReason,
 }: WorkspaceIncidentsCardProps) {
   const { text } = useWorkspaceIncidentsI18n();
@@ -79,100 +57,26 @@ export default function WorkspaceIncidentsCard({
 
   if (!loading && orderedIncidents.length === 0 && !showEmptyState && !unavailableReason) return null;
 
-  if (presentation === "compact") {
-    return (
-      <WorkspaceDashboardCard title={text("title")} presentation="compact" className={className}>
-        <p className="ui-dashboard-note">{text("description", { window: formatIncidentWindow(incidentHighlightMinutes, text) })}</p>
-        {loading ? <p className="ui-dashboard-note" role="status">{text("loading")}</p> : unavailableReason ? <p className="ui-dashboard-note" role="status">{unavailableReason}</p> : orderedIncidents.length === 0 ? <p className="ui-dashboard-note">{text("empty")}</p> : (
-          <div className="ui-dashboard-incidents">
-            {visibleIncidents.map((incident, index) => (
-              <div key={`${incident.endpoint_id}-${incident.start}-${index}`} data-incident-state={incident.ongoing ? "ongoing" : "resolved"} className="ui-dashboard-incident">
-                <div className="ui-dashboard-incident-description">
-                  <p className="ui-dashboard-label">{incident.endpoint_name}</p>
-                  <p className="ui-dashboard-note">{text(incident.ongoing ? "ongoingSince" : "from")} {formatLocalDateTime(incident.start)}{incident.end ? text("toDate", { date: formatLocalDateTime(incident.end) }) : ""}</p>
-                </div>
-                <UiBadge tone={incident.ongoing ? "warning" : "neutral"} className="ui-dashboard-badge">{text(incident.ongoing ? "inProgress" : "resolved")}</UiBadge>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="ui-dashboard-panel-footer">
-          {hiddenIncidentCount > 0 && <p className="ui-dashboard-note">{text("moreIncidents", { count: hiddenIncidentCount })}</p>}
-          {action && <WorkspaceDashboardActionLink to={action.to}>{action.label}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
-        </div>
-      </WorkspaceDashboardCard>
-    );
-  }
-
   return (
-    <section className={cx(uiCardClass, "p-4", className)}>
-      <div>
-        <h2 className="ui-body font-semibold text-[var(--ui-text)]">{text("title")}</h2>
-        <p className={cx("mt-0.5 ui-caption", uiMutedTextClass)}>
-          {text("description", { window: formatIncidentWindow(incidentHighlightMinutes, text) })}
-        </p>
-      </div>
-
-      {loading ? (
-        <div className={cx(uiCardMutedClass, "mt-4 h-48 animate-pulse")} />
-      ) : orderedIncidents.length === 0 ? (
-        <div className={cx(uiCardMutedClass, "mt-4 border-dashed px-3 py-6 text-center ui-caption", uiMutedTextClass)}>
-          {text("empty")}
-        </div>
-      ) : (
-        <>
-          <div className="mt-4 space-y-2">
-            {visibleIncidents.map((incident, index) => (
-              <div
-                key={`${incident.endpoint_id}-${incident.start}-${index}`}
-                data-incident-state={incident.ongoing ? "ongoing" : "resolved"}
-                className={cx(
-                  "flex items-center justify-between gap-3 rounded-md border px-3 py-2",
-                  incidentRowClass(incident.ongoing)
-                )}
-              >
-                <div className="flex min-w-0 items-start gap-3">
-                  <span
-                    aria-hidden="true"
-                    className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", incidentDotClass(incident.ongoing))}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate ui-caption font-semibold text-[var(--ui-text)]">{incident.endpoint_name}</p>
-                    <p className={cx("mt-0.5 truncate ui-caption", uiMutedTextClass)}>
-                      {text(incident.ongoing ? "ongoingSince" : "from")} {formatLocalDateTime(incident.start)}
-                      {incident.end ? text("toDate", { date: formatLocalDateTime(incident.end) }) : ""}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={cx(
-                    "shrink-0 rounded-md border px-2 py-0.5 ui-caption font-semibold leading-4",
-                    incidentBadgeClass(incident.ongoing)
-                  )}
-                >
-                  {text(incident.ongoing ? "inProgress" : "resolved")}
-                </span>
+    <WorkspaceDashboardCard title={text("title")} className={className}>
+      <p className="ui-dashboard-note">{text("description", { window: formatIncidentWindow(incidentHighlightMinutes, text) })}</p>
+      {loading ? <p className="ui-dashboard-note" role="status">{text("loading")}</p> : unavailableReason ? <p className="ui-dashboard-note" role="status">{unavailableReason}</p> : orderedIncidents.length === 0 ? <p className="ui-dashboard-note">{text("empty")}</p> : (
+        <div className="ui-dashboard-incidents">
+          {visibleIncidents.map((incident, index) => (
+            <div key={`${incident.endpoint_id}-${incident.start}-${index}`} data-incident-state={incident.ongoing ? "ongoing" : "resolved"} className="ui-dashboard-incident">
+              <div className="ui-dashboard-incident-description">
+                <p className="ui-dashboard-label">{incident.endpoint_name}</p>
+                <p className="ui-dashboard-note">{text(incident.ongoing ? "ongoingSince" : "from")} {formatLocalDateTime(incident.start)}{incident.end ? text("toDate", { date: formatLocalDateTime(incident.end) }) : ""}</p>
               </div>
-            ))}
-          </div>
-
-          {(hiddenIncidentCount > 0 || action) && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              {hiddenIncidentCount > 0 ? (
-                <p className="ui-caption font-medium text-primary">{text("moreIncidents", { count: hiddenIncidentCount })}</p>
-              ) : (
-                <span />
-              )}
-              {action && (
-                <Link to={action.to} className="inline-flex items-center gap-2 ui-caption font-semibold text-primary">
-                  {action.label}
-                  <OpenIcon className="h-3.5 w-3.5" />
-                </Link>
-              )}
+              <UiBadge tone={incident.ongoing ? "warning" : "neutral"} className="ui-dashboard-badge">{text(incident.ongoing ? "inProgress" : "resolved")}</UiBadge>
             </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
-    </section>
+      <div className="ui-dashboard-panel-footer">
+        {hiddenIncidentCount > 0 && <p className="ui-dashboard-note">{text("moreIncidents", { count: hiddenIncidentCount })}</p>}
+        {action && <WorkspaceDashboardActionLink to={action.to}>{action.label}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
+      </div>
+    </WorkspaceDashboardCard>
   );
 }

@@ -52,10 +52,9 @@ const workspaceHealth: WorkspaceEndpointHealthOverviewResponse = {
 };
 
 describe("WorkspaceEndpointHealthCards", () => {
-  it.each([undefined, "compact"] as const)("shows only incident state badges while keeping endpoint status badges (%s)", (presentation) => {
+  it("shows only incident state badges while keeping endpoint status badges", () => {
     render(
       <WorkspaceEndpointHealthCards
-        presentation={presentation}
         data={workspaceHealth}
         loading={false}
         showStatusCounters={false}
@@ -87,15 +86,13 @@ describe("WorkspaceEndpointHealthCards", () => {
 
     const resolvedRow = container.querySelector('[data-incident-state="resolved"]');
     expect(resolvedRow).not.toBeNull();
-    expect(resolvedRow?.className).toContain("border-[color:var(--ui-border-soft)]");
-    expect(resolvedRow?.className).not.toContain("border-rose");
-    expect(resolvedRow?.querySelector('[aria-hidden="true"]')?.getAttribute("class")).toContain("bg-emerald-500");
+    expect(resolvedRow).toHaveClass("ui-dashboard-incident");
+    expect(within(resolvedRow as HTMLElement).getByText("Resolved")).toHaveClass("ui-dashboard-badge");
   });
 
-  it.each([undefined, "compact"] as const)("summarizes incidents beyond the five visible rows (%s)", (presentation) => {
+  it("summarizes incidents beyond the five visible rows", () => {
     const { container } = render(
       <WorkspaceEndpointHealthCards
-        presentation={presentation}
         data={{
           ...workspaceHealth,
           incidents: Array.from({ length: 7 }, (_, index) => ({
@@ -116,10 +113,9 @@ describe("WorkspaceEndpointHealthCards", () => {
     expect(container.querySelectorAll("[data-incident-state]")).toHaveLength(5);
   });
 
-  it.each([undefined, "compact"] as const)("does not present an old successful check as current (%s)", (presentation) => {
+  it("does not present an old successful check as current", () => {
     render(
       <WorkspaceEndpointHealthCards
-        presentation={presentation}
         data={{
           ...workspaceHealth,
           up_count: 0,

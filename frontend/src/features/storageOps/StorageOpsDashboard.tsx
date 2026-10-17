@@ -39,7 +39,7 @@ export default function StorageOpsDashboard() {
       breadcrumbs={storageOpsPageBreadcrumbs("dashboard")}
     >
       {summaryError && <PageBanner tone="error">{summaryError}</PageBanner>}
-      <WorkspaceDashboardCard presentation="compact">
+      <WorkspaceDashboardCard>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="ui-dashboard-note">

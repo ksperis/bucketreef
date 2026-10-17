@@ -3,11 +3,10 @@ import { MemoryRouter } from "react-router-dom";
 import WorkspaceNavCards from "../WorkspaceNavCards";
 
 describe("WorkspaceNavCards", () => {
-  it.each([undefined, "compact"] as const)("renders navigation links with descriptions (%s)", (presentation) => {
+  it("renders navigation links with descriptions", () => {
     const { container } = render(
       <MemoryRouter>
         <WorkspaceNavCards
-          presentation={presentation}
           columns={4}
           items={[
             {
