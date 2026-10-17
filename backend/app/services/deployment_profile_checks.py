@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.core.config import DeploymentProfile, Settings
-from app.core.database import is_sqlite_url
+from app.core.database import is_postgresql_url, is_sqlite_url
 from app.core.runtime_surfaces import RuntimeSurface, ceph_admin_only_runtime, runtime_surface_enabled
 from app.services.deployment_check_models import CheckSeverity, DeploymentCheckFinding, finding
 
@@ -27,17 +27,11 @@ _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
     },
 }
 
-
-def _is_postgresql(url: str) -> bool:
-    text = str(url or "").strip().lower()
-    return text.startswith("postgresql") or text.startswith("postgres")
-
-
 def _database_findings(
     settings: Settings,
     profile: DeploymentProfile,
 ) -> list[DeploymentCheckFinding]:
-    postgresql = _is_postgresql(settings.database_url)
+    postgresql = is_postgresql_url(settings.database_url)
     database_severity: CheckSeverity = "critical" if profile != "full" or settings.backend_replicas > 1 else "warning"
     return [
         finding(
