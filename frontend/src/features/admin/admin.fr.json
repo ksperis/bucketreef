@@ -1610,5 +1610,8 @@
   "· IAM users (excl. admin):": "· Utilisateurs IAM (excl. admin) :",
   "· RGW topics:": "· Sujets RGW :",
   "× Endpoint unavailable": "× Endpoint indisponible",
-  "… {count} more": "… {count} de plus"
+  "… {count} more": "… {count} de plus",
+  "Type": "Type",
+  "Usage & Metrics": "Utilisation et métriques",
+  "{count} buckets": "{count} Buckets"
 }

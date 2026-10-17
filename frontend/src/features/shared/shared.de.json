@@ -600,5 +600,6 @@
   "Buckets: {completed} / {total} · Errors: {errors}": "Buckets: {completed} / {total} · Fehler: {errors}",
   "Objects: {checked} / {listed} · Read: {bytes}": "Objekte: {checked} / {listed} · Gelesen: {bytes}",
   "Only {visible} of {total} error is visible.": "Nur {visible} von {total} Fehler ist sichtbar.",
-  "Only {visible} of {total} errors are visible.": "Nur {visible} von {total} Fehlern sind sichtbar."
+  "Only {visible} of {total} errors are visible.": "Nur {visible} von {total} Fehlern sind sichtbar.",
+  "Enable versioning": "Versionierung aktivieren"
 }

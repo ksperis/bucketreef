@@ -75,6 +75,7 @@ const IDENTICAL_KEYS_BY_LOCALE: Record<string, Set<string>> = {
     "read,write,delete",
     "Source",
     "Tenant",
+    "Type",
   ]),
   de: new Set([
     "· RGW Admin Ops",

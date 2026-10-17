@@ -289,5 +289,10 @@
   "{count} bucket index check failed.": "{count} contrôle d’index Bucket a échoué.",
   "{count} bucket index checks failed.": "{count} contrôles d’index Bucket ont échoué.",
   "{count} buckets": "{count} Buckets",
-  "· RGW Admin Ops": "· RGW Admin Ops"
+  "· RGW Admin Ops": "· RGW Admin Ops",
+  "Checking": "Vérification en cours",
+  "Metrics are disabled for this endpoint": "Les métriques sont désactivées pour cet endpoint",
+  "Type": "Type",
+  "Usage & Metrics": "Utilisation et métriques",
+  "of": "sur"
 }
