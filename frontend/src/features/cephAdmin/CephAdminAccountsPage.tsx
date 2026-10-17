@@ -55,7 +55,11 @@ import {
 import {
   advancedFilterFieldHighlight,
   appendNumericFilterRule,
+  buildNumericFilterFields,
+  buildNumericFilterFieldStates,
   buildNumericFilterSummaryItems,
+  numericFilterRangeFieldHighlight,
+  type NumericFilterRangeField,
 } from "./filtering/advancedFilterModel";
 import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
@@ -126,11 +130,6 @@ type AdvancedNumericField =
   | "maxBucketCount"
   | "minUserCount"
   | "maxUserCount";
-type AdvancedNumericRangeField = {
-  label: string;
-  minKey: AdvancedNumericField;
-  maxKey: AdvancedNumericField;
-};
 type AdvancedField = AdvancedTextField | AdvancedNumericField;
 type ActiveFilterRemoveAction = { type: "quick" } | { type: "advanced"; field: AdvancedField };
 type ActiveFilterSummaryItem = {
@@ -421,7 +420,7 @@ export default function CephAdminAccountsPage() {
   const accountNameFieldState = advancedFilterFieldHighlight(Boolean(accountNameAppliedValue), accountNamePending);
   const emailFieldState = advancedFilterFieldHighlight(Boolean(emailAppliedValue), emailPending);
 
-  const numericRangeFields = useMemo<AdvancedNumericRangeField[]>(() => [
+  const numericRangeFields = useMemo<NumericFilterRangeField<AdvancedNumericField>[]>(() => [
     { label: surfaceText("Max users"), minKey: "minMaxUsers", maxKey: "maxMaxUsers" },
     { label: surfaceText("Max buckets"), minKey: "minMaxBuckets", maxKey: "maxMaxBuckets" },
     { label: surfaceText("Quota bytes"), minKey: "minQuotaBytes", maxKey: "maxQuotaBytes" },
@@ -429,45 +428,25 @@ export default function CephAdminAccountsPage() {
     { label: surfaceText("Bucket count"), minKey: "minBucketCount", maxKey: "maxBucketCount" },
     { label: surfaceText("User count"), minKey: "minUserCount", maxKey: "maxUserCount" },
   ], [surfaceText]);
-  const usageNumericRangeFields = useMemo<AdvancedNumericRangeField[]>(() => [
+  const usageNumericRangeFields = useMemo<NumericFilterRangeField<AdvancedNumericField>[]>(() => [
     { label: surfaceText("Quota usage size %"), minKey: "minQuotaUsageSizePercent", maxKey: "maxQuotaUsageSizePercent" },
     { label: surfaceText("Quota usage objects %"), minKey: "minQuotaUsageObjectPercent", maxKey: "maxQuotaUsageObjectPercent" },
   ], [surfaceText]);
-  const numericFields = useMemo<Array<{ key: AdvancedNumericField; label: string }>>(
-    () => numericRangeFields.flatMap(({ label, minKey, maxKey }) => [
-      { key: minKey, label: `${label} >=` },
-      { key: maxKey, label: `${label} <=` },
-    ]),
+  const numericFields = useMemo(
+    () => buildNumericFilterFields(numericRangeFields),
     [numericRangeFields],
   );
-  const usageNumericFields = useMemo<Array<{ key: AdvancedNumericField; label: string; format: "percent" }>>(
-    () => usageNumericRangeFields.flatMap(({ label, minKey, maxKey }) => [
-      { key: minKey, label: `${label} >=`, format: "percent" as const },
-      { key: maxKey, label: `${label} <=`, format: "percent" as const },
-    ]),
+  const usageNumericFields = useMemo(
+    () => buildNumericFilterFields(usageNumericRangeFields, "percent"),
     [usageNumericRangeFields],
   );
 
-  const numericFieldStates = useMemo(() => {
-    const states = {} as Record<AdvancedNumericField, { labelClass: string; fieldClass: string }>;
-    [...numericFields, ...usageNumericFields].forEach(({ key }) => {
-      const draft = (advancedDraft[key] as string).trim();
-      const applied = (advancedApplied?.[key] as string | undefined)?.trim() ?? "";
-      const pending = draft !== applied;
-      states[key] = advancedFilterFieldHighlight(Boolean(applied), pending);
-    });
-    return states;
-  }, [advancedDraft, advancedApplied, numericFields, usageNumericFields]);
-  const numericRangeFieldState = (minKey: AdvancedNumericField, maxKey: AdvancedNumericField) => {
-    const minDraft = (advancedDraft[minKey] as string).trim();
-    const maxDraft = (advancedDraft[maxKey] as string).trim();
-    const minApplied = (advancedApplied?.[minKey] as string | undefined)?.trim() ?? "";
-    const maxApplied = (advancedApplied?.[maxKey] as string | undefined)?.trim() ?? "";
-    return advancedFilterFieldHighlight(
-      Boolean(minApplied || maxApplied),
-      minDraft !== minApplied || maxDraft !== maxApplied,
-    );
-  };
+  const numericFieldStates = useMemo(
+    () => buildNumericFilterFieldStates(advancedDraft, advancedApplied, [...numericFields, ...usageNumericFields]),
+    [advancedDraft, advancedApplied, numericFields, usageNumericFields],
+  );
+  const numericRangeFieldState = (minKey: AdvancedNumericField, maxKey: AdvancedNumericField) =>
+    numericFilterRangeFieldHighlight(advancedDraft, advancedApplied, minKey, maxKey);
 
   const toggleQuickFilterMode = () => {
     if (quickFilterDraftForcesExact) return;
