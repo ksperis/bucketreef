@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import StorageEndpoint as DBStorageEndpoint, User
+from app.db import User
 from app.models.storage_endpoint import (
     StorageEndpoint,
     StorageEndpointCreate,
@@ -222,15 +222,12 @@ def reconcile_service_identities(
 ):
     require_admin_sensitive_action(request, service.db, current_user)
     try:
-        endpoint = service.db.get(DBStorageEndpoint, endpoint_id)
-        initial_provisioning = bool(
-            endpoint
-            and any(
+        endpoint = service.get_endpoint_record(endpoint_id)
+        initial_provisioning = any(
                 identity.kind in ("runtime", "supervision")
                 and identity.mode == "managed"
                 and identity.status == "not_provisioned"
                 for identity in endpoint.service_identities
-            )
         )
         result = service.reconcile_identities(endpoint_id)
         audit_service.record_action(user=current_user, scope="admin", action="endpoint_service_identity.reconcile",

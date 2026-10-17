@@ -258,6 +258,9 @@ class S3UsersService:
             raise S3UserNotFoundError("S3 user not found")
         return s3_user
 
+    def get_user_record(self, user_id: int) -> S3UserModel:
+        return self._get_s3_user(user_id)
+
     def _serialize_s3_user(
         self,
         row: S3UserModel,

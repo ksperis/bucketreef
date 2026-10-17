@@ -99,6 +99,16 @@ class S3AccountsService:
             raise S3AccountNotFoundError("S3Account not found")
         return account
 
+    def get_account_record(self, account_id: int) -> S3Account:
+        return self._get_account(account_id)
+
+    def find_account_by_rgw_id(self, rgw_account_id: str) -> Optional[S3Account]:
+        return (
+            self.db.query(S3Account)
+            .filter(S3Account.rgw_account_id == rgw_account_id)
+            .first()
+        )
+
     def _endpoint_capabilities(self, endpoint: StorageEndpoint) -> dict[str, bool]:
         features = normalize_features_config(endpoint.provider, endpoint.features_config)
         return features_to_capabilities(features)
