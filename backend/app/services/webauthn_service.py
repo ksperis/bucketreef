@@ -52,12 +52,20 @@ class WebAuthnService:
             WebAuthnCredential.revoked_at.is_(None),
         ).first() is not None
 
+    def list_credentials(self, user_id: int) -> list[WebAuthnCredential]:
+        return (
+            self.db.query(WebAuthnCredential)
+            .filter(
+                WebAuthnCredential.user_id == user_id,
+                WebAuthnCredential.revoked_at.is_(None),
+            )
+            .order_by(WebAuthnCredential.created_at.asc())
+            .all()
+        )
+
     def begin_registration(self, user: User, *, binding_sid: Optional[str] = None) -> dict[str, Any]:
         challenge = secrets.token_bytes(32)
-        existing = self.db.query(WebAuthnCredential).filter(
-            WebAuthnCredential.user_id == user.id,
-            WebAuthnCredential.revoked_at.is_(None),
-        ).all()
+        existing = self.list_credentials(user.id)
         options = generate_registration_options(
             rp_id=self.settings.webauthn_rp_id,
             rp_name=self.settings.webauthn_rp_name,
@@ -120,10 +128,7 @@ class WebAuthnService:
 
     def begin_authentication(self, user: User, *, binding_sid: Optional[str] = None) -> dict[str, Any]:
         challenge = secrets.token_bytes(32)
-        credentials = self.db.query(WebAuthnCredential).filter(
-            WebAuthnCredential.user_id == user.id,
-            WebAuthnCredential.revoked_at.is_(None),
-        ).all()
+        credentials = self.list_credentials(user.id)
         if not credentials:
             raise WebAuthnSecurityError("No active passkey is enrolled")
         options = generate_authentication_options(

@@ -100,6 +100,22 @@ class AuthSessionService:
         )
         return self._persist_new_session(row, s3_session=s3_session)
 
+    def create_for_s3_session_id(
+        self,
+        session_id: str,
+        *,
+        ip_address: Optional[str],
+        user_agent: Optional[str],
+    ) -> SessionCredentials:
+        s3_session = self.db.query(S3Session).filter(S3Session.id == session_id).first()
+        if s3_session is None:
+            raise AuthSessionError("S3 session is unavailable")
+        return self.create_for_s3_session(
+            s3_session,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
     def rotate(self, raw_token: str) -> SessionCredentials:
         now = utcnow()
         token_hash = hash_refresh_token(raw_token or "")
@@ -226,6 +242,41 @@ class AuthSessionService:
         session = self.db.query(AuthSession).filter(AuthSession.id == session_id).first()
         if session is None:
             return
+        self._revoke_session_row(session, reason)
+
+    def revoke_for_user(
+        self,
+        user_id: int,
+        session_id: str,
+        reason: str,
+    ) -> Optional[AuthSession]:
+        session = (
+            self.db.query(AuthSession)
+            .filter(
+                AuthSession.id == session_id,
+                AuthSession.user_id == user_id,
+            )
+            .first()
+        )
+        if session is None:
+            return None
+        self._revoke_session_row(session, reason)
+        return session
+
+    def revoke_with_csrf(
+        self,
+        session_id: str,
+        reason: str,
+        *,
+        csrf_token: str,
+    ) -> str:
+        session = self.db.query(AuthSession).filter(AuthSession.id == session_id).first()
+        if session is None or not self.validate_csrf(session, csrf_token):
+            raise AuthSessionError("Invalid CSRF token")
+        self._revoke_session_row(session, reason)
+        return session.id
+
+    def _revoke_session_row(self, session: AuthSession, reason: str) -> None:
         now = utcnow()
         session.revoked_at = session.revoked_at or now
         session.revoke_reason = session.revoke_reason or reason
