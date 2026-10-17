@@ -15,10 +15,10 @@ from app.models.ceph_admin import (
     CephAdminRgwAccountCreateResponse,
     CephAdminRgwAccountDetail,
 )
-from app.routers.ceph_admin.account_common import (
+from app.routers.ceph_admin.account_common import load_account_payload
+from app.services.ceph_admin_account_payloads import (
     build_account_detail,
     extract_account_bucket_list,
-    load_account_payload,
 )
 from app.routers.ceph_admin.audit import record_ceph_admin_action
 from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context

@@ -7,9 +7,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.routers.ceph_admin import user_listing_enrichment
 from app.routers.ceph_admin import user_profiles as user_profiles_router
 from app.routers.ceph_admin import users as users_router
+from app.services import ceph_admin_user_listing_enrichment as user_listing_enrichment
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 
 
@@ -367,7 +367,8 @@ def test_ceph_admin_users_enrichment_checks_cancel_during_loop():
         user_listing_enrichment.enrich_users(
             users,
             {"profile"},
-            ctx,
+            ctx.rgw_admin,
+            account_lookup_enabled=True,
             cancel_check=cancel_check,
         )
 

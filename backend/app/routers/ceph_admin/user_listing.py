@@ -12,8 +12,7 @@ from app.models.ceph_admin import (
 )
 from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.routers.listing_common import parse_filter_query
-from app.routers.ceph_admin.user_common import split_tenant_uid
-from app.routers.ceph_admin.user_listing_enrichment import enrich_users
+from app.routers.ceph_admin.user_common import optional_account_lookup_enabled, split_tenant_uid
 from app.services.ceph_admin_identity_listing_cache import (
     EndpointListCacheKey,
     get_cached_rgw_users_payload,
@@ -27,6 +26,7 @@ from app.services.ceph_admin_identity_listing_support import (
     collect_filter_fields,
     paginate,
 )
+from app.services.ceph_admin_user_listing_enrichment import enrich_users
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
@@ -336,7 +336,8 @@ class _UserListingPipeline:
         enriched = enrich_users(
             results,
             requested,
-            self.ctx,
+            self.ctx.rgw_admin,
+            account_lookup_enabled=optional_account_lookup_enabled(self.ctx),
             progress=self.progress,
             progress_stage="detail_enrichment",
             progress_message="Loading user details",
@@ -398,7 +399,8 @@ class _UserListingPipeline:
         enriched = enrich_users(
             page_items,
             self.requested,
-            self.ctx,
+            self.ctx.rgw_admin,
+            account_lookup_enabled=optional_account_lookup_enabled(self.ctx),
             progress=self.progress,
             progress_stage="page_enrichment",
             progress_message="Loading page details",

@@ -10,7 +10,7 @@ from app.models.ceph_admin import (
     CephAdminRgwAccountSummary,
     PaginatedCephAdminAccountsResponse,
 )
-from app.routers.ceph_admin.account_common import (
+from app.services.ceph_admin_account_payloads import (
     extract_bucket_count,
     extract_user_count,
 )
@@ -19,7 +19,7 @@ from app.services.ceph_admin_identity_listing_cache import (
     get_cached_accounts_listing,
     get_cached_rgw_accounts_payload,
 )
-from app.routers.ceph_admin.account_listing_enrichment import (
+from app.services.ceph_admin_account_listing_enrichment import (
     account_field_needs_enrichment,
     account_profile_needs_enrichment,
     enrich_accounts,
@@ -334,7 +334,7 @@ class _AccountListingPipeline:
         enriched = enrich_accounts(
             results,
             requested,
-            self.ctx,
+            self.ctx.rgw_admin,
             progress=self.progress,
             progress_stage="detail_enrichment",
             progress_message="Loading account details",
@@ -409,7 +409,7 @@ class _AccountListingPipeline:
         enriched = enrich_accounts(
             page_items,
             requested,
-            self.ctx,
+            self.ctx.rgw_admin,
             progress=self.progress,
             progress_stage="page_enrichment",
             progress_message="Loading page details",
