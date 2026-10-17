@@ -201,7 +201,7 @@ export function RequirePortalAccess() {
 export function RequireCephAdminFeature() {
   const { generalSettings, loading } = useGeneralSettings();
   const { user } = useSession();
-  const canAccessCephAdmin = user?.effective_access?.can_access_ceph_admin ?? user?.can_access_ceph_admin;
+  const canAccessCephAdmin = user?.effective_access?.can_access_ceph_admin;
   if (!user || !isAdminLikeRole(user.role) || !canAccessCephAdmin) {
     return unauthorizedRoute();
   }
@@ -212,7 +212,7 @@ export function RequireStorageOpsFeature() {
   const { generalSettings, loading } = useGeneralSettings();
   const { user } = useSession();
   const canUseStorageOpsRole = Boolean(user && (isAdminLikeRole(user.role) || user.role === USER_ROLE));
-  const canAccessStorageOps = user?.effective_access?.can_access_storage_ops ?? user?.can_access_storage_ops;
+  const canAccessStorageOps = user?.effective_access?.can_access_storage_ops;
   if (!user || !canUseStorageOpsRole || !canAccessStorageOps) {
     return unauthorizedRoute();
   }

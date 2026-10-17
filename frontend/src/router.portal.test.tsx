@@ -3,6 +3,7 @@ import { matchRoutes, MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeneralSettings } from "./api/appSettings";
 import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "./api/featurePolicies";
+import type { EffectiveUserAccess } from "./api/users";
 import { RequirePortalAccess, createAppRoutes } from "./router";
 import { readStoredUser, setSessionUserCache } from "./utils/workspaces";
 
@@ -49,6 +50,40 @@ const baseSettings: GeneralSettings = {
   allow_user_external_identity_unlink: false,
 };
 
+function portalAccess(
+  portalRole: "portal_user" | "portal_manager" | null = null,
+): EffectiveUserAccess {
+  return {
+    can_access_ceph_admin: false,
+    can_access_storage_ops: false,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    has_owned_private_connections: false,
+    manager_tool_access: {
+      bucket_compare: false,
+      bucket_integrity_check: false,
+      bucket_migration: false,
+      bucket_purge: false,
+      feature_rules: false,
+    },
+    browser_advanced_features_enabled: false,
+    account_links: portalRole ? [{
+      account_id: 24,
+      manager_role: null,
+      portal_role: portalRole,
+      provenance: {
+        direct_manager_role: null,
+        direct_portal_role: portalRole,
+        direct_determines_effective_manager_role: false,
+        direct_determines_effective_portal_role: true,
+        groups: [],
+      },
+    }] : [],
+    s3_user_details: [],
+    s3_connection_details: [],
+  };
+}
+
 function findRouteByPath(routes: Array<{ path?: string; children?: unknown[] }>, path: string): { path?: string; children?: unknown[] } | null {
   for (const route of routes) {
     if (route.path === path) return route;
@@ -66,7 +101,7 @@ describe("portal routes", () => {
       email: "admin@example.com",
       role: "ui_admin",
       authType: "password",
-      account_links: [],
+      effective_access: portalAccess(),
     });
     setSessionUserCache(null);
     window.localStorage.clear();
@@ -141,7 +176,7 @@ describe("portal routes", () => {
       email: "admin@example.com",
       role: "ui_admin",
       authType: "password",
-      account_links: [],
+      effective_access: portalAccess(),
     });
 
     render(
@@ -165,14 +200,14 @@ describe("portal routes", () => {
       email: "admin@example.com",
       role: "ui_superadmin",
       authType: "password",
-      account_links: [{ account_id: 24, manager_role: null, portal_role: "portal_manager" }],
+      effective_access: portalAccess("portal_manager"),
     });
     setSessionUserCache({
       id: 1,
       email: "admin@example.com",
       role: "ui_superadmin",
       authType: "password",
-      account_links: [],
+      effective_access: portalAccess(),
     });
 
     render(
@@ -187,7 +222,7 @@ describe("portal routes", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Portal workspace" })).toBeInTheDocument();
-    expect(readStoredUser()?.account_links?.[0]?.portal_role).toBe("portal_manager");
+    expect(readStoredUser()?.effective_access?.account_links[0]?.portal_role).toBe("portal_manager");
     expect(window.localStorage.getItem("user")).toBeNull();
   });
 });

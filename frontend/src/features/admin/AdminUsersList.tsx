@@ -81,11 +81,7 @@ export default function AdminUsersList({
   };
 
   const renderAssociationSummary = (user: User) => {
-    const effectiveAccountLinks = user.effective_access?.account_links ?? [];
-    const displayedAccountLinks = effectiveAccountLinks.length > 0
-      ? effectiveAccountLinks
-      : (user.account_links ?? []);
-    const accountItems = displayedAccountLinks.map((link) => {
+    const accountItems = (user.effective_access?.account_links ?? []).map((link) => {
       const id = Number(link.account_id);
       const label = accountOptionsById.get(id)?.name ?? text("accountFallback", { id });
       return {
@@ -99,19 +95,11 @@ export default function AdminUsersList({
         }),
       };
     });
-    const effectiveS3UserDetails = user.effective_access?.s3_user_details ?? [];
-    const s3UserItems = (effectiveS3UserDetails.length > 0
-      ? effectiveS3UserDetails
-      : (user.s3_user_details ?? [])
-    ).map((entry) => ({
+    const s3UserItems = (user.effective_access?.s3_user_details ?? []).map((entry) => ({
       id: entry.id,
       label: entry.name || text("userFallback", { id: entry.id }),
     }));
-    const effectiveConnectionDetails = user.effective_access?.s3_connection_details ?? [];
-    const connectionItems = (effectiveConnectionDetails.length > 0
-      ? effectiveConnectionDetails
-      : (user.s3_connection_details ?? [])
-    ).map((entry) => ({
+    const connectionItems = (user.effective_access?.s3_connection_details ?? []).map((entry) => ({
       id: entry.id,
       label: entry.name || text("connectionFallback", { id: entry.id }),
     }));

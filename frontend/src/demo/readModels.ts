@@ -1,8 +1,9 @@
 import { projectGeneralSettings, resolvePortalSettings } from "../api/featurePolicies";
-import type { CurrentSessionResponse } from "../api/auth";
+import type { AuthUser, CurrentSessionResponse } from "../api/auth";
 import type { ExecutionContext, WorkspaceAccess } from "../api/executionContexts";
 import type { ManagerTrafficStats, ManagerUsageTrendBaseline } from "../api/stats";
 import type { UsageHistoryTrendPoint } from "../api/usageHistory";
+import type { EffectiveUserAccess, User } from "../api/users";
 import { bucketView, GiB, settings, type DemoState } from "./state";
 import { accountView } from "./governance";
 import { accountGrant, json, page, required, scopedAccount, type DemoRequest } from "./http";
@@ -32,6 +33,40 @@ for (let day = 1; day < 90; day++) {
 }
 const storageProgress = storageActivity.map(value => value / storageActivity[89]);
 
+function demoEffectiveAccess(user: User): EffectiveUserAccess {
+  return {
+    can_access_ceph_admin: Boolean(user.can_access_ceph_admin),
+    can_access_storage_ops: Boolean(user.can_access_storage_ops),
+    can_create_manual_private_connections: Boolean(user.can_create_manual_private_connections),
+    can_provision_managed_private_connections: Boolean(user.can_provision_managed_private_connections),
+    has_owned_private_connections: false,
+    manager_tool_access: user.manager_tool_access ?? {
+      bucket_compare: false,
+      bucket_integrity_check: false,
+      bucket_migration: false,
+      bucket_purge: false,
+      feature_rules: false,
+    },
+    browser_advanced_features_enabled: Boolean(user.browser_advanced_features_enabled),
+    account_links: (user.account_links ?? []).map((link) => ({
+      ...link,
+      provenance: {
+        direct_manager_role: link.manager_role ?? null,
+        direct_portal_role: link.portal_role ?? null,
+        direct_determines_effective_manager_role: Boolean(link.manager_role),
+        direct_determines_effective_portal_role: Boolean(link.portal_role),
+        groups: [],
+      },
+    })),
+    s3_user_details: user.s3_user_details ?? [],
+    s3_connection_details: user.s3_connection_details ?? [],
+  };
+}
+
+function demoAuthUser(user: User): AuthUser {
+  return { ...user, effective_access: demoEffectiveAccess(user) };
+}
+
 function historicalUsage(inventory: DemoState["snapshotInventory"], day: number) {
   return {
     used_bytes: Math.round(inventory.reduce((total, bucket) => total + bucket.bytes, 0) * (.45 + .55 * storageProgress[day])),
@@ -52,12 +87,13 @@ function datedSnapshot(value: unknown, initializedAt: string): unknown {
 export function readModels(c: DemoRequest): Response | undefined {
   if (c.method !== "GET") return undefined;
   const { path, state, user, persona } = c;
+  const currentUser = demoAuthUser(user);
   const admin = persona === "admin"; const ceph = persona === "ceph-admin";
   const endUser = persona === "member" || persona === "project-manager";
-  if (path === "/auth/session") return json({ authenticated: true, user, session: null,
+  if (path === "/auth/session") return json({ authenticated: true, user: currentUser, session: null,
     auth_session: { id: `demo-${user.id}`, auth_type: "password", mfa_verified_at: null,
       idle_expires_at: "2099-01-01T00:00:00Z", absolute_expires_at: "2099-01-01T00:00:00Z" } } satisfies CurrentSessionResponse);
-  if (path === "/users/me") return json(user);
+  if (path === "/users/me") return json(currentUser);
   if (path === "/settings/general") return json(projectGeneralSettings(settings));
   if (path === "/settings/branding") return json(settings.branding);
   if (path === "/settings/runtime-surfaces") return json({ admin: true, manager: true, browser: true, portal: true, ceph_admin: true, storage_ops: false });

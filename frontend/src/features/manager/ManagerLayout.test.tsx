@@ -13,8 +13,9 @@ import { transferableAbortController } from "node:util";
 import userEvent from "@testing-library/user-event";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import UiInput from "../../components/ui/UiInput";
-import { setSessionUserCache } from "../../utils/workspaces";
+import { setSessionUserCache, type SessionUser } from "../../utils/workspaces";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
+import type { EffectiveUserAccess, ManagerToolAccess } from "../../api/users";
 
 const useS3AccountContextMock = vi.fn();
 const useGeneralSettingsMock = vi.fn();
@@ -139,17 +140,37 @@ function buildGeneralSettings(overrides?: Record<string, unknown>) {
   };
 }
 
-function setStoredManagerUser(overrides?: Record<string, unknown>) {
+const DEFAULT_MANAGER_TOOL_ACCESS: ManagerToolAccess = {
+  bucket_compare: true,
+  bucket_integrity_check: false,
+  bucket_migration: false,
+  bucket_purge: false,
+  feature_rules: true,
+};
+
+function managerEffectiveAccess(managerToolAccess: ManagerToolAccess): EffectiveUserAccess {
+  return {
+    can_access_ceph_admin: false,
+    can_access_storage_ops: false,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    has_owned_private_connections: false,
+    manager_tool_access: managerToolAccess,
+    browser_advanced_features_enabled: false,
+    account_links: [],
+    s3_user_details: [],
+    s3_connection_details: [],
+  };
+}
+
+function setStoredManagerUser({
+  managerToolAccess = DEFAULT_MANAGER_TOOL_ACCESS,
+  ...overrides
+}: (Omit<SessionUser, "effective_access"> & { managerToolAccess?: ManagerToolAccess }) = {}) {
   setSessionUserCache({
     role: "ui_user",
-    manager_tool_access: {
-      bucket_compare: true,
-      bucket_integrity_check: false,
-      bucket_migration: false,
-      bucket_purge: false,
-      feature_rules: true,
-    },
     ...overrides,
+    effective_access: managerEffectiveAccess(managerToolAccess),
   });
 }
 
@@ -257,7 +278,7 @@ describe("ManagerLayout", () => {
 
   it("shows Ceph provisioning navigation without Ceph key inventory access", () => {
     setStoredManagerUser({
-      manager_tool_access: {
+      managerToolAccess: {
         bucket_compare: false,
         bucket_integrity_check: false,
         bucket_migration: false,
@@ -302,7 +323,7 @@ describe("ManagerLayout", () => {
 
   it("shows Feature rules and Integrity tools when bucket integrity flag is enabled", () => {
     setStoredManagerUser({
-      manager_tool_access: {
+      managerToolAccess: {
         bucket_compare: false,
         bucket_integrity_check: true,
         bucket_migration: false,
@@ -335,7 +356,7 @@ describe("ManagerLayout", () => {
 
   it("shows Bucket purge tool when the flag and manager tool access are enabled", () => {
     setStoredManagerUser({
-      manager_tool_access: {
+      managerToolAccess: {
         bucket_compare: false,
         bucket_integrity_check: false,
         bucket_migration: false,
@@ -368,7 +389,7 @@ describe("ManagerLayout", () => {
 
   it("assigns distinct icons to every Manager tool link", () => {
     setStoredManagerUser({
-      manager_tool_access: {
+      managerToolAccess: {
         bucket_compare: true,
         bucket_integrity_check: true,
         bucket_migration: true,
@@ -407,7 +428,7 @@ describe("ManagerLayout", () => {
 
   it("does not expose a dedicated Usage stats tool link", () => {
     setStoredManagerUser({
-      manager_tool_access: {
+      managerToolAccess: {
         bucket_compare: false,
         bucket_integrity_check: false,
         bucket_migration: false,
@@ -435,7 +456,7 @@ describe("ManagerLayout", () => {
 
   it("hides Feature rules when the manager tool access is not enabled", () => {
     setStoredManagerUser({
-      manager_tool_access: {
+      managerToolAccess: {
         bucket_compare: false,
         bucket_integrity_check: false,
         bucket_migration: false,
@@ -455,23 +476,14 @@ describe("ManagerLayout", () => {
     expect(capturedNavSections.find((section) => section.label === "Tools")).toBeUndefined();
   });
 
-  it("shows Feature rules when manager tool access is inherited from effective access", () => {
+  it("shows Feature rules from canonical effective access", () => {
     setStoredManagerUser({
-      manager_tool_access: {
+      managerToolAccess: {
         bucket_compare: false,
         bucket_integrity_check: false,
         bucket_migration: false,
         bucket_purge: false,
-        feature_rules: false,
-      },
-      effective_access: {
-        manager_tool_access: {
-          bucket_compare: false,
-          bucket_integrity_check: false,
-          bucket_migration: false,
-          bucket_purge: false,
-          feature_rules: true,
-        },
+        feature_rules: true,
       },
     });
     useS3AccountContextMock.mockReturnValue(buildContext());
@@ -613,7 +625,6 @@ describe("ManagerLayout", () => {
       capabilities: {
         can_manage_iam: false,
         can_manage_buckets: true,
-        can_view_traffic: true,
       },
     });
     useS3AccountContextMock.mockReturnValue(

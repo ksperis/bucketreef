@@ -66,6 +66,54 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+function setPortalSessionUser({
+  uiLanguage,
+  portalRole = "portal_user",
+}: {
+  uiLanguage?: "en" | "fr" | "de" | "zh";
+  portalRole?: "portal_user" | "portal_manager";
+} = {}) {
+  setSessionUserCache({
+    id: 1,
+    email: "laurent@example.com",
+    full_name: "Laurent",
+    role: "ui_admin",
+    authType: "password",
+    ui_language: uiLanguage,
+    effective_access: {
+      can_access_ceph_admin: false,
+      can_access_storage_ops: false,
+      can_create_manual_private_connections: false,
+      can_provision_managed_private_connections: false,
+      has_owned_private_connections: false,
+      manager_tool_access: {
+        bucket_compare: false,
+        bucket_integrity_check: false,
+        bucket_migration: false,
+        bucket_purge: false,
+        feature_rules: false,
+      },
+      browser_advanced_features_enabled: false,
+      account_links: [
+        {
+          account_id: 101,
+          manager_role: "account_administrator",
+          portal_role: portalRole,
+          provenance: {
+            direct_manager_role: "account_administrator",
+            direct_portal_role: portalRole,
+            direct_determines_effective_manager_role: true,
+            direct_determines_effective_portal_role: true,
+            groups: [],
+          },
+        },
+      ],
+      s3_user_details: [],
+      s3_connection_details: [],
+    },
+  });
+}
+
 vi.mock("../../api/executionContexts", () => ({
   getWorkspaceAccess: mocks.getWorkspaceAccess,
 }));
@@ -119,19 +167,7 @@ describe("PortalLayout", () => {
 
   it("uses the shared shell with workspace and project selectors in the topbar", async () => {
     const user = userEvent.setup();
-    setSessionUserCache({
-        id: 1,
-        email: "laurent@example.com",
-        display_name: "Laurent",
-        role: "ui_admin",
-        authType: "password",
-        account_links: [
-          {
-            account_id: 101,
-            role: "account_administrator",
-          },
-        ],
-    });
+    setPortalSessionUser();
     const { container } = render(
       <MemoryRouter initialEntries={["/portal"]}>
         <PortalLayout />
@@ -242,13 +278,7 @@ describe("PortalLayout", () => {
       { id: "106", name: "Delta", tags: [] },
       { id: "107", name: "Epsilon", tags: [] },
     );
-    setSessionUserCache({
-      id: 1,
-      email: "laurent@example.com",
-      display_name: "Laurent",
-      role: "ui_admin",
-      authType: "password",
-    });
+    setPortalSessionUser();
     render(
       <MemoryRouter initialEntries={["/portal"]}>
         <PortalLayout />
@@ -283,20 +313,7 @@ describe("PortalLayout", () => {
       { id: "106", name: "Delta", tags: [] },
       { id: "107", name: "Epsilon", tags: [] },
     );
-    setSessionUserCache({
-        id: 1,
-        email: "laurent@example.com",
-        display_name: "Laurent",
-        role: "ui_admin",
-        authType: "password",
-        ui_language: "fr",
-        account_links: [
-          {
-            account_id: 101,
-            role: "account_administrator",
-          },
-        ],
-    });
+    setPortalSessionUser({ uiLanguage: "fr", portalRole: "portal_manager" });
 
     render(
       <LanguageProvider>

@@ -48,7 +48,24 @@ describe("Topbar account menu", () => {
     setSessionUserCache({
       role: "ui_admin",
       authType: "password",
-      can_create_manual_private_connections: true,
+      effective_access: {
+        can_access_ceph_admin: false,
+        can_access_storage_ops: false,
+        can_create_manual_private_connections: true,
+        can_provision_managed_private_connections: false,
+        has_owned_private_connections: false,
+        manager_tool_access: {
+          bucket_compare: false,
+          bucket_integrity_check: false,
+          bucket_migration: false,
+          bucket_purge: false,
+          feature_rules: false,
+        },
+        browser_advanced_features_enabled: false,
+        account_links: [],
+        s3_user_details: [],
+        s3_connection_details: [],
+      },
     });
   });
 

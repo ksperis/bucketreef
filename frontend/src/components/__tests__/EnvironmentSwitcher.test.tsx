@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { GeneralSettings } from "../../api/appSettings";
+import type { EffectiveUserAccess } from "../../api/users";
 import { useWorkspaceSwitcherModel } from "../EnvironmentSwitcher";
 import { readStoredUser, setSessionUserCache, type SessionUser } from "../../utils/workspaces";
 
@@ -64,6 +65,49 @@ const baseSettings: GeneralSettings = {
   allow_user_external_identity_unlink: false,
 };
 
+function accountLink(
+  accountId: number,
+  managerRole: "account_administrator" | null,
+  portalRole: "portal_user" | "portal_manager" | null,
+): EffectiveUserAccess["account_links"][number] {
+  return {
+    account_id: accountId,
+    manager_role: managerRole,
+    portal_role: portalRole,
+    provenance: {
+      direct_manager_role: managerRole,
+      direct_portal_role: portalRole,
+      direct_determines_effective_manager_role: Boolean(managerRole),
+      direct_determines_effective_portal_role: Boolean(portalRole),
+      groups: [],
+    },
+  };
+}
+
+function effectiveAccess(
+  accountLinks: EffectiveUserAccess["account_links"] = [],
+  canAccessStorageOps = false,
+): EffectiveUserAccess {
+  return {
+    can_access_ceph_admin: false,
+    can_access_storage_ops: canAccessStorageOps,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    has_owned_private_connections: false,
+    manager_tool_access: {
+      bucket_compare: false,
+      bucket_integrity_check: false,
+      bucket_migration: false,
+      bucket_purge: false,
+      feature_rules: false,
+    },
+    browser_advanced_features_enabled: false,
+    account_links: accountLinks,
+    s3_user_details: [],
+    s3_connection_details: [],
+  };
+}
+
 function CurrentPathProbe() {
   const location = useLocation();
   return <output aria-label="Current path">{location.pathname}</output>;
@@ -115,13 +159,9 @@ function storePortalAdminUser() {
       email: "admin@example.com",
       role: "ui_admin",
       authType: "password",
-      account_links: [
-        {
-          account_id: 101,
-          manager_role: "account_administrator" as const,
-          portal_role: "portal_manager" as const,
-        },
-      ],
+      effective_access: effectiveAccess([
+        accountLink(101, "account_administrator", "portal_manager"),
+      ]),
   };
   mocks.sessionUser = user;
   setSessionUserCache(user as SessionUser);
@@ -133,7 +173,7 @@ function storePlainAdminUser() {
       email: "plain-admin@example.com",
       role: "ui_admin",
       authType: "password",
-      account_links: [],
+      effective_access: effectiveAccess(),
   };
   mocks.sessionUser = user;
   setSessionUserCache(user as SessionUser);
@@ -148,13 +188,9 @@ describe("useWorkspaceSwitcherModel Portal workspace", () => {
       email: "admin@example.com",
       role: "ui_admin",
       authType: "password",
-      account_links: [
-        {
-          account_id: 101,
-          manager_role: "account_administrator",
-          portal_role: "portal_manager",
-        },
-      ],
+      effective_access: effectiveAccess([
+        accountLink(101, "account_administrator", "portal_manager"),
+      ]),
     });
     mocks.getWorkspaceAccess.mockResolvedValue({
       admin: { available: true, context_count: 1 },
@@ -227,11 +263,9 @@ describe("useWorkspaceSwitcherModel Portal workspace", () => {
       email: "plain-admin@example.com",
       role: "ui_superadmin",
       authType: "password",
-      account_links: [{
-        account_id: 101,
-        manager_role: "account_administrator",
-        portal_role: "portal_manager",
-      }],
+      effective_access: effectiveAccess([
+        accountLink(101, "account_administrator", "portal_manager"),
+      ]),
     });
 
     renderSwitcherModel("/admin");
@@ -240,7 +274,7 @@ describe("useWorkspaceSwitcherModel Portal workspace", () => {
       const options = within(screen.getByRole("list", { name: "Workspace options" }));
       expect(options.getByText("Portal (self-service)")).toBeInTheDocument();
     });
-    expect(readStoredUser()?.account_links?.[0]?.portal_role).toBe(
+    expect(readStoredUser()?.effective_access?.account_links[0]?.portal_role).toBe(
       "portal_manager",
     );
   });
@@ -255,10 +289,9 @@ describe("useWorkspaceSwitcherModel Portal workspace", () => {
         email: "portal-only@example.com",
         role: "ui_user",
         authType: "password",
-        can_access_storage_ops: true,
-        account_links: [
-          { account_id: 101, manager_role: null, portal_role: "portal_user" as const },
-        ],
+        effective_access: effectiveAccess([
+          accountLink(101, null, "portal_user"),
+        ], true),
     };
     mocks.sessionUser = portalOnlyUser;
     mocks.fetchCurrentUser.mockResolvedValue(portalOnlyUser);

@@ -247,10 +247,7 @@ export default function BrowserPage({
   const storedUser = useMemo(() => readStoredUser(), []);
   const userBrowserAdvancedFeaturesEnabled = storedUser
     ? storedUser.authType === "s3_session" ||
-      Boolean(
-        storedUser.effective_access?.browser_advanced_features_enabled ??
-          storedUser.browser_advanced_features_enabled,
-      )
+      Boolean(storedUser.effective_access?.browser_advanced_features_enabled)
     : true;
   const rootBrowserAdvancedFeaturesEnabled =
     !isMainBrowserPath || userBrowserAdvancedFeaturesEnabled;

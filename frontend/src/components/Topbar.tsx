@@ -36,16 +36,10 @@ type TopbarProps = {
   profilePath?: string;
 };
 
-type StoredAccountLink = {
-  account_id: number;
-};
-
 type StoredTopbarUser = {
   full_name?: string | null;
   avatar?: UserAvatarDescriptor | null;
   role?: UiRole | null;
-  can_create_manual_private_connections?: boolean | null;
-  can_provision_managed_private_connections?: boolean | null;
   effective_access?: Pick<
     EffectiveUserAccess,
     | "can_create_manual_private_connections"
@@ -53,7 +47,6 @@ type StoredTopbarUser = {
     | "has_owned_private_connections"
   > | null;
   authType?: "password" | "s3_session" | "oidc" | "ldap" | null;
-  account_links?: StoredAccountLink[] | null;
 };
 
 function resolveUiRoleLabel(user: StoredTopbarUser | null, text: ShellText): string {
