@@ -286,7 +286,10 @@ def test_browser_ceph_admin_requires_active_external_identity(identities, db_ses
     service, endpoint, rgw = identities
     configure(db_session, endpoint, rgw)
     service.validate_ceph_admin(endpoint)
-    monkeypatch.setattr("app.routers.ceph_admin.dependencies.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
+    monkeypatch.setattr(
+        "app.services.ceph_admin_service_identity.get_rgw_admin_client",
+        lambda **kwargs: rgw.signed(kwargs["access_key"]),
+    )
     actor = User(email="ceph-browser@example.test", hashed_password="x", is_active=True,
                  role=UserRole.UI_SUPERADMIN.value, can_access_ceph_admin=True)
     db_session.add(actor)
