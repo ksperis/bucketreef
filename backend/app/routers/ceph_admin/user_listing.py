@@ -14,12 +14,12 @@ from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.routers.listing_common import parse_filter_query
 from app.routers.ceph_admin.user_common import split_tenant_uid
 from app.routers.ceph_admin.user_listing_enrichment import enrich_users
-from app.routers.ceph_admin.user_listing_cache import (
+from app.services.ceph_admin_identity_listing_cache import (
+    EndpointListCacheKey,
     get_cached_rgw_users_payload,
     get_cached_users_listing,
 )
 from app.services.bucket_listing_shared import listing_sort_key, parse_includes, serialize_filter
-from app.services.ceph_admin_identity_listing_cache import EndpointListCacheKey
 from app.services.ceph_admin_identity_listing_support import (
     apply_advanced_filter,
     apply_simple_search,
@@ -276,7 +276,10 @@ class _UserListingPipeline:
             force=True,
         )
         invoke_cancel_check(self.cancel_check)
-        payload = get_cached_rgw_users_payload(self.ctx)
+        payload = get_cached_rgw_users_payload(
+            self.ctx.endpoint.id,
+            self.ctx.rgw_admin.list_users,
+        )
         results = [
             user
             for entry in payload or []

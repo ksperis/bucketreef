@@ -13,24 +13,26 @@ from app.models.ceph_admin import (
     CephAdminRgwUserCreate,
     CephAdminRgwUserConfigUpdate,
 )
-from app.routers.ceph_admin import account_listing_cache
 from app.routers.ceph_admin import account_profiles as account_profiles_router
 from app.routers.ceph_admin import accounts as accounts_router
 from app.routers.ceph_admin import buckets as buckets_router
-from app.routers.ceph_admin import user_listing_cache
 from app.routers.ceph_admin import user_profiles as user_profiles_router
 from app.routers.ceph_admin import user_keys as user_keys_router
 from app.services import ceph_admin_bucket_listing_cache
+from app.services.ceph_admin_identity_listing_cache import (
+    invalidate_accounts_listing_cache,
+    invalidate_users_listing_cache,
+)
 
 
 @pytest.fixture(autouse=True)
 def clear_ceph_admin_caches():
-    account_listing_cache.invalidate_accounts_listing_cache()
-    user_listing_cache.invalidate_users_listing_cache()
+    invalidate_accounts_listing_cache()
+    invalidate_users_listing_cache()
     ceph_admin_bucket_listing_cache.reset_ceph_admin_bucket_listing_caches_for_tests()
     yield
-    account_listing_cache.invalidate_accounts_listing_cache()
-    user_listing_cache.invalidate_users_listing_cache()
+    invalidate_accounts_listing_cache()
+    invalidate_users_listing_cache()
     ceph_admin_bucket_listing_cache.reset_ceph_admin_bucket_listing_caches_for_tests()
 
 

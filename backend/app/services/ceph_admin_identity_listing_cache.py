@@ -123,3 +123,43 @@ class EndpointListingCache:
                     keys = [key for key in entries if key.endpoint_id == endpoint_id]
                     for key in keys:
                         entries.pop(key, None)
+
+
+_ACCOUNT_CACHE = EndpointListingCache()
+_USER_CACHE = EndpointListingCache()
+
+
+def get_cached_rgw_accounts_payload(
+    endpoint_id: int,
+    builder: Callable[[], list[Any] | None],
+) -> list[Any]:
+    return _ACCOUNT_CACHE.get_rgw_payload(endpoint_id, builder)
+
+
+def get_cached_accounts_listing(
+    key: EndpointListCacheKey,
+    builder: Callable[[], list[_T]],
+) -> list[_T]:
+    return _ACCOUNT_CACHE.get_listing(key, builder)
+
+
+def invalidate_accounts_listing_cache(endpoint_id: int | None = None) -> None:
+    _ACCOUNT_CACHE.invalidate(endpoint_id)
+
+
+def get_cached_rgw_users_payload(
+    endpoint_id: int,
+    builder: Callable[[], list[Any] | None],
+) -> list[Any]:
+    return _USER_CACHE.get_rgw_payload(endpoint_id, builder)
+
+
+def get_cached_users_listing(
+    key: EndpointListCacheKey,
+    builder: Callable[[], list[_T]],
+) -> list[_T]:
+    return _USER_CACHE.get_listing(key, builder)
+
+
+def invalidate_users_listing_cache(endpoint_id: int | None = None) -> None:
+    _USER_CACHE.invalidate(endpoint_id)

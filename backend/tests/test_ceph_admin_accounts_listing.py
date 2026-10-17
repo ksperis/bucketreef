@@ -7,10 +7,10 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.routers.ceph_admin import account_listing_cache
 from app.routers.ceph_admin import account_listing_enrichment
 from app.routers.ceph_admin import accounts as accounts_router
 from app.routers.ceph_admin.account_common import build_account_detail
+from app.services.ceph_admin_identity_listing_cache import invalidate_accounts_listing_cache
 
 
 class FakeRGWAdmin:
@@ -66,9 +66,9 @@ class FakeRGWAdminMetadataIds(FakeRGWAdmin):
 
 @pytest.fixture(autouse=True)
 def clear_accounts_listing_cache():
-    account_listing_cache.invalidate_accounts_listing_cache()
+    invalidate_accounts_listing_cache()
     yield
-    account_listing_cache.invalidate_accounts_listing_cache()
+    invalidate_accounts_listing_cache()
 
 
 def _build_ctx(

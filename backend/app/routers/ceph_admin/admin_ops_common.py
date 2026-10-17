@@ -10,12 +10,14 @@ from fastapi.responses import JSONResponse
 
 from app.core.sensitive_data import sanitize_error_detail
 from app.models.ceph_admin import CephAdminAdminOpsResult
-from app.routers.ceph_admin.account_listing_cache import invalidate_accounts_listing_cache
 from app.routers.ceph_admin.audit import record_ceph_admin_action
-from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.ceph_admin.user_listing_cache import invalidate_users_listing_cache
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
+from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
+from app.services.ceph_admin_identity_listing_cache import (
+    invalidate_accounts_listing_cache,
+    invalidate_users_listing_cache,
+)
 from app.services.rgw_admin import RGWAdminError, RGWAdminOperationResponse
 
 
