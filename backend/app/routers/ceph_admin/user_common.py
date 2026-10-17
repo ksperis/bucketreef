@@ -9,21 +9,12 @@ from fastapi import HTTPException, status
 
 from app.models.ceph_admin import CephAdminRgwAccessKey
 from app.routers.ceph_admin.dependencies import CephAdminContext
+from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.rgw_payloads import extract_rgw_user_payload
 from app.utils.storage_endpoint_features import resolve_feature_flags
-
-
-def split_tenant_uid(value: str) -> tuple[Optional[str], str]:
-    raw = value.strip()
-    if "$" in raw:
-        tenant, uid = raw.split("$", 1)
-        if tenant and uid:
-            return tenant, uid
-    return None, raw
-
 
 def optional_account_lookup_enabled(ctx: CephAdminContext) -> bool | None:
     try:

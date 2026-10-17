@@ -24,8 +24,6 @@ from app.services.ceph_admin_account_listing_enrichment import (
     account_profile_needs_enrichment,
     enrich_accounts,
 )
-from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.listing_common import parse_filter_query
 from app.services.bucket_listing_shared import listing_sort_key, parse_includes, serialize_filter
 from app.services.ceph_admin_identity_listing_support import (
     apply_advanced_filter,
@@ -40,7 +38,9 @@ from app.services.listing_progress import (
     emit_listing_ready,
     invoke_cancel_check,
 )
+from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_rule_matching import match_numeric_rule, match_text_rule
+from app.services.rgw_admin import RGWAdminClient
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import parse_rgw_int
@@ -186,7 +186,8 @@ class _AccountListingPipeline:
         sort_by: str,
         sort_dir: str,
         include: list[str],
-        ctx: CephAdminContext,
+        endpoint_id: int,
+        rgw_admin: RGWAdminClient,
         progress_callback: Callable[[ListingProgressSnapshot], None] | None,
         cancel_check: Callable[[], None] | None,
     ) -> None:
@@ -197,7 +198,8 @@ class _AccountListingPipeline:
         self.sort_by = sort_by
         self.sort_dir = sort_dir
         self.include = include
-        self.ctx = ctx
+        self.endpoint_id = endpoint_id
+        self.rgw_admin = rgw_admin
         self.progress = ListingProgressEmitter(progress_callback)
         self.cancel_check = cancel_check
         self.parsed_filter: CephAdminAccountFilterQuery | None = None
@@ -254,7 +256,7 @@ class _AccountListingPipeline:
             self.parsed_filter and self.parsed_filter.rules
         )
         self.cache_key = EndpointListCacheKey(
-            endpoint_id=self.ctx.endpoint.id,
+            endpoint_id=self.endpoint_id,
             advanced_filter=serialize_filter(self.parsed_filter),
             sort_by=self.sort_by,
             sort_dir=self.sort_dir,
@@ -269,8 +271,8 @@ class _AccountListingPipeline:
         )
         invoke_cancel_check(self.cancel_check)
         payload = get_cached_rgw_accounts_payload(
-            self.ctx.endpoint.id,
-            lambda: self.ctx.rgw_admin.list_accounts(include_details=False),
+            self.endpoint_id,
+            lambda: self.rgw_admin.list_accounts(include_details=False),
         )
         results = [
             account
@@ -334,7 +336,7 @@ class _AccountListingPipeline:
         enriched = enrich_accounts(
             results,
             requested,
-            self.ctx.rgw_admin,
+            self.rgw_admin,
             progress=self.progress,
             progress_stage="detail_enrichment",
             progress_message="Loading account details",
@@ -409,7 +411,7 @@ class _AccountListingPipeline:
         enriched = enrich_accounts(
             page_items,
             requested,
-            self.ctx.rgw_admin,
+            self.rgw_admin,
             progress=self.progress,
             progress_stage="page_enrichment",
             progress_message="Loading page details",
@@ -430,7 +432,8 @@ def compute_accounts_listing(
     sort_by: str,
     sort_dir: str,
     include: list[str],
-    ctx: CephAdminContext,
+    endpoint_id: int,
+    rgw_admin: RGWAdminClient,
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
     cancel_check: Callable[[], None] | None = None,
 ) -> PaginatedCephAdminAccountsResponse:
@@ -442,7 +445,8 @@ def compute_accounts_listing(
         sort_by=sort_by,
         sort_dir=sort_dir,
         include=include,
-        ctx=ctx,
+        endpoint_id=endpoint_id,
+        rgw_admin=rgw_admin,
         progress_callback=progress_callback,
         cancel_check=cancel_check,
     ).run()
