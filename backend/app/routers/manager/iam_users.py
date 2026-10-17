@@ -19,14 +19,16 @@ from app.routers.manager.iam_common import (
     ensure_unmanaged_iam_user,
     ensure_inline_policy_name,
     get_iam_service_for_context,
+)
+from app.services.audit_service import AuditService
+from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
+from app.services.access_key_metadata_service import AccessKeyMetadataService
+from app.services.manager_iam_support import (
     load_inline_policies,
     managed_iam_user_source,
     resolve_attached_policy,
     save_inline_policy,
 )
-from app.services.audit_service import AuditService
-from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
-from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_sources import iam_source_reference
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
@@ -196,14 +198,6 @@ def delete_user(
     db: Session = Depends(get_db),
 ) -> None:
     _ensure_unmanaged_user(db, context, user_name)
-    source = iam_source_reference(context)
-    if source is not None:
-        managed = ManagedPrivateAccessService(db).managed_iam_user(*source, user_name)
-        if managed is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="This IAM user belongs to a managed private access; delete its private connection instead",
-            )
     service = get_iam_service_for_context(context)
     try:
         service.delete_user(user_name)
