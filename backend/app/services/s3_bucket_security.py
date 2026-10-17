@@ -14,6 +14,26 @@ from app.utils.aws_errors import aws_error_code
 logger = logging.getLogger(__name__)
 
 
+def _security_client(
+    access_key: Optional[str],
+    secret_key: Optional[str],
+    session_token: Optional[str],
+    endpoint: Optional[str],
+    region: Optional[str],
+    force_path_style: bool,
+    verify_tls: bool,
+):
+    return get_s3_client(
+        access_key,
+        secret_key,
+        endpoint=endpoint,
+        session_token=session_token,
+        region=region,
+        force_path_style=force_path_style,
+        verify_tls=verify_tls,
+    )
+
+
 def _normalize_public_access_block_config(config: Optional[dict]) -> dict:
     normalized = {
         "BlockPublicAcls": False,
@@ -41,15 +61,7 @@ def set_bucket_public_access_block(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> None:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     block_state = bool(configuration) if configuration is not None else block
     try:
         if configuration is None:
@@ -91,15 +103,7 @@ def get_bucket_public_access_block(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> Optional[dict]:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         resp = client.get_public_access_block(Bucket=bucket_name)
         config = resp.get("PublicAccessBlockConfiguration") or {}
@@ -131,15 +135,7 @@ def get_bucket_object_lock(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> Optional[dict]:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         resp = client.get_object_lock_configuration(Bucket=bucket_name)
         config = resp.get("ObjectLockConfiguration") or {}
@@ -174,15 +170,7 @@ def get_bucket_acl(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> dict:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         return client.get_bucket_acl(Bucket=bucket_name)
     except (BotoCoreError, ClientError) as exc:
@@ -200,15 +188,7 @@ def put_bucket_acl(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> None:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         client.put_bucket_acl(Bucket=bucket_name, ACL=acl)
     except (BotoCoreError, ClientError) as exc:
@@ -230,15 +210,7 @@ def put_bucket_object_lock(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> None:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     config: dict = {}
     if enabled is not None:
         config["ObjectLockEnabled"] = "Enabled" if enabled else "Disabled"
@@ -270,15 +242,7 @@ def get_bucket_encryption(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> list[dict]:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         resp = client.get_bucket_encryption(Bucket=bucket_name)
         config = resp.get("ServerSideEncryptionConfiguration") or {}
@@ -303,15 +267,7 @@ def put_bucket_encryption(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> None:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         client.put_bucket_encryption(
             Bucket=bucket_name,
@@ -332,15 +288,7 @@ def delete_bucket_encryption(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> None:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = _security_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     deleted = delete_bucket_configuration(
         operation=lambda: client.delete_bucket_encryption(Bucket=bucket_name),
         missing_error_codes={"serversideencryptionconfigurationnotfounderror", "nosuchbucket"},
