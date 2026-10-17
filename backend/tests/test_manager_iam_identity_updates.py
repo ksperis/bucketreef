@@ -16,6 +16,7 @@ from app.models.iam import (
 from app.models.access_key_metadata import AccessKeyMetadataInput
 from app.models.policy import InlinePolicy, Policy
 from app.routers.manager import iam_common, iam_groups, iam_roles, iam_users
+from app.services import manager_iam_support
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -28,6 +29,34 @@ def _context() -> S3ExecutionContext:
         access_key="AK",
         secret_key="SK",
     )
+
+
+def test_iam_context_without_credentials_maps_to_http_400() -> None:
+    context = S3ExecutionContext(
+        context_id="7",
+        context_kind="account",
+        id=7,
+        name="research",
+        access_key=None,
+        secret_key=None,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        iam_common.get_iam_service_for_context(context)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Execution context credentials are missing"
+
+
+def test_inline_policy_name_mismatch_maps_to_http_400() -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        iam_common.ensure_inline_policy_name(
+            InlinePolicy(name="payload-name", document={}),
+            "url-name",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Inline policy name in payload does not match the URL."
 
 
 class _Audit:
@@ -285,7 +314,7 @@ def test_portal_group_mutations_are_rejected_before_iam_calls(monkeypatch, group
 ])
 def test_managed_user_mutations_are_rejected_before_iam_calls(monkeypatch, management_source, operation, extra):
     monkeypatch.setattr(
-        iam_common, "managed_iam_user_source",
+        manager_iam_support, "managed_iam_user_source",
         lambda _db, _account, _name: (management_source, None),
     )
     monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: pytest.fail("IAM must not be called"))
@@ -305,7 +334,7 @@ def test_managed_user_mutations_are_rejected_before_iam_calls(monkeypatch, manag
 ])
 def test_managed_user_cannot_be_added_to_or_removed_from_other_groups(monkeypatch, management_source, operation, extra):
     monkeypatch.setattr(
-        iam_common, "managed_iam_user_source",
+        manager_iam_support, "managed_iam_user_source",
         lambda _db, _account, _name: (management_source, None),
     )
     monkeypatch.setattr(iam_groups, "get_iam_service_for_context", lambda _account: pytest.fail("IAM must not be called"))

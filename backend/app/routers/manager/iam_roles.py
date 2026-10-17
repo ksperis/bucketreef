@@ -18,11 +18,9 @@ from app.utils.http_errors import raise_http_exception_from_exception
 from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
     get_iam_service_for_context,
-    load_inline_policies,
-    resolve_attached_policy,
-    save_inline_policy,
 )
 from app.services.audit_service import AuditService
+from app.services.manager_iam_support import load_inline_policies, resolve_attached_policy, save_inline_policy
 from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 DEFAULT_ASSUME_ROLE = """

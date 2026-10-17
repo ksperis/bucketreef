@@ -61,3 +61,11 @@ class AvatarNotFoundError(ResourceNotFoundError):
 
 class ExternalIdentityNotFoundError(ResourceNotFoundError):
     pass
+
+
+class ManagerIAMManagedUserConflictError(ResourceConflictError):
+    pass
+
+
+class ManagerIAMCredentialsMissingError(ValueError):
+    pass
