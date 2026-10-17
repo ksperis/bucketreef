@@ -94,15 +94,10 @@ import {
   type BrowserActionId,
   type BrowserCapabilityFacts,
   type BrowserFunctionalProfile,
-  getVisibleBrowserActions,
-  resolveBrowserActions,
   runBrowserAction,
   resolveItemPrimaryAction,
-  isBrowserItemPreviewAvailable,
-  TOOLBAR_MORE_PATH_ACTION_IDS,
-  TOOLBAR_MORE_SELECTION_FULL_ACTION_IDS,
-  TOOLBAR_MORE_SELECTION_OVERFLOW_ACTION_IDS,
 } from "./browserActions";
+import { useBrowserActionStates } from "./useBrowserActionStates";
 import {
   BrowserConfirmModal,
   BrowserCopyValueModal,
@@ -1271,135 +1266,40 @@ export default function BrowserPage({
   });
 
   const copyUrlDisabledReason = "Copy URL is disabled in SSE-C mode.";
-  const pathActionStates = useMemo(
-    () =>
-      resolveBrowserActions({
-        scope: "path",
-        bucketName,
-        hasExecutionContext,
-        versioningEnabled: isVersioningEnabled,
-        canPaste: canPasteInFunctionalProfile,
-        clipboardMode: clipboard?.mode ?? null,
-        currentPath,
-        showFolderItems,
-        showDeletedObjects,
-        restoreAvailable: Boolean(deletedObjectsOptions?.onRestorePrefix),
-        refreshPending: objectsLoading,
-        functionalProfile: resolvedFunctionalProfile,
-        capabilityFacts: resolvedCapabilityFacts,
-        multipartUploadsAvailable: resolvedFunctionalProfile === "advanced",
-        bucketConfigurationAvailable: bucketConfigurationEnabled,
-        bucketConfigurationReadOnly: workspaceSurface === "browser",
-      }),
-    [
-      bucketName,
-      canPasteInFunctionalProfile,
-      clipboard?.mode,
-      currentPath,
-      hasExecutionContext,
-      isVersioningEnabled,
-      deletedObjectsOptions?.onRestorePrefix,
-      objectsLoading,
-      resolvedCapabilityFacts,
-      resolvedFunctionalProfile,
-      bucketConfigurationEnabled,
-      workspaceSurface,
-      showDeletedObjects,
-      showFolderItems,
-    ],
-  );
-  const selectionActionStates = useMemo(
-    () =>
-      resolveBrowserActions({
-        scope: "selection",
-        items: selectionItems,
-        bucketName,
-        hasExecutionContext,
-        versioningEnabled: isVersioningEnabled,
-        canPaste: canPasteInFunctionalProfile,
-        clipboardMode: clipboard?.mode ?? null,
-        copyUrlDisabled: sseActive,
-        copyUrlDisabledReason,
-        functionalProfile: resolvedFunctionalProfile,
-        capabilityFacts: resolvedCapabilityFacts,
-      }),
-    [
-      bucketName,
-      canPasteInFunctionalProfile,
-      clipboard?.mode,
-      copyUrlDisabledReason,
-      hasExecutionContext,
-      isVersioningEnabled,
-      resolvedCapabilityFacts,
-      resolvedFunctionalProfile,
-      selectionItems,
-      sseActive,
-    ],
-  );
-  const resolveItemActionStates = useCallback(
-    (item: BrowserItem) =>
-      resolveBrowserActions({
-        scope: "item",
-        items: [item],
-        bucketName,
-        hasExecutionContext,
-        versioningEnabled: isVersioningEnabled,
-        canPaste: canPasteInFunctionalProfile,
-        clipboardMode: clipboard?.mode ?? null,
-        copyUrlDisabled: sseActive,
-        copyUrlDisabledReason,
-        publicLinkAvailable:
-          isPortalProfile &&
-          resolvedCapabilityFacts.canCreatePublicLinks &&
-          canOpenExternalObjectDetails,
-        restoreAvailable: Boolean(deletedObjectsOptions?.onRestoreObject),
-        detailsAvailable:
-          item.type === "file" || resolvedFunctionalProfile === "advanced",
-        functionalProfile: resolvedFunctionalProfile,
-        capabilityFacts: resolvedCapabilityFacts,
-        previewAvailable: isBrowserItemPreviewAvailable(item),
-      }),
-    [
-      bucketName,
+  const {
+    pathActionStates,
+    selectionActionStates,
+    resolveItemActionStates,
+    toolbarMorePathActions,
+    toolbarMoreSelectionFullActions,
+    toolbarMoreSelectionOverflowActions,
+  } = useBrowserActionStates({
+    bucketName,
+    hasExecutionContext,
+    versioningEnabled: isVersioningEnabled,
+    canPaste: canPasteInFunctionalProfile,
+    clipboardMode: clipboard?.mode ?? null,
+    currentPath,
+    showFolderItems,
+    showDeletedObjects,
+    restorePrefixAvailable: Boolean(deletedObjectsOptions?.onRestorePrefix),
+    refreshPending: objectsLoading,
+    functionalProfile: resolvedFunctionalProfile,
+    capabilityFacts: resolvedCapabilityFacts,
+    bucketConfigurationAvailable: bucketConfigurationEnabled,
+    bucketConfigurationReadOnly: workspaceSurface === "browser",
+    selectionItems,
+    copyUrlDisabled: sseActive,
+    copyUrlDisabledReason,
+    publicLinkAvailable:
+      isPortalProfile &&
+      resolvedCapabilityFacts.canCreatePublicLinks &&
       canOpenExternalObjectDetails,
-      canPasteInFunctionalProfile,
-      clipboard?.mode,
-      copyUrlDisabledReason,
-      deletedObjectsOptions?.onRestoreObject,
-      hasExecutionContext,
-      isVersioningEnabled,
-      resolvedCapabilityFacts,
-      resolvedFunctionalProfile,
-      isPortalProfile,
-      sseActive,
-    ],
-  );
-  const toolbarMorePathActions = useMemo(
-    () =>
-      getVisibleBrowserActions(
-        pathActionStates,
-        isPortalProfile && deletedObjectsOptions?.showToggle
-          ? [...TOOLBAR_MORE_PATH_ACTION_IDS, "toggleShowDeleted"]
-          : TOOLBAR_MORE_PATH_ACTION_IDS,
-      ),
-    [deletedObjectsOptions?.showToggle, isPortalProfile, pathActionStates],
-  );
-  const toolbarMoreSelectionFullActions = useMemo(
-    () =>
-      getVisibleBrowserActions(
-        selectionActionStates,
-        TOOLBAR_MORE_SELECTION_FULL_ACTION_IDS,
-      ),
-    [selectionActionStates],
-  );
-  const toolbarMoreSelectionOverflowActions = useMemo(
-    () =>
-      getVisibleBrowserActions(
-        selectionActionStates,
-        TOOLBAR_MORE_SELECTION_OVERFLOW_ACTION_IDS,
-      ),
-    [selectionActionStates],
-  );
+    restoreObjectAvailable: Boolean(deletedObjectsOptions?.onRestoreObject),
+    showDeletedToggle: Boolean(
+      isPortalProfile && deletedObjectsOptions?.showToggle,
+    ),
+  });
   const openObjectDetails = (
     item: BrowserItem,
     requestedTab: ObjectDetailsTabId,
