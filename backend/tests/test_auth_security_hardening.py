@@ -193,6 +193,50 @@ def test_logout_revokes_refresh_family_when_access_cookie_is_unavailable(auth_cl
         AuthSessionService(db_session).rotate(credentials.refresh_token)
 
 
+def test_session_service_rejects_invalid_csrf_without_revoking(db_session):
+    user = _user(db_session, email="session-csrf@example.com")
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+
+    with pytest.raises(AuthSessionError, match="Invalid CSRF token"):
+        AuthSessionService(db_session).revoke_with_csrf(
+            credentials.session.id,
+            "logout",
+            csrf_token="wrong-csrf-token",
+        )
+
+    db_session.refresh(credentials.session)
+    assert credentials.session.revoked_at is None
+
+
+def test_user_cannot_revoke_another_users_session(auth_client, db_session):
+    user = _user(db_session, email="session-owner-a@example.com")
+    other = _user(db_session, email="session-owner-b@example.com")
+    current = authenticate_ui_client(auth_client, db_session, user, mfa_verified=True)
+    other_session = AuthSessionService(db_session).create_for_user(
+        other,
+        auth_type="password",
+        ip_address="192.0.2.20",
+        user_agent="pytest-other",
+        mfa_verified=True,
+    )
+
+    response = auth_client.delete(
+        f"/api/auth/sessions/{other_session.session.id}",
+        headers=trusted_origin_headers(csrf_token=current.csrf_token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Session not found"
+    db_session.refresh(other_session.session)
+    assert other_session.session.revoked_at is None
+
+
 @pytest.mark.parametrize("role", [UserRole.UI_USER.value, UserRole.UI_ADMIN.value])
 def test_enrolled_passkey_requires_mfa_even_when_role_policy_is_optional(
     auth_client,
@@ -417,6 +461,40 @@ def test_profile_webauthn_step_up_requires_an_active_passkey(auth_client, db_ses
 
     assert response.status_code == 400
     assert response.json()["detail"] == "WebAuthn authentication is unavailable"
+
+
+def test_profile_passkey_inventory_excludes_revoked_credentials(auth_client, db_session):
+    user = _user(db_session, email="passkey-inventory@example.com")
+    now = utcnow()
+    active = WebAuthnCredential(
+        id="active-passkey",
+        user_id=user.id,
+        credential_id="active-passkey-id",
+        public_key="public-key",
+        sign_count=0,
+        transports_json="[]",
+        name="Active passkey",
+        created_at=now,
+    )
+    revoked = WebAuthnCredential(
+        id="revoked-passkey",
+        user_id=user.id,
+        credential_id="revoked-passkey-id",
+        public_key="public-key",
+        sign_count=0,
+        transports_json="[]",
+        name="Revoked passkey",
+        created_at=now + timedelta(seconds=1),
+        revoked_at=now + timedelta(seconds=2),
+    )
+    db_session.add_all([active, revoked])
+    db_session.commit()
+    authenticate_ui_client(auth_client, db_session, user, mfa_verified=True)
+
+    response = auth_client.get("/api/auth/security/webauthn/credentials")
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()] == [active.id]
 
 
 def test_profile_cannot_revoke_the_last_passkey_required_by_role(auth_client, db_session):

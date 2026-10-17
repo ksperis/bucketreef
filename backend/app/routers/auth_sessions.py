@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import constant_time_equal, decode_typed_token
-from app.db import AuthSession, User, WebAuthnCredential, is_admin_ui_role
+from app.db import AuthSession, User, is_admin_ui_role
 from app.models.auth import (
     CurrentSessionResponse,
     ExternalIdentityInfo,
@@ -141,10 +141,13 @@ def revoke_session(
 ) -> None:
     require_self_service_security_action(request, db, current_user)
     current_id = current_auth_session(request, db).id
-    row = db.query(AuthSession).filter(AuthSession.id == session_id, AuthSession.user_id == current_user.id).first()
+    row = AuthSessionService(db).revoke_for_user(
+        current_user.id,
+        session_id,
+        "user_revoked",
+    )
     if not row:
         raise HTTPException(status_code=404, detail="Session not found")
-    AuthSessionService(db).revoke_session(row.id, "user_revoked")
     audit_service.record_action(
         user=current_user,
         scope="security",
@@ -175,11 +178,14 @@ def logout(
     for token_type in ("ui_access", "s3_access"):
         claims = decode_typed_token(token or "", expected_type=token_type)
         if claims:
-            session = db.query(AuthSession).filter(AuthSession.id == str(claims["sid"])).first()
-            if session is None or not service.validate_csrf(session, submitted_csrf):
-                raise HTTPException(status_code=403, detail="Invalid CSRF token")
-            service.revoke_session(str(claims["sid"]), "logout")
-            revoked_session_id = str(claims["sid"])
+            try:
+                revoked_session_id = service.revoke_with_csrf(
+                    str(claims["sid"]),
+                    "logout",
+                    csrf_token=submitted_csrf,
+                )
+            except AuthSessionError as exc:
+                raise HTTPException(status_code=403, detail="Invalid CSRF token") from exc
             break
     if revoked_session_id is None:
         refresh_token = request.cookies.get(settings.refresh_token_cookie_name)
@@ -229,15 +235,7 @@ def list_webauthn_credentials(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[WebAuthnCredentialInfo]:
-    rows = (
-        db.query(WebAuthnCredential)
-        .filter(
-            WebAuthnCredential.user_id == current_user.id,
-            WebAuthnCredential.revoked_at.is_(None),
-        )
-        .order_by(WebAuthnCredential.created_at.asc())
-        .all()
-    )
+    rows = WebAuthnService(db).list_credentials(current_user.id)
     return [
         WebAuthnCredentialInfo(id=row.id, name=row.name, created_at=row.created_at, last_used_at=row.last_used_at)
         for row in rows

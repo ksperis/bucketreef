@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import S3Session
 from app.models.auth import AuthenticationResponse
 from app.models.session import S3KeyLogin, SessionDescriptor
 from app.routers.auth_common import settings
@@ -111,9 +110,8 @@ def login_with_s3_keys(
         user_uid=user_uid,
         capabilities=capabilities,
     )
-    s3_row = db.query(S3Session).filter(S3Session.id == principal.session_id).one()
-    credentials = AuthSessionService(db).create_for_s3_session(
-        s3_row,
+    credentials = AuthSessionService(db).create_for_s3_session_id(
+        principal.session_id,
         ip_address=ip_address,
         user_agent=user_agent,
     )

@@ -49,7 +49,8 @@ def _pre_auth_user(
     claims = decode_typed_token(token, expected_type="pre_auth")
     if claims is None or claims.get("purpose") not in purposes:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid pre-authentication")
-    user = db.query(User).filter(User.id == claims.get("uid")).first()
+    user_id = claims.get("uid")
+    user = get_users_service(db).get_by_id(user_id) if isinstance(user_id, int) else None
     if not user or not user.is_active or user.auth_version != claims.get("auth_version"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Pre-authentication expired")
     return user, claims
