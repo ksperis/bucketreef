@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.db import User
 from app.models.bucket_listing import BucketListingRequest
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse
-from app.routers.ceph_admin.listing_common import stream_listing_response
+from app.routers.listing_common import stream_listing_response
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_storage_ops_admin,

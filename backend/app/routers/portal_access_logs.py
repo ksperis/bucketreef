@@ -13,7 +13,7 @@ from app.models.portal_access_logs import (
     PortalServerAccessLogFilterQuery,
     PortalServerAccessLogPage,
 )
-from app.routers.ceph_admin.listing_common import parse_filter_query
+from app.routers.listing_common import parse_filter_query
 from app.routers.dependencies import require_portal_manager
 from app.routers.portal_common import (
     get_portal_service_dependency,
