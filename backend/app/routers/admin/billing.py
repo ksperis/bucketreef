@@ -22,7 +22,7 @@ router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
 
 def _raise_billing_http_error(exc: ValueError) -> NoReturn:
     if isinstance(exc, BillingDisabledError):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Billing is disabled") from exc
     raise_http_error_from_value_error(exc)
 
 
