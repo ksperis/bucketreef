@@ -8,6 +8,7 @@ Current release dates come from the changelog; reconstructed historical dates re
 
 | Version | Date | Notes | Publications |
 | --- | --- | --- | --- |
+| [0.2.16](#release-0-2-16) | 2026-10-17 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.16) |
 | [0.2.15](#release-0-2-15) | 2026-10-11 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.15) |
 | [0.2.14](#release-0-2-14) | 2026-10-06 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.14) |
 | [0.2.13](#release-0-2-13) | 2026-10-01 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.13) |
@@ -36,6 +37,45 @@ Current release dates come from the changelog; reconstructed historical dates re
 | [0.1.2](#release-0-1-2) | 2026-01-09 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.2) |
 | [0.1.1](#release-0-1-1) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.1) |
 | [0.1.0](#release-0-1-0) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.0) |
+
+## 0.2.16 {#release-0-2-16}
+
+[GitHub release](https://github.com/ksperis/bucketreef/releases/tag/v0.2.16)
+
+Compare v0.2.15 → v0.2.16: [GitHub](https://github.com/ksperis/bucketreef/compare/v0.2.15...v0.2.16)
+
+
+### Added
+
+- Add Admin feature policies with tri-state inheritance, resource-level overrides, effective-rights presentation, and project usage feature overrides shared across the application.
+- Add Manager account activity history tied to explicit S3 execution contexts, with canonical audit context fields used across Admin audit and Manager activity views.
+- Add explicit Ceph RGW tenant support for accounts and users, including tenant-aware identity validation, collision protection, migration of pre-tenant identities, and structured RGW identity metadata for S3 Connections.
+- Add automatic bucket composition collection with configurable collection policy and scheduler integration for bucket usage/statistics workflows.
+- Complete French, German, and Chinese localization across Admin, Ceph Admin, shared settings, authentication, errors, endpoint management, metrics, usage, and common workspace components.
+- Complete Manager IAM user, group, role, policy, tag, and membership editing workflows and tighten their storage-side validation.
+
+### Changed
+
+- Canonicalize execution-context selectors, audit outcomes, Portal collaborator/quota requests, Manager migration requests, and S3 Connection RGW identity fields. The bundled frontend and backend are updated together and no legacy application-API compatibility aliases are retained.
+- Split bucket integrity, purge, and usage-statistics request contracts by workspace surface: Manager and Ceph Admin accept bucket-name collections, while Storage Ops accepts explicit execution-context targets.
+- Keep persistent settings editors mounted after save, clarify feature inheritance and locked controls, and align Admin, Manager, Browser, Portal, Ceph Admin, and demo UI contracts with the current backend.
+- Require `APP_SETTINGS_PATH` bootstrap JSON to use the current canonical `AppSettings` schema instead of converting removed legacy fields at runtime.
+- Rename the production-readiness command to `python -m app.scripts.check_production_readiness` and remove the former `check_production_hardening` compatibility module.
+
+### Fixed
+
+- Stop returning RGW secret keys from Ceph Admin user access-key list/detail responses; newly created keys still return their secret once through the dedicated one-time creation response.
+- Reject mutations of BucketReef-managed IAM resources before remote calls and prevent outbound health/OIDC probes from following unsafe redirects or bypassing validated targets.
+- Correct tenant-aware RGW account/user operations, pre-tenant migration compatibility, ambiguous identity collisions, missing-user cleanup, and Ceph Admin parameter handling.
+- Preserve requested bucket-migration pause state, verify Manager IAM role-tag mutations, stabilize feature-policy rollout and audit coverage, and align Ceph functional qualification with current feature settings.
+- Repair shared workspace navigation, dashboard icons, localized UI contracts, demo isolation checks, and assorted Admin/Browser/Manager functional QA regressions.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path before running the matching backend. Migrations `0148` through `0158` add feature policies, Manager activity history, execution-context audit fields, project usage overrides, RGW tenant metadata, bucket composition collection policy, canonical Portal/audit data, and canonical S3 Connection RGW identity fields.
+- Deploy the backend and bundled frontend from the same release. Internal application routes now use the canonical execution-context, audit-status, Portal request, migration, bucket-operation, and Ceph Admin key-read contracts described above; these coordinated application API changes are not treated as release-breaking external contracts.
+- **Breaking change:** `APP_SETTINGS_PATH` no longer converts removed legacy settings fields. Bootstrap JSON must already use the current `AppSettings` schema.
+- **Breaking change:** operational checks must use `python -m app.scripts.check_production_readiness`; the former `check_production_hardening` module has been removed.
 
 ## 0.2.15 {#release-0-2-15}
 
