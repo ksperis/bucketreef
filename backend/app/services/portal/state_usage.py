@@ -16,7 +16,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.feature_policy_service import bucket_usage_stats_state
-from app.utils.usage_stats import extract_usage_stats
+from app.utils.usage_stats import aggregate_bucket_usage, extract_usage_stats
 
 if TYPE_CHECKING:
     from app.models.access_context import AccountAccess
@@ -56,15 +56,13 @@ class PortalStateUsageMixin:
     def _portal_other_usage(
         self,
         *,
-        total_bytes: int,
-        total_objects: int,
-        has_total_bytes: bool,
-        has_total_objects: bool,
-        detailed_bytes: int,
-        detailed_objects: int,
+        total_bytes: Optional[int],
+        total_objects: Optional[int],
+        detailed_bytes: Optional[int],
+        detailed_objects: Optional[int],
     ) -> PortalUsageStorageSpace | None:
-        other_bytes = max(0, total_bytes - detailed_bytes) if has_total_bytes else None
-        other_objects = max(0, total_objects - detailed_objects) if has_total_objects else None
+        other_bytes = max(0, total_bytes - (detailed_bytes or 0)) if total_bytes is not None else None
+        other_objects = max(0, total_objects - (detailed_objects or 0)) if total_objects is not None else None
         if (other_bytes is None or other_bytes == 0) and (other_objects is None or other_objects == 0):
             return None
         return PortalUsageStorageSpace(
@@ -139,38 +137,25 @@ class PortalStateUsageMixin:
                 storage_spaces=self._usage_storage_space_breakdown(user, access, {}),
             )
 
-        total_bytes = 0
-        total_objects = 0
-        has_bytes = False
-        has_objects = False
-        detailed_bytes = 0
-        detailed_objects = 0
         usage_by_bucket: dict[str, tuple[Optional[int], Optional[int]]] = {}
+        scoped_payloads: list[dict] = []
+        detailed_payloads: list[dict] = []
         for item in bucket_payloads:
             if not isinstance(item, dict):
                 continue
             bucket_name = item.get("bucket") or item.get("name")
-            usage = item.get("usage")
-            usage_bytes, usage_objects = extract_usage_stats(usage)
             if is_portal_user or bucket_name in allowed:
-                if usage_bytes is not None:
-                    total_bytes += usage_bytes
-                    has_bytes = True
-                if usage_objects is not None:
-                    total_objects += usage_objects
-                    has_objects = True
+                scoped_payloads.append(item)
             if bucket_name in allowed:
+                usage_bytes, usage_objects = extract_usage_stats(item.get("usage"))
                 usage_by_bucket[bucket_name] = (usage_bytes, usage_objects)
-                if usage_bytes is not None:
-                    detailed_bytes += usage_bytes
-                if usage_objects is not None:
-                    detailed_objects += usage_objects
+                detailed_payloads.append(item)
+        total_bytes, total_objects, _ = aggregate_bucket_usage(scoped_payloads)
+        detailed_bytes, detailed_objects, _ = aggregate_bucket_usage(detailed_payloads)
         other_storage_space = (
             self._portal_other_usage(
                 total_bytes=total_bytes,
                 total_objects=total_objects,
-                has_total_bytes=has_bytes,
-                has_total_objects=has_objects,
                 detailed_bytes=detailed_bytes,
                 detailed_objects=detailed_objects,
             )
@@ -178,8 +163,8 @@ class PortalStateUsageMixin:
             else None
         )
         return PortalUsage(
-            used_bytes=total_bytes if has_bytes else None,
-            used_objects=total_objects if has_objects else None,
+            used_bytes=total_bytes,
+            used_objects=total_objects,
             quota_max_size_bytes=quota_max_size_bytes,
             quota_max_objects=quota_max_objects,
             max_buckets=max_buckets,
