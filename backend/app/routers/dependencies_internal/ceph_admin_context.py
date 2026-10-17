@@ -32,7 +32,7 @@ def _build_ceph_admin_browser_context(endpoint: StorageEndpoint) -> S3ExecutionC
     )
 
 
-def _resolve_ceph_admin_browser_context(
+def resolve_ceph_admin_browser_context(
     db: Session,
     actor: User,
     endpoint_id: int,
@@ -70,7 +70,7 @@ def _resolve_ceph_admin_browser_context(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=identity_validation_error)
     return _build_ceph_admin_browser_context(endpoint)
 
-def _resolve_default_endpoint(db: Session) -> StorageEndpoint:
+def resolve_default_endpoint(db: Session) -> StorageEndpoint:
     service = get_storage_endpoints_service(db)
     service.ensure_default_endpoint()
     endpoint = (

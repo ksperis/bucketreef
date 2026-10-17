@@ -26,38 +26,9 @@ from app.utils.s3_endpoint import (
 )
 
 from .auth_session import get_current_actor, settings
-from .ceph_admin_context import _resolve_default_endpoint
-
-
-def _resolve_ceph_admin_browser_context(
-    db: Session,
-    actor: User,
-    endpoint_id: int,
-    *,
-    surface: str,
-) -> S3ExecutionContext:
-    from .ceph_admin_context import _resolve_ceph_admin_browser_context as resolve_context
-
-    return resolve_context(db, actor, endpoint_id, surface=surface)
-
-
-def _is_portal_browser_request(request: Optional[Request], surface: str) -> bool:
-    from .portal_access import _is_portal_browser_request as is_portal_browser_request
-
-    return is_portal_browser_request(request, surface)
-
-
-def _resolve_portal_browser_context(
-    db: Session,
-    user: User,
-    account: S3Account,
-    link: UserS3Account | EffectiveAccountLink,
-    *,
-    request: Request,
-) -> S3ExecutionContext:
-    from .portal_access import _resolve_portal_browser_context as resolve_context
-
-    return resolve_context(db, user, account, link, request=request)
+from .ceph_admin_context import resolve_ceph_admin_browser_context, resolve_default_endpoint
+from .portal_access import is_portal_browser_request, resolve_portal_browser_context
+from .workspace_context import resolve_account_by_id, resolve_user_account_link, resolve_workspace_surface
 
 def _parse_execution_context_selector(
     context_ref: Optional[str],
@@ -200,49 +171,6 @@ def _resolve_connection_context(
         ),
     )
 
-def _resolve_workspace_surface(request: Optional[Request]) -> str:
-    if not request:
-        return "manager"
-    path = str(request.url.path)
-    browser_prefix = f"{settings.api_v1_prefix}/browser"
-    if path.startswith(browser_prefix):
-        if (request.headers.get("X-S3-Workspace") or "").strip().lower() == "manager-browser":
-            return "manager-browser"
-        return "browser"
-    return "manager"
-
-
-def _resolve_default_account_id(db: Session, user: User) -> int:
-    links = effective_access_service.EffectiveAccessService(db).resolve_user(user).account_links
-    if len(links) == 1:
-        return links[0].account_id
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="S3Account id required")
-
-
-def _resolve_account_by_id(db: Session, account_id: int) -> S3Account:
-    account = db.query(S3Account).filter(S3Account.id == account_id).first()
-    if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Account not found")
-    return account
-
-
-def _resolve_user_account_link(
-    db: Session,
-    user: User,
-    account_id: Optional[int],
-    allow_default: bool,
-) -> tuple[S3Account, UserS3Account | EffectiveAccountLink]:
-    if account_id is None or account_id <= 0:
-        if not allow_default:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="S3Account id required")
-        account_id = _resolve_default_account_id(db, user)
-    account = _resolve_account_by_id(db, account_id)
-    link = effective_access_service.EffectiveAccessService(db).resolve_user(user).account_link_for(account.id)
-    if not link:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this account")
-    return account, link
-
-
 def manager_membership_capabilities(
     link: UserS3Account | EffectiveAccountLink,
 ) -> AccountCapabilities:
@@ -267,7 +195,7 @@ def _resolve_session_account(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="S3Account context unavailable for session")
     account: Optional[S3Account] = None
     if account_id and account_id > 0:
-        account = _resolve_account_by_id(db, account_id)
+        account = resolve_account_by_id(db, account_id)
         if account.rgw_account_id.lower() != actor.account_id.lower():
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this account")
     else:
@@ -284,7 +212,7 @@ def _resolve_session_account(
     context_endpoint_id = account.storage_endpoint_id if account is not None else None
     resolved_endpoint: Optional[StorageEndpoint] = None
     if not requested_endpoint and not resolve_s3_endpoint(account):
-        endpoint = _resolve_default_endpoint(db)
+        endpoint = resolve_default_endpoint(db)
         requested_endpoint = endpoint.endpoint_url
         resolved_endpoint = endpoint
     elif requested_endpoint:
@@ -348,7 +276,7 @@ def get_s3_execution_context(
     db: Session = Depends(get_db),
 ) -> S3ExecutionContext:
     account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_execution_context_selector(context_ref)
-    surface = _resolve_workspace_surface(request)
+    surface = resolve_workspace_surface(request)
     requested_endpoint = normalize_s3_endpoint(request.headers.get("X-S3-Endpoint")) if request else None
     if isinstance(actor, ManagerSessionPrincipal):
         requested_endpoint = _resolve_requested_session_endpoint(db, actor, requested_endpoint)
@@ -363,7 +291,7 @@ def get_s3_execution_context(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Ceph Admin contexts are not available in Manager Browser",
                 )
-            return _resolve_ceph_admin_browser_context(db, actor, ceph_admin_endpoint_id, surface=surface)
+            return resolve_ceph_admin_browser_context(db, actor, ceph_admin_endpoint_id, surface=surface)
         if connection_id is not None:
             return _resolve_connection_context(
                 db,
@@ -374,14 +302,14 @@ def get_s3_execution_context(
             )
         if s3_user_id is not None:
             return _resolve_s3_user_context(db, actor, s3_user_id, surface=surface)
-        if surface == "browser" and not _is_portal_browser_request(request, surface):
+        if surface == "browser" and not is_portal_browser_request(request, surface):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Accounts are not available in standard Browser",
             )
-        account, link = _resolve_user_account_link(db, actor, account_id, allow_default=False)
-        if _is_portal_browser_request(request, surface):
-            return _resolve_portal_browser_context(db, actor, account, link, request=request)
+        account, link = resolve_user_account_link(db, actor, account_id, allow_default=False)
+        if is_portal_browser_request(request, surface):
+            return resolve_portal_browser_context(db, actor, account, link, request=request)
         if surface == "manager-browser" and not (
             isinstance(link, EffectiveAccountLink) and link.manager_browser_allowed
         ):

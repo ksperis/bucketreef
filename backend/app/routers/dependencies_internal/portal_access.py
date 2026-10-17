@@ -18,8 +18,8 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.portal_access_service import portal_membership_capabilities
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
-from .execution_context import _resolve_user_account_link, _resolve_workspace_surface
 from .auth_session import get_current_account_user, settings
+from .workspace_context import resolve_user_account_link, resolve_workspace_surface
 
 def _portal_membership_capabilities(
     link: Optional[UserS3Account | EffectiveAccountLink],
@@ -49,7 +49,7 @@ def _parse_portal_account_id(account_ref: Optional[str]) -> Optional[int]:
     return account_id
 
 
-def _is_portal_browser_request(request: Optional[Request], surface: str) -> bool:
+def is_portal_browser_request(request: Optional[Request], surface: str) -> bool:
     if surface != "browser" or request is None:
         return False
     workspace = (request.headers.get("X-S3-Workspace") or "").strip().lower()
@@ -115,7 +115,7 @@ def _portal_browser_target_bucket(request: Request) -> Optional[str]:
 
 
 def require_portal_browser_basic_route(request: Request) -> None:
-    if not _is_portal_browser_request(request, _resolve_workspace_surface(request)):
+    if not is_portal_browser_request(request, resolve_workspace_surface(request)):
         return
     if _is_portal_browser_basic_route_allowed(request):
         return
@@ -125,11 +125,11 @@ def require_portal_browser_basic_route(request: Request) -> None:
     )
 
 
-def _resolve_portal_browser_context(
+def resolve_portal_browser_context(
     db: Session,
     user: User,
     account: S3Account,
-    link: UserS3Account,
+    link: UserS3Account | EffectiveAccountLink,
     *,
     request: Request,
 ) -> S3ExecutionContext:
@@ -209,7 +209,7 @@ def get_portal_account_access(
 ) -> AccountAccess:
     account_id = _parse_portal_account_id(account_ref)
 
-    account, link = _resolve_user_account_link(db, user, account_id, allow_default=False)
+    account, link = resolve_user_account_link(db, user, account_id, allow_default=False)
     _validate_portal_account_surface(account)
 
     portal_role, capabilities = _portal_membership_capabilities(link)
