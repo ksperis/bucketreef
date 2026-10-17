@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import StorageEndpoint, StorageProvider
 from app.models.ceph_admin import CephAdminEndpoint, CephAdminEndpointAccess
 from app.services.ceph_admin_service_identity import (
@@ -20,12 +21,35 @@ from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 from app.utils.time import utcnow
 
 
+class CephAdminEndpointProviderError(ValueError):
+    """Raised when a Ceph Admin workflow targets a non-Ceph endpoint."""
+
+
+class CephAdminEndpointUnavailableError(ValueError):
+    """Raised when the dedicated Ceph Admin identity is not configured for use."""
+
+
 class CephAdminEndpointService:
     """Ceph Admin endpoint catalogue and availability orchestration."""
 
     def __init__(self, db: Session):
         self.db = db
         self.tags = TagsService(db)
+
+    def get_configured_endpoint(self, endpoint_id: int) -> StorageEndpoint:
+        endpoint = (
+            self.db.query(StorageEndpoint)
+            .filter(StorageEndpoint.id == endpoint_id)
+            .first()
+        )
+        if endpoint is None:
+            raise StorageEndpointNotFoundError("Storage endpoint not found")
+        if endpoint.provider != StorageProvider.CEPH.value:
+            raise CephAdminEndpointProviderError("Storage endpoint is not a Ceph provider")
+        configuration_error = validate_ceph_admin_service_configuration(endpoint)
+        if configuration_error:
+            raise CephAdminEndpointUnavailableError(configuration_error)
+        return endpoint
 
     def list_endpoints(self) -> list[CephAdminEndpoint]:
         endpoints = (

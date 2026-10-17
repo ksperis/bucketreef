@@ -5,13 +5,16 @@ from __future__ import annotations
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.db import StorageEndpoint, StorageProvider, User, is_admin_ui_role
+from app.core.domain_errors import StorageEndpointNotFoundError
+from app.db import StorageEndpoint, User, is_admin_ui_role
 from app.models.account_capabilities import AccountCapabilities
 from app.services import app_settings_service, effective_access_service
-from app.services.ceph_admin_service_identity import (
-    validate_ceph_admin_service_configuration,
-    validate_ceph_admin_service_identity,
+from app.services.ceph_admin_endpoint_service import (
+    CephAdminEndpointProviderError,
+    CephAdminEndpointService,
+    CephAdminEndpointUnavailableError,
 )
+from app.services.ceph_admin_service_identity import validate_ceph_admin_service_identity
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 
@@ -54,15 +57,14 @@ def resolve_ceph_admin_browser_context(
     if not is_admin_ui_role(actor.role) or not effective.can_access_ceph_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for Ceph Admin browser workspace")
 
-    endpoint = db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
-    if not endpoint:
+    try:
+        endpoint = CephAdminEndpointService(db).get_configured_endpoint(endpoint_id)
+    except StorageEndpointNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
-    if endpoint.provider != StorageProvider.CEPH.value:
+    except CephAdminEndpointProviderError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
-
-    configuration_error = validate_ceph_admin_service_configuration(endpoint)
-    if configuration_error:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=configuration_error)
+    except CephAdminEndpointUnavailableError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
     identity_validation_error = validate_ceph_admin_service_identity(endpoint)
     if identity_validation_error:
@@ -72,12 +74,7 @@ def resolve_ceph_admin_browser_context(
 def resolve_default_endpoint(db: Session) -> StorageEndpoint:
     service = get_storage_endpoints_service(db)
     service.ensure_default_endpoint()
-    endpoint = (
-        db.query(StorageEndpoint)
-        .filter(StorageEndpoint.is_default.is_(True))
-        .order_by(StorageEndpoint.id.asc())
-        .first()
-    )
+    endpoint = service.get_default_endpoint_record()
     if not endpoint:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
