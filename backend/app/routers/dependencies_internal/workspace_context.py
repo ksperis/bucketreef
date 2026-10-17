@@ -7,13 +7,22 @@ from typing import Optional
 from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.domain_errors import S3AccountNotFoundError
 from app.db import S3Account, User, UserS3Account
 from app.models.access_context import EffectiveAccountLink
 from app.services import effective_access_service
 from app.services.s3_accounts_service import get_s3_accounts_service
+from app.utils.request_paths import path_matches_prefix
 
-from .auth_session import settings
+
+settings = get_settings()
+
+
+def browser_workspace_header(request: Optional[Request]) -> str:
+    if not request:
+        return ""
+    return (request.headers.get("X-S3-Workspace") or "").strip().lower()
 
 
 def resolve_workspace_surface(request: Optional[Request]) -> str:
@@ -21,8 +30,8 @@ def resolve_workspace_surface(request: Optional[Request]) -> str:
         return "manager"
     path = str(request.url.path)
     browser_prefix = f"{settings.api_v1_prefix}/browser"
-    if path.startswith(browser_prefix):
-        if (request.headers.get("X-S3-Workspace") or "").strip().lower() == "manager-browser":
+    if path_matches_prefix(path, browser_prefix):
+        if browser_workspace_header(request) == "manager-browser":
             return "manager-browser"
         return "browser"
     return "manager"

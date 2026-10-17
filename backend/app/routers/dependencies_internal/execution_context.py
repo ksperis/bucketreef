@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.domain_errors import S3ConnectionNotFoundError, S3UserNotFoundError
 from app.models.access_context import EffectiveAccountLink, ManagerActor
@@ -27,11 +28,15 @@ from app.utils.s3_endpoint import (
     resolve_s3_endpoint,
     validate_user_supplied_s3_endpoint,
 )
+from app.utils.request_paths import path_matches_prefix
 
-from .auth_session import get_current_actor, settings
+from .auth_session import get_current_actor
 from .ceph_admin_context import resolve_ceph_admin_browser_context, resolve_default_endpoint
 from .portal_access import is_portal_browser_request, resolve_portal_browser_context
 from .workspace_context import resolve_account_by_id, resolve_user_account_link, resolve_workspace_surface
+
+
+settings = get_settings()
 
 def _parse_execution_context_selector(
     context_ref: Optional[str],
@@ -279,7 +284,10 @@ def get_s3_execution_context(
     else:
         # UI users are bound to the endpoint configured on the selected account.
         requested_endpoint = None
-    is_storage_ops_surface = bool(request and str(request.url.path).startswith(f"{settings.api_v1_prefix}/storage-ops"))
+    is_storage_ops_surface = bool(
+        request
+        and path_matches_prefix(str(request.url.path), f"{settings.api_v1_prefix}/storage-ops")
+    )
     if isinstance(actor, User):
         if ceph_admin_endpoint_id is not None:
             if surface == "manager-browser":

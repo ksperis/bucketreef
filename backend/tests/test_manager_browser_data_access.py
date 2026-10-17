@@ -28,6 +28,7 @@ from app.routers.dependencies_internal.feature_gates import (
     require_browser_enabled,
     require_browser_workspace_surface,
 )
+from app.routers.dependencies_internal.workspace_context import resolve_workspace_surface
 from app.routers.manager import context as manager_context_router
 from app.services import app_settings_service
 from tests.s3_account_factory import make_s3_account
@@ -56,6 +57,11 @@ def _user(email: str) -> User:
         is_active=True,
         role=UserRole.UI_USER.value,
     )
+
+
+def test_workspace_surface_requires_the_canonical_browser_route_prefix():
+    assert resolve_workspace_surface(_request("/api/browser/buckets/search")) == "manager-browser"
+    assert resolve_workspace_surface(_request("/api/browser-legacy/buckets/search")) == "manager"
 
 
 def test_account_requires_admin_and_permission_on_same_direct_link(db_session):
