@@ -20,11 +20,11 @@ from app.routers.ceph_admin.account_common import (
     extract_account_bucket_list,
     load_account_payload,
 )
-from app.routers.ceph_admin.account_listing_cache import invalidate_accounts_listing_cache
 from app.routers.ceph_admin.audit import record_ceph_admin_action
 from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
 from app.services.app_settings_service import load_app_settings
+from app.services.ceph_admin_identity_listing_cache import invalidate_accounts_listing_cache
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.rgw_identifiers import generate_rgw_account_id

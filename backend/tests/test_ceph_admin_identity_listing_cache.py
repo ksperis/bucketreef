@@ -7,9 +7,17 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.routers.ceph_admin import account_listing_cache, user_listing_cache
 from app.services import ceph_admin_identity_listing_cache
-from app.services.ceph_admin_identity_listing_cache import EndpointListCacheKey, EndpointListingCache
+from app.services.ceph_admin_identity_listing_cache import (
+    EndpointListCacheKey,
+    EndpointListingCache,
+    get_cached_accounts_listing,
+    get_cached_rgw_accounts_payload,
+    get_cached_rgw_users_payload,
+    get_cached_users_listing,
+    invalidate_accounts_listing_cache,
+    invalidate_users_listing_cache,
+)
 from app.services.listing_progress import ListingCancelled
 from app.services.rgw_admin import RGWAdminError
 
@@ -18,37 +26,27 @@ from app.services.rgw_admin import RGWAdminError
 def cache_api(request):
     if request.param == "accounts":
         api = SimpleNamespace(
-            payload=account_listing_cache.get_cached_rgw_accounts_payload,
-            listing=account_listing_cache.get_cached_accounts_listing,
-            invalidate=account_listing_cache.invalidate_accounts_listing_cache,
+            payload=get_cached_rgw_accounts_payload,
+            listing=get_cached_accounts_listing,
+            invalidate=invalidate_accounts_listing_cache,
         )
     else:
         api = SimpleNamespace(
-            payload=user_listing_cache.get_cached_rgw_users_payload,
-            listing=user_listing_cache.get_cached_users_listing,
-            invalidate=user_listing_cache.invalidate_users_listing_cache,
+            payload=get_cached_rgw_users_payload,
+            listing=get_cached_users_listing,
+            invalidate=invalidate_users_listing_cache,
         )
     api.invalidate()
     yield api
     api.invalidate()
 
 
-def _context(builder, endpoint_id=17):
-    return SimpleNamespace(
-        endpoint=SimpleNamespace(id=endpoint_id),
-        rgw_admin=SimpleNamespace(
-            list_accounts=lambda include_details=False: builder(),
-            list_users=builder,
-        ),
-    )
-
-
 def _read(api, layer, builder, endpoint_id=17):
     if layer == "payload":
-        return api.payload(_context(builder, endpoint_id))
+        return api.payload(endpoint_id, builder)
     key = EndpointListCacheKey(endpoint_id, None, "name", "asc")
     if layer == "combined":
-        return api.listing(key, lambda: api.payload(_context(builder, endpoint_id)))
+        return api.listing(key, lambda: api.payload(endpoint_id, builder))
     return api.listing(key, builder)
 
 
@@ -106,17 +104,14 @@ def test_account_payload_does_not_retry_internal_type_error_without_details():
             raise TypeError("internal account decoding failure")
         return ["unexpected-detailed-fallback"]
 
-    account_listing_cache.invalidate_accounts_listing_cache()
+    invalidate_accounts_listing_cache()
     try:
-        ctx = SimpleNamespace(
-            endpoint=SimpleNamespace(id=17), rgw_admin=SimpleNamespace(list_accounts=list_accounts),
-        )
         with pytest.raises(TypeError, match="internal account decoding failure"):
-            account_listing_cache.get_cached_rgw_accounts_payload(ctx)
+            get_cached_rgw_accounts_payload(17, lambda: list_accounts(include_details=False))
         assert calls == [False]
-        assert account_listing_cache.get_cached_rgw_accounts_payload(_context(lambda: ["recovered"])) == ["recovered"]
+        assert get_cached_rgw_accounts_payload(17, lambda: ["recovered"]) == ["recovered"]
     finally:
-        account_listing_cache.invalidate_accounts_listing_cache()
+        invalidate_accounts_listing_cache()
 
 
 @pytest.mark.parametrize("layer", ["payload", "listing", "combined"])
@@ -212,13 +207,13 @@ def test_cache_expiration_lru_and_pending_state_lifecycle(monkeypatch):
 
 
 def test_account_and_user_caches_remain_separate():
-    account_listing_cache.invalidate_accounts_listing_cache()
-    user_listing_cache.invalidate_users_listing_cache()
+    invalidate_accounts_listing_cache()
+    invalidate_users_listing_cache()
     try:
-        assert account_listing_cache.get_cached_rgw_accounts_payload(_context(lambda: ["account"])) == ["account"]
-        assert user_listing_cache.get_cached_rgw_users_payload(_context(lambda: ["user"])) == ["user"]
-        account_listing_cache.invalidate_accounts_listing_cache(17)
-        assert user_listing_cache.get_cached_rgw_users_payload(_context(lambda: ["unexpected"])) == ["user"]
+        assert get_cached_rgw_accounts_payload(17, lambda: ["account"]) == ["account"]
+        assert get_cached_rgw_users_payload(17, lambda: ["user"]) == ["user"]
+        invalidate_accounts_listing_cache(17)
+        assert get_cached_rgw_users_payload(17, lambda: ["unexpected"]) == ["user"]
     finally:
-        account_listing_cache.invalidate_accounts_listing_cache()
-        user_listing_cache.invalidate_users_listing_cache()
+        invalidate_accounts_listing_cache()
+        invalidate_users_listing_cache()

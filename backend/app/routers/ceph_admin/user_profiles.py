@@ -29,7 +29,7 @@ from app.routers.ceph_admin.user_common import (
     serialize_access_keys,
     split_tenant_uid,
 )
-from app.routers.ceph_admin.user_listing_cache import invalidate_users_listing_cache
+from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
