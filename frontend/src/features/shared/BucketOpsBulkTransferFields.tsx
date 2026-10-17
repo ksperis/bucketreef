@@ -76,6 +76,31 @@ export default function BucketOpsBulkTransferFields({
       .filter((feature) => clipboard.features[feature])
       .map((feature) => BULK_COPY_FEATURE_LABELS[feature]);
   }, [clipboard]);
+  const clipboardSummary = useMemo(() => {
+    if (!clipboard) return null;
+    const endpoint =
+      clipboard.sourceEndpointName ??
+      `${scopeDisplayName} #${clipboard.sourceEndpointId}`;
+    const singular = clipboard.buckets.length === 1;
+    if (clipboardCopiedAtLabel) {
+      return surfaceText(
+        singular
+          ? "Clipboard contains configuration from {count} bucket on {endpoint} (copied {date})."
+          : "Clipboard contains configuration from {count} buckets on {endpoint} (copied {date}).",
+        {
+          count: clipboard.buckets.length,
+          endpoint,
+          date: clipboardCopiedAtLabel,
+        },
+      );
+    }
+    return surfaceText(
+      singular
+        ? "Clipboard contains configuration from {count} bucket on {endpoint}."
+        : "Clipboard contains configuration from {count} buckets on {endpoint}.",
+      { count: clipboard.buckets.length, endpoint },
+    );
+  }, [clipboard, clipboardCopiedAtLabel, scopeDisplayName, surfaceText]);
 
   return (
     <>
@@ -186,24 +211,13 @@ export default function BucketOpsBulkTransferFields({
           {clipboard && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/40">
               <p className="ui-caption text-slate-600 dark:text-slate-300">
-                {surfaceText(
-                  clipboard.buckets.length === 1
-                    ? "Clipboard contains configuration from {count} bucket on"
-                    : "Clipboard contains configuration from {count} buckets on",
-                  { count: clipboard.buckets.length },
-                )}{" "}
-                <span className="font-semibold">
-                  {clipboard.sourceEndpointName ??
-                    `${scopeDisplayName} #${clipboard.sourceEndpointId}`}
-                </span>
-                {clipboardCopiedAtLabel
-                  ? surfaceText(" (copied {date})", { date: clipboardCopiedAtLabel })
-                  : ""}
-                .
+                {clipboardSummary}
               </p>
               {clipboardFeatureLabels.length > 0 && (
                 <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                  {surfaceText("Features:")}{clipboardFeatureLabels.join(", ")}.
+                  {surfaceText("Features: {features}.", {
+                    features: clipboardFeatureLabels.join(", "),
+                  })}
                 </p>
               )}
             </div>

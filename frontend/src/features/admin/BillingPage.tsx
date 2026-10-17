@@ -682,7 +682,12 @@ export default function BillingPage() {
             {!detailLoading && detail ? (
               <div className="mt-4 space-y-4">
                 {hasPartialBillingSources(detail.coverage) ? (
-                  <PageBanner tone="warning">{adminText("This subject has partial source coverage:")}{formatCoverageBreakdown(detail.coverage, adminText)}.</PageBanner>
+                  <PageBanner tone="warning">
+                    {adminText(
+                      "This subject has partial source coverage: {coverage}.",
+                      { coverage: formatCoverageBreakdown(detail.coverage, adminText) },
+                    )}
+                  </PageBanner>
                 ) : null}
                 {!detail.cost ? (
                   <PageBanner tone="warning">{adminText("No rate card matched this subject, so cost is unavailable.")}</PageBanner>

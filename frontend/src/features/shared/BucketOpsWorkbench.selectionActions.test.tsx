@@ -572,8 +572,8 @@ describe("BucketOpsWorkbench selection actions", () => {
 
     expect(await within(dialog).findByText("Copied Versioning from 1 bucket(s)."))
       .toBeInTheDocument();
-    expect(within(dialog).getByText(/Clipboard currently contains config from/)).toHaveTextContent(
-      "Clipboard currently contains config from 1 bucket on Archive",
+    expect(within(dialog).getByText(/Clipboard contains configuration from 1 bucket on/)).toHaveTextContent(
+      "Clipboard contains configuration from 1 bucket on Archive",
     );
   });
 

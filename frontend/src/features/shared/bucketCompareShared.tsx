@@ -140,7 +140,7 @@ export function BucketCompareManualMappingEditor({
           <UiTextarea
             label={surfaceText("Raw bucket mapping")}
             hint={<>{surfaceText("Accepted formats per line:")}<code>{surfaceText("source =&gt; target")}</code>, <code>{surfaceText("source -&gt; target")}</code>, <code>{surfaceText("source = target")}</code>.</>}
-            error={parsedRawMapping.invalidLines.length > 0 ? "Some mapping lines could not be parsed." : undefined}
+            error={parsedRawMapping.invalidLines.length > 0 ? surfaceText("Some mapping lines could not be parsed.") : undefined}
             value={rawMappingText}
             onChange={(event) => onRawMappingTextChange(event.target.value)}
             disabled={disabled}
@@ -149,7 +149,13 @@ export function BucketCompareManualMappingEditor({
             className="font-mono"
           />
           <p className="ui-caption text-slate-500 dark:text-slate-400">
-            {surfaceText("Parsed entries:")}{parsedRawMapping.mapping.size}{surfaceText(". Invalid lines:")}{parsedRawMapping.invalidLines.length}.
+            {surfaceText(
+              "Parsed entries: {parsed}. Invalid lines: {invalid}.",
+              {
+                parsed: parsedRawMapping.mapping.size,
+                invalid: parsedRawMapping.invalidLines.length,
+              },
+            )}
           </p>
           {parsedRawMapping.invalidLines.length > 0 && (
             <pre className="whitespace-pre-wrap break-words rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-mono text-[11px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
@@ -188,7 +194,9 @@ export function BucketCompareManualMappingEditor({
                     )}
                     {!rawTarget && !manualMapping[sourceBucket] && effectiveTarget && (
                       <p className="ui-caption text-slate-500 dark:text-slate-400">
-                        {surfaceText("Fallback 1:1 applied:")}{effectiveTarget}
+                        {surfaceText("Fallback 1:1 applied: {target}", {
+                          target: effectiveTarget,
+                        })}
                       </p>
                     )}
                   </td>

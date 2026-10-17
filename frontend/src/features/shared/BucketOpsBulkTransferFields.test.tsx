@@ -111,7 +111,7 @@ describe("BucketOpsBulkTransferFields", () => {
     );
 
     expect(
-      screen.getByText(/Clipboard currently contains config from/),
+      screen.getByText(/Clipboard contains configuration from 2 buckets on Primary/),
     ).toBeInTheDocument();
     expect(screen.getByText("Features: Versioning.")).toBeInTheDocument();
 

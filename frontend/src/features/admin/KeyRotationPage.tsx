@@ -495,17 +495,23 @@ export default function KeyRotationPage() {
               countLabel={`${result.results.length} detailed result${result.results.length === 1 ? "" : "s"}`}
             />
             <div className="my-3 flex flex-wrap gap-2">
-              <UiBadge>{adminText("Total:")}{result.summary.total}</UiBadge>
+              <UiBadge>{adminText("Total: {count}", { count: result.summary.total })}</UiBadge>
               <UiBadge tone="success">
-                {adminText("Rotated:")}{result.summary.rotated}
+                {adminText("Rotated: {count}", { count: result.summary.rotated })}
               </UiBadge>
-              <UiBadge tone="danger">{adminText("Failed:")}{result.summary.failed}</UiBadge>
-              <UiBadge>{adminText("Skipped:")}{result.summary.skipped}</UiBadge>
+              <UiBadge tone="danger">
+                {adminText("Failed: {count}", { count: result.summary.failed })}
+              </UiBadge>
+              <UiBadge>{adminText("Skipped: {count}", { count: result.summary.skipped })}</UiBadge>
               <UiBadge>
-                {adminText("Old keys deleted:")}{result.summary.deleted_old_keys}
+                {adminText("Old keys deleted: {count}", {
+                  count: result.summary.deleted_old_keys,
+                })}
               </UiBadge>
               <UiBadge>
-                {adminText("Old keys disabled:")}{result.summary.disabled_old_keys}
+                {adminText("Old keys disabled: {count}", {
+                  count: result.summary.disabled_old_keys,
+                })}
               </UiBadge>
             </div>
             <DataTableShell

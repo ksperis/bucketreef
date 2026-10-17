@@ -111,7 +111,10 @@ function BulkPreviewDetails({
                   {item.error ? "Error" : item.changed ? "Change" : "No change"}
                 </span>
                 <span className="ui-caption text-slate-500 dark:text-slate-400">
-                  {surfaceText("Changed sections")}{changedSections}/{sections.length}
+                  {surfaceText("Changed sections: {changed}/{total}", {
+                    changed: changedSections,
+                    total: sections.length,
+                  })}
                 </span>
               </div>
             </summary>
@@ -264,8 +267,10 @@ export default function BucketOpsBulkExecutionPanel({
               {surfaceText("Export changes")}</UiButton>
             {previewReady && (
               <p className="ui-caption text-slate-500 dark:text-slate-400">
-                {surfaceText("Changes:")}{previewStats.changed} {surfaceText("/ Unchanged:")}{" "}
-                {previewStats.unchanged} {surfaceText("/ Errors:")}{previewStats.errors}
+                {surfaceText(
+                  "Changes: {changed} / Unchanged: {unchanged} / Errors: {errors}",
+                  previewStats,
+                )}
               </p>
             )}
           </>
