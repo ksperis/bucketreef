@@ -89,14 +89,14 @@ vi.mock("recharts", () => {
 
 vi.mock("../browser/BrowserEmbed", () => ({
   default: (props: {
-    accountIdForApi?: string | number | null;
+    contextIdForApi?: string | null;
     workspaceSurface?: string;
     onSelectedBucketNameChange?: (bucketName: string) => void;
   }) => (
     <button
       type="button"
       data-testid="browser-embed"
-      data-account-id={String(props.accountIdForApi ?? "")}
+      data-account-id={String(props.contextIdForApi ?? "")}
       data-workspace-surface={props.workspaceSurface}
       onClick={() => props.onSelectedBucketNameChange?.("bucket-a")}
     >

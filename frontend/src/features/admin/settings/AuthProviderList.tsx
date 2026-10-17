@@ -103,16 +103,16 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
           disabled={isDemo || busy}
           onClick={() => navigate(`${path}/new`)}
         >
-          {adminText("Add")}{name} {adminText("provider")}</SettingsButton>
+          {adminText("Add {kind} provider", { kind: name })}</SettingsButton>
       </div>
       {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
       {message && <p role="status">{message}</p>}
       {loading ? (
-        <p role="status">{adminText("Loading")}{name} {adminText("providers...")}</p>
+        <p role="status">{adminText("Loading {kind} providers...", { kind: name })}</p>
       ) : (
         providers.length === 0 && (
           <p className="py-3 settings-readonly">
-            {adminText("No")}{name} {adminText("providers configured.")}</p>
+            {adminText("No {kind} providers configured.", { kind: name })}</p>
         )
       )}
       {providers.map((provider) => (
