@@ -3,7 +3,17 @@
 
 import json
 
+from app.models.app_settings import AppSettings
 from tests_browser_e2e import serve
+
+
+def test_app_settings_payload_uses_current_schema():
+    payload = serve._build_app_settings_payload()
+
+    settings = AppSettings.model_validate_json(payload)
+
+    assert settings.general.browser_enabled is True
+    assert settings.general.manager_enabled is False
 
 
 def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
