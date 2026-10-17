@@ -11,10 +11,11 @@ _PROTECTED_ACCOUNT_PARAMS = {
 }
 
 
-def validate_rgw_account_extra_params(value: dict[str, Any] | None) -> None:
+def validate_rgw_account_extra_params(value: dict[str, Any] | None) -> dict[str, Any] | None:
     """Keep identity and dedicated account fields out of the raw RGW parameter map."""
     if isinstance(value, dict) and any(
         str(key).strip().lower().replace("_", "-") in _PROTECTED_ACCOUNT_PARAMS
         for key in value
     ):
         raise ValueError("RGW account identity and dedicated fields cannot be overridden")
+    return value
