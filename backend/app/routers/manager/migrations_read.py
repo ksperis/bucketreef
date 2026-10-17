@@ -12,19 +12,20 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
 from app.core.domain_errors import BucketMigrationNotFoundError
-from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
 from app.models.access_context import BucketMigrationAccessScope
 from app.models.bucket_migration import (
     BucketMigrationDetail,
     BucketMigrationListResponse,
 )
 from app.routers.dependencies import get_current_bucket_migration_scope
-from app.routers.manager.migrations_common import _build_service
+from app.services.bucket_migration.runtime import (
+    build_bucket_migration_service,
+    migration_stream_signature,
+)
 from app.services.mappers.bucket_migration import (
     bucket_migration_to_detail as _migration_to_detail,
     bucket_migration_to_view as _migration_to_view,
@@ -54,30 +55,6 @@ def _is_final_migration_status(status_value: str) -> bool:
     return status_value in {"completed", "completed_with_errors", "failed", "canceled", "rolled_back"}
 
 
-def _compute_migration_stream_signature(
-    db: Session,
-    migration_id: int,
-    *,
-    migration: Optional[BucketMigration] = None,
-) -> tuple[str, str, int]:
-    max_item_updated_at = (
-        db.query(func.max(BucketMigrationItem.updated_at))
-        .filter(BucketMigrationItem.migration_id == migration_id)
-        .scalar()
-    )
-    max_event_id = (
-        db.query(func.max(BucketMigrationEvent.id))
-        .filter(BucketMigrationEvent.migration_id == migration_id)
-        .scalar()
-    )
-    migration_updated_at = migration.updated_at if migration is not None else None
-    return (
-        migration_updated_at.isoformat() if migration_updated_at else "",
-        max_item_updated_at.isoformat() if max_item_updated_at else "",
-        int(max_event_id or 0),
-    )
-
-
 @router.get("", response_model=BucketMigrationListResponse)
 def list_migrations(
     limit: int = Query(default=100, ge=1, le=500),
@@ -85,7 +62,7 @@ def list_migrations(
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
 ) -> BucketMigrationListResponse:
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     migrations = service.list_migrations(limit=limit, context_id=context_id)
     return BucketMigrationListResponse(items=[_migration_to_view(migration) for migration in migrations])
 
@@ -97,7 +74,7 @@ def get_migration(
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
 ) -> BucketMigrationDetail:
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.get_migration(migration_id)
     except BucketMigrationNotFoundError as exc:
@@ -115,7 +92,7 @@ async def stream_migration(
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
 ) -> StreamingResponse:
     with SessionLocal() as db:
-        service = _build_service(db, scope)
+        service = build_bucket_migration_service(db, scope)
         try:
             service.get_migration(migration_id)
         except BucketMigrationNotFoundError as exc:
@@ -132,9 +109,9 @@ async def stream_migration(
 
             try:
                 with SessionLocal() as db:
-                    service = _build_service(db, scope)
+                    service = build_bucket_migration_service(db, scope)
                     migration = service.get_migration(migration_id)
-                    signature = _compute_migration_stream_signature(db, migration_id, migration=migration)
+                    signature = migration_stream_signature(db, migration_id, migration=migration)
                     if signature != last_signature:
                         items = service.list_migration_items(migration.id)
                         recent_events = service.list_recent_migration_events(migration.id, limit=events_limit)

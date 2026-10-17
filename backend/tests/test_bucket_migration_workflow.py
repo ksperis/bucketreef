@@ -855,7 +855,7 @@ def test_precheck_api_returns_202_and_result_survives_reopen(
         allowed_context_ids={migration.source_context_id, migration.target_context_id},
     )
     monkeypatch.setattr(
-        "app.routers.manager.migrations_definition._worker_wake_up", lambda: None
+        "app.routers.manager.migrations_definition.wake_bucket_migration_worker", lambda: None
     )
     try:
         response = client.post(

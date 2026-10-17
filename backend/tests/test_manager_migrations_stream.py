@@ -173,7 +173,7 @@ def test_manager_migration_stream_hides_unexpected_error_details(
     def fail_signature(*_args, **_kwargs):
         raise failure
 
-    monkeypatch.setattr(migrations_router, "_compute_migration_stream_signature", fail_signature)
+    monkeypatch.setattr(migrations_router, "migration_stream_signature", fail_signature)
 
     async def _run() -> str:
         request = _request_with_disconnect_after(calls_before_disconnect=100)

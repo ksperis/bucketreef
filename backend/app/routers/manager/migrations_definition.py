@@ -15,12 +15,15 @@ from app.models.bucket_migration import (
     BucketMigrationPrecheckRequest,
     BucketMigrationUpdateRequest,
 )
-from app.routers.manager.migrations_common import _build_service, _worker_wake_up
 from app.routers.dependencies import (
     get_audit_service,
     get_current_bucket_migration_scope,
 )
 from app.services.audit_service import AuditService
+from app.services.bucket_migration.runtime import (
+    build_bucket_migration_service,
+    wake_bucket_migration_worker,
+)
 from app.services.mappers.bucket_migration import (
     bucket_migration_to_detail as _migration_to_detail,
 )
@@ -42,7 +45,7 @@ def delete_migration(
     audit: AuditService = Depends(get_audit_service),
 ) -> Response:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         service.delete_migration(migration_id)
     except ValueError as exc:
@@ -68,7 +71,7 @@ def create_migration(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationDetail:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.create_migration(payload, current_user)
     except PermissionError as exc:
@@ -109,7 +112,7 @@ def update_migration(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationDetail:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.update_draft_migration(migration_id, payload)
     except PermissionError as exc:
@@ -156,12 +159,12 @@ def run_migration_precheck(
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationDetail:
     current_user = scope.user
-    service = _build_service(db, scope)
+    service = build_bucket_migration_service(db, scope)
     try:
         migration = service.request_precheck(
             migration_id, active_checks=payload.active_checks
         )
-        _worker_wake_up()
+        wake_bucket_migration_worker()
     except PermissionError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
