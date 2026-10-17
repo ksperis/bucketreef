@@ -246,6 +246,50 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.queryByText("No accounts yet.")).not.toBeInTheDocument();
   });
 
+  it("shows a tenant qualifier beside the account name only for non-default tenants", async () => {
+    listS3AccountsMock.mockResolvedValueOnce({
+      items: [
+        {
+          id: 1,
+          name: "default-account",
+          tags: [],
+          rgw_account_id: "RGW000000000000001",
+          rgw_tenant: "",
+          storage_endpoint_id: 10,
+          storage_endpoint_name: "ceph-main",
+          storage_endpoint_url: "https://ceph.example.test",
+          user_links: [],
+          group_links: [],
+        },
+        {
+          id: 2,
+          name: "tenant-account",
+          tags: [],
+          rgw_account_id: "RGW000000000000002",
+          rgw_tenant: "customer01",
+          storage_endpoint_id: 10,
+          storage_endpoint_name: "ceph-main",
+          storage_endpoint_url: "https://ceph.example.test",
+          user_links: [],
+          group_links: [],
+        },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+
+    const table = await screen.findByRole("table");
+    expect(within(table).queryByRole("columnheader", { name: "Ceph tenant" })).not.toBeInTheDocument();
+    expect(within(table).queryByText("tenant: Default")).not.toBeInTheDocument();
+    const tenantLabel = within(table).getByText("tenant: customer01");
+    expect(tenantLabel).toHaveClass("ui-caption");
+    expect(tenantLabel.closest("td")).toContainElement(within(table).getByText("tenant-account"));
+  });
+
   it("presents account identity, usage gauges, and quotas in consistent General sections", async () => {
     const account = await getS3AccountMock();
     getS3AccountMock.mockResolvedValue({ ...account, rgw_tenant: "customer01", quota_max_size_gb: 2, quota_max_objects: 200 });
