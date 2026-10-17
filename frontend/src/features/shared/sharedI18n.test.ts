@@ -6,7 +6,6 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const sharedSourceDirectory = dirname(fileURLToPath(import.meta.url));
-const featuresDirectory = dirname(sharedSourceDirectory);
 
 const labelFiles = new Set([
   "bucketActionCatalog.ts",
@@ -146,24 +145,15 @@ function readCatalog(base: string, locale: "fr" | "de" | "zh"): Record<string, s
 }
 
 const requiredKeys = requiredSharedKeys();
-const fallbackBases = [
-  join(featuresDirectory, "manager", "manager"),
-  join(featuresDirectory, "browser", "browser"),
-  join(featuresDirectory, "cephAdmin", "cephAdmin"),
-  join(featuresDirectory, "admin", "admin"),
-];
 
 describe("Shared i18n", () => {
   it("covers every shared translation key in every locale", () => {
     for (const locale of ["fr", "de", "zh"] as const) {
-      const catalogs = [
-        readCatalog(join(sharedSourceDirectory, "shared"), locale),
-        ...fallbackBases.map((base) => readCatalog(base, locale)),
-      ];
+      const catalog = readCatalog(join(sharedSourceDirectory, "shared"), locale);
       const missing = requiredKeys
         .filter((key) => /[A-Za-z]/.test(key))
         .filter((key) => !technicalIdenticalKeys.has(key))
-        .filter((key) => !catalogs.some((catalog) => Object.hasOwn(catalog, key)));
+        .filter((key) => !Object.hasOwn(catalog, key));
 
       expect(missing, `${locale} contains untranslated shared copy`).toEqual([]);
     }

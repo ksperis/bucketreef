@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { bucketReefI18nCatalogPlugin } from "./scripts/i18nCatalogPlugin";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -16,7 +17,7 @@ export default defineConfig(({ mode }) => {
   const shouldProxyApi = apiUrl.startsWith("/");
 
   return {
-    plugins: [react(), ...(demo ? [{
+    plugins: [bucketReefI18nCatalogPlugin(), react(), ...(demo ? [{
       name: "bucketreef-static-demo",
       generateBundle() {
         this.emitFile({ type: "asset", fileName: "demo-release.json", source: JSON.stringify({

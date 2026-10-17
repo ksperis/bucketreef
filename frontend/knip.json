@@ -15,5 +15,5 @@
       "playwright.errors.config.ts"
     ]
   },
-  "ignoreDependencies": ["react-router-dom-real"]
+  "ignoreDependencies": ["react-router-dom-real", "bucketreef-i18n"]
 }
