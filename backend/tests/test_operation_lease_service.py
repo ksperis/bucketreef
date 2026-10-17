@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+
 from app.db import BackendOperationLease
 from app.services.operation_lease_service import OperationLeaseService
 from app.utils.time import utcnow
@@ -54,3 +57,38 @@ def test_operation_lease_expired_row_can_be_taken(db_session):
 
     assert acquired is not None
     assert service.current_owner("billing:daily:2026-07-03") == "backend-b"
+
+
+def test_operation_lease_hold_releases_after_success(db_session):
+    service = OperationLeaseService(db_session)
+
+    with service.hold("usage-history:collect", ttl_seconds=60, owner="backend-a") as lease:
+        assert lease is not None
+        assert service.current_owner("usage-history:collect") == "backend-a"
+
+    assert service.current_owner("usage-history:collect") is None
+
+
+def test_operation_lease_hold_recovers_failed_transaction_before_release(db_session):
+    service = OperationLeaseService(db_session)
+    operation_name = "healthchecks:failed-transaction"
+
+    with pytest.raises(IntegrityError):
+        with service.hold(operation_name, ttl_seconds=60, owner="backend-a") as lease:
+            assert lease is not None
+            db_session.add(
+                BackendOperationLease(
+                    operation_name=operation_name,
+                    lease_owner="duplicate",
+                    lease_until=utcnow() + timedelta(seconds=60),
+                )
+            )
+            db_session.flush()
+
+    assert service.current_owner(operation_name) is None
+    assert (
+        db_session.query(BackendOperationLease)
+        .filter(BackendOperationLease.operation_name == operation_name)
+        .count()
+        == 1
+    )

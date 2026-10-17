@@ -30,19 +30,15 @@ def collect_daily(
     operation_name = billing_daily_operation_name(parsed.isoformat())
     if not load_app_settings().general.billing_enabled:
         return {"status": "skipped", "reason": "feature_disabled", "operation": operation_name}
-    lease_service = OperationLeaseService(db)
-    lease = lease_service.acquire(
+    with OperationLeaseService(db).hold(
         operation_name,
         ttl_seconds=billing_operation_lease_ttl_seconds(),
         lease_context={"source": "internal", "day": parsed.isoformat()},
-    )
-    if lease is None:
-        return {"status": "skipped", "reason": "already_running", "operation": operation_name}
-    collector = BillingCollector(db)
-    try:
-        return collector.collect_daily(parsed)
-    except ValueError as exc:
-        db.rollback()
-        raise_bad_request_from_value_error(exc)
-    finally:
-        lease_service.release(lease)
+    ) as lease:
+        if lease is None:
+            return {"status": "skipped", "reason": "already_running", "operation": operation_name}
+        collector = BillingCollector(db)
+        try:
+            return collector.collect_daily(parsed)
+        except ValueError as exc:
+            raise_bad_request_from_value_error(exc)

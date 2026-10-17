@@ -107,24 +107,20 @@ def collect_usage_history(
     db: Session = Depends(get_db),
 ) -> dict:
     _ensure_usage_history_enabled()
-    lease_service = OperationLeaseService(db)
-    lease = lease_service.acquire(
+    with OperationLeaseService(db).hold(
         USAGE_HISTORY_COLLECT_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
         lease_context={"source": "admin", "user_id": current_user.id},
-    )
-    if lease is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Usage history collection is already running.",
-        )
-    service = QuotaMonitoringService(db)
-    try:
-        result = service.run_monitor(include_quota_alerts=False, include_usage_history=True)
-    except ValueError as exc:
-        db.rollback()
-        raise_bad_request_from_value_error(exc)
-    finally:
-        lease_service.release(lease)
+    ) as lease:
+        if lease is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Usage history collection is already running.",
+            )
+        service = QuotaMonitoringService(db)
+        try:
+            result = service.run_monitor(include_quota_alerts=False, include_usage_history=True)
+        except ValueError as exc:
+            raise_bad_request_from_value_error(exc)
 
     return result

@@ -23,15 +23,11 @@ def collect_bucket_usage_stats(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    lease_service = OperationLeaseService(db)
-    lease = lease_service.acquire(
+    with OperationLeaseService(db).hold(
         BUCKET_USAGE_STATS_COLLECT_OPERATION,
         ttl_seconds=BUCKET_USAGE_STATS_LEASE_TTL_SECONDS,
         lease_context={"source": "internal"},
-    )
-    if lease is None:
-        return {"status": "skipped", "reason": "already_running", "operation": BUCKET_USAGE_STATS_COLLECT_OPERATION}
-    try:
+    ) as lease:
+        if lease is None:
+            return {"status": "skipped", "reason": "already_running", "operation": BUCKET_USAGE_STATS_COLLECT_OPERATION}
         return BucketUsageStatsCollectionService(db, SessionLocal).collect()
-    finally:
-        lease_service.release(lease)

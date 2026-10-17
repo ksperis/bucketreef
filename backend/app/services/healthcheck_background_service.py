@@ -24,22 +24,15 @@ def run_initial_healthchecks(*, endpoint_id: int | None = None) -> None:
         with SessionLocal() as db:
             if not load_app_settings().general.endpoint_status_enabled:
                 return
-            leases = OperationLeaseService(db)
-            lease = leases.acquire(
+            with OperationLeaseService(db).hold(
                 HEALTHCHECK_RUN_OPERATION,
                 ttl_seconds=default_operation_lease_ttl_seconds(),
                 lease_context={"source": "initial", "endpoint_id": endpoint_id},
-            )
-            if lease is None:
-                logger.info("Initial endpoint healthcheck deferred to the scheduler: checks already running")
-                return
-            try:
+            ) as lease:
+                if lease is None:
+                    logger.info("Initial endpoint healthcheck deferred to the scheduler: checks already running")
+                    return
                 HealthCheckService(db).run_checks(endpoint_id=endpoint_id)
-            except Exception:
-                db.rollback()
-                raise
-            finally:
-                leases.release(lease)
     except Exception as exc:
         # Saving settings or an endpoint has already succeeded. Keep the failure
         # observable without turning that successful write into a request error.

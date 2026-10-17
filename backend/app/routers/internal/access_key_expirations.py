@@ -22,19 +22,15 @@ def run_access_key_expirations(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
 ) -> dict:
-    lease_service = OperationLeaseService(db)
-    lease = lease_service.acquire(
+    with OperationLeaseService(db).hold(
         ACCESS_KEY_EXPIRATION_RUN_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
         lease_context={"source": "internal"},
-    )
-    if lease is None:
-        return {
-            "status": "skipped",
-            "reason": "already_running",
-            "operation": ACCESS_KEY_EXPIRATION_RUN_OPERATION,
-        }
-    try:
+    ) as lease:
+        if lease is None:
+            return {
+                "status": "skipped",
+                "reason": "already_running",
+                "operation": ACCESS_KEY_EXPIRATION_RUN_OPERATION,
+            }
         return AccessKeyExpirationService(db).run_due()
-    finally:
-        lease_service.release(lease)
