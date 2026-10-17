@@ -6,7 +6,6 @@ import client from "./client";
 
 export type CephAdminRgwAccessKey = {
   access_key: string;
-  secret_key?: string | null;
   status?: string | null;
   is_active?: boolean | null;
   created_at?: string | null;

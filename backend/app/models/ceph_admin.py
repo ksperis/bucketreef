@@ -223,7 +223,6 @@ class CephAdminRgwQuotaConfig(ApiModel):
 
 class CephAdminRgwAccessKey(ApiModel):
     access_key: str
-    secret_key: Optional[str] = None
     status: Optional[str] = None
     is_active: Optional[bool] = None
     created_at: Optional[datetime] = None

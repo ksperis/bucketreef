@@ -591,7 +591,7 @@ def test_detail_read_checks_account_before_fetching_keys():
     assert raised.value.status_code == 409
 
 
-def test_key_creation_checks_account_before_mutating_rgw():
+def test_key_creation_checks_account_before_mutating_rgw(db_session):
     class GuardedAdmin(FakeUsersAdmin):
         def create_access_key(self, uid, tenant=None):
             pytest.fail("A foreign user key must not be created")
@@ -599,7 +599,7 @@ def test_key_creation_checks_account_before_mutating_rgw():
     with pytest.raises(HTTPException) as raised:
         user_keys_router.create_rgw_user_key(
             "billing-user", expected_account_id="RGW88888888888888888",
-            ctx=_ctx(902, GuardedAdmin()),
+            ctx=_ctx(902, GuardedAdmin()), db=db_session,
         )
     assert raised.value.status_code == 409
 
