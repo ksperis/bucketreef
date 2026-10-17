@@ -20,8 +20,8 @@ from app.routers import dependencies
 from app.routers.storage_ops import buckets as storage_ops_router
 from app.services import storage_ops_bucket_listing_service as storage_ops_listing_service
 from app.services import storage_ops_bucket_filtering as storage_ops_filtering
+from app.services import storage_ops_context_service
 from app.services.bucket_listing_enrichment import _BucketEnricher
-from app.routers.storage_ops import summary as storage_ops_summary_router
 from app.services import app_settings_service, effective_access_service
 from app.services.connection_identity_service import ConnectionIdentityResolution
 from app.services.listing_progress import ListingProgressSnapshot
@@ -261,7 +261,7 @@ def test_storage_ops_summary_counts_authorized_accounts_connections_and_endpoint
             ),
         ]
 
-    monkeypatch.setattr(storage_ops_summary_router, "list_storage_ops_contexts", fake_list_storage_ops_contexts)
+    monkeypatch.setattr(storage_ops_context_service, "list_storage_ops_contexts", fake_list_storage_ops_contexts)
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
     try:
