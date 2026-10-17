@@ -165,6 +165,56 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.queryByText("Import or create standalone RGW users to expose them to managers.")).not.toBeInTheDocument();
   });
 
+  it("shows a tenant qualifier beside the RGW user name only for non-default tenants", async () => {
+    listS3UsersMock.mockResolvedValueOnce({
+      items: [
+        {
+          id: 5,
+          name: "default-user",
+          rgw_user_uid: "default-user",
+          rgw_tenant: "",
+          tags: [],
+          storage_endpoint_id: 10,
+          storage_endpoint_name: "ceph-main",
+          storage_endpoint_url: "https://ceph.example.test",
+          quota_max_size_gb: 1,
+          quota_max_objects: 100,
+          bucket_count: 0,
+        },
+        {
+          id: 6,
+          name: "tenant-user",
+          rgw_user_uid: "tenant-user-uid",
+          rgw_tenant: "customer01",
+          tags: [],
+          storage_endpoint_id: 10,
+          storage_endpoint_name: "ceph-main",
+          storage_endpoint_url: "https://ceph.example.test",
+          quota_max_size_gb: 1,
+          quota_max_objects: 100,
+          bucket_count: 0,
+        },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <S3UsersPage />
+      </MemoryRouter>
+    );
+
+    const table = await screen.findByRole("table");
+    expect(within(table).queryByRole("columnheader", { name: "Ceph tenant" })).not.toBeInTheDocument();
+    expect(within(table).queryByText("tenant: Default")).not.toBeInTheDocument();
+    const tenantLabel = within(table).getByText("tenant: customer01");
+    expect(tenantLabel).toHaveClass("ui-caption");
+    expect(within(tenantLabel.closest("td") as HTMLElement).getByText("tenant-user")).toBeInTheDocument();
+  });
+
   it("presents user identity, usage gauges, and quotas in consistent General sections", async () => {
     adminS3UserStatsMock.mockReturnValue({
       stats: {

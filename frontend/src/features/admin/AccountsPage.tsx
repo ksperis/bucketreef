@@ -352,12 +352,17 @@ export default function S3AccountsPage() {
       label: "Name",
       field: "name",
       primary: true,
-      cellClassName: "min-w-[240px] max-w-[360px]",
+      cellClassName: "min-w-[280px] max-w-[420px]",
       render: (account) => {
         const tagItems = buildUiTagItems(account.tags);
         return (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="min-w-0 flex-1 truncate">{account.name}</span>
+            <div className="flex min-w-0 flex-1 items-baseline gap-2">
+              <span className="min-w-0 truncate">{account.name}</span>
+              {account.rgw_tenant && (
+                <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">tenant: {account.rgw_tenant}</span>
+              )}
+            </div>
             {tagItems.length > 0 && (
               <UiTagBadgeList
                 items={tagItems}
@@ -375,19 +380,13 @@ export default function S3AccountsPage() {
       id: "rgw-id",
       label: "RGW ID",
       field: "rgw_account_id",
-      cellClassName: "min-w-[176px]",
+      cellClassName: "min-w-[190px]",
       render: (account) => account.rgw_account_id,
-    },
-    {
-      id: "tenant",
-      label: "Ceph tenant",
-      cellClassName: "min-w-[125px]",
-      render: (account) => account.rgw_tenant || "Default",
     },
     {
       id: "endpoint",
       label: "Endpoint",
-      cellClassName: "min-w-[160px]",
+      cellClassName: "min-w-[180px]",
       render: (account) => (
         <span title={account.storage_endpoint_url || undefined}>
           {account.storage_endpoint_name || "—"}
@@ -397,7 +396,7 @@ export default function S3AccountsPage() {
     {
       id: "associations",
       label: "UI Users / Groups",
-      cellClassName: "min-w-[180px] max-w-[240px] align-middle",
+      cellClassName: "min-w-[200px] max-w-[260px] align-middle",
       render: (account) => renderAccountAssociations(account),
     },
     {
