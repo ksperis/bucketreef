@@ -360,7 +360,9 @@ export default function S3AccountsPage() {
             <div className="flex min-w-0 flex-1 items-baseline gap-2">
               <span className="min-w-0 truncate">{account.name}</span>
               {account.rgw_tenant && (
-                <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">tenant: {account.rgw_tenant}</span>
+                <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">
+                  {adminText("RGW tenant: {tenant}", { tenant: account.rgw_tenant })}
+                </span>
               )}
             </div>
             {tagItems.length > 0 && (
@@ -742,7 +744,10 @@ export default function S3AccountsPage() {
               onChange={(event) => setDeleteFromRgw(event.target.checked)}
             >
               <span className="modal-option-copy">
-                {adminText("Also delete RGW account")}<code className="break-all font-mono">{accountToDelete.rgw_account_id ?? accountToDelete.id}</code>
+                {adminText("Also delete RGW account")}{" "}
+                <code className="break-all font-mono">
+                  {accountToDelete.rgw_account_id ?? accountToDelete.id}
+                </code>
               </span>
             </UiCheckboxField>
           }

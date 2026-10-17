@@ -686,6 +686,8 @@
   "Upload ID": "上传 ID",
   "Uploaded {path}": "已上传 {path}",
   "Uploading": "上传中",
+  "Unable to activate SSE-C key.": "无法激活 SSE-C 密钥。",
+  "Unable to generate SSE-C key.": "无法生成 SSE-C 密钥。",
   "URL copied to clipboard.": "URL 已复制到剪贴板。",
   "Usage is not available.": "用量信息不可用。",
   "Usage summary": "用量摘要",

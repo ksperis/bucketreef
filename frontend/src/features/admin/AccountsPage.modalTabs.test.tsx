@@ -284,8 +284,8 @@ describe("AccountsPage modal tabs", () => {
 
     const table = await screen.findByRole("table");
     expect(within(table).queryByRole("columnheader", { name: "Ceph tenant" })).not.toBeInTheDocument();
-    expect(within(table).queryByText("tenant: Default")).not.toBeInTheDocument();
-    const tenantLabel = within(table).getByText("tenant: customer01");
+    expect(within(table).queryByText("RGW tenant: Default")).not.toBeInTheDocument();
+    const tenantLabel = within(table).getByText("RGW tenant: customer01");
     expect(tenantLabel).toHaveClass("ui-caption");
     expect(tenantLabel.closest("td")).toContainElement(within(table).getByText("tenant-account"));
   });
