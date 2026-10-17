@@ -9,8 +9,8 @@ from app.routers.dependencies import (
     get_audit_service,
     require_iam_capable_manager,
 )
+from app.routers.manager.iam_common import get_iam_service_for_context
 from app.services.audit_service import AuditService
-from app.services.policies_service import PoliciesService, get_policies_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
@@ -18,25 +18,14 @@ from app.utils.http_errors import (
 )
 
 router = APIRouter(prefix="/manager/iam/policies", tags=["manager-iam-policies"])
-PoliciesContext = tuple[S3ExecutionContext, PoliciesService]
-
-
-def get_policies_context(
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-) -> PoliciesContext:
-    try:
-        service = get_policies_service(context)
-    except ValueError as exc:
-        raise_bad_request_from_value_error(exc)
-    return context, service
 
 
 @router.get("", response_model=list[Policy])
 def list_policies(
-    policies_context: PoliciesContext = Depends(get_policies_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
-    _, service = policies_context
+    service = get_iam_service_for_context(context)
     try:
         return service.list_policies()
     except RuntimeError as exc:
@@ -46,10 +35,10 @@ def list_policies(
 @router.get("/{policy_arn}", response_model=Policy)
 def get_policy(
     policy_arn: str,
-    policies_context: PoliciesContext = Depends(get_policies_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> Policy:
-    _, service = policies_context
+    service = get_iam_service_for_context(context)
     policy = service.get_policy(policy_arn, include_document=True)
     if not policy:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found")
@@ -59,11 +48,11 @@ def get_policy(
 @router.post("", response_model=Policy, status_code=status.HTTP_201_CREATED)
 def create_policy(
     payload: PolicyCreate,
-    policies_context: PoliciesContext = Depends(get_policies_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
-    context, service = policies_context
+    service = get_iam_service_for_context(context)
     try:
         result = service.create_policy(payload.name, payload.document)
         audit_service.record_action(
@@ -85,11 +74,11 @@ def create_policy(
 @router.delete("/{policy_arn}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_policy(
     policy_arn: str,
-    policies_context: PoliciesContext = Depends(get_policies_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    context, service = policies_context
+    service = get_iam_service_for_context(context)
     try:
         service.delete_policy(policy_arn)
         audit_service.record_action(
