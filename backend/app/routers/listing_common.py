@@ -12,23 +12,17 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError
 
-from app.services.listing_progress import (
-    ListingCancelled,
-    ListingProgressSnapshot,
-)
-from app.utils.http_errors import raise_http_exception_from_exception
 from app.core.sensitive_data import sanitize_error_detail
 from app.routers.sse_worker import (
     SseMessageSender,
     format_sse_event,
     stream_cancellable_worker,
 )
+from app.services.listing_progress import ListingCancelled, ListingProgressSnapshot
+from app.utils.http_errors import raise_http_exception_from_exception
+
 
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
-
-
-def normalize_http_error_detail(detail: object) -> object:
-    return sanitize_error_detail(detail)
 
 
 def stream_listing_response(
@@ -73,7 +67,7 @@ def stream_listing_response(
                     "error",
                     {
                         "request_id": request_id,
-                        "detail": normalize_http_error_detail(exc.detail),
+                        "detail": sanitize_error_detail(exc.detail),
                     },
                 )
             )

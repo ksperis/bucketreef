@@ -15,7 +15,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import Timeout as RequestsTimeout
 
 from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
-from app.core.sensitive_data import sanitize_error_detail as _sanitize_error_detail
+from app.core.sensitive_data import sanitize_error_detail
 
 
 def _exception_chain(exc: Exception):
@@ -111,7 +111,7 @@ def raise_http_error_from_value_error(exc: ValueError) -> NoReturn:
 def http_exception_from_exception(status_code: int, exc: Exception) -> HTTPException:
     return HTTPException(
         status_code=status_code,
-        detail=_sanitize_error_detail(str(exc)),
+        detail=sanitize_error_detail(str(exc)),
     )
 
 

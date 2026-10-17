@@ -12,10 +12,10 @@ from typing import Any
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from app.core.sensitive_data import sanitize_error_detail
 from app.core.database import SessionLocal
 from app.db import User
 from app.models.bucket_purge import BucketPurgeProgress, BucketPurgeResult
-from app.routers.ceph_admin.listing_common import normalize_http_error_detail
 from app.routers.sse_worker import (
     SseMessageSender,
     build_sse_progress_callback,
@@ -160,7 +160,7 @@ def stream_bucket_purge(
                 on_cancel(request_id)
             push_message(format_sse_event("done", {"request_id": request_id, "status": "canceled"}))
         except HTTPException as exc:
-            detail = normalize_http_error_detail(exc.detail)
+            detail = sanitize_error_detail(exc.detail)
             if on_error:
                 on_error(request_id, str(detail))
             push_message(

@@ -11,7 +11,7 @@ from app.models.ceph_admin import (
     PaginatedCephAdminUsersResponse,
 )
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.ceph_admin.listing_common import parse_filter_query
+from app.routers.listing_common import parse_filter_query
 from app.routers.ceph_admin.user_common import split_tenant_uid
 from app.routers.ceph_admin.user_listing_enrichment import enrich_users
 from app.routers.ceph_admin.user_listing_cache import (

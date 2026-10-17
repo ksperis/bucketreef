@@ -10,8 +10,8 @@ from typing import Callable
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from app.core.sensitive_data import sanitize_error_detail
 from app.models.bucket_integrity import BucketIntegrityCheckProgress, BucketIntegrityCheckResult
-from app.routers.ceph_admin.listing_common import normalize_http_error_detail
 from app.routers.sse_worker import (
     SseMessageSender,
     build_sse_progress_callback,
@@ -48,7 +48,7 @@ def stream_bucket_integrity_check(
                     "error",
                     {
                         "request_id": request_id,
-                        "detail": normalize_http_error_detail(exc.detail),
+                        "detail": sanitize_error_detail(exc.detail),
                         "status_code": exc.status_code,
                     },
                 )
