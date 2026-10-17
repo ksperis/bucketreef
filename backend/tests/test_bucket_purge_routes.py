@@ -370,8 +370,8 @@ def test_storage_ops_purge_route_resolves_authorized_manager_contexts(monkeypatc
     monkeypatch.setattr(storage_ops_purge, "stream_bucket_purge", fake_stream)
     monkeypatch.setattr(
         storage_ops_purge,
-        "list_execution_contexts",
-        lambda *, workspace, user, db: [SimpleNamespace(id="s3u-1", display_name="S3 User 1")],
+        "storage_ops_context_names",
+        lambda user, db: {"s3u-1": "S3 User 1"},
     )
     monkeypatch.setattr(storage_ops_purge, "get_s3_execution_context", fake_get_s3_execution_context)
 

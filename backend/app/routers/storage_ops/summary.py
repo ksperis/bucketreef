@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.db import S3Connection, User
 from app.models.storage_ops import StorageOpsSummary
 from app.routers.dependencies import get_current_storage_ops_admin
-from app.routers.execution_contexts import list_execution_contexts
+from app.services.storage_ops_context_service import list_storage_ops_contexts
 
 router = APIRouter(prefix="/storage-ops", tags=["storage-ops"])
 
@@ -22,7 +22,7 @@ def _connection_id_from_context_id(context_id: str) -> int | None:
 
 
 def build_storage_ops_summary(*, user: User, db: Session) -> StorageOpsSummary:
-    contexts = list_execution_contexts(workspace="manager", user=user, db=db)
+    contexts = list_storage_ops_contexts(user, db)
     seen_context_ids: set[str] = set()
     account_count = 0
     s3_user_count = 0

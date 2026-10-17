@@ -18,45 +18,23 @@ from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_storage_ops_admin,
 )
-from app.routers.execution_contexts import list_execution_contexts
+from app.routers.storage_ops.context import resolve_storage_ops_context
 from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_context
 from app.services.bucket_listing_shared import BucketListingFilterError, is_advanced_filter_stream_payload
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.listing_progress import ListingProgressSnapshot
-from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_ops_bucket_listing_service import (
-    StorageOpsContextRef,
     build_storage_ops_context_refs,
     compute_storage_ops_bucket_listing,
     resolve_storage_ops_contexts,
 )
+from app.services.storage_ops_context_service import list_storage_ops_contexts
 from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(prefix="/storage-ops/buckets", tags=["storage-ops-buckets"])
 logger = logging.getLogger(__name__)
-
-
-def _collect_context_refs(user: User, db: Session) -> list[StorageOpsContextRef]:
-    contexts = list_execution_contexts(workspace="manager", user=user, db=db)
-    return build_storage_ops_context_refs(contexts)
-
-
-def _resolve_context(
-    ref: StorageOpsContextRef,
-    *,
-    request: Request,
-    db: Session,
-    user: User,
-) -> S3ExecutionContext | None:
-    try:
-        return get_s3_execution_context(request=request, context_ref=ref.context_id, actor=user, db=db)
-    except HTTPException as exc:
-        if exc.status_code in {status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND}:
-            return None
-        raise
-
 
 def _compute_storage_ops_listing(
     *,
@@ -80,12 +58,17 @@ def _compute_storage_ops_listing(
     try:
         tag_service = BucketUiTagsService(db) if isinstance(db, Session) else None
         return compute_storage_ops_bucket_listing(
-            load_context_refs=lambda: _collect_context_refs(user, db),
-            resolve_context=lambda ref: _resolve_context(
+            load_context_refs=lambda: build_storage_ops_context_refs(
+                list_storage_ops_contexts(user, db)
+            ),
+            resolve_context=lambda ref: resolve_storage_ops_context(
                 ref,
-                request=request,
-                db=db,
-                user=user,
+                resolver=lambda context_id: get_s3_execution_context(
+                    request=request,
+                    context_ref=context_id,
+                    actor=user,
+                    db=db,
+                ),
             ),
             service=service,
             page=page,
@@ -113,14 +96,17 @@ def refresh_storage_ops_bucket_listing_cache(
     user: User = Depends(get_current_storage_ops_admin),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    refs = _collect_context_refs(user, db)
+    refs = build_storage_ops_context_refs(list_storage_ops_contexts(user, db))
     resolved_contexts = resolve_storage_ops_contexts(
         refs=refs,
-        resolve_context=lambda ref: _resolve_context(
+        resolve_context=lambda ref: resolve_storage_ops_context(
             ref,
-            request=request,
-            db=db,
-            user=user,
+            resolver=lambda context_id: get_s3_execution_context(
+                request=request,
+                context_ref=context_id,
+                actor=user,
+                db=db,
+            ),
         ),
     )
     endpoint_ids: set[int] = set()

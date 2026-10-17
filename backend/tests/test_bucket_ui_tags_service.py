@@ -378,7 +378,7 @@ def test_bucket_ui_tag_routes_persist_ceph_visibility_and_reject_forged_storage_
 
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = lambda: owner
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
-    monkeypatch.setattr(storage_bucket_ui_tags_router, "_collect_context_refs", lambda _user, _db: [])
+    monkeypatch.setattr(storage_bucket_ui_tags_router, "list_storage_ops_context_refs", lambda _user, _db: [])
     storage_service = BucketUiTagsService(db_session)
     storage_service.mutate(
         domain_kind=TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
@@ -555,7 +555,7 @@ def test_bucket_ui_tag_definition_routes_update_settings_and_enforce_visibility(
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     monkeypatch.setattr(
         storage_bucket_ui_tags_router,
-        "_collect_context_refs",
+        "list_storage_ops_context_refs",
         lambda _user, _db: [],
     )
     recolored = client.patch(
@@ -691,12 +691,12 @@ def test_storage_ops_target_validation_returns_sanitized_bad_gateway(
     app.dependency_overrides[get_buckets_service] = FailingBucketsService
     monkeypatch.setattr(
         storage_bucket_ui_tags_router,
-        "_collect_context_refs",
+        "list_storage_ops_context_refs",
         lambda _user, _db: [ref],
     )
     monkeypatch.setattr(
         storage_bucket_ui_tags_router,
-        "_resolve_context",
+        "resolve_storage_ops_context",
         lambda _ref, **_kwargs: account,
     )
 
