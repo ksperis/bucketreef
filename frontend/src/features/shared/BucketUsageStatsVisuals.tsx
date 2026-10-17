@@ -71,7 +71,6 @@ type BucketUsageStatsCompositionVisualsProps = {
 };
 
 type BucketUsageStatsDataTypesCardProps = {
-  presentation?: "compact";
   aggregate?: BucketUsageStatsAggregate | null;
   loading?: boolean;
   error?: string | null;
@@ -162,7 +161,6 @@ export function BucketUsageStatsCompositionVisuals({
 }
 
 export function BucketUsageStatsDataTypesCard({
-  presentation,
   aggregate,
   loading,
   error,
@@ -185,10 +183,10 @@ export function BucketUsageStatsDataTypesCard({
   const latest = aggregate?.newest_snapshot_at ? formatLocalDateTime(aggregate.newest_snapshot_at, locale) : null;
 
   return (
-    <section className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-panel ui-dashboard-data-types" : "h-full p-4", className)} data-testid={dataTestId}>
+    <section className={cx(uiCardClass, "ui-dashboard-panel ui-dashboard-data-types", className)} data-testid={dataTestId}>
       <div>
         <div className="min-w-0">
-          <h2 className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{text("dataTypesTitle")}</h2>
+          <h2 className="ui-dashboard-title">{text("dataTypesTitle")}</h2>
           <div className={cx("mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 ui-caption", uiMutedTextClass)}>
             <span>{latest ? text("latestDate", { date: latest }) : text("latestBucketSnapshots")}</span>
             {aggregate && <span>{coverage}</span>}
@@ -218,14 +216,14 @@ export function BucketUsageStatsDataTypesCard({
                     data-testid={`manager-dashboard-data-type-color-${entry.key}`}
                     style={{ backgroundColor: usageStatsChartColor(index) }}
                   />
-                  <span className={presentation === "compact" ? "ui-dashboard-label ui-dashboard-data-type-label" : "truncate ui-caption font-semibold text-[var(--ui-text)]"} title={distributionLabel(entry, "dataType")}>
+                  <span className="ui-dashboard-label ui-dashboard-data-type-label" title={distributionLabel(entry, "dataType")}>
                     {distributionLabel(entry, "dataType")}
                   </span>
                 </span>
                 <span className={cx("shrink-0 ui-caption font-semibold", uiMutedTextClass)}>
                   {formatPercentage(entry.ratio_bytes * 100)}
                 </span>
-                <span className={cx(presentation === "compact" ? "col-span-2 ui-dashboard-note" : "col-span-2 truncate ui-caption", uiMutedTextClass)}>{formatBytes(entry.bytes)}</span>
+                <span className={cx("col-span-2 ui-dashboard-note", uiMutedTextClass)}>{formatBytes(entry.bytes)}</span>
               </div>
             ))}
           </div>

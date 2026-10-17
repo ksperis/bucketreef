@@ -1073,7 +1073,7 @@ export default function ManagerDashboard() {
         </div>
         {canLoadUsageStatsDataTypes && (
           <div className="ui-dashboard-equal-cell xl:col-span-3">
-            <BucketUsageStatsDataTypesCard presentation="compact"
+            <BucketUsageStatsDataTypesCard
               aggregate={usageStatsAggregate}
               loading={usageStatsLoading}
               text={text}
