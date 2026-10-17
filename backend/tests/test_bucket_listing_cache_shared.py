@@ -106,8 +106,7 @@ def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monke
     account = _build_account()
     service = _FakeBucketsService()
 
-    def fake_list_execution_contexts(*, workspace, user, db):  # noqa: ARG001
-        assert workspace == "manager"
+    def fake_list_storage_ops_contexts(user, db):  # noqa: ARG001
         return [
             make_execution_context(
                 kind="account",
@@ -120,7 +119,7 @@ def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monke
     def fake_get_s3_execution_context(*, request=None, context_ref=None, actor=None, db=None):  # noqa: ARG001
         return account
 
-    monkeypatch.setattr(storage_ops_buckets_router, "list_execution_contexts", fake_list_execution_contexts)
+    monkeypatch.setattr(storage_ops_buckets_router, "list_storage_ops_contexts", fake_list_storage_ops_contexts)
     monkeypatch.setattr(storage_ops_buckets_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
@@ -161,8 +160,7 @@ def test_storage_ops_bucket_listing_cache_refresh_endpoint_invalidates_shared_ca
     account = _build_account()
     service = _FakeBucketsService()
 
-    def fake_list_execution_contexts(*, workspace, user, db):  # noqa: ARG001
-        assert workspace == "manager"
+    def fake_list_storage_ops_contexts(user, db):  # noqa: ARG001
         return [
             make_execution_context(
                 kind="account",
@@ -175,7 +173,7 @@ def test_storage_ops_bucket_listing_cache_refresh_endpoint_invalidates_shared_ca
     def fake_get_s3_execution_context(*, request=None, context_ref=None, actor=None, db=None):  # noqa: ARG001
         return account
 
-    monkeypatch.setattr(storage_ops_buckets_router, "list_execution_contexts", fake_list_execution_contexts)
+    monkeypatch.setattr(storage_ops_buckets_router, "list_storage_ops_contexts", fake_list_storage_ops_contexts)
     monkeypatch.setattr(storage_ops_buckets_router, "get_s3_execution_context", fake_get_s3_execution_context)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None

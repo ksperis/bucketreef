@@ -39,7 +39,7 @@ def test_compare_migration_purge_integrity_and_usage_select_long_running_profile
     BucketMigrationExecutionContextMixin()._context_client(
         SimpleNamespace(
             context_id="source",
-            account=account,
+            execution_context=account,
             endpoint="https://s3.example.test",
             region="us-east-1",
             force_path_style=False,
