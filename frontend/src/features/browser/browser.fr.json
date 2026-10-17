@@ -686,6 +686,8 @@
   "Upload ID": "ID de téléversement",
   "Uploaded {path}": "{path} téléversé",
   "Uploading": "Téléversement en cours",
+  "Unable to activate SSE-C key.": "Impossible d’activer la clé SSE-C.",
+  "Unable to generate SSE-C key.": "Impossible de générer la clé SSE-C.",
   "URL copied to clipboard.": "L'URL a été copiée dans le presse-papiers.",
   "Usage is not available.": "L’utilisation est indisponible.",
   "Usage summary": "Résumé de l'utilisation",

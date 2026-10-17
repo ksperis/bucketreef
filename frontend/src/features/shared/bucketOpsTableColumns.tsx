@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
+import { interpolateText } from "../../i18n";
 import { formatBytes, formatNumber } from "../../utils/format";
 import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import {
@@ -54,7 +55,7 @@ export function buildBucketOpsDataColumns({
   renderOwnerCell,
   renderS3Tags,
   renderUiTags,
-  text = (message) => message,
+  text = interpolateText,
   visibleColumns,
 }: BuildBucketOpsDataColumnsInput): BucketOpsTableColumn[] {
   const dataColumns: BucketOpsDataColumn[] = [

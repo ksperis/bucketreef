@@ -116,7 +116,7 @@ export function useBrowserSseCustomerKeys({
       setError(
         extractApiError(
           activationError,
-          "Unable to activate SSE-C key.",
+          text("Unable to activate SSE-C key."),
         ),
       );
     }
@@ -138,7 +138,7 @@ export function useBrowserSseCustomerKeys({
       setVisible(false);
     } catch (generationError) {
       setError(
-        extractApiError(generationError, "Unable to generate SSE-C key."),
+        extractApiError(generationError, text("Unable to generate SSE-C key.")),
       );
       setNotice(null);
       return;

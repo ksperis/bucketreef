@@ -686,6 +686,8 @@
   "Upload ID": "Hochlad-ID",
   "Uploaded {path}": "{path} hochgeladen",
   "Uploading": "Hochladen",
+  "Unable to activate SSE-C key.": "SSE-C-Schlüssel konnte nicht aktiviert werden.",
+  "Unable to generate SSE-C key.": "SSE-C-Schlüssel konnte nicht generiert werden.",
   "URL copied to clipboard.": "URL in die Zwischenablage kopiert.",
   "Usage is not available.": "Nutzungsdaten sind nicht verfügbar.",
   "Usage summary": "Nutzungsübersicht",

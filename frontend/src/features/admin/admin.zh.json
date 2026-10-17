@@ -1055,6 +1055,7 @@
   "RGW accounts imported.": "RGW 账户已导入。",
   "RGW key management for eligible S3 User contexts.": "符合条件的 S3 用户上下文的 RGW 密钥管理。",
   "RGW tenant": "RGW 租户",
+  "RGW tenant: {tenant}": "RGW 租户：{tenant}",
   "RGW traffic and usage metrics": "RGW 流量和使用量指标",
   "RGW user": "RGW 用户",
   "RGW user IDs": "RGW 用户 ID",

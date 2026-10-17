@@ -769,7 +769,9 @@ export default function S3UsersPage() {
             <div className="flex min-w-0 flex-1 items-baseline gap-2">
               <span className="min-w-0 truncate">{user.name}</span>
               {user.rgw_tenant && (
-                <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">tenant: {user.rgw_tenant}</span>
+                <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">
+                  {adminText("RGW tenant: {tenant}", { tenant: user.rgw_tenant })}
+                </span>
               )}
             </div>
             {tagItems.length > 0 && (
