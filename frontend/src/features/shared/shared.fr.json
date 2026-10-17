@@ -604,5 +604,15 @@
   "Buckets: {completed} / {total} · Errors: {errors}": "Buckets : {completed} / {total} · Erreurs : {errors}",
   "Objects: {checked} / {listed} · Read: {bytes}": "Objets : {checked} / {listed} · Lecture : {bytes}",
   "Only {visible} of {total} error is visible.": "Seule {visible} erreur sur {total} est visible.",
-  "Only {visible} of {total} errors are visible.": "Seules {visible} erreurs sur {total} sont visibles."
+  "Only {visible} of {total} errors are visible.": "Seules {visible} erreurs sur {total} sont visibles.",
+  "Add tag": "Ajouter un tag",
+  "Deleting...": "Suppression...",
+  "Enable versioning": "Activer la gestion des versions",
+  "Not set": "Non configuré",
+  "Run": "Exécuter",
+  "Select": "Sélectionner",
+  "Select filtered": "Sélectionner les résultats filtrés",
+  "logs/": "logs/",
+  "{count} bucket": "{count} bucket",
+  "{count} buckets": "{count} buckets"
 }
