@@ -25,7 +25,6 @@ from app.routers.ceph_admin.account_listing_enrichment import (
 )
 from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.routers.ceph_admin.listing_common import (
-    EndpointListCacheKey,
     apply_advanced_filter,
     apply_simple_search,
     coerce_number,
@@ -35,6 +34,7 @@ from app.routers.ceph_admin.listing_common import (
     parse_int,
 )
 from app.services.bucket_listing_shared import listing_sort_key, parse_includes, serialize_filter
+from app.services.ceph_admin_identity_listing_cache import EndpointListCacheKey
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,

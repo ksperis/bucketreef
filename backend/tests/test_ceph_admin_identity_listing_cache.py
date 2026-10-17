@@ -7,8 +7,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.routers.ceph_admin import account_listing_cache, listing_common, user_listing_cache
-from app.routers.ceph_admin.listing_common import EndpointListCacheKey, EndpointListingCache
+from app.routers.ceph_admin import account_listing_cache, user_listing_cache
+from app.services import ceph_admin_identity_listing_cache
+from app.services.ceph_admin_identity_listing_cache import EndpointListCacheKey, EndpointListingCache
 from app.services.listing_progress import ListingCancelled
 from app.services.rgw_admin import RGWAdminError
 
@@ -187,7 +188,7 @@ def test_rgw_errors_keep_http_translation_and_are_not_cached(cache_api):
 
 def test_cache_expiration_lru_and_pending_state_lifecycle(monkeypatch):
     now = 100.0
-    monkeypatch.setattr(listing_common, "monotonic", lambda: now)
+    monkeypatch.setattr(ceph_admin_identity_listing_cache, "monotonic", lambda: now)
     cache = EndpointListingCache(ttl_seconds=10, payload_max_entries=2, listing_max_entries=1)
     assert cache.get_payload(1, lambda: []) == []
     assert cache.get_payload(2, lambda: [2]) == [2]
