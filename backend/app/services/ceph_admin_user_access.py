@@ -40,7 +40,6 @@ def serialize_access_keys(entries: list[dict]) -> list[CephAdminRgwAccessKey]:
         results.append(
             CephAdminRgwAccessKey(
                 access_key=access_key,
-                secret_key=normalize_optional_scalar(entry.get("secret_key")),
                 status=status_text,
                 is_active=is_active,
                 created_at=entry.get("create_date") or entry.get("created_at"),
