@@ -13,10 +13,11 @@ from app.models.bucket_ui_tags import (
     StorageOpsBucketUiTagDefinitionPatch,
     StorageOpsBucketUiTagPatchRequest,
 )
-from app.routers.dependencies import get_current_storage_ops_admin
-from app.routers.storage_ops.buckets import _collect_context_refs, _resolve_context
+from app.routers.dependencies import get_current_storage_ops_admin, get_s3_execution_context
+from app.routers.storage_ops.context import resolve_storage_ops_context
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.buckets_service import BucketsService, get_buckets_service
+from app.services.storage_ops_context_service import list_storage_ops_context_refs
 from app.services.storage_ops_bucket_ui_tags_service import (
     StorageOpsBucketUiTagAuthorizationError,
     StorageOpsBucketUiTagConflictError,
@@ -39,12 +40,15 @@ def _workflow(
     return StorageOpsBucketUiTagsWorkflow(
         tags=BucketUiTagsService(db),
         actor_user_id=int(user.id),
-        context_refs=_collect_context_refs(user, db),
-        resolve_context=lambda ref: _resolve_context(
+        context_refs=list_storage_ops_context_refs(user, db),
+        resolve_context=lambda ref: resolve_storage_ops_context(
             ref,
-            request=request,
-            db=db,
-            user=user,
+            resolver=lambda context_id: get_s3_execution_context(
+                request=request,
+                context_ref=context_id,
+                actor=user,
+                db=db,
+            ),
         ),
     )
 

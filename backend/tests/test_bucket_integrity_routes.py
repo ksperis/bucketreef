@@ -299,8 +299,8 @@ def test_storage_ops_integrity_route_resolves_authorized_manager_contexts(monkey
     monkeypatch.setattr(storage_ops_integrity, "stream_bucket_integrity_check", fake_stream)
     monkeypatch.setattr(
         storage_ops_integrity,
-        "list_execution_contexts",
-        lambda *, workspace, user, db: [SimpleNamespace(id="s3u-1", display_name="S3 User 1")],
+        "storage_ops_context_names",
+        lambda user, db: {"s3u-1": "S3 User 1"},
     )
     monkeypatch.setattr(storage_ops_integrity, "get_s3_execution_context", fake_get_s3_execution_context)
 
