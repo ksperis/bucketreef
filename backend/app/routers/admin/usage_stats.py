@@ -4,124 +4,24 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
-from app.db import S3Account, StorageEndpoint, StorageProvider, User
+from app.db import User
 from app.models.bucket_usage_stats import BucketUsageStatsAggregateResponse, BucketUsageStatsScopeRequest
 from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
 from app.routers.dependencies import get_current_super_admin
+from app.services.admin_stats_service import AdminUsageStatsScopeService
 from app.services.bucket_usage_stats_service import (
-    BucketUsageStatsAggregateTarget,
     BucketUsageStatsOptions,
-    BucketUsageStatsResolvedTarget,
     BucketUsageStatsService,
 )
 from app.services.buckets_service import BucketsService, get_buckets_service
 
 router = APIRouter(tags=["admin-bucket-usage-stats"])
 logger = logging.getLogger(__name__)
-
-
-def _resolve_ceph_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
-    endpoint = db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
-    if not endpoint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found.")
-    if endpoint.provider != StorageProvider.CEPH.value:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This endpoint is not a Ceph endpoint.")
-    return endpoint
-
-
-def _manager_scope_id(account: S3Account) -> str:
-    account_id = account.id
-    if not isinstance(account_id, int) or account_id <= 0:
-        raise ValueError("Managed S3 account is missing a local identifier.")
-    return str(account_id)
-
-
-def _account_label(account: S3Account) -> str:
-    return account.name or account.rgw_account_id or f"Account {account.id}"
-
-
-def _managed_accounts_for_endpoint(db: Session, endpoint_id: int) -> list[S3Account]:
-    return (
-        db.query(S3Account)
-        .filter(S3Account.storage_endpoint_id == endpoint_id)
-        .order_by(S3Account.name.asc(), S3Account.id.asc())
-        .all()
-    )
-
-
-def _list_account_bucket_names(account: S3Account, bucket_service: BucketsService) -> list[str]:
-    access_key, secret_key = account.effective_rgw_credentials()
-    if not access_key or not secret_key:
-        raise RuntimeError("S3 account credentials are missing.")
-    buckets = bucket_service.list_buckets(account, include=set(), with_stats=False)
-    return [bucket.name for bucket in buckets if bucket.name]
-
-
-def _build_admin_managed_scope(
-    *,
-    db: Session,
-    endpoint: StorageEndpoint,
-    bucket_service: BucketsService,
-) -> tuple[list[BucketUsageStatsResolvedTarget], list[BucketUsageStatsAggregateTarget], list[str], int, int, int]:
-    accounts = _managed_accounts_for_endpoint(db, endpoint.id)
-    resolved_targets: list[BucketUsageStatsResolvedTarget] = []
-    aggregate_targets: list[BucketUsageStatsAggregateTarget] = []
-    warnings: list[str] = []
-    skipped_account_count = 0
-    accounts_with_listed_buckets = 0
-
-    if not accounts:
-        warnings.append("No managed S3 accounts are linked to this endpoint.")
-
-    for account in accounts:
-        try:
-            bucket_names = _list_account_bucket_names(account, bucket_service)
-        except Exception as exc:  # noqa: BLE001
-            skipped_account_count += 1
-            logger.warning("Unable to list managed account buckets for usage stats account=%s: %s", account.id, exc)
-            if skipped_account_count <= 3:
-                warnings.append(f"{_account_label(account)} skipped: bucket listing failed.")
-            continue
-
-        accounts_with_listed_buckets += 1
-        context_id = _manager_scope_id(account)
-        for bucket_name in bucket_names:
-            resolved_targets.append(
-                BucketUsageStatsResolvedTarget(
-                    context=account,
-                    bucket_name=bucket_name,
-                    scope_kind="manager",
-                    scope_id=context_id,
-                    scope_name=account.name,
-                    context_id=context_id,
-                    context_name=account.name,
-                )
-            )
-            aggregate_targets.append(
-                BucketUsageStatsAggregateTarget(
-                    scope_kind="manager",
-                    scope_id=context_id,
-                    bucket_name=bucket_name,
-                )
-            )
-
-    if skipped_account_count > 0:
-        warnings.insert(0, f"{skipped_account_count} managed account(s) could not be scanned for bucket usage stats.")
-
-    return (
-        resolved_targets,
-        aggregate_targets,
-        warnings,
-        len(accounts),
-        accounts_with_listed_buckets,
-        skipped_account_count,
-    )
-
 
 @router.get("/admin/usage-stats/latest", response_model=BucketUsageStatsAggregateResponse)
 def get_admin_managed_usage_stats_aggregate(
@@ -130,20 +30,19 @@ def get_admin_managed_usage_stats_aggregate(
     _: User = Depends(get_current_super_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> BucketUsageStatsAggregateResponse:
-    endpoint = _resolve_ceph_endpoint(db, endpoint_id)
-    _, aggregate_targets, warnings, managed_account_count, accounts_with_listed_buckets, skipped_account_count = (
-        _build_admin_managed_scope(db=db, endpoint=endpoint, bucket_service=bucket_service)
-    )
+    scope_service = AdminUsageStatsScopeService(db, bucket_service)
+    endpoint = scope_service.resolve_ceph_endpoint(endpoint_id)
+    scope = scope_service.build_scope(endpoint)
     aggregate = BucketUsageStatsService().get_aggregate_for_targets(
         db,
         scope_kind="admin_managed",
         scope_id=str(endpoint.id),
         scope_name=endpoint.name,
-        targets=aggregate_targets,
-        warnings=warnings,
-        managed_account_count=managed_account_count,
-        accounts_with_listed_buckets=accounts_with_listed_buckets,
-        skipped_account_count=skipped_account_count,
+        targets=scope.aggregate_targets,
+        warnings=scope.warnings,
+        managed_account_count=scope.managed_account_count,
+        accounts_with_listed_buckets=scope.accounts_with_listed_buckets,
+        skipped_account_count=scope.skipped_account_count,
     )
     return BucketUsageStatsAggregateResponse(aggregate=aggregate)
 
@@ -157,8 +56,9 @@ def stream_admin_managed_usage_stats_aggregate(
     user: User = Depends(get_current_super_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> StreamingResponse:
-    endpoint = _resolve_ceph_endpoint(db, endpoint_id)
-    targets, _, _, _, _, _ = _build_admin_managed_scope(db=db, endpoint=endpoint, bucket_service=bucket_service)
+    scope_service = AdminUsageStatsScopeService(db, bucket_service)
+    endpoint = scope_service.resolve_ceph_endpoint(endpoint_id)
+    targets = scope_service.build_scope(endpoint).resolved_targets
     service = BucketUsageStatsService(SessionLocal)
     return stream_bucket_usage_stats(
         request,

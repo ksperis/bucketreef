@@ -2,22 +2,15 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import S3Account, S3User, StorageEndpoint, StorageProvider, User
+from app.db import User
 from app.routers.dependencies import get_current_super_admin
-from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.admin_metrics_service import AdminMetricsService
 from app.services.admin_dashboard_metrics_service import AdminDashboardMetricsService
-from app.services.auth_session_service import AuthSessionService
-from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.admin_stats_service import AdminStatsService
 from app.services.traffic_service import TrafficWindow
-from app.services.rgw_supervision import get_supervision_rgw_client
-from app.utils.rgw_payloads import extract_bucket_list
-from app.utils.storage_endpoint_features import normalize_features_config
-from app.utils.usage_stats import build_bucket_overview, summarize_bucket_usage
 
 router = APIRouter(prefix="/admin/stats", tags=["admin-stats"])
 
@@ -46,76 +39,6 @@ def dashboard_traffic(
     return AdminDashboardMetricsService(db).traffic()
 
 
-def _resolve_endpoint(
-    db: Session,
-    endpoint_id: Optional[int],
-    *,
-    require_storage_metrics: bool = False,
-    require_usage_logs: bool = False,
-) -> StorageEndpoint:
-    if endpoint_id is not None:
-        endpoint = db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
-        if not endpoint:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found.")
-    else:
-        endpoint = (
-            db.query(StorageEndpoint)
-            .filter(StorageEndpoint.is_default.is_(True), StorageEndpoint.provider == StorageProvider.CEPH.value)
-            .first()
-        )
-        if not endpoint:
-            endpoint = (
-                db.query(StorageEndpoint)
-                .filter(StorageEndpoint.provider == StorageProvider.CEPH.value)
-                .order_by(StorageEndpoint.is_default.desc(), StorageEndpoint.id.asc())
-                .first()
-            )
-    if not endpoint:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No Ceph endpoint available.")
-    if endpoint.provider != StorageProvider.CEPH.value:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This endpoint is not a Ceph endpoint.")
-    features = normalize_features_config(endpoint.provider, endpoint.features_config)
-    if require_storage_metrics and not features["metrics"]["enabled"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
-    if require_usage_logs and not features["usage"]["enabled"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage logs are disabled for this endpoint")
-    supervision = endpoint.service_identity("supervision")
-    if (
-        supervision is None
-        or supervision.status != "ready"
-        or not supervision.access_key
-        or not supervision.secret_key
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Supervision credentials are not configured for this endpoint.",
-        )
-    return endpoint
-
-
-def _build_rgw_client(endpoint: StorageEndpoint) -> RGWAdminClient:
-    return get_supervision_rgw_client(endpoint)
-
-
-def _load_principal_bucket_stats(rgw_admin: RGWAdminClient, uid: str, tenant: str | None = None) -> dict:
-    try:
-        payload = rgw_admin.get_all_buckets(uid=uid, with_stats=True, **({"tenant": tenant} if tenant else {}))
-    except RGWAdminError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Unable to fetch buckets: {sanitized_error_log_detail(exc)}",
-        ) from exc
-
-    bucket_usage, total_bytes, total_objects, total_buckets = summarize_bucket_usage(extract_bucket_list(payload))
-    return {
-        "total_buckets": total_buckets,
-        "total_bytes": total_bytes or 0,
-        "total_objects": total_objects or 0,
-        "bucket_usage": bucket_usage,
-        "bucket_overview": build_bucket_overview(bucket_usage),
-    }
-
-
 @router.get("/summary")
 def summary_stats(
     actor: User = Depends(get_current_super_admin),
@@ -125,14 +48,7 @@ def summary_stats(
     Lightweight counts-only endpoint used by the admin dashboard.
     Avoids RGW calls to keep the page responsive.
     """
-    payload = AdminMetricsService.build_summary_payload(db)
-    session_counts = AuthSessionService(db).counts_by_principal_type_for_admin(actor)
-    payload["total_active_sessions"] = sum(session_counts.values())
-    payload["active_sessions_by_type"] = {
-        "ui": session_counts.get("user", 0),
-        "s3": session_counts.get("s3", 0),
-    }
-    return payload
+    return AdminStatsService(db).summary(actor)
 
 
 @router.get("/account")
@@ -141,13 +57,7 @@ def account_stats(
     db: Session = Depends(get_db),
     account_id: int = Query(...),
 ) -> dict:
-    account = db.query(S3Account).filter(S3Account.id == account_id).first()
-    if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Account not found")
-
-    endpoint = _resolve_endpoint(db, account.storage_endpoint_id, require_storage_metrics=True)
-    rgw_admin = _build_rgw_client(endpoint)
-    return _load_principal_bucket_stats(rgw_admin, account.rgw_user_uid, account.rgw_tenant)
+    return AdminStatsService(db).account(account_id)
 
 
 @router.get("/s3-user")
@@ -156,13 +66,7 @@ def s3_user_stats(
     db: Session = Depends(get_db),
     user_id: int = Query(...),
 ) -> dict:
-    s3_user = db.query(S3User).filter(S3User.id == user_id).first()
-    if not s3_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3 user not found")
-
-    endpoint = _resolve_endpoint(db, s3_user.storage_endpoint_id, require_storage_metrics=True)
-    rgw_admin = _build_rgw_client(endpoint)
-    return _load_principal_bucket_stats(rgw_admin, s3_user.rgw_user_uid, s3_user.rgw_tenant)
+    return AdminStatsService(db).s3_user(user_id)
 
 
 @router.get("/storage")
@@ -171,14 +75,7 @@ def storage_stats(
     db: Session = Depends(get_db),
     endpoint_id: Optional[int] = Query(default=None),
 ) -> dict:
-    endpoint = _resolve_endpoint(db, endpoint_id, require_storage_metrics=True)
-    rgw_admin = _build_rgw_client(endpoint)
-    service = AdminMetricsService(
-        db=db,
-        rgw_admin=rgw_admin,
-        endpoint_id=endpoint.id,
-    )
-    return service.storage()
+    return AdminStatsService(db).storage(endpoint_id)
 
 
 @router.get("/traffic")
@@ -188,11 +85,4 @@ def traffic_stats(
     db: Session = Depends(get_db),
     endpoint_id: Optional[int] = Query(default=None),
 ) -> dict:
-    endpoint = _resolve_endpoint(db, endpoint_id, require_usage_logs=True)
-    rgw_admin = _build_rgw_client(endpoint)
-    service = AdminMetricsService(
-        db=db,
-        rgw_admin=rgw_admin,
-        endpoint_id=endpoint.id,
-    )
-    return service.traffic(window=window)
+    return AdminStatsService(db).traffic(endpoint_id, window=window)

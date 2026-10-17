@@ -10,6 +10,7 @@ from app.db import S3Account, S3User, StorageEndpoint
 from app.services import admin_dashboard_metrics_service as dashboard
 from app.services.admin_metrics_service import AdminMetricsService
 from app.services.admin_dashboard_metrics_cache import reset_dashboard_metrics_cache
+from app.services.admin_stats_service import AdminStatsService
 from app.services.rgw_admin import RGWAdminError
 from tests.service_identity_helpers import service_identity
 
@@ -225,8 +226,7 @@ def test_empty_scope_and_new_routes_preserve_existing_endpoint_resolution(client
     monkeypatch.setattr(dashboard, "get_supervision_rgw_client", lambda e: RGW())
     assert client.get("/api/admin/stats/dashboard/storage").json()["coverage"]["eligible_count"] == 1
     assert client.get("/api/admin/stats/storage").status_code == 403
-    from app.routers.admin import stats
-    assert stats._resolve_endpoint(db_session, None).id == default.id
+    assert AdminStatsService(db_session).resolve_endpoint(None).id == default.id
     assert client.get("/api/admin/stats/dashboard/scope").json()["endpoints"][0]["endpoint_id"] == supervised.id
 
 
