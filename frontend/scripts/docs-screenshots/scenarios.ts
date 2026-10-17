@@ -1253,6 +1253,13 @@ export const scenarios: DocScreenshotScenario[] = [
     user: {
       ...adminUser,
       manager_tool_access: { ...adminUser.manager_tool_access, bucket_purge: true },
+      effective_access: {
+        ...adminUser.effective_access,
+        manager_tool_access: {
+          ...adminUser.effective_access.manager_tool_access,
+          bucket_purge: true,
+        },
+      },
     },
     storage: { ...baseStorage(), selectedWorkspace: "manager" },
     actions: [

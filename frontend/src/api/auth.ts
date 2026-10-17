@@ -3,42 +3,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import type {
-  EffectiveUserAccess,
-  ManagerToolAccess,
-  UiPreferences,
-  UiRole,
-  UserAvatarDescriptor,
-} from "./users";
-import type { AccountAccessGrant } from "./accountAccess";
+import type { EffectiveUserAccess, User } from "./users";
 
-export type AuthUser = {
-    id: number;
-    email: string;
-    full_name?: string | null;
-    picture_url?: string | null;
-    avatar?: UserAvatarDescriptor | null;
-    role: UiRole;
-    is_admin?: boolean;
-    can_access_ceph_admin?: boolean;
-    can_access_storage_ops?: boolean;
-    can_create_manual_private_connections?: boolean;
-    can_provision_managed_private_connections?: boolean;
-    manager_tool_access?: ManagerToolAccess | null;
-    browser_advanced_features_enabled?: boolean;
-    ui_language?: "en" | "fr" | "de" | "zh" | null;
-    ui_preferences?: UiPreferences | null;
-    account_links?: (AccountAccessGrant & {
-      account_id: number;
-    })[] | null;
-    group_details?: { id: number; name: string }[] | null;
-    s3_user_details?: { id: number; name: string }[] | null;
-    s3_connection_details?: {
-      id: number;
-      name: string;
-    }[] | null;
-    effective_access?: EffectiveUserAccess | null;
-};
+export type AuthUser = User & { effective_access: EffectiveUserAccess };
 
 type SessionCapabilities = {
   can_manage_iam: boolean;

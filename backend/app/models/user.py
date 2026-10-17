@@ -225,7 +225,7 @@ class UserOut(ApiModel):
     s3_user_links: list[S3UserMembership] = []
     s3_user_details: list[LinkedS3User] = []
     s3_connection_details: list[LinkedS3Connection] = []
-    effective_access: Optional[EffectiveUserAccess] = None
+    effective_access: EffectiveUserAccess
     last_login_at: Optional[datetime] = None
 
 

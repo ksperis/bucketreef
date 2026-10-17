@@ -1,8 +1,55 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_RUNTIME_SURFACES, type GeneralSettings } from "../api/appSettings";
 import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
+import type { EffectiveUserAccess } from "../api/users";
 import type { SessionUser } from "./workspaces";
 import { resolveAvailableWorkspacesWithFlags, resolvePostLoginPath } from "./workspaces";
+
+const NO_MANAGER_TOOLS = {
+  bucket_compare: false,
+  bucket_integrity_check: false,
+  bucket_migration: false,
+  bucket_purge: false,
+  feature_rules: false,
+};
+
+function effectiveAccess(overrides: Partial<EffectiveUserAccess> = {}): EffectiveUserAccess {
+  return {
+    can_access_ceph_admin: false,
+    can_access_storage_ops: false,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    has_owned_private_connections: false,
+    browser_advanced_features_enabled: false,
+    account_links: [],
+    s3_user_details: [],
+    s3_connection_details: [],
+    ...overrides,
+    manager_tool_access: {
+      ...NO_MANAGER_TOOLS,
+      ...overrides.manager_tool_access,
+    },
+  };
+}
+
+function accountLink(
+  accountId: number,
+  managerRole: "account_administrator" | null,
+  portalRole: "portal_user" | "portal_manager" | null,
+): EffectiveUserAccess["account_links"][number] {
+  return {
+    account_id: accountId,
+    manager_role: managerRole,
+    portal_role: portalRole,
+    provenance: {
+      direct_manager_role: managerRole,
+      direct_portal_role: portalRole,
+      direct_determines_effective_manager_role: Boolean(managerRole),
+      direct_determines_effective_portal_role: Boolean(portalRole),
+      groups: [],
+    },
+  };
+}
 
 const baseSettings: GeneralSettings = {
   project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
@@ -36,18 +83,22 @@ const adminUser: SessionUser = {
   id: 1,
   email: "admin@example.com",
   role: "ui_admin",
-  can_access_ceph_admin: true,
-  can_access_storage_ops: true,
-  account_links: [{ account_id: 1, manager_role: "account_administrator", portal_role: null }],
+  effective_access: effectiveAccess({
+    can_access_ceph_admin: true,
+    can_access_storage_ops: true,
+    account_links: [accountLink(1, "account_administrator", null)],
+  }),
 };
 
 const superAdminUser: SessionUser = {
   id: 2,
   email: "superadmin@example.com",
   role: "ui_superadmin",
-  can_access_ceph_admin: true,
-  can_access_storage_ops: true,
-  account_links: [{ account_id: 2, manager_role: "account_administrator", portal_role: null }],
+  effective_access: effectiveAccess({
+    can_access_ceph_admin: true,
+    can_access_storage_ops: true,
+    account_links: [accountLink(2, "account_administrator", null)],
+  }),
 };
 
 describe("resolveAvailableWorkspacesWithFlags", () => {
@@ -101,7 +152,13 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
 
   it("hides Storage Ops for admin-like users without dedicated permission", () => {
     const workspaces = resolveAvailableWorkspacesWithFlags(
-      { ...adminUser, can_access_storage_ops: false },
+      {
+        ...adminUser,
+        effective_access: effectiveAccess({
+          ...adminUser.effective_access,
+          can_access_storage_ops: false,
+        }),
+      },
       {
         ...baseSettings,
         storage_ops_enabled: true,
@@ -114,9 +171,12 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
     const workspaces = resolveAvailableWorkspacesWithFlags(
       {
         ...adminUser,
-        account_links: [],
-        s3_user_details: [],
-        s3_connection_details: [],
+        effective_access: effectiveAccess({
+          ...adminUser.effective_access,
+          account_links: [],
+          s3_user_details: [],
+          s3_connection_details: [],
+        }),
       },
       {
         ...baseSettings,
@@ -133,8 +193,9 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 5,
       email: "user@example.com",
       role: "ui_user",
-      can_access_storage_ops: false,
-      account_links: [{ account_id: 12, manager_role: "account_administrator", portal_role: null }],
+      effective_access: effectiveAccess({
+        account_links: [accountLink(12, "account_administrator", null)],
+      }),
     };
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
       ...baseSettings,
@@ -148,8 +209,10 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 16,
       email: "ops-without-context@example.com",
       role: "ui_user",
-      can_access_storage_ops: true,
-      account_links: [{ account_id: 24, manager_role: null, portal_role: "portal_user" }],
+      effective_access: effectiveAccess({
+        can_access_storage_ops: true,
+        account_links: [accountLink(24, null, "portal_user")],
+      }),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(
@@ -172,8 +235,10 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 6,
       email: "ops-user@example.com",
       role: "ui_user",
-      can_access_storage_ops: true,
-      account_links: [{ account_id: 24, manager_role: "account_administrator", portal_role: null }],
+      effective_access: effectiveAccess({
+        can_access_storage_ops: true,
+        account_links: [accountLink(24, "account_administrator", null)],
+      }),
     };
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
       ...baseSettings,
@@ -187,7 +252,9 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 7,
       email: "portal-user@example.com",
       role: "ui_user",
-      account_links: [{ account_id: 24, manager_role: null, portal_role: "portal_user" }],
+      effective_access: effectiveAccess({
+        account_links: [accountLink(24, null, "portal_user")],
+      }),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
@@ -203,32 +270,10 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 13,
       email: "grouped-user@example.com",
       role: "ui_user",
-      can_access_storage_ops: false,
-      account_links: [],
-      effective_access: {
-        can_access_ceph_admin: false,
+      effective_access: effectiveAccess({
         can_access_storage_ops: true,
-        manager_tool_access: {
-          bucket_compare: false,
-          bucket_integrity_check: false,
-          bucket_migration: false,
-          feature_rules: false,
-        },
-        account_links: [{
-          account_id: 42,
-          manager_role: "account_administrator",
-          portal_role: "portal_user",
-          provenance: {
-            direct_manager_role: null,
-            direct_portal_role: null,
-            direct_determines_effective_manager_role: false,
-            direct_determines_effective_portal_role: false,
-            groups: [],
-          },
-        }],
-        s3_user_details: [],
-        s3_connection_details: [],
-      },
+        account_links: [accountLink(42, "account_administrator", "portal_user")],
+      }),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
@@ -247,19 +292,9 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 14,
       email: "grouped-browser@example.com",
       role: "ui_user",
-      effective_access: {
-        can_access_ceph_admin: false,
-        can_access_storage_ops: false,
-        manager_tool_access: {
-          bucket_compare: false,
-          bucket_integrity_check: false,
-          bucket_migration: false,
-          feature_rules: false,
-        },
-        account_links: [],
-        s3_user_details: [],
+      effective_access: effectiveAccess({
         s3_connection_details: [{ id: 55, name: "shared-browser" }],
-      },
+      }),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(user, baseSettings);
@@ -272,7 +307,9 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 9,
       email: "portal-manager@example.com",
       role: "ui_user",
-      account_links: [{ account_id: 24, manager_role: null, portal_role: "portal_manager" }],
+      effective_access: effectiveAccess({
+        account_links: [accountLink(24, null, "portal_manager")],
+      }),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
@@ -291,9 +328,9 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 15,
       email: "portal-browser@example.com",
       role: "ui_user",
-      account_links: [{ account_id: 24, manager_role: null, portal_role: "portal_user" }],
-      s3_connection_details: [],
-      s3_user_details: [],
+      effective_access: effectiveAccess({
+        account_links: [accountLink(24, null, "portal_user")],
+      }),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
@@ -310,11 +347,10 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
     const workspaces = resolveAvailableWorkspacesWithFlags(
       {
         ...adminUser,
-        account_links: [{
-          account_id: 24,
-          manager_role: "account_administrator",
-          portal_role: "portal_manager",
-        }],
+        effective_access: effectiveAccess({
+          ...adminUser.effective_access,
+          account_links: [accountLink(24, "account_administrator", "portal_manager")],
+        }),
       },
       {
         ...baseSettings,
@@ -332,7 +368,10 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
     const workspaces = resolveAvailableWorkspacesWithFlags(
       {
         ...superAdminUser,
-        account_links: [{ account_id: 24, manager_role: null, portal_role: "portal_user" }],
+        effective_access: effectiveAccess({
+          ...superAdminUser.effective_access,
+          account_links: [accountLink(24, null, "portal_user")],
+        }),
       },
       {
         ...baseSettings,
@@ -347,7 +386,10 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
     const workspaces = resolveAvailableWorkspacesWithFlags(
       {
         ...adminUser,
-        account_links: [],
+        effective_access: effectiveAccess({
+          ...adminUser.effective_access,
+          account_links: [],
+        }),
       },
       {
         ...baseSettings,
@@ -363,7 +405,9 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 10,
       email: "portal-disabled@example.com",
       role: "ui_user",
-      account_links: [{ account_id: 24, manager_role: null, portal_role: "portal_user" }],
+      effective_access: effectiveAccess({
+        account_links: [accountLink(24, null, "portal_user")],
+      }),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
@@ -379,7 +423,7 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 8,
       email: "plain-user@example.com",
       role: "ui_user",
-      account_links: [],
+      effective_access: effectiveAccess(),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
@@ -395,7 +439,7 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 11,
       email: "missing-role@example.com",
       role: "ui_user",
-      account_links: [],
+      effective_access: effectiveAccess(),
     };
 
     const workspaces = resolveAvailableWorkspacesWithFlags(user, {
@@ -411,7 +455,9 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       id: 12,
       email: "portal-only@example.com",
       role: "ui_user",
-      account_links: [{ account_id: 24, manager_role: null, portal_role: "portal_user" }],
+      effective_access: effectiveAccess({
+        account_links: [accountLink(24, null, "portal_user")],
+      }),
     };
 
     expect(resolvePostLoginPath(user, { ...baseSettings, portal_enabled: true })).toBe("/portal");

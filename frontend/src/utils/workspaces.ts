@@ -7,7 +7,6 @@ import {
   type GeneralSettings,
   type RuntimeSurfaces,
 } from "../api/appSettings";
-import type { AccountAccessGrant } from "../api/accountAccess";
 import type { WorkspaceAccess } from "../api/executionContexts";
 import type {
   EffectiveUserAccess,
@@ -49,25 +48,11 @@ export type SessionUser = {
   role?: UiRole | null;
   ui_language?: "en" | "fr" | "de" | "zh" | null;
   ui_preferences?: UiPreferences | null;
-  can_access_ceph_admin?: boolean | null;
-  can_access_storage_ops?: boolean | null;
-  can_create_manual_private_connections?: boolean | null;
-  can_provision_managed_private_connections?: boolean | null;
-  manager_tool_access?: ManagerToolAccess | null;
-  browser_advanced_features_enabled?: boolean | null;
   effective_access?: EffectiveUserAccess | null;
   authType?: "password" | "s3_session" | "oidc" | "ldap" | null;
   actorType?: string | null;
   accountId?: string | null;
   accountName?: string | null;
-  account_links?: (AccountAccessGrant & {
-    account_id: number;
-  })[] | null;
-  s3_user_details?: { id: number; name?: string | null }[] | null;
-  s3_connection_details?: {
-    id: number;
-    name?: string | null;
-  }[] | null;
   capabilities?: {
     can_manage_buckets?: boolean;
     can_manage_iam?: boolean;
@@ -76,8 +61,6 @@ export type SessionUser = {
 };
 
 type PrivateConnectionAccessUser = {
-  can_create_manual_private_connections?: boolean | null;
-  can_provision_managed_private_connections?: boolean | null;
   effective_access?: Pick<
     EffectiveUserAccess,
     | "can_create_manual_private_connections"
@@ -104,14 +87,11 @@ export function isAdminLikeRole(role?: UiRole | null): boolean {
 }
 
 export function getManagerToolAccess(user: SessionUser | null): ManagerToolAccess | null {
-  return user?.effective_access?.manager_tool_access ?? user?.manager_tool_access ?? null;
+  return user?.effective_access?.manager_tool_access ?? null;
 }
 
 export function canCreateManualPrivateConnections(user: PrivateConnectionAccessUser | null): boolean {
-  return Boolean(
-    user?.effective_access?.can_create_manual_private_connections ??
-      user?.can_create_manual_private_connections
-  );
+  return Boolean(user?.effective_access?.can_create_manual_private_connections);
 }
 
 function hasOwnedPrivateConnections(user: PrivateConnectionAccessUser | null): boolean {
@@ -159,24 +139,24 @@ function getEffectiveAccess(user: SessionUser | null): EffectiveUserAccess | nul
   return user?.effective_access ?? null;
 }
 
-function getAccountLinks(user: SessionUser | null): NonNullable<SessionUser["account_links"]> {
-  return getEffectiveAccess(user)?.account_links ?? user?.account_links ?? [];
+function getAccountLinks(user: SessionUser | null): EffectiveUserAccess["account_links"] {
+  return getEffectiveAccess(user)?.account_links ?? [];
 }
 
-function getS3UserDetails(user: SessionUser | null): NonNullable<SessionUser["s3_user_details"]> {
-  return getEffectiveAccess(user)?.s3_user_details ?? user?.s3_user_details ?? [];
+function getS3UserDetails(user: SessionUser | null): EffectiveUserAccess["s3_user_details"] {
+  return getEffectiveAccess(user)?.s3_user_details ?? [];
 }
 
-function getConnectionDetails(user: SessionUser | null): NonNullable<SessionUser["s3_connection_details"]> {
-  return getEffectiveAccess(user)?.s3_connection_details ?? user?.s3_connection_details ?? [];
+function getConnectionDetails(user: SessionUser | null): EffectiveUserAccess["s3_connection_details"] {
+  return getEffectiveAccess(user)?.s3_connection_details ?? [];
 }
 
 function canAccessCephAdmin(user: SessionUser | null): boolean {
-  return Boolean(getEffectiveAccess(user)?.can_access_ceph_admin ?? user?.can_access_ceph_admin);
+  return Boolean(getEffectiveAccess(user)?.can_access_ceph_admin);
 }
 
 function canAccessStorageOps(user: SessionUser | null): boolean {
-  return Boolean(getEffectiveAccess(user)?.can_access_storage_ops ?? user?.can_access_storage_ops);
+  return Boolean(getEffectiveAccess(user)?.can_access_storage_ops);
 }
 
 function resolveAvailableWorkspaces(

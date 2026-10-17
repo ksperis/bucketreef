@@ -198,14 +198,26 @@ function trendText(value: string) {
   return (_content: string, element: Element | null) => element?.tagName === "SPAN" && element.textContent === value;
 }
 
-function setManagerUser() {
+function setManagerUser({ bucketPurge = false }: { bucketPurge?: boolean } = {}) {
   setSessionUserCache({
     role: "ui_user",
-    manager_tool_access: {
-      bucket_compare: false,
-      bucket_integrity_check: false,
-      bucket_migration: false,
-      feature_rules: false,
+    effective_access: {
+      can_access_ceph_admin: false,
+      can_access_storage_ops: false,
+      can_create_manual_private_connections: false,
+      can_provision_managed_private_connections: false,
+      has_owned_private_connections: false,
+      manager_tool_access: {
+        bucket_compare: false,
+        bucket_integrity_check: false,
+        bucket_migration: false,
+        bucket_purge: bucketPurge,
+        feature_rules: false,
+      },
+      browser_advanced_features_enabled: false,
+      account_links: [],
+      s3_user_details: [],
+      s3_connection_details: [],
     },
   });
 }
@@ -1490,10 +1502,7 @@ describe("manager shell pages", () => {
 
   it("opens the delete-with-purge page for a non-empty bucket when purge access is enabled", async () => {
     bucketPurgeEnabled = true;
-    setSessionUserCache({
-      role: "ui_user",
-      manager_tool_access: { bucket_purge: true },
-    });
+    setManagerUser({ bucketPurge: true });
     listBucketsMock.mockResolvedValue([
       {
         name: "bucket-a",
@@ -1682,10 +1691,7 @@ describe("manager shell pages", () => {
 
   it("allows manager delete-with-purge when the visible object count exceeds 10000", async () => {
     bucketPurgeEnabled = true;
-    setSessionUserCache({
-      role: "ui_user",
-      manager_tool_access: { bucket_purge: true },
-    });
+    setManagerUser({ bucketPurge: true });
     listBucketsMock.mockResolvedValue([
       {
         name: "bucket-huge",
