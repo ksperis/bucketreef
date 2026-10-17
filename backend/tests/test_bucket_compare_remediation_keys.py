@@ -94,8 +94,8 @@ def test_http_remediation_targets_only_selected_exact_keys(client, monkeypatch, 
 
     source_client, target_client = SourceClient(), TargetClient()
     service = BucketComparisonService()
-    monkeypatch.setattr(service, "_build_client", lambda account: source_client if account is source else target_client)
-    monkeypatch.setattr(service, "_accounts_share_storage_endpoint", lambda *_args: mode != "stream")
+    monkeypatch.setattr(service, "_build_client", lambda context: source_client if context is source else target_client)
+    monkeypatch.setattr(service, "_contexts_share_storage_endpoint", lambda *_args: mode != "stream")
     # Keep the HTTP model, action orchestration, and remediation real while
     # isolating authorization, remote storage, and audit persistence.
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: source
