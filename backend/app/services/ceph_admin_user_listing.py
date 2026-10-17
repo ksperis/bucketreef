@@ -10,9 +10,6 @@ from app.models.ceph_admin import (
     CephAdminUserFilterRule,
     PaginatedCephAdminUsersResponse,
 )
-from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.listing_common import parse_filter_query
-from app.routers.ceph_admin.user_common import optional_account_lookup_enabled, split_tenant_uid
 from app.services.ceph_admin_identity_listing_cache import (
     EndpointListCacheKey,
     get_cached_rgw_users_payload,
@@ -27,6 +24,8 @@ from app.services.ceph_admin_identity_listing_support import (
     paginate,
 )
 from app.services.ceph_admin_user_listing_enrichment import enrich_users
+from app.services.ceph_admin_user_identity import split_tenant_uid
+from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
@@ -38,6 +37,7 @@ from app.services.listing_rule_matching import (
     match_numeric_rule,
     match_text_rule,
 )
+from app.services.rgw_admin import RGWAdminClient
 from app.utils.rgw_payloads import parse_rgw_bool
 from app.utils.usage_stats import compute_usage_ratio_percent
 
@@ -193,7 +193,9 @@ class _UserListingPipeline:
         sort_by: str,
         sort_dir: str,
         include: list[str],
-        ctx: CephAdminContext,
+        endpoint_id: int,
+        rgw_admin: RGWAdminClient,
+        account_lookup_enabled: bool | None,
         progress_callback: Callable[[ListingProgressSnapshot], None] | None,
         cancel_check: Callable[[], None] | None,
     ) -> None:
@@ -204,7 +206,9 @@ class _UserListingPipeline:
         self.sort_by = sort_by
         self.sort_dir = sort_dir
         self.include = include
-        self.ctx = ctx
+        self.endpoint_id = endpoint_id
+        self.rgw_admin = rgw_admin
+        self.account_lookup_enabled = account_lookup_enabled
         self.progress = ListingProgressEmitter(progress_callback)
         self.cancel_check = cancel_check
         self.parsed_filter: CephAdminUserFilterQuery | None = None
@@ -262,7 +266,7 @@ class _UserListingPipeline:
             self.parsed_filter and self.parsed_filter.rules
         )
         self.cache_key = EndpointListCacheKey(
-            endpoint_id=self.ctx.endpoint.id,
+            endpoint_id=self.endpoint_id,
             advanced_filter=serialize_filter(self.parsed_filter),
             sort_by=self.sort_by,
             sort_dir=self.sort_dir,
@@ -277,8 +281,8 @@ class _UserListingPipeline:
         )
         invoke_cancel_check(self.cancel_check)
         payload = get_cached_rgw_users_payload(
-            self.ctx.endpoint.id,
-            self.ctx.rgw_admin.list_users,
+            self.endpoint_id,
+            self.rgw_admin.list_users,
         )
         results = [
             user
@@ -336,8 +340,8 @@ class _UserListingPipeline:
         enriched = enrich_users(
             results,
             requested,
-            self.ctx.rgw_admin,
-            account_lookup_enabled=optional_account_lookup_enabled(self.ctx),
+            self.rgw_admin,
+            account_lookup_enabled=self.account_lookup_enabled,
             progress=self.progress,
             progress_stage="detail_enrichment",
             progress_message="Loading user details",
@@ -399,8 +403,8 @@ class _UserListingPipeline:
         enriched = enrich_users(
             page_items,
             self.requested,
-            self.ctx.rgw_admin,
-            account_lookup_enabled=optional_account_lookup_enabled(self.ctx),
+            self.rgw_admin,
+            account_lookup_enabled=self.account_lookup_enabled,
             progress=self.progress,
             progress_stage="page_enrichment",
             progress_message="Loading page details",
@@ -421,7 +425,9 @@ def compute_users_listing(
     sort_by: str,
     sort_dir: str,
     include: list[str],
-    ctx: CephAdminContext,
+    endpoint_id: int,
+    rgw_admin: RGWAdminClient,
+    account_lookup_enabled: bool | None,
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
     cancel_check: Callable[[], None] | None = None,
 ) -> PaginatedCephAdminUsersResponse:
@@ -433,7 +439,9 @@ def compute_users_listing(
         sort_by=sort_by,
         sort_dir=sort_dir,
         include=include,
-        ctx=ctx,
+        endpoint_id=endpoint_id,
+        rgw_admin=rgw_admin,
+        account_lookup_enabled=account_lookup_enabled,
         progress_callback=progress_callback,
         cancel_check=cancel_check,
     ).run()

@@ -13,13 +13,13 @@ from app.models.portal_access_logs import (
     PortalServerAccessLogFilterQuery,
     PortalServerAccessLogPage,
 )
-from app.routers.listing_common import parse_filter_query
 from app.routers.dependencies import require_portal_manager
 from app.routers.portal_common import (
     get_portal_service_dependency,
     raise_portal_error,
 )
 from app.services.portal_service import PortalService
+from app.services.listing_filter_query import parse_filter_query
 from app.utils.http_errors import raise_bad_request_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
 
