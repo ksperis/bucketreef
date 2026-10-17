@@ -14,7 +14,7 @@ from app.models.bucket import (
     BucketVersioningStatus,
     BucketVersioningUpdate,
 )
-from app.routers.browser_common import require_sse_feature
+from app.services.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.dependencies import get_s3_execution_context, get_audit_service, get_current_account_admin
 from app.services import bucket_config_actions
 from app.services.audit_service import AuditService
@@ -133,7 +133,7 @@ def get_bucket_encryption(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketEncryptionConfiguration:
-    require_sse_feature(context)
+    require_sse_feature(context.storage_endpoint)
     return bucket_config_actions.get_bucket_encryption_config(
         service=service,
         context=context,
@@ -149,7 +149,7 @@ def put_bucket_encryption(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketEncryptionConfiguration:
-    require_sse_feature(context)
+    require_sse_feature(context.storage_endpoint)
     return mutation.update(
         actor=current_user,
         context=context,
@@ -167,7 +167,7 @@ def delete_bucket_encryption(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> None:
-    require_sse_feature(context)
+    require_sse_feature(context.storage_endpoint)
     mutation.delete(
         actor=current_user,
         context=context,

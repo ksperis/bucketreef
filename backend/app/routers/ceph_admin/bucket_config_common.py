@@ -5,7 +5,7 @@
 
 from typing import Any, Callable, Literal
 
-from fastapi import HTTPException, Response, status
+from fastapi import Response
 
 from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
@@ -13,23 +13,6 @@ from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
-from app.utils.storage_endpoint_features import resolve_feature_flags
-
-
-def _require_sse_feature(ctx: CephAdminContext) -> None:
-    if not resolve_feature_flags(ctx.endpoint).sse_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Server-side encryption is disabled for this endpoint",
-        )
-
-
-def _require_replication_feature(ctx: CephAdminContext) -> None:
-    if not resolve_feature_flags(ctx.endpoint).replication_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bucket replication is disabled for this endpoint",
-        )
 
 
 def _record_bucket_config_mutation(

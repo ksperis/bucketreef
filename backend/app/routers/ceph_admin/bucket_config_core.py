@@ -16,10 +16,10 @@ from app.models.bucket import (
 )
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.routers.ceph_admin.bucket_config_common import (
-    _require_sse_feature,
     _run_bucket_config_delete,
     _run_bucket_config_update,
 )
+from app.services.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
@@ -161,7 +161,7 @@ def get_bucket_encryption(
     bucket_name: str,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketEncryptionConfiguration:
-    _require_sse_feature(ctx)
+    require_sse_feature(ctx.endpoint)
     service = BucketConfigurationService()
     context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_encryption_config(
@@ -177,7 +177,7 @@ def put_bucket_encryption(
     payload: BucketEncryptionConfiguration,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketEncryptionConfiguration:
-    _require_sse_feature(ctx)
+    require_sse_feature(ctx.endpoint)
     return _run_bucket_config_update(
         ctx,
         bucket_name,
@@ -192,7 +192,7 @@ def delete_bucket_encryption(
     bucket_name: str,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
-    _require_sse_feature(ctx)
+    require_sse_feature(ctx.endpoint)
     return _run_bucket_config_delete(
         ctx,
         bucket_name,

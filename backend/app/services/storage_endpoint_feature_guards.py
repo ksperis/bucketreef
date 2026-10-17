@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from fastapi import HTTPException, status
 
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.db import StorageEndpoint
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 
-def require_sse_feature(context: S3ExecutionTarget) -> None:
-    endpoint = context.storage_endpoint
+def require_sse_feature(endpoint: StorageEndpoint | None) -> None:
     if endpoint is None:
         return
     if not resolve_feature_flags(endpoint).sse_enabled:
@@ -19,8 +18,7 @@ def require_sse_feature(context: S3ExecutionTarget) -> None:
         )
 
 
-def require_replication_feature(context: S3ExecutionTarget) -> None:
-    endpoint = context.storage_endpoint
+def require_replication_feature(endpoint: StorageEndpoint | None) -> None:
     if endpoint is None or not resolve_feature_flags(endpoint).replication_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
