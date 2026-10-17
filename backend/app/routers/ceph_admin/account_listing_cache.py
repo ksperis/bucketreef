@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from app.models.ceph_admin import CephAdminRgwAccountSummary
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.ceph_admin.listing_common import (
+from app.services.ceph_admin_identity_listing_cache import (
     EndpointListCacheKey,
     EndpointListingCache,
 )
