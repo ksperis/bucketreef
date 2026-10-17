@@ -5,13 +5,13 @@ from __future__ import annotations
 import logging
 from functools import partial
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
-from app.models.bucket_purge import BucketPurgeRequest, bucket_purge_confirmation_phrase
+from app.models.bucket_purge import BucketPurgeTargetRequest
 from app.routers.bucket_purge_stream import (
     BucketPurgeAuditLifecycle,
     record_bucket_purge_audit,
@@ -25,26 +25,15 @@ router = APIRouter(prefix="/storage-ops/buckets/purge", tags=["storage-ops-bucke
 logger = logging.getLogger(__name__)
 
 
-def _require_targets_payload(payload: BucketPurgeRequest):
-    if payload.buckets:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage Ops bucket purge expects targets, not buckets.")
-    if not payload.targets:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one target is required.")
-    expected = bucket_purge_confirmation_phrase(len(payload.targets))
-    if (payload.confirmation or "").strip() != expected:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Confirmation must be exactly '{expected}'.")
-    return payload.targets
-
-
 @router.post("/stream")
 def stream_storage_ops_bucket_purge(
-    payload: BucketPurgeRequest,
+    payload: BucketPurgeTargetRequest,
     request: Request,
     _: None = Depends(require_bucket_purge_global_enabled),
     user: User = Depends(get_current_storage_ops_admin),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    requested_targets = _require_targets_payload(payload)
+    requested_targets = payload.targets
     contexts = list_execution_contexts(workspace="manager", user=user, db=db)
     context_names = {context.id: context.display_name for context in contexts}
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)

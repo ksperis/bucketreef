@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
-import type { BucketOperationTarget } from "./bucketOperation";
+import type { BucketNamesPayload, BucketTargetsPayload } from "./bucketOperation";
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
@@ -12,15 +12,16 @@ import {
 
 export type BucketIntegrityCheckMode = "head" | "get";
 
-export type BucketIntegrityCheckPayload = {
-  buckets?: string[];
-  targets?: BucketOperationTarget[];
+type BucketIntegrityOptionsPayload = {
   parallelism?: number;
   all_versions?: boolean;
   check_mode?: BucketIntegrityCheckMode;
   since?: string | null;
   max_mb_per_object?: number | null;
 };
+
+export type BucketIntegrityBucketPayload = BucketIntegrityOptionsPayload & BucketNamesPayload;
+type BucketIntegrityTargetPayload = BucketIntegrityOptionsPayload & BucketTargetsPayload;
 
 export type BucketIntegrityFailure = {
   bucket_name: string;
@@ -78,7 +79,7 @@ type BucketIntegrityStreamOptions = {
 
 export function streamManagerBucketIntegrityCheck(
   contextId: S3ExecutionContextSelector,
-  payload: BucketIntegrityCheckPayload,
+  payload: BucketIntegrityBucketPayload,
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();
@@ -94,7 +95,7 @@ export function streamManagerBucketIntegrityCheck(
 
 export function streamCephAdminBucketIntegrityCheck(
   endpointId: number,
-  payload: BucketIntegrityCheckPayload,
+  payload: BucketIntegrityBucketPayload,
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();
@@ -108,7 +109,7 @@ export function streamCephAdminBucketIntegrityCheck(
 }
 
 export function streamStorageOpsBucketIntegrityCheck(
-  payload: BucketIntegrityCheckPayload,
+  payload: BucketIntegrityTargetPayload,
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();

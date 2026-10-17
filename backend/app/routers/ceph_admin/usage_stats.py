@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from app.db import User
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregateResponse,
     BucketUsageStatsLatestResponse,
-    BucketUsageStatsRequest,
+    BucketUsageStatsBucketRequest,
     BucketUsageStatsScopeRequest,
 )
 from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
@@ -33,17 +33,6 @@ from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(tags=["ceph-admin-bucket-usage-stats"])
 logger = logging.getLogger(__name__)
-
-
-def _require_buckets_payload(payload: BucketUsageStatsRequest) -> list[str]:
-    if payload.targets:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ceph Admin usage stats expects buckets, not targets.",
-        )
-    if not payload.buckets:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one bucket is required.")
-    return payload.buckets
 
 
 def _target_for_bucket(ctx: CephAdminContext, bucket_name: str) -> BucketUsageStatsResolvedTarget:
@@ -159,12 +148,12 @@ def stream_ceph_admin_bucket_usage_stats_for_bucket(
 
 @router.post("/ceph-admin/endpoints/{endpoint_id}/bucket-usage-stats/stream")
 def stream_ceph_admin_bucket_usage_stats(
-    payload: BucketUsageStatsRequest,
+    payload: BucketUsageStatsBucketRequest,
     request: Request,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     user: User = Depends(get_current_ceph_admin),
 ) -> StreamingResponse:
-    bucket_names = _require_buckets_payload(payload)
+    bucket_names = payload.buckets
     options = BucketUsageStatsOptions(parallelism=payload.parallelism)
     targets = [_target_for_bucket(ctx, bucket_name) for bucket_name in bucket_names]
     service = BucketUsageStatsService(SessionLocal)

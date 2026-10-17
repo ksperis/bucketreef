@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
-from app.models.bucket_integrity import BucketIntegrityCheckRequest
+from app.models.bucket_integrity import BucketIntegrityTargetRequest
 from app.routers.bucket_integrity_stream import stream_bucket_integrity_check
 from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin
 from app.routers.execution_contexts import list_execution_contexts
@@ -24,25 +24,14 @@ router = APIRouter(prefix="/storage-ops/buckets/integrity-check", tags=["storage
 logger = logging.getLogger(__name__)
 
 
-def _require_targets_payload(payload: BucketIntegrityCheckRequest):
-    if payload.buckets:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Storage Ops integrity check expects targets, not buckets.",
-        )
-    if not payload.targets:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one target is required.")
-    return payload.targets
-
-
 @router.post("/stream")
 def stream_storage_ops_bucket_integrity_check(
-    payload: BucketIntegrityCheckRequest,
+    payload: BucketIntegrityTargetRequest,
     request: Request,
     user: User = Depends(get_current_storage_ops_admin),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    requested_targets = _require_targets_payload(payload)
+    requested_targets = payload.targets
     contexts = list_execution_contexts(workspace="manager", user=user, db=db)
     context_names = {context.id: context.display_name for context in contexts}
     options = BucketIntegrityOptions(

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.db import User
 from app.models.access_context import ManagerActor
-from app.models.bucket_integrity import BucketIntegrityCheckRequest
+from app.models.bucket_integrity import BucketIntegrityBucketRequest
 from app.routers.bucket_integrity_stream import stream_bucket_integrity_check
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -28,25 +28,15 @@ router = APIRouter(prefix="/manager/bucket-integrity", tags=["manager-bucket-int
 logger = logging.getLogger(__name__)
 
 
-def _require_buckets_payload(payload: BucketIntegrityCheckRequest) -> list[str]:
-    if payload.targets:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Manager integrity check expects buckets, not targets.",
-        )
-    if not payload.buckets:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one bucket is required.")
-    return payload.buckets
-
 @router.post("/stream")
 def stream_manager_bucket_integrity_check(
-    payload: BucketIntegrityCheckRequest,
+    payload: BucketIntegrityBucketRequest,
     request: Request,
     _tool_user: User = Depends(require_bucket_integrity_check_enabled),
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
-    bucket_names = _require_buckets_payload(payload)
+    bucket_names = payload.buckets
     require_bucket_management_context(context)
     options = BucketIntegrityOptions(
         parallelism=payload.parallelism,

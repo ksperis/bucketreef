@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-from typing import TypeVar
+from typing import Annotated, TypeVar
 
-from pydantic import Field, model_validator
+from pydantic import AfterValidator, Field, model_validator
 
 from app.models.base import ApiModel
 
@@ -38,6 +38,13 @@ def normalize_bucket_names(bucket_names: list[str]) -> list[str]:
     )
 
 
+def require_bucket_names(bucket_names: list[str]) -> list[str]:
+    normalized = normalize_bucket_names(bucket_names)
+    if not normalized:
+        raise ValueError("At least one bucket is required.")
+    return normalized
+
+
 def deduplicate_bucket_targets(targets: list[_TargetT]) -> list[_TargetT]:
     deduplicated: list[_TargetT] = []
     seen: set[tuple[str, str]] = set()
@@ -50,20 +57,13 @@ def deduplicate_bucket_targets(targets: list[_TargetT]) -> list[_TargetT]:
     return deduplicated
 
 
-class BucketOperationRequest(ApiModel):
-    buckets: list[str] = Field(default_factory=list, max_length=200)
-    targets: list[BucketOperationTarget] = Field(default_factory=list, max_length=200)
-
-    @model_validator(mode="after")
-    def normalize_targets(self):
-        self.buckets = normalize_bucket_names(self.buckets)
-        self.targets = deduplicate_bucket_targets(self.targets)
-        return self
-
-
-class ExclusiveBucketOperationRequest(BucketOperationRequest):
-    @model_validator(mode="after")
-    def require_one_target_source(self):
-        if bool(self.buckets) == bool(self.targets):
-            raise ValueError("Provide exactly one of buckets or targets.")
-        return self
+BucketNameList = Annotated[
+    list[str],
+    Field(min_length=1, max_length=200),
+    AfterValidator(require_bucket_names),
+]
+BucketTargetList = Annotated[
+    list[BucketOperationTarget],
+    Field(min_length=1, max_length=200),
+    AfterValidator(deduplicate_bucket_targets),
+]

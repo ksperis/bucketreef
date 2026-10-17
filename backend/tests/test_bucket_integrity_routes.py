@@ -18,7 +18,12 @@ from starlette.requests import Request
 from app.db import StorageEndpoint, User, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
-from app.models.bucket_integrity import BucketIntegrityCheckProgress, BucketIntegrityCheckRequest, BucketIntegrityCheckResult
+from app.models.bucket_integrity import (
+    BucketIntegrityBucketRequest,
+    BucketIntegrityCheckProgress,
+    BucketIntegrityCheckResult,
+    BucketIntegrityTargetRequest,
+)
 from app.routers.bucket_integrity_stream import stream_bucket_integrity_check
 from app.routers import dependencies as dependencies_router
 from app.services import app_settings_service
@@ -260,7 +265,7 @@ def test_ceph_admin_integrity_route_uses_dedicated_endpoint_credentials(monkeypa
     monkeypatch.setattr(ceph_integrity, "stream_bucket_integrity_check", fake_stream)
 
     response = ceph_integrity.stream_ceph_admin_bucket_integrity_check(
-        payload=BucketIntegrityCheckRequest(buckets=["bucket-a"]),
+        payload=BucketIntegrityBucketRequest(buckets=["bucket-a"]),
         request=_build_request(path="/api/ceph-admin/endpoints/7/buckets/integrity-check/stream"),
         ctx=ctx,
     )
@@ -300,7 +305,7 @@ def test_storage_ops_integrity_route_resolves_authorized_manager_contexts(monkey
     monkeypatch.setattr(storage_ops_integrity, "get_s3_execution_context", fake_get_s3_execution_context)
 
     response = storage_ops_integrity.stream_storage_ops_bucket_integrity_check(
-        payload=BucketIntegrityCheckRequest(
+        payload=BucketIntegrityTargetRequest(
             targets=[{"context_id": "s3u-1", "bucket_name": "bucket-a"}],
             check_mode="get",
         ),

@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.models.base import ApiModel
 from app.models.bucket_operation import (
-    BucketOperationRequest,
-    BucketOperationTarget,
+    BucketNameList,
+    BucketTargetList,
 )
 
 
@@ -18,14 +18,37 @@ BucketPurgeStatus = Literal["completed", "completed_with_errors", "failed", "can
 BucketPurgeStage = Literal["prepare", "list", "delete", "versions", "delete_bucket", "completed"]
 
 
-class BucketPurgeRequest(BucketOperationRequest):
-    targets: list[BucketOperationTarget] = Field(default_factory=list, max_length=200)
+class BucketPurgeRequestOptions(ApiModel):
     parallelism: int = Field(default=10, ge=1, le=64)
     include_versions: bool = True
     confirmation: str = ""
 
 def bucket_purge_confirmation_phrase(target_count: int) -> str:
     return f"PURGE {target_count} BUCKETS"
+
+
+def _validate_purge_confirmation(confirmation: str, target_count: int) -> None:
+    expected = bucket_purge_confirmation_phrase(target_count)
+    if (confirmation or "").strip() != expected:
+        raise ValueError(f"Confirmation must be exactly '{expected}'.")
+
+
+class BucketPurgeBucketRequest(BucketPurgeRequestOptions):
+    buckets: BucketNameList
+
+    @model_validator(mode="after")
+    def validate_confirmation(self):
+        _validate_purge_confirmation(self.confirmation, len(self.buckets))
+        return self
+
+
+class BucketPurgeTargetRequest(BucketPurgeRequestOptions):
+    targets: BucketTargetList
+
+    @model_validator(mode="after")
+    def validate_confirmation(self):
+        _validate_purge_confirmation(self.confirmation, len(self.targets))
+        return self
 
 
 class BucketDeleteWithPurgeRequest(ApiModel):

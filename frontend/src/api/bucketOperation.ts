@@ -7,3 +7,11 @@ export type BucketOperationTarget = {
   context_id: string;
   bucket_name: string;
 };
+
+export type BucketNamesPayload = {
+  buckets: string[];
+};
+
+export type BucketTargetsPayload = {
+  targets: BucketOperationTarget[];
+};

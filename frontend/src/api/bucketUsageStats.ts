@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
-import type { BucketOperationTarget } from "./bucketOperation";
+import type { BucketNamesPayload, BucketTargetsPayload } from "./bucketOperation";
 import { withS3ContextParam } from "./accountParams";
 import client from "./client";
 import {
@@ -12,11 +12,12 @@ import {
   streamBucketsWithSse,
 } from "./sseBucketsStream";
 
-export type BucketUsageStatsPayload = {
-  buckets?: string[];
-  targets?: BucketOperationTarget[];
+type BucketUsageStatsOptionsPayload = {
   parallelism?: number;
 };
+
+type BucketUsageStatsBucketPayload = BucketUsageStatsOptionsPayload & BucketNamesPayload;
+type BucketUsageStatsTargetPayload = BucketUsageStatsOptionsPayload & BucketTargetsPayload;
 
 type BucketUsageStatsScopePayload = {
   parallelism?: number;
@@ -217,7 +218,7 @@ export function streamManagerBucketUsageStatsForBucket(
 
 export function streamCephAdminBucketUsageStats(
   endpointId: number,
-  payload: BucketUsageStatsPayload,
+  payload: BucketUsageStatsBucketPayload,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
@@ -277,7 +278,7 @@ export function streamCephAdminBucketUsageStatsForBucket(
 }
 
 export function streamStorageOpsBucketUsageStats(
-  payload: BucketUsageStatsPayload,
+  payload: BucketUsageStatsTargetPayload,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
