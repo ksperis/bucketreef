@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0157_canonical_audit_status"
+_EXPECTED_ALEMBIC_HEAD = "0158_connection_rgw_identity"
 
 
 def _alembic_config() -> Config:
