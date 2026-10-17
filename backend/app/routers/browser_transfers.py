@@ -24,7 +24,7 @@ from app.models.browser import (
     SseCustomerContext,
     StsStatus,
 )
-from app.routers.browser_common import require_sse_feature
+from app.services.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.s3_download_response import S3DownloadResponse
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -84,7 +84,7 @@ def upload_via_proxy(
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
-        require_sse_feature(context)
+        require_sse_feature(context.storage_endpoint)
     try:
         service.upload_via_proxy(
             bucket_name,
@@ -112,7 +112,7 @@ def download_object(
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
-        require_sse_feature(context)
+        require_sse_feature(context.storage_endpoint)
     try:
         download = service.download_object(
             bucket_name,
@@ -136,7 +136,7 @@ def presign(
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> PresignedUrl:
     if sse_customer:
-        require_sse_feature(context)
+        require_sse_feature(context.storage_endpoint)
     try:
         return service.presign(bucket_name, context, payload, sse_customer=sse_customer)
     except RuntimeError as exc:
@@ -155,7 +155,7 @@ def multipart_init(
     if not payload.key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
-        require_sse_feature(context)
+        require_sse_feature(context.storage_endpoint)
     try:
         return service.initiate_multipart_upload(
             bucket_name,
@@ -206,7 +206,7 @@ def presign_part_for_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     payload.upload_id = upload_id
     if sse_customer:
-        require_sse_feature(context)
+        require_sse_feature(context.storage_endpoint)
     try:
         return service.presign_part(bucket_name, context, payload, sse_customer=sse_customer)
     except RuntimeError as exc:

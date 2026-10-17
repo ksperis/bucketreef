@@ -23,7 +23,7 @@ from app.models.browser import (
     ObjectTags,
     SseCustomerContext,
 )
-from app.routers.browser_common import require_sse_feature
+from app.services.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_account_admin,
@@ -77,7 +77,7 @@ def head_object(
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
-        require_sse_feature(context)
+        require_sse_feature(context.storage_endpoint)
     try:
         return service.head_object(
             bucket_name,

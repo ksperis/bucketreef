@@ -15,10 +15,10 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
 )
 from app.routers.ceph_admin.bucket_config_common import (
-    _require_replication_feature,
     _run_bucket_config_delete,
     _run_bucket_config_update,
 )
+from app.services.storage_endpoint_feature_guards import require_replication_feature
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
@@ -161,7 +161,7 @@ def get_replication(
     bucket_name: str,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketReplicationConfiguration:
-    _require_replication_feature(ctx)
+    require_replication_feature(ctx.endpoint)
     service = BucketConfigurationService()
     context = build_ceph_admin_s3_context(ctx)
     return bucket_config_actions.get_bucket_replication_config(
@@ -177,7 +177,7 @@ def put_replication(
     payload: BucketReplicationConfiguration,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketReplicationConfiguration:
-    _require_replication_feature(ctx)
+    require_replication_feature(ctx.endpoint)
     return _run_bucket_config_update(
         ctx,
         bucket_name,
@@ -192,7 +192,7 @@ def delete_replication(
     bucket_name: str,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
-    _require_replication_feature(ctx)
+    require_replication_feature(ctx.endpoint)
     return _run_bucket_config_delete(
         ctx,
         bucket_name,

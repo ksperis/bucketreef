@@ -15,7 +15,7 @@ from app.models.bucket import (
     BucketTagsUpdate,
     BucketWebsiteConfiguration,
 )
-from app.routers.browser_common import require_replication_feature
+from app.services.storage_endpoint_feature_guards import require_replication_feature
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.routers.manager.bucket_config_core import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
@@ -180,7 +180,7 @@ def get_replication(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketReplicationConfiguration:
-    require_replication_feature(context)
+    require_replication_feature(context.storage_endpoint)
     return bucket_config_actions.get_bucket_replication_config(
         service=service,
         context=context,
@@ -196,7 +196,7 @@ def put_replication(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketReplicationConfiguration:
-    require_replication_feature(context)
+    require_replication_feature(context.storage_endpoint)
     return mutation.update(
         actor=current_user,
         context=context,
@@ -214,7 +214,7 @@ def delete_replication(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> None:
-    require_replication_feature(context)
+    require_replication_feature(context.storage_endpoint)
     mutation.delete(
         actor=current_user,
         context=context,
