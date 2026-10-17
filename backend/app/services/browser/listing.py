@@ -35,6 +35,21 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserListingMixin:
+    @staticmethod
+    def _normalize_listing_filters(
+        prefix: str,
+        query: Optional[str],
+        item_type: Optional[str],
+        storage_class: Optional[str],
+    ) -> tuple[str, str, str, Optional[str]]:
+        normalized_item_type = (item_type or "all").lower()
+        return (
+            prefix or "",
+            (query or "").strip(),
+            normalized_item_type if normalized_item_type in {"all", "file", "folder"} else "all",
+            (storage_class or "").strip() or None,
+        )
+
     def _build_query_matcher(
         self,
         *,
@@ -76,13 +91,10 @@ class BrowserListingMixin:
         recursive: bool = False,
         include_folder_markers: bool = False,
     ) -> ListBrowserObjectsResponse:
-        normalized_prefix = prefix or ""
         normalized_max_keys = max(1, min(1000, int(max_keys or 1000)))
-        query_value_raw = (query or "").strip()
-        type_filter = (item_type or "all").lower()
-        if type_filter not in {"all", "file", "folder"}:
-            type_filter = "all"
-        storage_filter = (storage_class or "").strip() or None
+        normalized_prefix, query_value_raw, type_filter, storage_filter = self._normalize_listing_filters(
+            prefix, query, item_type, storage_class
+        )
         context_cache_key = self._context_cache_key(context)
         object_cache_key = self._object_list_cache_key(
             context_cache_key=context_cache_key,
@@ -149,12 +161,9 @@ class BrowserListingMixin:
         sort_by: BrowserObjectSortBy,
         sort_dir: BrowserObjectSortDir,
     ) -> SortedObjectSnapshot:
-        normalized_prefix = prefix or ""
-        query_value_raw = (query or "").strip()
-        type_filter = (item_type or "all").lower()
-        if type_filter not in {"all", "file", "folder"}:
-            type_filter = "all"
-        storage_filter = (storage_class or "").strip() or None
+        normalized_prefix, query_value_raw, type_filter, storage_filter = self._normalize_listing_filters(
+            prefix, query, item_type, storage_class
+        )
         context_cache_key = self._context_cache_key(context)
         snapshot_cache_key = self._object_sort_snapshot_cache_key(
             context_cache_key=context_cache_key,
@@ -285,20 +294,19 @@ class BrowserListingMixin:
             sort_dir=sort_dir,
         )
         context_cache_key = self._context_cache_key(context)
+        normalized_prefix, query_value_raw, type_filter, storage_filter = self._normalize_listing_filters(
+            prefix, query, item_type, storage_class
+        )
         snapshot_signature = _sorted_snapshot_signature(
             self._object_sort_snapshot_cache_key(
                 context_cache_key=context_cache_key,
                 bucket_name=bucket_name,
-                prefix=prefix or "",
-                query=(query or "").strip(),
+                prefix=normalized_prefix,
+                query=query_value_raw,
                 query_exact=query_exact,
                 query_case_sensitive=query_case_sensitive,
-                item_type=(
-                    (item_type or "all").lower()
-                    if (item_type or "").lower() in {"all", "file", "folder"}
-                    else "all"
-                ),
-                storage_class=(storage_class or "").strip() or None,
+                item_type=type_filter,
+                storage_class=storage_filter,
                 recursive=recursive,
                 include_folder_markers=include_folder_markers,
                 sort_by=sort_by,
