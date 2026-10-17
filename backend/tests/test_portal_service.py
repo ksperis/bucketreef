@@ -2291,7 +2291,7 @@ def test_portal_browser_allowed_buckets_use_content_access(monkeypatch, db_sessi
         }
     )
 
-    scoped_account = portal_access_deps._resolve_portal_browser_context(
+    scoped_account = portal_access_deps.resolve_portal_browser_context(
         db_session,
         user,
         account,
