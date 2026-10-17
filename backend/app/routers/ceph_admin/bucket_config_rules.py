@@ -20,9 +20,9 @@ from app.routers.ceph_admin.bucket_config_common import (
     _run_bucket_config_update,
 )
 from app.routers.ceph_admin.dependencies import (
-    CephAdminContext,
     get_ceph_admin_context,
 )
+from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.s3_execution_context import build_ceph_admin_s3_context

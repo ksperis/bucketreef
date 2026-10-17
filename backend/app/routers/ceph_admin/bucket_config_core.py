@@ -14,16 +14,16 @@ from app.models.bucket import (
     BucketVersioningStatus,
     BucketVersioningUpdate,
 )
-from app.routers.ceph_admin.audit import record_ceph_admin_action
+from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.routers.ceph_admin.bucket_config_common import (
     _require_sse_feature,
     _run_bucket_config_delete,
     _run_bucket_config_update,
 )
 from app.routers.ceph_admin.dependencies import (
-    CephAdminContext,
     get_ceph_admin_context,
 )
+from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache

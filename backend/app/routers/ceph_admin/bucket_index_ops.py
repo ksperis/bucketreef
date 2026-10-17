@@ -20,7 +20,8 @@ from app.routers.ceph_admin.admin_ops_common import (
     qualified_bucket,
     require_confirmation,
 )
-from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
+from app.routers.ceph_admin.dependencies import get_ceph_admin_context
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.bucket_index_check_service import (
     BucketIndexCheckService,
     execute_bucket_index_check_operation,

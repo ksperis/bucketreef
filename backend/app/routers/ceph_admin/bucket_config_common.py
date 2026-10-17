@@ -7,9 +7,9 @@ from typing import Any, Callable, Literal
 
 from fastapi import HTTPException, Response, status
 
-from app.routers.ceph_admin.audit import record_ceph_admin_action
-from app.routers.ceph_admin.dependencies import CephAdminContext
+from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
+from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context

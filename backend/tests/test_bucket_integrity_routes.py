@@ -28,7 +28,7 @@ from app.routers.bucket_integrity_stream import stream_bucket_integrity_check
 from app.routers import dependencies as dependencies_router
 from app.services import app_settings_service
 from app.routers.ceph_admin import integrity as ceph_integrity
-from app.routers.ceph_admin.dependencies import CephAdminContext
+from app.services.ceph_admin_context import CephAdminContext
 from app.routers.manager import integrity as manager_integrity
 from app.routers.storage_ops import integrity as storage_ops_integrity
 from app.services.bucket_integrity_service import BucketIntegrityCheckCancelled

@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from app.routers.ceph_admin.dependencies import CephAdminContext
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 

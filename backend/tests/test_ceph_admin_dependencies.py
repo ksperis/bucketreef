@@ -6,6 +6,7 @@ import pytest
 
 from app.db import StorageProvider
 from app.routers.ceph_admin import dependencies as deps
+from app.services import ceph_admin_service_identity as identity_service
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
 
@@ -61,9 +62,9 @@ features:
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = True):
             raise RGWAdminError("connect timeout")
 
-    monkeypatch.setattr(deps, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
+    monkeypatch.setattr(identity_service, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
 
-    probe = deps.probe_ceph_admin_service_identity(endpoint)
+    probe = identity_service.probe_ceph_admin_service_identity(endpoint)
 
     assert probe.status == "unavailable"
     assert probe.warning is not None
@@ -95,9 +96,9 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
                 error_code="AccessDenied",
             )
 
-    monkeypatch.setattr(deps, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
+    monkeypatch.setattr(identity_service, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
 
-    probe = deps.probe_ceph_admin_service_identity(endpoint)
+    probe = identity_service.probe_ceph_admin_service_identity(endpoint)
 
     assert probe.status == "denied"
     assert probe.warning == "Ceph Admin credentials were denied for endpoint 'Ceph endpoint'."
@@ -131,9 +132,9 @@ def test_probe_ceph_admin_service_identity_classifies_redirect_as_misconfigured(
                 error_code="RedirectNotAllowed",
             )
 
-    monkeypatch.setattr(deps, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
+    monkeypatch.setattr(identity_service, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
 
-    probe = deps.probe_ceph_admin_service_identity(endpoint)
+    probe = identity_service.probe_ceph_admin_service_identity(endpoint)
 
     assert probe.status == "misconfigured"
     assert probe.warning == "Ceph Admin endpoint configuration is invalid; check the RGW Admin Ops URL and redirects."
@@ -164,9 +165,9 @@ features:
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = True):
             return {"admin": admin, "system": system}
 
-    monkeypatch.setattr(deps, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
+    monkeypatch.setattr(identity_service, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
 
-    detail = deps.validate_ceph_admin_service_identity(endpoint)
+    detail = identity_service.validate_ceph_admin_service_identity(endpoint)
 
     assert (detail is None) is allowed
 
@@ -276,6 +277,6 @@ features:
         is_default=False,
     )
 
-    payload = deps.build_ceph_admin_endpoint_payload(endpoint)
+    payload = identity_service.build_ceph_admin_endpoint_payload(endpoint)
 
     assert payload["admin_endpoint"] == "https://rgw-admin.example.test"

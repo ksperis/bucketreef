@@ -16,9 +16,9 @@ from app.services.bucket_purge_audit import (
     record_bucket_purge_audit,
 )
 from app.routers.ceph_admin.dependencies import (
-    CephAdminContext,
     get_ceph_admin_context,
 )
+from app.services.ceph_admin_context import CephAdminContext
 from app.routers.dependencies import get_current_ceph_admin, require_bucket_purge_global_enabled
 from app.services.s3_execution_context import build_ceph_admin_s3_context
 from app.services.bucket_purge_service import BucketPurgeOptions, BucketPurgeResolvedTarget, BucketPurgeService

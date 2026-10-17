@@ -8,7 +8,7 @@ from typing import Any, Optional
 from fastapi import HTTPException, status
 
 from app.models.ceph_admin import CephAdminRgwAccessKey
-from app.routers.ceph_admin.dependencies import CephAdminContext
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception

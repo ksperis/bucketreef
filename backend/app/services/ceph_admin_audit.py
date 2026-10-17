@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.routers.ceph_admin.dependencies import CephAdminContext
+from app.services.ceph_admin_context import CephAdminContext
 
 
 def record_ceph_admin_action(

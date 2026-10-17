@@ -12,8 +12,9 @@ from app.models.bucket_ui_tags import (
     CephAdminBucketUiTagDefinitionPatch,
     CephAdminBucketUiTagPatchRequest,
 )
-from app.routers.ceph_admin.audit import record_ceph_admin_action
-from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
+from app.services.ceph_admin_audit import record_ceph_admin_action
+from app.routers.ceph_admin.dependencies import get_ceph_admin_context
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.ceph_admin_bucket_ui_tags_service import (
     CephAdminBucketUiTagConflictError,

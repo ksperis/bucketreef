@@ -10,8 +10,8 @@ from fastapi.responses import JSONResponse
 
 from app.core.sensitive_data import sanitize_error_detail
 from app.models.ceph_admin import CephAdminAdminOpsResult
-from app.routers.ceph_admin.audit import record_ceph_admin_action
-from app.routers.ceph_admin.dependencies import CephAdminContext
+from app.services.ceph_admin_context import CephAdminContext
+from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.ceph_admin_identity_listing_cache import (

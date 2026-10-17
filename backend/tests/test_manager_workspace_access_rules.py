@@ -22,7 +22,7 @@ from app.db import (
     UserS3User,
 )
 from app.models.app_settings import AppSettings, GeneralSettings
-from app.routers.ceph_admin import dependencies as ceph_admin_dependencies
+from app.routers.dependencies_internal import ceph_admin_context as ceph_admin_dependencies
 from app.routers import dependencies
 from app.routers.dependencies_internal.execution_context import manager_membership_capabilities
 from app.services import app_settings_service
