@@ -99,13 +99,8 @@ def test_s3_bucket_security_owns_security_contracts_without_legacy_exports():
     assert not hasattr(s3_client, "get_bucket_encryption")
 
 
-def test_s3_bucket_security_client_forwards_all_connection_options(monkeypatch):
-    class AclClient:
-        def get_bucket_acl(self, **kwargs):
-            assert kwargs == {"Bucket": "reports"}
-            return {"Owner": {"ID": "owner"}, "Grants": []}
-
-    client = AclClient()
+def test_s3_bucket_client_forwards_all_connection_options(monkeypatch):
+    client = object()
     captured = {}
 
     def build_client(*args, **kwargs):
@@ -113,18 +108,17 @@ def test_s3_bucket_security_client_forwards_all_connection_options(monkeypatch):
         captured["kwargs"] = kwargs
         return client
 
-    monkeypatch.setattr(s3_bucket_security, "get_s3_client", build_client)
+    monkeypatch.setattr(s3_client, "get_s3_client", build_client)
 
-    assert s3_bucket_security.get_bucket_acl(
-        "reports",
-        access_key="access",
-        secret_key="secret",
-        session_token="token",
-        endpoint="https://s3.example.test",
-        region="eu-west-3",
-        force_path_style=True,
-        verify_tls=False,
-    ) == {"Owner": {"ID": "owner"}, "Grants": []}
+    assert s3_client.get_s3_bucket_client(
+        "access",
+        "secret",
+        "token",
+        "https://s3.example.test",
+        "eu-west-3",
+        True,
+        False,
+    ) is client
     assert captured == {
         "args": ("access", "secret"),
         "kwargs": {
@@ -144,44 +138,6 @@ def test_s3_bucket_access_owns_access_contracts_without_legacy_exports():
     assert not hasattr(s3_client, "get_bucket_cors")
     assert not hasattr(s3_client, "get_bucket_website")
     assert not hasattr(s3_client, "get_bucket_policy")
-
-
-def test_s3_bucket_access_client_forwards_all_connection_options(monkeypatch):
-    class PolicyClient:
-        def get_bucket_policy(self, **kwargs):
-            assert kwargs == {"Bucket": "reports"}
-            return {"Policy": '{"Version":"2012-10-17"}'}
-
-    client = PolicyClient()
-    captured = {}
-
-    def build_client(*args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-        return client
-
-    monkeypatch.setattr(s3_bucket_access, "get_s3_client", build_client)
-
-    assert s3_bucket_access.get_bucket_policy(
-        "reports",
-        access_key="access",
-        secret_key="secret",
-        session_token="token",
-        endpoint="https://s3.example.test",
-        region="eu-west-3",
-        force_path_style=True,
-        verify_tls=False,
-    ) == {"Version": "2012-10-17"}
-    assert captured == {
-        "args": ("access", "secret"),
-        "kwargs": {
-            "endpoint": "https://s3.example.test",
-            "session_token": "token",
-            "region": "eu-west-3",
-            "force_path_style": True,
-            "verify_tls": False,
-        },
-    }
 
 
 def test_s3_bucket_metadata_owns_metadata_contracts_without_legacy_exports():
@@ -214,7 +170,7 @@ class FakeS3EncryptionClient:
 
 def test_public_access_block_avoids_acl_flags(monkeypatch):
     fake_client = FakeS3PublicAccessClient()
-    monkeypatch.setattr(s3_bucket_security, "get_s3_client", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr(s3_bucket_security, "get_s3_bucket_client", lambda *args, **kwargs: fake_client)
 
     s3_bucket_security.set_bucket_public_access_block("bucket-one", block=True)
 
@@ -230,7 +186,7 @@ def test_public_access_block_avoids_acl_flags(monkeypatch):
 
 def test_public_access_block_disable(monkeypatch):
     fake_client = FakeS3PublicAccessClient()
-    monkeypatch.setattr(s3_bucket_security, "get_s3_client", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr(s3_bucket_security, "get_s3_bucket_client", lambda *args, **kwargs: fake_client)
 
     s3_bucket_security.set_bucket_public_access_block("bucket-two", block=False)
 
@@ -239,7 +195,7 @@ def test_public_access_block_disable(monkeypatch):
 
 def test_get_bucket_encryption_returns_rules(monkeypatch):
     fake_client = FakeS3EncryptionClient()
-    monkeypatch.setattr(s3_bucket_security, "get_s3_client", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr(s3_bucket_security, "get_s3_bucket_client", lambda *args, **kwargs: fake_client)
 
     rules = s3_bucket_security.get_bucket_encryption("bucket-enc")
 
@@ -248,7 +204,7 @@ def test_get_bucket_encryption_returns_rules(monkeypatch):
 
 def test_put_bucket_encryption_sends_rules(monkeypatch):
     fake_client = FakeS3EncryptionClient()
-    monkeypatch.setattr(s3_bucket_security, "get_s3_client", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr(s3_bucket_security, "get_s3_bucket_client", lambda *args, **kwargs: fake_client)
 
     payload = [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]
     s3_bucket_security.put_bucket_encryption("bucket-enc", payload)
@@ -269,7 +225,7 @@ def test_delete_bucket_encryption_ignores_missing_configuration(monkeypatch):
                 "DeleteBucketEncryption",
             )
 
-    monkeypatch.setattr(s3_bucket_security, "get_s3_client", lambda *args, **kwargs: MissingConfigClient())
+    monkeypatch.setattr(s3_bucket_security, "get_s3_bucket_client", lambda *args, **kwargs: MissingConfigClient())
 
     s3_bucket_security.delete_bucket_encryption("bucket-enc")
 
@@ -285,7 +241,7 @@ def test_get_bucket_replication_returns_configuration(monkeypatch):
                 }
             }
 
-    monkeypatch.setattr(s3_bucket_replication, "get_s3_client", lambda *args, **kwargs: FakeReplicationClient())
+    monkeypatch.setattr(s3_bucket_replication, "get_s3_bucket_client", lambda *args, **kwargs: FakeReplicationClient())
 
     config = s3_bucket_replication.get_bucket_replication("bucket-repl")
 
@@ -303,7 +259,7 @@ def test_get_bucket_replication_returns_empty_when_missing(monkeypatch):
                 "GetBucketReplication",
             )
 
-    monkeypatch.setattr(s3_bucket_replication, "get_s3_client", lambda *args, **kwargs: MissingReplicationClient())
+    monkeypatch.setattr(s3_bucket_replication, "get_s3_bucket_client", lambda *args, **kwargs: MissingReplicationClient())
 
     config = s3_bucket_replication.get_bucket_replication("bucket-repl")
 
@@ -319,7 +275,7 @@ def test_put_bucket_replication_sends_configuration(monkeypatch):
             self.calls.append(kwargs)
 
     fake_client = FakeReplicationClient()
-    monkeypatch.setattr(s3_bucket_replication, "get_s3_client", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr(s3_bucket_replication, "get_s3_bucket_client", lambda *args, **kwargs: fake_client)
 
     configuration = {
         "Role": "arn:aws:iam::123456789012:role/replication",
@@ -335,7 +291,7 @@ def test_put_bucket_replication_maps_param_validation_to_value_error(monkeypatch
         def put_bucket_replication(self, **kwargs):
             raise ParamValidationError(report="bad payload")
 
-    monkeypatch.setattr(s3_bucket_replication, "get_s3_client", lambda *args, **kwargs: InvalidReplicationClient())
+    monkeypatch.setattr(s3_bucket_replication, "get_s3_bucket_client", lambda *args, **kwargs: InvalidReplicationClient())
 
     try:
         s3_bucket_replication.put_bucket_replication("bucket-repl", configuration={"Rules": []})
@@ -353,7 +309,7 @@ def test_delete_bucket_replication_is_idempotent_when_missing(monkeypatch):
                 "DeleteBucketReplication",
             )
 
-    monkeypatch.setattr(s3_bucket_replication, "get_s3_client", lambda *args, **kwargs: MissingReplicationClient())
+    monkeypatch.setattr(s3_bucket_replication, "get_s3_bucket_client", lambda *args, **kwargs: MissingReplicationClient())
 
     s3_bucket_replication.delete_bucket_replication("bucket-repl")
 

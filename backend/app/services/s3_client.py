@@ -47,6 +47,27 @@ def get_s3_client(
     return LoggedS3Client(client)
 
 
+def get_s3_bucket_client(
+    access_key: Optional[str] = None,
+    secret_key: Optional[str] = None,
+    session_token: Optional[str] = None,
+    endpoint: Optional[str] = None,
+    region: Optional[str] = None,
+    force_path_style: bool = False,
+    verify_tls: bool = True,
+):
+    """Build the standard S3 client used by bucket configuration operations."""
+    return get_s3_client(
+        access_key,
+        secret_key,
+        endpoint=endpoint,
+        session_token=session_token,
+        region=region,
+        force_path_style=force_path_style,
+        verify_tls=verify_tls,
+    )
+
+
 class LoggedS3Client:
     def __init__(self, client: Any) -> None:
         self._client = client
@@ -92,15 +113,7 @@ def list_buckets(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> list[dict]:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         response = client.list_buckets()
     except (BotoCoreError, ClientError) as exc:
@@ -122,15 +135,7 @@ def create_bucket(
     location_constraint: Optional[str] = None,
     object_lock_enabled: bool = False,
 ) -> None:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         effective_location = (location_constraint or "").strip() or (region or settings.seed_s3_region)
         create_kwargs: dict[str, Any] = {"Bucket": bucket_name}
@@ -155,15 +160,7 @@ def set_bucket_versioning(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> None:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     status = "Enabled" if enabled else "Suspended"
     try:
         client.put_bucket_versioning(Bucket=bucket_name, VersioningConfiguration={"Status": status})
@@ -182,15 +179,7 @@ def get_bucket_versioning(
     force_path_style: bool = False,
     verify_tls: bool = True,
 ) -> Optional[str]:
-    client = get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
     try:
         resp = client.get_bucket_versioning(Bucket=bucket_name)
     except (BotoCoreError, ClientError) as exc:
