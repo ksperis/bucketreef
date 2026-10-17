@@ -13,9 +13,9 @@ from app.models.ceph_admin import (
     PaginatedCephAdminUsersResponse,
 )
 from app.routers.ceph_admin.dependencies import (
-    CephAdminContext,
     get_ceph_admin_context,
 )
+from app.services.ceph_admin_context import CephAdminContext
 from app.routers.ceph_admin.user_common import optional_account_lookup_enabled
 from app.routers.listing_common import stream_listing_response
 from app.services.bucket_listing_shared import is_advanced_filter_stream_payload

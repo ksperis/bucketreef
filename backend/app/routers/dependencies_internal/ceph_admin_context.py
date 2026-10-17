@@ -8,6 +8,10 @@ from sqlalchemy.orm import Session
 from app.db import StorageEndpoint, StorageProvider, User, is_admin_ui_role
 from app.models.account_capabilities import AccountCapabilities
 from app.services import app_settings_service, effective_access_service
+from app.services.ceph_admin_service_identity import (
+    validate_ceph_admin_service_configuration,
+    validate_ceph_admin_service_identity,
+)
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 
@@ -55,11 +59,6 @@ def resolve_ceph_admin_browser_context(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
     if endpoint.provider != StorageProvider.CEPH.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
-
-    from app.routers.ceph_admin.dependencies import (
-        validate_ceph_admin_service_configuration,
-        validate_ceph_admin_service_identity,
-    )
 
     configuration_error = validate_ceph_admin_service_configuration(endpoint)
     if configuration_error:

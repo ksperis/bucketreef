@@ -32,7 +32,7 @@ from app.services import ceph_admin_bucket_listing_service as bucket_listing_ser
 from app.services import ceph_admin_bucket_listing_snapshot as bucket_listing_snapshot
 from app.routers.ceph_admin import buckets as buckets_router
 from app.routers.ceph_admin import dependencies as ceph_admin_dependencies
-from app.routers.ceph_admin.dependencies import CephAdminContext
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.listing_progress import ListingCancelled, ListingProgressSnapshot
 from app.services import bucket_listing_enrichment
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache

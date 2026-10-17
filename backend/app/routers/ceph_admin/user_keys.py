@@ -15,8 +15,9 @@ from app.models.ceph_admin import (
     CephAdminRgwAccessKeyStatusChange,
     CephAdminRgwGeneratedAccessKey,
 )
-from app.routers.ceph_admin.audit import record_ceph_admin_action
-from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
+from app.routers.ceph_admin.dependencies import get_ceph_admin_context
+from app.services.ceph_admin_context import CephAdminContext
+from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.routers.ceph_admin.user_common import require_user_scope, serialize_access_keys
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.rgw_admin import RGWAdminError

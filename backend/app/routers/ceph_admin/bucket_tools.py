@@ -15,11 +15,12 @@ from app.models.bucket_config_backup import (
 from app.models.ceph_admin import CephAdminBucketCompareRequest, CephAdminBucketCompareResult
 from app.models.browser import ListBrowserObjectsResponse
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
+from app.services.ceph_admin_service_identity import validate_ceph_admin_service_configuration
 from app.routers.ceph_admin.dependencies import (
-    CephAdminContext,
     _resolve_storage_endpoint,
     get_ceph_admin_context,
 )
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.bucket_config_backup_service import (
     BucketConfigBackupService,
     quota_from_bucket_summary,
@@ -86,7 +87,6 @@ def compare_bucket_pair(
 ) -> CephAdminBucketCompareResult:
     source_context = build_ceph_admin_s3_context(ctx)
     target_endpoint = _resolve_storage_endpoint(db, payload.target_endpoint_id)
-    from app.routers.ceph_admin.dependencies import validate_ceph_admin_service_configuration
     target_error = validate_ceph_admin_service_configuration(target_endpoint)
     if target_error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=target_error)

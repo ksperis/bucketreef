@@ -11,11 +11,11 @@ from app.models.ceph_admin import (
     CephAdminEndpoint,
     CephAdminEndpointAccess,
 )
-from app.routers.ceph_admin.dependencies import (
+from app.routers.ceph_admin.dependencies import get_ceph_admin_workspace_endpoint
+from app.services.ceph_admin_service_identity import (
     build_ceph_admin_endpoint_payload,
-    get_ceph_admin_workspace_endpoint,
-    validate_ceph_admin_service_configuration,
     probe_ceph_admin_service_identity,
+    validate_ceph_admin_service_configuration,
 )
 from app.routers.dependencies import get_current_ceph_admin
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client

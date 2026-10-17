@@ -18,9 +18,9 @@ from app.models.bucket_usage_stats import (
 )
 from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
 from app.routers.ceph_admin.dependencies import (
-    CephAdminContext,
     get_ceph_admin_context,
 )
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_bucket_listing_cache import get_cached_rgw_bucket_entries
 from app.routers.dependencies import get_current_ceph_admin
 from app.services.s3_execution_context import build_ceph_admin_s3_context
