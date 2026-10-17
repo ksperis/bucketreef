@@ -9,8 +9,8 @@ from pydantic import Field
 
 from app.models.base import ApiModel
 from app.models.bucket_operation import (
-    BucketOperationTarget,
-    ExclusiveBucketOperationRequest,
+    BucketNameList,
+    BucketTargetList,
 )
 
 
@@ -19,9 +19,16 @@ BucketUsageStatsBucketStatus = Literal["completed", "completed_with_warnings", "
 BucketUsageStatsScanMode = Literal["versions", "current_only"]
 
 
-class BucketUsageStatsRequest(ExclusiveBucketOperationRequest):
-    targets: list[BucketOperationTarget] = Field(default_factory=list, max_length=200)
+class BucketUsageStatsRequestOptions(ApiModel):
     parallelism: int = Field(default=8, ge=1, le=32)
+
+
+class BucketUsageStatsBucketRequest(BucketUsageStatsRequestOptions):
+    buckets: BucketNameList
+
+
+class BucketUsageStatsTargetRequest(BucketUsageStatsRequestOptions):
+    targets: BucketTargetList
 
 class BucketUsageStatsDistributionEntry(ApiModel):
     key: str

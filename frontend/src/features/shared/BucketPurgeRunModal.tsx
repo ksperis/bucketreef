@@ -10,10 +10,8 @@ import {
   streamCephAdminBucketPurge,
   streamManagerBucketPurge,
   streamStorageOpsBucketPurge,
-  type BucketDeleteWithPurgePayload,
   type BucketPurgeBucketResult,
   type BucketPurgeFailure,
-  type BucketPurgePayload,
   type BucketPurgeProgress,
   type BucketPurgeResult,
 } from "../../api/bucketPurge";
@@ -171,43 +169,12 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
     return null;
   }, [progress]);
 
-  const buildPayload = (): BucketPurgePayload | BucketDeleteWithPurgePayload => {
-    const basePayload = {
-      parallelism: Math.max(1, Math.min(64, Math.trunc(parallelism || 10))),
-      confirmation,
-    };
-    if (isDeleteMode) {
-      if (!deleteTarget) {
-        throw new Error("Missing bucket to delete.");
-      }
-      return basePayload;
-    }
-    const purgePayload: BucketPurgePayload = {
-      ...basePayload,
-      include_versions: true,
-    };
-    if (props.mode === "storage-ops") {
-      return { ...purgePayload, targets: buildStorageOpsBucketTargets(props.targets) };
-    }
-    return {
-      ...purgePayload,
-      buckets: props.targets.map((target) => target.bucketName),
-    };
-  };
-
   const runPurge = async () => {
     if (running || targetCount === 0 || !confirmationValid) return;
     setError(null);
     setMessage(null);
     setResult(null);
     setProgress(null);
-    let payload: BucketPurgePayload | BucketDeleteWithPurgePayload;
-    try {
-      payload = buildPayload();
-    } catch (err) {
-      setError(surfaceText(err instanceof Error ? err.message : "Invalid options."));
-      return;
-    }
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -217,14 +184,28 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
         signal: controller.signal,
         onProgress: (event: BucketPurgeProgress) => setProgress(event),
       };
-      const nextResult =
-        props.mode === "manager-delete"
-          ? await streamManagerBucketDeleteWithPurge(props.contextId, deleteTarget, payload as BucketDeleteWithPurgePayload, streamOptions)
-          : props.mode === "manager"
-          ? await streamManagerBucketPurge(props.contextId, payload as BucketPurgePayload, streamOptions)
+      const basePayload = {
+        parallelism: Math.max(1, Math.min(64, Math.trunc(parallelism || 10))),
+        confirmation,
+      };
+      const nextResult = props.mode === "manager-delete"
+        ? await streamManagerBucketDeleteWithPurge(props.contextId, deleteTarget, basePayload, streamOptions)
+        : props.mode === "manager"
+          ? await streamManagerBucketPurge(
+              props.contextId,
+              { ...basePayload, include_versions: true, buckets: props.targets.map((target) => target.bucketName) },
+              streamOptions,
+            )
           : props.mode === "ceph-admin"
-            ? await streamCephAdminBucketPurge(props.endpointId, payload as BucketPurgePayload, streamOptions)
-            : await streamStorageOpsBucketPurge(payload as BucketPurgePayload, streamOptions);
+            ? await streamCephAdminBucketPurge(
+                props.endpointId,
+                { ...basePayload, include_versions: true, buckets: props.targets.map((target) => target.bucketName) },
+                streamOptions,
+              )
+            : await streamStorageOpsBucketPurge(
+                { ...basePayload, include_versions: true, targets: buildStorageOpsBucketTargets(props.targets) },
+                streamOptions,
+              );
       setResult(nextResult);
       props.onFinished?.(nextResult);
       setMessage(surfaceText(

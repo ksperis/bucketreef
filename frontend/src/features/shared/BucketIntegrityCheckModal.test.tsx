@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BucketIntegrityCheckPayload, BucketIntegrityProgress, BucketIntegrityResult } from "../../api/bucketIntegrity";
+import type { BucketIntegrityBucketPayload, BucketIntegrityProgress, BucketIntegrityResult } from "../../api/bucketIntegrity";
 import BucketIntegrityCheckModal from "./BucketIntegrityCheckModal";
 
 const streamManagerBucketIntegrityCheckMock = vi.fn();
@@ -156,7 +156,7 @@ describe("BucketIntegrityCheckModal results", () => {
     await waitFor(() => {
       expect(streamManagerBucketIntegrityCheckMock).toHaveBeenCalledTimes(1);
     });
-    let payload = streamManagerBucketIntegrityCheckMock.mock.calls[0][1] as BucketIntegrityCheckPayload;
+    let payload = streamManagerBucketIntegrityCheckMock.mock.calls[0][1] as BucketIntegrityBucketPayload;
     expect(payload.check_mode).toBe("head");
     expect(payload.max_mb_per_object).toBeUndefined();
 
@@ -181,7 +181,7 @@ describe("BucketIntegrityCheckModal results", () => {
     await waitFor(() => {
       expect(streamManagerBucketIntegrityCheckMock).toHaveBeenCalledTimes(1);
     });
-    payload = streamManagerBucketIntegrityCheckMock.mock.calls[0][1] as BucketIntegrityCheckPayload;
+    payload = streamManagerBucketIntegrityCheckMock.mock.calls[0][1] as BucketIntegrityBucketPayload;
     expect(payload.check_mode).toBe("get");
     expect(payload.max_mb_per_object).toBe(1.5);
   });

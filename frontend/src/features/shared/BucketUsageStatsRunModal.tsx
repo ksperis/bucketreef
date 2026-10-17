@@ -8,7 +8,6 @@ import {
   streamCephAdminBucketUsageStats,
   streamStorageOpsBucketUsageStats,
   type BucketUsageStatsBucketResult,
-  type BucketUsageStatsPayload,
   type BucketUsageStatsProgress,
   type BucketUsageStatsResult,
 } from "../../api/bucketUsageStats";
@@ -89,32 +88,12 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
     return Math.max(0, Math.min(100, Math.round((progress.completed_buckets / progress.total_buckets) * 100)));
   }, [progress]);
 
-  const buildPayload = (): BucketUsageStatsPayload => {
-    const basePayload: BucketUsageStatsPayload = {
-      parallelism: Math.max(1, Math.min(32, Math.trunc(parallelism || 8))),
-    };
-    if (props.mode === "storage-ops") {
-      return { ...basePayload, targets: buildStorageOpsBucketTargets(props.targets) };
-    }
-    return {
-      ...basePayload,
-      buckets: props.targets.map((target) => target.bucketName),
-    };
-  };
-
   const runCalculation = async () => {
     if (running || targetCount === 0) return;
     setError(null);
     setMessage(null);
     setResult(null);
     setProgress(null);
-    let payload: BucketUsageStatsPayload;
-    try {
-      payload = buildPayload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : bucketUsageStatsMessage.invalidOptions.en);
-      return;
-    }
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -124,10 +103,20 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
         signal: controller.signal,
         onProgress: (event: BucketUsageStatsProgress) => setProgress(event),
       };
+      const payloadOptions = {
+        parallelism: Math.max(1, Math.min(32, Math.trunc(parallelism || 8))),
+      };
       const nextResult =
         props.mode === "ceph-admin"
-          ? await streamCephAdminBucketUsageStats(props.endpointId, payload, streamOptions)
-          : await streamStorageOpsBucketUsageStats(payload, streamOptions);
+          ? await streamCephAdminBucketUsageStats(
+              props.endpointId,
+              { ...payloadOptions, buckets: props.targets.map((target) => target.bucketName) },
+              streamOptions,
+            )
+          : await streamStorageOpsBucketUsageStats(
+              { ...payloadOptions, targets: buildStorageOpsBucketTargets(props.targets) },
+              streamOptions,
+            );
       setResult(nextResult);
       setMessage(calculationMessageKeys[nextResult.status]);
       if (nextResult.status !== "failed") {

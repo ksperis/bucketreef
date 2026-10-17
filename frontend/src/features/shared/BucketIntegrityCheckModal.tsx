@@ -10,8 +10,8 @@ import {
   streamManagerBucketIntegrityCheck,
   streamStorageOpsBucketIntegrityCheck,
   type BucketIntegrityBucketResult,
+  type BucketIntegrityBucketPayload,
   type BucketIntegrityCheckMode,
-  type BucketIntegrityCheckPayload,
   type BucketIntegrityFailure,
   type BucketIntegrityProgress,
   type BucketIntegrityResult,
@@ -166,22 +166,15 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
     });
   }, [errorFilter, result, resultSearch, statusFilter]);
 
-  const buildPayload = (): BucketIntegrityCheckPayload => {
+  const buildPayloadOptions = (): Omit<BucketIntegrityBucketPayload, "buckets"> => {
     const maxMbPerObject = checkMode === "get" ? parseOptionalMaxMb(maxMb) : null;
     const sinceIso = parseOptionalSince(since);
-    const basePayload: BucketIntegrityCheckPayload = {
+    return {
       parallelism: Math.max(1, Math.min(64, Math.trunc(parallelism || 10))),
       all_versions: allVersions,
       check_mode: checkMode,
       since: sinceIso || undefined,
       max_mb_per_object: checkMode === "get" ? maxMbPerObject || undefined : undefined,
-    };
-    if (props.mode === "storage-ops") {
-      return { ...basePayload, targets: buildStorageOpsBucketTargets(props.targets) };
-    }
-    return {
-      ...basePayload,
-      buckets: props.targets.map((target) => target.bucketName),
     };
   };
 
@@ -191,9 +184,9 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
     setMessage(null);
     setResult(null);
     setProgress(null);
-    let payload: BucketIntegrityCheckPayload;
+    let payloadOptions: Omit<BucketIntegrityBucketPayload, "buckets">;
     try {
-      payload = buildPayload();
+      payloadOptions = buildPayloadOptions();
     } catch (err) {
       setError(surfaceText(err instanceof Error ? err.message : "Invalid options."));
       return;
@@ -209,10 +202,21 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
       };
       const nextResult =
         props.mode === "manager"
-          ? await streamManagerBucketIntegrityCheck(props.contextId, payload, streamOptions)
+          ? await streamManagerBucketIntegrityCheck(
+              props.contextId,
+              { ...payloadOptions, buckets: props.targets.map((target) => target.bucketName) },
+              streamOptions,
+            )
           : props.mode === "ceph-admin"
-            ? await streamCephAdminBucketIntegrityCheck(props.endpointId, payload, streamOptions)
-            : await streamStorageOpsBucketIntegrityCheck(payload, streamOptions);
+            ? await streamCephAdminBucketIntegrityCheck(
+                props.endpointId,
+                { ...payloadOptions, buckets: props.targets.map((target) => target.bucketName) },
+                streamOptions,
+              )
+            : await streamStorageOpsBucketIntegrityCheck(
+                { ...payloadOptions, targets: buildStorageOpsBucketTargets(props.targets) },
+                streamOptions,
+              );
       setResult(nextResult);
       setMessage(surfaceText(
         nextResult.status === "passed"

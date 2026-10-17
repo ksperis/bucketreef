@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BucketPurgePayload, BucketPurgeResult } from "../../api/bucketPurge";
+import type { BucketPurgeBucketPayload, BucketPurgeResult } from "../../api/bucketPurge";
 import BucketPurgeRunModal from "./BucketPurgeRunModal";
 
 const streamManagerBucketPurgeMock = vi.fn();
@@ -163,7 +163,7 @@ describe("BucketPurgeRunModal", () => {
     await waitFor(() => {
       expect(streamManagerBucketPurgeMock).toHaveBeenCalledTimes(1);
     });
-    const payload = streamManagerBucketPurgeMock.mock.calls[0][1] as BucketPurgePayload;
+    const payload = streamManagerBucketPurgeMock.mock.calls[0][1] as BucketPurgeBucketPayload;
     expect(payload).toMatchObject({
       buckets: ["bucket-a", "bucket-b"],
       parallelism: 10,

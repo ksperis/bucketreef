@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 from functools import partial
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.db import User
 from app.models.access_context import ManagerActor
-from app.models.bucket_purge import BucketPurgeRequest, bucket_purge_confirmation_phrase
+from app.models.bucket_purge import BucketPurgeBucketRequest
 from app.routers.bucket_purge_stream import (
     BucketPurgeAuditLifecycle,
     record_bucket_purge_audit,
@@ -29,26 +29,15 @@ router = APIRouter(prefix="/manager/bucket-purge", tags=["manager-bucket-purge"]
 logger = logging.getLogger(__name__)
 
 
-def _require_buckets_payload(payload: BucketPurgeRequest) -> list[str]:
-    if payload.targets:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Manager bucket purge expects buckets, not targets.")
-    if not payload.buckets:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one bucket is required.")
-    expected = bucket_purge_confirmation_phrase(len(payload.buckets))
-    if (payload.confirmation or "").strip() != expected:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Confirmation must be exactly '{expected}'.")
-    return payload.buckets
-
-
 @router.post("/stream")
 def stream_manager_bucket_purge(
-    payload: BucketPurgeRequest,
+    payload: BucketPurgeBucketRequest,
     request: Request,
     tool_user: User = Depends(require_bucket_purge_enabled),
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
-    bucket_names = _require_buckets_payload(payload)
+    bucket_names = payload.buckets
     require_bucket_management_context(context)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
     targets = [

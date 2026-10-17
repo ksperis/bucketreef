@@ -9,8 +9,8 @@ from pydantic import Field
 
 from app.models.base import ApiModel
 from app.models.bucket_operation import (
-    BucketOperationTarget,
-    ExclusiveBucketOperationRequest,
+    BucketNameList,
+    BucketTargetList,
 )
 
 
@@ -20,13 +20,20 @@ BucketIntegrityFailureStage = Literal["list", "head", "get"]
 BucketIntegrityProgressStage = Literal["prepare", "list", "verify", "completed"]
 
 
-class BucketIntegrityCheckRequest(ExclusiveBucketOperationRequest):
-    targets: list[BucketOperationTarget] = Field(default_factory=list, max_length=200)
+class BucketIntegrityRequestOptions(ApiModel):
     parallelism: int = Field(default=10, ge=1, le=64)
     all_versions: bool = False
     check_mode: BucketIntegrityCheckMode = "head"
     since: Optional[datetime] = None
     max_mb_per_object: Optional[float] = Field(default=None, gt=0, le=10240)
+
+
+class BucketIntegrityBucketRequest(BucketIntegrityRequestOptions):
+    buckets: BucketNameList
+
+
+class BucketIntegrityTargetRequest(BucketIntegrityRequestOptions):
+    targets: BucketTargetList
 
 class BucketIntegrityFailure(ApiModel):
     bucket_name: str
