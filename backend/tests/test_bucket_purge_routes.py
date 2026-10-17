@@ -21,7 +21,7 @@ from app.models.bucket_purge import (
     BucketPurgeTargetRequest,
 )
 from app.routers import dependencies as dependencies_router
-from app.routers.bucket_purge_stream import BucketPurgeAuditLifecycle
+from app.services.bucket_purge_audit import BucketPurgeAuditLifecycle
 from app.services import app_settings_service
 from app.routers.ceph_admin import purge as ceph_purge
 from app.routers.ceph_admin.dependencies import CephAdminContext

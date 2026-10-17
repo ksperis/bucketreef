@@ -22,10 +22,10 @@ from app.models.bucket_purge import (
     BucketPurgeResult,
     bucket_delete_with_purge_confirmation_phrase,
 )
-from app.routers.bucket_purge_stream import (
+from app.routers.bucket_purge_stream import stream_bucket_purge
+from app.services.bucket_purge_audit import (
     BucketPurgeAuditLifecycle,
     record_bucket_purge_audit,
-    stream_bucket_purge,
 )
 from app.routers.manager import bucket_config
 from app.services.audit_service import AuditService

@@ -10,10 +10,10 @@ from fastapi.responses import StreamingResponse
 
 from app.db import User
 from app.models.bucket_purge import BucketPurgeBucketRequest
-from app.routers.bucket_purge_stream import (
+from app.routers.bucket_purge_stream import stream_bucket_purge
+from app.services.bucket_purge_audit import (
     BucketPurgeAuditLifecycle,
     record_bucket_purge_audit,
-    stream_bucket_purge,
 )
 from app.routers.ceph_admin.dependencies import (
     CephAdminContext,
