@@ -6,7 +6,7 @@ import json
 import logging
 import threading
 import uuid
-from typing import Any, Callable, TypeVar
+from typing import Callable, TypeVar
 
 from fastapi import HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -24,8 +24,6 @@ from app.routers.sse_worker import (
     stream_cancellable_worker,
 )
 
-_T = TypeVar("_T")
-_R = TypeVar("_R")
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
 
 
@@ -102,44 +100,6 @@ def stream_listing_response(
     )
 
 
-def parse_int(value: Any) -> int | None:
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        if value.is_integer():
-            return int(value)
-        return None
-    if isinstance(value, str):
-        cleaned = value.strip()
-        if not cleaned:
-            return None
-        if cleaned.isdigit() or (cleaned.startswith("-") and cleaned[1:].isdigit()):
-            return int(cleaned)
-    return None
-
-
-def parse_bool(value: Any) -> bool | None:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"true", "1", "yes", "enabled", "enable", "on", "suspended"}:
-            return True
-        if normalized in {"false", "0", "no", "disabled", "disable", "off", "active"}:
-            return False
-    return None
-
-
-def fields_set(model: BaseModel) -> set[str]:
-    return set(model.model_fields_set)
-
-
 def parse_filter_query(
     raw: str | None,
     *,
@@ -160,74 +120,3 @@ def parse_filter_query(
         return query_cls.model_validate(parsed)
     except ValidationError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
-
-
-def coerce_number(value: object) -> float | None:
-    if isinstance(value, bool):
-        return float(value)
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return None
-        try:
-            return float(text)
-        except ValueError:
-            return None
-    return None
-
-
-def collect_filter_fields(parsed_filter: Any | None) -> set[str]:
-    if not parsed_filter:
-        return set()
-    rules = getattr(parsed_filter, "rules", None)
-    if not rules:
-        return set()
-    return {rule.field for rule in rules if getattr(rule, "field", None)}
-
-
-def apply_advanced_filter(
-    items: list[_T],
-    parsed_filter: Any | None,
-    matcher: Callable[[_T, list[_R], str], bool],
-) -> list[_T]:
-    if not parsed_filter:
-        return items
-    rules = getattr(parsed_filter, "rules", None)
-    if not rules:
-        return items
-    match_mode = getattr(parsed_filter, "match", "all")
-    return [item for item in items if matcher(item, rules, match_mode)]
-
-
-def apply_simple_search(
-    items: list[_T],
-    *,
-    search: str | None,
-    parsed_filter: Any | None,
-    match_with_filter: Callable[[_T, str], bool],
-    match_without_filter: Callable[[_T, str], bool],
-) -> list[_T]:
-    if not isinstance(search, str):
-        return items
-    normalized = search.strip().lower()
-    if not normalized:
-        return items
-    if parsed_filter:
-        return [item for item in items if match_with_filter(item, normalized)]
-    return [item for item in items if match_without_filter(item, normalized)]
-
-
-def paginate(
-    items: list[_T],
-    *,
-    page: int,
-    page_size: int,
-    clone: Callable[[list[_T]], list[_T]],
-) -> tuple[list[_T], int, bool]:
-    total = len(items)
-    start = max(page - 1, 0) * page_size
-    end = start + page_size
-    page_items = clone(items[start:end])
-    return page_items, total, end < total

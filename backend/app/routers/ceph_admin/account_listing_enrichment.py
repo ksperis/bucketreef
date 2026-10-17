@@ -16,7 +16,6 @@ from app.routers.ceph_admin.account_common import (
     extract_user_count,
 )
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.ceph_admin.listing_common import parse_int
 from app.services.listing_progress import (
     ListingProgressEmitter,
     interpolate_progress_percent,
@@ -26,6 +25,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
+from app.utils.rgw_payloads import parse_rgw_int
 from app.utils.usage_stats import summarize_bucket_usage
 
 
@@ -131,10 +131,10 @@ def _apply_account_detail_payload(
             if isinstance(payload.get("limits"), dict)
             else {}
         )
-        account.max_users = parse_int(
+        account.max_users = parse_rgw_int(
             payload.get("max_users") or limits.get("max_users")
         )
-        account.max_buckets = parse_int(
+        account.max_buckets = parse_rgw_int(
             payload.get("max_buckets") or limits.get("max_buckets")
         )
     if "quota" in requested:

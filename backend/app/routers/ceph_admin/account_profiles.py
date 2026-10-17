@@ -23,7 +23,6 @@ from app.routers.ceph_admin.account_common import (
 from app.routers.ceph_admin.account_listing_cache import invalidate_accounts_listing_cache
 from app.routers.ceph_admin.audit import record_ceph_admin_action
 from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
-from app.routers.ceph_admin.listing_common import fields_set
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
 from app.services.app_settings_service import load_app_settings
 from app.services.rgw_admin import RGWAdminError
@@ -149,7 +148,7 @@ def update_rgw_account_config(
     if not normalized_account_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="account_id is required")
 
-    field_set = fields_set(update)
+    field_set = set(update.model_fields_set)
     account_fields = {
         "account_name",
         "email",

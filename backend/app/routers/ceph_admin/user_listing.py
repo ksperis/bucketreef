@@ -11,18 +11,8 @@ from app.models.ceph_admin import (
     PaginatedCephAdminUsersResponse,
 )
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.ceph_admin.listing_common import (
-    apply_advanced_filter,
-    apply_simple_search,
-    coerce_number,
-    collect_filter_fields,
-    paginate,
-    parse_filter_query,
-)
-from app.routers.ceph_admin.user_common import (
-    coerce_bool,
-    split_tenant_uid,
-)
+from app.routers.ceph_admin.listing_common import parse_filter_query
+from app.routers.ceph_admin.user_common import split_tenant_uid
 from app.routers.ceph_admin.user_listing_enrichment import enrich_users
 from app.routers.ceph_admin.user_listing_cache import (
     get_cached_rgw_users_payload,
@@ -30,6 +20,13 @@ from app.routers.ceph_admin.user_listing_cache import (
 )
 from app.services.bucket_listing_shared import listing_sort_key, parse_includes, serialize_filter
 from app.services.ceph_admin_identity_listing_cache import EndpointListCacheKey
+from app.services.ceph_admin_identity_listing_support import (
+    apply_advanced_filter,
+    apply_simple_search,
+    coerce_number,
+    collect_filter_fields,
+    paginate,
+)
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
@@ -41,6 +38,7 @@ from app.services.listing_rule_matching import (
     match_numeric_rule,
     match_text_rule,
 )
+from app.utils.rgw_payloads import parse_rgw_bool
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 
@@ -98,7 +96,7 @@ def _match_user_field_rule(
             value,
             op,
             rule.value,
-            coerce=coerce_bool,
+            coerce=parse_rgw_bool,
             default_if_none=False,
         )
     if value is None:

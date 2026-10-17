@@ -21,14 +21,11 @@ from app.models.ceph_admin import (
 from app.routers.ceph_admin import user_keys
 from app.routers.ceph_admin.audit import record_ceph_admin_action
 from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
-from app.routers.ceph_admin.listing_common import fields_set, parse_int
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
 from app.routers.ceph_admin.user_common import (
-    coerce_bool,
     load_user_payload,
     require_user_scope,
     optional_account_lookup_enabled,
-    parse_suspended,
     serialize_access_keys,
     split_tenant_uid,
 )
@@ -38,7 +35,12 @@ from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import extract_bucket_list, extract_rgw_user_payload
+from app.utils.rgw_payloads import (
+    extract_bucket_list,
+    extract_rgw_user_payload,
+    parse_rgw_bool,
+    parse_rgw_int,
+)
 from app.utils.usage_stats import summarize_bucket_usage
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/users", tags=["ceph-admin-users"])
@@ -78,7 +80,7 @@ def _extract_quota_enabled(payload: dict[str, Any], keys: tuple[str, ...] = ("us
     for key in keys:
         value = payload.get(key)
         if isinstance(value, dict):
-            parsed = coerce_bool(value.get("enabled"))
+            parsed = parse_rgw_bool(value.get("enabled"))
             if parsed is not None:
                 return parsed
     return None
@@ -157,11 +159,11 @@ def _build_user_detail(
         email=normalize_optional_scalar(user_payload.get("email") or payload.get("email")),
         account_id=account_id,
         account_name=account_name,
-        suspended=parse_suspended(user_payload.get("suspended") or payload.get("suspended")),
-        admin=coerce_bool(user_payload.get("admin") if "admin" in user_payload else payload.get("admin")),
-        system=coerce_bool(user_payload.get("system") if "system" in user_payload else payload.get("system")),
-        account_root=coerce_bool(user_payload.get("account_root") or payload.get("account_root")),
-        max_buckets=parse_int(user_payload.get("max_buckets") or payload.get("max_buckets")),
+        suspended=parse_rgw_bool(user_payload.get("suspended") or payload.get("suspended")),
+        admin=parse_rgw_bool(user_payload.get("admin") if "admin" in user_payload else payload.get("admin")),
+        system=parse_rgw_bool(user_payload.get("system") if "system" in user_payload else payload.get("system")),
+        account_root=parse_rgw_bool(user_payload.get("account_root") or payload.get("account_root")),
+        max_buckets=parse_rgw_int(user_payload.get("max_buckets") or payload.get("max_buckets")),
         op_mask=normalize_optional_scalar(user_payload.get("op_mask") or payload.get("op_mask")),
         default_placement=_extract_user_setting(
             payload,
@@ -374,7 +376,7 @@ def create_rgw_user(
     # before any profile, quota, or capability updates and before exposing a key.
     require_user_scope(uid, lookup_tenant, account_id, ctx)
 
-    field_set = fields_set(payload)
+    field_set = set(payload.model_fields_set)
     if USER_UPDATE_FIELD_SET & field_set:
         _apply_user_update(
             uid,
@@ -447,7 +449,7 @@ def update_rgw_user_config(
     if not uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="uid is required")
     require_user_scope(uid, tenant, expected_account_id, ctx)
-    field_set = fields_set(update)
+    field_set = set(update.model_fields_set)
     if USER_UPDATE_FIELD_SET & field_set or update.extra_params:
         params = _user_update_params(update, field_set, clear_nulls=True)
         params["extra_params"] = update.extra_params or None

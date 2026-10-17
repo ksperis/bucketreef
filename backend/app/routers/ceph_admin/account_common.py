@@ -9,18 +9,17 @@ from fastapi import HTTPException, status
 
 from app.models.ceph_admin import CephAdminRgwAccountDetail, CephAdminRgwQuotaConfig
 from app.routers.ceph_admin.dependencies import CephAdminContext
-from app.routers.ceph_admin.listing_common import parse_bool, parse_int
 from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import extract_bucket_list
+from app.utils.rgw_payloads import extract_bucket_list, parse_rgw_bool, parse_rgw_int
 
 
 def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
     for key in keys:
-        parsed = parse_int(data.get(key))
+        parsed = parse_rgw_int(data.get(key))
         if parsed is not None:
             return parsed
     return None
@@ -117,11 +116,11 @@ def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> C
             payload.get("name") or payload.get("account_name") or payload.get("display_name")
         ),
         email=normalize_optional_scalar(payload.get("email") or payload.get("mail")),
-        max_users=parse_int(payload.get("max_users") or limits_payload.get("max_users")),
-        max_buckets=parse_int(payload.get("max_buckets") or limits_payload.get("max_buckets")),
-        max_roles=parse_int(payload.get("max_roles") or limits_payload.get("max_roles")),
-        max_groups=parse_int(payload.get("max_groups") or limits_payload.get("max_groups")),
-        max_access_keys=parse_int(payload.get("max_access_keys") or limits_payload.get("max_access_keys")),
+        max_users=parse_rgw_int(payload.get("max_users") or limits_payload.get("max_users")),
+        max_buckets=parse_rgw_int(payload.get("max_buckets") or limits_payload.get("max_buckets")),
+        max_roles=parse_rgw_int(payload.get("max_roles") or limits_payload.get("max_roles")),
+        max_groups=parse_rgw_int(payload.get("max_groups") or limits_payload.get("max_groups")),
+        max_access_keys=parse_rgw_int(payload.get("max_access_keys") or limits_payload.get("max_access_keys")),
         bucket_count=extract_bucket_count(payload),
         user_count=extract_user_count(payload),
         quota=quota,
@@ -151,7 +150,7 @@ def _extract_quota_enabled(
     for key in keys:
         value = payload.get(key)
         if isinstance(value, dict):
-            parsed = parse_bool(value.get("enabled"))
+            parsed = parse_rgw_bool(value.get("enabled"))
             if parsed is not None:
                 return parsed
     return None
