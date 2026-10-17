@@ -26,20 +26,16 @@ def purge_user_notifications(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
 ) -> dict:
-    lease_service = OperationLeaseService(db)
-    lease = lease_service.acquire(
+    with OperationLeaseService(db).hold(
         USER_NOTIFICATIONS_PURGE_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
         lease_context={"source": "internal"},
-    )
-    if lease is None:
-        return {
-            "status": "skipped",
-            "reason": "already_running",
-            "operation": USER_NOTIFICATIONS_PURGE_OPERATION,
-        }
-    try:
+    ) as lease:
+        if lease is None:
+            return {
+                "status": "skipped",
+                "reason": "already_running",
+                "operation": USER_NOTIFICATIONS_PURGE_OPERATION,
+            }
         result = DataRetentionService(db).purge_user_notifications()
         return {"status": "completed", **result}
-    finally:
-        lease_service.release(lease)

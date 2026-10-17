@@ -26,19 +26,15 @@ def run_healthchecks(
 ) -> dict:
     if not load_app_settings().general.endpoint_status_enabled:
         return {"status": "skipped", "reason": "feature_disabled", "operation": HEALTHCHECK_RUN_OPERATION}
-    lease_service = OperationLeaseService(db)
-    lease = lease_service.acquire(
+    with OperationLeaseService(db).hold(
         HEALTHCHECK_RUN_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
         lease_context={"source": "internal"},
-    )
-    if lease is None:
-        return {"status": "skipped", "reason": "already_running", "operation": HEALTHCHECK_RUN_OPERATION}
-    service = HealthCheckService(db)
-    try:
-        return service.run_checks()
-    except ValueError as exc:
-        db.rollback()
-        raise_bad_request_from_value_error(exc)
-    finally:
-        lease_service.release(lease)
+    ) as lease:
+        if lease is None:
+            return {"status": "skipped", "reason": "already_running", "operation": HEALTHCHECK_RUN_OPERATION}
+        service = HealthCheckService(db)
+        try:
+            return service.run_checks()
+        except ValueError as exc:
+            raise_bad_request_from_value_error(exc)

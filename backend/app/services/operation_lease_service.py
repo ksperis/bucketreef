@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import socket
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +19,9 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db import BackendOperationLease
 from app.utils.time import utcnow
+
+
+logger = logging.getLogger(__name__)
 
 
 HEALTHCHECK_RUN_OPERATION = "healthchecks:run"
@@ -135,6 +140,47 @@ class OperationLeaseService:
             )
         )
         self.db.commit()
+
+    @contextmanager
+    def hold(
+        self,
+        operation_name: str,
+        *,
+        ttl_seconds: int,
+        owner: Optional[str] = None,
+        lease_context: Optional[dict[str, Any]] = None,
+    ) -> Iterator[Optional[OperationLeaseHandle]]:
+        handle = self.acquire(
+            operation_name,
+            ttl_seconds=ttl_seconds,
+            owner=owner,
+            lease_context=lease_context,
+        )
+        try:
+            yield handle
+        except BaseException:
+            if handle is not None:
+                self._release_after_failed_work(handle)
+            raise
+        else:
+            if handle is not None:
+                self.release(handle)
+
+    def _release_after_failed_work(self, handle: OperationLeaseHandle) -> None:
+        try:
+            self.db.rollback()
+        except Exception:
+            logger.exception(
+                "Unable to rollback failed work before releasing operation lease %s",
+                handle.operation_name,
+            )
+        try:
+            self.release(handle)
+        except Exception:
+            logger.exception(
+                "Unable to release operation lease %s after failed work",
+                handle.operation_name,
+            )
 
     def current_owner(self, operation_name: str) -> Optional[str]:
         name = self._normalize_operation_name(operation_name)

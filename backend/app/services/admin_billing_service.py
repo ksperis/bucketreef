@@ -82,19 +82,11 @@ class AdminBillingService:
     def collect_daily(self, day: date, actor: User) -> dict:
         self._require_enabled()
         operation_name = billing_daily_operation_name(day.isoformat())
-        lease_service = OperationLeaseService(self.db)
-        lease = lease_service.acquire(
+        with OperationLeaseService(self.db).hold(
             operation_name,
             ttl_seconds=billing_operation_lease_ttl_seconds(),
             lease_context={"source": "admin", "day": day.isoformat(), "user_id": actor.id},
-        )
-        if lease is None:
-            raise ResourceConflictError("A billing collection is already running for this day.")
-
-        try:
+        ) as lease:
+            if lease is None:
+                raise ResourceConflictError("A billing collection is already running for this day.")
             return BillingCollector(self.db).collect_daily(day)
-        except ValueError:
-            self.db.rollback()
-            raise
-        finally:
-            lease_service.release(lease)

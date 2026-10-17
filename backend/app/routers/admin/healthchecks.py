@@ -161,23 +161,19 @@ def run_healthchecks(
     db: Session = Depends(get_db),
 ) -> dict:
     _ensure_endpoint_status_enabled()
-    lease_service = OperationLeaseService(db)
-    lease = lease_service.acquire(
+    with OperationLeaseService(db).hold(
         HEALTHCHECK_RUN_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
         lease_context={"source": "admin", "user_id": current_user.id},
-    )
-    if lease is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Endpoint health checks are already running.",
-        )
-    service = HealthCheckService(db)
-    try:
-        result = service.run_checks()
-    except ValueError as exc:
-        db.rollback()
-        raise_bad_request_from_value_error(exc)
-    finally:
-        lease_service.release(lease)
+    ) as lease:
+        if lease is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Endpoint health checks are already running.",
+            )
+        service = HealthCheckService(db)
+        try:
+            result = service.run_checks()
+        except ValueError as exc:
+            raise_bad_request_from_value_error(exc)
     return result
