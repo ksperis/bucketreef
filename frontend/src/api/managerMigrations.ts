@@ -2,8 +2,9 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import client, { buildApiRequestHeaders } from "./client";
-import { isCancelledError, sanitizeErrorMessage } from "../utils/apiError";
+import client from "./client";
+import { sanitizeErrorMessage } from "../utils/apiError";
+import { openSseStream, resolveApiBaseUrl } from "./sseBucketsStream";
 import { consumeSseStream } from "./sseStream";
 
 export type BucketMigrationMode = "one_shot" | "pre_sync";
@@ -224,11 +225,6 @@ type ManagerMigrationStreamOptions = {
   onDone?: (event: ManagerMigrationStreamDone) => void;
 };
 
-function resolveApiBaseUrl(): string {
-  const base = typeof client.defaults.baseURL === "string" && client.defaults.baseURL.trim() ? client.defaults.baseURL : "/api";
-  return base.endsWith("/") ? base.slice(0, -1) : base;
-}
-
 export async function listManagerMigrations(limit = 100, contextId?: string | null): Promise<BucketMigrationView[]> {
   const params: { limit: number; context_id?: string } = { limit };
   if (contextId && contextId.trim()) {
@@ -253,53 +249,15 @@ export async function streamManagerMigration(
   const query = new URLSearchParams();
   query.set("events_limit", String(Math.max(1, Math.min(1000, Math.floor(options?.eventsLimit ?? 200)))));
   const url = `${baseUrl}/manager/migrations/${migrationId}/stream?${query.toString()}`;
-
-  const buildHeaders = () => {
-    const headers = buildApiRequestHeaders("GET", { Accept: "text/event-stream" });
-    return headers;
-  };
-
-  let response = await fetch(url, {
-    method: "GET",
-    headers: buildHeaders(),
-    credentials: "include",
+  const body = await openSseStream({
+    url,
     signal: options?.signal,
+    streamFailedLabel: "Migration stream failed",
   });
-
-  if (response.status === 401 || response.status === 419) {
-    try {
-      await client.post(
-        "/auth/refresh",
-        undefined,
-        { signal: options?.signal }
-      );
-      response = await fetch(url, {
-        method: "GET",
-        headers: buildHeaders(),
-        credentials: "include",
-        signal: options?.signal,
-      });
-    } catch (err) {
-      if (isCancelledError(err)) throw err;
-    }
-  }
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(sanitizeErrorMessage(text || `Migration stream failed with status ${response.status}`, "Migration stream failed"));
-  }
-
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("text/event-stream")) {
-    throw new Error("Unexpected stream response format");
-  }
-  if (!response.body) {
-    throw new Error("Streaming response body is unavailable");
-  }
 
   let latestSnapshot: BucketMigrationDetail | null = null;
 
-  await consumeSseStream(response.body, ({ event, data }) => {
+  await consumeSseStream(body, ({ event, data }) => {
     const payload = data ? (JSON.parse(data) as Record<string, unknown>) : {};
     if (event === "snapshot") {
       const detail = payload as unknown as BucketMigrationDetail;

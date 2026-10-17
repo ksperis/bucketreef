@@ -15,6 +15,13 @@ type StreamBucketsParams<TProgress> = {
   requestInit?: RequestInit;
 };
 
+type OpenSseStreamParams = {
+  url: string;
+  signal?: AbortSignal;
+  streamFailedLabel: string;
+  requestInit?: RequestInit;
+};
+
 export function resolveApiBaseUrl(): string {
   const base = typeof client.defaults.baseURL === "string" && client.defaults.baseURL.trim() ? client.defaults.baseURL : "/api";
   return base.endsWith("/") ? base.slice(0, -1) : base;
@@ -64,14 +71,13 @@ async function fetchStream(url: string, signal?: AbortSignal, requestInit?: Requ
   return response;
 }
 
-export async function streamBucketsWithSse<TProgress, TResult>({
+export async function openSseStream({
   url,
-  options,
+  signal,
   streamFailedLabel,
-  missingResultMessage,
   requestInit,
-}: StreamBucketsParams<TProgress>): Promise<TResult> {
-  const response = await fetchStream(url, options?.signal, requestInit);
+}: OpenSseStreamParams): Promise<ReadableStream<Uint8Array>> {
+  const response = await fetchStream(url, signal, requestInit);
 
   if (!response.ok) {
     const text = await response.text();
@@ -86,9 +92,26 @@ export async function streamBucketsWithSse<TProgress, TResult>({
     throw new Error("Streaming response body is unavailable");
   }
 
+  return response.body;
+}
+
+export async function streamBucketsWithSse<TProgress, TResult>({
+  url,
+  options,
+  streamFailedLabel,
+  missingResultMessage,
+  requestInit,
+}: StreamBucketsParams<TProgress>): Promise<TResult> {
+  const body = await openSseStream({
+    url,
+    signal: options?.signal,
+    streamFailedLabel,
+    requestInit,
+  });
+
   let resultPayload: TResult | null = null;
 
-  await consumeSseStream(response.body, ({ event, data }) => {
+  await consumeSseStream(body, ({ event, data }) => {
     const payload = data ? (JSON.parse(data) as Record<string, unknown>) : {};
     if (event === "progress") {
       options?.onProgress?.(payload as unknown as TProgress);
