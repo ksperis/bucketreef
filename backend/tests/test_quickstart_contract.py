@@ -32,10 +32,15 @@ SECRET_KEYS = (
 )
 
 
-def _free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+_TEST_PORTS = iter(range(49152, 65536))
+
+
+def _unused_test_port() -> int:
+    for port in _TEST_PORTS:
+        with socket.socket() as sock:
+            if sock.connect_ex(("127.0.0.1", port)) != 0:
+                return port
+    raise RuntimeError("No unused TCP port is available for the QuickStart contract tests")
 
 
 def _parse_env(path: Path) -> dict[str, str]:
@@ -194,8 +199,8 @@ def _write_environment(workdir: Path, **overrides: str) -> dict[str, str]:
         "CREDENTIAL_KEYS": '["old-credential"]',
         "INTERNAL_CRON_TOKEN": "old-cron",
         "BUCKETREEF_BIND_ADDRESS": "127.0.0.1",
-        "BUCKETREEF_BACKEND_PORT": str(_free_port()),
-        "BUCKETREEF_FRONTEND_PORT": str(_free_port()),
+        "BUCKETREEF_BACKEND_PORT": str(_unused_test_port()),
+        "BUCKETREEF_FRONTEND_PORT": str(_unused_test_port()),
         "PUBLIC_ORIGIN": "http://demo.local",
         "WEBAUTHN_ORIGIN": "http://demo.local",
         "WEBAUTHN_RP_ID": "demo.local",
@@ -441,7 +446,10 @@ def test_caller_environment_cannot_replace_installed_keys_ports_or_version(quick
 def test_port_conflict_prevents_start(quickstart_runtime):
     workdir, environment, docker_log = quickstart_runtime
     with socket.socket() as listener:
-        listener.bind(("127.0.0.1", 0))
+        try:
+            listener.bind(("127.0.0.1", 0))
+        except PermissionError:
+            pytest.skip("Local TCP listeners are not permitted in this test environment")
         listener.listen()
         _write_environment(workdir, BUCKETREEF_BACKEND_PORT=str(listener.getsockname()[1]))
         environment["FAKE_BACKEND_RUNNING"] = "0"
