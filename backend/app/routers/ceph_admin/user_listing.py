@@ -19,7 +19,6 @@ from app.routers.ceph_admin.listing_common import (
     collect_filter_fields,
     paginate,
     parse_filter_query,
-    parse_includes,
 )
 from app.routers.ceph_admin.user_common import (
     coerce_bool,
@@ -30,7 +29,7 @@ from app.routers.ceph_admin.user_listing_cache import (
     get_cached_rgw_users_payload,
     get_cached_users_listing,
 )
-from app.services.bucket_listing_shared import listing_sort_key, serialize_filter
+from app.services.bucket_listing_shared import listing_sort_key, parse_includes, serialize_filter
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
