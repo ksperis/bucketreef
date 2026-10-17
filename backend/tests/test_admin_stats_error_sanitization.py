@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.db import S3Account, S3User, StorageEndpoint
 from app.routers.admin import stats as admin_stats_router
+from app.services import admin_stats_service
 from app.services.rgw_admin import RGWAdminError
 from tests.service_identity_helpers import service_identity
 
@@ -58,7 +59,7 @@ def test_admin_account_stats_sanitizes_rgw_error_details(db_session, monkeypatch
     db_session.add_all([endpoint, account])
     db_session.commit()
 
-    monkeypatch.setattr(admin_stats_router, "_build_rgw_client", lambda endpoint: _LeakyRGWClient())
+    monkeypatch.setattr(admin_stats_service, "get_supervision_rgw_client", lambda endpoint: _LeakyRGWClient())
 
     with pytest.raises(HTTPException) as exc:
         admin_stats_router.account_stats(_={}, db=db_session, account_id=account.id)
@@ -78,7 +79,7 @@ def test_admin_s3_user_stats_sanitizes_rgw_error_details(db_session, monkeypatch
     db_session.add_all([endpoint, s3_user])
     db_session.commit()
 
-    monkeypatch.setattr(admin_stats_router, "_build_rgw_client", lambda endpoint: _LeakyRGWClient())
+    monkeypatch.setattr(admin_stats_service, "get_supervision_rgw_client", lambda endpoint: _LeakyRGWClient())
 
     with pytest.raises(HTTPException) as exc:
         admin_stats_router.s3_user_stats(_={}, db=db_session, user_id=s3_user.id)
