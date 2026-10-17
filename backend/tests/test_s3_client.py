@@ -99,6 +99,44 @@ def test_s3_bucket_security_owns_security_contracts_without_legacy_exports():
     assert not hasattr(s3_client, "get_bucket_encryption")
 
 
+def test_s3_bucket_security_client_forwards_all_connection_options(monkeypatch):
+    class AclClient:
+        def get_bucket_acl(self, **kwargs):
+            assert kwargs == {"Bucket": "reports"}
+            return {"Owner": {"ID": "owner"}, "Grants": []}
+
+    client = AclClient()
+    captured = {}
+
+    def build_client(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return client
+
+    monkeypatch.setattr(s3_bucket_security, "get_s3_client", build_client)
+
+    assert s3_bucket_security.get_bucket_acl(
+        "reports",
+        access_key="access",
+        secret_key="secret",
+        session_token="token",
+        endpoint="https://s3.example.test",
+        region="eu-west-3",
+        force_path_style=True,
+        verify_tls=False,
+    ) == {"Owner": {"ID": "owner"}, "Grants": []}
+    assert captured == {
+        "args": ("access", "secret"),
+        "kwargs": {
+            "endpoint": "https://s3.example.test",
+            "session_token": "token",
+            "region": "eu-west-3",
+            "force_path_style": True,
+            "verify_tls": False,
+        },
+    }
+
+
 def test_s3_bucket_access_owns_access_contracts_without_legacy_exports():
     assert s3_bucket_access.get_bucket_cors.__module__ == "app.services.s3_bucket_access"
     assert s3_bucket_access.get_bucket_website.__module__ == "app.services.s3_bucket_access"
