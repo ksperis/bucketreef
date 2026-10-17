@@ -6,6 +6,7 @@ import { ListActions, ListBadge, ListActionButton } from "../../components/list/
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
+import type { AccessKeyMetadataInput } from "../../api/accessKeyContracts";
 import {
   AccessKey,
   createIamAccessKey,
@@ -26,7 +27,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
-import AccessKeyMetadataDialog, { type AccessKeyMetadataDraft } from "./AccessKeyMetadataDialog";
+import AccessKeyMetadataDialog from "./AccessKeyMetadataDialog";
 import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
 import { useManagerI18n } from "./managerI18n";
 
@@ -92,7 +93,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     }
   }, [accountIdForApi, needsS3AccountSelection, isS3User, userName, accessMode, load]);
 
-  const createKey = async (metadata?: AccessKeyMetadataDraft) => {
+  const createKey = async (metadata?: AccessKeyMetadataInput) => {
     if (needsS3AccountSelection || !userName) return;
     setBusy("create");
     setError(null);
@@ -124,7 +125,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     void createKey();
   };
 
-  const saveMetadata = async (metadata: AccessKeyMetadataDraft) => {
+  const saveMetadata = async (metadata: AccessKeyMetadataInput) => {
     if (!userName || metadataDialog?.mode !== "edit" || !metadataDialog.key) return;
     const key = metadataDialog.key;
     setBusy(`metadata:${key.access_key_id}`);

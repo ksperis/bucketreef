@@ -4,8 +4,12 @@
  */
 import client from "./client";
 import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import type {
+  AccessKeyMetadata,
+  AccessKeyMetadataInput,
+} from "./accessKeyContracts";
 
-export type ManagerCephAccessKey = {
+export type ManagerCephAccessKey = AccessKeyMetadata & {
   access_key_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -13,29 +17,12 @@ export type ManagerCephAccessKey = {
   is_active: boolean;
   is_private_access_managed?: boolean;
   managed_connection_id?: number | null;
-  name?: string | null;
-  notes?: string | null;
-  expires_at?: string | null;
-  expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
-  expiration_enforced_at?: string | null;
-  expiration_last_attempt_at?: string | null;
-  expiration_last_error?: string | null;
 };
 
-export type ManagerCephGeneratedAccessKey = {
+export type ManagerCephGeneratedAccessKey = AccessKeyMetadata & {
   access_key_id: string;
   secret_access_key: string;
   created_at?: string | null;
-  name?: string | null;
-  notes?: string | null;
-  expires_at?: string | null;
-  expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
-};
-
-type ManagerAccessKeyMetadataInput = {
-  name?: string | null;
-  notes?: string | null;
-  expires_at?: string | null;
 };
 
 export async function listManagerCephAccessKeys(contextId?: S3ExecutionContextSelector): Promise<ManagerCephAccessKey[]> {
@@ -47,7 +34,7 @@ export async function listManagerCephAccessKeys(contextId?: S3ExecutionContextSe
 
 export async function createManagerCephAccessKey(
   contextId?: S3ExecutionContextSelector,
-  metadata?: ManagerAccessKeyMetadataInput,
+  metadata?: AccessKeyMetadataInput,
 ): Promise<ManagerCephGeneratedAccessKey> {
   const { data } = await client.post<ManagerCephGeneratedAccessKey>(
     "/manager/ceph/keys",
@@ -60,9 +47,9 @@ export async function createManagerCephAccessKey(
 export async function updateManagerCephAccessKeyMetadata(
   contextId: S3ExecutionContextSelector,
   accessKeyId: string,
-  metadata: ManagerAccessKeyMetadataInput,
-): Promise<ManagerAccessKeyMetadataInput> {
-  const { data } = await client.put<ManagerAccessKeyMetadataInput>(
+  metadata: AccessKeyMetadataInput,
+): Promise<AccessKeyMetadataInput> {
+  const { data } = await client.put<AccessKeyMetadataInput>(
     `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
     { params: withS3ContextParam(undefined, contextId) },

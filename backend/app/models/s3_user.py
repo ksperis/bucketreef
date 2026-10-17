@@ -5,6 +5,7 @@ from typing import Optional
 
 from pydantic import Field, field_validator
 
+from app.models.access_key_metadata import AccessKeyMetadata
 from app.models.base import ApiModel
 from app.utils.rgw_identifiers import validate_rgw_user_uid, validate_rgw_tenant
 from app.models.pagination import PaginatedResponse
@@ -105,7 +106,7 @@ class S3UserUpdate(ApiModel):
     allow_activity_history: Optional[bool] = None
     allow_managed_private_connection_provisioning: Optional[bool] = None
 
-class S3UserAccessKey(ApiModel):
+class S3UserAccessKey(AccessKeyMetadata):
     access_key_id: str
     status: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -113,26 +114,12 @@ class S3UserAccessKey(ApiModel):
     is_active: bool = True
     is_private_access_managed: bool = False
     managed_connection_id: Optional[int] = None
-    name: Optional[str] = None
-    notes: Optional[str] = None
-    expires_at: Optional[datetime] = None
-    expiration_state: Optional[str] = None
-    expiration_enforced_at: Optional[datetime] = None
-    expiration_last_attempt_at: Optional[datetime] = None
-    expiration_last_error: Optional[str] = None
 
 
-class S3UserGeneratedKey(ApiModel):
+class S3UserGeneratedKey(AccessKeyMetadata):
     access_key_id: str
     secret_access_key: str
     created_at: Optional[datetime] = None
-    name: Optional[str] = None
-    notes: Optional[str] = None
-    expires_at: Optional[datetime] = None
-    expiration_state: Optional[str] = None
-    expiration_enforced_at: Optional[datetime] = None
-    expiration_last_attempt_at: Optional[datetime] = None
-    expiration_last_error: Optional[str] = None
 
 
 class S3UserAccessKeyStatusChange(ApiModel):

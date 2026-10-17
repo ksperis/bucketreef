@@ -4,6 +4,7 @@
  */
 import client from "./client";
 import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import type { AccessKeyMetadata, AccessKeyMetadataInput } from "./accessKeyContracts";
 import { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 import {
   attachEntityPolicy,
@@ -17,26 +18,13 @@ import {
   putEntityInlinePolicy,
 } from "./managerIamEntityClient";
 
-export type AccessKey = {
+export type AccessKey = AccessKeyMetadata & {
   access_key_id: string;
   status?: string;
   created_at?: string;
   secret_access_key?: string;
   is_private_access_managed?: boolean;
   managed_connection_id?: number | null;
-  name?: string | null;
-  notes?: string | null;
-  expires_at?: string | null;
-  expiration_state?: "scheduled" | "retrying" | "enforced" | "blocked" | null;
-  expiration_enforced_at?: string | null;
-  expiration_last_attempt_at?: string | null;
-  expiration_last_error?: string | null;
-};
-
-type AccessKeyMetadataInput = {
-  name?: string | null;
-  notes?: string | null;
-  expires_at?: string | null;
 };
 
 export type IAMUser = {

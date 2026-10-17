@@ -5,6 +5,7 @@ from typing import Optional, Union
 
 from pydantic import Field, field_validator
 
+from app.models.access_key_metadata import AccessKeyMetadata
 from app.models.base import ApiModel
 from app.utils.resource_names import validate_iam_name
 from app.models.policy import InlinePolicy
@@ -24,20 +25,13 @@ class IAMUser(ApiModel):
     management_source: Optional[str] = None
 
 
-class AccessKey(ApiModel):
+class AccessKey(AccessKeyMetadata):
     access_key_id: str
     status: Optional[str] = None
     created_at: Optional[str] = None
     secret_access_key: Optional[str] = None
     is_private_access_managed: bool = False
     managed_connection_id: Optional[int] = None
-    name: Optional[str] = None
-    notes: Optional[str] = None
-    expires_at: Optional[datetime] = None
-    expiration_state: Optional[str] = None
-    expiration_enforced_at: Optional[datetime] = None
-    expiration_last_attempt_at: Optional[datetime] = None
-    expiration_last_error: Optional[str] = None
 
 
 class AccessKeyStatusChange(ApiModel):

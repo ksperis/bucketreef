@@ -6,13 +6,12 @@ import SettingsForm from "../../components/settings/SettingsForm";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
+import {
+  ACCESS_KEY_NAME_MAX_LENGTH,
+  ACCESS_KEY_NOTES_MAX_LENGTH,
+  type AccessKeyMetadataInput,
+} from "../../api/accessKeyContracts";
 import { useManagerI18n } from "./managerI18n";
-
-export type AccessKeyMetadataDraft = {
-  name?: string | null;
-  notes?: string | null;
-  expires_at?: string | null;
-};
 
 function toLocalDateTimeInput(value?: string | null): string {
   if (!value) return "";
@@ -24,14 +23,14 @@ function toLocalDateTimeInput(value?: string | null): string {
 
 type Props = {
   mode: "create" | "edit";
-  initial?: AccessKeyMetadataDraft;
+  initial?: AccessKeyMetadataInput;
   metadataEnabled?: boolean;
   expirationEnabled?: boolean;
   expirationLockedReason?: string | null;
   busy: boolean;
   error?: string | null;
   onClose: () => void;
-  onSubmit: (metadata: AccessKeyMetadataDraft) => Promise<void> | void;
+  onSubmit: (metadata: AccessKeyMetadataInput) => Promise<void> | void;
 };
 
 export default function AccessKeyMetadataDialog({
@@ -68,7 +67,7 @@ export default function AccessKeyMetadataDialog({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const payload: AccessKeyMetadataDraft = {};
+    const payload: AccessKeyMetadataInput = {};
     if (metadataEnabled) {
       payload.name = name.trim() || null;
       payload.notes = notes.trim() || null;
@@ -107,7 +106,7 @@ export default function AccessKeyMetadataDialog({
                 ref={nameRef}
                 label={text("Name")}
                 value={name}
-                maxLength={128}
+                maxLength={ACCESS_KEY_NAME_MAX_LENGTH}
                 placeholder={text("backup-service")}
                 hint={text("Optional short label for the application or workload using this key.")}
                 onChange={(event) => setName(event.target.value)}
@@ -115,7 +114,7 @@ export default function AccessKeyMetadataDialog({
               <UiTextarea
                 label={text("Notes")}
                 value={notes}
-                maxLength={2000}
+                maxLength={ACCESS_KEY_NOTES_MAX_LENGTH}
                 rows={5}
                 placeholder={text("Used by the nightly backup job for project data.")}
                 hint={text("Optional. Name and notes are stored in BucketReef.")}
