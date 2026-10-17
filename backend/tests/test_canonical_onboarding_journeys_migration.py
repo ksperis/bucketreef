@@ -72,14 +72,14 @@ def test_migration_keeps_only_current_journeys_and_preserves_legacy_completion(m
             sa.text(
                 "INSERT INTO onboarding_preferences (user_id, dismissed, updated_at) "
                 "VALUES (1, 1, :updated_at)"
-            ),
+            ).bindparams(sa.bindparam("updated_at", type_=UTCDateTime())),
             {"updated_at": preference_updated},
         )
         connection.execute(
             sa.text(
                 "INSERT INTO onboarding_journeys (id, user_id, draft_json, configured_at) "
                 "VALUES (:id, :user_id, :draft_json, :configured_at)"
-            ),
+            ).bindparams(sa.bindparam("configured_at", type_=UTCDateTime())),
             [
                 {"id": "legacy-old", "user_id": 1, "draft_json": json.dumps({"workspace": "manager"}), "configured_at": older},
                 {"id": "legacy-new", "user_id": 1, "draft_json": "{", "configured_at": newer},
@@ -101,16 +101,20 @@ def test_migration_keeps_only_current_journeys_and_preserves_legacy_completion(m
         ).all()
         assert journeys == [("current", json.dumps({"version": 2, "manager": True}))]
 
+        preferences_table = sa.table(
+            "onboarding_preferences",
+            sa.column("user_id", sa.Integer()),
+            sa.column("dismissed", sa.Boolean()),
+            sa.column("initial_setup_completed_at", UTCDateTime()),
+            sa.column("updated_at", UTCDateTime()),
+        )
         preferences = connection.execute(
-            sa.text(
-                "SELECT user_id, dismissed, initial_setup_completed_at, updated_at "
-                "FROM onboarding_preferences ORDER BY user_id"
-            )
+            sa.select(preferences_table).order_by(preferences_table.c.user_id)
         ).mappings().all()
         assert [row["user_id"] for row in preferences] == [1]
-        assert preferences[0]["dismissed"] == 1
-        assert preferences[0]["initial_setup_completed_at"] is not None
-        assert preferences[0]["updated_at"] == preference_updated.isoformat(sep=" ")
+        assert preferences[0]["dismissed"] is True
+        assert preferences[0]["initial_setup_completed_at"] == newer
+        assert preferences[0]["updated_at"] == preference_updated
 
 
 def test_migration_creates_missing_preference_for_configured_legacy_journey(monkeypatch):
@@ -124,7 +128,7 @@ def test_migration_creates_missing_preference_for_configured_legacy_journey(monk
             sa.text(
                 "INSERT INTO onboarding_journeys (id, user_id, draft_json, configured_at) "
                 "VALUES ('legacy', 1, :draft_json, :configured_at)"
-            ),
+            ).bindparams(sa.bindparam("configured_at", type_=UTCDateTime())),
             {"draft_json": json.dumps({"workspace": "browser"}), "configured_at": completed_at},
         )
         migration = _load_migration()

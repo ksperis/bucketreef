@@ -78,7 +78,7 @@ def load_migration(name, operations, monkeypatch):
 def test_path_favorite_migration_keeps_identity_and_drops_saved_views(monkeypatch):
     import json
     from datetime import datetime, timezone
-    from sqlalchemy import column, select, table
+    from sqlalchemy import bindparam, column, select, table
     from app.db.utc_datetime import UTCDateTime
 
     engine = create_engine("sqlite://")
@@ -90,9 +90,16 @@ def test_path_favorite_migration_keeps_identity_and_drops_saved_views(monkeypatc
         old = load_migration("0135_browser_presets.py", operations, monkeypatch)
         new = load_migration("0137_browser_path_favorites.py", operations, monkeypatch)
         old.upgrade()
+        insert_preset = text(
+            "INSERT INTO browser_presets VALUES "
+            "(:id, :user_id, :surface, :payload, 7, :created, :updated)"
+        ).bindparams(
+            bindparam("created", type_=UTCDateTime()),
+            bindparam("updated", type_=UTCDateTime()),
+        )
         for identifier, owner, kind, surface in [("favorite-a", 1, "favorite", "browser"), ("favorite-b", 2, "favorite", "portal"), ("view-a", 1, "view", "browser")]:
             data = payload(name=identifier, kind=kind, workspace=surface, surface=surface, view={"query": "csv"} if kind == "view" else None)
-            connection.execute(text("INSERT INTO browser_presets VALUES (:id, :user_id, :surface, :payload, 7, :created, :updated)"), dict(id=identifier, user_id=owner, surface=surface, payload=json.dumps(data), created=stamp, updated=stamp))
+            connection.execute(insert_preset, dict(id=identifier, user_id=owner, surface=surface, payload=json.dumps(data), created=stamp, updated=stamp))
         new.upgrade()
         expected = {"id", "user_id", "name", "surface", "workspace", "context", "bucket", "prefix", "revision", "created_at", "updated_at"}
         assert {c["name"] for c in inspect(connection).get_columns("browser_favorites")} == expected
