@@ -27,8 +27,7 @@ import client from "./client";
 const MANAGER_BUCKETS_PATH = "/manager/buckets";
 const BROWSER_BUCKET_CONFIG_PATH = "/browser/buckets/config";
 
-function createManagerBucketDetailsApi() {
-  const basePath = MANAGER_BUCKETS_PATH;
+function createBucketDetailsTransport(basePath: string) {
   const bucketPath = (bucketName: string) =>
     `${basePath}/${encodeURIComponent(bucketName)}`;
   const requestConfig = (contextId: S3ExecutionContextSelector) => ({
@@ -45,6 +44,38 @@ function createManagerBucketDetailsApi() {
     );
     return data;
   };
+  const getBucketStats = async (
+    contextId: S3ExecutionContextSelector,
+    bucketName: string,
+    options?: { with_stats?: boolean },
+  ): Promise<Bucket> => {
+    const { data } = await client.get<Bucket>(
+      `${bucketPath(bucketName)}/stats`,
+      {
+        params: withS3ContextParam(
+          { with_stats: options?.with_stats },
+          contextId,
+        ),
+      },
+    );
+    return data;
+  };
+
+  return {
+    bucketPath,
+    getBucketStats,
+    read,
+    requestConfig,
+  };
+}
+
+function createManagerBucketDetailsApi() {
+  const {
+    bucketPath,
+    getBucketStats,
+    read,
+    requestConfig,
+  } = createBucketDetailsTransport(MANAGER_BUCKETS_PATH);
   const write = async <T>(
     contextId: S3ExecutionContextSelector,
     bucketName: string,
@@ -82,22 +113,7 @@ function createManagerBucketDetailsApi() {
   };
 
   return {
-    async getBucketStats(
-      contextId: S3ExecutionContextSelector,
-      bucketName: string,
-      options?: { with_stats?: boolean },
-    ): Promise<Bucket> {
-      const { data } = await client.get<Bucket>(
-        `${bucketPath(bucketName)}/stats`,
-        {
-          params: withS3ContextParam(
-            { with_stats: options?.with_stats },
-            contextId,
-          ),
-        },
-      );
-      return data;
-    },
+    getBucketStats,
     getBucketProperties: (contextId: S3ExecutionContextSelector, bucketName: string) =>
       read<BucketProperties>(contextId, bucketName, "properties"),
     getBucketAcl: (contextId: S3ExecutionContextSelector, bucketName: string) =>
@@ -291,40 +307,12 @@ function createManagerBucketDetailsApi() {
 }
 
 function createBrowserBucketDetailsApi() {
-  const bucketPath = (bucketName: string) =>
-    `${BROWSER_BUCKET_CONFIG_PATH}/${encodeURIComponent(bucketName)}`;
-  const requestConfig = (contextId: S3ExecutionContextSelector) => ({
-    params: withS3ContextParam(undefined, contextId),
-  });
-  const read = async <T>(
-    contextId: S3ExecutionContextSelector,
-    bucketName: string,
-    resource: string,
-  ): Promise<T> => {
-    const { data } = await client.get<T>(
-      `${bucketPath(bucketName)}/${resource}`,
-      requestConfig(contextId),
-    );
-    return data;
-  };
+  const { getBucketStats, read } = createBucketDetailsTransport(
+    BROWSER_BUCKET_CONFIG_PATH,
+  );
 
   return {
-    async getBucketStats(
-      contextId: S3ExecutionContextSelector,
-      bucketName: string,
-      options?: { with_stats?: boolean },
-    ): Promise<Bucket> {
-      const { data } = await client.get<Bucket>(
-        `${bucketPath(bucketName)}/stats`,
-        {
-          params: withS3ContextParam(
-            { with_stats: options?.with_stats },
-            contextId,
-          ),
-        },
-      );
-      return data;
-    },
+    getBucketStats,
     getBucketProperties: (contextId: S3ExecutionContextSelector, bucketName: string) =>
       read<BucketProperties>(contextId, bucketName, "properties"),
     getBucketPolicy: (contextId: S3ExecutionContextSelector, bucketName: string) =>

@@ -36,11 +36,22 @@ describe("bucket details api", () => {
   });
 
   it("exposes the browser detail route explicitly", async () => {
-    await browserBucketDetails.getBucketProperties(7, "reports/2026");
+    await browserBucketDetails.getBucketProperties("account-7", "reports/2026");
 
     expect(clientMock.get).toHaveBeenCalledWith(
       "/browser/buckets/config/reports%2F2026/properties",
-      { params: { context_id: 7 } },
+      { params: { context_id: "account-7" } },
+    );
+  });
+
+  it("shares stats query handling across manager and browser detail routes", async () => {
+    await browserBucketDetails.getBucketStats("conn-a", "reports/2026", {
+      with_stats: false,
+    });
+
+    expect(clientMock.get).toHaveBeenCalledWith(
+      "/browser/buckets/config/reports%2F2026/stats",
+      { params: { with_stats: false, context_id: "conn-a" } },
     );
   });
 
@@ -57,17 +68,17 @@ describe("bucket details api", () => {
   it("keeps manager writes and deletes on their detail resource", async () => {
     const policy = { Version: "2012-10-17", Statement: [] };
 
-    await putBucketPolicy(7, "reports/2026", policy);
-    await deleteBucketPolicy(7, "reports/2026");
+    await putBucketPolicy("account-7", "reports/2026", policy);
+    await deleteBucketPolicy("account-7", "reports/2026");
 
     expect(clientMock.put).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/policy",
       { policy },
-      { params: { context_id: 7 } },
+      { params: { context_id: "account-7" } },
     );
     expect(clientMock.delete).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/policy",
-      { params: { context_id: 7 } },
+      { params: { context_id: "account-7" } },
     );
   });
 });
