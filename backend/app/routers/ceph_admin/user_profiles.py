@@ -22,13 +22,13 @@ from app.routers.ceph_admin import user_keys
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
 from app.services.ceph_admin_context import CephAdminContext
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
-from app.routers.ceph_admin.user_common import (
+from app.services.ceph_admin_user_access import (
     load_user_payload,
-    require_user_scope,
     optional_account_lookup_enabled,
+    require_user_scope,
     serialize_access_keys,
-    split_tenant_uid,
 )
+from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
@@ -180,7 +180,7 @@ def _build_user_detail(
 
 
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
-    payload = load_user_payload(uid, tenant, ctx)
+    payload = load_user_payload(uid, tenant, ctx.rgw_admin)
     user_values = extract_rgw_user_payload(payload)
     account_id = normalize_optional_scalar(payload.get("account_id") or user_values.get("account_id"))
     account_name = _resolve_account_name(
@@ -262,7 +262,7 @@ def _resolve_account_name(
     *,
     payload_account_name: Optional[str] = None,
 ) -> Optional[str]:
-    if not account_id or optional_account_lookup_enabled(ctx) is False:
+    if not account_id or optional_account_lookup_enabled(ctx.endpoint) is False:
         return payload_account_name
     try:
         account_payload = ctx.rgw_admin.get_account(
@@ -303,7 +303,7 @@ def _apply_caps_update(
 ) -> None:
     caps_values = list(dict.fromkeys(str(value).strip() for value in values if str(value).strip()))
     try:
-        existing_caps = _extract_caps(load_user_payload(uid, tenant, ctx))
+        existing_caps = _extract_caps(load_user_payload(uid, tenant, ctx.rgw_admin))
         if mode == "replace":
             if existing_caps:
                 ctx.rgw_admin.set_user_caps(uid, existing_caps, tenant=tenant, op="rm")
@@ -375,7 +375,7 @@ def create_rgw_user(
 
     # RGW can resolve the bare UID to another account. Verify the fresh record
     # before any profile, quota, or capability updates and before exposing a key.
-    require_user_scope(uid, lookup_tenant, account_id, ctx)
+    require_user_scope(uid, lookup_tenant, account_id, ctx.rgw_admin)
 
     field_set = set(payload.model_fields_set)
     if USER_UPDATE_FIELD_SET & field_set:
@@ -423,7 +423,7 @@ def get_rgw_user(
     tenant: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> dict[str, Any]:
-    return load_user_payload(user_id, tenant, ctx)
+    return load_user_payload(user_id, tenant, ctx.rgw_admin)
 
 
 @router.get("/{user_id}/detail", response_model=CephAdminRgwUserDetail)
@@ -434,7 +434,12 @@ def get_rgw_user_detail(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwUserDetail:
     if expected_account_id is not None:
-        require_user_scope(user_id.strip(), tenant, expected_account_id, ctx)
+        require_user_scope(
+            user_id.strip(),
+            tenant,
+            expected_account_id,
+            ctx.rgw_admin,
+        )
     return _load_user_detail(user_id.strip(), tenant, ctx)
 
 
@@ -449,7 +454,7 @@ def update_rgw_user_config(
     uid = user_id.strip()
     if not uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="uid is required")
-    require_user_scope(uid, tenant, expected_account_id, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
     field_set = set(update.model_fields_set)
     if USER_UPDATE_FIELD_SET & field_set or update.extra_params:
         params = _user_update_params(update, field_set, clear_nulls=True)

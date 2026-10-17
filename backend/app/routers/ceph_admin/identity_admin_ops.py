@@ -22,7 +22,7 @@ from app.routers.ceph_admin.admin_ops_common import (
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_audit import record_ceph_admin_action
-from app.routers.ceph_admin.user_common import require_user_scope
+from app.services.ceph_admin_user_access import require_user_scope
 from app.services.rgw_admin import RGWAdminError
 from app.utils.rgw_payloads import extract_rgw_user_identity
 
@@ -104,7 +104,7 @@ def delete_user(
             status_code=status.HTTP_409_CONFLICT,
             detail="The active Ceph Admin RGW user cannot be deleted.",
         )
-    require_user_scope(uid, tenant, expected_account_id, ctx)
+    require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
     return _execute(
         ctx,
         operation=operation,

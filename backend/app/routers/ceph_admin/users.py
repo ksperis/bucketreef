@@ -16,9 +16,9 @@ from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
 from app.services.ceph_admin_context import CephAdminContext
-from app.routers.ceph_admin.user_common import optional_account_lookup_enabled
 from app.routers.listing_common import stream_listing_response
 from app.services.bucket_listing_shared import is_advanced_filter_stream_payload
+from app.services.ceph_admin_user_access import optional_account_lookup_enabled
 from app.services.ceph_admin_user_listing import compute_users_listing
 from app.services.listing_progress import ListingProgressSnapshot
 
@@ -52,7 +52,7 @@ def _compute_users_listing(
         include=include,
         endpoint_id=int(ctx.endpoint.id),
         rgw_admin=ctx.rgw_admin,
-        account_lookup_enabled=optional_account_lookup_enabled(ctx),
+        account_lookup_enabled=optional_account_lookup_enabled(ctx.endpoint),
         progress_callback=progress_callback,
         cancel_check=cancel_check,
     )
