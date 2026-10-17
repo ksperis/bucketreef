@@ -5,17 +5,15 @@
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
 import { interpolateText, intlLocale, lookupCatalogMessage, useI18n } from "../../i18n";
-import browserDe from "./browser.de.json";
-import browserFr from "./browser.fr.json";
-import browserZh from "./browser.zh.json";
+import catalogs from "bucketreef-i18n/browser";
 
 export type BrowserTextValues = Record<string, string | number>;
 export type BrowserTextFn = (message: string, values?: BrowserTextValues) => string;
 
 const BROWSER_CATALOGS = {
-  fr: [browserFr],
-  de: [browserDe],
-  zh: [browserZh],
+  fr: [catalogs.fr],
+  de: [catalogs.de],
+  zh: [catalogs.zh],
 } as const;
 
 export function browserText(

@@ -4,6 +4,7 @@
     "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"]
   },
   "include": [
+    "src/virtual-i18n.d.ts",
     "src/components/EnvironmentSwitcher.tsx",
     "src/components/Modal.tsx",
     "src/components/Topbar.tsx",

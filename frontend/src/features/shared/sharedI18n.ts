@@ -2,29 +2,15 @@
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
 import { interpolateText, lookupCatalogMessage, useI18n } from "../../i18n";
-import adminDe from "../admin/admin.de.json";
-import adminFr from "../admin/admin.fr.json";
-import adminZh from "../admin/admin.zh.json";
-import browserDe from "../browser/browser.de.json";
-import browserFr from "../browser/browser.fr.json";
-import browserZh from "../browser/browser.zh.json";
-import cephAdminDe from "../cephAdmin/cephAdmin.de.json";
-import cephAdminFr from "../cephAdmin/cephAdmin.fr.json";
-import cephAdminZh from "../cephAdmin/cephAdmin.zh.json";
-import managerDe from "../manager/manager.de.json";
-import managerFr from "../manager/manager.fr.json";
-import managerZh from "../manager/manager.zh.json";
-import sharedDe from "./shared.de.json";
-import sharedFr from "./shared.fr.json";
-import sharedZh from "./shared.zh.json";
+import catalogs from "bucketreef-i18n/shared";
 
 export type SharedTextValues = Record<string, string | number>;
 export type SharedText = (message: string, values?: SharedTextValues) => string;
 
-const catalogs = {
-  fr: [sharedFr, managerFr, browserFr, cephAdminFr, adminFr],
-  de: [sharedDe, managerDe, browserDe, cephAdminDe, adminDe],
-  zh: [sharedZh, managerZh, browserZh, cephAdminZh, adminZh],
+const SHARED_CATALOGS = {
+  fr: [catalogs.fr],
+  de: [catalogs.de],
+  zh: [catalogs.zh],
 } as const;
 
 function sharedText(
@@ -32,7 +18,7 @@ function sharedText(
   locale: UiLanguage = "en",
   values?: SharedTextValues,
 ): string {
-  return interpolateText(lookupCatalogMessage(message, locale, catalogs) ?? message, values);
+  return interpolateText(lookupCatalogMessage(message, locale, SHARED_CATALOGS) ?? message, values);
 }
 
 export function useSharedI18n() {

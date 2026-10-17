@@ -2,22 +2,14 @@
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
 import { interpolateText, intlLocale, lookupCatalogMessage, useI18n } from "../../i18n";
-import browserDe from "../browser/browser.de.json";
-import browserFr from "../browser/browser.fr.json";
-import browserZh from "../browser/browser.zh.json";
-import managerDe from "../manager/manager.de.json";
-import managerFr from "../manager/manager.fr.json";
-import managerZh from "../manager/manager.zh.json";
-import adminDe from "./admin.de.json";
-import adminFr from "./admin.fr.json";
-import adminZh from "./admin.zh.json";
+import catalogs from "bucketreef-i18n/admin";
 
 export type AdminTextValues = Record<string, string | number>;
 
-const catalogs = {
-  fr: [adminFr, managerFr, browserFr],
-  de: [adminDe, managerDe, browserDe],
-  zh: [adminZh, managerZh, browserZh],
+const ADMIN_CATALOGS = {
+  fr: [catalogs.fr],
+  de: [catalogs.de],
+  zh: [catalogs.zh],
 } as const;
 
 export function adminText(
@@ -25,7 +17,7 @@ export function adminText(
   locale: UiLanguage = "en",
   values?: AdminTextValues,
 ): string {
-  return interpolateText(lookupCatalogMessage(message, locale, catalogs) ?? message, values);
+  return interpolateText(lookupCatalogMessage(message, locale, ADMIN_CATALOGS) ?? message, values);
 }
 
 export function adminIntlLocale(locale: UiLanguage): string {
@@ -38,9 +30,9 @@ export function adminMessage(
 ): { en: string; fr: string; de: string; zh: string } {
   return {
     en,
-    fr: lookupCatalogMessage(en, "fr", catalogs) ?? en,
-    de: lookupCatalogMessage(en, "de", catalogs) ?? en,
-    zh: lookupCatalogMessage(en, "zh", catalogs) ?? zhFallback ?? en,
+    fr: lookupCatalogMessage(en, "fr", ADMIN_CATALOGS) ?? en,
+    de: lookupCatalogMessage(en, "de", ADMIN_CATALOGS) ?? en,
+    zh: lookupCatalogMessage(en, "zh", ADMIN_CATALOGS) ?? zhFallback ?? en,
   };
 }
 

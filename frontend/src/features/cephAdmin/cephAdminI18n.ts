@@ -2,25 +2,14 @@
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
 import { interpolateText, lookupCatalogMessage, useI18n } from "../../i18n";
-import adminDe from "../admin/admin.de.json";
-import adminFr from "../admin/admin.fr.json";
-import adminZh from "../admin/admin.zh.json";
-import browserDe from "../browser/browser.de.json";
-import browserFr from "../browser/browser.fr.json";
-import browserZh from "../browser/browser.zh.json";
-import managerDe from "../manager/manager.de.json";
-import managerFr from "../manager/manager.fr.json";
-import managerZh from "../manager/manager.zh.json";
-import cephAdminDe from "./cephAdmin.de.json";
-import cephAdminFr from "./cephAdmin.fr.json";
-import cephAdminZh from "./cephAdmin.zh.json";
+import catalogs from "bucketreef-i18n/cephAdmin";
 
 type CephAdminTextValues = Record<string, string | number>;
 
-const catalogs = {
-  fr: [cephAdminFr, adminFr, managerFr, browserFr],
-  de: [cephAdminDe, adminDe, managerDe, browserDe],
-  zh: [cephAdminZh, adminZh, managerZh, browserZh],
+const CEPH_ADMIN_CATALOGS = {
+  fr: [catalogs.fr],
+  de: [catalogs.de],
+  zh: [catalogs.zh],
 } as const;
 
 export function cephAdminText(
@@ -28,7 +17,7 @@ export function cephAdminText(
   locale: UiLanguage = "en",
   values?: CephAdminTextValues,
 ): string {
-  return interpolateText(lookupCatalogMessage(message, locale, catalogs) ?? message, values);
+  return interpolateText(lookupCatalogMessage(message, locale, CEPH_ADMIN_CATALOGS) ?? message, values);
 }
 
 export function useCephAdminI18n() {

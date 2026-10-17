@@ -5,16 +5,14 @@
 import { useCallback } from "react";
 import type { UiLanguage } from "../../components/language";
 import { interpolateText, intlLocale, lookupCatalogMessage, useI18n } from "../../i18n";
-import managerDe from "./manager.de.json";
-import managerFr from "./manager.fr.json";
-import managerZh from "./manager.zh.json";
+import catalogs from "bucketreef-i18n/manager";
 
 export type ManagerTextValues = Record<string, string | number>;
 
 const MANAGER_CATALOGS = {
-  fr: [managerFr],
-  de: [managerDe],
-  zh: [managerZh],
+  fr: [catalogs.fr],
+  de: [catalogs.de],
+  zh: [catalogs.zh],
 } as const;
 
 export function managerText(

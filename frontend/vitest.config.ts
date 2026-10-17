@@ -1,12 +1,13 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { bucketReefI18nCatalogPlugin } from "./scripts/i18nCatalogPlugin";
 
 const reactRouterDomTestShim = fileURLToPath(new URL("./src/test/react-router-dom.tsx", import.meta.url));
 const reactRouterDomReal = fileURLToPath(new URL("./node_modules/react-router-dom/dist/index.js", import.meta.url));
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [bucketReefI18nCatalogPlugin(), react()],
   test: {
     environment: "jsdom",
     globals: true,
