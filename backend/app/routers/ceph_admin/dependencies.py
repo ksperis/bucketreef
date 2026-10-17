@@ -6,12 +6,15 @@ from fastapi import Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import StorageEndpoint, StorageProvider, User
+from app.core.domain_errors import StorageEndpointNotFoundError
+from app.db import StorageEndpoint, User
 from app.routers.dependencies import get_current_ceph_admin
 from app.services.audit_service import AuditService
 from app.services.ceph_admin_context import CephAdminContext
-from app.services.ceph_admin_service_identity import (
-    validate_ceph_admin_service_configuration,
+from app.services.ceph_admin_endpoint_service import (
+    CephAdminEndpointProviderError,
+    CephAdminEndpointService,
+    CephAdminEndpointUnavailableError,
 )
 from app.services.rgw_admin import get_rgw_admin_client
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
@@ -31,15 +34,14 @@ def _resolve_storage_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
 
 
 def _resolve_ceph_admin_workspace_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
-    endpoint = db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
-    if not endpoint:
+    try:
+        return CephAdminEndpointService(db).get_configured_endpoint(endpoint_id)
+    except StorageEndpointNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
-    if endpoint.provider != StorageProvider.CEPH.value:
+    except CephAdminEndpointProviderError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
-    from app.services.app_settings_service import load_app_settings_for_db_readonly
-    if not load_app_settings_for_db_readonly(db).general.ceph_admin_enabled or validate_ceph_admin_service_configuration(endpoint):
+    except CephAdminEndpointUnavailableError:
         raise HTTPException(status_code=403, detail="Ceph Admin is not active on this endpoint")
-    return endpoint
 
 
 def get_ceph_admin_context(

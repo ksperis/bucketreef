@@ -421,6 +421,14 @@ class StorageEndpointsService:
             return endpoint.endpoint_url
         return configured_s3_endpoint()
 
+    def get_default_endpoint_record(self) -> Optional[StorageEndpoint]:
+        return (
+            self.db.query(StorageEndpoint)
+            .filter(StorageEndpoint.is_default.is_(True))
+            .order_by(StorageEndpoint.id.asc())
+            .first()
+        )
+
     def get_endpoint(self, endpoint_id: int, *, include_admin_ops_permissions: bool = True) -> StorageEndpointSchema:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:

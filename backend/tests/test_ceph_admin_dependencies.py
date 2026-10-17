@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 
 from app.db import StorageProvider
 from app.routers.ceph_admin import dependencies as deps
@@ -191,8 +192,7 @@ class _FakeSession:
         return _FakeQuery(self._endpoint)
 
 
-def test_resolve_ceph_admin_workspace_endpoint_does_not_require_admin_feature_enabled(monkeypatch):
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
+def test_resolve_ceph_admin_workspace_endpoint_does_not_require_admin_feature_enabled():
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
@@ -212,8 +212,44 @@ features:
     assert resolved is endpoint
 
 
+def test_resolve_ceph_admin_workspace_endpoint_maps_missing_endpoint():
+    with pytest.raises(HTTPException) as error:
+        deps._resolve_ceph_admin_workspace_endpoint(_FakeSession(None), endpoint_id=999)
+
+    assert error.value.status_code == 404
+    assert error.value.detail == "Storage endpoint not found"
+
+
+def test_resolve_ceph_admin_workspace_endpoint_rejects_non_ceph_provider():
+    endpoint = SimpleNamespace(
+        id=7,
+        provider=StorageProvider.OTHER.value,
+    )
+
+    with pytest.raises(HTTPException) as error:
+        deps._resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=7)
+
+    assert error.value.status_code == 400
+    assert error.value.detail == "Storage endpoint is not a Ceph provider"
+
+
+def test_resolve_ceph_admin_workspace_endpoint_rejects_inactive_identity():
+    endpoint = SimpleNamespace(
+        ceph_admin_allowed=False,
+        service_identity=lambda kind: None,
+        id=8,
+        name="Ceph inactive",
+        provider=StorageProvider.CEPH.value,
+    )
+
+    with pytest.raises(HTTPException) as error:
+        deps._resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=8)
+
+    assert error.value.status_code == 403
+    assert error.value.detail == "Ceph Admin is not active on this endpoint"
+
+
 def test_get_ceph_admin_context_uses_rgw_admin_endpoint_when_admin_feature_disabled(monkeypatch):
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(

@@ -114,6 +114,24 @@ def test_get_endpoint_uses_typed_not_found_error(db_session):
         service.get_endpoint(999_999)
 
 
+def test_get_default_endpoint_record_returns_marked_default(db_session):
+    default_endpoint = _create_ceph_endpoint(db_session, name="default-record")
+    other_endpoint = StorageEndpoint(
+        name="other-record",
+        endpoint_url="https://other-record.example.test",
+        provider=StorageProvider.OTHER.value,
+        is_default=False,
+        is_editable=True,
+    )
+    db_session.add(other_endpoint)
+    db_session.commit()
+
+    resolved = StorageEndpointsService(db_session).get_default_endpoint_record()
+
+    assert resolved is not None
+    assert resolved.id == default_endpoint.id
+
+
 @pytest.mark.parametrize(
     "model",
     (StorageEndpointCreate, StorageEndpointUpdate, StorageEndpointFeatureDetectionRequest),
