@@ -182,7 +182,7 @@ def test_manager_create_bucket_passes_versioning_and_location(client: TestClient
         json={
             "name": "demo-bucket",
             "versioning": True,
-            "location_constraint": "eu-west-1",
+            "location_constraint": " eu-west-1 ",
         },
     )
 

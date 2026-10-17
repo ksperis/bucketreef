@@ -6,6 +6,7 @@ from typing import Any, Optional, List, Literal
 from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
+from app.utils.normalize import normalize_optional_scalar
 
 
 class BucketTag(ApiModel):
@@ -41,13 +42,9 @@ class BucketCreate(ApiModel):
     versioning: Optional[bool] = None
     location_constraint: Optional[str] = None
 
-    @field_validator("location_constraint", mode="before")
-    @classmethod
-    def normalize_location_constraint(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        normalized = str(value).strip()
-        return normalized or None
+    _normalize_location_constraint = field_validator("location_constraint", mode="before")(
+        normalize_optional_scalar
+    )
 
 
 class BucketVersioningUpdate(ApiModel):

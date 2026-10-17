@@ -6,6 +6,7 @@ from typing import Literal, Optional
 from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
+from app.utils.normalize import normalize_optional_scalar
 
 
 class AccessKeyMetadataInput(ApiModel):
@@ -13,13 +14,9 @@ class AccessKeyMetadataInput(ApiModel):
     notes: Optional[str] = Field(default=None, max_length=2000)
     expires_at: Optional[datetime] = None
 
-    @field_validator("name", "notes", mode="before")
-    @classmethod
-    def normalize_optional_text(cls, value: object) -> object:
-        if value is None:
-            return None
-        normalized = str(value).strip()
-        return normalized or None
+    _normalize_optional_text = field_validator("name", "notes", mode="before")(
+        normalize_optional_scalar
+    )
 
     @field_validator("expires_at")
     @classmethod
