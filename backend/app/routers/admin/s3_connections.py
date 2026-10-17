@@ -5,8 +5,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import exists, func
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.domain_errors import (
@@ -16,13 +15,7 @@ from app.core.domain_errors import (
 )
 from app.db import (
     S3Connection,
-    S3ConnectionTag,
-    StorageEndpoint,
-    TagDefinition,
-    UiGroup,
-    UiGroupS3Connection,
     User,
-    UserS3Connection,
 )
 from app.models.s3_connection import (
     S3ConnectionCredentialsValidationRequest,
@@ -33,11 +26,11 @@ from app.models.s3_connection_admin import (
     S3ConnectionAdminCreate,
     S3ConnectionAdminItem,
     S3ConnectionAdminUpdate,
-    S3ConnectionGroupDetail,
     S3ConnectionSummary,
 )
 from app.routers.dependencies import get_audit_service, get_current_super_admin
 from app.services.audit_service import AuditService
+from app.services.admin_s3_connections_read_service import AdminS3ConnectionsReadService
 from app.services.identity_security_policy import (
     admin_s3_connection_update_requires_step_up,
     require_admin_sensitive_action,
@@ -47,18 +40,11 @@ from app.services.s3_connections_service import (
     S3ConnectionsService,
 )
 from app.services.s3_connection_validation_service import S3ConnectionValidationService
-from app.services.tags_service import TagsService, serialize_tag_summaries
-from app.services.ui_group_avatar_service import UiGroupAvatarService
-from app.services.user_avatar_service import UserAvatarService
-from app.models.user import UserAssociationDetail
-from app.utils.s3_connection_capabilities import (
-    parse_s3_connection_capabilities,
-    s3_connection_can_manage_iam,
-)
+from app.services.tags_service import serialize_tag_summaries
+from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import (
     resolve_connection_details,
 )
-from app.utils.name_ordering import name_order_by
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
     raise_http_error_from_value_error,
@@ -75,210 +61,6 @@ def _get_admin_shared_connection(db: Session, connection_id: int) -> S3Connectio
         raise_http_error_from_value_error(exc)
 
 
-def _linked_user_details_by_connection(
-    db: Session,
-    connection_ids: list[int],
-) -> dict[int, list[UserAssociationDetail]]:
-    if not connection_ids:
-        return {}
-    rows = (
-        db.query(UserS3Connection.s3_connection_id, User)
-        .join(User, User.id == UserS3Connection.user_id)
-        .filter(UserS3Connection.s3_connection_id.in_(connection_ids))
-        .order_by(UserS3Connection.s3_connection_id.asc(), User.email.asc(), User.id.asc())
-        .all()
-    )
-    user_details_by_connection: dict[int, list[UserAssociationDetail]] = {}
-    avatar_service = UserAvatarService(db)
-    for connection_id, user in rows:
-        normalized_connection_id = int(connection_id)
-        normalized_user_id = int(user.id)
-        user_details_by_connection.setdefault(normalized_connection_id, []).append(
-            UserAssociationDetail(
-                id=normalized_user_id,
-                email=user.email,
-                full_name=user.full_name,
-                avatar=avatar_service.descriptor(user),
-            )
-        )
-    return user_details_by_connection
-
-
-def _linked_user_details(db: Session, connection_id: int) -> list[UserAssociationDetail]:
-    return _linked_user_details_by_connection(db, [connection_id]).get(connection_id, [])
-
-
-def _linked_group_details_by_connection(
-    db: Session,
-    connection_ids: list[int],
-) -> dict[int, list[S3ConnectionGroupDetail]]:
-    if not connection_ids:
-        return {}
-    rows = (
-        db.query(UiGroupS3Connection.s3_connection_id, UiGroup)
-        .join(UiGroup, UiGroup.id == UiGroupS3Connection.group_id)
-        .filter(UiGroupS3Connection.s3_connection_id.in_(connection_ids))
-        .order_by(UiGroupS3Connection.s3_connection_id.asc(), UiGroup.name.asc(), UiGroup.id.asc())
-        .all()
-    )
-    group_details_by_connection: dict[int, list[S3ConnectionGroupDetail]] = {}
-    avatar_service = UiGroupAvatarService(db)
-    for connection_id, group in rows:
-        normalized_connection_id = int(connection_id)
-        normalized_group_id = int(group.id)
-        group_details_by_connection.setdefault(normalized_connection_id, []).append(
-            S3ConnectionGroupDetail(
-                id=normalized_group_id,
-                name=group.name,
-                avatar=avatar_service.descriptor(group),
-            )
-        )
-    return group_details_by_connection
-
-
-def _linked_group_details(db: Session, connection_id: int) -> list[S3ConnectionGroupDetail]:
-    return _linked_group_details_by_connection(db, [connection_id]).get(connection_id, [])
-
-
-def _to_admin_item(
-    conn: S3Connection,
-    *,
-    created_by_email: Optional[str],
-    created_by_user: Optional[User],
-    user_count: int,
-    user_details: list[UserAssociationDetail],
-    group_details: list[S3ConnectionGroupDetail],
-    tags_service: TagsService,
-) -> S3ConnectionAdminItem:
-    details = resolve_connection_details(conn)
-    capabilities = parse_s3_connection_capabilities(conn.capabilities_json)
-    return S3ConnectionAdminItem(
-        id=conn.id,
-        name=conn.name,
-        storage_endpoint_id=conn.storage_endpoint_id,
-        endpoint_url=details.endpoint_url or "",
-        is_active=bool(conn.is_active),
-        execution_status="remediation_required" if conn.remediation_required else "ready",
-        remediation_reason=conn.remediation_reason,
-        rgw_user_uid=conn.rgw_user_uid,
-        rgw_tenant=conn.rgw_tenant,
-        rgw_account_id=conn.rgw_account_id,
-        provider_hint=details.provider,
-        region=details.region,
-        force_path_style=details.force_path_style,
-        verify_tls=details.verify_tls,
-        allow_activity_history=conn.allow_activity_history,
-        created_by_user_id=conn.created_by_user_id,
-        created_by_email=created_by_email,
-        created_by_full_name=created_by_user.full_name if created_by_user else None,
-        created_by_avatar=UserAvatarService(tags_service.db).descriptor(created_by_user) if created_by_user else None,
-        user_count=int(user_count),
-        user_details=user_details,
-        group_details=group_details,
-        tags=tags_service.get_connection_tags(conn),
-        last_used_at=conn.last_used_at,
-        created_at=conn.created_at,
-        updated_at=conn.updated_at,
-        capabilities=capabilities,
-    )
-
-
-def _admin_s3_connections_query(db: Session, *, search: Optional[str]):
-    linked_user = aliased(User)
-    query = (
-        db.query(
-            S3Connection,
-            func.count(UserS3Connection.id).label("user_count"),
-            func.max(User.email).label("created_by_email"),
-        )
-        .outerjoin(User, User.id == S3Connection.created_by_user_id)
-        .outerjoin(StorageEndpoint, StorageEndpoint.id == S3Connection.storage_endpoint_id)
-        .outerjoin(UserS3Connection, UserS3Connection.s3_connection_id == S3Connection.id)
-        .outerjoin(linked_user, linked_user.id == UserS3Connection.user_id)
-        .filter(*S3ConnectionsService.admin_shared_predicates())
-        .group_by(S3Connection.id)
-    )
-    if not search:
-        return query
-
-    term = f"%{search.strip()}%"
-    tag_match = (
-        exists()
-        .where(S3ConnectionTag.s3_connection_id == S3Connection.id)
-        .where(TagDefinition.id == S3ConnectionTag.tag_definition_id)
-        .where(TagDefinition.label.ilike(term))
-    )
-    group_match = (
-        exists()
-        .where(UiGroupS3Connection.s3_connection_id == S3Connection.id)
-        .where(UiGroup.id == UiGroupS3Connection.group_id)
-        .where(UiGroup.name.ilike(term))
-    )
-    return query.filter(
-        (S3Connection.name.ilike(term))
-        | (StorageEndpoint.endpoint_url.ilike(term))
-        | (S3Connection.custom_endpoint_config.ilike(term))
-        | (User.email.ilike(term))
-        | (linked_user.email.ilike(term))
-        | (linked_user.full_name.ilike(term))
-        | group_match
-        | tag_match
-    )
-
-
-def _order_admin_s3_connections(query, *, sort_by: str, sort_dir: str):
-    sort_map = {
-        "name": S3Connection.name,
-        "endpoint": StorageEndpoint.endpoint_url,
-        "owner": User.email,
-        "last_used_at": S3Connection.last_used_at,
-        "created_at": S3Connection.created_at,
-    }
-    requested_sort = sort_by if sort_by in sort_map else "name"
-    descending = sort_dir.lower() == "desc"
-    if requested_sort == "name":
-        if descending:
-            return query.order_by(
-                func.lower(S3Connection.name).desc(),
-                S3Connection.name.desc(),
-                S3Connection.id.desc(),
-            )
-        return query.order_by(*name_order_by(S3Connection))
-
-    sort_field = sort_map[requested_sort]
-    if descending:
-        return query.order_by(sort_field.desc(), S3Connection.id.desc())
-    return query.order_by(sort_field.asc(), S3Connection.id.asc())
-
-
-def _admin_s3_connection_items(db: Session, rows) -> list[S3ConnectionAdminItem]:
-    connection_ids = [conn.id for conn, _, _ in rows]
-    creator_ids = {int(conn.created_by_user_id) for conn, _, _ in rows}
-    creators_by_id = (
-        {
-            int(creator.id): creator
-            for creator in db.query(User).filter(User.id.in_(creator_ids)).all()
-        }
-        if creator_ids
-        else {}
-    )
-    user_details_by_connection = _linked_user_details_by_connection(db, connection_ids)
-    group_details_by_connection = _linked_group_details_by_connection(db, connection_ids)
-    tags_service = TagsService(db)
-    return [
-        _to_admin_item(
-            conn,
-            created_by_email=created_by_email,
-            created_by_user=creators_by_id.get(int(conn.created_by_user_id)),
-            user_count=int(user_count or 0),
-            user_details=user_details_by_connection.get(conn.id, []),
-            group_details=group_details_by_connection.get(conn.id, []),
-            tags_service=tags_service,
-        )
-        for conn, user_count, created_by_email in rows
-    ]
-
-
 @router.get("", response_model=PaginatedS3ConnectionsResponse)
 def list_s3_connections(
     page: int = Query(1, ge=1),
@@ -290,16 +72,13 @@ def list_s3_connections(
     current_user: User = Depends(get_current_super_admin),
 ) -> PaginatedS3ConnectionsResponse:
     _ = current_user
-    query = _order_admin_s3_connections(
-        _admin_s3_connections_query(db, search=search),
+    return AdminS3ConnectionsReadService(db).list(
+        page=page,
+        page_size=page_size,
+        search=search,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
-    total = query.count()
-    rows = query.offset((page - 1) * page_size).limit(page_size).all()
-    items = _admin_s3_connection_items(db, rows)
-    has_next = page * page_size < total
-    return PaginatedS3ConnectionsResponse(items=items, total=total, page=page, page_size=page_size, has_next=has_next)
 
 
 @router.get("/minimal", response_model=list[S3ConnectionSummary])
@@ -308,28 +87,7 @@ def list_s3_connections_minimal(
     current_user: User = Depends(get_current_super_admin),
 ) -> list[S3ConnectionSummary]:
     _ = current_user
-    rows = (
-        db.query(
-            S3Connection.id,
-            S3Connection.name,
-            S3Connection.created_by_user_id,
-            S3Connection.is_active,
-            S3Connection.remediation_required,
-        )
-        .filter(*S3ConnectionsService.admin_shared_predicates())
-        .order_by(*name_order_by(S3Connection))
-        .all()
-    )
-    return [
-        S3ConnectionSummary(
-            id=row[0],
-            name=row[1],
-            created_by_user_id=row[2],
-            is_active=bool(row[3]),
-            execution_status="remediation_required" if row[4] else "ready",
-        )
-        for row in rows
-    ]
+    return AdminS3ConnectionsReadService(db).list_minimal()
 
 
 @router.post("/validate-credentials", response_model=S3ConnectionCredentialsValidationResult)
@@ -388,14 +146,10 @@ def create_s3_connection(
                 "tags": serialize_tag_summaries(tags_service.get_connection_tags(conn)),
             },
         )
-    return _to_admin_item(
+    return AdminS3ConnectionsReadService(db).item(
         conn,
-        created_by_email=current_user.email,
         created_by_user=current_user,
-        user_count=0,
-        user_details=[],
-        group_details=[],
-        tags_service=tags_service,
+        include_links=False,
     )
 
 
@@ -409,7 +163,6 @@ def update_s3_connection(
     audit: AuditService = Depends(get_audit_service),
 ) -> S3ConnectionAdminItem:
     service = S3ConnectionsService(db)
-    tags_service = service.tags
     conn = _get_admin_shared_connection(db, connection_id)
     if admin_s3_connection_update_requires_step_up(db, conn, payload):
         require_admin_sensitive_action(request, db, current_user)
@@ -443,19 +196,7 @@ def update_s3_connection(
         entity_id=str(conn.id),
         metadata=audit_metadata,
     )
-    created_by_user = db.query(User).filter(User.id == conn.created_by_user_id).first()
-    created_by_email = created_by_user.email if created_by_user else None
-    user_details = _linked_user_details(db, conn.id)
-    group_details = _linked_group_details(db, conn.id)
-    return _to_admin_item(
-        conn,
-        created_by_email=created_by_email,
-        created_by_user=created_by_user,
-        user_count=len(user_details),
-        user_details=user_details,
-        group_details=group_details,
-        tags_service=tags_service,
-    )
+    return AdminS3ConnectionsReadService(db).item(conn)
 
 
 @router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
