@@ -4,12 +4,12 @@ from app.services.portal.exceptions import PortalForbiddenError
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import S3Account as S3AccountDb, User
-from app.models.app_settings import PortalSettingsAdminUpdate, PortalSettingsOverride
+from app.db import User
+from app.models.app_settings import PortalSettingsAdminUpdate
 from app.models.portal_settings import PortalAccountSettings
 from app.models.s3_account import (
     PaginatedS3AccountsResponse,
@@ -24,8 +24,8 @@ from app.routers.dependencies import (
     get_current_super_admin,
 )
 from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
+from app.services.admin_account_portal_settings_service import AdminAccountPortalSettingsService
 from app.services.audit_service import AuditService
-from app.services.portal_service import get_portal_service
 from app.services.rgw_admin import RGWAdminError
 from app.services.tags_service import serialize_tag_summaries
 from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
@@ -46,6 +46,12 @@ def get_admin_accounts_service(
     db: Session = Depends(get_db),
 ) -> S3AccountsService:
     return get_s3_accounts_service(db)
+
+
+def get_admin_account_portal_settings_service(
+    db: Session = Depends(get_db),
+) -> AdminAccountPortalSettingsService:
+    return AdminAccountPortalSettingsService(db)
 
 
 @router.get("", response_model=PaginatedS3AccountsResponse)
@@ -129,77 +135,50 @@ def get_account(
 @router.get("/{account_id}/portal-settings", response_model=PortalAccountSettings, response_model_exclude_unset=True)
 def get_account_portal_settings(
     account_id: int,
-    db: Session = Depends(get_db),
+    service: AdminAccountPortalSettingsService = Depends(get_admin_account_portal_settings_service),
     _: User = Depends(get_current_super_admin),
 ) -> PortalAccountSettings:
-    account = db.query(S3AccountDb).filter(S3AccountDb.id == account_id).first()
-    if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Account not found")
-    service = get_portal_service(db)
-    return service.get_portal_account_settings(account)
+    try:
+        return service.get(account_id)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
 
 
 @router.put("/{account_id}/portal-settings", response_model=PortalAccountSettings, response_model_exclude_unset=True)
 def update_account_portal_settings(
     account_id: int,
     payload: PortalSettingsAdminUpdate,
-    db: Session = Depends(get_db),
+    service: AdminAccountPortalSettingsService = Depends(get_admin_account_portal_settings_service),
     current_user: User = Depends(get_current_super_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> PortalAccountSettings:
-    account = db.query(S3AccountDb).filter(S3AccountDb.id == account_id).first()
-    if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Account not found")
-    service = get_portal_service(db)
-    delegation_fields = {
-        "delegated_to_portal_managers",
-        "portal_collaborator_role_management_delegated",
-        "portal_collaborator_addition_delegated",
-    }
-    override_fields = payload.model_fields_set - delegation_fields
-    if not override_fields and payload.model_fields_set.intersection(delegation_fields):
-        override = service.get_portal_account_settings(account).admin_override
-    else:
-        override = PortalSettingsOverride.model_validate(
-            payload.model_dump(
-                exclude=delegation_fields,
-                exclude_unset=True,
-                exclude_none=False,
-            )
-        )
     try:
-        updated = service.update_admin_portal_settings_override(
-            account,
-            override,
-            delegated_to_portal_managers=payload.delegated_to_portal_managers,
-            portal_collaborator_role_management_delegated=(
-                payload.portal_collaborator_role_management_delegated
-            ),
-            portal_collaborator_addition_delegated=payload.portal_collaborator_addition_delegated,
-        )
+        result = service.update(account_id, payload)
     except PortalForbiddenError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
     audit_service.record_action(
         user=current_user,
         scope="admin",
         action="update_account_portal_settings",
         entity_type="account",
         entity_id=str(account_id),
-        account=account,
+        account=result.account,
         metadata={
-            "admin_override": override.model_dump(exclude_unset=True, exclude_none=False),
-            "delegated_to_portal_managers": updated.delegated_to_portal_managers,
+            "admin_override": result.override.model_dump(exclude_unset=True, exclude_none=False),
+            "delegated_to_portal_managers": result.settings.delegated_to_portal_managers,
             "portal_collaborator_role_management_delegated": (
-                updated.portal_collaborator_role_management_delegated
+                result.settings.portal_collaborator_role_management_delegated
             ),
             "portal_collaborator_addition_delegated": (
-                updated.portal_collaborator_addition_delegated
+                result.settings.portal_collaborator_addition_delegated
             ),
         },
     )
-    return updated
+    return result.settings
 
 
 @router.post("", response_model=S3Account, status_code=status.HTTP_201_CREATED)
