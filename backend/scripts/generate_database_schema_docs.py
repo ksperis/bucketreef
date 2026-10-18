@@ -145,6 +145,8 @@ DOMAINS = (
             "billing_entity_tag_rules",
             "billing_entity_subject_rules",
             "billing_entity_rate_assignments",
+            "billing_entity_groups",
+            "billing_entity_group_memberships",
         ),
     ),
 )

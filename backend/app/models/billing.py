@@ -335,3 +335,101 @@ class BillingEntityResolutionResult(ApiModel):
     entities: list[BillingEntityResolution]
     unassigned: list[BillingEntitySubjectReference]
     conflicts: list[BillingEntityConflict]
+
+
+class BillingEntityGroupMembershipInput(ApiModel):
+    billing_entity_id: int = Field(..., ge=1)
+    effective_from: date
+    effective_to: Optional[date] = None
+
+    @model_validator(mode="after")
+    def validate_period(self):
+        if self.effective_from.day != 1:
+            raise ValueError("effective_from must be the first day of a month")
+        if self.effective_to is not None:
+            last_day = monthrange(self.effective_to.year, self.effective_to.month)[1]
+            if self.effective_to.day != last_day:
+                raise ValueError("effective_to must be the last day of a month")
+            if self.effective_to < self.effective_from:
+                raise ValueError("effective_to must not be before effective_from")
+        return self
+
+
+class BillingEntityGroupMembershipItem(BillingEntityGroupMembershipInput):
+    id: int
+    billing_entity_name: str
+    billing_entity_code: Optional[str] = None
+    billing_entity_active: bool
+    status: Literal["historical", "current", "future"]
+    created_at: datetime
+    updated_at: datetime
+
+
+class BillingEntityGroupPayload(ApiModel):
+    name: str = Field(..., min_length=1, max_length=160)
+    code: Optional[str] = Field(default=None, max_length=80)
+    external_id: Optional[str] = Field(default=None, max_length=160)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    memberships: list[BillingEntityGroupMembershipInput] = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_group_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Billing Entity Group name is required")
+        return normalized
+
+    @field_validator("code", "external_id", "description")
+    @classmethod
+    def normalize_group_optional_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class BillingEntityGroupAdminItem(ApiModel):
+    id: int
+    name: str
+    code: Optional[str] = None
+    external_id: Optional[str] = None
+    description: Optional[str] = None
+    active: bool
+    memberships: list[BillingEntityGroupMembershipItem] = Field(default_factory=list)
+    current_member_count: int = 0
+    scheduled_membership_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class BillingEntityGroupPreviewAmount(ApiModel):
+    billing_entity_id: int = Field(..., ge=1)
+    currency: str = Field(..., min_length=3, max_length=3)
+    total_cost: Decimal
+    complete: bool = True
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_group_currency(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if len(normalized) != 3 or not normalized.isalpha():
+            raise ValueError("currency must be a 3-letter ISO code")
+        return normalized
+
+
+class BillingEntityGroupPreviewCurrencyTotal(ApiModel):
+    currency: str
+    total_cost: Decimal
+    billing_entity_ids: list[int]
+    complete: bool
+
+
+class BillingEntityGroupPreviewAggregation(ApiModel):
+    billing_entity_group_id: int
+    billing_entity_group_name: str
+    month: str
+    member_entity_ids: list[int]
+    currency_totals: list[BillingEntityGroupPreviewCurrencyTotal]
+    missing_entity_ids: list[int]
+    complete: bool

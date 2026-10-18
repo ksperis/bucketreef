@@ -352,6 +352,14 @@ Legend: {
     class: table
     tooltip: "PK: id\\nUnique: uq_billing_entity_rate_assignment_start(billing_entity_id, effective_from)\\nIndexes: ix_billing_entity_rate_assignments_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_rate_assignments_effective(billing_entity_id, effective_from, effective_to) [index]; ix_billing_entity_rate_assignments_id(id) [index]; ix_billing_entity_rate_assignments_rate_plan_id(rate_plan_id) [index]"
   }
+  "billing_entity_groups": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entity_groups_code(code); uq_billing_entity_groups_external_id(external_id); uq_billing_entity_groups_name(name)\\nIndexes: ix_billing_entity_groups_id(id) [index]"
+  }
+  "billing_entity_group_memberships": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entity_group_membership_start(billing_entity_group_id, billing_entity_id, effective_from)\\nCheck: ck_billing_entity_group_membership_period: effective_to IS NULL OR effective_to >= effective_from\\nIndexes: ix_billing_entity_group_memberships_billing_entity_group_id(billing_entity_group_id) [index]; ix_billing_entity_group_memberships_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_group_memberships_effective(billing_entity_group_id, billing_entity_id, effective_from, effective_to) [index]; ix_billing_entity_group_memberships_id(id) [index]"
+  }
 }
 
 "user_ui_groups" -> "users"
@@ -461,3 +469,5 @@ Legend: {
 "billing_entity_subject_rules" -> "s3_users": "ondelete=CASCADE"
 "billing_entity_rate_assignments" -> "billing_entities": "ondelete=CASCADE"
 "billing_entity_rate_assignments" -> "billing_rate_plans"
+"billing_entity_group_memberships" -> "billing_entity_groups": "ondelete=CASCADE"
+"billing_entity_group_memberships" -> "billing_entities": "ondelete=CASCADE"

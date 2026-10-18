@@ -300,6 +300,12 @@ class BillingEntity(Base):
         cascade="all, delete-orphan",
         order_by="BillingEntityRateAssignment.effective_from",
     )
+    group_memberships = relationship(
+        "BillingEntityGroupMembership",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="BillingEntityGroupMembership.effective_from",
+    )
 
 
 class BillingEntityTagRule(Base):
@@ -421,3 +427,72 @@ class BillingEntityRateAssignment(Base):
 
     entity = relationship("BillingEntity", back_populates="rate_assignments")
     rate_plan = relationship("BillingRatePlan")
+
+
+class BillingEntityGroup(Base):
+    __tablename__ = "billing_entity_groups"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_billing_entity_groups_name"),
+        UniqueConstraint("code", name="uq_billing_entity_groups_code"),
+        UniqueConstraint("external_id", name="uq_billing_entity_groups_external_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    code = Column(String, nullable=True)
+    external_id = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    active = Column(Boolean, nullable=False, default=True, server_default="1")
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    memberships = relationship(
+        "BillingEntityGroupMembership",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        order_by="BillingEntityGroupMembership.effective_from",
+    )
+
+
+class BillingEntityGroupMembership(Base):
+    __tablename__ = "billing_entity_group_memberships"
+    __table_args__ = (
+        UniqueConstraint(
+            "billing_entity_group_id",
+            "billing_entity_id",
+            "effective_from",
+            name="uq_billing_entity_group_membership_start",
+        ),
+        CheckConstraint(
+            "effective_to IS NULL OR effective_to >= effective_from",
+            name="ck_billing_entity_group_membership_period",
+        ),
+        Index(
+            "ix_billing_entity_group_memberships_effective",
+            "billing_entity_group_id",
+            "billing_entity_id",
+            "effective_from",
+            "effective_to",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    billing_entity_group_id = Column(
+        Integer,
+        ForeignKey("billing_entity_groups.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    effective_from = Column(Date, nullable=False)
+    effective_to = Column(Date, nullable=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    group = relationship("BillingEntityGroup", back_populates="memberships")
+    entity = relationship("BillingEntity", back_populates="group_memberships")

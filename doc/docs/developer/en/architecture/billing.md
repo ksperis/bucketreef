@@ -121,3 +121,53 @@ Assignment periods cannot overlap and use month boundaries. Current and future
 periods can be scheduled safely. Once a period is historical it is preserved
 verbatim when other entity settings are edited; changing or removing that
 historical assignment is rejected.
+
+## Billing Entity Groups
+
+Billing Entity Groups form an analytical layer above Billing Entities. They are
+designed for organizational questions such as the total cost of Research, DSI,
+a region, or a programme. A group never participates in subject membership,
+Rate Plan resolution, or statement generation.
+
+Membership is explicit and historized through
+`BillingEntityGroupMembership`. Each record links one Billing Entity to one
+group with a month-aligned `effective_from` and optional `effective_to`.
+Periods for the same entity/group pair cannot overlap. A Billing Entity may
+belong to several different groups for the same month because these groups are
+independent analytical classifications rather than billing-allocation owners.
+
+The effective group membership for a month is resolved from the persisted
+membership periods. Deactivating a group does not remove those periods, so the
+group remains usable for historical analysis. Once immutable monthly Billing
+Statements exist, statement-generating months become historical accounting
+inputs and their effective group classification must not be edited in place.
+
+### Aggregation contract
+
+`BillingEntityGroupService.aggregate_preview()` deliberately accepts already
+calculated Billing Entity amounts. It never resolves subjects, prices, quotas,
+or Rate Plans itself. This keeps one canonical calculation path and prevents a
+group-specific pricing implementation from drifting from Billing Entity
+results.
+
+The aggregation contract:
+
+- resolves the group's member Billing Entity IDs for the requested month;
+- keeps each currency in a separate total and performs no implicit FX
+  conversion;
+- reports missing Billing Entity results explicitly instead of treating them as
+  zero;
+- propagates incomplete entity results into the group completeness state;
+- retains the contributing Billing Entity IDs needed for drill-down.
+
+The current preview contract is ready to consume the canonical monthly Billing
+Entity analysis once rate resolution is completed. The Admin consolidated view
+is wired in the later Billing analysis objective so it can reuse the final
+`Direct > Entity > Endpoint > Global` resolver rather than implementing an
+intermediate pricing path here.
+
+After finalized `BillingStatement` snapshots are introduced, historical group
+aggregation uses the statement month and the group membership effective for
+that month. It must not use today's group membership and must not create or
+persist a duplicate `BillingGroupStatement`. The canonical entity statement
+remains the source for historical monetary values.
