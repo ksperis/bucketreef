@@ -7,7 +7,7 @@ import threading
 import uuid
 from typing import Callable
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -18,6 +18,16 @@ from app.routers.sse_worker import (
     stream_cancellable_worker,
 )
 from app.services.listing_progress import ListingCancelled, ListingProgressSnapshot
+from app.services.bucket_listing_shared import is_advanced_filter_stream_payload
+
+
+def require_advanced_filter_stream_payload(advanced_filter: str | None) -> None:
+    if is_advanced_filter_stream_payload(advanced_filter):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="advanced_filter must be provided as a JSON payload for streaming search",
+    )
 
 
 def stream_listing_response(

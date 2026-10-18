@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Callable, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -15,8 +15,8 @@ from app.models.ceph_admin import PaginatedCephAdminBucketsResponse
 from app.routers.ceph_admin import bucket_config, bucket_tools
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
 from app.services.ceph_admin_context import CephAdminContext
-from app.routers.listing_common import stream_listing_response
-from app.services.bucket_listing_shared import BucketListingFilterError, is_advanced_filter_stream_payload
+from app.routers.listing_common import require_advanced_filter_stream_payload, stream_listing_response
+from app.services.bucket_listing_shared import BucketListingFilterError
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.ceph_admin_bucket_listing_service import compute_ceph_admin_bucket_listing
 from app.services.ceph_admin_bucket_listing_snapshot import RequiredBucketStatsUnavailableError
@@ -147,11 +147,7 @@ async def stream_buckets(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    if not is_advanced_filter_stream_payload(advanced_filter):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="advanced_filter must be provided as a JSON payload for streaming search",
-        )
+    require_advanced_filter_stream_payload(advanced_filter)
 
     return stream_listing_response(
         request,

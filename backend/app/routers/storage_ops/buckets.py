@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Callable, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -13,14 +13,14 @@ from app.core.database import get_db
 from app.db import User
 from app.models.bucket_listing import BucketListingRequest
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse
-from app.routers.listing_common import stream_listing_response
+from app.routers.listing_common import require_advanced_filter_stream_payload, stream_listing_response
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_storage_ops_admin,
 )
 from app.routers.storage_ops.context import resolve_storage_ops_context
 from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_context
-from app.services.bucket_listing_shared import BucketListingFilterError, is_advanced_filter_stream_payload
+from app.services.bucket_listing_shared import BucketListingFilterError
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.buckets_service import BucketsService, get_buckets_service
@@ -198,11 +198,7 @@ async def stream_storage_ops_buckets(
     db: Session = Depends(get_db),
     service: BucketsService = Depends(get_buckets_service),
 ) -> StreamingResponse:
-    if not is_advanced_filter_stream_payload(advanced_filter):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="advanced_filter must be provided as a JSON payload for streaming search",
-        )
+    require_advanced_filter_stream_payload(advanced_filter)
 
     return stream_listing_response(
         request,

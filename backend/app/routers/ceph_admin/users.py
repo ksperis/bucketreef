@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.models.ceph_admin import (
@@ -16,8 +16,7 @@ from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
 from app.services.ceph_admin_context import CephAdminContext
-from app.routers.listing_common import stream_listing_response
-from app.services.bucket_listing_shared import is_advanced_filter_stream_payload
+from app.routers.listing_common import require_advanced_filter_stream_payload, stream_listing_response
 from app.services.ceph_admin_user_access import optional_account_lookup_enabled
 from app.services.ceph_admin_user_listing import compute_users_listing
 from app.services.listing_progress import ListingProgressSnapshot
@@ -93,14 +92,7 @@ async def stream_rgw_users(
     include: list[str] = Query(default=[]),
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> StreamingResponse:
-    if not is_advanced_filter_stream_payload(advanced_filter):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "advanced_filter must be provided as a JSON payload for "
-                "streaming search"
-            ),
-        )
+    require_advanced_filter_stream_payload(advanced_filter)
 
     return stream_listing_response(
         request,
