@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any, Literal, Optional, Protocol
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -190,25 +190,25 @@ class AuditService:
         status: Optional[AuditStatus] = None,
         search_mode: Literal["all", "manager_activity"] = "all",
     ) -> list[AuditLog]:
-        query = self.db.query(AuditLog)
+        statement = select(AuditLog)
         if scope:
-            query = query.filter(AuditLog.scope == scope)
+            statement = statement.where(AuditLog.scope == scope)
         if role:
-            query = query.filter(AuditLog.user_role == role)
+            statement = statement.where(AuditLog.user_role == role)
         if context_kind is not None:
-            query = query.filter(AuditLog.context_kind == context_kind)
+            statement = statement.where(AuditLog.context_kind == context_kind)
         if context_id is not None:
-            query = query.filter(AuditLog.context_id == context_id)
+            statement = statement.where(AuditLog.context_id == context_id)
         if cursor:
-            query = query.filter(AuditLog.id < cursor)
+            statement = statement.where(AuditLog.id < cursor)
         if status:
-            query = query.filter(AuditLog.status == status)
+            statement = statement.where(AuditLog.status == status)
         if search:
             trimmed = search.strip()
             if trimmed:
                 pattern = f"%{trimmed}%"
                 if search_mode == "manager_activity":
-                    query = query.filter(
+                    statement = statement.where(
                         or_(
                             AuditLog.user_email.ilike(pattern),
                             AuditLog.action.ilike(pattern),
@@ -218,7 +218,7 @@ class AuditService:
                         )
                     )
                 else:
-                    query = query.filter(
+                    statement = statement.where(
                         or_(
                             AuditLog.user_email.ilike(pattern),
                             AuditLog.user_role.ilike(pattern),
@@ -235,11 +235,9 @@ class AuditService:
                         )
                     )
         sliced_limit = min(max(limit, 1), 500)
-        return (
-            query.order_by(AuditLog.id.desc())
-            .limit(sliced_limit)
-            .all()
-        )
+        return self.db.scalars(
+            statement.order_by(AuditLog.id.desc()).limit(sliced_limit)
+        ).all()
 
     def serialize_log(self, log: AuditLog) -> dict[str, Any]:
         return {
