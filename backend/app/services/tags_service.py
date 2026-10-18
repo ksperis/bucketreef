@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
-from sqlalchemy import exists
+from sqlalchemy import delete, exists, select
 from sqlalchemy.orm import Session
 
 from app.db import BucketUiTagAssignment, S3Account, S3AccountTag, S3Connection, S3ConnectionTag, S3User, S3UserTag, StorageEndpoint, StorageEndpointTag, TagDefinition
@@ -38,12 +38,12 @@ class TagsService:
         self.db = db
 
     def list_definitions(self, *, domain_kind: str, owner_user_id: Optional[int] = None) -> list[TagDefinitionSummary]:
-        query = self.db.query(TagDefinition).filter(TagDefinition.domain_kind == domain_kind)
+        statement = select(TagDefinition).where(TagDefinition.domain_kind == domain_kind)
         if owner_user_id is None:
-            query = query.filter(TagDefinition.owner_user_id.is_(None))
+            statement = statement.where(TagDefinition.owner_user_id.is_(None))
         else:
-            query = query.filter(TagDefinition.owner_user_id == owner_user_id)
-        rows = query.all()
+            statement = statement.where(TagDefinition.owner_user_id == owner_user_id)
+        rows = self.db.scalars(statement).all()
         rows.sort(key=tag_definition_sort_key)
         return [self._to_summary(row) for row in rows]
 
@@ -121,17 +121,17 @@ class TagsService:
             raise ValueError(f"Unsupported tag definition domains: {sorted(unsupported)}")
 
         for domain_kind in requested:
-            query = self.db.query(TagDefinition).filter(
+            statement = select(TagDefinition.id).where(
                 TagDefinition.domain_kind == domain_kind
             )
             if domain_kind == TAG_DOMAIN_ENDPOINT:
-                query = query.filter(
+                statement = statement.where(
                     ~exists().where(
                         StorageEndpointTag.tag_definition_id == TagDefinition.id
                     )
                 )
             elif domain_kind == TAG_DOMAIN_ADMIN_MANAGED:
-                query = query.filter(
+                statement = statement.where(
                     ~exists().where(S3AccountTag.tag_definition_id == TagDefinition.id),
                     ~exists().where(S3UserTag.tag_definition_id == TagDefinition.id),
                     ~exists().where(
@@ -139,25 +139,24 @@ class TagsService:
                     ),
                 )
             elif domain_kind == TAG_DOMAIN_PRIVATE_CONNECTION_USER:
-                query = query.filter(
+                statement = statement.where(
                     ~exists().where(
                         S3ConnectionTag.tag_definition_id == TagDefinition.id
                     )
                 )
             else:
-                query = query.filter(
+                statement = statement.where(
                     ~exists().where(
                         BucketUiTagAssignment.tag_definition_id == TagDefinition.id
                     )
                 )
-            orphan_ids = [
-                int(row[0])
-                for row in query.with_entities(TagDefinition.id).all()
-            ]
+            orphan_ids = [int(tag_id) for tag_id in self.db.scalars(statement).all()]
             if orphan_ids:
-                self.db.query(TagDefinition).filter(
-                    TagDefinition.id.in_(orphan_ids)
-                ).delete(synchronize_session="fetch")
+                self.db.execute(
+                    delete(TagDefinition)
+                    .where(TagDefinition.id.in_(orphan_ids))
+                    .execution_options(synchronize_session="fetch")
+                )
 
     def _serialize_for_parent(
         self,
@@ -223,18 +222,15 @@ class TagsService:
         update_existing: bool = True,
     ) -> TagDefinition:
         label_key = build_tag_label_key(label)
-        query = (
-            self.db.query(TagDefinition)
-            .filter(
+        statement = select(TagDefinition).where(
                 TagDefinition.domain_kind == domain_kind,
                 TagDefinition.label_key == label_key,
-            )
         )
         if owner_user_id is None:
-            query = query.filter(TagDefinition.owner_user_id.is_(None))
+            statement = statement.where(TagDefinition.owner_user_id.is_(None))
         else:
-            query = query.filter(TagDefinition.owner_user_id == owner_user_id)
-        definition = query.first()
+            statement = statement.where(TagDefinition.owner_user_id == owner_user_id)
+        definition = self.db.scalars(statement).first()
         if definition is None:
             definition = TagDefinition(
                 domain_kind=domain_kind,
