@@ -8,6 +8,7 @@ from datetime import date as date_cls
 from typing import TYPE_CHECKING, Any, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import select
 
 from app.db import (
     AccountIAMUser,
@@ -208,14 +209,12 @@ class PortalServerAccessLogQueriesMixin:
             return
         identity_by_requester: dict[str, PortalServerAccessRequesterIdentity] = {}
 
-        external_rows = (
-            self.db.query(PortalExternalAccessCredential)
-            .filter(
+        external_rows = self.db.scalars(
+            select(PortalExternalAccessCredential).where(
                 PortalExternalAccessCredential.account_id == account.id,
                 PortalExternalAccessCredential.iam_user_id.in_(requesters),
             )
-            .all()
-        )
+        ).all()
         for credential in external_rows:
             if not credential.iam_user_id:
                 continue
@@ -232,15 +231,14 @@ class PortalServerAccessLogQueriesMixin:
                 resolved=True,
             )
 
-        portal_rows = (
-            self.db.query(AccountIAMUser, User)
+        portal_rows = self.db.execute(
+            select(AccountIAMUser, User)
             .join(User, AccountIAMUser.user_id == User.id)
-            .filter(
+            .where(
                 AccountIAMUser.account_id == account.id,
                 AccountIAMUser.iam_user_id.in_(requesters),
             )
-            .all()
-        )
+        ).all()
         for link, linked_user in portal_rows:
             if not link.iam_user_id or link.iam_user_id in identity_by_requester:
                 continue
