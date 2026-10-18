@@ -3,15 +3,27 @@
 import requests
 from datetime import timedelta
 
+from sqlalchemy import select
+
 from app.db import (
+    EndpointHealthCheck,
     EndpointHealthLatest,
+    EndpointHealthRollup,
     EndpointHealthStatusSegment,
     HealthCheckStatus,
     StorageEndpoint,
     StorageProvider,
 )
-from app.services import healthcheck_query_service, healthcheck_service
-from app.services.healthcheck_common import EndpointCheckTarget, HealthCheckProfile, HealthWindow
+from app.services import healthcheck_persistence_service, healthcheck_query_service, healthcheck_service
+from app.services.healthcheck_common import (
+    DEFAULT_CHECK_TYPE,
+    DEFAULT_ROLLUP_RESOLUTION_SECONDS,
+    DEFAULT_SCOPE,
+    EndpointCheckTarget,
+    HealthCheckProfile,
+    HealthWindow,
+)
+from app.services.healthcheck_persistence_service import HealthCheckPersistenceService
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.healthcheck_service import HealthCheckService
 from app.utils.time import utcnow
@@ -249,3 +261,94 @@ def test_workspace_health_overview_projects_ongoing_and_recent_incidents(db_sess
     assert payload["incidents"][1]["ongoing"] is False
     assert payload["incidents"][1]["recent"] is True
     assert payload["incidents"][1]["duration_minutes"] == 15
+
+
+def test_healthcheck_history_pruning_keeps_recent_and_active_rows(db_session, monkeypatch):
+    _seed_endpoint(
+        db_session,
+        name="Retention endpoint",
+        endpoint_url="https://retention.example.test",
+        is_default=True,
+    )
+    db_session.flush()
+    endpoint = db_session.scalars(
+        select(StorageEndpoint).where(StorageEndpoint.name == "Retention endpoint")
+    ).one()
+    now = utcnow()
+    old = now - timedelta(days=31)
+    recent = now - timedelta(days=1)
+    db_session.add_all(
+        [
+            EndpointHealthCheck(
+                storage_endpoint_id=endpoint.id,
+                checked_at=old,
+                check_mode="http",
+                status=HealthCheckStatus.UP.value,
+            ),
+            EndpointHealthCheck(
+                storage_endpoint_id=endpoint.id,
+                checked_at=recent,
+                check_mode="http",
+                status=HealthCheckStatus.UP.value,
+            ),
+            EndpointHealthRollup(
+                storage_endpoint_id=endpoint.id,
+                check_mode="http",
+                check_type=DEFAULT_CHECK_TYPE,
+                scope=DEFAULT_SCOPE,
+                resolution_seconds=DEFAULT_ROLLUP_RESOLUTION_SECONDS,
+                bucket_start=old,
+            ),
+            EndpointHealthRollup(
+                storage_endpoint_id=endpoint.id,
+                check_mode="http",
+                check_type=DEFAULT_CHECK_TYPE,
+                scope=DEFAULT_SCOPE,
+                resolution_seconds=DEFAULT_ROLLUP_RESOLUTION_SECONDS,
+                bucket_start=recent,
+            ),
+            EndpointHealthStatusSegment(
+                storage_endpoint_id=endpoint.id,
+                check_mode="http",
+                check_type=DEFAULT_CHECK_TYPE,
+                scope=DEFAULT_SCOPE,
+                status=HealthCheckStatus.UP.value,
+                started_at=old - timedelta(hours=1),
+                ended_at=old,
+            ),
+            EndpointHealthStatusSegment(
+                storage_endpoint_id=endpoint.id,
+                check_mode="http",
+                check_type=DEFAULT_CHECK_TYPE,
+                scope=DEFAULT_SCOPE,
+                status=HealthCheckStatus.UP.value,
+                started_at=old,
+                ended_at=None,
+            ),
+            EndpointHealthStatusSegment(
+                storage_endpoint_id=endpoint.id,
+                check_mode="http",
+                check_type=DEFAULT_CHECK_TYPE,
+                scope=DEFAULT_SCOPE,
+                status=HealthCheckStatus.UP.value,
+                started_at=recent - timedelta(hours=1),
+                ended_at=recent,
+            ),
+        ]
+    )
+    db_session.commit()
+    monkeypatch.setattr(
+        healthcheck_persistence_service.settings,
+        "healthcheck_retention_days",
+        30,
+    )
+
+    HealthCheckPersistenceService(db_session)._prune_history()
+
+    raw_rows = db_session.scalars(select(EndpointHealthCheck)).all()
+    rollup_rows = db_session.scalars(select(EndpointHealthRollup)).all()
+    segment_rows = db_session.scalars(select(EndpointHealthStatusSegment)).all()
+    assert [row.checked_at for row in raw_rows] == [recent]
+    assert [row.bucket_start for row in rollup_rows] == [recent]
+    assert sorted(row.ended_at for row in segment_rows if row.ended_at is not None) == [recent]
+    assert sum(row.ended_at is None for row in segment_rows) == 1
