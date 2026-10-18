@@ -812,6 +812,14 @@ Rules:
   results;
 - annual/quarterly/custom totals sum the finalized monthly statement amounts and
   their component amounts without re-rating historical usage;
+- period analytics preserve the storage charge-basis provenance of the
+  contributing statement lines. Monetary storage amounts may be summed, but
+  measured GiB-month and allocated-quota GiB-month quantities must never be
+  collapsed into one synthetic storage quantity;
+- when the selected period contains both `actual_usage` and `allocated_quota`
+  pricing, expose the distinct bases present and retain basis-aware drill-down
+  by month/entity/line so an operator can explain why the priced storage
+  quantity changed over time;
 - Entity Group aggregation evaluates the historized group membership effective
   independently for each contributing month;
 - results stay separated by currency;
@@ -871,7 +879,9 @@ workflow engine. At minimum support:
 - automatic draft generation + automatic finalization when all gates pass.
 
 Configuration should include the execution schedule/day offset needed to ensure
-the previous month's usage collection is complete.
+the previous month's required Billing collection is complete. This includes
+measured usage/storage data for every statement and historical quota
+observations for lines whose effective Rate Plan uses `allocated_quota`.
 
 ### Automation gates
 
@@ -881,6 +891,10 @@ must refuse to finalize when any blocker exists. Define explicit policies for:
 - minimum acceptable usage/storage coverage;
 - minimum acceptable quota coverage when any priced line uses
   `allocated_quota`;
+- basis-aware collection readiness: an `actual_usage` line must not be blocked
+  merely because quota history is absent, while an `allocated_quota` line must
+  never fall back to live/current quota or measured storage because quota
+  history is incomplete;
 - unresolved membership conflicts;
 - unassigned subjects when policy requires assignment;
 - missing pricing;
@@ -1149,6 +1163,9 @@ Exercise at least:
   group totals remain unchanged;
 - group aggregation over several entities/endpoints and multiple currencies;
 - annual aggregation for one Billing Entity from 12 finalized monthly statements;
+- annual aggregation spanning a Rate Plan change from `actual_usage` to
+  `allocated_quota`, with monetary totals preserved while storage quantities
+  remain separated by basis and traceable to their contributing months;
 - annual Billing Entity Group aggregation across a membership change between
   months;
 - partial current-year aggregation with missing/unfinalized months clearly
@@ -1252,7 +1269,10 @@ The Billing evolution is complete only when BucketReef can reliably answer:
 8. **Can an administrator obtain a trustworthy annual or custom-range cost from
    canonical monthly statements and immediately see whether the period is
    complete?**
+9. **Can every storage charge be explained as measured usage or allocated quota,
+   including historical quota proration and mixed-basis periods, without
+   ambiguously combining incompatible storage quantities?**
 
-If all eight answers are yes, BucketReef provides a complete enterprise-grade S3
+If all nine answers are yes, BucketReef provides a complete enterprise-grade S3
 Billing/chargeback boundary while deliberately remaining outside ERP and legal
 invoice responsibilities.
