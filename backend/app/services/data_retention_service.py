@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -35,24 +36,30 @@ class DataRetentionService:
             return None
         return (utcnow().date() - timedelta(days=days))
 
+    def _delete_rows(self, model, *filters) -> int:
+        result = self.db.execute(
+            delete(model)
+            .where(*filters)
+            .execution_options(synchronize_session=False)
+        )
+        return int(result.rowcount or 0)
+
     def purge_quota_history(self) -> dict[str, Any]:
         deleted_hourly = 0
         deleted_daily = 0
 
         hourly_cutoff = self._hourly_cutoff()
         if hourly_cutoff is not None:
-            deleted_hourly = (
-                self.db.query(QuotaUsageHourly)
-                .filter(QuotaUsageHourly.hour_ts < hourly_cutoff)
-                .delete(synchronize_session=False)
+            deleted_hourly = self._delete_rows(
+                QuotaUsageHourly,
+                QuotaUsageHourly.hour_ts < hourly_cutoff,
             )
 
         daily_cutoff = self._daily_cutoff(int(self.settings.quota_history_daily_retention_days or 0))
         if daily_cutoff is not None:
-            deleted_daily = (
-                self.db.query(QuotaUsageDaily)
-                .filter(QuotaUsageDaily.day < daily_cutoff)
-                .delete(synchronize_session=False)
+            deleted_daily = self._delete_rows(
+                QuotaUsageDaily,
+                QuotaUsageDaily.day < daily_cutoff,
             )
 
         if deleted_hourly or deleted_daily:
@@ -73,15 +80,13 @@ class DataRetentionService:
 
         daily_cutoff = self._daily_cutoff(int(self.settings.billing_daily_retention_days or 0))
         if daily_cutoff is not None:
-            deleted_usage = (
-                self.db.query(BillingUsageDaily)
-                .filter(BillingUsageDaily.day < daily_cutoff)
-                .delete(synchronize_session=False)
+            deleted_usage = self._delete_rows(
+                BillingUsageDaily,
+                BillingUsageDaily.day < daily_cutoff,
             )
-            deleted_storage = (
-                self.db.query(BillingStorageDaily)
-                .filter(BillingStorageDaily.day < daily_cutoff)
-                .delete(synchronize_session=False)
+            deleted_storage = self._delete_rows(
+                BillingStorageDaily,
+                BillingStorageDaily.day < daily_cutoff,
             )
 
         if deleted_usage or deleted_storage:
@@ -106,10 +111,9 @@ class DataRetentionService:
             }
 
         cutoff = utcnow() - timedelta(days=retention_days)
-        deleted = (
-            self.db.query(UserNotification)
-            .filter(UserNotification.created_at < cutoff)
-            .delete(synchronize_session=False)
+        deleted = self._delete_rows(
+            UserNotification,
+            UserNotification.created_at < cutoff,
         )
         if deleted:
             self.db.commit()
