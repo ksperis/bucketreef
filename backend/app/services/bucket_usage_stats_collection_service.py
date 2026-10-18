@@ -6,6 +6,7 @@ import logging
 from datetime import timedelta
 from typing import Callable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -45,7 +46,7 @@ class BucketUsageStatsCollectionService:
 
     def _eligible_accounts(self) -> list[S3Account]:
         settings = load_app_settings_for_db_readonly(self.db)
-        accounts = self.db.query(S3Account).order_by(S3Account.id.asc()).all()
+        accounts = self.db.scalars(select(S3Account).order_by(S3Account.id.asc())).all()
         return [
             account
             for account in accounts
@@ -67,13 +68,13 @@ class BucketUsageStatsCollectionService:
         scope_id = str(account.id)
         snapshots = {
             row.bucket_name: row
-            for row in self.db.query(BucketUsageStatsSnapshotRow)
-            .filter(
-                BucketUsageStatsSnapshotRow.scope_kind == "manager",
-                BucketUsageStatsSnapshotRow.scope_id == scope_id,
-                BucketUsageStatsSnapshotRow.bucket_name.in_(bucket_names),
-            )
-            .all()
+            for row in self.db.scalars(
+                select(BucketUsageStatsSnapshotRow).where(
+                    BucketUsageStatsSnapshotRow.scope_kind == "manager",
+                    BucketUsageStatsSnapshotRow.scope_id == scope_id,
+                    BucketUsageStatsSnapshotRow.bucket_name.in_(bucket_names),
+                )
+            ).all()
         }
         due: list[tuple[float, BucketUsageStatsResolvedTarget]] = []
         for bucket_name in bucket_names:
