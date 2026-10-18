@@ -6,6 +6,7 @@ import hashlib
 import re
 from urllib.parse import urlparse
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import AvatarNotFoundError
@@ -147,7 +148,9 @@ class UserAvatarService:
         self.db.refresh(user)
 
     def image_for_viewer(self, viewer: User, target_user_id: int) -> tuple[bytes, str, str]:
-        target = self.db.query(User).filter(User.id == target_user_id, User.is_active.is_(True)).first()
+        target = self.db.scalars(
+            select(User).where(User.id == target_user_id, User.is_active.is_(True))
+        ).first()
         if target is None or not target.avatar_image or target.avatar_content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
             raise AvatarNotFoundError("Avatar not found.")
         if not self._can_view(viewer, target):
@@ -161,21 +164,18 @@ class UserAvatarService:
         return bool(self._portal_account_ids(viewer.id) & self._portal_account_ids(target.id))
 
     def _portal_account_ids(self, user_id: int) -> set[int]:
-        direct_rows = (
-            self.db.query(UserS3Account.account_id)
-            .filter(
+        direct_account_ids = self.db.scalars(
+            select(UserS3Account.account_id).where(
                 UserS3Account.user_id == user_id,
                 UserS3Account.portal_role.in_(PORTAL_ACCOUNT_ROLES),
             )
-            .all()
-        )
-        group_rows = (
-            self.db.query(UiGroupS3Account.account_id)
+        ).all()
+        group_account_ids = self.db.scalars(
+            select(UiGroupS3Account.account_id)
             .join(UserUiGroup, UserUiGroup.group_id == UiGroupS3Account.group_id)
-            .filter(
+            .where(
                 UserUiGroup.user_id == user_id,
                 UiGroupS3Account.portal_role.in_(PORTAL_ACCOUNT_ROLES),
             )
-            .all()
-        )
-        return {account_id for (account_id,) in [*direct_rows, *group_rows]}
+        ).all()
+        return {*direct_account_ids, *group_account_ids}
