@@ -163,12 +163,19 @@ export type OnboardingSettings = {
   dismissed: boolean;
 };
 
+export type BillingAutomationSettings = {
+  mode: "manual" | "automatic_draft" | "automatic_finalize";
+  schedule_day: number;
+  require_all_subjects_assigned: boolean;
+};
+
 export type AppSettings = {
   general: GeneralConfiguration;
   portal: PortalConfiguration;
   manager: ManagerSettings;
   quota_notifications: QuotaNotificationSettings;
   browser: BrowserSettings;
+  billing_automation: BillingAutomationSettings;
   onboarding: OnboardingSettings;
   branding: BrandingSettings;
 };

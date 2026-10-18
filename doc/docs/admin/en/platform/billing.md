@@ -57,6 +57,32 @@ Deactivating a group hides it from active administration without deleting its me
 
 Billing Groups do not convert currencies or create independent billing statements. Group costs are derived from the canonical Billing Entity results and remain separated by currency. Multi-month and annual reporting reads finalized monthly Billing Entity statements and applies the group membership that was effective for each contributing month.
 
+### Statement automation
+
+Use the **Automation** tab to choose how a completed month becomes Billing
+Statements. BucketReef provides three predefined workflows rather than a custom
+workflow engine:
+
+- **Manual generation and finalization** leaves all statement lifecycle actions
+  to an administrator in `/admin/billing`.
+- **Automatic draft, manual finalization** creates the monthly drafts on the
+  configured day and leaves final review/finalization to an administrator.
+- **Automatic draft and finalization** generates drafts and finalizes only the
+  statements that pass the same canonical validation as a manual finalization.
+
+The configured **Run on day of month** applies to the previous completed month
+and uses UTC calendar dates. Automatic finalization always requires complete
+storage and usage coverage, complete historical quota coverage for any
+`allocated_quota` line, resolved entity membership, usable pricing, and the
+normal immutable-statement checks. These safety gates are deliberately not
+configurable to a weaker policy.
+
+The optional **Require every Billing subject to be assigned** policy adds a
+global gate: if any Account or S3 User in the monthly analysis belongs to no
+active Billing Entity, automatic finalization stops for the month. The recent
+runs table records generated, finalized, blocked, failed, and unassigned counts
+without exposing storage credentials or other secret material.
+
 ## Review monthly Billing
 
 `/admin/billing` keeps the operational Account/User view and adds consolidated
@@ -106,6 +132,7 @@ capacity.
 7. In **Billing Groups**, review month-effective organizational totals and open a group to trace each currency total through its member entities and technical subjects.
 8. In **Statements**, generate the required Billing Entity draft, review its persisted lines and blockers, then finalize it explicitly. Use CSV/JSON when an external process needs the exact snapshot.
 9. In **Finalized period analysis**, choose an Entity or Group and switch between month, calendar year, and custom range. Treat any listed missing or unfinalized month as incomplete coverage rather than zero cost.
+10. In **Settings → Billing → Automation**, choose whether the next completed month should remain manual, generate drafts automatically, or generate and finalize eligible statements automatically. Review the recent run history after the configured day.
 
 ## Expected result
 

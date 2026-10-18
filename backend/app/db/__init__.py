@@ -45,6 +45,7 @@ from .ldap import LdapProvider
 from .oidc import OidcAuthorizationCode, OidcLoginState, OidcProvider
 from .billing import (
     BillingAssignment,
+    BillingAutomationRun,
     BillingEntity,
     BillingEntityGroup,
     BillingEntityGroupMembership,
@@ -124,6 +125,7 @@ __all__ = [
     "OidcAuthorizationCode",
     "OidcProvider",
     "BillingAssignment",
+    "BillingAutomationRun",
     "BillingEntity",
     "BillingEntityGroup",
     "BillingEntityGroupMembership",

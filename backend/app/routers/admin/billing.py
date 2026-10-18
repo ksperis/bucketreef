@@ -12,6 +12,7 @@ from app.core.domain_errors import BillingDisabledError
 from app.db import User
 from app.models.billing import (
     BillingAnalysisPreview,
+    BillingAutomationRunItem,
     BillingEntityAdminItem,
     BillingEntityGroupAdminItem,
     BillingEntityGroupPayload,
@@ -29,10 +30,13 @@ from app.models.billing import (
     BillingSubjectsResponse,
     BillingSummary,
 )
+from app.models.app_settings import BillingAutomationSettings
 from app.routers.billing_common import parse_billing_day
 from app.routers.dependencies import get_audit_service, get_current_super_admin
 from app.services.admin_billing_service import AdminBillingService
 from app.services.audit_service import AuditService
+from app.services.app_settings_service import load_app_settings, save_app_settings
+from app.services.billing_statement_automation_service import BillingStatementAutomationService
 from app.services.billing_rate_card_service import (
     BillingRateCardConflictError,
     BillingRateCardImmutableError,
@@ -64,6 +68,44 @@ from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
+
+
+@router.get("/automation/settings", response_model=BillingAutomationSettings)
+def get_billing_automation_settings(
+    _: User = Depends(get_current_super_admin),
+) -> BillingAutomationSettings:
+    return load_app_settings().billing_automation
+
+
+@router.put("/automation/settings", response_model=BillingAutomationSettings)
+def update_billing_automation_settings(
+    payload: BillingAutomationSettings,
+    current_user: User = Depends(get_current_super_admin),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingAutomationSettings:
+    current = load_app_settings()
+    before = current.billing_automation.model_dump(mode="json")
+    updated = current.model_copy(deep=True)
+    updated.billing_automation = payload
+    saved = save_app_settings(updated).billing_automation
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_automation.settings_update",
+        entity_type="billing_automation_settings",
+        entity_id="global",
+        metadata={"before": before, "after": saved.model_dump(mode="json")},
+    )
+    return saved
+
+
+@router.get("/automation/runs", response_model=list[BillingAutomationRunItem])
+def list_billing_automation_runs(
+    limit: int = Query(default=20, ge=1, le=100),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> list[BillingAutomationRunItem]:
+    return BillingStatementAutomationService(db).list_runs(limit=limit)
 
 
 def _raise_billing_http_error(exc: ValueError) -> NoReturn:

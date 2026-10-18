@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import re
-from typing import Optional
+from typing import Literal, Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
@@ -271,11 +271,18 @@ class OnboardingSettings(ApiModel):
     dismissed: bool = False
 
 
+class BillingAutomationSettings(ApiModel):
+    mode: Literal["manual", "automatic_draft", "automatic_finalize"] = "manual"
+    schedule_day: int = Field(default=5, ge=1, le=28)
+    require_all_subjects_assigned: bool = True
+
+
 class AppSettings(ApiModel):
     general: GeneralSettings = Field(default_factory=GeneralSettings)
     portal: PortalSettings = Field(default_factory=PortalSettings)
     manager: ManagerSettings = Field(default_factory=ManagerSettings)
     quota_notifications: QuotaNotificationSettings = Field(default_factory=QuotaNotificationSettings)
     browser: BrowserSettings = Field(default_factory=BrowserSettings)
+    billing_automation: BillingAutomationSettings = Field(default_factory=BillingAutomationSettings)
     onboarding: OnboardingSettings = Field(default_factory=OnboardingSettings)
     branding: BrandingSettings = Field(default_factory=BrandingSettings)

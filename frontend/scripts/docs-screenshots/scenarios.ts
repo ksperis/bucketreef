@@ -707,6 +707,63 @@ const billingGroupScopesRule: MockRule = {
   }],
 };
 
+const billingRateCardsRule: MockRule = {
+  id: "admin-billing-rate-cards",
+  path: /^\/admin\/billing\/rate-cards$/,
+  body: [{
+    id: 9,
+    rate_plan_id: 4,
+    name: "Ops rate card",
+    currency: "EUR",
+    storage_charge_basis: "actual_usage",
+    storage_gb_month_price: "0.025",
+    egress_gb_price: "0.080",
+    ingress_gb_price: "0.000",
+    requests_per_1000_price: "0.004",
+    effective_from: "2026-01-01",
+    effective_to: null,
+    storage_endpoint_id: null,
+    storage_endpoint_name: null,
+    status: "active",
+    editable: false,
+    identity_editable: false,
+    deletable: false,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  }],
+};
+
+const billingAutomationSettingsRule: MockRule = {
+  id: "admin-billing-automation-settings",
+  path: /^\/admin\/billing\/automation\/settings$/,
+  body: {
+    mode: "automatic_finalize",
+    schedule_day: 5,
+    require_all_subjects_assigned: true,
+  },
+};
+
+const billingAutomationRunsRule: MockRule = {
+  id: "admin-billing-automation-runs",
+  path: /^\/admin\/billing\/automation\/runs$/,
+  body: [{
+    id: 801,
+    month: "2026-02",
+    mode: "automatic_finalize",
+    trigger_source: "scheduled",
+    status: "partial",
+    active_entity_count: 3,
+    generated_statement_count: 3,
+    finalized_statement_count: 2,
+    blocked_statement_count: 1,
+    failed_entity_count: 0,
+    unassigned_subject_count: 1,
+    diagnostics: [],
+    started_at: "2026-03-05T02:00:00Z",
+    completed_at: "2026-03-05T02:00:05Z",
+  }],
+};
+
 const billingStatementBody = {
   id: 701,
   public_id: "70111111-1111-1111-1111-111111111111",
@@ -1240,6 +1297,21 @@ export const scenarios: DocScreenshotScenario[] = [
       billingStatementsRule,
       billingStatementDetailRule,
       billingFinalizedPeriodRule,
+    ),
+  },
+  {
+    id: "feature-billing-settings-admin",
+    docPage: "user/feature-billing-admin.md",
+    route: "/admin/billing-settings",
+    outputBasename: "admin-billing-settings",
+    waitFor: "h1:has-text('Billing settings')",
+    user: superAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "admin" },
+    mockRules: withBaseRules(
+      billingEnabledGeneralSettingsRule,
+      billingRateCardsRule,
+      billingAutomationSettingsRule,
+      billingAutomationRunsRule,
     ),
   },
   {

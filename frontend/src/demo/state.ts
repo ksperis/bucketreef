@@ -71,6 +71,7 @@ export const settings: AppSettings = {
       feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_integrity_check: "disabled", bucket_compare: "targeted", bucket_quota_management: "targeted", ceph_s3_user_keys: "targeted", access_key_metadata: "disabled", access_key_expiration: "disabled" }, bucket_migration_parallelism_default: 1, bucket_migration_parallelism_max: 1, bucket_migration_max_active_per_endpoint: 1 },
   browser: { allow_proxy_transfers: true, direct_upload_parallelism: 2, proxy_upload_parallelism: 2,
     direct_download_parallelism: 2, proxy_download_parallelism: 2, other_operations_parallelism: 2, streaming_zip_threshold_mb: 200 },
+  billing_automation: { mode: "manual", schedule_day: 5, require_all_subjects_assigned: true },
   onboarding: { dismissed: true }, branding: { primary_color: "#0569f8", login_logo_url: null },
   quota_notifications: { threshold_percent: 80, include_subject_contact_email: false, smtp_port: 587, smtp_starttls: true, smtp_timeout_seconds: 10 },
 };

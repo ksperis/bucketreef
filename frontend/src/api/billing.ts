@@ -378,6 +378,56 @@ export type BillingFinalizedPeriodAggregation = {
   complete: boolean;
 };
 
+export type BillingAutomationSettings = {
+  mode: "manual" | "automatic_draft" | "automatic_finalize";
+  schedule_day: number;
+  require_all_subjects_assigned: boolean;
+};
+
+export type BillingAutomationRunDiagnostic = {
+  billing_entity_id: number;
+  status: "generated" | "finalized" | "blocked" | "failed";
+  statement_ids: number[];
+  blockers: string[];
+  error_code?: string | null;
+};
+
+export type BillingAutomationRun = {
+  id: number;
+  month: string;
+  mode: "automatic_draft" | "automatic_finalize";
+  trigger_source: "scheduled" | "retry";
+  status: "running" | "completed" | "partial" | "failed";
+  active_entity_count: number;
+  generated_statement_count: number;
+  finalized_statement_count: number;
+  blocked_statement_count: number;
+  failed_entity_count: number;
+  unassigned_subject_count: number;
+  diagnostics: BillingAutomationRunDiagnostic[];
+  started_at: string;
+  completed_at?: string | null;
+};
+
+export async function getBillingAutomationSettings(): Promise<BillingAutomationSettings> {
+  const { data } = await client.get<BillingAutomationSettings>("/admin/billing/automation/settings");
+  return data;
+}
+
+export async function updateBillingAutomationSettings(
+  payload: BillingAutomationSettings,
+): Promise<BillingAutomationSettings> {
+  const { data } = await client.put<BillingAutomationSettings>("/admin/billing/automation/settings", payload);
+  return data;
+}
+
+export async function listBillingAutomationRuns(limit = 20): Promise<BillingAutomationRun[]> {
+  const { data } = await client.get<BillingAutomationRun[]>("/admin/billing/automation/runs", {
+    params: { limit },
+  });
+  return data;
+}
+
 export async function getBillingAnalysis(month: string): Promise<BillingAnalysisPreview> {
   const { data } = await client.get<BillingAnalysisPreview>("/admin/billing/analysis", {
     params: { month },

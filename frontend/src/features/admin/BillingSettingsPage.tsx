@@ -32,6 +32,7 @@ import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
 import BillingEntitiesSettingsPanel from "./BillingEntitiesSettingsPanel";
 import BillingGroupsSettingsPanel from "./BillingGroupsSettingsPanel";
+import BillingAutomationSettingsPanel from "./BillingAutomationSettingsPanel";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -109,7 +110,7 @@ export default function BillingSettingsPage() {
   const { text: adminText } = useAdminI18n();
   const breadcrumbs = useAdminPageBreadcrumbs();
   const confirmation = useConfirmActionDialog();
-  const [activeTab, setActiveTab] = useState<"pricing" | "entities" | "groups">("pricing");
+  const [activeTab, setActiveTab] = useState<"pricing" | "entities" | "groups" | "automation">("pricing");
   const [cards, setCards] = useState<BillingRateCard[]>([]);
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -426,9 +427,14 @@ export default function BillingSettingsPage() {
             label: adminText("Billing Groups"),
             content: <BillingGroupsSettingsPanel />,
           },
+          {
+            id: "automation",
+            label: adminText("Automation"),
+            content: <BillingAutomationSettingsPanel />,
+          },
         ]}
         activeTab={activeTab}
-        onChange={(tabId) => setActiveTab(tabId as "pricing" | "entities" | "groups")}
+        onChange={(tabId) => setActiveTab(tabId as "pricing" | "entities" | "groups" | "automation")}
         variant="line"
         ariaLabel={adminText("Billing settings sections")}
         idPrefix="billing-settings"
