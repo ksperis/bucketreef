@@ -6,11 +6,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+
 from app.core.config import get_settings
 from app.db import AppSetting
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
 from app.utils.time import utcnow
-from sqlalchemy.exc import IntegrityError
 
 DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "data" / "app_settings.json"
 APP_SETTINGS_DB_KEY = "default"
@@ -53,10 +55,16 @@ def _settings_to_json(settings: AppSettings) -> str:
     return settings.model_dump_json(indent=2)
 
 
+def _get_persisted_settings_row(db) -> AppSetting | None:
+    return db.scalar(
+        select(AppSetting).where(AppSetting.key == APP_SETTINGS_DB_KEY)
+    )
+
+
 def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
     now = utcnow()
     payload_json = _settings_to_json(settings)
-    row = db.query(AppSetting).filter(AppSetting.key == APP_SETTINGS_DB_KEY).first()
+    row = _get_persisted_settings_row(db)
     if row is None:
         row = AppSetting(
             key=APP_SETTINGS_DB_KEY,
@@ -70,7 +78,7 @@ def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
             return
         except IntegrityError:
             db.rollback()
-            row = db.query(AppSetting).filter(AppSetting.key == APP_SETTINGS_DB_KEY).first()
+            row = _get_persisted_settings_row(db)
             if row is None:
                 raise
     row.payload_json = payload_json
@@ -79,7 +87,7 @@ def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
 
 
 def _load_persisted_settings_from_db(db) -> AppSettings:
-    row = db.query(AppSetting).filter(AppSetting.key == APP_SETTINGS_DB_KEY).first()
+    row = _get_persisted_settings_row(db)
     if row is not None:
         return _parse_settings_payload(row.payload_json)
 
@@ -135,7 +143,7 @@ def load_app_settings_for_db(db) -> AppSettings:
 
 def load_app_settings_for_db_readonly(db) -> AppSettings:
     """Load effective settings without importing defaults into the database."""
-    row = db.query(AppSetting).filter(AppSetting.key == APP_SETTINGS_DB_KEY).first()
+    row = _get_persisted_settings_row(db)
     persisted = (
         _parse_settings_payload(row.payload_json)
         if row is not None
@@ -185,7 +193,11 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
             if lock and lock.forced and lock.value is False:
                 raise ValueError(f"Feature locked by {lock.source}")
         _load_persisted_settings_from_db(db)
-        row = db.query(AppSetting).filter(AppSetting.key == APP_SETTINGS_DB_KEY).populate_existing().one()
+        row = db.execute(
+            select(AppSetting)
+            .where(AppSetting.key == APP_SETTINGS_DB_KEY)
+            .execution_options(populate_existing=True)
+        ).scalar_one()
         previous = row.payload_json
         settings = _parse_settings_payload(previous)
         changed = []
@@ -198,13 +210,18 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
                 changed.append(field)
         if not changed:
             return []
-        updated = db.query(AppSetting).filter(
-            AppSetting.key == APP_SETTINGS_DB_KEY,
-            AppSetting.payload_json == previous,
-        ).update({
-            AppSetting.payload_json: _settings_to_json(settings),
-            AppSetting.updated_at: utcnow(),
-        }, synchronize_session=False)
+        updated = db.execute(
+            update(AppSetting)
+            .where(
+                AppSetting.key == APP_SETTINGS_DB_KEY,
+                AppSetting.payload_json == previous,
+            )
+            .values(
+                payload_json=_settings_to_json(settings),
+                updated_at=utcnow(),
+            )
+            .execution_options(synchronize_session=False)
+        ).rowcount
         if updated:
             db.commit()
             db.expire(row)

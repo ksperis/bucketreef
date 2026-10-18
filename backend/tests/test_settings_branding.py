@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 
+from sqlalchemy import select
+
 from app.db import AppSetting, AuditLog, User, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
@@ -32,7 +34,8 @@ def _use_settings_db(monkeypatch, db_session) -> None:
 
 
 def _raw_db_settings(db_session) -> dict:
-    row = db_session.query(AppSetting).filter(AppSetting.key == app_settings_service.APP_SETTINGS_DB_KEY).one()
+    row = db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY)
+    assert row is not None
     return json.loads(row.payload_json)
 
 
@@ -95,11 +98,10 @@ def test_put_admin_settings_persists_branding_color(client, monkeypatch, tmp_pat
     assert raw["branding"]["primary_color"] == "#0057b8"
     assert raw["branding"]["login_logo_url"] == "https://cdn.example.com/logo.svg"
 
-    audit = (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "settings.update")
+    audit = db_session.scalar(
+        select(AuditLog)
+        .where(AuditLog.action == "settings.update")
         .order_by(AuditLog.id.desc())
-        .first()
     )
     assert audit is not None
     assert audit.entity_type == "app_settings"
