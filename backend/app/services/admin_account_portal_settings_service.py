@@ -35,7 +35,7 @@ class AdminAccountPortalSettingsService:
         self.portal = portal if portal is not None else get_portal_service(db)
 
     def _account(self, account_id: int) -> S3Account:
-        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
+        account = self.db.get(S3Account, account_id)
         if account is None:
             raise S3AccountNotFoundError("S3Account not found")
         return account
