@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -52,32 +53,25 @@ class AdminStatsService:
         require_usage_logs: bool = False,
     ) -> StorageEndpoint:
         if endpoint_id is not None:
-            endpoint = (
-                self.db.query(StorageEndpoint)
-                .filter(StorageEndpoint.id == endpoint_id)
-                .first()
-            )
+            endpoint = self.db.get(StorageEndpoint, endpoint_id)
             if endpoint is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Endpoint not found.",
                 )
         else:
-            endpoint = (
-                self.db.query(StorageEndpoint)
-                .filter(
+            endpoint = self.db.scalars(
+                select(StorageEndpoint).where(
                     StorageEndpoint.is_default.is_(True),
                     StorageEndpoint.provider == StorageProvider.CEPH.value,
                 )
-                .first()
-            )
+            ).first()
             if endpoint is None:
-                endpoint = (
-                    self.db.query(StorageEndpoint)
-                    .filter(StorageEndpoint.provider == StorageProvider.CEPH.value)
+                endpoint = self.db.scalars(
+                    select(StorageEndpoint)
+                    .where(StorageEndpoint.provider == StorageProvider.CEPH.value)
                     .order_by(StorageEndpoint.is_default.desc(), StorageEndpoint.id.asc())
-                    .first()
-                )
+                ).first()
         if endpoint is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -140,7 +134,7 @@ class AdminStatsService:
         }
 
     def account(self, account_id: int) -> dict:
-        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
+        account = self.db.get(S3Account, account_id)
         if account is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -157,7 +151,7 @@ class AdminStatsService:
         )
 
     def s3_user(self, user_id: int) -> dict:
-        s3_user = self.db.query(S3User).filter(S3User.id == user_id).first()
+        s3_user = self.db.get(S3User, user_id)
         if s3_user is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -208,11 +202,7 @@ class AdminUsageStatsScopeService:
         self.bucket_service = bucket_service
 
     def resolve_ceph_endpoint(self, endpoint_id: int) -> StorageEndpoint:
-        endpoint = (
-            self.db.query(StorageEndpoint)
-            .filter(StorageEndpoint.id == endpoint_id)
-            .first()
-        )
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if endpoint is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -248,12 +238,11 @@ class AdminUsageStatsScopeService:
         return [bucket.name for bucket in buckets if bucket.name]
 
     def build_scope(self, endpoint: StorageEndpoint) -> AdminManagedUsageScope:
-        accounts = (
-            self.db.query(S3Account)
-            .filter(S3Account.storage_endpoint_id == endpoint.id)
+        accounts = self.db.scalars(
+            select(S3Account)
+            .where(S3Account.storage_endpoint_id == endpoint.id)
             .order_by(S3Account.name.asc(), S3Account.id.asc())
-            .all()
-        )
+        ).all()
         resolved_targets: list[BucketUsageStatsResolvedTarget] = []
         aggregate_targets: list[BucketUsageStatsAggregateTarget] = []
         warnings: list[str] = []
