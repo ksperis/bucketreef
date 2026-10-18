@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -39,7 +40,7 @@ class QuotaAlertStateService:
         self.db = db
 
     def load_states(self) -> dict[QuotaAlertStateKey, QuotaAlertState]:
-        rows = self.db.query(QuotaAlertState).all()
+        rows = self.db.scalars(select(QuotaAlertState)).all()
         return {
             (
                 int(row.storage_endpoint_id),
@@ -114,15 +115,13 @@ class QuotaAlertStateService:
         subject: SubjectContext,
     ) -> Optional[QuotaAlertState]:
         account_id, user_id = quota_subject_ids(subject)
-        return (
-            self.db.query(QuotaAlertState)
-            .filter(
+        return self.db.scalars(
+            select(QuotaAlertState).where(
                 QuotaAlertState.storage_endpoint_id == subject.endpoint_id,
                 QuotaAlertState.s3_account_id == account_id,
                 QuotaAlertState.s3_user_id == user_id,
             )
-            .first()
-        )
+        ).first()
 
     @staticmethod
     def _create_state(
