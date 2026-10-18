@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import func, select
 
 from app.db import (
     BrowserFavorite,
@@ -14,6 +15,10 @@ from app.db import (
     UserRole,
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
+
+
+def _count(db_session, model, *criteria) -> int:
+    return db_session.scalar(select(func.count()).select_from(model).where(*criteria)) or 0
 
 
 def _seed_user(db_session) -> User:
@@ -90,21 +95,24 @@ def test_purge_execution_context_data_removes_local_dependents(db_session):
     purge.purge_execution_context_data(context_id)
     db_session.commit()
 
-    assert db_session.query(BrowserFavorite).filter(BrowserFavorite.context == context_id).count() == 0
+    assert _count(db_session, BrowserFavorite, BrowserFavorite.context == context_id) == 0
+    assert _count(
+        db_session,
+        BucketUsageStatsSnapshot,
+        BucketUsageStatsSnapshot.scope_kind == "manager",
+        BucketUsageStatsSnapshot.scope_id == context_id,
+    ) == 0
+    assert db_session.get(BucketMigration, migration_id) is None
+    assert _count(db_session, BucketMigrationItem, BucketMigrationItem.migration_id == migration_id) == 0
+    assert _count(db_session, BucketMigrationEvent, BucketMigrationEvent.migration_id == migration_id) == 0
+    assert _count(db_session, BrowserFavorite, BrowserFavorite.context == "conn-99") == 1
     assert (
-        db_session.query(BucketUsageStatsSnapshot)
-        .filter(BucketUsageStatsSnapshot.scope_kind == "manager", BucketUsageStatsSnapshot.scope_id == context_id)
-        .count()
-        == 0
-    )
-    assert db_session.query(BucketMigration).filter(BucketMigration.id == migration_id).first() is None
-    assert db_session.query(BucketMigrationItem).filter(BucketMigrationItem.migration_id == migration_id).count() == 0
-    assert db_session.query(BucketMigrationEvent).filter(BucketMigrationEvent.migration_id == migration_id).count() == 0
-    assert db_session.query(BrowserFavorite).filter(BrowserFavorite.context == "conn-99").count() == 1
-    assert (
-        db_session.query(BucketUsageStatsSnapshot)
-        .filter(BucketUsageStatsSnapshot.scope_kind == "manager", BucketUsageStatsSnapshot.scope_id == "conn-99")
-        .count()
+        _count(
+            db_session,
+            BucketUsageStatsSnapshot,
+            BucketUsageStatsSnapshot.scope_kind == "manager",
+            BucketUsageStatsSnapshot.scope_id == "conn-99",
+        )
         == 1
     )
 
@@ -124,4 +132,4 @@ def test_validate_execution_context_cleanup_rejects_non_deletable_migration(db_s
     with pytest.raises(ValueError, match=rf"bucket migration {migration.id}"):
         ResourceDeletionPurgeService(db_session).validate_execution_context_cleanup("s3u-7")
 
-    assert db_session.query(BucketMigration).filter(BucketMigration.id == migration.id).one()
+    assert db_session.get(BucketMigration, migration.id) is not None
