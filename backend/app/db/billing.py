@@ -7,6 +7,7 @@ from app.utils.time import utcnow
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     Column,
     Date,
     ForeignKey,
@@ -146,48 +147,94 @@ class BillingStorageDaily(Base):
     s3_user = relationship("S3User")
 
 
+class BillingRatePlan(Base):
+    __tablename__ = "billing_rate_plans"
+    __table_args__ = (
+        Index(
+            "uq_billing_rate_plans_global_name",
+            "name",
+            unique=True,
+            sqlite_where=text("storage_endpoint_id IS NULL"),
+            postgresql_where=text("storage_endpoint_id IS NULL"),
+        ),
+        Index(
+            "uq_billing_rate_plans_endpoint_name",
+            "storage_endpoint_id",
+            "name",
+            unique=True,
+            sqlite_where=text("storage_endpoint_id IS NOT NULL"),
+            postgresql_where=text("storage_endpoint_id IS NOT NULL"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=True, index=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+
+    storage_endpoint = relationship("StorageEndpoint")
+    versions = relationship(
+        "BillingRateCard",
+        back_populates="rate_plan",
+        cascade="all, delete-orphan",
+        order_by="BillingRateCard.effective_from",
+    )
+
+
 class BillingRateCard(Base):
     __tablename__ = "billing_rate_cards"
     __table_args__ = (
-        UniqueConstraint("name", name="uq_billing_rate_cards_name"),
+        CheckConstraint(
+            "storage_charge_basis IN ('actual_usage', 'allocated_quota')",
+            name="ck_billing_rate_cards_storage_charge_basis",
+        ),
+        UniqueConstraint("rate_plan_id", "effective_from", name="uq_billing_rate_cards_plan_effective"),
         Index(
-            "ix_billing_rate_cards_endpoint_effective_window",
-            "storage_endpoint_id",
+            "ix_billing_rate_cards_plan_effective_window",
+            "rate_plan_id",
             "effective_from",
             "effective_to",
         ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    rate_plan_id = Column(Integer, ForeignKey("billing_rate_plans.id"), nullable=False, index=True)
     currency = Column(String, nullable=False, default="EUR", server_default="EUR")
+    storage_charge_basis = Column(
+        String,
+        nullable=False,
+        default="actual_usage",
+        server_default="actual_usage",
+    )
     storage_gb_month_price = Column(Numeric(12, 6), nullable=True)
     egress_gb_price = Column(Numeric(12, 6), nullable=True)
     ingress_gb_price = Column(Numeric(12, 6), nullable=True)
     requests_per_1000_price = Column(Numeric(12, 6), nullable=True)
     effective_from = Column(Date, nullable=False)
     effective_to = Column(Date, nullable=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=True, index=True)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
-    storage_endpoint = relationship("StorageEndpoint")
+    rate_plan = relationship("BillingRatePlan", back_populates="versions")
 
 
 class BillingAssignment(Base):
     __tablename__ = "billing_assignments"
     __table_args__ = (
         Index(
-            "ix_billing_assignments_endpoint_account_created",
+            "ix_billing_assignments_endpoint_account_effective",
             "storage_endpoint_id",
             "s3_account_id",
-            "created_at",
+            "effective_from",
+            "effective_to",
         ),
         Index(
-            "ix_billing_assignments_endpoint_user_created",
+            "ix_billing_assignments_endpoint_user_effective",
             "storage_endpoint_id",
             "s3_user_id",
-            "created_at",
+            "effective_from",
+            "effective_to",
         ),
     )
 
@@ -195,10 +242,13 @@ class BillingAssignment(Base):
     storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
     s3_account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True, index=True)
     s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
-    rate_card_id = Column(Integer, ForeignKey("billing_rate_cards.id"), nullable=False, index=True)
+    rate_plan_id = Column(Integer, ForeignKey("billing_rate_plans.id"), nullable=False, index=True)
+    effective_from = Column(Date, nullable=False)
+    effective_to = Column(Date, nullable=True)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
     storage_endpoint = relationship("StorageEndpoint")
     account = relationship("S3Account")
     s3_user = relationship("S3User")
-    rate_card = relationship("BillingRateCard")
+    rate_plan = relationship("BillingRatePlan")

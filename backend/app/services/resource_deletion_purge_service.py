@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db import (
     BillingAssignment,
     BillingRateCard,
+    BillingRatePlan,
     BillingStorageDaily,
     BillingUsageDaily,
     BrowserFavorite,
@@ -115,7 +116,11 @@ class ResourceDeletionPurgeService:
         self._delete_where(BillingAssignment, BillingAssignment.storage_endpoint_id == endpoint_id)
         self._delete_where(BillingUsageDaily, BillingUsageDaily.storage_endpoint_id == endpoint_id)
         self._delete_where(BillingStorageDaily, BillingStorageDaily.storage_endpoint_id == endpoint_id)
-        self._delete_where(BillingRateCard, BillingRateCard.storage_endpoint_id == endpoint_id)
+        endpoint_rate_plan_ids = select(BillingRatePlan.id).where(
+            BillingRatePlan.storage_endpoint_id == endpoint_id
+        )
+        self._delete_where(BillingRateCard, BillingRateCard.rate_plan_id.in_(endpoint_rate_plan_ids))
+        self._delete_where(BillingRatePlan, BillingRatePlan.storage_endpoint_id == endpoint_id)
         self._delete_where(QuotaAlertState, QuotaAlertState.storage_endpoint_id == endpoint_id)
         self._delete_where(QuotaUsageHourly, QuotaUsageHourly.storage_endpoint_id == endpoint_id)
         self._delete_where(QuotaUsageDaily, QuotaUsageDaily.storage_endpoint_id == endpoint_id)

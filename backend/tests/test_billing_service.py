@@ -6,7 +6,15 @@ from datetime import date, datetime
 import pytest
 
 from app.core.domain_errors import BillingSubjectNotFoundError
-from app.db import BillingRateCard, BillingStorageDaily, BillingUsageDaily, S3Account, StorageEndpoint
+from app.db import (
+    BillingAssignment,
+    BillingRateCard,
+    BillingRatePlan,
+    BillingStorageDaily,
+    BillingUsageDaily,
+    S3Account,
+    StorageEndpoint,
+)
 from app.models.app_settings import AppSettings
 from app.services import admin_billing_service
 from app.services.admin_billing_service import AdminBillingService
@@ -15,6 +23,7 @@ from app.services.billing_service import (
     BillingService,
     _parse_month,
     _parse_ops_breakdown,
+    _resolve_rate_card,
 )
 
 
@@ -149,15 +158,18 @@ def test_billing_summary_and_cost(db_session):
         ]
     )
 
-    rate_card = BillingRateCard(
+    rate_plan = BillingRatePlan(
         name="default",
+        storage_endpoint_id=endpoint.id,
+    )
+    rate_card = BillingRateCard(
+        rate_plan=rate_plan,
         currency="EUR",
         storage_gb_month_price=1.0,
         egress_gb_price=2.0,
         ingress_gb_price=0.5,
         requests_per_1000_price=3.0,
         effective_from=date(2025, 1, 1),
-        storage_endpoint_id=endpoint.id,
         created_at=utcnow(),
         updated_at=utcnow(),
     )
@@ -179,6 +191,119 @@ def test_billing_summary_and_cost(db_session):
     assert summary.cost.currency == "EUR"
     assert summary.cost.total_cost is not None
     assert summary.cost.total_cost > 0
+
+
+def test_rate_resolution_uses_assignment_windows_and_effective_plan_versions(db_session):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    other = S3Account(
+        name="other",
+        rgw_account_id="RGW22345678901234567",
+        rgw_user_uid="rgw22345678901234567-admin",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(other)
+
+    direct_plan = BillingRatePlan(name="direct", storage_endpoint_id=endpoint.id)
+    endpoint_plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
+    global_plan = BillingRatePlan(name="default", storage_endpoint_id=None)
+    db_session.add_all([direct_plan, endpoint_plan, global_plan])
+    db_session.flush()
+
+    direct_jan = BillingRateCard(
+        rate_plan_id=direct_plan.id,
+        currency="EUR",
+        storage_charge_basis="actual_usage",
+        storage_gb_month_price=1,
+        effective_from=date(2026, 1, 1),
+        effective_to=date(2026, 1, 31),
+    )
+    direct_feb = BillingRateCard(
+        rate_plan_id=direct_plan.id,
+        currency="EUR",
+        storage_charge_basis="allocated_quota",
+        storage_gb_month_price=2,
+        effective_from=date(2026, 2, 1),
+    )
+    endpoint_jan = BillingRateCard(
+        rate_plan_id=endpoint_plan.id,
+        currency="EUR",
+        storage_gb_month_price=3,
+        effective_from=date(2026, 1, 1),
+    )
+    global_jan = BillingRateCard(
+        rate_plan_id=global_plan.id,
+        currency="EUR",
+        storage_gb_month_price=4,
+        effective_from=date(2026, 1, 1),
+    )
+    db_session.add_all([direct_jan, direct_feb, endpoint_jan, global_jan])
+    db_session.flush()
+    db_session.add(
+        BillingAssignment(
+            storage_endpoint_id=endpoint.id,
+            s3_account_id=account.id,
+            rate_plan_id=direct_plan.id,
+            effective_from=date(2026, 1, 1),
+            effective_to=date(2026, 2, 28),
+        )
+    )
+    db_session.commit()
+
+    january = _resolve_rate_card(
+        db_session,
+        endpoint.id,
+        _parse_month("2026-01"),
+        "account",
+        account.id,
+    )
+    february = _resolve_rate_card(
+        db_session,
+        endpoint.id,
+        _parse_month("2026-02"),
+        "account",
+        account.id,
+    )
+    fallback = _resolve_rate_card(
+        db_session,
+        endpoint.id,
+        _parse_month("2026-01"),
+        "account",
+        other.id,
+    )
+
+    assert january is not None and january.id == direct_jan.id
+    assert january.storage_charge_basis == "actual_usage"
+    assert february is not None and february.id == direct_feb.id
+    assert february.storage_charge_basis == "allocated_quota"
+    assert fallback is not None and fallback.id == endpoint_jan.id
+
+
+def test_rate_resolution_does_not_use_next_month_version_for_current_month(db_session):
+    endpoint = _seed_endpoint(db_session)
+    plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
+    db_session.add(plan)
+    db_session.flush()
+    january = BillingRateCard(
+        rate_plan_id=plan.id,
+        currency="EUR",
+        storage_gb_month_price=1,
+        effective_from=date(2026, 1, 1),
+        effective_to=date(2026, 1, 31),
+    )
+    february = BillingRateCard(
+        rate_plan_id=plan.id,
+        currency="EUR",
+        storage_gb_month_price=9,
+        effective_from=date(2026, 2, 1),
+    )
+    db_session.add_all([january, february])
+    db_session.commit()
+
+    resolved = _resolve_rate_card(db_session, endpoint.id, _parse_month("2026-01"))
+
+    assert resolved is not None
+    assert resolved.id == january.id
 
 
 def test_billing_subject_detail_and_export(db_session):

@@ -43,7 +43,7 @@ from .tag_definition import (
 )
 from .ldap import LdapProvider
 from .oidc import OidcAuthorizationCode, OidcLoginState, OidcProvider
-from .billing import BillingAssignment, BillingRateCard, BillingStorageDaily, BillingUsageDaily
+from .billing import BillingAssignment, BillingRateCard, BillingRatePlan, BillingStorageDaily, BillingUsageDaily
 from .quota_monitoring import QuotaAlertState, QuotaUsageDaily, QuotaUsageHourly
 from .user_notification import UserNotification
 from .healthcheck import (
@@ -111,6 +111,7 @@ __all__ = [
     "OidcProvider",
     "BillingAssignment",
     "BillingRateCard",
+    "BillingRatePlan",
     "BillingStorageDaily",
     "BillingUsageDaily",
     "QuotaUsageHourly",

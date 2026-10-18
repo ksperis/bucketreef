@@ -18,6 +18,7 @@ from app.core.domain_errors import BillingSubjectNotFoundError
 from app.db import (
     BillingAssignment,
     BillingRateCard,
+    BillingRatePlan,
     BillingStorageDaily,
     BillingUsageDaily,
     S3Account,
@@ -156,7 +157,7 @@ def _compute_cost(rate_card: Optional[BillingRateCard], totals: BillingTotals) -
         ingress_cost=ingress_cost,
         requests_cost=requests_cost,
         total_cost=total_cost,
-        rate_card_name=rate_card.name,
+        rate_card_name=rate_card.rate_plan.name,
     )
 
 
@@ -197,7 +198,10 @@ def _resolve_rate_card(
         return None
     if subject_type and subject_id:
         assignment_statement = select(BillingAssignment).where(
-            BillingAssignment.storage_endpoint_id == endpoint_id
+            BillingAssignment.storage_endpoint_id == endpoint_id,
+            BillingAssignment.effective_from <= period.start,
+            (BillingAssignment.effective_to.is_(None))
+            | (BillingAssignment.effective_to >= period.start),
         )
         if subject_type == "account":
             assignment_statement = assignment_statement.where(
@@ -208,31 +212,48 @@ def _resolve_rate_card(
                 BillingAssignment.s3_user_id == subject_id
             )
         assignment = db.scalar(
-            assignment_statement.order_by(BillingAssignment.created_at.desc()).limit(1)
+            assignment_statement.order_by(
+                BillingAssignment.effective_from.desc(),
+                BillingAssignment.id.desc(),
+            ).limit(1)
         )
         if assignment:
-            return assignment.rate_card
+            assigned_rate_card = db.scalar(
+                select(BillingRateCard)
+                .where(
+                    BillingRateCard.rate_plan_id == assignment.rate_plan_id,
+                    BillingRateCard.effective_from <= period.start,
+                    (BillingRateCard.effective_to.is_(None))
+                    | (BillingRateCard.effective_to >= period.start),
+                )
+                .order_by(BillingRateCard.effective_from.desc(), BillingRateCard.id.desc())
+                .limit(1)
+            )
+            if assigned_rate_card:
+                return assigned_rate_card
 
     name = settings.billing_default_rate_card_name
-    candidates = select(BillingRateCard)
+    candidates = select(BillingRateCard).join(BillingRatePlan)
     if name:
-        candidates = candidates.where(BillingRateCard.name == name)
+        candidates = candidates.where(BillingRatePlan.name == name)
     candidates = candidates.where(
-        BillingRateCard.effective_from <= period.end,
+        BillingRateCard.effective_from <= period.start,
         (BillingRateCard.effective_to.is_(None)) | (BillingRateCard.effective_to >= period.start),
     )
     endpoint_specific = candidates.where(
-        BillingRateCard.storage_endpoint_id == endpoint_id
+        BillingRatePlan.storage_endpoint_id == endpoint_id
     ).order_by(
-        BillingRateCard.effective_from.desc()
+        BillingRateCard.effective_from.desc(),
+        BillingRateCard.id.desc(),
     )
     rate_card = db.scalar(endpoint_specific.limit(1))
     if rate_card:
         return rate_card
     global_default = candidates.where(
-        BillingRateCard.storage_endpoint_id.is_(None)
+        BillingRatePlan.storage_endpoint_id.is_(None)
     ).order_by(
-        BillingRateCard.effective_from.desc()
+        BillingRateCard.effective_from.desc(),
+        BillingRateCard.id.desc(),
     )
     return db.scalar(global_default.limit(1))
 

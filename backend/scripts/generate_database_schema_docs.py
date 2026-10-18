@@ -138,6 +138,7 @@ DOMAINS = (
             "quota_alert_states",
             "billing_usage_daily",
             "billing_storage_daily",
+            "billing_rate_plans",
             "billing_rate_cards",
             "billing_assignments",
         ),
