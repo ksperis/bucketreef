@@ -1,4 +1,5 @@
 import type { AccountUserLink } from "../../../src/api/accounts";
+import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../../src/api/featurePolicies";
 import type { User } from "../../../src/api/users";
 import type { MockRule } from "../types";
 import { adminUser, storageUser, superAdminUser } from "./users";
@@ -185,6 +186,7 @@ const ADMIN_STORAGE_ENDPOINTS = [
 ];
 
 const GENERAL_SETTINGS = {
+  manager_feature_policies: DEFAULT_MANAGER_FEATURE_POLICIES,
   manager_enabled: true,
   ceph_admin_enabled: true,
   browser_enabled: true,
@@ -1644,7 +1646,7 @@ export function buildBaseRules(): MockRule[] {
         admin: { available: false, context_count: 0 },
         ceph_admin: { available: false, context_count: 0 },
         storage_ops: { available: false, context_count: 0 },
-        manager: { available: false, context_count: 0 },
+        manager: { available: true, context_count: EXECUTION_CONTEXTS.length },
         browser: { available: true, context_count: 1 },
         portal: { available: true, context_count: 1 },
         default_workspace: "portal",

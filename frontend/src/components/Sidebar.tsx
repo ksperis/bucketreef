@@ -2,10 +2,15 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { CSSProperties, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { matchPath, NavLink, useLocation } from "react-router-dom";
 import { PRODUCT_NAME } from "../constants/product";
 import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
+import {
+  readClientJsonFromKey,
+  writeClientJsonToKey,
+} from "../utils/clientStorage";
 import BrandMark from "./BrandMark";
 import { SIDEBAR_COMPACT_WIDTH, SIDEBAR_DEFAULT_WIDTH } from "./sidebarSizing";
 import { useShellI18n } from "./shellMessages";
@@ -87,6 +92,83 @@ function isSectionCollapsible(section: SidebarSection) {
   return section.collapsible ?? section.label.trim().toLowerCase() === "settings";
 }
 
+function sidebarSectionStorageKey(title: string) {
+  return `shell:sidebar-sections:v1:${title.trim().toLowerCase() || "default"}`;
+}
+
+function sidebarLinkMatchesPath(link: SidebarLink, pathname: string) {
+  const path = link.to.split(/[?#]/, 1)[0] || "/";
+  return Boolean(matchPath({ path, end: link.end ?? false }, pathname));
+}
+
+function CompactSidebarHint({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  const [visible, setVisible] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    if (!visible || dismissed) return;
+    const update = () => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPosition({
+        top: Math.round(rect.top + rect.height / 2),
+        left: Math.round(rect.right + 8),
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [dismissed, visible]);
+
+  const show = () => {
+    setDismissed(false);
+    setVisible(true);
+  };
+
+  return (
+    <span
+      ref={anchorRef}
+      className="block"
+      onMouseEnter={show}
+      onMouseLeave={() => setVisible(false)}
+      onFocusCapture={show}
+      onBlurCapture={() => setVisible(false)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setDismissed(true);
+          setVisible(false);
+        }
+      }}
+    >
+      {children}
+      {visible && !dismissed && typeof document !== "undefined"
+        ? createPortal(
+            <span
+              role="tooltip"
+              className="shell-sidebar-tooltip"
+              style={{ top: position.top, left: position.left }}
+            >
+              {label}
+            </span>,
+            document.body,
+          )
+        : null}
+    </span>
+  );
+}
+
 export default function Sidebar({
   title = PRODUCT_NAME,
   sections,
@@ -107,12 +189,18 @@ export default function Sidebar({
   );
   const location = useLocation();
   const profilePath = resolveWorkspaceProfilePath(location.pathname);
+  const collapsedStorageKey = useMemo(() => sidebarSectionStorageKey(title), [title]);
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    const stored = readClientJsonFromKey<Record<string, boolean>>(sidebarSectionStorageKey(title));
     const initial: Record<string, boolean> = {};
     effectiveSections.forEach((section) => {
       if (section.label) {
-        initial[section.label] = isSectionCollapsible(section) ? section.collapsed ?? false : false;
+        initial[section.label] = isSectionCollapsible(section)
+          ? section.collapsed === false
+            ? false
+            : stored?.[section.label] ?? section.collapsed ?? false
+          : false;
       }
     });
     return initial;
@@ -146,10 +234,14 @@ export default function Sidebar({
 
   const toggleSection = (label: string, collapsible: boolean) => {
     if (!collapsible) return;
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }));
+    setCollapsedSections((prev) => {
+      const next = {
+        ...prev,
+        [label]: !prev[label],
+      };
+      writeClientJsonToKey(collapsedStorageKey, next);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -172,8 +264,8 @@ export default function Sidebar({
   };
 
   const baseLinkClasses = compact
-    ? "group relative flex h-9 items-center justify-center rounded-md px-2 text-[12px] font-medium leading-4 transition"
-    : "group relative flex h-9 items-center justify-between gap-2 overflow-hidden rounded-md px-2.5 text-[12px] font-medium leading-4 transition";
+    ? "shell-sidebar-action group relative flex h-9 items-center justify-center rounded-md px-2 text-[12px] font-medium leading-4 transition"
+    : "shell-sidebar-action group relative flex h-9 items-center justify-between gap-2 overflow-hidden rounded-md px-2.5 text-[12px] font-medium leading-4 transition";
   const inactiveLinkClasses = "shell-sidebar-item";
   const activeLinkClasses =
     compact
@@ -209,7 +301,7 @@ export default function Sidebar({
             onClick={onCollapseToggle}
             aria-label={text("expandSidebar")}
             title={text("expandSidebar")}
-            className="flex h-10 w-10 items-center justify-center rounded-lg bg-transparent transition-colors hover:bg-[var(--shell-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-sidebar-bg)]"
+            className="shell-touch-target flex h-10 w-10 items-center justify-center rounded-lg bg-transparent transition-colors hover:bg-[var(--shell-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-sidebar-bg)]"
           >
             <BrandMark className="h-9 w-9" />
           </button>
@@ -223,7 +315,7 @@ export default function Sidebar({
                 onClick={onCollapseToggle}
                 aria-label={text("collapseSidebar")}
                 title={text("collapseSidebar")}
-                className="shell-sidebar-item ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--shell-muted)] transition-colors hover:text-[var(--shell-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                className="shell-sidebar-item shell-touch-target ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--shell-muted)] transition-colors hover:text-[var(--shell-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
               >
                 <CollapseIcon className="h-4 w-4" />
               </button>
@@ -244,7 +336,9 @@ export default function Sidebar({
             {!compact && headerAction ? <div className="pb-1">{headerAction}</div> : null}
             {effectiveSections.map((section, index) => {
               const collapsible = isSectionCollapsible(section);
-              const isCollapsed = compact || !section.label ? false : collapsedSections[section.label];
+              const activeSection = section.links.some((link) => sidebarLinkMatchesPath(link, location.pathname));
+              const isCollapsed =
+                compact || !section.label ? false : Boolean(collapsedSections[section.label] && !activeSection);
               const showSeparator = index < effectiveSections.length - 1;
               return (
                 <section
@@ -257,7 +351,7 @@ export default function Sidebar({
                     <button
                       type="button"
                       onClick={() => toggleSection(section.label!, collapsible)}
-                      className="shell-section-label flex h-5 w-full items-center justify-between rounded-md px-2 text-[10px] font-semibold uppercase transition hover:bg-[var(--shell-hover)] hover:text-[var(--shell-text)]"
+                      className="shell-section-label shell-sidebar-section-toggle flex h-5 w-full items-center justify-between rounded-md px-2 text-[10px] font-semibold uppercase transition hover:bg-[var(--shell-hover)] hover:text-[var(--shell-text)]"
                     >
                       <span>{section.label}</span>
                       <SidebarChevronIcon className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? "" : "rotate-90"}`} />
@@ -272,6 +366,20 @@ export default function Sidebar({
                       {section.links.map((link) => (
                         <li key={link.to}>
                           {link.disabled ? (
+                            compact ? (
+                              <CompactSidebarHint label={link.disabledHint ?? text("unavailableContext")}>
+                                <div
+                                  className={`${baseLinkClasses} ${inactiveLinkClasses} cursor-not-allowed opacity-50`}
+                                  aria-disabled="true"
+                                  aria-label={compactLinkLabel(link)}
+                                >
+                                  <span className={`shell-icon-muted shrink-0 ${iconClasses}`}>
+                                    {link.icon ?? resolveSidebarLinkIcon(link)}
+                                  </span>
+                                  <SidebarLinkBadge link={link} active={false} compact />
+                                </div>
+                              </CompactSidebarHint>
+                            ) : (
                             <div
                               className={`${baseLinkClasses} ${inactiveLinkClasses} cursor-not-allowed opacity-50`}
                               aria-disabled="true"
@@ -286,35 +394,44 @@ export default function Sidebar({
                               </div>
                               <SidebarLinkBadge link={link} active={false} compact={compact} />
                             </div>
+                            )
                           ) : (
-                            <NavLink
-                              to={link.to}
-                              end={link.end}
-                              onClick={onNavigate}
-                              aria-label={compact ? compactLinkLabel(link) : undefined}
-                              title={compact ? compactLinkLabel(link) : undefined}
-                              className={({ isActive }) =>
-                                [baseLinkClasses, isActive ? activeLinkClasses : inactiveLinkClasses].join(" ")
-                              }
-                            >
-                              {({ isActive }) => (
-                                <>
-                                  <div className={`flex min-w-0 items-center ${compact ? "" : "gap-1.5"}`}>
-                                    <span
-                                      className={`shrink-0 ${
-                                        isActive
-                                          ? "text-[var(--shell-text)]"
-                                          : "shell-icon-muted group-hover:text-[var(--shell-icon)]"
-                                      } ${iconClasses}`}
-                                    >
-                                      {link.icon ?? resolveSidebarLinkIcon(link)}
-                                    </span>
-                                    {!compact && <span className="truncate">{link.label}</span>}
-                                  </div>
-                                  <SidebarLinkBadge link={link} active={isActive} compact={compact} />
-                                </>
-                              )}
-                            </NavLink>
+                            (() => {
+                              const navLink = (
+                                <NavLink
+                                  to={link.to}
+                                  end={link.end}
+                                  onClick={onNavigate}
+                                  aria-label={compact ? compactLinkLabel(link) : undefined}
+                                  className={({ isActive }) =>
+                                    [baseLinkClasses, isActive ? activeLinkClasses : inactiveLinkClasses].join(" ")
+                                  }
+                                >
+                                  {({ isActive }) => (
+                                    <>
+                                      <div className={`flex min-w-0 items-center ${compact ? "" : "gap-1.5"}`}>
+                                        <span
+                                          className={`shrink-0 ${
+                                            isActive
+                                              ? "text-[var(--shell-text)]"
+                                              : "shell-icon-muted group-hover:text-[var(--shell-icon)]"
+                                          } ${iconClasses}`}
+                                        >
+                                          {link.icon ?? resolveSidebarLinkIcon(link)}
+                                        </span>
+                                        {!compact && <span className="truncate">{link.label}</span>}
+                                      </div>
+                                      <SidebarLinkBadge link={link} active={isActive} compact={compact} />
+                                    </>
+                                  )}
+                                </NavLink>
+                              );
+                              return compact ? (
+                                <CompactSidebarHint label={compactLinkLabel(link)}>
+                                  {navLink}
+                                </CompactSidebarHint>
+                              ) : navLink;
+                            })()
                           )}
                         </li>
                       ))}
@@ -328,11 +445,23 @@ export default function Sidebar({
         </>
       )}
       <div className={`shrink-0 border-t border-[color:var(--shell-border)] ${compact ? "p-2" : "p-2.5"}`}>
-        <NavLink
+        {compact ? (
+          <CompactSidebarHint label={text("profile")}>
+            <NavLink
+              to={profilePath}
+              onClick={onNavigate}
+              aria-label={text("profile")}
+              className={({ isActive }) =>
+                `${baseLinkClasses} w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${isActive ? activeLinkClasses : inactiveLinkClasses}`
+              }
+            >
+              <UserProfileIcon className="h-4 w-4 shrink-0" />
+            </NavLink>
+          </CompactSidebarHint>
+        ) : (
+          <NavLink
           to={profilePath}
           onClick={onNavigate}
-          aria-label={compact ? text("profile") : undefined}
-          title={compact ? text("profile") : undefined}
           className={({ isActive }) =>
             `${baseLinkClasses} w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${isActive ? activeLinkClasses : inactiveLinkClasses}`
           }
@@ -342,6 +471,7 @@ export default function Sidebar({
             {!compact && <span className="truncate">{text("profile")}</span>}
           </div>
         </NavLink>
+        )}
       </div>
     </aside>
   );

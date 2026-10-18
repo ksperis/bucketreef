@@ -241,6 +241,17 @@ body {
     border-color: rgb(var(--ui-primary-400-rgb));
   }
 
+  .shell-mobile-context-strip {
+    border-color: var(--shell-border);
+    background: var(--shell-topbar-bg);
+    scrollbar-width: thin;
+  }
+
+  .shell-mobile-context-strip .shell-control,
+  .shell-mobile-context-strip .shell-control-static {
+    width: 100%;
+  }
+
   .shell-icon-button {
     color: var(--shell-icon);
   }
@@ -309,6 +320,13 @@ body {
       width: 44px;
       height: 44px;
     }
+
+    .shell-touch-target,
+    .shell-sidebar-action,
+    .shell-sidebar-section-toggle {
+      min-width: 44px;
+      min-height: 44px;
+    }
   }
 
   .shell-menu {
@@ -357,6 +375,22 @@ body {
   .shell-sidebar-item-active {
     background: var(--shell-sidebar-selected-bg);
     color: var(--shell-text);
+  }
+
+  .shell-sidebar-tooltip {
+    position: fixed;
+    z-index: 80;
+    max-width: min(18rem, calc(100vw - 5rem));
+    transform: translateY(-50%);
+    white-space: nowrap;
+    border-radius: 0.375rem;
+    background: var(--shell-text);
+    color: var(--shell-sidebar-bg);
+    padding: 0.375rem 0.625rem;
+    font-size: 12px;
+    line-height: 1.25rem;
+    box-shadow: var(--shell-menu-shadow);
+    pointer-events: none;
   }
 
   .shell-section-label {

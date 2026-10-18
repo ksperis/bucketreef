@@ -184,7 +184,8 @@ describe("PortalStorageSpacesPage", () => {
     };
   });
 
-  it("lists spaces and opens the detail route", () => {
+  it("lists spaces and progressively discloses secondary mobile controls", async () => {
+    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <PortalStorageSpacesPage />
@@ -237,7 +238,13 @@ describe("PortalStorageSpacesPage", () => {
     expect(screen.getByLabelText("Search")).toHaveClass("ui-control");
     expect(screen.getByLabelText("My role")).toHaveClass("ui-control");
     expect(screen.getByLabelText("Status")).toHaveClass("ui-control");
+    expect(screen.queryByLabelText("Sort by")).not.toBeInTheDocument();
+    const disclosure = screen.getByRole("button", { name: "Filters & sort" });
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    await user.click(disclosure);
+    expect(screen.getByRole("button", { name: "Hide filters & sort" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByLabelText("Sort by")).toHaveClass("ui-control");
+    expect(screen.getAllByLabelText("Status")).toHaveLength(2);
     expect(screen.getByText("Research Data")).toBeInTheDocument();
     const researchRow = screen.getByText("Research Data").closest("tr");
     expect(researchRow).not.toBeNull();
@@ -288,6 +295,7 @@ describe("PortalStorageSpacesPage", () => {
       { ...base, id: "beta", name: "Beta", objectCount: 10, usedBytes: 100 },
     ];
     render(<MemoryRouter><PortalStorageSpacesPage /></MemoryRouter>);
+    await user.click(screen.getByRole("button", { name: "Filters & sort" }));
     const names = () => screen.getAllByRole("row").slice(1).map(row => row.textContent);
     expect(names()[0]).toContain("Alpha");
     expect(screen.getByRole("button", { name: "Create space" }).closest("header")).not.toBeNull();

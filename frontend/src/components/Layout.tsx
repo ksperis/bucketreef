@@ -17,6 +17,7 @@ import { useShellI18n } from "./shellMessages";
 import { useWorkspaceSwitcherModel } from "./EnvironmentSwitcher";
 import Topbar from "./Topbar";
 import type { TopbarControlDescriptor } from "./topbarControlsLayout";
+import UiDrawer from "./ui/UiDrawer";
 import {
   CLIENT_STORAGE_KEYS,
   clearAuthStorage,
@@ -104,7 +105,6 @@ export default function Layout({
     mainClassName ? ` ${mainClassName}` : ""
   }`;
   const rootHeightClass = fullHeight ? "h-[100dvh]" : "h-screen";
-  const drawerTopClass = hideTopbar ? "top-0" : "top-14";
   const documentationUrl = resolveDocumentationUrl(location.pathname, {
     language: locale,
     baseUrl: generalSettings.documentation_base_url,
@@ -128,23 +128,13 @@ export default function Layout({
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMobileSidebarOpen(false);
-      }
-    };
     const handleResize = () => {
       if (window.innerWidth >= 768) {
         setMobileSidebarOpen(false);
       }
     };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", handleEscape);
     window.addEventListener("resize", handleResize);
     return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleEscape);
       window.removeEventListener("resize", handleResize);
     };
   }, [mobileSidebarOpen]);
@@ -191,28 +181,22 @@ export default function Layout({
           />
         )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {shouldShowSidebar && (
-            <div
-              className={`fixed inset-x-0 bottom-0 ${drawerTopClass} z-[44] md:hidden ${
-                mobileSidebarOpen ? "pointer-events-auto" : "pointer-events-none"
-              }`}
-              aria-hidden={!mobileSidebarOpen}
+          {shouldShowSidebar && mobileSidebarOpen ? (
+            <UiDrawer
+              ariaLabelledBy="mobile-navigation-title"
+              placement="left"
+              rootClassName="inset-0 md:hidden"
+              showBackdrop
+              backdropLabel={text("closeMobileNavigation")}
+              surfaceClassName="w-[16rem] max-w-[86vw]"
+              onClose={() => setMobileSidebarOpen(false)}
             >
-              <button
-                type="button"
-                tabIndex={mobileSidebarOpen ? 0 : -1}
-                aria-label={text("closeMobileNavigation")}
-                onClick={() => setMobileSidebarOpen(false)}
-                className={`absolute inset-0 bg-slate-950/45 transition-opacity duration-200 ${
-                  mobileSidebarOpen ? "opacity-100" : "opacity-0"
-                }`}
-              />
-              <div id="mobile-navigation-panel" className="absolute left-0 top-0 h-full w-[16rem] max-w-[86vw]">
+              <div id="mobile-navigation-panel" className="h-full">
+                <h2 id="mobile-navigation-title" className="sr-only">
+                  {sidebarTitle ?? text("navigation")}
+                </h2>
                 <Sidebar
                   variant="mobile"
-                  className={`shadow-[var(--shell-menu-shadow)] transition-transform duration-200 ${
-                    mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-                  }`}
                   title={sidebarTitle}
                   sections={navSections}
                   links={navLinks}
@@ -222,8 +206,8 @@ export default function Layout({
                   onNavigate={() => setMobileSidebarOpen(false)}
                 />
               </div>
-            </div>
-          )}
+            </UiDrawer>
+          ) : null}
           <main className={mainClasses}>
             {!hideHeader && (
               <Header

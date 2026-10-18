@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { PRODUCT_VERSION } from "../../constants/product";
@@ -34,6 +36,9 @@ const resolveAccountTrigger = (): HTMLButtonElement => {
   }
   return trigger as HTMLButtonElement;
 };
+
+const renderTopbar = (element: ReactElement) =>
+  render(<MemoryRouter>{element}</MemoryRouter>);
 
 describe("Topbar account menu", () => {
   beforeEach(() => {
@@ -76,7 +81,7 @@ describe("Topbar account menu", () => {
 
   it("opens with keyboard and supports arrow navigation + Escape close", async () => {
     const user = userEvent.setup();
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
 
     const trigger = resolveAccountTrigger();
     trigger.focus();
@@ -114,7 +119,7 @@ describe("Topbar account menu", () => {
       },
     });
 
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
 
     const trigger = resolveAccountTrigger();
     expect(within(trigger).getByTitle("Admin User")).toHaveTextContent("AU");
@@ -125,7 +130,7 @@ describe("Topbar account menu", () => {
   });
 
   it("refreshes the topbar avatar after a profile update", async () => {
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
     const trigger = resolveAccountTrigger();
 
     act(() => setSessionUserCache({
@@ -147,7 +152,7 @@ describe("Topbar account menu", () => {
 
   it("closes on outside click", async () => {
     const user = userEvent.setup();
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
 
     const trigger = resolveAccountTrigger();
     await user.click(trigger);
@@ -162,7 +167,7 @@ describe("Topbar account menu", () => {
   it("keeps automation tokens out of the personal account menu", async () => {
     const user = userEvent.setup();
 
-    const adminRender = render(<Topbar userEmail="admin@example.com" />);
+    const adminRender = renderTopbar(<Topbar userEmail="admin@example.com" />);
     await user.click(resolveAccountTrigger());
     expect(await screen.findByRole("menu", { name: "Account actions" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /api tokens/i })).not.toBeInTheDocument();
@@ -170,7 +175,7 @@ describe("Topbar account menu", () => {
 
     setSessionUserCache({ role: "ui_superadmin", authType: "password" });
 
-    render(<Topbar userEmail="superadmin@example.com" />);
+    renderTopbar(<Topbar userEmail="superadmin@example.com" />);
     await user.click(resolveAccountTrigger());
     expect(await screen.findByRole("menu", { name: "Account actions" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /api tokens/i })).not.toBeInTheDocument();
@@ -178,7 +183,7 @@ describe("Topbar account menu", () => {
 
   it("links profile and private connections to the shared profile page", async () => {
     const user = userEvent.setup();
-    render(<Topbar userEmail="admin@example.com" profilePath="/admin/profile" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" profilePath="/admin/profile" />);
 
     await user.click(resolveAccountTrigger());
     expect(await screen.findByRole("menuitem", { name: /user profile/i })).toHaveAttribute("href", "/admin/profile?tab=profile");
@@ -191,7 +196,7 @@ describe("Topbar account menu", () => {
 
   it("shows the application version in the account menu", async () => {
     const user = userEvent.setup();
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
 
     await user.click(resolveAccountTrigger());
 
@@ -200,7 +205,7 @@ describe("Topbar account menu", () => {
 
   it("opens an empty notifications panel", async () => {
     const user = userEvent.setup();
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
 
     await user.click(screen.getByRole("button", { name: "Notifications" }));
 
@@ -246,7 +251,7 @@ describe("Topbar account menu", () => {
       });
     notificationApiMock.markUserNotificationsRead.mockResolvedValue({ updated_count: 1, unread_count: 0 });
 
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
 
     expect(await screen.findByText("1")).toBeInTheDocument();
 
@@ -313,7 +318,7 @@ describe("Topbar account menu", () => {
     notificationApiMock.deleteUserNotification.mockResolvedValue({ deleted_count: 1, unread_count: 0 });
     notificationApiMock.clearReadUserNotifications.mockResolvedValue({ deleted_count: 1, unread_count: 0 });
 
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
 
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     expect(await screen.findByText("Identity link approval requested")).toBeInTheDocument();
@@ -372,7 +377,7 @@ describe("Topbar account menu", () => {
     notificationApiMock.deleteUserNotification.mockRejectedValue(new Error("delete failed"));
     notificationApiMock.clearReadUserNotifications.mockRejectedValue(new Error("clear failed"));
 
-    render(<Topbar userEmail="admin@example.com" />);
+    renderTopbar(<Topbar userEmail="admin@example.com" />);
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     await screen.findByText("Endpoint unavailable");
 
@@ -389,7 +394,7 @@ describe("Topbar account menu", () => {
   it("renders the workspace selector in the topbar when requested", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(
+    renderTopbar(
       <Topbar
         userEmail="admin@example.com"
         section="Browser"
@@ -421,7 +426,7 @@ describe("Topbar account menu", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1280 });
 
     try {
-      render(
+      renderTopbar(
         <Topbar
           userEmail="admin@example.com"
           section="Manager"
@@ -467,6 +472,59 @@ describe("Topbar account menu", () => {
       expect(within(topbar as HTMLElement).queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
     } finally {
       Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: originalWidth });
+    }
+  });
+
+  it("keeps operational context readable in the mobile context strip", async () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn((query: string) =>
+        ({
+          matches: query === "(max-width: 767px)",
+          media: query,
+          onchange: null,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+      ),
+    });
+
+    try {
+      renderTopbar(
+        <Topbar
+          userEmail="admin@example.com"
+          section="Manager"
+          controlDescriptors={[
+            {
+              id: "account",
+              icon: null,
+              selectedLabel: "Lab account",
+              priority: 10,
+              estimatedIconWidth: 36,
+              estimatedLabelWidth: 180,
+              renderControl: (mode) => (
+                <button type="button" aria-label="Select context account">
+                  {mode}:Lab account
+                </button>
+              ),
+            },
+          ]}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Select context account" })).toHaveTextContent(
+          "icon_label:Lab account",
+        );
+      });
+      expect(document.querySelector(".shell-mobile-context-strip")).not.toBeNull();
+    } finally {
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        value: originalMatchMedia,
+      });
     }
   });
 });

@@ -80,6 +80,11 @@ async function openWorkspaceCase(
   storageOverrides: Partial<DocScreenshotScenario["storage"]> = {},
   runScenarioWaitActions = true
 ) {
+  const consoleErrors: string[] = [];
+  const captureConsoleError = (message: { type: () => string; text: () => string }) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  };
+  page.on("console", captureConsoleError);
   const mockRegistry = await registerApiMocks(
     page,
     scenario.mockRules,
@@ -90,7 +95,19 @@ async function openWorkspaceCase(
   await page.emulateMedia({ colorScheme: theme });
   await seedUiPreferences(page, { ...scenario.storage, ...storageOverrides, theme });
   await page.goto(route, { waitUntil: "domcontentloaded" });
-  await page.locator(waitFor).first().waitFor({ state: "visible", timeout: 30_000 });
+  try {
+    await page.locator(waitFor).first().waitFor({ state: "visible", timeout: 30_000 });
+  } catch (error) {
+    mockRegistry.assertNoUnmatched();
+    if (consoleErrors.length > 0) {
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}\nConsole errors:\n${consoleErrors.join("\n")}`,
+      );
+    }
+    throw error;
+  } finally {
+    page.off("console", captureConsoleError);
+  }
   if (runScenarioWaitActions) {
     for (const action of scenario.actions ?? []) {
       if (action.type !== "wait") break;
@@ -248,7 +265,8 @@ async function expectBrowserSidebarShell(page: Page, viewportName: string) {
     await expect(expandButton).toBeVisible();
     await expect(sidebar.getByText("BucketReef", { exact: true })).toHaveCount(0);
     await expect(sidebar).toHaveCSS("width", "56px");
-    await expect(profileLink).toHaveAttribute("title", "Profile");
+    await profileLink.hover();
+    await expect(page.getByRole("tooltip")).toHaveText("Profile");
 
     await expandButton.click();
     await expect(collapseButton).toBeVisible();
@@ -260,7 +278,8 @@ async function expectBrowserSidebarShell(page: Page, viewportName: string) {
   const sidebar = page.locator("aside[data-sidebar-variant='mobile']");
   await expect(sidebar.getByText("BucketReef", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(sidebar).toHaveClass(/-translate-x-full/);
+  await expect(sidebar).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open navigation" })).toBeFocused();
 }
 
 async function expectManagerKpiQuotaMeters(page: Page) {
@@ -317,7 +336,7 @@ async function expectManagerQuotaStatusRows(page: Page) {
     }))
   );
 
-  expect(rows.map((row) => row.label)).toEqual(["Storage", "Buckets", "Objects", "Users", "Roles", "Groups"]);
+  expect(rows.map((row) => row.label)).toEqual(["Storage", "Objects", "Buckets", "Users", "Roles", "Groups"]);
   expect(rows.some((row) => row.text.includes("Bandwidth (month)"))).toBe(false);
   expect(rows.find((row) => row.label === "Buckets")?.text).toContain(" / ");
   expect(rows.find((row) => row.label === "Users")?.text).toContain(" / ");

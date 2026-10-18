@@ -1,11 +1,15 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Sidebar, { resolveSidebarLinkIconName } from "../Sidebar";
 import { SIDEBAR_DEFAULT_WIDTH } from "../sidebarSizing";
 
 describe("Sidebar", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   const pendingLink = {
     to: "/admin/identity-security",
     label: "Identity Security",
@@ -121,7 +125,7 @@ describe("Sidebar", () => {
     expect(screen.getByTitle("Unavailable in current context.")).toBeInTheDocument();
   });
 
-  it("keeps disabledHint title in compact mode", () => {
+  it("shows disabled hints in a compact hover tooltip", () => {
     render(
       <MemoryRouter>
         <Sidebar
@@ -143,11 +147,13 @@ describe("Sidebar", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByTitle("Open the bucket from the Buckets list.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Browser")).toHaveAttribute("aria-disabled", "true");
+    const disabledLink = screen.getByLabelText("Browser");
+    expect(disabledLink).toHaveAttribute("aria-disabled", "true");
+    fireEvent.mouseEnter(disabledLink.parentElement!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Open the bucket from the Buckets list.");
   });
 
-  it("keeps the generic fallback hint in compact mode when disabledHint is missing", () => {
+  it("shows the generic compact fallback hint when disabledHint is missing", () => {
     render(
       <MemoryRouter>
         <Sidebar
@@ -162,7 +168,9 @@ describe("Sidebar", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByTitle("Unavailable in current context.")).toBeInTheDocument();
+    const disabledLink = screen.getByLabelText("Metrics");
+    fireEvent.mouseEnter(disabledLink.parentElement!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Unavailable in current context.");
   });
 
   it("renders a fixed desktop sidebar without a resize separator", () => {
@@ -327,7 +335,7 @@ describe("Sidebar", () => {
     expect(within(nav).queryByText("Navigation")).not.toBeInTheDocument();
   });
 
-  it("keeps compact links titled and labeled for assistive tech", () => {
+  it("keeps compact links labeled and exposes a focus tooltip", () => {
     render(
       <MemoryRouter>
         <Sidebar
@@ -342,8 +350,10 @@ describe("Sidebar", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByTitle("Browser")).toBeInTheDocument();
-    expect(screen.getByLabelText("Browser")).toHaveAttribute("href", "/browser");
+    const browserLink = screen.getByLabelText("Browser");
+    expect(browserLink).toHaveAttribute("href", "/browser");
+    fireEvent.focus(browserLink);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Browser");
   });
 
   it("renders footer content below navigation on desktop", () => {
@@ -400,7 +410,8 @@ describe("Sidebar", () => {
 
     const profileLink = screen.getByRole("link", { name: "Profile" });
     expect(profileLink).toHaveClass("shell-sidebar-item-active");
-    expect(profileLink).toHaveAttribute("title", "Profile");
+    fireEvent.focus(profileLink);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Profile");
   });
 
   it("keeps profile navigation inside the current workspace", () => {
@@ -445,6 +456,55 @@ describe("Sidebar", () => {
     );
 
     expect(screen.getByRole("link", { name: "General" })).toHaveAttribute("href", "/admin/general-settings");
+  });
+
+  it("persists collapsible section state for the workspace sidebar", () => {
+    const sections = [
+      {
+        label: "Settings",
+        links: [{ to: "/admin/general-settings", label: "General" }],
+      },
+    ];
+    const firstRender = render(
+      <MemoryRouter>
+        <Sidebar title="ADMIN" sections={sections} />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.queryByRole("link", { name: "General" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("shell:sidebar-sections:v1:admin")).toContain('"Settings":true');
+    firstRender.unmount();
+
+    render(
+      <MemoryRouter>
+        <Sidebar title="ADMIN" sections={sections} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole("link", { name: "General" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the active route section open even when it was persisted as collapsed", () => {
+    window.localStorage.setItem(
+      "shell:sidebar-sections:v1:admin",
+      JSON.stringify({ Settings: true }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin/general-settings"]}>
+        <Sidebar
+          title="ADMIN"
+          sections={[
+            {
+              label: "Settings",
+              links: [{ to: "/admin/general-settings", label: "General" }],
+            },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: "General" })).toBeInTheDocument();
   });
 
   it("scrolls the active desktop navigation link into view", () => {
