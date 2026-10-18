@@ -19,6 +19,7 @@ type UiDrawerProps = {
   modal?: boolean;
   onClose: () => void;
   onEscape?: () => void;
+  placement?: "left" | "right";
   rootClassName?: string;
   showBackdrop?: boolean;
   backdropLabel?: string;
@@ -35,6 +36,7 @@ export default function UiDrawer({
   modal = true,
   onClose,
   onEscape,
+  placement = "right",
   rootClassName = "inset-0",
   showBackdrop = false,
   backdropLabel = "Close drawer",
@@ -111,7 +113,8 @@ export default function UiDrawer({
         aria-labelledby={ariaLabelledBy}
         tabIndex={-1}
         className={cx(
-          "pointer-events-auto absolute inset-y-0 right-0 flex min-w-0 flex-col overflow-hidden border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-[var(--shell-menu-shadow)]",
+          "pointer-events-auto absolute inset-y-0 flex min-w-0 flex-col overflow-hidden border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-[var(--shell-menu-shadow)]",
+          placement === "left" ? "left-0 border-r" : "right-0 border-l",
           surfaceClassName,
         )}
       >

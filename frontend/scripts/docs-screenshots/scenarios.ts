@@ -15,6 +15,7 @@ function baseStorage(): LocalStorageSeed {
 function withBaseRules(...extraRules: MockRule[]): MockRule[] {
   return [...extraRules,
     { id: "admin-navigation-pending", path: /^\/admin\/navigation\/pending-requests$/, body: { identity_link_requests: 0, portal_requests: 0 } },
+    { id: "browser-favorites", method: "GET", path: /^\/users\/me\/browser-favorites$/, body: [] },
     ...buildBaseRules(),
   ];
 }
@@ -881,7 +882,7 @@ export const scenarios: DocScreenshotScenario[] = [
     waitFor: "h1:has-text('Manager dashboard')",
     user: adminUser,
     storage: { ...baseStorage(), selectedWorkspace: "manager" },
-    actions: [{ type: "wait", selector: ".recharts-pie-sector" }],
+    actions: [{ type: "wait", selector: "[data-kpi-card]" }],
     mockRules: withBaseRules(),
   },
   {

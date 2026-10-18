@@ -148,6 +148,7 @@ export default function PortalStorageSpacesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sort, setSort] = useState("name");
   const [activeTab, setActiveTab] = useState<SpacesTab>("active");
+  const [mobileListControlsOpen, setMobileListControlsOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [startGuideDismissed, setStartGuideDismissed] = useState(false);
@@ -1344,49 +1345,104 @@ export default function PortalStorageSpacesPage() {
               zh: "搜索空间…",
             })}
           />}
-          filters={<><UiSelect
-            label={t({ en: "My role", fr: "Mon rôle", de: "Meine Rolle", zh: "我的角色" })}
-            size="compact"
-            className="ui-list-control"
-            value={roleFilter}
-            onChange={(event) =>
-              setRoleFilter(
-                event.target.value as PortalStorageSpaceRole | "all",
-              )
-            }
-          >
-            <option value="all">
-              {t({ en: "All roles", fr: "Tous les rôles", de: "Alle Rollen", zh: "所有角色" })}
-            </option>
-            <option value="Manager">{portalRoleLabel("Manager", t)}</option>
-            <option value="Owner">{portalRoleLabel("Owner", t)}</option>
-            <option value="Editor">{portalRoleLabel("Editor", t)}</option>
-            <option value="Viewer">{portalRoleLabel("Viewer", t)}</option>
-          </UiSelect>
-          {activeTab === "active" ? (
+          filters={<>
             <UiSelect
-              label={t({ en: "Status", fr: "Statut", de: "Status", zh: "状态" })}
+              label={t({ en: "My role", fr: "Mon rôle", de: "Meine Rolle", zh: "我的角色" })}
               size="compact"
               className="ui-list-control"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              value={roleFilter}
+              onChange={(event) =>
+                setRoleFilter(
+                  event.target.value as PortalStorageSpaceRole | "all",
+                )
+              }
             >
               <option value="all">
-                {t({ en: "All states", fr: "Tous les états", de: "Alle Status", zh: "所有状态" })}
+                {t({ en: "All roles", fr: "Tous les rôles", de: "Alle Rollen", zh: "所有角色" })}
               </option>
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              <option value="Manager">{portalRoleLabel("Manager", t)}</option>
+              <option value="Owner">{portalRoleLabel("Owner", t)}</option>
+              <option value="Editor">{portalRoleLabel("Editor", t)}</option>
+              <option value="Viewer">{portalRoleLabel("Viewer", t)}</option>
             </UiSelect>
-          ) : null}</>}
-          mobileSort={<TableSortControls columns={storageSpaceColumns} sort={tableSort} labels={{
-            sortBy: t({ en: "Sort by", fr: "Trier par", de: "Sortieren nach", zh: "排序依据" }),
-            direction: t({ en: "Direction", fr: "Ordre", de: "Reihenfolge", zh: "排序方向" }),
-            ascending: t({ en: "Ascending", fr: "Croissant", de: "Aufsteigend", zh: "升序" }),
-            descending: t({ en: "Descending", fr: "Décroissant", de: "Absteigend", zh: "降序" }),
-          }} />}
+            {activeTab === "active" ? (
+              <div className="hidden md:block">
+                <UiSelect
+                  label={t({ en: "Status", fr: "Statut", de: "Status", zh: "状态" })}
+                  size="compact"
+                  className="ui-list-control"
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                >
+                  <option value="all">
+                    {t({ en: "All states", fr: "Tous les états", de: "Alle Status", zh: "所有状态" })}
+                  </option>
+                  {statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </UiSelect>
+              </div>
+            ) : null}
+          </>}
+          mobileSort={
+            <div className="flex w-full flex-wrap gap-2 md:hidden">
+              <UiButton
+                variant="secondary"
+                size="xs"
+                className="min-h-11"
+                aria-expanded={mobileListControlsOpen}
+                aria-controls="portal-storage-spaces-mobile-controls"
+                onClick={() => setMobileListControlsOpen((open) => !open)}
+              >
+                {mobileListControlsOpen
+                  ? t({
+                      en: "Hide filters & sort",
+                      fr: "Masquer les filtres et le tri",
+                      de: "Filter und Sortierung ausblenden",
+                      zh: "隐藏筛选和排序",
+                    })
+                  : t({
+                      en: "Filters & sort",
+                      fr: "Filtres et tri",
+                      de: "Filter und Sortierung",
+                      zh: "筛选和排序",
+                    })}
+              </UiButton>
+              {mobileListControlsOpen ? (
+                <div
+                  id="portal-storage-spaces-mobile-controls"
+                  className="flex w-full flex-wrap items-center gap-2"
+                >
+                  {activeTab === "active" ? (
+                    <UiSelect
+                      label={t({ en: "Status", fr: "Statut", de: "Status", zh: "状态" })}
+                      size="compact"
+                      className="ui-list-control"
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value)}
+                    >
+                      <option value="all">
+                        {t({ en: "All states", fr: "Tous les états", de: "Alle Status", zh: "所有状态" })}
+                      </option>
+                      {statusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </UiSelect>
+                  ) : null}
+                  <TableSortControls columns={storageSpaceColumns} sort={tableSort} labels={{
+                    sortBy: t({ en: "Sort by", fr: "Trier par", de: "Sortieren nach", zh: "排序依据" }),
+                    direction: t({ en: "Direction", fr: "Ordre", de: "Reihenfolge", zh: "排序方向" }),
+                    ascending: t({ en: "Ascending", fr: "Croissant", de: "Aufsteigend", zh: "升序" }),
+                    descending: t({ en: "Descending", fr: "Décroissant", de: "Absteigend", zh: "降序" }),
+                  }} />
+                </div>
+              ) : null}
+            </div>
+          }
         >
           <DataTableShell
             columns={storageSpaceColumns}

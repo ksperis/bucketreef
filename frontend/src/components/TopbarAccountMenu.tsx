@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useEffect, useId, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import type { UserAvatarDescriptor } from "../api/users";
 import { ChevronDownIcon, LinkIcon, LogoutIcon, UserIcon } from "./topbarIcons";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
@@ -123,7 +124,7 @@ export default function TopbarAccountMenu({
           event.preventDefault();
           setOpen(true);
         }}
-        className="inline-flex h-9 items-center gap-0 rounded-lg border border-transparent bg-transparent px-1 text-left transition hover:bg-[var(--shell-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 sm:gap-2 sm:px-1.5"
+        className="shell-touch-target inline-flex h-9 items-center gap-0 rounded-lg border border-transparent bg-transparent px-1 text-left transition hover:bg-[var(--shell-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 sm:gap-2 sm:px-1.5"
       >
         <UserAvatar
           avatar={avatar}
@@ -171,8 +172,8 @@ export default function TopbarAccountMenu({
               </div>
             </div>
 
-            <a
-              href={`${profilePath}?tab=profile`}
+            <Link
+              to={`${profilePath}?tab=profile`}
               role="menuitem"
               data-account-menu-item="true"
               onClick={() => setOpen(false)}
@@ -183,11 +184,11 @@ export default function TopbarAccountMenu({
                 <span className="block ui-caption font-semibold text-[var(--shell-text)]">{text("userProfile")}</span>
                 <span className="shell-muted-text block ui-caption">{text("personalDetailsPreferences")}</span>
               </span>
-            </a>
+            </Link>
 
             {canAccessPrivateConnections && (
-              <a
-                href={`${profilePath}?tab=connections`}
+              <Link
+                to={`${profilePath}?tab=connections`}
                 role="menuitem"
                 data-account-menu-item="true"
                 onClick={() => setOpen(false)}
@@ -200,7 +201,7 @@ export default function TopbarAccountMenu({
                   </span>
                   <span className="shell-muted-text block ui-caption">{text("manageEndpointsCredentials")}</span>
                 </span>
-              </a>
+              </Link>
             )}
 
             <div className="my-1 border-t border-[color:var(--shell-border-soft)]" />

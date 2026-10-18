@@ -242,32 +242,35 @@ describe("Layout", () => {
       }),
     ).toBeInTheDocument();
 
-    const mobileSidebar = getMobileSidebar(container);
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    expect(mobileSidebar).toHaveClass("translate-x-0");
+    const mobileSidebar = getMobileSidebar(container);
     expect(within(mobileSidebar).getByText("BucketReef")).toBeInTheDocument();
     fireEvent.click(
       within(mobileSidebar).getByRole("button", {
         name: "mobile expanded browser body",
       }),
     );
-    expect(mobileSidebar).toHaveClass("-translate-x-full");
+    expect(container.querySelector('[data-sidebar-variant="mobile"]')).not.toBeInTheDocument();
   });
 
-  it("keeps the mobile drawer behavior unchanged and without a resize handle", () => {
+  it("uses modal drawer semantics for mobile navigation", () => {
     const { container } = renderLayout();
+    const opener = screen.getByRole("button", { name: "Open navigation" });
+    opener.focus();
+    fireEvent.click(opener);
+
+    const drawer = screen.getByRole("dialog", { name: "MANAGER" });
     const mobileSidebar = getMobileSidebar(container);
-    const mobilePanel = container.querySelector("#mobile-navigation-panel");
-
-    expect(mobilePanel).toHaveClass("w-[16rem]");
+    expect(drawer).toHaveAttribute("aria-modal", "true");
+    expect(drawer).toHaveClass("w-[16rem]", "max-w-[86vw]", "left-0", "border-r");
     expect(within(mobileSidebar).queryByRole("separator", { name: "Resize sidebar" })).not.toBeInTheDocument();
-    expect(mobileSidebar).toHaveClass("-translate-x-full");
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(within(mobileSidebar).getByRole("button", { name: "Quick action" })).toHaveFocus();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    expect(mobileSidebar).toHaveClass("translate-x-0");
-
-    fireEvent.click(screen.getByRole("button", { name: "Close mobile navigation" }));
-    expect(mobileSidebar).toHaveClass("-translate-x-full");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "MANAGER" })).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("");
+    expect(opener).toHaveFocus();
   });
 
   it("keeps the workspace switcher in the topbar when the sidebar is visible", () => {

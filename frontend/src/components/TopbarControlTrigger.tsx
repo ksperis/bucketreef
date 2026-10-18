@@ -64,7 +64,7 @@ export default function TopbarControlTrigger({
       onKeyDown={onKeyDown}
       className={
         className ??
-        `shell-control inline-flex items-center rounded-lg border text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-60 ${
+        `shell-control shell-touch-target inline-flex items-center rounded-lg border text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-60 ${
           iconOnly ? iconModeClassName ?? "h-9 w-9 justify-center px-0" : "h-10 w-full gap-2.5 px-3"
         } ${open ? "shell-control-active" : ""}`
       }
@@ -124,7 +124,7 @@ export function TopbarStaticControl({
   iconSlotClassName,
 }: TopbarStaticControlProps) {
   const iconOnly = mode === "icon";
-  const controlClassName = `shell-control-static inline-flex items-center rounded-lg border text-left ${
+  const controlClassName = `shell-control-static shell-touch-target inline-flex items-center rounded-lg border text-left ${
     iconOnly ? "h-9 w-9 justify-center px-0" : "h-10 min-w-[12rem] gap-2.5 px-3"
   } ${className ?? ""}`;
 
