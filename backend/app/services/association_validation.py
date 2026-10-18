@@ -4,10 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from sqlalchemy import select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db import User
 from app.db.s3_connection import S3Connection
+
+
+def _normalized_ids(ids: Iterable[int]) -> set[int]:
+    return {int(item_id) for item_id in ids}
+
+
+def _format_ids(ids: Iterable[int]) -> str:
+    return ", ".join(str(item_id) for item_id in sorted(ids))
 
 
 def load_association_users(
@@ -16,15 +25,14 @@ def load_association_users(
     *,
     entity_label: str = "Users",
 ) -> dict[int, User]:
-    requested_ids = {int(user_id) for user_id in ids}
+    requested_ids = _normalized_ids(ids)
     if not requested_ids:
         return {}
-    users = db.query(User).filter(User.id.in_(requested_ids)).all()
+    users = db.scalars(select(User).where(User.id.in_(requested_ids))).all()
     users_by_id = {int(user.id): user for user in users}
     missing_ids = requested_ids - set(users_by_id)
     if missing_ids:
-        formatted_ids = ", ".join(str(user_id) for user_id in sorted(missing_ids))
-        raise ValueError(f"{entity_label} not found: {formatted_ids}")
+        raise ValueError(f"{entity_label} not found: {_format_ids(missing_ids)}")
     return users_by_id
 
 
@@ -35,38 +43,37 @@ def ensure_association_ids_exist(
     *,
     entity_label: str,
 ) -> None:
-    requested_ids = {int(item_id) for item_id in ids}
+    requested_ids = _normalized_ids(ids)
     if not requested_ids:
         return
     found_ids = {
         int(item_id)
-        for (item_id,) in db.query(id_column).filter(id_column.in_(requested_ids)).all()
+        for item_id in db.scalars(select(id_column).where(id_column.in_(requested_ids))).all()
     }
     missing_ids = requested_ids - found_ids
     if missing_ids:
-        formatted_ids = ", ".join(str(item_id) for item_id in sorted(missing_ids))
-        raise ValueError(f"{entity_label} not found: {formatted_ids}")
+        raise ValueError(f"{entity_label} not found: {_format_ids(missing_ids)}")
 
 
 def ensure_shared_s3_connections(db: Session, ids: Iterable[int]) -> None:
-    requested_ids = {int(connection_id) for connection_id in ids}
+    requested_ids = _normalized_ids(ids)
     if not requested_ids:
         return
-    rows = (
-        db.query(S3Connection.id, S3Connection.is_shared)
-        .filter(S3Connection.id.in_(requested_ids))
-        .all()
-    )
+    rows = db.execute(
+        select(S3Connection.id, S3Connection.is_shared).where(
+            S3Connection.id.in_(requested_ids)
+        )
+    ).all()
     found_ids = {int(connection_id) for connection_id, _ in rows}
     missing_ids = requested_ids - found_ids
     if missing_ids:
-        formatted_ids = ", ".join(str(connection_id) for connection_id in sorted(missing_ids))
-        raise ValueError(f"S3 connections not found: {formatted_ids}")
+        raise ValueError(f"S3 connections not found: {_format_ids(missing_ids)}")
     non_shared_ids = sorted(
         int(connection_id)
         for connection_id, is_shared in rows
         if not bool(is_shared)
     )
     if non_shared_ids:
-        formatted_ids = ", ".join(str(connection_id) for connection_id in non_shared_ids)
-        raise ValueError(f"Only shared S3 connections can be linked: {formatted_ids}")
+        raise ValueError(
+            f"Only shared S3 connections can be linked: {_format_ids(non_shared_ids)}"
+        )
