@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -35,11 +36,9 @@ class UserAssociationsService:
             return []
         account_ids = {
             int(account_id)
-            for (account_id,) in (
-                self.db.query(UserS3Account.account_id)
-                .filter(UserS3Account.user_id == user.id)
-                .all()
-            )
+            for account_id in self.db.scalars(
+                select(UserS3Account.account_id).where(UserS3Account.user_id == user.id)
+            ).all()
         }
         account_ids.update(
             int(link.account_id)
@@ -48,11 +47,9 @@ class UserAssociationsService:
         if payload.group_ids is not None:
             existing_group_ids = {
                 int(group_id)
-                for (group_id,) in (
-                    self.db.query(UserUiGroup.group_id)
-                    .filter(UserUiGroup.user_id == user.id)
-                    .all()
-                )
+                for group_id in self.db.scalars(
+                    select(UserUiGroup.group_id).where(UserUiGroup.user_id == user.id)
+                ).all()
             }
             affected_group_ids = existing_group_ids | {
                 int(group_id) for group_id in payload.group_ids
@@ -60,15 +57,11 @@ class UserAssociationsService:
             if affected_group_ids:
                 account_ids.update(
                     int(account_id)
-                    for (account_id,) in (
-                        self.db.query(UiGroupS3Account.account_id)
-                        .filter(
-                            UiGroupS3Account.group_id.in_(
-                                affected_group_ids,
-                            )
+                    for account_id in self.db.scalars(
+                        select(UiGroupS3Account.account_id).where(
+                            UiGroupS3Account.group_id.in_(affected_group_ids)
                         )
-                        .all()
-                    )
+                    ).all()
                 )
         return sorted(account_ids)
 
@@ -84,11 +77,9 @@ class UserAssociationsService:
             cleaned,
             entity_label="S3 accounts",
         )
-        existing = (
-            self.db.query(UserS3Account)
-            .filter(UserS3Account.user_id == user.id)
-            .all()
-        )
+        existing = self.db.scalars(
+            select(UserS3Account).where(UserS3Account.user_id == user.id)
+        ).all()
         existing_by_account = {
             int(link.account_id): link for link in existing
         }
@@ -124,11 +115,9 @@ class UserAssociationsService:
         links: list[S3UserMembership],
     ) -> None:
         cleaned = {int(link.s3_user_id): link for link in links}
-        existing_links = (
-            self.db.query(UserS3User)
-            .filter(UserS3User.user_id == user.id)
-            .all()
-        )
+        existing_links = self.db.scalars(
+            select(UserS3User).where(UserS3User.user_id == user.id)
+        ).all()
         existing_by_id = {
             int(link.s3_user_id): link for link in existing_links
         }
@@ -154,20 +143,19 @@ class UserAssociationsService:
                     )
                 )
         if to_remove:
-            (
-                self.db.query(UserS3User)
-                .filter(
+            self.db.execute(
+                delete(UserS3User)
+                .where(
                     UserS3User.user_id == user.id,
                     UserS3User.s3_user_id.in_(to_remove),
                 )
-                .delete(synchronize_session=False)
+                .execution_options(synchronize_session=False)
             )
         for s3_user_id in desired_ids & existing_ids:
             row = existing_by_id[s3_user_id]
             row.allow_manager_browser_data_access = bool(
                 cleaned[s3_user_id].allow_manager_browser_data_access
             )
-            self.db.add(row)
 
     def set_s3_connection_links(
         self,
@@ -179,11 +167,9 @@ class UserAssociationsService:
             for connection_id in target_ids
             if connection_id is not None
         }
-        existing_links = (
-            self.db.query(UserS3Connection)
-            .filter(UserS3Connection.user_id == user.id)
-            .all()
-        )
+        existing_links = self.db.scalars(
+            select(UserS3Connection).where(UserS3Connection.user_id == user.id)
+        ).all()
         existing_ids = {
             int(link.s3_connection_id) for link in existing_links
         }
@@ -191,13 +177,13 @@ class UserAssociationsService:
         to_remove = existing_ids - cleaned_ids
         to_add = cleaned_ids - existing_ids
         if to_remove:
-            (
-                self.db.query(UserS3Connection)
-                .filter(
+            self.db.execute(
+                delete(UserS3Connection)
+                .where(
                     UserS3Connection.user_id == user.id,
                     UserS3Connection.s3_connection_id.in_(to_remove),
                 )
-                .delete(synchronize_session=False)
+                .execution_options(synchronize_session=False)
             )
         for connection_id in to_add:
             self.db.add(
@@ -213,11 +199,9 @@ class UserAssociationsService:
             for group_id in target_ids
             if group_id is not None
         }
-        existing_links = (
-            self.db.query(UserUiGroup)
-            .filter(UserUiGroup.user_id == user.id)
-            .all()
-        )
+        existing_links = self.db.scalars(
+            select(UserUiGroup).where(UserUiGroup.user_id == user.id)
+        ).all()
         existing_ids = {int(link.group_id) for link in existing_links}
         ensure_association_ids_exist(
             self.db,
@@ -228,13 +212,13 @@ class UserAssociationsService:
         to_remove = existing_ids - cleaned_ids
         to_add = cleaned_ids - existing_ids
         if to_remove:
-            (
-                self.db.query(UserUiGroup)
-                .filter(
+            self.db.execute(
+                delete(UserUiGroup)
+                .where(
                     UserUiGroup.user_id == user.id,
                     UserUiGroup.group_id.in_(to_remove),
                 )
-                .delete(synchronize_session=False)
+                .execution_options(synchronize_session=False)
             )
         for group_id in to_add:
             self.db.add(UserUiGroup(user_id=user.id, group_id=group_id))
@@ -250,14 +234,14 @@ class UserAssociationsService:
         }
         if not cleaned_ids:
             return False
-        return bool(
-            self.db.query(UiGroup.id)
-            .filter(
+        return self.db.scalar(
+            select(UiGroup.id)
+            .where(
                 UiGroup.id.in_(cleaned_ids),
                 UiGroup.can_access_ceph_admin.is_(True),
             )
-            .first()
-        )
+            .limit(1)
+        ) is not None
 
 
 def get_user_associations_service(db: Session) -> UserAssociationsService:
