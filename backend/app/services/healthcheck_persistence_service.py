@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -65,16 +66,14 @@ class HealthCheckPersistenceService:
 
     def _update_latest_entry(self, result: HealthCheckResult) -> None:
         window_start = result.checked_at - timedelta(days=1)
-        rows = (
-            self.db.query(EndpointHealthCheck.status, EndpointHealthCheck.latency_ms)
-            .filter(
+        rows = self.db.execute(
+            select(EndpointHealthCheck.status, EndpointHealthCheck.latency_ms).where(
                 EndpointHealthCheck.storage_endpoint_id == result.endpoint_id,
                 EndpointHealthCheck.check_mode == result.check_mode,
                 EndpointHealthCheck.checked_at >= window_start,
                 EndpointHealthCheck.checked_at <= result.checked_at,
             )
-            .all()
-        )
+        ).all()
         known_statuses = [str(status) for status, _ in rows if str(status) != HealthCheckStatus.UNKNOWN.value]
         up_checks = sum(1 for status in known_statuses if status == HealthCheckStatus.UP.value)
         availability_24h = int(round((up_checks / len(known_statuses)) * 100.0)) if known_statuses else None
@@ -84,16 +83,13 @@ class HealthCheckPersistenceService:
             if latency is not None and str(status) != HealthCheckStatus.DOWN.value
         ]
 
-        entry = (
-            self.db.query(EndpointHealthLatest)
-            .filter(
-                EndpointHealthLatest.storage_endpoint_id == result.endpoint_id,
-                EndpointHealthLatest.check_mode == result.check_mode,
-                EndpointHealthLatest.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthLatest.scope == DEFAULT_SCOPE,
-            )
-            .first()
+        entry_statement = select(EndpointHealthLatest).where(
+            EndpointHealthLatest.storage_endpoint_id == result.endpoint_id,
+            EndpointHealthLatest.check_mode == result.check_mode,
+            EndpointHealthLatest.check_type == DEFAULT_CHECK_TYPE,
+            EndpointHealthLatest.scope == DEFAULT_SCOPE,
         )
+        entry = self.db.scalars(entry_statement).first()
         created = entry is None
         if created:
             entry = EndpointHealthLatest(
@@ -110,16 +106,7 @@ class HealthCheckPersistenceService:
                     self.db.flush()
                 return
             except IntegrityError:
-                entry = (
-                    self.db.query(EndpointHealthLatest)
-                    .filter(
-                        EndpointHealthLatest.storage_endpoint_id == result.endpoint_id,
-                        EndpointHealthLatest.check_mode == result.check_mode,
-                        EndpointHealthLatest.check_type == DEFAULT_CHECK_TYPE,
-                        EndpointHealthLatest.scope == DEFAULT_SCOPE,
-                    )
-                    .first()
-                )
+                entry = self.db.scalars(entry_statement).first()
                 if entry is None:
                     raise
                 self._apply_latest_entry_values(entry, result, latencies, availability_24h)
@@ -149,9 +136,9 @@ class HealthCheckPersistenceService:
         entry.updated_at = utcnow()
 
     def _update_status_segment(self, result: HealthCheckResult) -> None:
-        active = (
-            self.db.query(EndpointHealthStatusSegment)
-            .filter(
+        active = self.db.scalars(
+            select(EndpointHealthStatusSegment)
+            .where(
                 EndpointHealthStatusSegment.storage_endpoint_id == result.endpoint_id,
                 EndpointHealthStatusSegment.check_mode == result.check_mode,
                 EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
@@ -159,8 +146,7 @@ class HealthCheckPersistenceService:
                 EndpointHealthStatusSegment.ended_at.is_(None),
             )
             .order_by(EndpointHealthStatusSegment.started_at.desc())
-            .first()
-        )
+        ).first()
         latency_value = int(result.latency_ms) if result.latency_ms is not None and result.status != HealthCheckStatus.DOWN else None
 
         if active and active.status == result.status.value:
@@ -217,16 +203,14 @@ class HealthCheckPersistenceService:
     def _update_rollup_bucket(self, result: HealthCheckResult, resolution_seconds: int) -> None:
         bucket_start = self._bucket_start(result.checked_at, resolution_seconds)
         bucket_end = bucket_start + timedelta(seconds=resolution_seconds)
-        rows = (
-            self.db.query(EndpointHealthCheck.status, EndpointHealthCheck.latency_ms)
-            .filter(
+        rows = self.db.execute(
+            select(EndpointHealthCheck.status, EndpointHealthCheck.latency_ms).where(
                 EndpointHealthCheck.storage_endpoint_id == result.endpoint_id,
                 EndpointHealthCheck.check_mode == result.check_mode,
                 EndpointHealthCheck.checked_at >= bucket_start,
                 EndpointHealthCheck.checked_at < bucket_end,
             )
-            .all()
-        )
+        ).all()
         counts = {
             HealthCheckStatus.UP.value: 0,
             HealthCheckStatus.DEGRADED.value: 0,
@@ -240,18 +224,15 @@ class HealthCheckPersistenceService:
             if latency is not None and status_value != HealthCheckStatus.DOWN.value:
                 latencies.append(int(latency))
 
-        entry = (
-            self.db.query(EndpointHealthRollup)
-            .filter(
-                EndpointHealthRollup.storage_endpoint_id == result.endpoint_id,
-                EndpointHealthRollup.check_mode == result.check_mode,
-                EndpointHealthRollup.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthRollup.scope == DEFAULT_SCOPE,
-                EndpointHealthRollup.resolution_seconds == resolution_seconds,
-                EndpointHealthRollup.bucket_start == bucket_start,
-            )
-            .first()
+        entry_statement = select(EndpointHealthRollup).where(
+            EndpointHealthRollup.storage_endpoint_id == result.endpoint_id,
+            EndpointHealthRollup.check_mode == result.check_mode,
+            EndpointHealthRollup.check_type == DEFAULT_CHECK_TYPE,
+            EndpointHealthRollup.scope == DEFAULT_SCOPE,
+            EndpointHealthRollup.resolution_seconds == resolution_seconds,
+            EndpointHealthRollup.bucket_start == bucket_start,
         )
+        entry = self.db.scalars(entry_statement).first()
         created = entry is None
         if created:
             entry = EndpointHealthRollup(
@@ -270,18 +251,7 @@ class HealthCheckPersistenceService:
                     self.db.flush()
                 return
             except IntegrityError:
-                entry = (
-                    self.db.query(EndpointHealthRollup)
-                    .filter(
-                        EndpointHealthRollup.storage_endpoint_id == result.endpoint_id,
-                        EndpointHealthRollup.check_mode == result.check_mode,
-                        EndpointHealthRollup.check_type == DEFAULT_CHECK_TYPE,
-                        EndpointHealthRollup.scope == DEFAULT_SCOPE,
-                        EndpointHealthRollup.resolution_seconds == resolution_seconds,
-                        EndpointHealthRollup.bucket_start == bucket_start,
-                    )
-                    .first()
-                )
+                entry = self.db.scalars(entry_statement).first()
                 if entry is None:
                     raise
                 self._apply_rollup_values(entry, counts, latencies)
@@ -307,24 +277,24 @@ class HealthCheckPersistenceService:
         if retention_days <= 0:
             return
         cutoff = utcnow() - timedelta(days=retention_days)
-        deleted_raw = (
-            self.db.query(EndpointHealthCheck)
-            .filter(EndpointHealthCheck.checked_at < cutoff)
-            .delete(synchronize_session=False)
-        )
-        deleted_rollups = (
-            self.db.query(EndpointHealthRollup)
-            .filter(EndpointHealthRollup.bucket_start < cutoff)
-            .delete(synchronize_session=False)
-        )
-        deleted_segments = (
-            self.db.query(EndpointHealthStatusSegment)
-            .filter(
+        deleted_raw = self.db.execute(
+            delete(EndpointHealthCheck)
+            .where(EndpointHealthCheck.checked_at < cutoff)
+            .execution_options(synchronize_session=False)
+        ).rowcount or 0
+        deleted_rollups = self.db.execute(
+            delete(EndpointHealthRollup)
+            .where(EndpointHealthRollup.bucket_start < cutoff)
+            .execution_options(synchronize_session=False)
+        ).rowcount or 0
+        deleted_segments = self.db.execute(
+            delete(EndpointHealthStatusSegment)
+            .where(
                 EndpointHealthStatusSegment.ended_at.isnot(None),
                 EndpointHealthStatusSegment.ended_at < cutoff,
             )
-            .delete(synchronize_session=False)
-        )
+            .execution_options(synchronize_session=False)
+        ).rowcount or 0
         total_deleted = deleted_raw + deleted_rollups + deleted_segments
         if total_deleted:
             logger.info(
