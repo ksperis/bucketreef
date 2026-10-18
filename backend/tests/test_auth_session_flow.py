@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from botocore.exceptions import ClientError
+from sqlalchemy import select
 
 from app.core.security import get_password_hash
 from app.db import AuditLog, S3Account, UserS3Account, User, UserRole
@@ -283,11 +284,10 @@ def test_login_rate_limit_returns_429_after_max_failed_attempts(monkeypatch, cli
     assert second.status_code == 401
     assert third.status_code == 429
 
-    event = (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "login_rate_limited")
+    event = db_session.scalar(
+        select(AuditLog)
+        .where(AuditLog.action == "login_rate_limited")
         .order_by(AuditLog.id.desc())
-        .first()
     )
     assert event is not None
     assert event.ip_address == "testclient"
@@ -336,7 +336,9 @@ def test_trusted_proxy_rate_limits_real_clients_and_ignores_injected_leftmost_xf
 
     limited_ips = {
         row.ip_address
-        for row in db_session.query(AuditLog).filter(AuditLog.action == "login_rate_limited").all()
+        for row in db_session.scalars(
+            select(AuditLog).where(AuditLog.action == "login_rate_limited")
+        ).all()
     }
     assert limited_ips == {"198.51.100.10"}
 
