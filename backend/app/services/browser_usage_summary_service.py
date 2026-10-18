@@ -96,7 +96,7 @@ class BrowserUsageSummaryService:
         s3_user_id = context.s3_user_id
         if not isinstance(s3_user_id, int) or s3_user_id <= 0:
             return self._unavailable(source=source, label=label)
-        s3_user = self.db.query(S3UserModel).filter(S3UserModel.id == s3_user_id).first()
+        s3_user = self.db.get(S3UserModel, s3_user_id)
         if not s3_user:
             return self._unavailable(source=source, label=label)
         service = S3UsersService(self.db)
