@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Callable, Literal, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3User, StorageEndpoint
@@ -81,8 +81,8 @@ class UsageHistoryService:
             filters.extend(extra_filter_builder(model))
 
         samples_expr = func.sum(columns.samples) if columns.samples is not None else func.count(model.id)
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 columns.period.label("period_start"),
                 func.sum(columns.used_bytes).label("used_bytes"),
                 func.sum(columns.used_objects).label("used_objects"),
@@ -94,11 +94,10 @@ class UsageHistoryService:
                 func.max(columns.collected).label("collected_at"),
                 func.count(model.id).label("records_count"),
             )
-            .filter(*filters)
+            .where(*filters)
             .group_by(columns.period)
             .order_by(columns.period.asc())
-            .all()
-        )
+        ).all()
 
         points = [
             UsageHistoryTrendPoint(
@@ -157,7 +156,12 @@ class UsageHistoryService:
             start=start,
             end=end,
         )
-        total = int(self.db.query(func.count(columns.model.id)).filter(*filters).scalar() or 0)
+        total = int(
+            self.db.scalar(
+                select(func.count(columns.model.id)).where(*filters)
+            )
+            or 0
+        )
         rows = self._history_rows(
             columns,
             filters,
@@ -242,8 +246,8 @@ class UsageHistoryService:
             "ratio": columns.ratio,
         }[sort_by]
         ordered = order_col.asc() if sort_dir == "asc" else order_col.desc()
-        return (
-            self.db.query(
+        return self.db.execute(
+            select(
                 model,
                 StorageEndpoint.name.label("endpoint_name"),
                 S3Account.name.label("account_name"),
@@ -252,15 +256,15 @@ class UsageHistoryService:
                 S3User.name.label("s3_user_name"),
                 S3User.rgw_user_uid.label("s3_user_uid"),
             )
+            .select_from(model)
             .join(StorageEndpoint, model.storage_endpoint_id == StorageEndpoint.id)
             .outerjoin(S3Account, model.s3_account_id == S3Account.id)
             .outerjoin(S3User, model.s3_user_id == S3User.id)
-            .filter(*filters)
+            .where(*filters)
             .order_by(ordered, model.id.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
-            .all()
-        )
+        ).all()
 
     def _history_summary(
         self,
@@ -269,15 +273,17 @@ class UsageHistoryService:
         *,
         total: int,
     ) -> UsageHistorySummary:
+        summary_row = self.db.execute(
+            select(
+                func.max(columns.collected).label("latest_collected_at"),
+                func.max(columns.ratio).label("max_usage_ratio_pct"),
+            ).where(*filters)
+        ).one()
         return UsageHistorySummary(
             total_records=total,
             subjects_count=self._count_subjects(columns.model, filters),
-            latest_collected_at=self._iso(
-                self.db.query(func.max(columns.collected)).filter(*filters).scalar()
-            ),
-            max_usage_ratio_pct=self._float_or_none(
-                self.db.query(func.max(columns.ratio)).filter(*filters).scalar()
-            ),
+            latest_collected_at=self._iso(summary_row.latest_collected_at),
+            max_usage_ratio_pct=self._float_or_none(summary_row.max_usage_ratio_pct),
         )
 
     def _history_items(
@@ -308,19 +314,13 @@ class UsageHistoryService:
         ]
 
     def _count_subjects(self, model, filters: list) -> int:
-        accounts = int(
-            self.db.query(func.count(func.distinct(model.s3_account_id)))
-            .filter(*filters, model.s3_account_id.isnot(None))
-            .scalar()
-            or 0
-        )
-        users = int(
-            self.db.query(func.count(func.distinct(model.s3_user_id)))
-            .filter(*filters, model.s3_user_id.isnot(None))
-            .scalar()
-            or 0
-        )
-        return accounts + users
+        counts = self.db.execute(
+            select(
+                func.count(func.distinct(model.s3_account_id)).label("accounts"),
+                func.count(func.distinct(model.s3_user_id)).label("users"),
+            ).where(*filters)
+        ).one()
+        return int(counts.accounts or 0) + int(counts.users or 0)
 
     @staticmethod
     def _trend_granularity(window: TrendWindow) -> Granularity:
