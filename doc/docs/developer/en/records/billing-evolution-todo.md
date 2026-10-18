@@ -16,6 +16,8 @@ consumption:
 - collection of RGW usage and storage metrics;
 - Account and S3 User billing subjects;
 - rate plans and their effective versions;
+- an explicit storage charge basis per effective Rate Plan version, using either
+  measured storage consumption or allocated storage quota;
 - Billing Entities used to group technical subjects into business units;
 - Billing Entity Groups used to aggregate several business entities into
   historical analytical scopes such as Research, DSI, region, or programme;
@@ -90,6 +92,19 @@ re-opened during implementation unless a concrete technical blocker is found.
 - Target rate precedence is:
   **direct subject assignment > Billing Entity > endpoint > global**.
 - Rate changes are versioned and historical pricing is immutable.
+- Each effective Rate Plan version defines an explicit storage charge basis:
+  `actual_usage` or `allocated_quota`. Changing the basis is a tariff-version
+  change and must never rewrite earlier months.
+- `allocated_quota` applies only to the storage-capacity component in the first
+  implementation. Ingress, egress, and request quantities continue to come from
+  measured usage. Do not infer a billable object-capacity component from
+  `quota_objects` unless a future Rate Plan explicitly introduces such a price.
+- Quota-based storage uses historical quota observations, not the subject's
+  current quota at preview/generation time. A quota change during a month is
+  prorated from the recorded daily allocated quota for that month.
+- A missing, disabled, unlimited, or otherwise non-billable storage quota is not
+  zero capacity. In `allocated_quota` mode it is an explicit incomplete/blocking
+  state unless a future documented policy defines another behavior.
 - Monthly statement generation and finalization automation are configurable.
   Automatic finalization is allowed only after all safety/coverage/conflict
   gates pass; it must not bypass the same validation used by manual finalization.
@@ -118,6 +133,9 @@ Every objective must preserve these invariants.
   unless a future explicit FX subsystem defines conversion semantics.
 - Derived annual/quarterly/custom totals must sum canonical monthly results; they
   must not re-rate an entire long period using a current tariff.
+- Storage quantity provenance is part of the monetary contract. A cost result
+  must state whether its storage component used measured storage or allocated
+  quota, and finalized statements must snapshot the chosen basis and quantity.
 
 ### Authorization and audit
 
@@ -172,6 +190,12 @@ Entities or statements yet.
   authorized superadmins even when collection/analytics are disabled.
 - Complete unsaved-change protection for create/edit/version dialogs using the
   shared settings close-guard pattern.
+- Add the storage charge basis to Rate Plan version configuration with two
+  explicit choices: **Actual usage** and **Allocated quota**. Default existing
+  and migrated pricing to `actual_usage` so current behavior is preserved.
+- Treat a storage charge-basis change like any other effective tariff change:
+  active/expired versions are immutable and a future version is required for a
+  future-month change.
 - Complete API/service tests for:
   - list/detail;
   - create;
@@ -223,6 +247,8 @@ rewritten in place.
 - Future versions can be prepared safely.
 - Direct assignments and their Rate Plan versions resolve the correct effective
   result by month.
+- The settings UX makes the storage charge basis visible and unambiguous for
+  every effective Rate Plan version.
 - Targeted backend/frontend tests, typecheck, lint, migration checks, docs checks,
   and route smoke pass.
 - No unrelated dirty work is modified or committed.
@@ -234,14 +260,16 @@ rewritten in place.
 ### Goal
 
 Turn the existing estimated-cost code into a calculation core suitable for
-auditable monthly statements and external integrations.
+auditable monthly statements and external integrations, with deterministic
+storage quantities for both measured-usage and allocated-quota charging.
 
 ### Required work
 
 - Remove `float` conversion from monetary calculation paths.
 - Introduce canonical decimal helpers/types for:
   - bytes -> GiB quantities;
-  - storage GB-month quantity;
+  - measured storage GiB-month quantity;
+  - allocated-quota GiB-month quantity;
   - ingress/egress quantities;
   - requests per 1,000;
   - unit prices;
@@ -249,18 +277,45 @@ auditable monthly statements and external integrations.
   - totals.
 - Define the rounding/precision contract in code and developer documentation.
 - Keep raw quantities precise enough for recomputation and explanation.
+- Extend the quota-history persistence needed by Billing so a daily subject
+  record retains the effective observed storage quota (`quota_size_bytes`) for
+  that day. The current hourly history already records quota values; Billing
+  must not depend on short-lived hourly retention for monthly quota charging.
+- Keep quota monitoring/notification enablement separate from Billing data
+  requirements. If an effective Rate Plan uses `allocated_quota`, the Billing
+  collection path must have a supported way to collect the required quota
+  history even when quota-alert notifications are disabled.
+- Define the canonical storage quantity contract:
+  - `actual_usage`: use the existing measured average storage quantity for the
+    month;
+  - `allocated_quota`: for each subject/endpoint, sum the recorded daily storage
+    quota expressed in GiB and divide by the number of calendar days in the
+    billing month, producing a prorated allocated GiB-month quantity;
+  - a mid-month quota increase/decrease therefore affects only the days on which
+    the new allocation is observed;
+  - missing daily quota observations reduce quota coverage and are never filled
+    from the current live quota or silently assumed unchanged;
+  - `None`, disabled, unlimited, or non-positive/unusable quota values are
+    explicit non-billable quota states rather than zero allocation.
+- Return storage quantity provenance and coverage alongside the calculated
+  component so Admin previews, statement generation, exports, and integrations
+  all explain which basis was used.
 - Ensure API monetary values serialize without binary floating-point artifacts.
   Prefer decimal strings where necessary to preserve the contract.
 - Add tests for very small prices, large usage values, zero quantities, missing
-  price components, month length boundaries, and deterministic recomputation.
+  price components, month length boundaries, quota changes during a month,
+  missing quota days, unlimited/disabled quota, and deterministic recomputation.
 - Verify current Admin Billing views keep their existing user-facing behavior.
 
 ### Acceptance criteria
 
 - The same usage + effective rate inputs always produce the same exact persisted
   monetary result.
+- The same historical quota observations + effective rate inputs always produce
+  the same exact quota-based storage amount.
 - No canonical Billing money calculation relies on Python/JavaScript binary
   floating-point arithmetic.
+- Quota-based pricing never reads today's live quota to calculate a past month.
 - Current summary/detail/export behavior remains compatible or is deliberately
   migrated with tests and documentation.
 
@@ -498,6 +553,9 @@ Requirements:
 - Preserve an explanation object indicating which layer won and which rate
   version was applied. This explanation is later snapshotted into statement
   lines and exposed in detail views/API responses.
+- The resolved effective Rate Plan version also determines the storage charge
+  basis. The calculation engine must resolve that basis from the same version as
+  the unit prices; do not resolve pricing and quantity basis independently.
 - Validate currency compatibility before totals are combined.
 - Update current Admin Billing summary/subject detail to use the canonical
   resolver without changing unrelated collection behavior.
@@ -506,6 +564,8 @@ Requirements:
 
 - Direct > Entity > Endpoint > Global is enforced by one backend service.
 - The chosen plan/version is explainable for every priced line.
+- The chosen storage charge basis and source quantity are explainable for every
+  priced storage line.
 - Conflicts or missing prices are explicit and cannot be mistaken for zero.
 - Unit and service tests cover every precedence branch and effective-date edge.
 
@@ -529,9 +589,12 @@ Add Entity- and Group-oriented views with:
 - consolidated amount and coverage per Billing Entity;
 - subject-level and endpoint-level drill-down;
 - rate-resolution explanation;
+- storage charge basis (`actual_usage` or `allocated_quota`) and the quantity
+  used for pricing, while retaining measured storage as diagnostic context;
 - conflict count;
 - unassigned-subject count;
 - incomplete storage/usage coverage warnings;
+- incomplete quota coverage warnings when quota-based storage pricing applies;
 - currency visibility;
 - existing raw Account/User analysis still available for diagnosis.
 
@@ -563,6 +626,8 @@ canonical persisted monthly statements.
 ### Acceptance criteria
 
 - An admin can explain a monthly entity total down to endpoint and Account/User.
+- For quota-based storage, an admin can explain the monthly amount from the
+  prorated historical quota and see missing/unusable quota observations.
 - An admin can explain a monthly group total down to its member entities and the
   same endpoint/subject details.
 - An entity belonging to several groups is represented independently in each
@@ -607,7 +672,9 @@ of later mutable application state. Snapshot at least:
 - subject display/technical identity needed for explanation;
 - membership reason(s) and relevant tag labels/IDs at generation time;
 - endpoint ID/name snapshot;
-- usage quantities and source coverage;
+- measured usage/storage quantities and source coverage;
+- storage charge basis plus the exact storage quantity used for pricing;
+- quota quantity/provenance and quota coverage when `allocated_quota` applies;
 - logical Rate Plan and effective version identifiers/names;
 - rate-resolution source (`direct`, `entity`, `endpoint`, `global`);
 - unit prices;
@@ -626,6 +693,8 @@ rendering must not depend on successfully joining mutable live names/tags/rates.
   - cross-entity membership conflicts;
   - mixed currencies;
   - missing effective rate;
+  - missing/unusable quota or insufficient quota-history coverage when the
+    effective Rate Plan uses `allocated_quota`;
   - invalid subject-level mixing;
   - insufficient/missing source coverage according to policy.
 - Allow safe regeneration of drafts. Regeneration must be explicit and must not
@@ -653,6 +722,8 @@ Never purge finalized statements merely because collection rows age out.
 ### Acceptance criteria
 
 - A finalized statement is self-contained, reproducible, and auditable.
+- A finalized quota-based statement remains reproducible even if the live quota
+  is changed or removed later.
 - Changing tags or rate versions after finalization does not change history.
 - Draft generation is idempotent and conflicts cannot slip through finalization.
 - Full migration, service, API, and lifecycle tests pass on supported databases.
@@ -769,6 +840,8 @@ Automatic finalization must call the same canonical finalization service and
 must refuse to finalize when any blocker exists. Define explicit policies for:
 
 - minimum acceptable usage/storage coverage;
+- minimum acceptable quota coverage when any priced line uses
+  `allocated_quota`;
 - unresolved membership conflicts;
 - unassigned subjects when policy requires assignment;
 - missing pricing;
@@ -847,6 +920,9 @@ If draft access is later needed, make it an explicit permission/scope.
 - Include enough line metadata for an external system to either:
   - trust BucketReef's calculated amounts; or
   - consume quantities/rates and apply additional commercial logic itself.
+- Expose the storage charge basis and the exact priced storage quantity so an
+  integration can distinguish consumed-capacity billing from allocated-capacity
+  billing without reverse engineering the amount.
 - Do not leak internal ORM structure or unrelated Admin response payloads.
 - Define backwards-compatibility rules for v1 before calling it supported.
 
@@ -918,6 +994,8 @@ the distinction between chargeback statements and invoices unambiguous.
 Update Admin and operations documentation for:
 
 - rate plan configuration/versioning;
+- actual-usage vs allocated-quota storage charging, including mid-month quota
+  changes, quota-history coverage, and unlimited/disabled quota behavior;
 - Billing Entity creation and membership rules;
 - Billing Entity Group creation, historized membership, overlapping analytical
   groups, and group cost drill-down;
@@ -938,6 +1016,7 @@ Developer documentation must cover:
 
 - Billing domain boundaries;
 - calculation precision/rounding;
+- storage quantity provenance and quota-proration semantics;
 - membership/rate resolution;
 - Billing Entity Group aggregation and historical membership semantics;
 - canonical monthly statement vs derived multi-month/year aggregation semantics;
@@ -1034,6 +1113,14 @@ Exercise at least:
 - custom month-aligned range aggregation with traceable contributing statement
   IDs;
 - direct vs entity vs endpoint vs global price precedence;
+- actual-usage storage charging;
+- allocated-quota storage charging with a stable quota for the whole month;
+- allocated-quota storage charging with a mid-month quota increase/decrease;
+- quota-based charging with missing daily quota observations;
+- quota-based charging with disabled/unlimited quota, which must block rather
+  than silently price zero capacity;
+- a Rate Plan version changing storage charge basis on a month boundary while
+  earlier finalized months remain unchanged;
 - rate version boundary at month changes;
 - missing price;
 - incomplete collection;
