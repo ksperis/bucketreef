@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.core.domain_errors import UiGroupNotFoundError
@@ -61,7 +61,7 @@ class UiGroupsService:
 
     def create_group(self, payload: UiGroupCreate) -> UiGroup:
         name = self._normalize_name(payload.name)
-        if self.db.query(UiGroup).filter(func.lower(UiGroup.name) == name.lower()).first():
+        if self.db.scalar(select(UiGroup).where(func.lower(UiGroup.name) == name.lower())):
             raise ValueError("UI group already exists")
         affected_user_ids = {int(user_id) for user_id in payload.user_ids}
         affected_account_ids = {int(link.account_id) for link in payload.account_links}
@@ -104,17 +104,17 @@ class UiGroupsService:
         return group
 
     def update_group(self, group_id: int, payload: UiGroupUpdate) -> UiGroup:
-        group = self.db.query(UiGroup).filter(UiGroup.id == group_id).first()
+        group = self.db.get(UiGroup, group_id)
         if not group:
             raise UiGroupNotFoundError("UI group not found")
-        existing_user_ids = {
-            row[0]
-            for row in self.db.query(UserUiGroup.user_id).filter(UserUiGroup.group_id == group.id).all()
-        }
-        existing_account_ids = {
-            row[0]
-            for row in self.db.query(UiGroupS3Account.account_id).filter(UiGroupS3Account.group_id == group.id).all()
-        }
+        existing_user_ids = set(
+            self.db.scalars(select(UserUiGroup.user_id).where(UserUiGroup.group_id == group.id)).all()
+        )
+        existing_account_ids = set(
+            self.db.scalars(
+                select(UiGroupS3Account.account_id).where(UiGroupS3Account.group_id == group.id)
+            ).all()
+        )
         affected_user_ids = existing_user_ids | {
             int(user_id) for user_id in (payload.user_ids or [])
         }
@@ -128,7 +128,7 @@ class UiGroupsService:
         )
         if payload.name is not None:
             name = self._normalize_name(payload.name)
-            existing = self.db.query(UiGroup).filter(func.lower(UiGroup.name) == name.lower()).first()
+            existing = self.db.scalar(select(UiGroup).where(func.lower(UiGroup.name) == name.lower()))
             if existing and existing.id != group.id:
                 raise ValueError("UI group already exists")
             group.name = name
@@ -176,17 +176,17 @@ class UiGroupsService:
         return group
 
     def delete_group(self, group_id: int) -> None:
-        group = self.db.query(UiGroup).filter(UiGroup.id == group_id).first()
+        group = self.db.get(UiGroup, group_id)
         if not group:
             raise UiGroupNotFoundError("UI group not found")
-        affected_user_ids = {
-            row[0]
-            for row in self.db.query(UserUiGroup.user_id).filter(UserUiGroup.group_id == group.id).all()
-        }
-        affected_account_ids = {
-            row[0]
-            for row in self.db.query(UiGroupS3Account.account_id).filter(UiGroupS3Account.group_id == group.id).all()
-        }
+        affected_user_ids = set(
+            self.db.scalars(select(UserUiGroup.user_id).where(UserUiGroup.group_id == group.id)).all()
+        )
+        affected_account_ids = set(
+            self.db.scalars(
+                select(UiGroupS3Account.account_id).where(UiGroupS3Account.group_id == group.id)
+            ).all()
+        )
         portal_roles_before = capture_effective_portal_roles(
             self.db,
             user_ids=affected_user_ids,
@@ -207,24 +207,24 @@ class UiGroupsService:
             raise
 
     def get_group(self, group_id: int) -> Optional[UiGroup]:
-        return self.db.query(UiGroup).filter(UiGroup.id == group_id).first()
+        return self.db.get(UiGroup, group_id)
 
     def list_groups_minimal(self) -> list[UiGroupSummary]:
-        rows = self.db.query(UiGroup).order_by(*name_order_by(UiGroup)).all()
+        rows = self.db.scalars(select(UiGroup).order_by(*name_order_by(UiGroup))).all()
         avatar_service = UiGroupAvatarService(self.db)
         return [UiGroupSummary(id=row.id, name=row.name, avatar=avatar_service.descriptor(row)) for row in rows]
 
     @staticmethod
-    def _apply_group_search(query, search_value: str):
+    def _apply_group_search(statement, search_value: str):
         if not search_value:
-            return query
+            return statement
         member = aliased(User)
         account = aliased(S3Account)
         s3_user = aliased(S3User)
         connection = aliased(S3Connection)
         pattern = f"%{search_value}%"
         return (
-            query.outerjoin(UserUiGroup, UiGroup.id == UserUiGroup.group_id)
+            statement.outerjoin(UserUiGroup, UiGroup.id == UserUiGroup.group_id)
             .outerjoin(member, UserUiGroup.user_id == member.id)
             .outerjoin(UiGroupS3Account, UiGroup.id == UiGroupS3Account.group_id)
             .outerjoin(account, UiGroupS3Account.account_id == account.id)
@@ -238,7 +238,7 @@ class UiGroupsService:
                     connection.is_shared.is_(True),
                 ),
             )
-            .filter(
+            .where(
                 or_(
                     UiGroup.name.ilike(pattern),
                     func.coalesce(UiGroup.description, "").ilike(pattern),
@@ -279,47 +279,43 @@ class UiGroupsService:
         sort_direction: str = "asc",
     ) -> tuple[list[UiGroupOut], int]:
         search_value = search.strip() if isinstance(search, str) else ""
-        query = self._apply_group_search(self.db.query(UiGroup), search_value)
-        total = query.with_entities(func.count(func.distinct(UiGroup.id))).scalar() or 0
+        statement = self._apply_group_search(select(UiGroup), search_value)
+        total = self.db.scalar(
+            select(func.count()).select_from(statement.order_by(None).subquery())
+        ) or 0
         offset = max(page - 1, 0) * page_size
-        rows = (
-            query.order_by(*self._group_order_columns(sort_field, sort_direction))
+        rows = self.db.scalars(
+            statement.order_by(*self._group_order_columns(sort_field, sort_direction))
             .offset(offset)
             .limit(page_size)
-            .all()
-        )
+        ).all()
         return [self.group_to_out(group) for group in rows], total
 
     def _preload_group_output(self, group_id: int) -> _UiGroupOutputPreload:
-        user_rows = (
-            self.db.query(User)
+        user_rows = self.db.scalars(
+            select(User)
             .join(UserUiGroup, UserUiGroup.user_id == User.id)
-            .filter(UserUiGroup.group_id == group_id)
+            .where(UserUiGroup.group_id == group_id)
             .order_by(User.email.asc())
-            .all()
-        )
-        account_rows = (
-            self.db.query(UiGroupS3Account)
-            .filter(UiGroupS3Account.group_id == group_id)
+        ).all()
+        account_rows = self.db.scalars(
+            select(UiGroupS3Account)
+            .where(UiGroupS3Account.group_id == group_id)
             .order_by(UiGroupS3Account.account_id.asc())
-            .all()
-        )
-        s3_user_rows = (
-            self.db.query(UiGroupS3User)
-            .filter(UiGroupS3User.group_id == group_id)
-            .all()
-        )
-        s3_connection_rows = (
-            self.db.query(UiGroupS3Connection.s3_connection_id)
+        ).all()
+        s3_user_rows = self.db.scalars(
+            select(UiGroupS3User).where(UiGroupS3User.group_id == group_id)
+        ).all()
+        s3_connection_ids = self.db.scalars(
+            select(UiGroupS3Connection.s3_connection_id)
             .join(S3Connection, S3Connection.id == UiGroupS3Connection.s3_connection_id)
-            .filter(
+            .where(
                 UiGroupS3Connection.group_id == group_id,
                 S3Connection.is_shared.is_(True),
             )
-            .all()
-        )
+        ).all()
         s3_user_ids = sorted(row.s3_user_id for row in s3_user_rows)
-        s3_connection_ids = sorted(row[0] for row in s3_connection_rows)
+        s3_connection_ids = sorted(s3_connection_ids)
         account_ids = sorted(link.account_id for link in account_rows)
         return _UiGroupOutputPreload(
             users=user_rows,
@@ -441,7 +437,9 @@ class UiGroupsService:
             cleaned_ids,
             entity_label="Users",
         )
-        existing = self.db.query(UserUiGroup).filter(UserUiGroup.group_id == group.id).all()
+        existing = self.db.scalars(
+            select(UserUiGroup).where(UserUiGroup.group_id == group.id)
+        ).all()
         existing_ids = {link.user_id for link in existing}
         desired_ids = set(cleaned_ids)
         self._delete_removed_user_links(group.id, existing_ids - desired_ids)
@@ -456,7 +454,9 @@ class UiGroupsService:
             cleaned,
             entity_label="S3 accounts",
         )
-        existing = self.db.query(UiGroupS3Account).filter(UiGroupS3Account.group_id == group.id).all()
+        existing = self.db.scalars(
+            select(UiGroupS3Account).where(UiGroupS3Account.group_id == group.id)
+        ).all()
         existing_by_id = {link.account_id: link for link in existing}
         desired_ids = set(cleaned)
         for account_id in set(existing_by_id) - desired_ids:
@@ -490,15 +490,21 @@ class UiGroupsService:
             cleaned_ids,
             entity_label="S3 users",
         )
-        existing = self.db.query(UiGroupS3User).filter(UiGroupS3User.group_id == group.id).all()
+        existing = self.db.scalars(
+            select(UiGroupS3User).where(UiGroupS3User.group_id == group.id)
+        ).all()
         existing_by_id = {link.s3_user_id: link for link in existing}
         existing_ids = set(existing_by_id)
         desired_ids = set(cleaned_ids)
         for s3_user_id in existing_ids - desired_ids:
-            self.db.query(UiGroupS3User).filter(
-                UiGroupS3User.group_id == group.id,
-                UiGroupS3User.s3_user_id == s3_user_id,
-            ).delete(synchronize_session=False)
+            self.db.execute(
+                delete(UiGroupS3User)
+                .where(
+                    UiGroupS3User.group_id == group.id,
+                    UiGroupS3User.s3_user_id == s3_user_id,
+                )
+                .execution_options(synchronize_session=False)
+            )
         for s3_user_id in desired_ids - existing_ids:
             self.db.add(
                 UiGroupS3User(
@@ -519,14 +525,20 @@ class UiGroupsService:
     def _set_s3_connection_links(self, group: UiGroup, target_ids: list[int]) -> None:
         cleaned_ids = self._clean_ids(target_ids)
         ensure_shared_s3_connections(self.db, cleaned_ids)
-        existing = self.db.query(UiGroupS3Connection).filter(UiGroupS3Connection.group_id == group.id).all()
+        existing = self.db.scalars(
+            select(UiGroupS3Connection).where(UiGroupS3Connection.group_id == group.id)
+        ).all()
         existing_ids = {link.s3_connection_id for link in existing}
         desired_ids = set(cleaned_ids)
         for connection_id in existing_ids - desired_ids:
-            self.db.query(UiGroupS3Connection).filter(
-                UiGroupS3Connection.group_id == group.id,
-                UiGroupS3Connection.s3_connection_id == connection_id,
-            ).delete(synchronize_session=False)
+            self.db.execute(
+                delete(UiGroupS3Connection)
+                .where(
+                    UiGroupS3Connection.group_id == group.id,
+                    UiGroupS3Connection.s3_connection_id == connection_id,
+                )
+                .execution_options(synchronize_session=False)
+            )
         for connection_id in desired_ids - existing_ids:
             self.db.add(UiGroupS3Connection(group_id=group.id, s3_connection_id=connection_id))
 
@@ -542,19 +554,21 @@ class UiGroupsService:
     def _delete_removed_user_links(self, group_id: int, user_ids: set[int]) -> None:
         if not user_ids:
             return
-        self.db.query(UserUiGroup).filter(
-            UserUiGroup.group_id == group_id,
-            UserUiGroup.user_id.in_(user_ids),
-        ).delete(synchronize_session=False)
+        self.db.execute(
+            delete(UserUiGroup)
+            .where(
+                UserUiGroup.group_id == group_id,
+                UserUiGroup.user_id.in_(user_ids),
+            )
+            .execution_options(synchronize_session=False)
+        )
 
     def _load_account_names(self, ids: list[int]) -> dict[int, tuple[str, str]]:
         if not ids:
             return {}
-        rows = (
-            self.db.query(S3Account.id, S3Account.name, S3Account.rgw_account_id)
-            .filter(S3Account.id.in_(ids))
-            .all()
-        )
+        rows = self.db.execute(
+            select(S3Account.id, S3Account.name, S3Account.rgw_account_id).where(S3Account.id.in_(ids))
+        ).all()
         return {row[0]: (row[1], row[2]) for row in rows}
 
 def get_ui_groups_service(db: Session) -> UiGroupsService:

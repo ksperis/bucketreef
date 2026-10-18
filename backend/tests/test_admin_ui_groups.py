@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 
 from tests.feature_policy_fixtures import enable_manager_features
 from app.db import (
@@ -272,9 +273,11 @@ def test_ui_group_listings_share_stable_case_insensitive_order(client: TestClien
         for name in ("Zulu", "alpha", "Beta")
     ]
     tied_at = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    db_session.query(UiGroup).filter(UiGroup.id.in_([item["id"] for item in created])).update(
-        {UiGroup.created_at: tied_at},
-        synchronize_session=False,
+    db_session.execute(
+        update(UiGroup)
+        .where(UiGroup.id.in_([item["id"] for item in created]))
+        .values(created_at=tied_at)
+        .execution_options(synchronize_session=False)
     )
     db_session.commit()
 
