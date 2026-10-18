@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import PortalAdminRequest, User, UserNotification, UserRole
@@ -22,11 +23,12 @@ class PortalRequestNotificationService:
         self.db = db
 
     def notify_admins(self, row: PortalAdminRequest) -> None:
-        admins = (
-            self.db.query(User)
-            .filter(User.is_active.is_(True), User.role.in_(ADMIN_ROLES))
-            .all()
-        )
+        admins = self.db.scalars(
+            select(User).where(
+                User.is_active.is_(True),
+                User.role.in_(ADMIN_ROLES),
+            )
+        ).all()
         for admin in admins:
             self._add_notification(
                 user_id=int(admin.id),
@@ -74,13 +76,13 @@ class PortalRequestNotificationService:
         severity: str,
         payload: dict[str, Any],
     ) -> None:
-        exists = (
-            self.db.query(UserNotification.id)
-            .filter(
+        exists = self.db.scalar(
+            select(UserNotification.id)
+            .where(
                 UserNotification.user_id == int(user_id),
                 UserNotification.event_key == event_key,
             )
-            .first()
+            .limit(1)
         )
         if exists:
             return
