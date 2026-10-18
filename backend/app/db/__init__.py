@@ -53,6 +53,8 @@ from .billing import (
     BillingEntityTagRule,
     BillingRateCard,
     BillingRatePlan,
+    BillingStatement,
+    BillingStatementLine,
     BillingStorageDaily,
     BillingUsageDaily,
 )
@@ -130,6 +132,8 @@ __all__ = [
     "BillingEntityTagRule",
     "BillingRateCard",
     "BillingRatePlan",
+    "BillingStatement",
+    "BillingStatementLine",
     "BillingStorageDaily",
     "BillingUsageDaily",
     "QuotaUsageHourly",

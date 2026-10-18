@@ -74,9 +74,11 @@ business views under the same page:
 
 These Entity and Group views are live monthly previews. They resolve current
 membership rules and the tariff version effective for the selected month; they
-are not finalized historical statements. Conflicted subjects stay visible but
-are excluded from consolidated totals so ambiguity cannot silently become
-double billing.
+are distinct from persisted historical statements. BucketReef stores reviewed
+monthly Billing Entity results as immutable Billing Statements; the dedicated
+statement review/finalization UI is introduced separately from these live
+preview tabs. Conflicted subjects stay visible but are excluded from consolidated
+totals so ambiguity cannot silently become double billing.
 
 For **Actual usage**, the storage quantity used for pricing is measured storage.
 For **Allocated quota**, the detail keeps measured storage visible for context

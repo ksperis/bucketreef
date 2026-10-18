@@ -496,3 +496,123 @@ class BillingEntityGroupMembership(Base):
 
     group = relationship("BillingEntityGroup", back_populates="memberships")
     entity = relationship("BillingEntity", back_populates="group_memberships")
+
+
+class BillingStatement(Base):
+    __tablename__ = "billing_statements"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'finalized')",
+            name="ck_billing_statements_status",
+        ),
+        CheckConstraint(
+            "subject_type IN ('account', 's3_user')",
+            name="ck_billing_statements_subject_type",
+        ),
+        CheckConstraint(
+            "period_end >= period_start",
+            name="ck_billing_statements_period",
+        ),
+        UniqueConstraint(
+            "billing_entity_id",
+            "period_start",
+            "currency",
+            name="uq_billing_statements_entity_period_currency",
+        ),
+        Index(
+            "ix_billing_statements_period_status",
+            "period_start",
+            "status",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(String(36), nullable=False, unique=True, index=True)
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id"),
+        nullable=False,
+        index=True,
+    )
+    billing_entity_name = Column(String, nullable=False)
+    billing_entity_code = Column(String, nullable=True)
+    billing_entity_external_id = Column(String, nullable=True)
+    subject_type = Column(String, nullable=False)
+    period_start = Column(Date, nullable=False, index=True)
+    period_end = Column(Date, nullable=False)
+    currency = Column(String(3), nullable=False)
+    status = Column(String, nullable=False, default="draft", server_default="draft")
+    member_count = Column(Integer, nullable=False, default=0, server_default="0")
+    coverage_json = Column(Text, nullable=False)
+    blockers_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    storage_charge_bases_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    subtotal = Column(Numeric(24, 6), nullable=False, default=0, server_default="0")
+    total = Column(Numeric(24, 6), nullable=False, default=0, server_default="0")
+    source_fingerprint = Column(String(64), nullable=False)
+    revision = Column(Integer, nullable=False, default=1, server_default="1")
+    generated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    finalized_at = Column(UTCDateTime(), nullable=True)
+    finalized_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    finalized_by_user_email = Column(String, nullable=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    entity = relationship("BillingEntity")
+    finalized_by = relationship("User")
+    lines = relationship(
+        "BillingStatementLine",
+        back_populates="statement",
+        cascade="all, delete-orphan",
+        order_by="BillingStatementLine.line_index",
+    )
+
+
+class BillingStatementLine(Base):
+    __tablename__ = "billing_statement_lines"
+    __table_args__ = (
+        CheckConstraint(
+            "subject_type IN ('account', 's3_user')",
+            name="ck_billing_statement_lines_subject_type",
+        ),
+        CheckConstraint(
+            "storage_charge_basis IS NULL OR storage_charge_basis IN ('actual_usage', 'allocated_quota')",
+            name="ck_billing_statement_lines_storage_charge_basis",
+        ),
+        UniqueConstraint(
+            "billing_statement_id",
+            "line_index",
+            name="uq_billing_statement_lines_position",
+        ),
+        Index(
+            "ix_billing_statement_lines_subject",
+            "subject_type",
+            "subject_id",
+        ),
+        Index(
+            "ix_billing_statement_lines_endpoint",
+            "storage_endpoint_id",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    billing_statement_id = Column(
+        Integer,
+        ForeignKey("billing_statements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    line_index = Column(Integer, nullable=False)
+    subject_type = Column(String, nullable=False)
+    subject_id = Column(Integer, nullable=False)
+    subject_name = Column(String, nullable=False)
+    rgw_identifier = Column(String, nullable=False)
+    storage_endpoint_id = Column(Integer, nullable=False)
+    storage_endpoint_name = Column(String, nullable=False)
+    currency = Column(String(3), nullable=False)
+    storage_charge_basis = Column(String, nullable=True)
+    total_cost = Column(Numeric(24, 6), nullable=True)
+    complete = Column(Boolean, nullable=False, default=False, server_default="0")
+    snapshot_json = Column(Text, nullable=False)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+
+    statement = relationship("BillingStatement", back_populates="lines")

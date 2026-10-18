@@ -675,6 +675,8 @@ canonical persisted monthly statements.
 
 ## Objective 7 — Introduce Monthly Billing Statements and immutable snapshots
 
+Implementation status: **completed**.
+
 ### Goal
 
 Persist the auditable monthly result that becomes the boundary between

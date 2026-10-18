@@ -21,6 +21,9 @@ from app.models.billing import (
     BillingRateCardAdminItem,
     BillingRateCardPayload,
     BillingRateCardVersionCreate,
+    BillingStatementGenerationRequest,
+    BillingStatementGenerationResult,
+    BillingStatementItem,
     BillingSubjectDetail,
     BillingSubjectsResponse,
     BillingSummary,
@@ -45,6 +48,13 @@ from app.services.billing_entity_group_service import (
     BillingEntityGroupNotFoundError,
     BillingEntityGroupService,
 )
+from app.services.billing_statement_service import (
+    BillingStatementBlockedError,
+    BillingStatementImmutableError,
+    BillingStatementNotFoundError,
+    BillingStatementService,
+    BillingStatementStaleError,
+)
 from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
 
@@ -54,6 +64,21 @@ router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
 def _raise_billing_http_error(exc: ValueError) -> NoReturn:
     if isinstance(exc, BillingDisabledError):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Billing is disabled") from exc
+    raise_http_error_from_value_error(exc)
+
+
+def _billing_statement_http_error(exc: ValueError) -> NoReturn:
+    if isinstance(exc, BillingStatementNotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    if isinstance(
+        exc,
+        (
+            BillingStatementBlockedError,
+            BillingStatementImmutableError,
+            BillingStatementStaleError,
+        ),
+    ):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     raise_http_error_from_value_error(exc)
 
 
@@ -80,6 +105,98 @@ def billing_analysis(
         return AdminBillingService(db).analysis(month)
     except ValueError as exc:
         _raise_billing_http_error(exc)
+
+
+@router.get("/statements", response_model=list[BillingStatementItem])
+def billing_statements(
+    month: str | None = Query(None, description="YYYY-MM"),
+    billing_entity_id: int | None = Query(None, ge=1),
+    statement_status: str | None = Query(None, alias="status"),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> list[BillingStatementItem]:
+    try:
+        return BillingStatementService(db).list(
+            month=month,
+            billing_entity_id=billing_entity_id,
+            status=statement_status,
+        )
+    except ValueError as exc:
+        _billing_statement_http_error(exc)
+
+
+@router.post("/statements/generate", response_model=BillingStatementGenerationResult)
+def generate_billing_statements(
+    payload: BillingStatementGenerationRequest,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingStatementGenerationResult:
+    try:
+        result = BillingStatementService(db).generate(
+            month=payload.month,
+            billing_entity_id=payload.billing_entity_id,
+            regenerate=payload.regenerate,
+        )
+    except ValueError as exc:
+        _billing_statement_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_statement.regenerate" if payload.regenerate else "billing_statement.generate",
+        entity_type="billing_entity",
+        entity_id=str(payload.billing_entity_id),
+        metadata={
+            "month": result.month,
+            "statement_ids": [item.id for item in result.statements],
+            "statement_public_ids": [item.public_id for item in result.statements],
+            "currencies": [item.currency for item in result.statements],
+            "revisions": [item.revision for item in result.statements],
+            "blockers": result.blockers,
+        },
+    )
+    return result
+
+
+@router.get("/statements/{statement_id}", response_model=BillingStatementItem)
+def billing_statement(
+    statement_id: int,
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> BillingStatementItem:
+    try:
+        return BillingStatementService(db).get(statement_id)
+    except ValueError as exc:
+        _billing_statement_http_error(exc)
+
+
+@router.post("/statements/{statement_id}/finalize", response_model=BillingStatementItem)
+def finalize_billing_statement(
+    statement_id: int,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingStatementItem:
+    try:
+        item = BillingStatementService(db).finalize(statement_id, actor=current_user)
+    except ValueError as exc:
+        _billing_statement_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_statement.finalize",
+        entity_type="billing_statement",
+        entity_id=str(item.id),
+        metadata={
+            "public_id": item.public_id,
+            "billing_entity_id": item.billing_entity_id,
+            "period_start": item.period_start.isoformat(),
+            "currency": item.currency,
+            "total": str(item.total),
+            "revision": item.revision,
+        },
+    )
+    return item
 
 
 @router.post("/collect/daily")
