@@ -92,8 +92,8 @@ function draftFromCard(card: BillingRateCard, mode: EditorMode): Draft {
   };
 }
 
-function parsePrice(value: string): number | null {
-  return value.trim() ? Number(value) : null;
+function parsePrice(value: string): string | null {
+  return value.trim() || null;
 }
 
 function statusTone(status: BillingRateCard["status"]): "success" | "neutral" | "warning" {
@@ -458,9 +458,14 @@ export default function BillingSettingsPage() {
 
               <div className="settings-fields sm:grid-cols-2">
                 {([
-                  ["storage", "Storage / GB-month"],
-                  ["egress", "Egress / GB"],
-                  ["ingress", "Ingress / GB"],
+                  [
+                    "storage",
+                    draft.storageChargeBasis === "allocated_quota"
+                      ? "Storage / allocated GiB-month"
+                      : "Storage / measured GiB-month",
+                  ],
+                  ["egress", "Egress / GiB"],
+                  ["ingress", "Ingress / GiB"],
                   ["requests", "Requests / 1,000"],
                 ] as const).map(([key, label]) => (
                   <UiInput

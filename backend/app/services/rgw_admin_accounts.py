@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from app.services.rgw_admin_transport import RGWAdminError, RGWAdminOperationResponse
-from app.utils.quota_stats import extract_quota_limits
+from app.utils.quota_stats import QuotaSnapshot, extract_quota_limits, extract_quota_snapshot
 from app.utils.rgw_payloads import rgw_qualified_uid
 from app.utils.rgw_account_extra_params import validate_rgw_account_extra_params
 
@@ -235,6 +235,12 @@ class RGWAdminAccountOperations:
         if payload.get("not_found"):
             return None, None
         return extract_quota_limits(payload, keys=("quota", "account_quota"))
+
+    def get_account_quota_snapshot(self, account_id: str) -> QuotaSnapshot:
+        payload = self.get_account(account_id, allow_not_found=True) or {}
+        if payload.get("not_found"):
+            return QuotaSnapshot(None, None, "missing")
+        return extract_quota_snapshot(payload, keys=("quota", "account_quota"))
 
     def list_accounts(self, include_details: bool = True) -> list[Dict[str, Any]]:
         params: Dict[str, Any] = {"format": "json"}

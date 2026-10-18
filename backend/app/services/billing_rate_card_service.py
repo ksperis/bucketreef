@@ -300,8 +300,8 @@ class BillingRateCardService:
             raise BillingRateCardConflictError(message) from exc
 
     @staticmethod
-    def _decimal(value: Optional[float]) -> Optional[Decimal]:
-        return Decimal(str(value)) if value is not None else None
+    def _decimal(value: Optional[Decimal]) -> Optional[Decimal]:
+        return value
 
     @staticmethod
     def _status(row: BillingRateCard) -> str:
@@ -321,26 +321,10 @@ class BillingRateCardService:
             name=plan.name,
             currency=row.currency,
             storage_charge_basis=row.storage_charge_basis,
-            storage_gb_month_price=(
-                float(row.storage_gb_month_price)
-                if row.storage_gb_month_price is not None
-                else None
-            ),
-            egress_gb_price=(
-                float(row.egress_gb_price)
-                if row.egress_gb_price is not None
-                else None
-            ),
-            ingress_gb_price=(
-                float(row.ingress_gb_price)
-                if row.ingress_gb_price is not None
-                else None
-            ),
-            requests_per_1000_price=(
-                float(row.requests_per_1000_price)
-                if row.requests_per_1000_price is not None
-                else None
-            ),
+            storage_gb_month_price=row.storage_gb_month_price,
+            egress_gb_price=row.egress_gb_price,
+            ingress_gb_price=row.ingress_gb_price,
+            requests_per_1000_price=row.requests_per_1000_price,
             effective_from=row.effective_from,
             effective_to=row.effective_to,
             storage_endpoint_id=plan.storage_endpoint_id,

@@ -5,6 +5,8 @@
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
 import { S3AccountSelector, withS3AccountParam } from "./accountParams";
 
+export type BillingDecimal = string | number;
+
 export type BillingCoverage = {
   days_collected: number;
   days_in_month: number;
@@ -15,12 +17,25 @@ export type BillingCoverage = {
 
 export type BillingCost = {
   currency?: string | null;
-  storage_cost?: number | null;
-  egress_cost?: number | null;
-  ingress_cost?: number | null;
-  requests_cost?: number | null;
-  total_cost?: number | null;
+  storage_cost?: BillingDecimal | null;
+  egress_cost?: BillingDecimal | null;
+  ingress_cost?: BillingDecimal | null;
+  requests_cost?: BillingDecimal | null;
+  total_cost?: BillingDecimal | null;
   rate_card_name?: string | null;
+  storage_quantity?: BillingStorageChargeQuantity | null;
+  complete: boolean;
+};
+
+export type BillingStorageChargeQuantity = {
+  basis: "actual_usage" | "allocated_quota";
+  quantity_gib_month?: BillingDecimal | null;
+  observations_collected: number;
+  observations_expected: number;
+  calendar_days: number;
+  coverage_ratio: BillingDecimal;
+  status: "complete" | "partial" | "blocked";
+  issues: string[];
 };
 
 export type BillingUsageTotals = {
@@ -32,7 +47,7 @@ export type BillingUsageTotals = {
 
 export type BillingStorageTotals = {
   avg_bytes?: number | null;
-  avg_gb_month?: number | null;
+  avg_gb_month?: BillingDecimal | null;
   total_objects?: number | null;
 };
 
@@ -66,6 +81,8 @@ type BillingSubjectsResponse = {
 export type BillingDailySeriesPoint = {
   day: string;
   storage_bytes?: number | null;
+  quota_size_bytes?: number | null;
+  quota_state?: "valid" | "missing" | "disabled" | "unlimited" | "invalid" | null;
   bytes_in?: number | null;
   bytes_out?: number | null;
   ops_total?: number | null;
@@ -160,10 +177,10 @@ export type BillingRateCard = {
   name: string;
   currency: string;
   storage_charge_basis: "actual_usage" | "allocated_quota";
-  storage_gb_month_price?: number | null;
-  egress_gb_price?: number | null;
-  ingress_gb_price?: number | null;
-  requests_per_1000_price?: number | null;
+  storage_gb_month_price?: BillingDecimal | null;
+  egress_gb_price?: BillingDecimal | null;
+  ingress_gb_price?: BillingDecimal | null;
+  requests_per_1000_price?: BillingDecimal | null;
   effective_from: string;
   effective_to?: string | null;
   storage_endpoint_id?: number | null;
@@ -180,10 +197,10 @@ export type BillingRateCardPayload = {
   name: string;
   currency: string;
   storage_charge_basis: "actual_usage" | "allocated_quota";
-  storage_gb_month_price?: number | null;
-  egress_gb_price?: number | null;
-  ingress_gb_price?: number | null;
-  requests_per_1000_price?: number | null;
+  storage_gb_month_price?: string | null;
+  egress_gb_price?: string | null;
+  ingress_gb_price?: string | null;
+  requests_per_1000_price?: string | null;
   effective_from: string;
   effective_to?: string | null;
   storage_endpoint_id?: number | null;

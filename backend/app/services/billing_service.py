@@ -8,6 +8,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Iterable, Optional, TypeAlias
 
 from sqlalchemy import func, select
@@ -28,12 +29,23 @@ from app.models.billing import (
     BillingCost,
     BillingCoverage,
     BillingDailySeriesPoint,
+    BillingStorageChargeQuantity,
     BillingStorageTotals,
     BillingSubjectDetail,
     BillingSubjectSummary,
     BillingSubjectsResponse,
     BillingSummary,
     BillingUsageTotals,
+)
+from app.services.billing_calculation import (
+    StorageQuantity,
+    allocated_quota_storage_quantity,
+    bytes_sum_to_average_gib_month,
+    bytes_to_gib,
+    component_amount,
+    measured_storage_quantity,
+    monetary_total,
+    requests_to_thousands,
 )
 settings = get_settings()
 
@@ -55,11 +67,24 @@ class BillingTotals:
     ops_total: int
     ops_breakdown: Optional[dict[str, int]]
     avg_storage_bytes: Optional[int]
-    avg_storage_gb_month: Optional[float]
+    avg_storage_gb_month: Optional[Decimal]
+    storage_total_bytes: int
     total_objects: Optional[int]
     days_with_data: int
     storage_days_with_data: int = 0
     usage_days_with_data: int = 0
+    quota_observations: tuple[tuple[Optional[int], str], ...] = ()
+    quota_expected_observations: int = 0
+
+
+@dataclass
+class BillingStorageAggregate:
+    total_bytes: int
+    avg_bytes: Optional[int]
+    avg_gb_month: Optional[Decimal]
+    total_objects: Optional[int]
+    days_with_data: int
+    quota_observations: tuple[tuple[Optional[int], str], ...]
 
 
 def _parse_month(value: str) -> BillingPeriod:
@@ -95,10 +120,8 @@ def _coverage(
     )
 
 
-def _bytes_to_gb(value: Optional[int]) -> Optional[float]:
-    if value is None:
-        return None
-    return float(value) / (1024 ** 3)
+def _bytes_to_gb(value: Optional[int]) -> Optional[Decimal]:
+    return bytes_to_gib(value)
 
 
 def _parse_ops_breakdown(raw: str) -> dict[str, int]:
@@ -125,30 +148,65 @@ def _merge_ops_breakdown(rows: Iterable[BillingUsageDaily]) -> dict[str, int]:
     return dict(merged)
 
 
-def _compute_cost(rate_card: Optional[BillingRateCard], totals: BillingTotals) -> Optional[BillingCost]:
+def _storage_quantity_for_cost(
+    rate_card: BillingRateCard,
+    totals: BillingTotals,
+    period: BillingPeriod,
+) -> StorageQuantity:
+    if rate_card.storage_charge_basis == "allocated_quota":
+        return allocated_quota_storage_quantity(
+            observations=totals.quota_observations,
+            days_in_month=period.days_in_month,
+            expected_observations=totals.quota_expected_observations,
+        )
+    return measured_storage_quantity(
+        total_bytes=totals.storage_total_bytes,
+        observed_days=totals.storage_days_with_data,
+        days_in_month=period.days_in_month,
+    )
+
+
+def _storage_quantity_model(quantity: StorageQuantity) -> BillingStorageChargeQuantity:
+    return BillingStorageChargeQuantity(
+        basis=quantity.basis,
+        quantity_gib_month=quantity.quantity_gib_month,
+        observations_collected=quantity.observations_collected,
+        observations_expected=quantity.observations_expected,
+        calendar_days=quantity.calendar_days,
+        coverage_ratio=quantity.coverage_ratio,
+        status=quantity.status,
+        issues=list(quantity.issues),
+    )
+
+
+def _compute_cost(
+    rate_card: Optional[BillingRateCard],
+    totals: BillingTotals,
+    period: BillingPeriod,
+) -> Optional[BillingCost]:
     if not rate_card:
         return None
-    storage_gb_month = totals.avg_storage_gb_month
-    egress_gb = _bytes_to_gb(totals.bytes_out)
-    ingress_gb = _bytes_to_gb(totals.bytes_in)
-    requests_k = totals.ops_total / 1000
+    storage_quantity = _storage_quantity_for_cost(rate_card, totals, period)
+    egress_gb = bytes_to_gib(totals.bytes_out)
+    ingress_gb = bytes_to_gib(totals.bytes_in)
+    requests_k = requests_to_thousands(totals.ops_total)
 
-    storage_cost = None
-    if rate_card.storage_gb_month_price is not None and storage_gb_month is not None:
-        storage_cost = float(rate_card.storage_gb_month_price) * storage_gb_month
-    egress_cost = None
-    if rate_card.egress_gb_price is not None and egress_gb is not None:
-        egress_cost = float(rate_card.egress_gb_price) * egress_gb
-    ingress_cost = None
-    if rate_card.ingress_gb_price is not None and ingress_gb is not None:
-        ingress_cost = float(rate_card.ingress_gb_price) * ingress_gb
-    requests_cost = None
-    if rate_card.requests_per_1000_price is not None:
-        requests_cost = float(rate_card.requests_per_1000_price) * requests_k
+    storage_cost = component_amount(rate_card.storage_gb_month_price, storage_quantity.quantity_gib_month)
+    egress_cost = component_amount(rate_card.egress_gb_price, egress_gb)
+    ingress_cost = component_amount(rate_card.ingress_gb_price, ingress_gb)
+    requests_cost = component_amount(rate_card.requests_per_1000_price, requests_k)
 
-    components = [storage_cost, egress_cost, ingress_cost, requests_cost]
-    has_component = any(value is not None for value in components)
-    total_cost = sum(value for value in components if value is not None) if has_component else None
+    storage_required_without_quantity = (
+        rate_card.storage_gb_month_price is not None
+        and storage_quantity.quantity_gib_month is None
+    )
+    total_cost = None if storage_required_without_quantity else monetary_total(
+        (storage_cost, egress_cost, ingress_cost, requests_cost)
+    )
+    complete = (
+        rate_card.storage_gb_month_price is None
+        or storage_quantity.status == "complete"
+    )
 
     return BillingCost(
         currency=rate_card.currency,
@@ -158,6 +216,8 @@ def _compute_cost(rate_card: Optional[BillingRateCard], totals: BillingTotals) -
         requests_cost=requests_cost,
         total_cost=total_cost,
         rate_card_name=rate_card.rate_plan.name,
+        storage_quantity=_storage_quantity_model(storage_quantity),
+        complete=complete,
     )
 
 
@@ -266,7 +326,7 @@ class BillingService:
         period = _parse_month(month)
         totals = self._aggregate_totals(period, endpoint_id=endpoint_id)
         rate_card = _resolve_rate_card(self.db, endpoint_id, period)
-        cost = _compute_cost(rate_card, totals)
+        cost = _compute_cost(rate_card, totals, period)
         return BillingSummary(
             month=period.month,
             storage_endpoint_id=endpoint_id,
@@ -343,7 +403,7 @@ class BillingService:
         storage_rows = self._storage_rows_for_subject(period, endpoint_id, subject_type, subject_id)
         total_storage_bytes = sum(row.total_bytes for row in storage_rows)
         days_with_storage = len(storage_rows)
-        avg_storage_bytes = int(total_storage_bytes / days_with_storage) if days_with_storage else None
+        avg_storage_bytes = total_storage_bytes // days_with_storage if days_with_storage else None
         usage_days = len({row.day for row in usage_rows})
         totals = BillingTotals(
             bytes_in=sum(row.bytes_in for row in usage_rows),
@@ -351,17 +411,31 @@ class BillingService:
             ops_total=sum(row.ops_total for row in usage_rows),
             ops_breakdown=_merge_ops_breakdown(usage_rows) if usage_rows else None,
             avg_storage_bytes=avg_storage_bytes,
-            avg_storage_gb_month=_bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
+            avg_storage_gb_month=bytes_sum_to_average_gib_month(
+                total_storage_bytes,
+                days_with_storage,
+            ),
+            storage_total_bytes=total_storage_bytes,
             total_objects=(sum(row.total_objects for row in storage_rows) if storage_rows else None),
             days_with_data=max(days_with_storage, usage_days),
             storage_days_with_data=days_with_storage,
             usage_days_with_data=usage_days,
+            quota_observations=tuple(
+                (row.quota_size_bytes, row.quota_state)
+                for row in storage_rows
+            ),
+            quota_expected_observations=period.days_in_month,
         )
 
         daily_map: dict[str, BillingDailySeriesPoint] = {}
         for row in storage_rows:
             key = row.day.isoformat()
-            daily_map[key] = BillingDailySeriesPoint(day=key, storage_bytes=row.total_bytes)
+            daily_map[key] = BillingDailySeriesPoint(
+                day=key,
+                storage_bytes=row.total_bytes,
+                quota_size_bytes=row.quota_size_bytes,
+                quota_state=row.quota_state,
+            )
         for row in usage_rows:
             key = row.day.isoformat()
             entry = daily_map.get(key) or BillingDailySeriesPoint(day=key)
@@ -371,7 +445,11 @@ class BillingService:
             daily_map[key] = entry
 
         daily = sorted(daily_map.values(), key=lambda entry: entry.day)
-        cost = _compute_cost(_resolve_rate_card(self.db, endpoint_id, period, subject_type, subject_id), totals)
+        cost = _compute_cost(
+            _resolve_rate_card(self.db, endpoint_id, period, subject_type, subject_id),
+            totals,
+            period,
+        )
 
         return BillingSubjectDetail(
             month=period.month,
@@ -406,6 +484,10 @@ class BillingService:
                 "egress_gb",
                 "ingress_gb",
                 "requests_k",
+                "storage_charge_basis",
+                "priced_storage_gib_month",
+                "storage_quantity_status",
+                "storage_quantity_coverage",
                 "total_cost",
                 "currency",
             ]
@@ -417,10 +499,24 @@ class BillingService:
                     item.subject_id,
                     item.name,
                     item.rgw_identifier or "",
-                    f"{item.storage.avg_gb_month:.6f}" if item.storage.avg_gb_month is not None else "",
-                    f"{_bytes_to_gb(item.usage.bytes_out):.6f}" if item.usage.bytes_out is not None else "",
-                    f"{_bytes_to_gb(item.usage.bytes_in):.6f}" if item.usage.bytes_in is not None else "",
-                    f"{item.usage.ops_total / 1000:.6f}" if item.usage.ops_total is not None else "",
+                    format(item.storage.avg_gb_month, "f") if item.storage.avg_gb_month is not None else "",
+                    format(_bytes_to_gb(item.usage.bytes_out), "f") if item.usage.bytes_out is not None else "",
+                    format(_bytes_to_gb(item.usage.bytes_in), "f") if item.usage.bytes_in is not None else "",
+                    format(requests_to_thousands(item.usage.ops_total), "f") if item.usage.ops_total is not None else "",
+                    item.cost.storage_quantity.basis if item.cost and item.cost.storage_quantity else "",
+                    (
+                        format(item.cost.storage_quantity.quantity_gib_month, "f")
+                        if item.cost
+                        and item.cost.storage_quantity
+                        and item.cost.storage_quantity.quantity_gib_month is not None
+                        else ""
+                    ),
+                    item.cost.storage_quantity.status if item.cost and item.cost.storage_quantity else "",
+                    (
+                        format(item.cost.storage_quantity.coverage_ratio, "f")
+                        if item.cost and item.cost.storage_quantity
+                        else ""
+                    ),
                     f"{item.cost.total_cost:.6f}" if item.cost and item.cost.total_cost is not None else "",
                     item.cost.currency if item.cost and item.cost.currency else "",
                 ]
@@ -440,16 +536,30 @@ class BillingService:
         for subject in self._load_subjects(endpoint_id, subject_type):
             subject_id = subject.id
             usage = usage_totals.get(subject_id, (0, 0, 0))
-            storage = storage_totals.get(subject_id, (None, None, None))
+            storage = storage_totals.get(
+                subject_id,
+                BillingStorageAggregate(
+                    total_bytes=0,
+                    avg_bytes=None,
+                    avg_gb_month=None,
+                    total_objects=None,
+                    days_with_data=0,
+                    quota_observations=(),
+                ),
+            )
             totals = BillingTotals(
                 bytes_in=usage[0],
                 bytes_out=usage[1],
                 ops_total=usage[2],
                 ops_breakdown=None,
-                avg_storage_bytes=storage[0],
-                avg_storage_gb_month=_bytes_to_gb(storage[0]) if storage[0] is not None else None,
-                total_objects=storage[1],
-                days_with_data=storage[2] or 0,
+                avg_storage_bytes=storage.avg_bytes,
+                avg_storage_gb_month=storage.avg_gb_month,
+                storage_total_bytes=storage.total_bytes,
+                total_objects=storage.total_objects,
+                days_with_data=storage.days_with_data,
+                storage_days_with_data=storage.days_with_data,
+                quota_observations=storage.quota_observations,
+                quota_expected_observations=period.days_in_month,
             )
             items.append(
                 BillingSubjectSummary(
@@ -468,6 +578,7 @@ class BillingService:
                             subject_id,
                         ),
                         totals,
+                        period,
                     ),
                 )
             )
@@ -506,11 +617,7 @@ class BillingService:
         ops_total = int(usage_row[2] or 0)
         days_with_usage = int(usage_row[3] or 0)
 
-        storage_statement = select(
-            func.sum(BillingStorageDaily.total_bytes),
-            func.sum(BillingStorageDaily.total_objects),
-            func.count(func.distinct(BillingStorageDaily.day)),
-        ).where(
+        storage_statement = select(BillingStorageDaily).where(
             BillingStorageDaily.day >= period.start,
             BillingStorageDaily.day < period.end,
         )
@@ -518,11 +625,14 @@ class BillingService:
             storage_statement = storage_statement.where(
                 BillingStorageDaily.storage_endpoint_id == endpoint_id
             )
-        storage_row = self.db.execute(storage_statement).one()
-        total_bytes = storage_row[0] or 0
-        total_objects = storage_row[1]
-        days_with_storage = int(storage_row[2] or 0)
-        avg_storage_bytes = int(total_bytes / days_with_storage) if days_with_storage else None
+        storage_rows = self.db.scalars(storage_statement).all()
+        total_bytes = sum(row.total_bytes for row in storage_rows)
+        total_objects = sum(row.total_objects for row in storage_rows) if storage_rows else None
+        days_with_storage = len({row.day for row in storage_rows})
+        avg_storage_bytes = total_bytes // days_with_storage if days_with_storage else None
+        quota_expected_observations = 0
+        if endpoint_id is not None:
+            quota_expected_observations = period.days_in_month * self._billing_subject_count(endpoint_id)
 
         return BillingTotals(
             bytes_in=bytes_in,
@@ -530,11 +640,17 @@ class BillingService:
             ops_total=ops_total,
             ops_breakdown=None,
             avg_storage_bytes=avg_storage_bytes,
-            avg_storage_gb_month=_bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
-            total_objects=int(total_objects) if total_objects is not None else None,
+            avg_storage_gb_month=bytes_sum_to_average_gib_month(total_bytes, days_with_storage),
+            storage_total_bytes=total_bytes,
+            total_objects=total_objects,
             days_with_data=max(days_with_storage, days_with_usage),
             storage_days_with_data=days_with_storage,
             usage_days_with_data=days_with_usage,
+            quota_observations=tuple(
+                (row.quota_size_bytes, row.quota_state)
+                for row in storage_rows
+            ),
+            quota_expected_observations=quota_expected_observations,
         )
 
     def _usage_totals_by_subject(
@@ -566,38 +682,50 @@ class BillingService:
         period: BillingPeriod,
         endpoint_id: int,
         subject_type: str,
-    ) -> dict[int, tuple[Optional[int], Optional[int], int]]:
+    ) -> dict[int, BillingStorageAggregate]:
         column = BillingStorageDaily.s3_account_id if subject_type == "account" else BillingStorageDaily.s3_user_id
-        rows = self.db.execute(
-            select(
-                column,
-                func.sum(BillingStorageDaily.total_bytes),
-                func.sum(BillingStorageDaily.total_objects),
-                func.count(func.distinct(BillingStorageDaily.day)),
-            )
+        rows = self.db.scalars(
+            select(BillingStorageDaily)
             .where(
                 BillingStorageDaily.storage_endpoint_id == endpoint_id,
                 BillingStorageDaily.day >= period.start,
                 BillingStorageDaily.day < period.end,
                 column.isnot(None),
             )
-            .group_by(column)
+            .order_by(column.asc(), BillingStorageDaily.day.asc())
         ).all()
-        results: dict[int, tuple[Optional[int], Optional[int], int]] = {}
+        grouped: dict[int, list[BillingStorageDaily]] = defaultdict(list)
         for row in rows:
-            subject_id = row[0]
+            subject_id = row.s3_account_id if subject_type == "account" else row.s3_user_id
             if subject_id is None:
                 continue
-            total_bytes = row[1]
-            total_objects = row[2]
-            days = int(row[3] or 0)
-            avg_bytes = int(total_bytes / days) if (total_bytes is not None and days) else None
-            results[subject_id] = (
-                avg_bytes,
-                int(total_objects) if total_objects is not None else None,
-                days,
+            grouped[int(subject_id)].append(row)
+
+        results: dict[int, BillingStorageAggregate] = {}
+        for subject_id, subject_rows in grouped.items():
+            total_bytes = sum(row.total_bytes for row in subject_rows)
+            days = len({row.day for row in subject_rows})
+            results[subject_id] = BillingStorageAggregate(
+                total_bytes=total_bytes,
+                avg_bytes=total_bytes // days if days else None,
+                avg_gb_month=bytes_sum_to_average_gib_month(total_bytes, days),
+                total_objects=sum(row.total_objects for row in subject_rows),
+                days_with_data=days,
+                quota_observations=tuple(
+                    (row.quota_size_bytes, row.quota_state)
+                    for row in subject_rows
+                ),
             )
         return results
+
+    def _billing_subject_count(self, endpoint_id: int) -> int:
+        accounts = self.db.scalar(
+            select(func.count(S3Account.id)).where(S3Account.storage_endpoint_id == endpoint_id)
+        ) or 0
+        users = self.db.scalar(
+            select(func.count(S3User.id)).where(S3User.storage_endpoint_id == endpoint_id)
+        ) or 0
+        return int(accounts) + int(users)
 
     def _usage_rows_for_subject(
         self,

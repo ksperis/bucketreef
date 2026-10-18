@@ -21,6 +21,7 @@ nav:
       - Backend: architecture/backend.md
       - Frontend: architecture/frontend.md
       - Database: architecture/database.md
+      - Billing calculation: architecture/billing.md
       - Identity and execution: architecture/identity-and-execution.md
       - Audit boundary: architecture/audit-boundary.md
       - Workspace surfaces: architecture/workspace-surfaces.md

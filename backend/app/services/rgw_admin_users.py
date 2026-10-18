@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from app.services.rgw_admin_transport import RGWAdminError, RGWAdminOperationResponse
-from app.utils.quota_stats import extract_quota_limits
+from app.utils.quota_stats import QuotaSnapshot, extract_quota_limits, extract_quota_snapshot
 from app.utils.rgw_payloads import rgw_qualified_uid
 
 
@@ -373,6 +373,16 @@ class RGWAdminUserOperations:
         if payload.get("not_found"):
             return None, None
         return extract_quota_limits(payload, keys=("user_quota", "quota"))
+
+    def get_user_quota_snapshot(
+        self,
+        uid: str,
+        tenant: Optional[str] = None,
+    ) -> QuotaSnapshot:
+        payload = self.get_user(uid, tenant=tenant, allow_not_found=True) or {}
+        if payload.get("not_found"):
+            return QuotaSnapshot(None, None, "missing")
+        return extract_quota_snapshot(payload, keys=("user_quota", "quota"))
 
     def set_user_quota(
         self,

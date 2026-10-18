@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0159_billing_rate_card_versions"
+_EXPECTED_ALEMBIC_HEAD = "0160_billing_storage_quota_history"
 
 
 def _alembic_config() -> Config:
@@ -140,6 +140,56 @@ def test_billing_rate_plan_migration_backfills_existing_cards_and_assignments(
             assert restored_card == {"name": "default", "storage_endpoint_id": 41}
             assert restored_assignment["rate_card_id"] == 51
             assert "billing_rate_plans" not in sa.inspect(connection).get_table_names()
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
+
+
+def test_billing_quota_history_migration_marks_existing_storage_rows_missing(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "billing-quota-history-cutover.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0159_billing_rate_card_versions")
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO storage_endpoints "
+                    "(id, name, endpoint_url, provider, is_default, is_editable, created_at, updated_at, "
+                    "verify_tls, force_path_style, identity_namespace, ceph_admin_allowed) "
+                    "VALUES (71, 'Billing quota endpoint', 'https://quota.example.test', 'ceph', 0, 1, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 0, 'billing-quota', 0)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_storage_daily "
+                    "(id, day, storage_endpoint_id, total_bytes, total_objects, source, collected_at) "
+                    "VALUES (81, '2026-09-01', 71, 1024, 1, 'rgw_admin_bucket_stats', CURRENT_TIMESTAMP)"
+                )
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            row = connection.execute(
+                sa.text(
+                    "SELECT quota_size_bytes, quota_state FROM billing_storage_daily WHERE id = 81"
+                )
+            ).mappings().one()
+            assert row == {"quota_size_bytes": None, "quota_state": "missing"}
+            assert "ck_billing_storage_daily_quota_state" in {
+                item["name"]
+                for item in sa.inspect(connection).get_check_constraints("billing_storage_daily")
+            }
     finally:
         engine.dispose()
         get_settings.cache_clear()

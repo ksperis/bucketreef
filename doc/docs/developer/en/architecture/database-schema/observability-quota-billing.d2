@@ -154,7 +154,7 @@ Legend: {
   }
   "billing_storage_daily": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_billing_storage_daily_day(day) [index]; ix_billing_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_storage_daily_id(id) [index]; ix_billing_storage_daily_s3_account_id(s3_account_id) [index]; ix_billing_storage_daily_s3_user_id(s3_user_id) [index]; ix_billing_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_storage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_storage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
+    tooltip: "PK: id\\nUnique: uq_billing_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nCheck: ck_billing_storage_daily_quota_state: quota_state IN ('valid', 'missing', 'disabled', 'unlimited', 'invalid')\\nIndexes: ix_billing_storage_daily_day(day) [index]; ix_billing_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_storage_daily_id(id) [index]; ix_billing_storage_daily_s3_account_id(s3_account_id) [index]; ix_billing_storage_daily_s3_user_id(s3_user_id) [index]; ix_billing_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_storage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_storage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
     "id": "INTEGER [PK, NN]"
     "day": "DATE [NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
@@ -162,6 +162,8 @@ Legend: {
     "s3_user_id": "INTEGER [FK]"
     "total_bytes": "BIGINT [NN]"
     "total_objects": "BIGINT [NN]"
+    "quota_size_bytes": "BIGINT"
+    "quota_state": "VARCHAR [NN]"
     "by_bucket": "TEXT"
     "source": "VARCHAR [NN]"
     "collected_at": "DATETIME [NN]"

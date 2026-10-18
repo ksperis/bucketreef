@@ -44,6 +44,7 @@ import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
 import { DownloadIcon, RefreshIcon } from "../browser/browserIcons";
 import {
+  type BillingDecimal,
   BillingSubjectDetail,
   BillingSubjectSummary,
   BillingSummary,
@@ -82,10 +83,23 @@ function defaultCollectDay(): string {
   return utc.toISOString().slice(0, 10);
 }
 
-function formatCurrency(value: number | null | undefined, currency: string | null | undefined, intlLocale: string): string {
+function formatCurrency(value: BillingDecimal | null | undefined, currency: string | null | undefined, intlLocale: string): string {
   if (value === undefined || value === null) return "-";
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "-";
   const code = currency || "EUR";
-  return `${new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} ${code}`;
+  return `${new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numericValue)} ${code}`;
+}
+
+function formatStoragePricing(
+  cost: BillingSummary["cost"] | BillingSubjectDetail["cost"] | null | undefined,
+  text: ReturnType<typeof useAdminI18n>["text"],
+): string | null {
+  const quantity = cost?.storage_quantity;
+  if (!quantity) return null;
+  const basis = text(quantity.basis === "allocated_quota" ? "Allocated quota" : "Actual usage");
+  const percent = Math.round(Number(quantity.coverage_ratio) * 100);
+  return text("{basis} · {percent}% pricing coverage", { basis, percent });
 }
 
 function formatCoverage(
@@ -128,7 +142,7 @@ function extractCollectionErrors(result: Record<string, unknown> | null): Array<
 
 function formatCollectionIssue(entry: Record<string, unknown>): string {
   const stage = typeof entry.stage === "string" ? entry.stage : "collection";
-  const stageLabel = stage === "usage" ? "Usage" : stage === "storage" ? "Storage" : stage === "endpoint" ? "Endpoint client" : "Collection";
+  const stageLabel = stage === "usage" ? "Usage" : stage === "storage" ? "Storage" : stage === "quota" ? "Quota" : stage === "endpoint" ? "Endpoint client" : "Collection";
   const endpoint = entry.endpoint_id != null ? `endpoint #${String(entry.endpoint_id)}` : null;
   const subject = typeof entry.subject === "string"
     ? `${entry.subject}${entry.subject_id != null ? ` #${String(entry.subject_id)}` : ""}`
@@ -366,9 +380,12 @@ export default function BillingPage() {
       {
         label: adminText("Estimated cost"),
         value: summary?.cost?.total_cost != null ? formatCurrency(summary.cost.total_cost, summary.cost.currency, intlLocale) : "-",
-        hint: summary?.cost?.rate_card_name
-          ? adminText("Rate card: {name}", { name: summary.cost.rate_card_name })
-          : adminText("No rate card"),
+        hint: [
+          summary?.cost?.rate_card_name
+            ? adminText("Rate card: {name}", { name: summary.cost.rate_card_name })
+            : adminText("No rate card"),
+          formatStoragePricing(summary?.cost, adminText),
+        ].filter(Boolean).join(" · "),
       },
     ];
   }, [adminText, intlLocale, summary]);
@@ -384,6 +401,7 @@ export default function BillingPage() {
   const noRateCard = Boolean(summary && summary.coverage.days_collected > 0 && !summary.cost);
   const lowCoverage = isLowCoverage(summary?.coverage);
   const partialSources = hasPartialBillingSources(summary?.coverage);
+  const storagePricingIncomplete = summary?.cost?.complete === false;
 
   async function handleRowClick(subject: BillingSubjectSummary) {
     if (!selectedEndpointId) return;
@@ -601,6 +619,11 @@ export default function BillingPage() {
               {adminText("Storage and usage sources do not cover the same number of days (")}{formatCoverageBreakdown(summary?.coverage, adminText)}).
             </PageBanner>
           ) : null}
+          {storagePricingIncomplete ? (
+            <PageBanner tone="warning">
+              {adminText("Storage pricing is incomplete for this month. Review the storage pricing coverage before using this estimate.")}
+            </PageBanner>
+          ) : null}
           {noRateCard ? (
             <PageBanner tone="warning">
               {adminText("No matching rate card is attached for this scope. Usage totals are available, but estimated cost stays unavailable.")}</PageBanner>
@@ -772,6 +795,9 @@ export default function BillingPage() {
                         <p className={cx("ui-body font-semibold", uiTitleTextClass)}>
                           {detail.cost?.total_cost != null ? formatCurrency(detail.cost.total_cost, detail.cost.currency, intlLocale) : "-"}
                         </p>
+                        {formatStoragePricing(detail.cost, adminText) ? (
+                          <p className={cx("ui-caption", uiMutedTextClass)}>{formatStoragePricing(detail.cost, adminText)}</p>
+                        ) : null}
                       </div>
                       <div>
                         <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Coverage")}</p>

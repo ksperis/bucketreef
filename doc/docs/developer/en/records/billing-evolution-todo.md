@@ -1,6 +1,6 @@
 # Billing evolution implementation TODO
 
-Status: **planned**. This document is the implementation backlog for evolving
+Status: **in progress**. This document is the implementation backlog for evolving
 BucketReef Billing into a complete S3 metering, chargeback, consolidation, and
 integration subsystem. It is intentionally **not** an ERP or accounting roadmap.
 
@@ -99,6 +99,10 @@ re-opened during implementation unless a concrete technical blocker is found.
   implementation. Ingress, egress, and request quantities continue to come from
   measured usage. Do not infer a billable object-capacity component from
   `quota_objects` unless a future Rate Plan explicitly introduces such a price.
+- The quota source follows the statement's billing subject level: an
+  `account` statement uses the Account storage quota and an `s3_user` statement
+  uses the S3 User storage quota. Bucket quotas must not be substituted or
+  summed into this quantity implicitly.
 - Quota-based storage uses historical quota observations, not the subject's
   current quota at preview/generation time. A quota change during a month is
   prorated from the recorded daily allocated quota for that month.
@@ -136,6 +140,10 @@ Every objective must preserve these invariants.
 - Storage quantity provenance is part of the monetary contract. A cost result
   must state whether its storage component used measured storage or allocated
   quota, and finalized statements must snapshot the chosen basis and quantity.
+- A consolidated statement may contain lines using different storage charge
+  bases when different effective Rate Plan versions apply. Never collapse those
+  lines into one ambiguous storage quantity: expose the basis per line and, at
+  summary boundaries, expose the distinct bases present.
 
 ### Authorization and audit
 
@@ -176,6 +184,8 @@ Every objective must preserve these invariants.
 
 ## Objective 1 — Finish and qualify Pricing Administration
 
+Implementation status: **completed**.
+
 ### Goal
 
 Finish the rate-card work already started and make pricing configuration a safe
@@ -193,6 +203,10 @@ Entities or statements yet.
 - Add the storage charge basis to Rate Plan version configuration with two
   explicit choices: **Actual usage** and **Allocated quota**. Default existing
   and migrated pricing to `actual_usage` so current behavior is preserved.
+- Explain the unit in the form itself so the operator understands what the
+  storage price means: for example, price per GiB-month of measured storage vs
+  price per GiB-month of allocated quota. Do not rely on a generic "storage
+  price" label once both modes exist.
 - Treat a storage charge-basis change like any other effective tariff change:
   active/expired versions are immutable and a future version is required for a
   future-month change.
@@ -257,6 +271,8 @@ rewritten in place.
 
 ## Objective 2 — Make monetary calculation deterministic
 
+Implementation status: **completed**.
+
 ### Goal
 
 Turn the existing estimated-cost code into a calculation core suitable for
@@ -291,12 +307,20 @@ storage quantities for both measured-usage and allocated-quota charging.
   - `allocated_quota`: for each subject/endpoint, sum the recorded daily storage
     quota expressed in GiB and divide by the number of calendar days in the
     billing month, producing a prorated allocated GiB-month quantity;
+  - resolve quota from the same billing subject level being priced: Account
+    quota for `account`, S3 User quota for `s3_user`; never substitute bucket
+    quota or another subject's allocation;
   - a mid-month quota increase/decrease therefore affects only the days on which
     the new allocation is observed;
   - missing daily quota observations reduce quota coverage and are never filled
     from the current live quota or silently assumed unchanged;
   - `None`, disabled, unlimited, or non-positive/unusable quota values are
     explicit non-billable quota states rather than zero allocation.
+- Define quota coverage explicitly as observed billable quota days over calendar
+  days in the billing month. Keep the collection resolution visible in the
+  developer contract: quota proration is daily in the first implementation, so
+  multiple changes within one day are not reconstructed retrospectively from a
+  later live quota value.
 - Return storage quantity provenance and coverage alongside the calculated
   component so Admin previews, statement generation, exports, and integrations
   all explain which basis was used.
@@ -591,6 +615,9 @@ Add Entity- and Group-oriented views with:
 - rate-resolution explanation;
 - storage charge basis (`actual_usage` or `allocated_quota`) and the quantity
   used for pricing, while retaining measured storage as diagnostic context;
+- when `allocated_quota` is used, show measured storage and allocated capacity
+  side by side so an operator can explain the difference between consumption
+  and reserved capacity without changing the priced quantity;
 - conflict count;
 - unassigned-subject count;
 - incomplete storage/usage coverage warnings;
@@ -675,6 +702,8 @@ of later mutable application state. Snapshot at least:
 - measured usage/storage quantities and source coverage;
 - storage charge basis plus the exact storage quantity used for pricing;
 - quota quantity/provenance and quota coverage when `allocated_quota` applies;
+- measured storage quantity remains available as diagnostic context even when
+  allocated quota is the priced quantity;
 - logical Rate Plan and effective version identifiers/names;
 - rate-resolution source (`direct`, `entity`, `endpoint`, `global`);
 - unit prices;
@@ -923,6 +952,10 @@ If draft access is later needed, make it an explicit permission/scope.
 - Expose the storage charge basis and the exact priced storage quantity so an
   integration can distinguish consumed-capacity billing from allocated-capacity
   billing without reverse engineering the amount.
+- When a statement contains more than one storage charge basis, preserve the
+  basis per line and expose the set of bases present at aggregate boundaries;
+  never publish one synthetic storage quantity that mixes measured GiB-month and
+  allocated GiB-month.
 - Do not leak internal ORM structure or unrelated Admin response payloads.
 - Define backwards-compatibility rules for v1 before calling it supported.
 
@@ -1114,13 +1147,24 @@ Exercise at least:
   IDs;
 - direct vs entity vs endpoint vs global price precedence;
 - actual-usage storage charging;
+- Account-level quota charging uses Account quota and S3 User-level quota
+  charging uses S3 User quota, with bucket quotas excluded from implicit
+  substitution;
 - allocated-quota storage charging with a stable quota for the whole month;
 - allocated-quota storage charging with a mid-month quota increase/decrease;
+- two subjects with the same measured storage but different allocated quotas
+  produce different storage charges in `allocated_quota` mode;
+- two subjects with the same allocated quota but different measured storage keep
+  the same storage-capacity charge in `allocated_quota` mode while retaining
+  different usage diagnostics;
 - quota-based charging with missing daily quota observations;
 - quota-based charging with disabled/unlimited quota, which must block rather
   than silently price zero capacity;
 - a Rate Plan version changing storage charge basis on a month boundary while
   earlier finalized months remain unchanged;
+- one consolidated Billing Entity whose lines legitimately resolve to different
+  storage charge bases through different effective Rate Plans, with line-level
+  provenance preserved and no ambiguous mixed storage quantity;
 - rate version boundary at month changes;
 - missing price;
 - incomplete collection;
