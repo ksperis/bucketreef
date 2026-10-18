@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Iterable, Optional, TypeAlias
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -196,33 +196,45 @@ def _resolve_rate_card(
     if endpoint_id is None:
         return None
     if subject_type and subject_id:
-        assignment_query = db.query(BillingAssignment).filter(BillingAssignment.storage_endpoint_id == endpoint_id)
+        assignment_statement = select(BillingAssignment).where(
+            BillingAssignment.storage_endpoint_id == endpoint_id
+        )
         if subject_type == "account":
-            assignment_query = assignment_query.filter(BillingAssignment.s3_account_id == subject_id)
+            assignment_statement = assignment_statement.where(
+                BillingAssignment.s3_account_id == subject_id
+            )
         elif subject_type == "s3_user":
-            assignment_query = assignment_query.filter(BillingAssignment.s3_user_id == subject_id)
-        assignment = assignment_query.order_by(BillingAssignment.created_at.desc()).first()
+            assignment_statement = assignment_statement.where(
+                BillingAssignment.s3_user_id == subject_id
+            )
+        assignment = db.scalar(
+            assignment_statement.order_by(BillingAssignment.created_at.desc()).limit(1)
+        )
         if assignment:
             return assignment.rate_card
 
     name = settings.billing_default_rate_card_name
-    candidates = db.query(BillingRateCard)
+    candidates = select(BillingRateCard)
     if name:
-        candidates = candidates.filter(BillingRateCard.name == name)
-    candidates = candidates.filter(
+        candidates = candidates.where(BillingRateCard.name == name)
+    candidates = candidates.where(
         BillingRateCard.effective_from <= period.end,
         (BillingRateCard.effective_to.is_(None)) | (BillingRateCard.effective_to >= period.start),
     )
-    endpoint_specific = candidates.filter(BillingRateCard.storage_endpoint_id == endpoint_id).order_by(
+    endpoint_specific = candidates.where(
+        BillingRateCard.storage_endpoint_id == endpoint_id
+    ).order_by(
         BillingRateCard.effective_from.desc()
     )
-    rate_card = endpoint_specific.first()
+    rate_card = db.scalar(endpoint_specific.limit(1))
     if rate_card:
         return rate_card
-    global_default = candidates.filter(BillingRateCard.storage_endpoint_id.is_(None)).order_by(
+    global_default = candidates.where(
+        BillingRateCard.storage_endpoint_id.is_(None)
+    ).order_by(
         BillingRateCard.effective_from.desc()
     )
-    return global_default.first()
+    return db.scalar(global_default.limit(1))
 
 
 class BillingService:
@@ -288,16 +300,18 @@ class BillingService:
         period = _parse_month(month)
         subject_type = subject_type.lower().strip()
         if subject_type == "account":
-            subject = (
-                self.db.query(S3Account)
-                .filter(S3Account.id == subject_id, S3Account.storage_endpoint_id == endpoint_id)
-                .first()
+            subject = self.db.scalar(
+                select(S3Account).where(
+                    S3Account.id == subject_id,
+                    S3Account.storage_endpoint_id == endpoint_id,
+                )
             )
         elif subject_type == "s3_user":
-            subject = (
-                self.db.query(S3User)
-                .filter(S3User.id == subject_id, S3User.storage_endpoint_id == endpoint_id)
-                .first()
+            subject = self.db.scalar(
+                select(S3User).where(
+                    S3User.id == subject_id,
+                    S3User.storage_endpoint_id == endpoint_id,
+                )
             )
         else:
             raise ValueError("Invalid subject type")
@@ -440,48 +454,50 @@ class BillingService:
 
     def _load_subjects(self, endpoint_id: int, subject_type: str) -> list[BillingSubject]:
         if subject_type == "account":
-            return (
-                self.db.query(S3Account)
-                .filter(S3Account.storage_endpoint_id == endpoint_id)
+            return self.db.scalars(
+                select(S3Account)
+                .where(S3Account.storage_endpoint_id == endpoint_id)
                 .order_by(S3Account.name.asc())
-                .all()
-            )
-        return (
-            self.db.query(S3User)
-            .filter(S3User.storage_endpoint_id == endpoint_id)
+            ).all()
+        return self.db.scalars(
+            select(S3User)
+            .where(S3User.storage_endpoint_id == endpoint_id)
             .order_by(S3User.name.asc())
-            .all()
-        )
+        ).all()
 
     def _aggregate_totals(self, period: BillingPeriod, endpoint_id: Optional[int]) -> BillingTotals:
-        usage_query = self.db.query(
+        usage_statement = select(
             func.sum(BillingUsageDaily.bytes_in),
             func.sum(BillingUsageDaily.bytes_out),
             func.sum(BillingUsageDaily.ops_total),
             func.count(func.distinct(BillingUsageDaily.day)),
-        ).filter(
+        ).where(
             BillingUsageDaily.day >= period.start,
             BillingUsageDaily.day < period.end,
         )
         if endpoint_id is not None:
-            usage_query = usage_query.filter(BillingUsageDaily.storage_endpoint_id == endpoint_id)
-        usage_row = usage_query.first()
+            usage_statement = usage_statement.where(
+                BillingUsageDaily.storage_endpoint_id == endpoint_id
+            )
+        usage_row = self.db.execute(usage_statement).one()
         bytes_in = int(usage_row[0] or 0)
         bytes_out = int(usage_row[1] or 0)
         ops_total = int(usage_row[2] or 0)
         days_with_usage = int(usage_row[3] or 0)
 
-        storage_query = self.db.query(
+        storage_statement = select(
             func.sum(BillingStorageDaily.total_bytes),
             func.sum(BillingStorageDaily.total_objects),
             func.count(func.distinct(BillingStorageDaily.day)),
-        ).filter(
+        ).where(
             BillingStorageDaily.day >= period.start,
             BillingStorageDaily.day < period.end,
         )
         if endpoint_id is not None:
-            storage_query = storage_query.filter(BillingStorageDaily.storage_endpoint_id == endpoint_id)
-        storage_row = storage_query.first()
+            storage_statement = storage_statement.where(
+                BillingStorageDaily.storage_endpoint_id == endpoint_id
+            )
+        storage_row = self.db.execute(storage_statement).one()
         total_bytes = storage_row[0] or 0
         total_objects = storage_row[1]
         days_with_storage = int(storage_row[2] or 0)
@@ -507,22 +523,21 @@ class BillingService:
         subject_type: str,
     ) -> dict[int, tuple[int, int, int]]:
         column = BillingUsageDaily.s3_account_id if subject_type == "account" else BillingUsageDaily.s3_user_id
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 column,
                 func.sum(BillingUsageDaily.bytes_in),
                 func.sum(BillingUsageDaily.bytes_out),
                 func.sum(BillingUsageDaily.ops_total),
             )
-            .filter(
+            .where(
                 BillingUsageDaily.storage_endpoint_id == endpoint_id,
                 BillingUsageDaily.day >= period.start,
                 BillingUsageDaily.day < period.end,
                 column.isnot(None),
             )
             .group_by(column)
-            .all()
-        )
+        ).all()
         return {row[0]: (int(row[1] or 0), int(row[2] or 0), int(row[3] or 0)) for row in rows if row[0] is not None}
 
     def _storage_totals_by_subject(
@@ -532,22 +547,21 @@ class BillingService:
         subject_type: str,
     ) -> dict[int, tuple[Optional[int], Optional[int], int]]:
         column = BillingStorageDaily.s3_account_id if subject_type == "account" else BillingStorageDaily.s3_user_id
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 column,
                 func.sum(BillingStorageDaily.total_bytes),
                 func.sum(BillingStorageDaily.total_objects),
                 func.count(func.distinct(BillingStorageDaily.day)),
             )
-            .filter(
+            .where(
                 BillingStorageDaily.storage_endpoint_id == endpoint_id,
                 BillingStorageDaily.day >= period.start,
                 BillingStorageDaily.day < period.end,
                 column.isnot(None),
             )
             .group_by(column)
-            .all()
-        )
+        ).all()
         results: dict[int, tuple[Optional[int], Optional[int], int]] = {}
         for row in rows:
             subject_id = row[0]
@@ -572,17 +586,16 @@ class BillingService:
         subject_id: int,
     ) -> list[BillingUsageDaily]:
         column = BillingUsageDaily.s3_account_id if subject_type == "account" else BillingUsageDaily.s3_user_id
-        return (
-            self.db.query(BillingUsageDaily)
-            .filter(
+        return self.db.scalars(
+            select(BillingUsageDaily)
+            .where(
                 BillingUsageDaily.storage_endpoint_id == endpoint_id,
                 BillingUsageDaily.day >= period.start,
                 BillingUsageDaily.day < period.end,
                 column == subject_id,
             )
             .order_by(BillingUsageDaily.day.asc())
-            .all()
-        )
+        ).all()
 
     def _storage_rows_for_subject(
         self,
@@ -592,14 +605,13 @@ class BillingService:
         subject_id: int,
     ) -> list[BillingStorageDaily]:
         column = BillingStorageDaily.s3_account_id if subject_type == "account" else BillingStorageDaily.s3_user_id
-        return (
-            self.db.query(BillingStorageDaily)
-            .filter(
+        return self.db.scalars(
+            select(BillingStorageDaily)
+            .where(
                 BillingStorageDaily.storage_endpoint_id == endpoint_id,
                 BillingStorageDaily.day >= period.start,
                 BillingStorageDaily.day < period.end,
                 column == subject_id,
             )
             .order_by(BillingStorageDaily.day.asc())
-            .all()
-        )
+        ).all()
