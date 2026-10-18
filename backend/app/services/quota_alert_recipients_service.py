@@ -4,7 +4,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -95,25 +95,24 @@ class QuotaAlertRecipientsService:
         self,
         index: QuotaAlertRecipientIndex,
     ) -> None:
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 UserS3Account.account_id,
                 User.id,
                 User.email,
                 User.quota_alerts_enabled,
             )
             .join(User, User.id == UserS3Account.user_id)
-            .filter(User.is_active.is_(True))
-            .filter(
+            .where(
+                User.is_active.is_(True),
                 or_(
                     UserS3Account.manager_role
                     == ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
                     UserS3Account.portal_role
                     == PortalAccountRole.PORTAL_MANAGER.value,
-                )
+                ),
             )
-            .all()
-        )
+        ).all()
         for account_id, user_id, email, email_enabled in rows:
             self._add_scoped_recipient(
                 email_map=index.account_emails,
@@ -128,8 +127,8 @@ class QuotaAlertRecipientsService:
         self,
         index: QuotaAlertRecipientIndex,
     ) -> None:
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 UiGroupS3Account.account_id,
                 User.id,
                 User.email,
@@ -140,17 +139,16 @@ class QuotaAlertRecipientsService:
                 UserUiGroup.group_id == UiGroupS3Account.group_id,
             )
             .join(User, User.id == UserUiGroup.user_id)
-            .filter(User.is_active.is_(True))
-            .filter(
+            .where(
+                User.is_active.is_(True),
                 or_(
                     UiGroupS3Account.manager_role
                     == ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
                     UiGroupS3Account.portal_role
                     == PortalAccountRole.PORTAL_MANAGER.value,
-                )
+                ),
             )
-            .all()
-        )
+        ).all()
         for account_id, user_id, email, email_enabled in rows:
             self._add_scoped_recipient(
                 email_map=index.account_emails,
@@ -162,17 +160,16 @@ class QuotaAlertRecipientsService:
             )
 
     def _load_s3_users(self, index: QuotaAlertRecipientIndex) -> None:
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 UserS3User.s3_user_id,
                 User.id,
                 User.email,
                 User.quota_alerts_enabled,
             )
             .join(User, User.id == UserS3User.user_id)
-            .filter(User.is_active.is_(True))
-            .all()
-        )
+            .where(User.is_active.is_(True))
+        ).all()
         for s3_user_id, user_id, email, email_enabled in rows:
             self._add_scoped_recipient(
                 email_map=index.s3_user_emails,
@@ -187,8 +184,8 @@ class QuotaAlertRecipientsService:
         self,
         index: QuotaAlertRecipientIndex,
     ) -> None:
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 UiGroupS3User.s3_user_id,
                 User.id,
                 User.email,
@@ -199,9 +196,8 @@ class QuotaAlertRecipientsService:
                 UserUiGroup.group_id == UiGroupS3User.group_id,
             )
             .join(User, User.id == UserUiGroup.user_id)
-            .filter(User.is_active.is_(True))
-            .all()
-        )
+            .where(User.is_active.is_(True))
+        ).all()
         for s3_user_id, user_id, email, email_enabled in rows:
             self._add_scoped_recipient(
                 email_map=index.s3_user_emails,
@@ -216,24 +212,23 @@ class QuotaAlertRecipientsService:
         self,
         index: QuotaAlertRecipientIndex,
     ) -> None:
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 User.id,
                 User.email,
                 User.quota_alerts_enabled,
             )
-            .filter(User.is_active.is_(True))
-            .filter(User.quota_alerts_global_watch.is_(True))
-            .filter(
+            .where(
+                User.is_active.is_(True),
+                User.quota_alerts_global_watch.is_(True),
                 User.role.in_(
                     [
                         UserRole.UI_ADMIN.value,
                         UserRole.UI_SUPERADMIN.value,
                     ]
-                )
+                ),
             )
-            .all()
-        )
+        ).all()
         for user_id, email, email_enabled in rows:
             index.global_user_ids.add(int(user_id))
             if email_enabled:
