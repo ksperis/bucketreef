@@ -9,20 +9,16 @@ from app.routers.ceph_admin import endpoints as endpoints_router
 from app.services import ceph_admin_endpoint_service
 
 
-class _FakeQuery:
+class _FakeScalarResult:
     def __init__(self, endpoints):
-        self._endpoints = list(endpoints)
-
-    def order_by(self, *args, **kwargs):
         self._endpoints = sorted(
-            self._endpoints,
+            endpoints,
             key=lambda endpoint: (
                 str(getattr(endpoint, "name", "")).lower(),
                 str(getattr(endpoint, "name", "")),
                 int(getattr(endpoint, "id", 0)),
             ),
         )
-        return self
 
     def all(self):
         return self._endpoints
@@ -32,8 +28,8 @@ class _FakeSession:
     def __init__(self, endpoints):
         self._endpoints = endpoints
 
-    def query(self, model):
-        return _FakeQuery(self._endpoints)
+    def scalars(self, statement):
+        return _FakeScalarResult(self._endpoints)
 
 
 def _build_endpoint(

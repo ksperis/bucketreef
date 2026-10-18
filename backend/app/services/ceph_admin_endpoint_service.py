@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -37,10 +38,8 @@ class CephAdminEndpointService:
         self.tags = TagsService(db)
 
     def get_configured_endpoint(self, endpoint_id: int) -> StorageEndpoint:
-        endpoint = (
-            self.db.query(StorageEndpoint)
-            .filter(StorageEndpoint.id == endpoint_id)
-            .first()
+        endpoint = self.db.scalar(
+            select(StorageEndpoint).where(StorageEndpoint.id == endpoint_id)
         )
         if endpoint is None:
             raise StorageEndpointNotFoundError("Storage endpoint not found")
@@ -52,11 +51,9 @@ class CephAdminEndpointService:
         return endpoint
 
     def list_endpoints(self) -> list[CephAdminEndpoint]:
-        endpoints = (
-            self.db.query(StorageEndpoint)
-            .order_by(*name_order_by(StorageEndpoint))
-            .all()
-        )
+        endpoints = self.db.scalars(
+            select(StorageEndpoint).order_by(*name_order_by(StorageEndpoint))
+        ).all()
         results: list[CephAdminEndpoint] = []
         for endpoint in endpoints:
             if (

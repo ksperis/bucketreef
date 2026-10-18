@@ -173,23 +173,12 @@ features:
     assert (detail is None) is allowed
 
 
-class _FakeQuery:
-    def __init__(self, endpoint):
-        self._endpoint = endpoint
-
-    def filter(self, *args, **kwargs):
-        return self
-
-    def first(self):
-        return self._endpoint
-
-
 class _FakeSession:
     def __init__(self, endpoint):
         self._endpoint = endpoint
 
-    def query(self, _model):
-        return _FakeQuery(self._endpoint)
+    def scalar(self, statement):
+        return self._endpoint
 
 
 def test_resolve_ceph_admin_workspace_endpoint_does_not_require_admin_feature_enabled():
