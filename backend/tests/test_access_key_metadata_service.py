@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import func, select
 
 from tests.feature_policy_fixtures import manager_settings_fixture
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint, StorageProvider
@@ -126,7 +127,7 @@ def test_iam_metadata_round_trip_clear_and_principal_cleanup(db_session):
         "AK-2",
         AccessKeyMetadataInput(name="video-uploader"),
     )
-    assert db_session.query(ManagerAccessKeyMetadata).count() == 2
+    assert db_session.scalar(select(func.count()).select_from(ManagerAccessKeyMetadata)) == 2
 
     service.set_iam_metadata(
         account.id,
