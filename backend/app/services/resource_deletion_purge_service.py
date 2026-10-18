@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from sqlalchemy import or_
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -33,22 +33,26 @@ class ResourceDeletionPurgeService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def _delete_where(self, model, *criteria) -> None:
+        self.db.execute(
+            delete(model).where(*criteria).execution_options(synchronize_session=False)
+        )
+
     def _execution_context_migrations(self, context_id: str):
-        return (
-            self.db.query(
+        return self.db.execute(
+            select(
                 BucketMigration.id,
                 BucketMigration.status,
                 BucketMigration.preparation_status,
                 BucketMigration.maintenance_status,
             )
-            .filter(
+            .where(
                 or_(
                     BucketMigration.source_context_id == context_id,
                     BucketMigration.target_context_id == context_id,
                 )
             )
-            .all()
-        )
+        ).all()
 
     def validate_execution_context_cleanup(self, context_id: str) -> None:
         """Reject resource deletion while a migration cannot be safely discarded."""
@@ -58,9 +62,9 @@ class ResourceDeletionPurgeService:
                 or migration.preparation_status == "checking"
                 or migration.maintenance_status in {"queued", "running"}
             )
-            protected = (
-                self.db.query(BucketMigrationItem.id)
-                .filter(
+            protected = self.db.scalar(
+                select(BucketMigrationItem.id)
+                .where(
                     BucketMigrationItem.migration_id == migration.id,
                     or_(
                         BucketMigrationItem.preparation_effects_json.is_not(None),
@@ -68,9 +72,8 @@ class ResourceDeletionPurgeService:
                         BucketMigrationItem.target_lock_applied.is_(True),
                     ),
                 )
-                .first()
-                is not None
-            )
+                .limit(1)
+            ) is not None
             if busy or migration.status not in {*_FINAL_MIGRATION_STATUSES, "draft"} or protected:
                 raise ValueError(
                     f"Execution context {context_id} is still used by bucket migration "
@@ -80,103 +83,54 @@ class ResourceDeletionPurgeService:
     def purge_execution_context_data(self, context_id: str) -> None:
         """Delete local data whose identity is the removed execution context."""
         self.validate_execution_context_cleanup(context_id)
-        self.db.query(BrowserFavorite).filter(BrowserFavorite.context == context_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BucketUsageStatsSnapshot).filter(
+        self._delete_where(BrowserFavorite, BrowserFavorite.context == context_id)
+        self._delete_where(
+            BucketUsageStatsSnapshot,
             BucketUsageStatsSnapshot.scope_kind == "manager",
             BucketUsageStatsSnapshot.scope_id == context_id,
-        ).delete(synchronize_session=False)
+        )
         migration_ids = [migration.id for migration in self._execution_context_migrations(context_id)]
         if migration_ids:
-            self.db.query(BucketMigrationEvent).filter(
-                BucketMigrationEvent.migration_id.in_(migration_ids)
-            ).delete(synchronize_session=False)
-            self.db.query(BucketMigrationItem).filter(
-                BucketMigrationItem.migration_id.in_(migration_ids)
-            ).delete(synchronize_session=False)
-            self.db.query(BucketMigration).filter(BucketMigration.id.in_(migration_ids)).delete(
-                synchronize_session=False
-            )
+            self._delete_where(BucketMigrationEvent, BucketMigrationEvent.migration_id.in_(migration_ids))
+            self._delete_where(BucketMigrationItem, BucketMigrationItem.migration_id.in_(migration_ids))
+            self._delete_where(BucketMigration, BucketMigration.id.in_(migration_ids))
 
     def purge_account_derived_data(self, account_id: int) -> None:
-        self.db.query(BillingAssignment).filter(BillingAssignment.s3_account_id == account_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BillingUsageDaily).filter(BillingUsageDaily.s3_account_id == account_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BillingStorageDaily).filter(BillingStorageDaily.s3_account_id == account_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaAlertState).filter(QuotaAlertState.s3_account_id == account_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaUsageHourly).filter(QuotaUsageHourly.s3_account_id == account_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaUsageDaily).filter(QuotaUsageDaily.s3_account_id == account_id).delete(
-            synchronize_session=False
-        )
+        self._delete_where(BillingAssignment, BillingAssignment.s3_account_id == account_id)
+        self._delete_where(BillingUsageDaily, BillingUsageDaily.s3_account_id == account_id)
+        self._delete_where(BillingStorageDaily, BillingStorageDaily.s3_account_id == account_id)
+        self._delete_where(QuotaAlertState, QuotaAlertState.s3_account_id == account_id)
+        self._delete_where(QuotaUsageHourly, QuotaUsageHourly.s3_account_id == account_id)
+        self._delete_where(QuotaUsageDaily, QuotaUsageDaily.s3_account_id == account_id)
 
     def purge_s3_user_derived_data(self, s3_user_id: int) -> None:
-        self.db.query(BillingAssignment).filter(BillingAssignment.s3_user_id == s3_user_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BillingUsageDaily).filter(BillingUsageDaily.s3_user_id == s3_user_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BillingStorageDaily).filter(BillingStorageDaily.s3_user_id == s3_user_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaAlertState).filter(QuotaAlertState.s3_user_id == s3_user_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaUsageHourly).filter(QuotaUsageHourly.s3_user_id == s3_user_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaUsageDaily).filter(QuotaUsageDaily.s3_user_id == s3_user_id).delete(
-            synchronize_session=False
-        )
+        self._delete_where(BillingAssignment, BillingAssignment.s3_user_id == s3_user_id)
+        self._delete_where(BillingUsageDaily, BillingUsageDaily.s3_user_id == s3_user_id)
+        self._delete_where(BillingStorageDaily, BillingStorageDaily.s3_user_id == s3_user_id)
+        self._delete_where(QuotaAlertState, QuotaAlertState.s3_user_id == s3_user_id)
+        self._delete_where(QuotaUsageHourly, QuotaUsageHourly.s3_user_id == s3_user_id)
+        self._delete_where(QuotaUsageDaily, QuotaUsageDaily.s3_user_id == s3_user_id)
 
     def purge_endpoint_derived_data(self, endpoint_id: int) -> None:
-        self.db.query(BillingAssignment).filter(BillingAssignment.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BillingUsageDaily).filter(BillingUsageDaily.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BillingStorageDaily).filter(BillingStorageDaily.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BillingRateCard).filter(BillingRateCard.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaAlertState).filter(QuotaAlertState.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaUsageHourly).filter(QuotaUsageHourly.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(QuotaUsageDaily).filter(QuotaUsageDaily.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(BucketUsageStatsSnapshot).filter(
+        self._delete_where(BillingAssignment, BillingAssignment.storage_endpoint_id == endpoint_id)
+        self._delete_where(BillingUsageDaily, BillingUsageDaily.storage_endpoint_id == endpoint_id)
+        self._delete_where(BillingStorageDaily, BillingStorageDaily.storage_endpoint_id == endpoint_id)
+        self._delete_where(BillingRateCard, BillingRateCard.storage_endpoint_id == endpoint_id)
+        self._delete_where(QuotaAlertState, QuotaAlertState.storage_endpoint_id == endpoint_id)
+        self._delete_where(QuotaUsageHourly, QuotaUsageHourly.storage_endpoint_id == endpoint_id)
+        self._delete_where(QuotaUsageDaily, QuotaUsageDaily.storage_endpoint_id == endpoint_id)
+        self._delete_where(
+            BucketUsageStatsSnapshot,
             BucketUsageStatsSnapshot.scope_kind.in_(("admin_managed", "ceph_admin")),
             BucketUsageStatsSnapshot.scope_id == str(endpoint_id),
-        ).delete(synchronize_session=False)
+        )
         self.purge_endpoint_healthchecks(endpoint_id)
 
     def purge_endpoint_healthchecks(self, endpoint_id: int) -> None:
-        self.db.query(EndpointHealthCheck).filter(EndpointHealthCheck.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
+        self._delete_where(EndpointHealthCheck, EndpointHealthCheck.storage_endpoint_id == endpoint_id)
+        self._delete_where(EndpointHealthLatest, EndpointHealthLatest.storage_endpoint_id == endpoint_id)
+        self._delete_where(
+            EndpointHealthStatusSegment,
+            EndpointHealthStatusSegment.storage_endpoint_id == endpoint_id,
         )
-        self.db.query(EndpointHealthLatest).filter(EndpointHealthLatest.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
-        self.db.query(EndpointHealthStatusSegment).filter(
-            EndpointHealthStatusSegment.storage_endpoint_id == endpoint_id
-        ).delete(synchronize_session=False)
-        self.db.query(EndpointHealthRollup).filter(EndpointHealthRollup.storage_endpoint_id == endpoint_id).delete(
-            synchronize_session=False
-        )
+        self._delete_where(EndpointHealthRollup, EndpointHealthRollup.storage_endpoint_id == endpoint_id)
