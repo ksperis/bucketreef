@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitize_error_detail
@@ -20,15 +20,16 @@ from app.utils.time import utcnow
 class PermanentExpirationError(RuntimeError):
     pass
 
+
 class AccessKeyExpirationService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
     def run_due(self) -> dict[str, int | str]:
         now = utcnow()
-        rows = (
-            self.db.query(ManagerAccessKeyMetadata)
-            .filter(
+        rows = self.db.scalars(
+            select(ManagerAccessKeyMetadata)
+            .where(
                 ManagerAccessKeyMetadata.expires_at.is_not(None),
                 ManagerAccessKeyMetadata.expires_at <= now,
                 or_(
@@ -38,8 +39,7 @@ class AccessKeyExpirationService:
             )
             .order_by(ManagerAccessKeyMetadata.expires_at.asc(), ManagerAccessKeyMetadata.id.asc())
             .limit(500)
-            .all()
-        )
+        ).all()
         counts = {"processed": 0, "enforced": 0, "retried": 0, "blocked": 0, "missing": 0}
         for row in rows:
             counts["processed"] += 1
@@ -65,7 +65,7 @@ class AccessKeyExpirationService:
             return "retried"
 
     def _process_iam(self, row: ManagerAccessKeyMetadata) -> str:
-        account = self.db.query(S3Account).filter(S3Account.id == row.account_id).first()
+        account = self.db.get(S3Account, row.account_id)
         if account is None:
             return self._remove_missing(row)
         endpoint = account.storage_endpoint
@@ -116,7 +116,7 @@ class AccessKeyExpirationService:
         return "enforced"
 
     def _process_s3_user(self, row: ManagerAccessKeyMetadata) -> str:
-        s3_user = self.db.query(S3User).filter(S3User.id == row.s3_user_id).first()
+        s3_user = self.db.get(S3User, row.s3_user_id)
         if s3_user is None:
             return self._remove_missing(row)
         endpoint = s3_user.storage_endpoint
@@ -168,7 +168,7 @@ class AccessKeyExpirationService:
 
     def _mark_retry(self, row: ManagerAccessKeyMetadata, exc: Exception) -> None:
         self.db.rollback()
-        persisted = self.db.query(ManagerAccessKeyMetadata).filter(ManagerAccessKeyMetadata.id == row.id).first()
+        persisted = self.db.get(ManagerAccessKeyMetadata, row.id)
         if persisted is None:
             return
         persisted.expiration_state = "retrying"
@@ -178,7 +178,7 @@ class AccessKeyExpirationService:
 
     def _mark_blocked(self, row: ManagerAccessKeyMetadata, exc: Exception) -> None:
         self.db.rollback()
-        persisted = self.db.query(ManagerAccessKeyMetadata).filter(ManagerAccessKeyMetadata.id == row.id).first()
+        persisted = self.db.get(ManagerAccessKeyMetadata, row.id)
         if persisted is None:
             return
         persisted.expiration_state = "blocked"

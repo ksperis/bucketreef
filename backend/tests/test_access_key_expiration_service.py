@@ -197,7 +197,7 @@ def test_missing_provider_key_removes_stale_local_record(db_session, monkeypatch
     result = AccessKeyExpirationService(db_session).run_due()
 
     assert result["missing"] == 1
-    assert db_session.query(ManagerAccessKeyMetadata).filter(ManagerAccessKeyMetadata.id == row_id).first() is None
+    assert db_session.get(ManagerAccessKeyMetadata, row_id) is None
 
 
 def test_due_iam_key_is_disabled_and_confirmed(db_session, monkeypatch):
