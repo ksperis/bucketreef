@@ -10,6 +10,7 @@ from app.services.app_settings_service import load_app_settings_for_db_readonly
 from dataclasses import dataclass, field
 from typing import Literal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import (
@@ -252,13 +253,12 @@ class EffectiveAccessService:
         groups_by_user: dict[int, list[UiGroup]] = {user_id: [] for user_id in user_ids}
         user_ids_by_group: dict[int, list[int]] = {}
         group_names: dict[int, str] = {}
-        rows = (
-            self.db.query(UserUiGroup, UiGroup)
+        rows = self.db.execute(
+            select(UserUiGroup, UiGroup)
             .join(UiGroup, UiGroup.id == UserUiGroup.group_id)
-            .filter(UserUiGroup.user_id.in_(user_ids))
+            .where(UserUiGroup.user_id.in_(user_ids))
             .order_by(UserUiGroup.user_id.asc(), UiGroup.name.asc(), UiGroup.id.asc())
-            .all()
-        )
+        ).all()
         for membership, group in rows:
             user_id = int(membership.user_id)
             group_id = int(group.id)
@@ -279,11 +279,9 @@ class EffectiveAccessService:
         accumulators: dict[int, dict[int, _AccountRoleAccumulator]] = {
             user_id: {} for user_id in user_ids
         }
-        direct_rows = (
-            self.db.query(UserS3Account)
-            .filter(UserS3Account.user_id.in_(user_ids))
-            .all()
-        )
+        direct_rows = self.db.scalars(
+            select(UserS3Account).where(UserS3Account.user_id.in_(user_ids))
+        ).all()
         for link in direct_rows:
             user_id = int(link.user_id)
             account_id = int(link.account_id)
@@ -300,11 +298,9 @@ class EffectiveAccessService:
         if not groups.group_ids:
             return accumulators
 
-        group_rows = (
-            self.db.query(UiGroupS3Account)
-            .filter(UiGroupS3Account.group_id.in_(groups.group_ids))
-            .all()
-        )
+        group_rows = self.db.scalars(
+            select(UiGroupS3Account).where(UiGroupS3Account.group_id.in_(groups.group_ids))
+        ).all()
         for link in group_rows:
             group_id = int(link.group_id)
             for user_id in groups.user_ids_by_group.get(group_id, []):
@@ -335,15 +331,14 @@ class EffectiveAccessService:
             sources_by_user={user_id: {} for user_id in user_ids},
             browser_sources_by_user={user_id: {} for user_id in user_ids},
         )
-        direct_rows = (
-            self.db.query(
+        direct_rows = self.db.execute(
+            select(
                 UserS3User.user_id,
                 UserS3User.s3_user_id,
                 UserS3User.allow_manager_browser_data_access,
             )
-            .filter(UserS3User.user_id.in_(user_ids))
-            .all()
-        )
+            .where(UserS3User.user_id.in_(user_ids))
+        ).all()
         for user_id_raw, s3_user_id_raw, browser_allowed in direct_rows:
             user_id = int(user_id_raw)
             s3_user_id = int(s3_user_id_raw)
@@ -357,15 +352,14 @@ class EffectiveAccessService:
         if not groups.group_ids:
             return grants
 
-        group_rows = (
-            self.db.query(
+        group_rows = self.db.execute(
+            select(
                 UiGroupS3User.group_id,
                 UiGroupS3User.s3_user_id,
                 UiGroupS3User.allow_manager_browser_data_access,
             )
-            .filter(UiGroupS3User.group_id.in_(groups.group_ids))
-            .all()
-        )
+            .where(UiGroupS3User.group_id.in_(groups.group_ids))
+        ).all()
         for group_id_raw, s3_user_id_raw, browser_allowed in group_rows:
             group_id = int(group_id_raw)
             s3_user_id = int(s3_user_id_raw)
@@ -391,15 +385,14 @@ class EffectiveAccessService:
             ids_by_user={user_id: set() for user_id in user_ids},
             sources_by_user={user_id: {} for user_id in user_ids},
         )
-        direct_rows = (
-            self.db.query(UserS3Connection.user_id, UserS3Connection.s3_connection_id)
+        direct_rows = self.db.execute(
+            select(UserS3Connection.user_id, UserS3Connection.s3_connection_id)
             .join(S3Connection, S3Connection.id == UserS3Connection.s3_connection_id)
-            .filter(
+            .where(
                 UserS3Connection.user_id.in_(user_ids),
                 S3Connection.is_shared.is_(True),
             )
-            .all()
-        )
+        ).all()
         for user_id_raw, connection_id_raw in direct_rows:
             user_id = int(user_id_raw)
             connection_id = int(connection_id_raw)
@@ -411,18 +404,17 @@ class EffectiveAccessService:
         if not groups.group_ids:
             return grants
 
-        group_rows = (
-            self.db.query(
+        group_rows = self.db.execute(
+            select(
                 UiGroupS3Connection.group_id,
                 UiGroupS3Connection.s3_connection_id,
             )
             .join(S3Connection, S3Connection.id == UiGroupS3Connection.s3_connection_id)
-            .filter(
+            .where(
                 UiGroupS3Connection.group_id.in_(groups.group_ids),
                 S3Connection.is_shared.is_(True),
             )
-            .all()
-        )
+        ).all()
         for group_id_raw, connection_id_raw in group_rows:
             group_id = int(group_id_raw)
             connection_id = int(connection_id_raw)
@@ -438,14 +430,15 @@ class EffectiveAccessService:
 
     def _load_owned_private_user_ids(self, user_ids: list[int]) -> set[int]:
         return {
-            int(row[0])
-            for row in self.db.query(S3Connection.created_by_user_id)
-            .filter(
-                S3Connection.created_by_user_id.in_(user_ids),
-                S3Connection.is_shared.is_(False),
-            )
-            .distinct()
-            .all()
+            int(user_id)
+            for user_id in self.db.scalars(
+                select(S3Connection.created_by_user_id)
+                .where(
+                    S3Connection.created_by_user_id.in_(user_ids),
+                    S3Connection.is_shared.is_(False),
+                )
+                .distinct()
+            ).all()
         }
 
     def _build_feature_sources(
@@ -628,27 +621,31 @@ class EffectiveAccessService:
             raise ValueError("Unsupported workspace")
         effective = resolved or self.resolve_user(user)
         now = utcnow()
-        query = self.db.query(S3Connection).filter(
+        statement = select(S3Connection).where(
             S3Connection.is_active.is_(True),
             (S3Connection.expires_at.is_(None)) | (S3Connection.expires_at > now),
         )
         if workspace == "browser":
-            return query.filter(
-                S3Connection.is_shared.is_(False),
-                S3Connection.created_by_user_id == user.id,
-                S3Connection.access_browser.is_(True),
+            return self.db.scalars(
+                statement.where(
+                    S3Connection.is_shared.is_(False),
+                    S3Connection.created_by_user_id == user.id,
+                    S3Connection.access_browser.is_(True),
+                )
             ).all()
-        return query.filter(
-            S3Connection.access_manager.is_(True),
-            S3Connection.remediation_required.is_(False),
-            (
-                (S3Connection.is_shared.is_(False))
-                & (S3Connection.created_by_user_id == user.id)
+        return self.db.scalars(
+            statement.where(
+                S3Connection.access_manager.is_(True),
+                S3Connection.remediation_required.is_(False),
+                (
+                    (S3Connection.is_shared.is_(False))
+                    & (S3Connection.created_by_user_id == user.id)
+                )
+                | (
+                    (S3Connection.is_shared.is_(True))
+                    & (S3Connection.id.in_(effective.s3_connection_ids))
+                ),
             )
-            | (
-                (S3Connection.is_shared.is_(True))
-                & (S3Connection.id.in_(effective.s3_connection_ids))
-            ),
         ).all()
 
     def build_bucket_migration_scope(
@@ -727,12 +724,11 @@ class EffectiveAccessService:
         ]
         if not account_ids:
             return []
-        accounts = (
-            self.db.query(S3Account)
+        accounts = self.db.scalars(
+            select(S3Account)
             .options(joinedload(S3Account.storage_endpoint))
-            .filter(S3Account.id.in_(account_ids))
-            .all()
-        )
+            .where(S3Account.id.in_(account_ids))
+        ).all()
         return [account for account in accounts if self.portal_account_is_compatible(account)]
 
     def list_browser_portal_accounts(
