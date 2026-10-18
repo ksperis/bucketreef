@@ -616,3 +616,42 @@ class BillingStatementLine(Base):
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
     statement = relationship("BillingStatement", back_populates="lines")
+
+
+class BillingAutomationRun(Base):
+    __tablename__ = "billing_automation_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "mode IN ('automatic_draft', 'automatic_finalize')",
+            name="ck_billing_automation_runs_mode",
+        ),
+        CheckConstraint(
+            "trigger_source IN ('scheduled', 'retry')",
+            name="ck_billing_automation_runs_trigger_source",
+        ),
+        CheckConstraint(
+            "status IN ('running', 'completed', 'partial', 'failed')",
+            name="ck_billing_automation_runs_status",
+        ),
+        Index(
+            "ix_billing_automation_runs_period_started",
+            "period_start",
+            "started_at",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    period_start = Column(Date, nullable=False, index=True)
+    mode = Column(String, nullable=False)
+    trigger_source = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="running", server_default="running")
+    active_entity_count = Column(Integer, nullable=False, default=0, server_default="0")
+    generated_statement_count = Column(Integer, nullable=False, default=0, server_default="0")
+    finalized_statement_count = Column(Integer, nullable=False, default=0, server_default="0")
+    blocked_statement_count = Column(Integer, nullable=False, default=0, server_default="0")
+    failed_entity_count = Column(Integer, nullable=False, default=0, server_default="0")
+    unassigned_subject_count = Column(Integer, nullable=False, default=0, server_default="0")
+    diagnostics_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    started_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    completed_at = Column(UTCDateTime(), nullable=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)

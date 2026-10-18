@@ -69,6 +69,11 @@ export function createAppSettings(
       other_operations_parallelism: 3,
       streaming_zip_threshold_mb: 200,
     },
+    billing_automation: {
+      mode: "manual",
+      schedule_day: 5,
+      require_all_subjects_assigned: true,
+    },
     onboarding: { dismissed: false },
     branding: {
       primary_color: "#0569f8",

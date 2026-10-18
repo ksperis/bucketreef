@@ -624,6 +624,31 @@ class BillingStatementGenerationResult(ApiModel):
     statements: list[BillingStatementItem] = Field(default_factory=list)
 
 
+class BillingAutomationRunDiagnostic(ApiModel):
+    billing_entity_id: int
+    status: Literal["generated", "finalized", "blocked", "failed"]
+    statement_ids: list[int] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    error_code: Optional[str] = None
+
+
+class BillingAutomationRunItem(ApiModel):
+    id: int
+    month: str
+    mode: Literal["automatic_draft", "automatic_finalize"]
+    trigger_source: Literal["scheduled", "retry"]
+    status: Literal["running", "completed", "partial", "failed"]
+    active_entity_count: int
+    generated_statement_count: int
+    finalized_statement_count: int
+    blocked_statement_count: int
+    failed_entity_count: int
+    unassigned_subject_count: int
+    diagnostics: list[BillingAutomationRunDiagnostic] = Field(default_factory=list)
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+
+
 BillingPeriodScopeType = Literal["entity", "group"]
 
 

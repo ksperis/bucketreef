@@ -40,6 +40,8 @@ spec:
                   value: {{ printf "http://%s-backend:%d" (include "bucketreef.fullname" .) (.Values.service.backend.port | int) | quote }}
                 - name: BILLING_DAY_OFFSET
                   value: {{ .Values.billingCronJob.dayOffset | quote }}
+                - name: BILLING_STATEMENT_TIMEOUT_SECONDS
+                  value: {{ .Values.billingCronJob.statementTimeoutSeconds | quote }}
                 - name: INTERNAL_CRON_TOKEN
                   valueFrom:
                     secretKeyRef:
@@ -72,6 +74,15 @@ spec:
                   resp = requests.post(url, headers={"X-Internal-Token": token}, timeout=30)
                   print(f"Billing collection returned HTTP {resp.status_code}")
                   resp.raise_for_status()
+                  statement_url = f"{base}/api/internal/billing/statements/monthly"
+                  statement_timeout = int(os.environ.get("BILLING_STATEMENT_TIMEOUT_SECONDS", "1800"))
+                  statement_resp = requests.post(
+                      statement_url,
+                      headers={"X-Internal-Token": token},
+                      timeout=statement_timeout,
+                  )
+                  print(f"Billing statement automation returned HTTP {statement_resp.status_code}")
+                  statement_resp.raise_for_status()
                   PY
           volumes:
             - name: tmp

@@ -866,6 +866,8 @@ Yearly detail must retain a per-month breakdown and support drill-down:
 
 ## Objective 9 — Add configurable monthly statement automation
 
+Implementation status: **completed**.
+
 ### Goal
 
 Support unattended monthly operations without making automation less safe than

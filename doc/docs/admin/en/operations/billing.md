@@ -143,10 +143,76 @@ inspect each month's completeness and entity contribution, then reopen an
 underlying statement to continue the drill-down through endpoint and Account/S3
 User snapshot lines.
 
+## Monthly statement automation
+
+Statement automation is configured in **Settings → Billing → Automation**. The
+supported modes are `manual`, `automatic_draft`, and `automatic_finalize`.
+`schedule_day` accepts days 1 through 28 and controls when the previous UTC
+calendar month becomes eligible. Keeping the maximum at 28 makes the schedule
+valid for every month.
+
+The deployment Billing scheduler calls two internal operations on its daily
+schedule:
+
+1. `/api/internal/billing/collect/daily` collects the configured historical day;
+2. `/api/internal/billing/statements/monthly` evaluates the statement workflow.
+
+The monthly endpoint returns a harmless `skipped` result when Billing is
+disabled, the workflow is manual, the configured day has not arrived, another
+backend owns the month lease, or that mode already completed successfully for
+the month. This lets Compose and Helm keep one simple daily Billing schedule
+while the application owns the month-level policy.
+
+`automatic_draft` calls the canonical statement generation service with
+idempotent generation. Existing drafts and finalized statements are reused and
+are not duplicated. `automatic_finalize` then calls the same
+`BillingStatementService.finalize()` path used by Admin/API finalization. It
+cannot bypass membership conflicts, missing pricing, stale drafts, source
+coverage failures, or quota-history failures.
+
+When the effective Rate Plan uses `actual_usage`, absent quota history does not
+block finalization. When it uses `allocated_quota`, complete historical quota
+coverage is part of the priced quantity and therefore remains a mandatory gate.
+Different currencies continue to produce separate statements.
+
+Each attempted monthly run is persisted with its month, mode, trigger source,
+status, counts, and non-sensitive diagnostic codes. Automatic statement
+finalization is audited using the explicit
+`billing-automation@bucketreef.internal` workflow identity. A successful
+scheduled run is not repeated by subsequent daily scheduler invocations for the
+same month and mode.
+
+### Recovery from a partial or failed run
+
+Start with **Settings → Billing → Automation** and the **Statements** tab for the
+affected month. Resolve the reported membership, pricing, assignment, quota, or
+collection problem first. If an existing draft became stale because its source
+inputs changed, regenerate that draft explicitly in the Statements view; the
+automation retry never silently rewrites it.
+
+The next scheduled invocation retries a month whose prior scheduled run is
+still partial or failed. An operator with access to the internal scheduler
+credential may also request an explicit idempotent retry of a completed month:
+
+```bash
+curl -X POST \
+  "http://localhost:8000/api/internal/billing/statements/monthly?month=YYYY-MM" \
+  -H "X-Internal-Token: <INTERNAL_CRON_TOKEN>"
+```
+
+The explicit month must be completed; the current or a future month is rejected.
+Retries preserve finalized statements and reuse existing drafts, so they cannot
+create a second entity/month/currency statement.
+
 ## Scheduler integration
 
-- Compose scheduler calls daily collection with configurable day offset.
-- Helm supports `billingCronJob` values (`schedule`, `dayOffset`, token).
+- Compose scheduler calls daily collection and monthly statement evaluation on
+  `BILLING_CRON_SCHEDULE`. `BILLING_DAY_OFFSET` still controls the daily
+  collection date; statement timing comes from the Admin Automation setting.
+- `BILLING_STATEMENT_CRON_HTTP_TIMEOUT_SECONDS` controls the Compose monthly
+  statement request timeout (default 1800 seconds).
+- Helm `billingCronJob` runs the same two operations and exposes `schedule`,
+  `dayOffset`, and `statementTimeoutSeconds` (default 1800 seconds).
 
 ## Retention
 
