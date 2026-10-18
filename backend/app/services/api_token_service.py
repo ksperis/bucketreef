@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timedelta
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -83,28 +84,25 @@ class ApiTokenService:
         return token, row
 
     def list_for_user(self, user_id: int, *, include_revoked: bool = False) -> list[ApiToken]:
-        query = self.db.query(ApiToken).filter(ApiToken.user_id == user_id)
+        statement = select(ApiToken).where(ApiToken.user_id == user_id)
         if not include_revoked:
-            query = query.filter(
+            statement = statement.where(
                 ApiToken.revoked_at.is_(None),
                 ApiToken.expires_at > utcnow(),
             )
-        return query.order_by(ApiToken.created_at.desc()).all()
+        return self.db.scalars(statement.order_by(ApiToken.created_at.desc())).all()
 
     def revoke_for_user(self, *, user_id: int, token_id: str) -> ApiToken:
-        row = (
-            self.db.query(ApiToken)
-            .filter(
+        row = self.db.scalar(
+            select(ApiToken).where(
                 ApiToken.id == token_id,
                 ApiToken.user_id == user_id,
             )
-            .first()
         )
         if not row:
             raise ApiTokenNotFoundError("API token not found")
         if row.revoked_at is None:
             row.revoked_at = utcnow()
-            self.db.add(row)
             self.db.commit()
             self.db.refresh(row)
         return row
@@ -127,7 +125,7 @@ class ApiTokenService:
             user_id = int(uid)
         except (TypeError, ValueError):
             return None
-        row = self.db.query(ApiToken).filter(ApiToken.jti == jti).first()
+        row = self.db.scalar(select(ApiToken).where(ApiToken.jti == jti))
         if not row:
             return None
         if not constant_time_equal(hash_refresh_token(token or ""), row.token_hash):
@@ -146,7 +144,7 @@ class ApiTokenService:
         claim_scopes = sorted(claims.get("scopes") or [])
         if db_scopes != claim_scopes or (required_scope and required_scope not in db_scopes):
             return None
-        user = self.db.query(User).filter(User.id == user_id).first()
+        user = self.db.get(User, user_id)
         if (
             not user
             or not user.is_active
@@ -155,6 +153,5 @@ class ApiTokenService:
         ):
             return None
         row.last_used_at = now
-        self.db.add(row)
         self.db.commit()
         return user
