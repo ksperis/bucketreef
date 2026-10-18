@@ -237,3 +237,155 @@ export async function createBillingRateCardVersion(
 export async function deleteBillingRateCard(id: number): Promise<void> {
   await client.delete("/admin/billing/rate-cards/" + id);
 }
+
+export type BillingSubjectType = "account" | "s3_user";
+
+export type BillingEntitySubjectReference = {
+  subject_type: BillingSubjectType;
+  subject_id: number;
+  name: string;
+  rgw_identifier: string;
+  storage_endpoint_id: number;
+  storage_endpoint_name: string;
+};
+
+export type BillingEntityRateAssignmentInput = {
+  rate_plan_id: number;
+  effective_from: string;
+  effective_to?: string | null;
+};
+
+export type BillingEntityRateAssignment = BillingEntityRateAssignmentInput & {
+  id: number;
+  rate_plan_name: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingEntityPayload = {
+  name: string;
+  code?: string | null;
+  external_id?: string | null;
+  subject_type: BillingSubjectType;
+  include_tag_ids: number[];
+  explicit_include_ids: number[];
+  explicit_exclude_ids: number[];
+  rate_assignments: BillingEntityRateAssignmentInput[];
+};
+
+export type BillingEntityAdminItem = {
+  id: number;
+  name: string;
+  code?: string | null;
+  external_id?: string | null;
+  subject_type: BillingSubjectType;
+  active: boolean;
+  include_tags: Array<{
+    id: number;
+    label: string;
+    color_key: string;
+    scope: "administrative" | "standard";
+  }>;
+  explicit_includes: BillingEntitySubjectReference[];
+  explicit_excludes: BillingEntitySubjectReference[];
+  rate_assignments: BillingEntityRateAssignment[];
+  member_count: number;
+  conflict_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingEntityMembershipReason = {
+  kind: "tag" | "explicit_include" | "explicit_exclude";
+  tag_definition_id?: number | null;
+  label?: string | null;
+};
+
+export type BillingEntityResolvedSubject = BillingEntitySubjectReference & {
+  reasons: BillingEntityMembershipReason[];
+};
+
+export type BillingEntityResolution = {
+  entity_id?: number | null;
+  entity_name: string;
+  subject_type: BillingSubjectType;
+  members: BillingEntityResolvedSubject[];
+  excluded: BillingEntityResolvedSubject[];
+};
+
+export type BillingEntityConflict = {
+  subject: BillingEntitySubjectReference;
+  entities: Array<{
+    entity_id?: number | null;
+    entity_name: string;
+  }>;
+};
+
+export type BillingEntityResolutionResult = {
+  entities: BillingEntityResolution[];
+  unassigned: BillingEntitySubjectReference[];
+  conflicts: BillingEntityConflict[];
+};
+
+export async function listBillingEntities(
+  search = "",
+  includeInactive = true,
+): Promise<BillingEntityAdminItem[]> {
+  const { data } = await client.get<BillingEntityAdminItem[]>("/admin/billing/entities", {
+    params: {
+      search,
+      include_inactive: includeInactive,
+    },
+  });
+  return data;
+}
+
+export async function createBillingEntity(payload: BillingEntityPayload): Promise<BillingEntityAdminItem> {
+  const { data } = await client.post<BillingEntityAdminItem>("/admin/billing/entities", payload);
+  return data;
+}
+
+export async function updateBillingEntity(
+  id: number,
+  payload: BillingEntityPayload,
+): Promise<BillingEntityAdminItem> {
+  const { data } = await client.put<BillingEntityAdminItem>("/admin/billing/entities/" + id, payload);
+  return data;
+}
+
+export async function deactivateBillingEntity(id: number): Promise<BillingEntityAdminItem> {
+  const { data } = await client.post<BillingEntityAdminItem>(
+    "/admin/billing/entities/" + id + "/deactivate",
+  );
+  return data;
+}
+
+export async function previewBillingEntity(
+  payload: BillingEntityPayload,
+  entityId?: number,
+): Promise<BillingEntityResolutionResult> {
+  const { data } = await client.post<BillingEntityResolutionResult>(
+    "/admin/billing/entities/preview",
+    payload,
+    { params: entityId == null ? undefined : { entity_id: entityId } },
+  );
+  return data;
+}
+
+export async function searchBillingEntitySubjects(
+  subjectType: BillingSubjectType,
+  search = "",
+  limit = 20,
+): Promise<BillingEntitySubjectReference[]> {
+  const { data } = await client.get<BillingEntitySubjectReference[]>(
+    "/admin/billing/entity-subjects",
+    {
+      params: {
+        subject_type: subjectType,
+        search,
+        limit,
+      },
+    },
+  );
+  return data;
+}

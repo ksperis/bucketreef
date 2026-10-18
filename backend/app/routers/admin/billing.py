@@ -11,6 +11,10 @@ from app.core.database import get_db
 from app.core.domain_errors import BillingDisabledError
 from app.db import User
 from app.models.billing import (
+    BillingEntityAdminItem,
+    BillingEntityPayload,
+    BillingEntityResolutionResult,
+    BillingEntitySubjectReference,
     BillingRateCardAdminItem,
     BillingRateCardPayload,
     BillingRateCardVersionCreate,
@@ -27,6 +31,11 @@ from app.services.billing_rate_card_service import (
     BillingRateCardImmutableError,
     BillingRateCardNotFoundError,
     BillingRateCardService,
+)
+from app.services.billing_entity_service import (
+    BillingEntityConflictError,
+    BillingEntityNotFoundError,
+    BillingEntityService,
 )
 from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
@@ -148,6 +157,166 @@ def _rate_card_audit_metadata(item: BillingRateCardAdminItem) -> dict:
             "requests_per_1000_price": item.requests_per_1000_price,
         },
     }
+
+
+def _billing_entity_http_error(exc: ValueError) -> NoReturn:
+    if isinstance(exc, BillingEntityNotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    if isinstance(exc, BillingEntityConflictError):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    raise_http_error_from_value_error(exc)
+
+
+def _billing_entity_audit_metadata(item: BillingEntityAdminItem) -> dict:
+    return {
+        "billing_entity_id": item.id,
+        "name": item.name,
+        "code": item.code,
+        "external_id": item.external_id,
+        "subject_type": item.subject_type,
+        "active": item.active,
+        "include_tag_ids": [tag.id for tag in item.include_tags],
+        "explicit_include_ids": [subject.subject_id for subject in item.explicit_includes],
+        "explicit_exclude_ids": [subject.subject_id for subject in item.explicit_excludes],
+        "rate_assignments": [
+            {
+                "rate_plan_id": assignment.rate_plan_id,
+                "effective_from": assignment.effective_from.isoformat(),
+                "effective_to": assignment.effective_to.isoformat() if assignment.effective_to else None,
+            }
+            for assignment in item.rate_assignments
+        ],
+    }
+
+
+@router.get("/entity-subjects", response_model=list[BillingEntitySubjectReference])
+def billing_entity_subjects(
+    subject_type: str = Query(...),
+    search: str = Query(""),
+    limit: int = Query(20, ge=1, le=100),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> list[BillingEntitySubjectReference]:
+    try:
+        return BillingEntityService(db).search_subjects(
+            subject_type=subject_type,
+            search=search,
+            limit=limit,
+        )
+    except ValueError as exc:
+        _billing_entity_http_error(exc)
+
+
+@router.post("/entities/preview", response_model=BillingEntityResolutionResult)
+def preview_billing_entity(
+    payload: BillingEntityPayload,
+    entity_id: int | None = Query(None, ge=1),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> BillingEntityResolutionResult:
+    try:
+        return BillingEntityService(db).preview(payload, entity_id=entity_id)
+    except ValueError as exc:
+        _billing_entity_http_error(exc)
+
+
+@router.get("/entities", response_model=list[BillingEntityAdminItem])
+def billing_entities(
+    search: str = Query(""),
+    include_inactive: bool = Query(True),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> list[BillingEntityAdminItem]:
+    return BillingEntityService(db).list(search=search, include_inactive=include_inactive)
+
+
+@router.post("/entities", response_model=BillingEntityAdminItem, status_code=status.HTTP_201_CREATED)
+def create_billing_entity(
+    payload: BillingEntityPayload,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingEntityAdminItem:
+    try:
+        item = BillingEntityService(db).create(payload)
+    except ValueError as exc:
+        _billing_entity_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_entity.create",
+        entity_type="billing_entity",
+        entity_id=str(item.id),
+        metadata=_billing_entity_audit_metadata(item),
+    )
+    return item
+
+
+@router.get("/entities/{entity_id}", response_model=BillingEntityAdminItem)
+def billing_entity(
+    entity_id: int,
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> BillingEntityAdminItem:
+    try:
+        return BillingEntityService(db).get(entity_id)
+    except ValueError as exc:
+        _billing_entity_http_error(exc)
+
+
+@router.put("/entities/{entity_id}", response_model=BillingEntityAdminItem)
+def update_billing_entity(
+    entity_id: int,
+    payload: BillingEntityPayload,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingEntityAdminItem:
+    service = BillingEntityService(db)
+    try:
+        before = service.get(entity_id)
+        item = service.update(entity_id, payload)
+    except ValueError as exc:
+        _billing_entity_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_entity.update",
+        entity_type="billing_entity",
+        entity_id=str(item.id),
+        metadata={
+            "before": _billing_entity_audit_metadata(before),
+            "after": _billing_entity_audit_metadata(item),
+        },
+    )
+    return item
+
+
+@router.post("/entities/{entity_id}/deactivate", response_model=BillingEntityAdminItem)
+def deactivate_billing_entity(
+    entity_id: int,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingEntityAdminItem:
+    service = BillingEntityService(db)
+    try:
+        before = service.get(entity_id)
+        item = service.deactivate(entity_id)
+    except ValueError as exc:
+        _billing_entity_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_entity.deactivate",
+        entity_type="billing_entity",
+        entity_id=str(item.id),
+        metadata={
+            "before": _billing_entity_audit_metadata(before),
+            "after": _billing_entity_audit_metadata(item),
+        },
+    )
+    return item
 
 
 @router.get("/rate-cards", response_model=list[BillingRateCardAdminItem])

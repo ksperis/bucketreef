@@ -141,6 +141,10 @@ DOMAINS = (
             "billing_rate_plans",
             "billing_rate_cards",
             "billing_assignments",
+            "billing_entities",
+            "billing_entity_tag_rules",
+            "billing_entity_subject_rules",
+            "billing_entity_rate_assignments",
         ),
     ),
 )

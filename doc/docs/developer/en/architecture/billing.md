@@ -79,3 +79,45 @@ the recorded quota value and quota state for each storage observation.
 This provenance is part of the calculation contract: exports, previews, and
 future immutable Billing Statements must be explainable from the stored
 historical observations without consulting mutable live RGW state.
+
+## Billing Entities
+
+Billing Entities add a business grouping layer above technical RGW subjects.
+Each entity has one explicit subject level, either `account` or `s3_user`.
+Account and S3 User consumption is never combined inside the same entity
+membership calculation.
+
+Membership reuses the existing Admin-managed tag catalog. BucketReef does not
+maintain a second billing-only tag system. Resolution is deterministic:
+
+1. include subjects matching any configured Admin-managed tag;
+2. add explicit subject inclusions;
+3. apply explicit exclusions last;
+4. deduplicate members while retaining every inclusion/exclusion reason.
+
+`BillingEntityService` is the canonical resolver. It returns resolved members
+with their reasons, explicitly excluded matches, unassigned subjects, and
+cross-entity conflicts. The Admin preview calls this backend resolver instead of
+reimplementing membership rules in the frontend.
+
+A subject that resolves to several active Billing Entities is reported as a
+conflict. The resolver never silently chooses one entity or duplicates the
+subject for billing. Later Billing Statement finalization uses this conflict as
+a blocking condition.
+
+### Rate Plan assignments
+
+An entity can optionally carry month-effective Rate Plan assignments. Entity
+assignments reference the stable Rate Plan identity rather than a single tariff
+version. The effective Rate Plan version is selected later for the requested
+billing month.
+
+Entity assignments currently accept global Rate Plans. A Billing Entity may span
+several S3 endpoints, so an endpoint-scoped plan would make the entity-level
+assignment ambiguous. Endpoint pricing remains available as the lower-precedence
+fallback in the canonical rate-resolution order.
+
+Assignment periods cannot overlap and use month boundaries. Current and future
+periods can be scheduled safely. Once a period is historical it is preserved
+verbatim when other entity settings are edited; changing or removing that
+historical assignment is rejected.

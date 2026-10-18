@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,13 @@ const mocks = vi.hoisted(() => ({
   listEndpoints: vi.fn(),
   createVersion: vi.fn(),
   remove: vi.fn(),
+  listEntities: vi.fn(),
+  previewEntity: vi.fn(),
+  createEntity: vi.fn(),
+  updateEntity: vi.fn(),
+  deactivateEntity: vi.fn(),
+  searchSubjects: vi.fn(),
+  listTags: vi.fn(),
 }));
 
 vi.mock("../../api/billing", async (importOriginal) => ({
@@ -19,11 +26,22 @@ vi.mock("../../api/billing", async (importOriginal) => ({
   updateBillingRateCard: vi.fn(),
   createBillingRateCardVersion: (...args: unknown[]) => mocks.createVersion(...args),
   deleteBillingRateCard: (id: number) => mocks.remove(id),
+  listBillingEntities: (...args: unknown[]) => mocks.listEntities(...args),
+  previewBillingEntity: (...args: unknown[]) => mocks.previewEntity(...args),
+  createBillingEntity: (...args: unknown[]) => mocks.createEntity(...args),
+  updateBillingEntity: (...args: unknown[]) => mocks.updateEntity(...args),
+  deactivateBillingEntity: (...args: unknown[]) => mocks.deactivateEntity(...args),
+  searchBillingEntitySubjects: (...args: unknown[]) => mocks.searchSubjects(...args),
 }));
 
 vi.mock("../../api/storageEndpoints", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api/storageEndpoints")>()),
   listStorageEndpoints: () => mocks.listEndpoints(),
+}));
+
+vi.mock("../../api/tags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../api/tags")>()),
+  listAdminTagDefinitions: (...args: unknown[]) => mocks.listTags(...args),
 }));
 
 const timestamp = "2026-10-18T10:00:00Z";
@@ -78,6 +96,37 @@ describe("BillingSettingsPage", () => {
         updated_at: timestamp,
       },
     ]);
+    mocks.listTags.mockResolvedValue([
+      { id: 101, label: "research", color_key: "sky", scope: "administrative" },
+      { id: 102, label: "dsi", color_key: "violet", scope: "standard" },
+    ]);
+    mocks.listEntities.mockResolvedValue([
+      {
+        id: 31,
+        name: "Research unit",
+        code: "RES",
+        external_id: "cost-center-42",
+        subject_type: "account",
+        active: true,
+        include_tags: [{ id: 101, label: "research", color_key: "sky", scope: "administrative" }],
+        explicit_includes: [],
+        explicit_excludes: [],
+        rate_assignments: [],
+        member_count: 2,
+        conflict_count: 1,
+        created_at: timestamp,
+        updated_at: timestamp,
+      },
+    ]);
+    mocks.searchSubjects.mockResolvedValue([]);
+    mocks.previewEntity.mockResolvedValue({
+      entities: [],
+      unassigned: [],
+      conflicts: [],
+    });
+    mocks.createEntity.mockResolvedValue({});
+    mocks.updateEntity.mockResolvedValue({});
+    mocks.deactivateEntity.mockResolvedValue({});
   });
 
   it("shows immutable active pricing and editable future endpoint pricing", async () => {
@@ -149,5 +198,124 @@ describe("BillingSettingsPage", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "Edit billing rate card" })).not.toBeInTheDocument(),
     );
+  });
+
+  it("creates a Billing Entity from Admin-managed tags and previews canonical membership conflicts", async () => {
+    mocks.previewEntity.mockResolvedValue({
+      entities: [
+        {
+          entity_id: 31,
+          entity_name: "Research unit",
+          subject_type: "account",
+          members: [
+            {
+              subject_type: "account",
+              subject_id: 7,
+              name: "Shared account",
+              rgw_identifier: "RGW-SHARED",
+              storage_endpoint_id: 3,
+              storage_endpoint_name: "Ceph production",
+              reasons: [{ kind: "tag", tag_definition_id: 101, label: "research" }],
+            },
+          ],
+          excluded: [],
+        },
+        {
+          entity_id: null,
+          entity_name: "DSI",
+          subject_type: "account",
+          members: [
+            {
+              subject_type: "account",
+              subject_id: 7,
+              name: "Shared account",
+              rgw_identifier: "RGW-SHARED",
+              storage_endpoint_id: 3,
+              storage_endpoint_name: "Ceph production",
+              reasons: [{ kind: "tag", tag_definition_id: 102, label: "dsi" }],
+            },
+          ],
+          excluded: [],
+        },
+      ],
+      unassigned: [],
+      conflicts: [
+        {
+          subject: {
+            subject_type: "account",
+            subject_id: 7,
+            name: "Shared account",
+            rgw_identifier: "RGW-SHARED",
+            storage_endpoint_id: 3,
+            storage_endpoint_name: "Ceph production",
+          },
+          entities: [
+            { entity_id: 31, entity_name: "Research unit" },
+            { entity_id: null, entity_name: "DSI" },
+          ],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/admin/billing-settings"]}>
+        <BillingSettingsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/Ceph production/);
+    fireEvent.click(screen.getByRole("tab", { name: "Billing Entities" }));
+    expect(await screen.findByText("Research unit")).toBeInTheDocument();
+    expect(screen.getByText("1 conflicts")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Billing Entity" }));
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "DSI" } });
+    fireEvent.click(screen.getByRole("button", { name: "Include tag dsi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview membership" }));
+
+    await waitFor(() => expect(mocks.previewEntity).toHaveBeenCalledTimes(1));
+    expect(mocks.previewEntity.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        name: "DSI",
+        subject_type: "account",
+        include_tag_ids: [102],
+      }),
+    );
+    expect(await screen.findByText(/subject would belong to multiple active Billing Entities/)).toBeInTheDocument();
+    expect(screen.getAllByText("Shared account")).toHaveLength(2);
+    expect(screen.getByText(/Tag: dsi/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mocks.createEntity).toHaveBeenCalledTimes(1));
+    expect(mocks.createEntity.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        name: "DSI",
+        include_tag_ids: [102],
+        explicit_include_ids: [],
+        explicit_exclude_ids: [],
+      }),
+    );
+  });
+
+  it("protects unsaved Billing Entity edits and confirms deactivation", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/billing-settings"]}>
+        <BillingSettingsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/Ceph production/);
+    fireEvent.click(screen.getByRole("tab", { name: "Billing Entities" }));
+    await screen.findByText("Research unit");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "RESEARCH" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Deactivate" }));
+    const deactivateDialog = screen.getByRole("dialog", { name: "Deactivate Billing Entity?" });
+    expect(deactivateDialog).toBeInTheDocument();
+    fireEvent.click(within(deactivateDialog).getByRole("button", { name: "Deactivate" }));
+    await waitFor(() => expect(mocks.deactivateEntity).toHaveBeenCalledWith(31));
   });
 });
