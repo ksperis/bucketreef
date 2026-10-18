@@ -1014,6 +1014,8 @@ If draft access is later needed, make it an explicit permission/scope.
 
 ## Objective 11 — Add integration delivery primitives, not ERP connectors
 
+Implementation status: **completed**.
+
 ### Goal
 
 Make the integration practical in production while keeping BucketReef vendor

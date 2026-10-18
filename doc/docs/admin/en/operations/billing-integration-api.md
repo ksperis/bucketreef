@@ -125,6 +125,33 @@ They do not recalculate current tags, quotas, rates, or memberships. Use the
 JSON export when the complete structured provenance is needed; use CSV for
 flat accounting/reporting ingestion.
 
+## Finalization webhook
+
+External systems may subscribe to the generic BucketReef webhook event
+`billing.statement.finalized`. The event is emitted once when a draft Billing
+Statement transitions to `finalized`, including statements finalized by the
+configured monthly automation workflow.
+
+The webhook is a discovery notification, not another statement schema. Its
+`data` contains the BucketReef statement identifiers, Billing Entity identifiers,
+period, currency, finalization timestamp, and a `statement_api_reference` such
+as:
+
+```text
+/api/integrations/billing/v1/statements/<statement_public_id>
+```
+
+Fetch that API resource to obtain the canonical immutable statement and its
+lines. The webhook deliberately omits statement lines and calculated totals.
+Webhook delivery is at-least-once and uses the standard BucketReef signing,
+retry/backoff, and delivery-history behavior. A webhook delivery or queueing
+failure never changes the finalized statement state.
+
+Configure the receiver in **Admin > Settings > Webhooks** and either subscribe
+specifically to `billing.statement.finalized` or use the `*` subscription. See
+[Operations: webhooks](webhooks.md) for signature verification, idempotence,
+retry, and outbound-security requirements.
+
 ## v1 compatibility policy
 
 The `/v1` contract is a supported external boundary. Within v1 BucketReef will
