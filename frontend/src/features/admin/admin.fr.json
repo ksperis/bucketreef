@@ -1876,5 +1876,17 @@
   "Unable to save Billing Group.": "Impossible d’enregistrer le groupe de facturation.",
   "{count} group": "{count} groupe",
   "{count} groups": "{count} groupes",
-  "{count} scheduled": "{count} planifié(s)"
+  "{count} scheduled": "{count} planifié(s)",
+  "Direct assignment": "Affectation directe",
+  "Billing Entity: {name}": "Entité de facturation : {name}",
+  "Endpoint Rate Plan": "Plan tarifaire de l’endpoint",
+  "Global Rate Plan": "Plan tarifaire global",
+  "Rate Plan: {name}": "Plan tarifaire : {name}",
+  "Effective {date}": "En vigueur le {date}",
+  "Rate resolution conflict. This subject matches multiple Billing Entities: {names}. Resolve the membership conflict before using this cost.": "Conflit de résolution tarifaire. Ce sujet correspond à plusieurs entités de facturation : {names}. Résolvez ce conflit d’appartenance avant d’utiliser ce coût.",
+  "Rate resolution conflict prevents cost calculation for this subject. Review its Billing Entity and Rate Plan assignments.": "Un conflit de résolution tarifaire empêche le calcul du coût pour ce sujet. Vérifiez ses affectations d’entité de facturation et de plan tarifaire.",
+  "Rate resolution conflict prevents an estimated cost for this scope. Review Billing settings.": "Un conflit de résolution tarifaire empêche l’estimation du coût pour ce périmètre. Vérifiez les paramètres de facturation.",
+  "Rate Plan {name} has no effective version for the selected month. Cost is unavailable.": "Le plan tarifaire {name} n’a aucune version effective pour le mois sélectionné. Le coût est indisponible.",
+  "No effective Rate Plan matches this subject for the selected month. Cost is unavailable.": "Aucun plan tarifaire effectif ne correspond à ce sujet pour le mois sélectionné. Le coût est indisponible.",
+  "No effective Rate Plan matches this scope for the selected month. Usage totals remain available, but estimated cost is unavailable.": "Aucun plan tarifaire effectif ne correspond à ce périmètre pour le mois sélectionné. Les totaux d’usage restent disponibles, mais le coût estimé est indisponible."
 }

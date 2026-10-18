@@ -41,6 +41,12 @@ The editor can preview the resolved members before saving. The preview explains 
 
 An entity may optionally receive a global Rate Plan through month-effective assignment periods. Current and future periods must not overlap. Historical assignment periods are read-only so later edits to names or membership cannot rewrite prior pricing intent.
 
+### Effective pricing
+
+For an Account or S3 User, BucketReef resolves pricing in this order: **Direct assignment → Billing Entity → Endpoint → Global**. The effective tariff version is selected for the requested month, and that same version determines both the unit prices and whether storage uses **Actual usage** or **Allocated quota**.
+
+The Billing page shows the winning source, Rate Plan, and effective version for resolved costs. A missing effective version is shown as missing pricing. Ambiguous assignments or membership in several Billing Entities are shown as rate-resolution conflicts; BucketReef does not silently fall back to another tariff or treat the missing cost as zero.
+
 ### Billing Groups
 
 Use the **Billing Groups** tab to organize Billing Entities into analytical scopes such as Research, DSI, a region, or a programme. Groups are reporting classifications only: they do not change which Accounts or S3 Users belong to an entity, which Rate Plan applies, or how monthly costs are calculated.
@@ -58,7 +64,7 @@ Billing Groups do not convert currencies or create independent billing statement
 3. Review the summary cards for storage, traffic, request volume, source coverage, and estimated cost.
 4. If scheduler data is stale, run **Collect daily** for one UTC day and check the collection result. Partial collection errors are listed below the action.
 5. Inspect the paginated subjects table to identify the account or user that drives the highest usage.
-6. Select a subject to open daily charts and review storage, traffic, requests, source coverage, and rate-card status over time.
+6. Select a subject to open daily charts and review storage, traffic, requests, source coverage, and the resolved Rate Plan source/version.
 7. Export CSV only after the selected endpoint and month have billing data.
 
 ## Expected result

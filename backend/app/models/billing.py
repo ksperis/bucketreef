@@ -44,6 +44,27 @@ class BillingStorageChargeQuantity(ApiModel):
     issues: list[str] = Field(default_factory=list)
 
 
+BillingRateResolutionLayer = Literal["direct", "billing_entity", "endpoint", "global"]
+
+
+class BillingRateResolutionExplanation(ApiModel):
+    status: Literal["resolved", "missing", "conflict"]
+    layer: Optional[BillingRateResolutionLayer] = None
+    rate_plan_id: Optional[int] = None
+    rate_plan_name: Optional[str] = None
+    rate_card_id: Optional[int] = None
+    rate_card_effective_from: Optional[date] = None
+    rate_card_effective_to: Optional[date] = None
+    source_assignment_id: Optional[int] = None
+    billing_entity_id: Optional[int] = None
+    billing_entity_name: Optional[str] = None
+    conflicting_billing_entity_ids: list[int] = Field(default_factory=list)
+    conflicting_billing_entity_names: list[str] = Field(default_factory=list)
+    currency: Optional[str] = None
+    storage_charge_basis: Optional[Literal["actual_usage", "allocated_quota"]] = None
+    issues: list[str] = Field(default_factory=list)
+
+
 class BillingUsageTotals(ApiModel):
     bytes_in: int = 0
     bytes_out: int = 0
@@ -64,6 +85,7 @@ class BillingSummary(ApiModel):
     storage: BillingStorageTotals
     coverage: BillingCoverage
     cost: Optional[BillingCost] = None
+    rate_resolution: BillingRateResolutionExplanation
 
 
 class BillingSubjectSummary(ApiModel):
@@ -74,6 +96,7 @@ class BillingSubjectSummary(ApiModel):
     storage: BillingStorageTotals
     usage: BillingUsageTotals
     cost: Optional[BillingCost] = None
+    rate_resolution: BillingRateResolutionExplanation
 
 
 class BillingSubjectsResponse(ApiModel):
@@ -105,6 +128,7 @@ class BillingSubjectDetail(ApiModel):
     storage: BillingStorageTotals
     coverage: BillingCoverage
     cost: Optional[BillingCost] = None
+    rate_resolution: BillingRateResolutionExplanation
 
 
 class BillingRateCardPayload(ApiModel):

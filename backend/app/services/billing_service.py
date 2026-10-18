@@ -14,12 +14,9 @@ from typing import Iterable, Optional, TypeAlias
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.domain_errors import BillingSubjectNotFoundError
 from app.db import (
-    BillingAssignment,
     BillingRateCard,
-    BillingRatePlan,
     BillingStorageDaily,
     BillingUsageDaily,
     S3Account,
@@ -47,7 +44,7 @@ from app.services.billing_calculation import (
     monetary_total,
     requests_to_thousands,
 )
-settings = get_settings()
+from app.services.billing_rate_resolution_service import BillingRateResolutionService
 
 BillingSubject: TypeAlias = S3Account | S3User
 
@@ -254,79 +251,27 @@ def _resolve_rate_card(
     subject_type: Optional[str] = None,
     subject_id: Optional[int] = None,
 ) -> Optional[BillingRateCard]:
-    if endpoint_id is None:
-        return None
-    if subject_type and subject_id:
-        assignment_statement = select(BillingAssignment).where(
-            BillingAssignment.storage_endpoint_id == endpoint_id,
-            BillingAssignment.effective_from <= period.start,
-            (BillingAssignment.effective_to.is_(None))
-            | (BillingAssignment.effective_to >= period.start),
-        )
-        if subject_type == "account":
-            assignment_statement = assignment_statement.where(
-                BillingAssignment.s3_account_id == subject_id
-            )
-        elif subject_type == "s3_user":
-            assignment_statement = assignment_statement.where(
-                BillingAssignment.s3_user_id == subject_id
-            )
-        assignment = db.scalar(
-            assignment_statement.order_by(
-                BillingAssignment.effective_from.desc(),
-                BillingAssignment.id.desc(),
-            ).limit(1)
-        )
-        if assignment:
-            assigned_rate_card = db.scalar(
-                select(BillingRateCard)
-                .where(
-                    BillingRateCard.rate_plan_id == assignment.rate_plan_id,
-                    BillingRateCard.effective_from <= period.start,
-                    (BillingRateCard.effective_to.is_(None))
-                    | (BillingRateCard.effective_to >= period.start),
-                )
-                .order_by(BillingRateCard.effective_from.desc(), BillingRateCard.id.desc())
-                .limit(1)
-            )
-            if assigned_rate_card:
-                return assigned_rate_card
-
-    name = settings.billing_default_rate_card_name
-    candidates = select(BillingRateCard).join(BillingRatePlan)
-    if name:
-        candidates = candidates.where(BillingRatePlan.name == name)
-    candidates = candidates.where(
-        BillingRateCard.effective_from <= period.start,
-        (BillingRateCard.effective_to.is_(None)) | (BillingRateCard.effective_to >= period.start),
-    )
-    endpoint_specific = candidates.where(
-        BillingRatePlan.storage_endpoint_id == endpoint_id
-    ).order_by(
-        BillingRateCard.effective_from.desc(),
-        BillingRateCard.id.desc(),
-    )
-    rate_card = db.scalar(endpoint_specific.limit(1))
-    if rate_card:
-        return rate_card
-    global_default = candidates.where(
-        BillingRatePlan.storage_endpoint_id.is_(None)
-    ).order_by(
-        BillingRateCard.effective_from.desc(),
-        BillingRateCard.id.desc(),
-    )
-    return db.scalar(global_default.limit(1))
+    return BillingRateResolutionService(db).resolve(
+        endpoint_id=endpoint_id,
+        period_start=period.start,
+        subject_type=subject_type,
+        subject_id=subject_id,
+    ).rate_card
 
 
 class BillingService:
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.rate_resolver = BillingRateResolutionService(db)
 
     def summary(self, month: str, endpoint_id: Optional[int]) -> BillingSummary:
         period = _parse_month(month)
         totals = self._aggregate_totals(period, endpoint_id=endpoint_id)
-        rate_card = _resolve_rate_card(self.db, endpoint_id, period)
-        cost = _compute_cost(rate_card, totals, period)
+        resolved_rate = self.rate_resolver.resolve(
+            endpoint_id=endpoint_id,
+            period_start=period.start,
+        )
+        cost = _compute_cost(resolved_rate.rate_card, totals, period)
         return BillingSummary(
             month=period.month,
             storage_endpoint_id=endpoint_id,
@@ -334,6 +279,7 @@ class BillingService:
             storage=_storage_totals(totals),
             coverage=_coverage_for_period(period, totals),
             cost=cost,
+            rate_resolution=resolved_rate.explanation,
         )
 
     def list_subjects(
@@ -445,11 +391,13 @@ class BillingService:
             daily_map[key] = entry
 
         daily = sorted(daily_map.values(), key=lambda entry: entry.day)
-        cost = _compute_cost(
-            _resolve_rate_card(self.db, endpoint_id, period, subject_type, subject_id),
-            totals,
-            period,
+        resolved_rate = self.rate_resolver.resolve(
+            endpoint_id=endpoint_id,
+            period_start=period.start,
+            subject_type=subject_type,
+            subject_id=subject_id,
         )
+        cost = _compute_cost(resolved_rate.rate_card, totals, period)
 
         return BillingSubjectDetail(
             month=period.month,
@@ -462,6 +410,7 @@ class BillingService:
             storage=_storage_totals(totals),
             coverage=_coverage_for_period(period, totals),
             cost=cost,
+            rate_resolution=resolved_rate.explanation,
         )
 
     def export_csv(self, month: str, endpoint_id: int) -> tuple[str, str]:
@@ -488,6 +437,13 @@ class BillingService:
                 "priced_storage_gib_month",
                 "storage_quantity_status",
                 "storage_quantity_coverage",
+                "rate_resolution_status",
+                "rate_source_layer",
+                "rate_plan_id",
+                "rate_plan_name",
+                "rate_card_id",
+                "rate_card_effective_from",
+                "billing_entity_id",
                 "total_cost",
                 "currency",
             ]
@@ -517,6 +473,17 @@ class BillingService:
                         if item.cost and item.cost.storage_quantity
                         else ""
                     ),
+                    item.rate_resolution.status,
+                    item.rate_resolution.layer or "",
+                    item.rate_resolution.rate_plan_id or "",
+                    item.rate_resolution.rate_plan_name or "",
+                    item.rate_resolution.rate_card_id or "",
+                    (
+                        item.rate_resolution.rate_card_effective_from.isoformat()
+                        if item.rate_resolution.rate_card_effective_from
+                        else ""
+                    ),
+                    item.rate_resolution.billing_entity_id or "",
                     f"{item.cost.total_cost:.6f}" if item.cost and item.cost.total_cost is not None else "",
                     item.cost.currency if item.cost and item.cost.currency else "",
                 ]
@@ -561,6 +528,12 @@ class BillingService:
                 quota_observations=storage.quota_observations,
                 quota_expected_observations=period.days_in_month,
             )
+            resolved_rate = self.rate_resolver.resolve(
+                endpoint_id=endpoint_id,
+                period_start=period.start,
+                subject_type=subject_type,
+                subject_id=subject_id,
+            )
             items.append(
                 BillingSubjectSummary(
                     subject_type=subject_type,
@@ -569,17 +542,8 @@ class BillingService:
                     rgw_identifier=subject.rgw_user_uid,
                     storage=_storage_totals(totals),
                     usage=_usage_totals(totals),
-                    cost=_compute_cost(
-                        _resolve_rate_card(
-                            self.db,
-                            endpoint_id,
-                            period,
-                            subject_type,
-                            subject_id,
-                        ),
-                        totals,
-                        period,
-                    ),
+                    cost=_compute_cost(resolved_rate.rate_card, totals, period),
+                    rate_resolution=resolved_rate.explanation,
                 )
             )
         return items

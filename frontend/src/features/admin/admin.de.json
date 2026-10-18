@@ -1876,5 +1876,17 @@
   "Unable to save Billing Group.": "Abrechnungsgruppe konnte nicht gespeichert werden.",
   "{count} group": "{count} Gruppe",
   "{count} groups": "{count} Gruppen",
-  "{count} scheduled": "{count} geplant"
+  "{count} scheduled": "{count} geplant",
+  "Direct assignment": "Direkte Zuweisung",
+  "Billing Entity: {name}": "Abrechnungseinheit: {name}",
+  "Endpoint Rate Plan": "Endpoint-Tarifplan",
+  "Global Rate Plan": "Globaler Tarifplan",
+  "Rate Plan: {name}": "Tarifplan: {name}",
+  "Effective {date}": "Gültig ab {date}",
+  "Rate resolution conflict. This subject matches multiple Billing Entities: {names}. Resolve the membership conflict before using this cost.": "Konflikt bei der Tarifauflösung. Dieses Subjekt gehört zu mehreren Abrechnungseinheiten: {names}. Lösen Sie den Mitgliedschaftskonflikt, bevor Sie diese Kosten verwenden.",
+  "Rate resolution conflict prevents cost calculation for this subject. Review its Billing Entity and Rate Plan assignments.": "Ein Konflikt bei der Tarifauflösung verhindert die Kostenberechnung für dieses Subjekt. Prüfen Sie die Zuweisungen zu Abrechnungseinheit und Tarifplan.",
+  "Rate resolution conflict prevents an estimated cost for this scope. Review Billing settings.": "Ein Konflikt bei der Tarifauflösung verhindert die Kostenschätzung für diesen Bereich. Prüfen Sie die Abrechnungseinstellungen.",
+  "Rate Plan {name} has no effective version for the selected month. Cost is unavailable.": "Für den Tarifplan {name} ist im ausgewählten Monat keine gültige Version vorhanden. Die Kosten sind nicht verfügbar.",
+  "No effective Rate Plan matches this subject for the selected month. Cost is unavailable.": "Für dieses Subjekt gilt im ausgewählten Monat kein Tarifplan. Die Kosten sind nicht verfügbar.",
+  "No effective Rate Plan matches this scope for the selected month. Usage totals remain available, but estimated cost is unavailable.": "Für diesen Bereich gilt im ausgewählten Monat kein Tarifplan. Die Nutzungssummen bleiben verfügbar, die geschätzten Kosten jedoch nicht."
 }

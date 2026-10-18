@@ -445,6 +445,24 @@ const endpointStatusGlobalIncidentsRule: MockRule = {
   }),
 };
 
+const defaultBillingRateResolution = {
+  status: "resolved",
+  layer: "endpoint",
+  rate_plan_id: 4,
+  rate_plan_name: "Ops rate card",
+  rate_card_id: 9,
+  rate_card_effective_from: "2026-01-01",
+  rate_card_effective_to: null,
+  source_assignment_id: null,
+  billing_entity_id: null,
+  billing_entity_name: null,
+  conflicting_billing_entity_ids: [],
+  conflicting_billing_entity_names: [],
+  currency: "EUR",
+  storage_charge_basis: "actual_usage",
+  issues: [],
+} as const;
+
 const billingSummaryRule: MockRule = {
   id: "admin-billing-summary",
   path: /^\/admin\/billing\/summary$/,
@@ -477,6 +495,7 @@ const billingSummaryRule: MockRule = {
       total_cost: 157.6,
       rate_card_name: "Ops rate card",
     },
+    rate_resolution: defaultBillingRateResolution,
   },
 };
 
@@ -504,6 +523,7 @@ const billingSubjectsRule: MockRule = {
           currency: "EUR",
           total_cost: 96.4,
         },
+        rate_resolution: defaultBillingRateResolution,
       },
     ],
     total: 1,
@@ -556,6 +576,7 @@ const billingSubjectDetailRule: MockRule = {
           total_cost: 96.4,
           rate_card_name: "Ops rate card",
         },
+        rate_resolution: defaultBillingRateResolution,
       },
       102: {
         month: "2026-03",
@@ -591,6 +612,7 @@ const billingSubjectDetailRule: MockRule = {
           total_cost: 31.8,
           rate_card_name: "Ops rate card",
         },
+        rate_resolution: defaultBillingRateResolution,
       },
       103: {
         month: "2026-03",
@@ -626,6 +648,7 @@ const billingSubjectDetailRule: MockRule = {
           total_cost: 22.5,
           rate_card_name: "Ops rate card",
         },
+        rate_resolution: defaultBillingRateResolution,
       },
     } as const;
     return detailById[subjectId as keyof typeof detailById] ?? detailById[101];
@@ -667,6 +690,7 @@ const portalBillingMeRule: MockRule = {
       total_cost: 96.4,
       rate_card_name: "Ops rate card",
     },
+    rate_resolution: defaultBillingRateResolution,
   },
 };
 

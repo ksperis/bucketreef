@@ -556,6 +556,8 @@ periods defined here.
 
 ## Objective 5 — Extend rate resolution with Billing Entity precedence
 
+Implementation status: **completed**.
+
 ### Goal
 
 Apply Billing Entity pricing consistently without creating a separate cost

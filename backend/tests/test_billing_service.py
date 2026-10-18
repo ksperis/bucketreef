@@ -195,6 +195,12 @@ def test_billing_summary_and_cost(db_session):
     assert summary.cost.currency == "EUR"
     assert summary.cost.total_cost is not None
     assert summary.cost.total_cost > 0
+    assert summary.rate_resolution.status == "resolved"
+    assert summary.rate_resolution.layer == "endpoint"
+    assert summary.rate_resolution.rate_plan_id == rate_plan.id
+    assert summary.rate_resolution.rate_card_id == rate_card.id
+    assert summary.rate_resolution.currency == "EUR"
+    assert summary.rate_resolution.storage_charge_basis == "actual_usage"
 
 
 def test_allocated_quota_billing_uses_historical_daily_quota_and_serializes_decimals(db_session):
@@ -539,12 +545,68 @@ def test_billing_subject_detail_and_export(db_session):
     assert detail.coverage.storage_days_collected == 1
     assert detail.coverage.usage_days_collected == 1
     assert len(detail.daily) == 1
+    assert detail.rate_resolution.status == "missing"
+    assert detail.rate_resolution.issues == ["no_effective_rate_plan"]
 
     filename, payload = service.export_csv("2026-01", endpoint.id)
     assert filename.startswith("billing-2026-01")
     assert "subject_type" in payload
+    assert "rate_resolution_status" in payload
+    assert "rate_source_layer" in payload
+    assert "rate_card_effective_from" in payload
+    assert "missing" in payload
     assert str(account.id) in payload
     assert account.rgw_user_uid in payload
+
+
+def test_billing_surfaces_expose_canonical_direct_rate_resolution(db_session):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    endpoint_plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
+    direct_plan = BillingRatePlan(name="reserved", storage_endpoint_id=endpoint.id)
+    endpoint_card = BillingRateCard(
+        rate_plan=endpoint_plan,
+        currency="EUR",
+        storage_charge_basis="actual_usage",
+        storage_gb_month_price=Decimal("1.000000"),
+        effective_from=date(2026, 1, 1),
+    )
+    direct_card = BillingRateCard(
+        rate_plan=direct_plan,
+        currency="EUR",
+        storage_charge_basis="allocated_quota",
+        storage_gb_month_price=Decimal("2.000000"),
+        effective_from=date(2026, 1, 1),
+    )
+    assignment = BillingAssignment(
+        storage_endpoint_id=endpoint.id,
+        s3_account_id=account.id,
+        rate_plan=direct_plan,
+        effective_from=date(2026, 1, 1),
+    )
+    db_session.add_all([endpoint_card, direct_card, assignment])
+    db_session.commit()
+
+    service = BillingService(db_session)
+    summary = service.summary("2026-01", endpoint.id)
+    subjects = service.list_subjects("2026-01", endpoint.id, "account", 1, 50, "name", "asc")
+    detail = service.subject_detail("2026-01", endpoint.id, "account", account.id)
+    _filename, payload = service.export_csv("2026-01", endpoint.id)
+
+    assert summary.rate_resolution.status == "resolved"
+    assert summary.rate_resolution.layer == "endpoint"
+    assert summary.rate_resolution.rate_card_id == endpoint_card.id
+
+    subject = subjects.items[0]
+    assert subject.rate_resolution.status == "resolved"
+    assert subject.rate_resolution.layer == "direct"
+    assert subject.rate_resolution.rate_plan_id == direct_plan.id
+    assert subject.rate_resolution.rate_card_id == direct_card.id
+    assert subject.rate_resolution.source_assignment_id == assignment.id
+    assert subject.rate_resolution.storage_charge_basis == "allocated_quota"
+
+    assert detail.rate_resolution == subject.rate_resolution
+    assert f",direct,{direct_plan.id},reserved,{direct_card.id},2026-01-01," in payload
 
 
 def test_billing_subject_detail_types_missing_subject_separately_from_invalid_input(db_session):

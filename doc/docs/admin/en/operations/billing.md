@@ -16,9 +16,20 @@ When it is disabled, Portal does not call the billing source endpoint.
 Billing cost estimates require an existing rate card. The service resolves rate cards in this order:
 
 1. Explicit account or S3 user assignment.
-2. Endpoint-specific rate card valid for the billing period.
-3. Global default rate card valid for the billing period.
-4. `BILLING_DEFAULT_RATE_CARD_NAME`, when configured.
+2. Resolved Billing Entity assignment.
+3. Endpoint default Rate Plan valid for the billing period.
+4. Global default Rate Plan valid for the billing period.
+
+Endpoint/global fallback uses the conventional Rate Plan name `default`, or the
+name configured by `BILLING_DEFAULT_RATE_CARD_NAME`. An unrelated named plan is
+not selected implicitly. An explicit assignment with no effective tariff
+version for the requested month remains an explicit missing-pricing state rather
+than falling through to a lower-precedence plan.
+
+The resolver also returns provenance for the selected layer, logical Rate Plan,
+effective tariff version, currency, and storage charge basis. Membership or
+assignment ambiguity is returned as a conflict. Admin views and CSV exports
+surface these states so an unresolved price cannot be mistaken for a zero cost.
 
 Without a matching rate card, Admin and Portal still show storage, traffic, request, and coverage data, but estimated costs are unavailable.
 
