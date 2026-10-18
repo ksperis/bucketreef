@@ -15,6 +15,16 @@ Use this page when you need a monthly usage and estimated cost overview for Ceph
 
 Pick the month and subject type you want to explain. Billing views are most useful when you compare the summary cards, subject table, and selected subject charts together.
 
+## Configure rate cards
+
+Superadmins configure tariff versions in **Settings → Billing** (`/admin/billing-settings`). The settings page is available even when Billing collection is disabled, so pricing can be prepared before enabling the feature.
+
+Rate cards can be global or scoped to one S3 endpoint. Pricing periods are month-aligned: `effective_from` is the first day of a month and an optional `effective_to` is the last day of a month. Future versions can be edited or deleted. Once a version becomes effective it is immutable; use **Create new version** to start replacement pricing on a future month while preserving historical estimates.
+
+Each tariff version also defines how the storage component is charged. **Actual usage** uses measured storage consumption. **Allocated quota** prices the storage capacity reserved by the subject. The charge basis is versioned with the tariff, so changing it for a future month requires a new version. Traffic and request components continue to use measured activity in both modes.
+
+Quota-based monetary calculation is implemented by the later Billing calculation objective. Its historical contract uses recorded quota observations and must never recalculate a past month from the subject's current live quota.
+
 ## Steps
 
 1. Open `/admin/billing`.
@@ -43,7 +53,7 @@ Check `billing_enabled`, billing collection status, Ceph endpoint selection, rat
     Billing analytics are available only when the Billing feature is enabled and billing collection is configured.
 
 !!! note
-    Estimated costs depend on rate cards already present in the platform database. This page does not create or edit rate cards or assignments.
+    Estimated costs depend on configured rate cards. `/admin/billing` remains a consultation page; create and version pricing in **Settings → Billing**. Explicit account/user rate-card assignments are not managed by that settings page.
 
 ## Related pages
 

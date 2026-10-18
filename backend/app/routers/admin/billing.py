@@ -10,10 +10,24 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.domain_errors import BillingDisabledError
 from app.db import User
-from app.models.billing import BillingSubjectDetail, BillingSubjectsResponse, BillingSummary
+from app.models.billing import (
+    BillingRateCardAdminItem,
+    BillingRateCardPayload,
+    BillingRateCardVersionCreate,
+    BillingSubjectDetail,
+    BillingSubjectsResponse,
+    BillingSummary,
+)
 from app.routers.billing_common import parse_billing_day
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_audit_service, get_current_super_admin
 from app.services.admin_billing_service import AdminBillingService
+from app.services.audit_service import AuditService
+from app.services.billing_rate_card_service import (
+    BillingRateCardConflictError,
+    BillingRateCardImmutableError,
+    BillingRateCardNotFoundError,
+    BillingRateCardService,
+)
 from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
 
@@ -106,3 +120,147 @@ def billing_export_csv(
         _raise_billing_http_error(exc)
     headers = {"Content-Disposition": build_attachment_content_disposition(filename)}
     return Response(content=payload, media_type="text/csv", headers=headers)
+
+
+
+def _rate_card_http_error(exc: ValueError) -> NoReturn:
+    if isinstance(exc, BillingRateCardNotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    if isinstance(exc, (BillingRateCardConflictError, BillingRateCardImmutableError)):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    raise_http_error_from_value_error(exc)
+
+
+def _rate_card_audit_metadata(item: BillingRateCardAdminItem) -> dict:
+    return {
+        "rate_card_id": item.id,
+        "name": item.name,
+        "scope": "endpoint" if item.storage_endpoint_id is not None else "global",
+        "storage_endpoint_id": item.storage_endpoint_id,
+        "currency": item.currency,
+        "storage_charge_basis": item.storage_charge_basis,
+        "effective_from": item.effective_from.isoformat(),
+        "effective_to": item.effective_to.isoformat() if item.effective_to else None,
+        "prices": {
+            "storage_gb_month_price": item.storage_gb_month_price,
+            "egress_gb_price": item.egress_gb_price,
+            "ingress_gb_price": item.ingress_gb_price,
+            "requests_per_1000_price": item.requests_per_1000_price,
+        },
+    }
+
+
+@router.get("/rate-cards", response_model=list[BillingRateCardAdminItem])
+def billing_rate_cards(
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> list[BillingRateCardAdminItem]:
+    return BillingRateCardService(db).list()
+
+
+@router.get("/rate-cards/{rate_card_id}", response_model=BillingRateCardAdminItem)
+def billing_rate_card(
+    rate_card_id: int,
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> BillingRateCardAdminItem:
+    try:
+        return BillingRateCardService(db).get(rate_card_id)
+    except ValueError as exc:
+        _rate_card_http_error(exc)
+
+
+@router.post("/rate-cards", response_model=BillingRateCardAdminItem, status_code=status.HTTP_201_CREATED)
+def create_billing_rate_card(
+    payload: BillingRateCardPayload,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingRateCardAdminItem:
+    try:
+        item = BillingRateCardService(db).create(payload)
+    except ValueError as exc:
+        _rate_card_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_rate_card.create",
+        entity_type="billing_rate_card",
+        entity_id=str(item.id),
+        metadata=_rate_card_audit_metadata(item),
+    )
+    return item
+
+
+@router.put("/rate-cards/{rate_card_id}", response_model=BillingRateCardAdminItem)
+def update_billing_rate_card(
+    rate_card_id: int,
+    payload: BillingRateCardPayload,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingRateCardAdminItem:
+    service = BillingRateCardService(db)
+    try:
+        before = service.get(rate_card_id)
+        item = service.update(rate_card_id, payload)
+    except ValueError as exc:
+        _rate_card_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_rate_card.update",
+        entity_type="billing_rate_card",
+        entity_id=str(item.id),
+        metadata={"before": _rate_card_audit_metadata(before), "after": _rate_card_audit_metadata(item)},
+    )
+    return item
+
+
+@router.post("/rate-cards/{rate_card_id}/versions", response_model=BillingRateCardAdminItem, status_code=status.HTTP_201_CREATED)
+def create_billing_rate_card_version(
+    rate_card_id: int,
+    payload: BillingRateCardVersionCreate,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingRateCardAdminItem:
+    service = BillingRateCardService(db)
+    try:
+        source = service.get(rate_card_id)
+        item = service.create_version(rate_card_id, payload)
+    except ValueError as exc:
+        _rate_card_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_rate_card.version_create",
+        entity_type="billing_rate_card",
+        entity_id=str(item.id),
+        metadata={"source": _rate_card_audit_metadata(source), "version": _rate_card_audit_metadata(item)},
+    )
+    return item
+
+
+@router.delete("/rate-cards/{rate_card_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_billing_rate_card(
+    rate_card_id: int,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> Response:
+    service = BillingRateCardService(db)
+    try:
+        item = service.get(rate_card_id)
+        service.delete(rate_card_id)
+    except ValueError as exc:
+        _rate_card_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_rate_card.delete",
+        entity_type="billing_rate_card",
+        entity_id=str(rate_card_id),
+        metadata=_rate_card_audit_metadata(item),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

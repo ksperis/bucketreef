@@ -61,6 +61,7 @@ function SidebarLinkBadge({
 }
 
 export type SidebarSection = {
+  id?: string;
   label?: string;
   links: SidebarLink[];
   collapsed?: boolean;
@@ -92,8 +93,14 @@ function isSectionCollapsible(section: SidebarSection) {
   return section.collapsible ?? section.label.trim().toLowerCase() === "settings";
 }
 
-function sidebarSectionStorageKey(title: string) {
-  return `shell:sidebar-sections:v1:${title.trim().toLowerCase() || "default"}`;
+function sidebarSectionStorageKey(title: string, pathname: string) {
+  const workspace = pathname.split("/").find(Boolean)?.trim().toLowerCase();
+  const scope = workspace || title.trim().toLowerCase() || "default";
+  return `shell:sidebar-sections:v1:${scope}`;
+}
+
+function sidebarSectionStateKey(section: SidebarSection, index: number) {
+  return section.id?.trim() || section.label?.trim() || `section-${index}`;
 }
 
 function sidebarLinkMatchesPath(link: SidebarLink, pathname: string) {
@@ -189,17 +196,23 @@ export default function Sidebar({
   );
   const location = useLocation();
   const profilePath = resolveWorkspaceProfilePath(location.pathname);
-  const collapsedStorageKey = useMemo(() => sidebarSectionStorageKey(title), [title]);
+  const collapsedStorageKey = useMemo(
+    () => sidebarSectionStorageKey(title, location.pathname),
+    [location.pathname, title],
+  );
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
-    const stored = readClientJsonFromKey<Record<string, boolean>>(sidebarSectionStorageKey(title));
+    const stored = readClientJsonFromKey<Record<string, boolean>>(
+      sidebarSectionStorageKey(title, location.pathname),
+    );
     const initial: Record<string, boolean> = {};
-    effectiveSections.forEach((section) => {
+    effectiveSections.forEach((section, index) => {
+      const stateKey = sidebarSectionStateKey(section, index);
       if (section.label) {
-        initial[section.label] = isSectionCollapsible(section)
+        initial[stateKey] = isSectionCollapsible(section)
           ? section.collapsed === false
             ? false
-            : stored?.[section.label] ?? section.collapsed ?? false
+            : stored?.[stateKey] ?? stored?.[section.label] ?? section.collapsed ?? false
           : false;
       }
     });
@@ -210,22 +223,29 @@ export default function Sidebar({
   const navScrollTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const stored = readClientJsonFromKey<Record<string, boolean>>(collapsedStorageKey);
     setCollapsedSections((previous) => {
       const next: Record<string, boolean> = {};
-      effectiveSections.forEach((section) => {
+      effectiveSections.forEach((section, index) => {
         if (!section.label) return;
+        const stateKey = sidebarSectionStateKey(section, index);
         const collapsible = isSectionCollapsible(section);
         if (!collapsible) {
-          next[section.label] = false;
+          next[stateKey] = false;
         } else if (section.collapsed === false) {
-          next[section.label] = false;
+          next[stateKey] = false;
         } else {
-          next[section.label] = previous[section.label] ?? section.collapsed ?? false;
+          next[stateKey] =
+            stored?.[stateKey] ??
+            stored?.[section.label] ??
+            previous[stateKey] ??
+            section.collapsed ??
+            false;
         }
       });
       return next;
     });
-  }, [effectiveSections]);
+  }, [collapsedStorageKey, effectiveSections]);
 
   useEffect(() => {
     const activeLink = navRef.current?.querySelector<HTMLElement>(".shell-sidebar-item-active");
@@ -336,9 +356,10 @@ export default function Sidebar({
             {!compact && headerAction ? <div className="pb-1">{headerAction}</div> : null}
             {effectiveSections.map((section, index) => {
               const collapsible = isSectionCollapsible(section);
+              const sectionStateKey = sidebarSectionStateKey(section, index);
               const activeSection = section.links.some((link) => sidebarLinkMatchesPath(link, location.pathname));
               const isCollapsed =
-                compact || !section.label ? false : Boolean(collapsedSections[section.label] && !activeSection);
+                compact || !section.label ? false : Boolean(collapsedSections[sectionStateKey] && !activeSection);
               const showSeparator = index < effectiveSections.length - 1;
               return (
                 <section
@@ -350,7 +371,7 @@ export default function Sidebar({
                   ) : !section.label ? null : collapsible ? (
                     <button
                       type="button"
-                      onClick={() => toggleSection(section.label!, collapsible)}
+                      onClick={() => toggleSection(sectionStateKey, collapsible)}
                       className="shell-section-label shell-sidebar-section-toggle flex h-5 w-full items-center justify-between rounded-md px-2 text-[10px] font-semibold uppercase transition hover:bg-[var(--shell-hover)] hover:text-[var(--shell-text)]"
                     >
                       <span>{section.label}</span>

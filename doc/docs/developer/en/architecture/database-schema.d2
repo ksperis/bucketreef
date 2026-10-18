@@ -324,13 +324,17 @@ Legend: {
     class: table
     tooltip: "PK: id\\nUnique: uq_billing_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_billing_storage_daily_day(day) [index]; ix_billing_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_storage_daily_id(id) [index]; ix_billing_storage_daily_s3_account_id(s3_account_id) [index]; ix_billing_storage_daily_s3_user_id(s3_user_id) [index]; ix_billing_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_storage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_storage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
   }
+  "billing_rate_plans": {
+    class: table
+    tooltip: "PK: id\\nIndexes: ix_billing_rate_plans_id(id) [index]; ix_billing_rate_plans_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_rate_plans_endpoint_name(storage_endpoint_id, name) [unique]; uq_billing_rate_plans_global_name(name) [unique]"
+  }
   "billing_rate_cards": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_rate_cards_name(name)\\nIndexes: ix_billing_rate_cards_endpoint_effective_window(storage_endpoint_id, effective_from, effective_to) [index]; ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_billing_rate_cards_plan_effective(rate_plan_id, effective_from)\\nCheck: ck_billing_rate_cards_storage_charge_basis: storage_charge_basis IN ('actual_usage', 'allocated_quota')\\nIndexes: ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_plan_effective_window(rate_plan_id, effective_from, effective_to) [index]; ix_billing_rate_cards_rate_plan_id(rate_plan_id) [index]"
   }
   "billing_assignments": {
     class: table
-    tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_created(storage_endpoint_id, s3_account_id, created_at) [index]; ix_billing_assignments_endpoint_user_created(storage_endpoint_id, s3_user_id, created_at) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_card_id(rate_card_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_effective(storage_endpoint_id, s3_account_id, effective_from, effective_to) [index]; ix_billing_assignments_endpoint_user_effective(storage_endpoint_id, s3_user_id, effective_from, effective_to) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_plan_id(rate_plan_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
   }
 }
 
@@ -428,8 +432,9 @@ Legend: {
 "billing_storage_daily" -> "storage_endpoints"
 "billing_storage_daily" -> "s3_accounts"
 "billing_storage_daily" -> "s3_users"
-"billing_rate_cards" -> "storage_endpoints"
+"billing_rate_plans" -> "storage_endpoints"
+"billing_rate_cards" -> "billing_rate_plans"
 "billing_assignments" -> "storage_endpoints"
 "billing_assignments" -> "s3_accounts"
 "billing_assignments" -> "s3_users"
-"billing_assignments" -> "billing_rate_cards"
+"billing_assignments" -> "billing_rate_plans"

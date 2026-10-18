@@ -13,6 +13,7 @@ from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
 from app.db import (
     BillingAssignment,
     BillingRateCard,
+    BillingRatePlan,
     BillingStorageDaily,
     BillingUsageDaily,
     BrowserFavorite,
@@ -276,11 +277,14 @@ def test_get_user_uses_typed_not_found_error(db_session):
 
 
 def _seed_s3_user_derived_rows(db_session, *, endpoint: StorageEndpoint, s3_user: S3User) -> None:
-    rate_card = BillingRateCard(
+    rate_plan = BillingRatePlan(
         name=f"s3-user-delete-rate-{s3_user.id}",
+        storage_endpoint_id=endpoint.id,
+    )
+    rate_card = BillingRateCard(
+        rate_plan=rate_plan,
         currency="EUR",
         effective_from=date(2026, 1, 1),
-        storage_endpoint_id=endpoint.id,
     )
     db_session.add(rate_card)
     db_session.flush()
@@ -289,7 +293,8 @@ def _seed_s3_user_derived_rows(db_session, *, endpoint: StorageEndpoint, s3_user
             BillingAssignment(
                 storage_endpoint_id=endpoint.id,
                 s3_user_id=s3_user.id,
-                rate_card_id=rate_card.id,
+                rate_plan_id=rate_plan.id,
+                effective_from=date(2026, 1, 1),
             ),
             BillingUsageDaily(
                 day=date(2026, 1, 1),

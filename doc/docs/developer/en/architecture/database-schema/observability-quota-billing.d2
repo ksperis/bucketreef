@@ -166,31 +166,43 @@ Legend: {
     "source": "VARCHAR [NN]"
     "collected_at": "DATETIME [NN]"
   }
-  "billing_rate_cards": {
+  "billing_rate_plans": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_rate_cards_name(name)\\nIndexes: ix_billing_rate_cards_endpoint_effective_window(storage_endpoint_id, effective_from, effective_to) [index]; ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_billing_rate_plans_id(id) [index]; ix_billing_rate_plans_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_rate_plans_endpoint_name(storage_endpoint_id, name) [unique]; uq_billing_rate_plans_global_name(name) [unique]"
     "id": "INTEGER [PK, NN]"
     "name": "VARCHAR [NN]"
+    "storage_endpoint_id": "INTEGER [FK]"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "billing_rate_cards": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_rate_cards_plan_effective(rate_plan_id, effective_from)\\nCheck: ck_billing_rate_cards_storage_charge_basis: storage_charge_basis IN ('actual_usage', 'allocated_quota')\\nIndexes: ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_plan_effective_window(rate_plan_id, effective_from, effective_to) [index]; ix_billing_rate_cards_rate_plan_id(rate_plan_id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "rate_plan_id": "INTEGER [FK, NN]"
     "currency": "VARCHAR [NN]"
+    "storage_charge_basis": "VARCHAR [NN]"
     "storage_gb_month_price": "NUMERIC(12, 6)"
     "egress_gb_price": "NUMERIC(12, 6)"
     "ingress_gb_price": "NUMERIC(12, 6)"
     "requests_per_1000_price": "NUMERIC(12, 6)"
     "effective_from": "DATE [NN]"
     "effective_to": "DATE"
-    "storage_endpoint_id": "INTEGER [FK]"
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
   }
   "billing_assignments": {
     class: table
-    tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_created(storage_endpoint_id, s3_account_id, created_at) [index]; ix_billing_assignments_endpoint_user_created(storage_endpoint_id, s3_user_id, created_at) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_card_id(rate_card_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_effective(storage_endpoint_id, s3_account_id, effective_from, effective_to) [index]; ix_billing_assignments_endpoint_user_effective(storage_endpoint_id, s3_user_id, effective_from, effective_to) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_plan_id(rate_plan_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
     "s3_account_id": "INTEGER [FK]"
     "s3_user_id": "INTEGER [FK]"
-    "rate_card_id": "INTEGER [FK, NN]"
+    "rate_plan_id": "INTEGER [FK, NN]"
+    "effective_from": "DATE [NN]"
+    "effective_to": "DATE"
     "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
   }
 }
 
@@ -230,8 +242,9 @@ Legend: {
 "billing_storage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
 "billing_storage_daily"."s3_account_id" -> "s3_accounts"."id"
 "billing_storage_daily"."s3_user_id" -> "s3_users"."id"
-"billing_rate_cards"."storage_endpoint_id" -> "storage_endpoints"."id"
+"billing_rate_plans"."storage_endpoint_id" -> "storage_endpoints"."id"
+"billing_rate_cards"."rate_plan_id" -> "billing_rate_plans"."id"
 "billing_assignments"."storage_endpoint_id" -> "storage_endpoints"."id"
 "billing_assignments"."s3_account_id" -> "s3_accounts"."id"
 "billing_assignments"."s3_user_id" -> "s3_users"."id"
-"billing_assignments"."rate_card_id" -> "billing_rate_cards"."id"
+"billing_assignments"."rate_plan_id" -> "billing_rate_plans"."id"

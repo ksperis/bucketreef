@@ -151,3 +151,72 @@ export async function getPortalBillingMe(month: string, accountId?: S3AccountSel
   });
   return data;
 }
+
+export type BillingRateCardStatus = "future" | "active" | "expired";
+
+export type BillingRateCard = {
+  id: number;
+  rate_plan_id: number;
+  name: string;
+  currency: string;
+  storage_charge_basis: "actual_usage" | "allocated_quota";
+  storage_gb_month_price?: number | null;
+  egress_gb_price?: number | null;
+  ingress_gb_price?: number | null;
+  requests_per_1000_price?: number | null;
+  effective_from: string;
+  effective_to?: string | null;
+  storage_endpoint_id?: number | null;
+  storage_endpoint_name?: string | null;
+  status: BillingRateCardStatus;
+  editable: boolean;
+  identity_editable: boolean;
+  deletable: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingRateCardPayload = {
+  name: string;
+  currency: string;
+  storage_charge_basis: "actual_usage" | "allocated_quota";
+  storage_gb_month_price?: number | null;
+  egress_gb_price?: number | null;
+  ingress_gb_price?: number | null;
+  requests_per_1000_price?: number | null;
+  effective_from: string;
+  effective_to?: string | null;
+  storage_endpoint_id?: number | null;
+};
+
+export type BillingRateCardVersionPayload = Omit<
+  BillingRateCardPayload,
+  "name" | "storage_endpoint_id" | "effective_to"
+>;
+
+export async function listBillingRateCards(): Promise<BillingRateCard[]> {
+  const { data } = await client.get<BillingRateCard[]>("/admin/billing/rate-cards");
+  return data;
+}
+
+export async function createBillingRateCard(payload: BillingRateCardPayload): Promise<BillingRateCard> {
+  const { data } = await client.post<BillingRateCard>("/admin/billing/rate-cards", payload);
+  return data;
+}
+
+export async function updateBillingRateCard(id: number, payload: BillingRateCardPayload): Promise<BillingRateCard> {
+  const { data } = await client.put<BillingRateCard>("/admin/billing/rate-cards/" + id, payload);
+  return data;
+}
+
+export async function createBillingRateCardVersion(
+  id: number,
+  payload: BillingRateCardVersionPayload,
+): Promise<BillingRateCard> {
+  const { data } = await client.post<BillingRateCard>("/admin/billing/rate-cards/" + id + "/versions", payload);
+  return data;
+}
+
+export async function deleteBillingRateCard(id: number): Promise<void> {
+  await client.delete("/admin/billing/rate-cards/" + id);
+}

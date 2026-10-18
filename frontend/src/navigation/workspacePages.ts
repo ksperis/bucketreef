@@ -68,6 +68,7 @@ export const ADMIN_PAGE_CONTRACTS = {
   "manager-settings": { label: "Manager", path: "/admin/manager-settings" },
   "browser-settings": { label: "Browser", path: "/admin/browser-settings" },
   "portal-settings": { label: "Portal", path: "/admin/portal-settings" },
+  "billing-settings": { label: "Billing", path: "/admin/billing-settings" },
   "webhook-settings": { label: "Webhooks", path: "/admin/webhook-settings" },
   "key-rotation": { label: "Key Rotation", path: "/admin/key-rotation" },
   profile: { label: "Profile", path: "/admin/profile" },

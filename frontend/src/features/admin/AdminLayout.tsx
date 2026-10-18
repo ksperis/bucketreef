@@ -23,6 +23,7 @@ const ADMIN_SETTINGS_PATHS = [
   "/admin/manager-settings",
   "/admin/browser-settings",
   "/admin/portal-settings",
+  "/admin/billing-settings",
   "/admin/webhook-settings",
   "/admin/production-readiness",
   "/admin/key-rotation",
@@ -66,6 +67,7 @@ export const buildAdminNav = (
       disabled: !portalEnabled,
       disabledHint: !portalEnabled ? text("Portal feature is disabled in General settings.") : undefined,
     },
+    pageLink(ADMIN_PAGE_CONTRACTS["billing-settings"], text),
     pageLink(ADMIN_PAGE_CONTRACTS["webhook-settings"], text),
     {
       ...pageLink(ADMIN_PAGE_CONTRACTS["production-readiness"], text),
@@ -162,9 +164,11 @@ export const buildAdminNav = (
     ...(isSuperAdmin
       ? [
           {
+            id: "settings",
             label: text("Settings"),
             links: settingsLinks,
             collapsed: !settingsExpanded,
+            collapsible: true,
           },
         ]
       : []),
