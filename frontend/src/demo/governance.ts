@@ -1,9 +1,9 @@
-import type { User } from "../api/users";
 import type { UiGroup } from "../api/groups";
 import type { S3Account } from "../api/accounts";
 import type { StorageEndpoint } from "../api/storageEndpoints";
-import { bucketView, emptyIam, personaIds, settings, tools } from "./state";
+import { bucketView, emptyIam, personaIds, settings, tools, type DemoUser } from "./state";
 import { DemoError, done, json, page, required, safeFields, textField, type DemoRequest } from "./http";
+import { demoUserSummary, demoUserView } from "./userProjection";
 
 function synchronizeLinks(c: DemoRequest, source: "users" | "accounts" | "groups") {
   const { state } = c;
@@ -17,7 +17,7 @@ function synchronizeLinks(c: DemoRequest, source: "users" | "accounts" | "groups
   for (const g of state.groups) g.account_details = state.accounts.filter(a => g.account_links?.some(l => l.account_id === a.id)).map(a => ({ id: a.id, name: a.name, rgw_account_id: a.rgw_account_id }));
 }
 
-function userGroups(c: DemoRequest, user: User, ids: unknown) {
+function userGroups(c: DemoRequest, user: DemoUser, ids: unknown) {
   if (!Array.isArray(ids)) return;
   for (const group of c.state.groups) {
     group.user_details = (group.user_details ?? []).filter(u => u.id !== user.id);
@@ -38,15 +38,20 @@ export function governance(c: DemoRequest): Response | undefined {
   const userMatch = path.match(/^\/admin\/users(?:\/(\d+|minimal))?$/);
   if (userMatch) {
     const id = Number(userMatch[1]); const user = state.users.find(u => u.id === id);
-    if (method === "GET") return json(userMatch[1] === "minimal" ? state.users : userMatch[1] ? required(user) : page(state.users, c.url));
+    if (method === "GET") {
+      if (userMatch[1] === "minimal") return json(state.users.map(demoUserSummary));
+      if (userMatch[1]) return json(demoUserView(state, required(user)));
+      const result = page(state.users, c.url);
+      return json({ ...result, items: result.items.map(item => demoUserView(state, item)) });
+    }
     if (method === "POST" && !userMatch[1]) {
       const email = textField(body, "email"); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new DemoError(422, "Enter a valid email address");
       if (state.users.some(u => u.email === email)) throw new DemoError(409, "This email already exists");
-      const created: User = { ...body, id: state.nextId++, email, role: (body.role as User["role"]) ?? "ui_user", ui_language: "en", account_links: [], group_details: [], is_active: true, manager_tool_access: { ...tools } };
-      created.account_links = (body.account_links as User["account_links"]) ?? [];
-      state.users.push(created); userGroups(c, created, body.group_ids); synchronizeLinks(c, "users"); return json(created, 201);
+      const created: DemoUser = { ...body, id: state.nextId++, email, role: (body.role as DemoUser["role"]) ?? "ui_user", ui_language: "en", account_links: [], group_details: [], is_active: true, manager_tool_access: { ...tools } };
+      created.account_links = (body.account_links as DemoUser["account_links"]) ?? [];
+      state.users.push(created); userGroups(c, created, body.group_ids); synchronizeLinks(c, "users"); return json(demoUserView(state, created), 201);
     }
-    if (method === "PUT" && user) { Object.assign(user, body, { manager_tool_access: { ...tools }, can_provision_managed_private_connections: false, can_access_storage_ops: false }); userGroups(c, user, body.group_ids); synchronizeLinks(c, "users"); return json(user); }
+    if (method === "PUT" && user) { Object.assign(user, body, { manager_tool_access: { ...tools }, can_provision_managed_private_connections: false, can_access_storage_ops: false }); userGroups(c, user, body.group_ids); synchronizeLinks(c, "users"); return json(demoUserView(state, user)); }
     if (method === "DELETE" && user) {
       if (Object.values(personaIds).includes(id)) throw new DemoError(409, "The five demo identities are reserved. Create another user to try deletion.");
       userGroups(c, user, []); state.users = state.users.filter(u => u.id !== id); synchronizeLinks(c, "users"); return done();

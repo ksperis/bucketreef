@@ -1,10 +1,9 @@
-import type { User } from "../api/users";
-import type { DemoState, DemoBucket } from "./state";
+import type { DemoState, DemoBucket, DemoUser } from "./state";
 import { personaIds, type Persona } from "./state";
 import type { S3Account } from "../api/accounts";
 import type { DemoSpace } from "./state";
 
-export type DemoRequest = { state: DemoState; url: URL; path: string; method: string; body: Record<string, unknown>; request: Request; persona: Persona; user: User };
+export type DemoRequest = { state: DemoState; url: URL; path: string; method: string; body: Record<string, unknown>; request: Request; persona: Persona; user: DemoUser };
 export class DemoError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -82,7 +81,7 @@ export function listing(items: unknown[], c: DemoRequest): Response {
 function streamResult(value: unknown): Response {
   return new Response(`event: result\ndata: ${JSON.stringify(value)}\n\n`, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" } });
 }
-export function currentUser(state: DemoState, persona: Persona): User { return required(state.users.find(u => u.id === personaIds[persona])); }
+export function currentUser(state: DemoState, persona: Persona): DemoUser { return required(state.users.find(u => u.id === personaIds[persona])); }
 export function safeFields(body: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(body).filter(([key]) => !/password|secret|token|credentials/i.test(key)));
 }

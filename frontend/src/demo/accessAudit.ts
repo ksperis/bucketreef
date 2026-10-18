@@ -6,9 +6,8 @@ import {
   type AccessAuditScope,
 } from "../api/accessAudit";
 import type { UiGroup } from "../api/groups";
-import type { User } from "../api/users";
 import { resolveDemoAccountGrant } from "./http";
-import type { DemoState } from "./state";
+import type { DemoState, DemoUser } from "./state";
 
 type AuditSource = AccessAuditRight["sources"][number];
 type AuditTarget = AccessAuditRow["target"];
@@ -47,7 +46,7 @@ function flagSources(
 
 function addRight(
   rows: Map<string, AccessAuditRow>,
-  user: User,
+  user: DemoUser,
   scope: AccessAuditScope,
   target: AuditTarget,
   code: AccessAuditRightCode,
@@ -84,7 +83,7 @@ function addRight(
   row.rights.push({ code, label: rightLabels.get(code) ?? code, sources: [...sources] });
 }
 
-function addPlatformRows(rows: Map<string, AccessAuditRow>, user: User, groups: UiGroup[]): void {
+function addPlatformRows(rows: Map<string, AccessAuditRow>, user: DemoUser, groups: UiGroup[]): void {
   const supportsManagerTools = user.role !== "ui_none";
   const supportsCephAdmin = user.role === "ui_admin" || user.role === "ui_superadmin";
   const target = { name: "Platform" };
@@ -113,7 +112,7 @@ function addPlatformRows(rows: Map<string, AccessAuditRow>, user: User, groups: 
       group => group.can_provision_managed_private_connections,
     ));
     for (const [tool, code] of Object.entries(managerToolRights) as Array<[
-      keyof NonNullable<User["manager_tool_access"]>,
+      keyof NonNullable<DemoUser["manager_tool_access"]>,
       AccessAuditRightCode,
     ]>) {
       addRight(rows, user, "platform", target, code, flagSources(
@@ -130,7 +129,7 @@ function addPlatformRows(rows: Map<string, AccessAuditRow>, user: User, groups: 
   ));
 }
 
-function addAccountRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: User): void {
+function addAccountRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: DemoUser): void {
   for (const account of state.accounts) {
     const resolved = resolveDemoAccountGrant(state, account, user.id);
     const sourcesFor = (predicate: (link: typeof resolved.sources[number]["link"]) => boolean) => resolved.sources
@@ -159,7 +158,7 @@ function demoS3Users(state: DemoState) {
   })));
 }
 
-function addS3UserRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: User, groups: UiGroup[]): void {
+function addS3UserRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: DemoUser, groups: UiGroup[]): void {
   for (const rgwUser of demoS3Users(state)) {
     const direct = user.s3_user_links?.find(link => link.s3_user_id === rgwUser.id);
     const inherited = groups.flatMap(group => (group.s3_user_links ?? [])
@@ -179,7 +178,7 @@ function addS3UserRows(rows: Map<string, AccessAuditRow>, state: DemoState, user
   }
 }
 
-function addConnectionRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: User, groups: UiGroup[]): void {
+function addConnectionRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: DemoUser, groups: UiGroup[]): void {
   for (const connection of state.connections.filter(candidate => candidate.is_shared !== false)) {
     const sources = [
       ...(connection.user_details?.some(member => member.id === user.id) ? [directSource()] : []),

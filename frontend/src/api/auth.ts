@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import type { EffectiveUserAccess, User } from "./users";
+import type { User } from "./users";
 
-export type AuthUser = User & { effective_access: EffectiveUserAccess };
+export type AuthUser = User;
 
 type SessionCapabilities = {
   can_manage_iam: boolean;

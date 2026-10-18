@@ -12,6 +12,7 @@ import { buckets } from "./buckets";
 import { portal } from "./portal";
 import { iam } from "./iam";
 import { ceph } from "./ceph";
+import { demoUserView } from "./userProjection";
 import { mountToolbar } from "./toolbar";
 import "./style.css";
 
@@ -37,7 +38,7 @@ async function dispatch(c: DemoRequest): Promise<Response> {
   if (disabledRequest.test(c.path) || (c.method !== "GET" && readonlyRequest.test(c.path))) throw new DemoError(403, "This feature is disabled in the static demo. No external operation was performed.");
   if (c.method !== "GET" && /^\/(?:auth|admin\/identity)|\/security(?:\/|$)|\/mfa(?:\/|$)|\/external-identities(?:\/|$)/.test(c.path) && c.path !== "/auth/logout") throw new DemoError(403, "Authentication and security configuration are read-only in this demo");
   if (c.path.startsWith("/admin/") && c.user.role !== "ui_superadmin" && c.user.role !== "ui_admin") throw new DemoError(403, "Switch to Platform admin to use this action");
-  if (c.path.startsWith("/ceph-admin/") && !c.user.can_access_ceph_admin) throw new DemoError(403, "Switch to Ceph admin to use this action");
+  if (c.path.startsWith("/ceph-admin/") && !demoUserView(c.state, c.user).effective_access.can_access_ceph_admin) throw new DemoError(403, "Switch to Ceph admin to use this action");
   if (c.path === "/auth/logout" && c.method === "POST") return done();
   const notification = c.path.match(/^\/users\/me\/notifications(?:\/(read|\d+))?$/);
   if (notification) {
@@ -53,7 +54,7 @@ async function dispatch(c: DemoRequest): Promise<Response> {
   }
   if (c.path === "/users/me" && c.method === "PUT") {
     for (const field of ["full_name", "ui_language", "ui_preferences", "quota_alerts_enabled"]) if (field in c.body) Object.assign(c.user, { [field]: c.body[field] });
-    return json(c.user);
+    return json(demoUserView(c.state, c.user));
   }
   const result = favorites(c) ?? governance(c) ?? await objects(c) ?? buckets(c) ?? portal(c) ?? iam(c) ?? ceph(c);
   if (result) return result;
