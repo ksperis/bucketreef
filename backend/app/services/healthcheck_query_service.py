@@ -6,7 +6,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -47,11 +47,11 @@ class HealthCheckQueryService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def _sorted_endpoints_query(self):
-        return self.db.query(StorageEndpoint).order_by(*name_order_by(StorageEndpoint))
+    def _sorted_endpoints_statement(self):
+        return select(StorageEndpoint).order_by(*name_order_by(StorageEndpoint))
 
     def build_summary(self) -> dict:
-        endpoints = self._sorted_endpoints_query().all()
+        endpoints = self.db.scalars(self._sorted_endpoints_statement()).all()
         endpoint_ids = [endpoint.id for endpoint in endpoints]
         latest_scope_by_endpoint = self._load_latest_scope_by_endpoint(endpoint_ids)
         summaries: list[dict] = []
@@ -92,15 +92,15 @@ class HealthCheckQueryService:
         return {"generated_at": utcnow().isoformat(), "endpoints": summaries}
 
     def build_series(self, endpoint_id: int, window: HealthWindow) -> dict:
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         profile = resolve_healthcheck_profile(endpoint)
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
-        rollup_rows = (
-            self.db.query(EndpointHealthRollup)
-            .filter(
+        rollup_rows = self.db.scalars(
+            select(EndpointHealthRollup)
+            .where(
                 EndpointHealthRollup.storage_endpoint_id == endpoint_id,
                 EndpointHealthRollup.check_type == DEFAULT_CHECK_TYPE,
                 EndpointHealthRollup.scope == DEFAULT_SCOPE,
@@ -109,8 +109,7 @@ class HealthCheckQueryService:
                 EndpointHealthRollup.bucket_start <= now,
             )
             .order_by(EndpointHealthRollup.bucket_start.asc())
-            .all()
-        )
+        ).all()
 
         latest_scope = self._load_latest_scope_by_endpoint([endpoint_id]).get(endpoint_id)
         check_mode = _coerce_check_mode(
@@ -158,7 +157,7 @@ class HealthCheckQueryService:
         }
 
     def build_overview(self, window: HealthWindow) -> dict:
-        endpoints = self._sorted_endpoints_query().all()
+        endpoints = self.db.scalars(self._sorted_endpoints_statement()).all()
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
         endpoint_ids = [endpoint.id for endpoint in endpoints]
@@ -221,7 +220,7 @@ class HealthCheckQueryService:
         }
 
     def build_latency_overview(self, window: HealthWindow = HealthWindow.DAY) -> dict:
-        endpoints = self._sorted_endpoints_query().all()
+        endpoints = self.db.scalars(self._sorted_endpoints_statement()).all()
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
         endpoint_ids = [endpoint.id for endpoint in endpoints]
@@ -278,7 +277,7 @@ class HealthCheckQueryService:
         }
 
     def build_global_incidents(self, window: HealthWindow, limit: int = 300) -> dict:
-        endpoints = self._sorted_endpoints_query().all()
+        endpoints = self.db.scalars(self._sorted_endpoints_statement()).all()
         endpoint_meta = {
             endpoint.id: {
                 "name": endpoint.name,
@@ -289,9 +288,9 @@ class HealthCheckQueryService:
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
 
-        segment_rows = (
-            self.db.query(EndpointHealthStatusSegment)
-            .filter(
+        segment_rows = self.db.scalars(
+            select(EndpointHealthStatusSegment)
+            .where(
                 EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
                 EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
                 EndpointHealthStatusSegment.status.in_(
@@ -307,8 +306,7 @@ class HealthCheckQueryService:
                 ),
             )
             .order_by(EndpointHealthStatusSegment.started_at.desc())
-            .all()
-        )
+        ).all()
         incidents = []
         for row in segment_rows:
             meta = endpoint_meta.get(int(row.storage_endpoint_id), {})
@@ -349,9 +347,9 @@ class HealthCheckQueryService:
     ) -> list[EndpointHealthStatusSegment]:
         if not endpoint_ids:
             return []
-        return (
-            self.db.query(EndpointHealthStatusSegment)
-            .filter(
+        return self.db.scalars(
+            select(EndpointHealthStatusSegment)
+            .where(
                 EndpointHealthStatusSegment.storage_endpoint_id.in_(endpoint_ids),
                 EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
                 EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
@@ -368,8 +366,7 @@ class HealthCheckQueryService:
                 ),
             )
             .order_by(EndpointHealthStatusSegment.started_at.desc())
-            .all()
-        )
+        ).all()
 
     def build_workspace_health_overview(
         self,
@@ -377,10 +374,10 @@ class HealthCheckQueryService:
         endpoint_id: Optional[int] = None,
         incident_highlight_minutes: Optional[int] = None,
     ) -> dict:
-        endpoints_query = self._sorted_endpoints_query()
+        endpoints_statement = self._sorted_endpoints_statement()
         if endpoint_id is not None:
-            endpoints_query = endpoints_query.filter(StorageEndpoint.id == endpoint_id)
-        endpoints = endpoints_query.all()
+            endpoints_statement = endpoints_statement.where(StorageEndpoint.id == endpoint_id)
+        endpoints = self.db.scalars(endpoints_statement).all()
         if endpoint_id is not None and not endpoints:
             raise StorageEndpointNotFoundError("Endpoint not found.")
 
@@ -440,7 +437,7 @@ class HealthCheckQueryService:
         }
 
     def build_incidents(self, endpoint_id: int, window: HealthWindow) -> dict:
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         profile = resolve_healthcheck_profile(endpoint)
@@ -450,9 +447,9 @@ class HealthCheckQueryService:
         )
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
-        rows = (
-            self.db.query(EndpointHealthStatusSegment)
-            .filter(
+        rows = self.db.scalars(
+            select(EndpointHealthStatusSegment)
+            .where(
                 EndpointHealthStatusSegment.storage_endpoint_id == endpoint_id,
                 EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
                 EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
@@ -466,8 +463,7 @@ class HealthCheckQueryService:
                 ),
             )
             .order_by(EndpointHealthStatusSegment.started_at.desc())
-            .all()
-        )
+        ).all()
         incidents: list[dict[str, Any]] = []
         for row in rows:
             incidents.append(
@@ -491,7 +487,7 @@ class HealthCheckQueryService:
         }
 
     def build_raw_checks(self, endpoint_id: int, window: HealthWindow, page: int = 1, page_size: int = 25) -> dict:
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         now = utcnow()
@@ -499,22 +495,25 @@ class HealthCheckQueryService:
         safe_page = max(1, int(page))
         safe_page_size = max(1, int(page_size))
 
-        query = (
-            self.db.query(EndpointHealthCheck)
-            .filter(
-                EndpointHealthCheck.storage_endpoint_id == endpoint_id,
-                EndpointHealthCheck.checked_at >= start,
-                EndpointHealthCheck.checked_at <= now,
-            )
+        criteria = (
+            EndpointHealthCheck.storage_endpoint_id == endpoint_id,
+            EndpointHealthCheck.checked_at >= start,
+            EndpointHealthCheck.checked_at <= now,
         )
-        total = int(query.count())
+        total = int(
+            self.db.scalar(
+                select(func.count(EndpointHealthCheck.id)).where(*criteria)
+            )
+            or 0
+        )
         offset = (safe_page - 1) * safe_page_size
-        rows = (
-            query.order_by(EndpointHealthCheck.checked_at.desc(), EndpointHealthCheck.id.desc())
+        rows = self.db.scalars(
+            select(EndpointHealthCheck)
+            .where(*criteria)
+            .order_by(EndpointHealthCheck.checked_at.desc(), EndpointHealthCheck.id.desc())
             .offset(offset)
             .limit(safe_page_size)
-            .all()
-        )
+        ).all()
         checks = [
             {
                 "checked_at": row.checked_at.isoformat(),
@@ -547,9 +546,9 @@ class HealthCheckQueryService:
         if not endpoint_ids:
             return {}
 
-        rows = (
-            self.db.query(EndpointHealthStatusSegment)
-            .filter(
+        rows = self.db.scalars(
+            select(EndpointHealthStatusSegment)
+            .where(
                 EndpointHealthStatusSegment.storage_endpoint_id.in_(endpoint_ids),
                 EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
                 EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
@@ -563,8 +562,7 @@ class HealthCheckQueryService:
                 EndpointHealthStatusSegment.storage_endpoint_id.asc(),
                 EndpointHealthStatusSegment.started_at.asc(),
             )
-            .all()
-        )
+        ).all()
         return build_segment_timeline_map(
             rows,
             endpoint_ids=endpoint_ids,
@@ -581,9 +579,9 @@ class HealthCheckQueryService:
     ) -> dict[int, Optional[float]]:
         if not endpoint_ids:
             return {}
-        rows = (
-            self.db.query(EndpointHealthRollup)
-            .filter(
+        rows = self.db.scalars(
+            select(EndpointHealthRollup)
+            .where(
                 EndpointHealthRollup.storage_endpoint_id.in_(endpoint_ids),
                 EndpointHealthRollup.check_type == DEFAULT_CHECK_TYPE,
                 EndpointHealthRollup.scope == DEFAULT_SCOPE,
@@ -595,19 +593,18 @@ class HealthCheckQueryService:
                 EndpointHealthRollup.storage_endpoint_id.asc(),
                 EndpointHealthRollup.bucket_start.asc(),
             )
-            .all()
-        )
+        ).all()
         return build_rollup_availability_map(rows, endpoint_ids=endpoint_ids)
 
     def _load_latest_scope_by_endpoint(self, endpoint_ids: list[int]) -> dict[int, EndpointHealthLatest]:
         if not endpoint_ids:
             return {}
         latest_rows = (
-            self.db.query(
+            select(
                 EndpointHealthLatest.storage_endpoint_id.label("endpoint_id"),
                 func.max(EndpointHealthLatest.checked_at).label("last_checked_at"),
             )
-            .filter(
+            .where(
                 EndpointHealthLatest.storage_endpoint_id.in_(endpoint_ids),
                 EndpointHealthLatest.check_type == DEFAULT_CHECK_TYPE,
                 EndpointHealthLatest.scope == DEFAULT_SCOPE,
@@ -616,8 +613,8 @@ class HealthCheckQueryService:
             .subquery()
         )
 
-        rows = (
-            self.db.query(EndpointHealthLatest)
+        rows = self.db.scalars(
+            select(EndpointHealthLatest)
             .join(
                 latest_rows,
                 and_(
@@ -625,12 +622,11 @@ class HealthCheckQueryService:
                     EndpointHealthLatest.checked_at == latest_rows.c.last_checked_at,
                 ),
             )
-            .filter(
+            .where(
                 EndpointHealthLatest.check_type == DEFAULT_CHECK_TYPE,
                 EndpointHealthLatest.scope == DEFAULT_SCOPE,
             )
-            .all()
-        )
+        ).all()
         latest_by_endpoint: dict[int, EndpointHealthLatest] = {}
         for row in rows:
             endpoint_id = int(row.storage_endpoint_id)
