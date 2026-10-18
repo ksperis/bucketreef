@@ -33,6 +33,7 @@ def _required_api_scope(request: Request) -> Optional[str]:
         return None
     access = "read" if request.method in {"GET", "HEAD", "OPTIONS"} else "write"
     mappings = (
+        (f"{settings.api_v1_prefix}/integrations/billing/v1", "billing"),
         (f"{settings.api_v1_prefix}/admin/", "admin"),
         (f"{settings.api_v1_prefix}/manager/", "manager"),
         (f"{settings.api_v1_prefix}/browser", "browser"),
@@ -108,6 +109,17 @@ def get_current_actor(
     if cookie_token:
         return _resolve_cookie(db, cookie_token, request)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
+
+def get_current_api_user(
+    request: Request,
+    db: Session = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> User:
+    """Resolve an API-token principal and reject browser-session authentication."""
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API token required")
+    return _resolve_bearer(db, credentials.credentials, request)
 
 
 def get_current_user(actor: ManagerActor = Depends(get_current_actor)) -> User:

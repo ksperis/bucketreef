@@ -227,6 +227,7 @@ their snapshot lines.
 
 ## Related pages
 
+- [Billing Integration API v1](billing-integration-api.md)
 - [Operations: API tokens](../security/api-tokens.md)
 - [Operations: quota monitoring and history](quota-monitoring.md)
 - [Operations: observability](observability.md)

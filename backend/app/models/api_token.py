@@ -17,7 +17,11 @@ API_SCOPE_DOMAINS = {
     "ceph-admin",
     "storage-ops",
 }
-API_SCOPES = {f"{domain}:{access}" for domain in API_SCOPE_DOMAINS for access in ("read", "write")}
+API_SCOPES = {
+    f"{domain}:{access}"
+    for domain in API_SCOPE_DOMAINS
+    for access in ("read", "write")
+} | {"billing:read"}
 
 
 class ApiTokenCreateRequest(ApiModel):

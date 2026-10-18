@@ -10,6 +10,7 @@ from app.routers.dependencies_internal.execution_context import get_s3_execution
 from app.routers.dependencies_internal.auth_session import (
     get_current_account_admin,
     get_current_account_user,
+    get_current_api_user,
     get_current_actor,
     get_current_ceph_admin,
     get_current_storage_ops_admin,

@@ -140,6 +140,16 @@ describe("ApiTokensPage list states", () => {
     );
   });
 
+  it("offers the read-only Billing integration scope without a Billing write scope", async () => {
+    render(<ApiTokensPage />);
+    await screen.findByText("No API tokens.");
+    fireEvent.click(screen.getByRole("button", { name: "Create token" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Create API token" }));
+
+    expect(dialog.getByLabelText("billing:read")).toBeInTheDocument();
+    expect(dialog.queryByLabelText("billing:write")).not.toBeInTheDocument();
+  });
+
   it("confirms token revocation with its scopes before calling the API", async () => {
     listApiTokensMock.mockResolvedValue([
       {
