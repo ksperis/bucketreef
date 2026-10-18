@@ -4,6 +4,7 @@
 from datetime import date, datetime
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -154,16 +155,14 @@ class QuotaUsageHistoryService:
         account_id: Optional[int],
         user_id: Optional[int],
     ) -> Optional[QuotaUsageHourly]:
-        return (
-            self.db.query(QuotaUsageHourly)
-            .filter(
+        return self.db.scalars(
+            select(QuotaUsageHourly).where(
                 QuotaUsageHourly.hour_ts == hour_ts,
                 QuotaUsageHourly.storage_endpoint_id == subject.endpoint_id,
                 QuotaUsageHourly.s3_account_id == account_id,
                 QuotaUsageHourly.s3_user_id == user_id,
             )
-            .first()
-        )
+        ).first()
 
     @staticmethod
     def _update_hourly(
@@ -193,16 +192,14 @@ class QuotaUsageHistoryService:
         account_id: Optional[int],
         user_id: Optional[int],
     ) -> Optional[QuotaUsageDaily]:
-        return (
-            self.db.query(QuotaUsageDaily)
-            .filter(
+        return self.db.scalars(
+            select(QuotaUsageDaily).where(
                 QuotaUsageDaily.day == day,
                 QuotaUsageDaily.storage_endpoint_id == subject.endpoint_id,
                 QuotaUsageDaily.s3_account_id == account_id,
                 QuotaUsageDaily.s3_user_id == user_id,
             )
-            .first()
-        )
+        ).first()
 
     @staticmethod
     def _update_daily(
