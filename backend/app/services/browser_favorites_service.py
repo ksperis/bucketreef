@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from uuid import uuid4
 from fastapi import HTTPException
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from app.db.browser_favorite import BrowserFavorite
 from app.models.browser_favorites import BrowserFavoriteInput, BrowserFavoriteOut
 from app.utils.time import utcnow
@@ -21,7 +21,12 @@ class BrowserFavoritesService:
         return [self.output(row) for row in rows]
 
     def create(self, user, payload: BrowserFavoriteInput):
-        if self.db.query(BrowserFavorite).filter_by(user_id=user.id).count() >= 500:
+        favorite_count = self.db.scalar(
+            select(func.count()).select_from(BrowserFavorite).where(
+                BrowserFavorite.user_id == user.id
+            )
+        )
+        if favorite_count >= 500:
             raise HTTPException(status_code=409, detail="The 500 favorites limit has been reached")
         row = BrowserFavorite(id=str(uuid4()), user_id=user.id, **payload.model_dump(), revision=1)
         self.db.add(row)
