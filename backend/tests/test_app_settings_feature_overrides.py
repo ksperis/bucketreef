@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import func, select
 
 from app.db import AppSetting
 from app.models import app_settings as app_settings_models
@@ -40,7 +41,8 @@ def _use_settings_db(monkeypatch, db_session) -> None:
 
 
 def _raw_db_settings(db_session) -> dict:
-    row = db_session.query(AppSetting).filter(AppSetting.key == app_settings_service.APP_SETTINGS_DB_KEY).one()
+    row = db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY)
+    assert row is not None
     return json.loads(row.payload_json)
 
 
@@ -154,7 +156,7 @@ def test_app_settings_json_bootstrap_imports_once_to_db(monkeypatch, tmp_path, d
     settings_path.unlink()
     loaded_again = app_settings_service.load_persisted_app_settings()
     assert loaded_again.general.browser_enabled is False
-    assert db_session.query(AppSetting).count() == 1
+    assert db_session.scalar(select(func.count()).select_from(AppSetting)) == 1
 
 
 def test_app_settings_json_bootstrap_rejects_removed_portal_key_setting(tmp_path):
