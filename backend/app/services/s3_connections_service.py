@@ -3,6 +3,7 @@
 
 from typing import Any, Optional
 
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3ConnectionConflictError, S3ConnectionNotFoundError
@@ -80,30 +81,28 @@ class S3ConnectionsService:
 
     def list_for_user(self, user_id: int) -> list[S3Connection]:
         """List connections visible to a UI user."""
-        rows = (
-            self.db.query(DBS3Connection)
+        rows = self.db.scalars(
+            select(DBS3Connection)
             .outerjoin(UserS3Connection, UserS3Connection.s3_connection_id == DBS3Connection.id)
-            .filter(
+            .where(
                 ((DBS3Connection.is_shared.is_(False)) & (DBS3Connection.created_by_user_id == user_id))
                 | ((DBS3Connection.is_shared.is_(True)) & (UserS3Connection.user_id == user_id)),
             )
             .distinct()
             .order_by(*name_order_by(DBS3Connection))
-            .all()
-        )
+        ).all()
         return [self._to_model(r) for r in rows]
 
     def list_owned_private(self, user_id: int) -> list[S3Connection]:
         """List private connections managed by the authenticated creator."""
-        rows = (
-            self.db.query(DBS3Connection)
-            .filter(
+        rows = self.db.scalars(
+            select(DBS3Connection)
+            .where(
                 DBS3Connection.created_by_user_id == user_id,
                 DBS3Connection.is_shared.is_(False),
             )
             .order_by(*name_order_by(DBS3Connection))
-            .all()
-        )
+        ).all()
         return [self._to_model(r) for r in rows]
 
     @staticmethod
@@ -111,17 +110,19 @@ class S3ConnectionsService:
         """Return the single scope used by every Admin selector."""
         return (DBS3Connection.is_shared.is_(True),)
 
-    def admin_shared_query(self):
-        return self.db.query(DBS3Connection).filter(*self.admin_shared_predicates())
-
     def get_admin_shared(self, connection_id: int) -> DBS3Connection:
-        row = self.admin_shared_query().filter(DBS3Connection.id == connection_id).first()
+        row = self.db.scalar(
+            select(DBS3Connection).where(
+                *self.admin_shared_predicates(),
+                DBS3Connection.id == connection_id,
+            )
+        )
         if row is None:
             raise S3ConnectionNotFoundError("S3Connection not found")
         return row
 
     def get_record(self, connection_id: int) -> DBS3Connection:
-        row = self.db.query(DBS3Connection).filter(DBS3Connection.id == connection_id).first()
+        row = self.db.get(DBS3Connection, connection_id)
         if row is None:
             raise S3ConnectionNotFoundError("S3Connection not found")
         return row
@@ -228,10 +229,11 @@ class S3ConnectionsService:
         return row
 
     def get_owned(self, user_id: int, connection_id: int) -> DBS3Connection:
-        row = (
-            self.db.query(DBS3Connection)
-            .filter(DBS3Connection.created_by_user_id == user_id, DBS3Connection.id == connection_id)
-            .first()
+        row = self.db.scalar(
+            select(DBS3Connection).where(
+                DBS3Connection.created_by_user_id == user_id,
+                DBS3Connection.id == connection_id,
+            )
         )
         if not row:
             raise S3ConnectionNotFoundError("S3Connection not found")
@@ -501,16 +503,14 @@ class S3ConnectionsService:
     def touch_usage(self, row: DBS3Connection) -> None:
         now = utcnow()
         try:
-            (
-                self.db.query(DBS3Connection)
-                .filter(DBS3Connection.id == row.id)
-                .update(
-                    {
-                        DBS3Connection.last_used_at: now,
-                        DBS3Connection.updated_at: now,
-                    },
-                    synchronize_session=False,
+            self.db.execute(
+                update(DBS3Connection)
+                .where(DBS3Connection.id == row.id)
+                .values(
+                    last_used_at=now,
+                    updated_at=now,
                 )
+                .execution_options(synchronize_session=False)
             )
             self.db.commit()
             self.db.refresh(row)
@@ -525,13 +525,12 @@ class S3ConnectionsService:
             return
 
     def is_active_managed_source(self, connection_id: int) -> bool:
-        return (
-            self.db.query(ManagedPrivateAccess.id)
-            .filter(
+        return self.db.scalar(
+            select(ManagedPrivateAccess.id)
+            .where(
                 ManagedPrivateAccess.source_context_type == "connection",
                 ManagedPrivateAccess.source_context_id == connection_id,
                 ManagedPrivateAccess.state.in_(("provisioning", "active", "deleting", "cleanup_pending")),
             )
-            .first()
-            is not None
-        )
+            .limit(1)
+        ) is not None
