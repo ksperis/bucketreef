@@ -60,6 +60,7 @@ import {
 } from "../../api/billing";
 import { useAdminI18n } from "./adminI18n";
 import BillingAnalysisView from "./BillingAnalysisView";
+import BillingStatementsView from "./BillingStatementsView";
 
 // QA checklist:
 // - Verify summary loads with selected month/endpoint.
@@ -240,7 +241,7 @@ function isBillingDisabledMessage(message: string): boolean {
 export default function BillingPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
-  const [activeTab, setActiveTab] = useState<"subjects" | "entities" | "groups">("subjects");
+  const [activeTab, setActiveTab] = useState<"subjects" | "entities" | "groups" | "statements">("subjects");
   const [month, setMonth] = useState<string>(currentUtcMonthInputValue());
   const [collectDay, setCollectDay] = useState<string>(defaultCollectDay());
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
@@ -426,7 +427,7 @@ export default function BillingPage() {
     };
   }, [adminText, detailSubjectId, detailSubjectType, month, selectedEndpointId, reloadToken]);
 
-  const analysisVisible = activeTab !== "subjects";
+  const analysisVisible = activeTab === "entities" || activeTab === "groups";
 
   useEffect(() => {
     if (!analysisVisible) return;
@@ -698,14 +699,15 @@ export default function BillingPage() {
           { id: "subjects", label: adminText("Subjects") },
           { id: "entities", label: adminText("Billing Entities") },
           { id: "groups", label: adminText("Billing Groups") },
+          { id: "statements", label: adminText("Statements") },
         ]}
         activeTab={activeTab}
-        onChange={(id) => setActiveTab(id as "subjects" | "entities" | "groups")}
+        onChange={(id) => setActiveTab(id as "subjects" | "entities" | "groups" | "statements")}
         variant="line"
         ariaLabel={adminText("Billing analysis views")}
         idPrefix="admin-billing"
       />
-      {activeTab !== "subjects" ? (
+      {activeTab === "entities" || activeTab === "groups" ? (
         <div className="mt-4">
           <BillingAnalysisView
             mode={activeTab}
@@ -714,6 +716,10 @@ export default function BillingPage() {
             loading={analysisLoading}
             error={analysisError}
           />
+        </div>
+      ) : activeTab === "statements" ? (
+        <div className="mt-4">
+          <BillingStatementsView month={month} />
         </div>
       ) : !selectedEndpointId ? (
         <PageEmptyState

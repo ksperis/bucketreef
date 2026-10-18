@@ -622,3 +622,57 @@ class BillingStatementGenerationResult(ApiModel):
     billing_entity_id: int
     blockers: list[str] = Field(default_factory=list)
     statements: list[BillingStatementItem] = Field(default_factory=list)
+
+
+BillingPeriodScopeType = Literal["entity", "group"]
+
+
+class BillingFinalizedPeriodCurrencyTotal(ApiModel):
+    currency: str
+    storage_cost: Decimal = Decimal("0")
+    egress_cost: Decimal = Decimal("0")
+    ingress_cost: Decimal = Decimal("0")
+    requests_cost: Decimal = Decimal("0")
+    total: Decimal = Decimal("0")
+    statement_ids: list[int] = Field(default_factory=list)
+    statement_public_ids: list[str] = Field(default_factory=list)
+    statement_months: list[str] = Field(default_factory=list)
+    storage_charge_bases: list[Literal["actual_usage", "allocated_quota"]] = Field(default_factory=list)
+
+
+class BillingFinalizedPeriodEntityContribution(ApiModel):
+    billing_entity_id: int
+    billing_entity_name: str
+    billing_entity_code: Optional[str] = None
+    billing_entity_external_id: Optional[str] = None
+    statement_ids: list[int] = Field(default_factory=list)
+    currency_totals: list[BillingFinalizedPeriodCurrencyTotal] = Field(default_factory=list)
+
+
+class BillingFinalizedPeriodMonth(ApiModel):
+    month: str
+    member_entity_ids: list[int] = Field(default_factory=list)
+    finalized_entity_ids: list[int] = Field(default_factory=list)
+    missing_entity_ids: list[int] = Field(default_factory=list)
+    unfinalized_entity_ids: list[int] = Field(default_factory=list)
+    statement_ids: list[int] = Field(default_factory=list)
+    currency_totals: list[BillingFinalizedPeriodCurrencyTotal] = Field(default_factory=list)
+    entity_contributions: list[BillingFinalizedPeriodEntityContribution] = Field(default_factory=list)
+    complete: bool
+
+
+class BillingFinalizedPeriodAggregation(ApiModel):
+    scope_type: BillingPeriodScopeType
+    scope_id: int
+    scope_name: str
+    scope_code: Optional[str] = None
+    scope_external_id: Optional[str] = None
+    start_month: str
+    end_month: str
+    expected_months: list[str] = Field(default_factory=list)
+    finalized_months: list[str] = Field(default_factory=list)
+    missing_months: list[str] = Field(default_factory=list)
+    unfinalized_months: list[str] = Field(default_factory=list)
+    currency_totals: list[BillingFinalizedPeriodCurrencyTotal] = Field(default_factory=list)
+    months: list[BillingFinalizedPeriodMonth] = Field(default_factory=list)
+    complete: bool

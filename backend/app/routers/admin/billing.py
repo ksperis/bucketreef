@@ -18,6 +18,7 @@ from app.models.billing import (
     BillingEntityPayload,
     BillingEntityResolutionResult,
     BillingEntitySubjectReference,
+    BillingFinalizedPeriodAggregation,
     BillingRateCardAdminItem,
     BillingRateCardPayload,
     BillingRateCardVersionCreate,
@@ -48,6 +49,10 @@ from app.services.billing_entity_group_service import (
     BillingEntityGroupNotFoundError,
     BillingEntityGroupService,
 )
+from app.services.billing_period_service import (
+    BillingFinalizedPeriodService,
+    BillingPeriodScopeNotFoundError,
+)
 from app.services.billing_statement_service import (
     BillingStatementBlockedError,
     BillingStatementImmutableError,
@@ -68,7 +73,7 @@ def _raise_billing_http_error(exc: ValueError) -> NoReturn:
 
 
 def _billing_statement_http_error(exc: ValueError) -> NoReturn:
-    if isinstance(exc, BillingStatementNotFoundError):
+    if isinstance(exc, (BillingStatementNotFoundError, BillingPeriodScopeNotFoundError)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if isinstance(
         exc,
@@ -125,6 +130,26 @@ def billing_statements(
         _billing_statement_http_error(exc)
 
 
+@router.get("/finalized-period", response_model=BillingFinalizedPeriodAggregation)
+def billing_finalized_period(
+    scope_type: str = Query(...),
+    scope_id: int = Query(..., ge=1),
+    start_month: str = Query(..., description="YYYY-MM"),
+    end_month: str = Query(..., description="YYYY-MM"),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> BillingFinalizedPeriodAggregation:
+    try:
+        return BillingFinalizedPeriodService(db).aggregate(
+            scope_type=scope_type,
+            scope_id=scope_id,
+            start_month=start_month,
+            end_month=end_month,
+        )
+    except ValueError as exc:
+        _billing_statement_http_error(exc)
+
+
 @router.post("/statements/generate", response_model=BillingStatementGenerationResult)
 def generate_billing_statements(
     payload: BillingStatementGenerationRequest,
@@ -168,6 +193,40 @@ def billing_statement(
         return BillingStatementService(db).get(statement_id)
     except ValueError as exc:
         _billing_statement_http_error(exc)
+
+
+@router.get("/statements/{statement_id}/export.csv")
+def billing_statement_export_csv(
+    statement_id: int,
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        filename, payload = BillingStatementService(db).export_csv(statement_id)
+    except ValueError as exc:
+        _billing_statement_http_error(exc)
+    return Response(
+        content=payload,
+        media_type="text/csv",
+        headers={"Content-Disposition": build_attachment_content_disposition(filename)},
+    )
+
+
+@router.get("/statements/{statement_id}/export.json")
+def billing_statement_export_json(
+    statement_id: int,
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        filename, payload = BillingStatementService(db).export_json(statement_id)
+    except ValueError as exc:
+        _billing_statement_http_error(exc)
+    return Response(
+        content=payload,
+        media_type="application/json",
+        headers={"Content-Disposition": build_attachment_content_disposition(filename)},
+    )
 
 
 @router.post("/statements/{statement_id}/finalize", response_model=BillingStatementItem)

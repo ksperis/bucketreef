@@ -252,9 +252,199 @@ export type BillingAnalysisPreview = {
   conflicts: BillingEntityConflict[];
 };
 
+export type BillingStatementUnitPrices = {
+  storage_gb_month_price?: BillingDecimal | null;
+  egress_gb_price?: BillingDecimal | null;
+  ingress_gb_price?: BillingDecimal | null;
+  requests_per_1000_price?: BillingDecimal | null;
+};
+
+export type BillingStatementComponentAmounts = {
+  storage_cost?: BillingDecimal | null;
+  egress_cost?: BillingDecimal | null;
+  ingress_cost?: BillingDecimal | null;
+  requests_cost?: BillingDecimal | null;
+  total_cost?: BillingDecimal | null;
+};
+
+export type BillingStatementLineSnapshot = {
+  subject_type: BillingSubjectType;
+  subject_id: number;
+  subject_name: string;
+  rgw_identifier: string;
+  membership_reasons: BillingEntityMembershipReason[];
+  membership_conflict: boolean;
+  included_in_total: boolean;
+  storage_endpoint_id: number;
+  storage_endpoint_name: string;
+  usage: BillingUsageTotals;
+  storage: BillingStorageTotals;
+  coverage: BillingCoverage;
+  storage_charge_basis?: "actual_usage" | "allocated_quota" | null;
+  priced_storage_quantity?: BillingStorageChargeQuantity | null;
+  rate_resolution: BillingRateResolution;
+  unit_prices: BillingStatementUnitPrices;
+  amounts: BillingStatementComponentAmounts;
+  complete: boolean;
+  issues: string[];
+};
+
+export type BillingStatementLineItem = {
+  id: number;
+  line_index: number;
+  currency: string;
+  snapshot: BillingStatementLineSnapshot;
+};
+
+export type BillingStatementItem = {
+  id: number;
+  public_id: string;
+  billing_entity_id: number;
+  billing_entity_name: string;
+  billing_entity_code?: string | null;
+  billing_entity_external_id?: string | null;
+  subject_type: BillingSubjectType;
+  period_start: string;
+  period_end: string;
+  currency: string;
+  status: "draft" | "finalized";
+  member_count: number;
+  coverage: BillingAnalysisCoverage;
+  blockers: string[];
+  storage_charge_bases: Array<"actual_usage" | "allocated_quota">;
+  subtotal: BillingDecimal;
+  total: BillingDecimal;
+  revision: number;
+  generated_at: string;
+  finalized_at?: string | null;
+  finalized_by_user_id?: number | null;
+  finalized_by_user_email?: string | null;
+  lines: BillingStatementLineItem[];
+};
+
+export type BillingStatementGenerationResult = {
+  month: string;
+  billing_entity_id: number;
+  blockers: string[];
+  statements: BillingStatementItem[];
+};
+
+export type BillingFinalizedPeriodCurrencyTotal = {
+  currency: string;
+  storage_cost: BillingDecimal;
+  egress_cost: BillingDecimal;
+  ingress_cost: BillingDecimal;
+  requests_cost: BillingDecimal;
+  total: BillingDecimal;
+  statement_ids: number[];
+  statement_public_ids: string[];
+  statement_months: string[];
+  storage_charge_bases: Array<"actual_usage" | "allocated_quota">;
+};
+
+export type BillingFinalizedPeriodMonth = {
+  month: string;
+  member_entity_ids: number[];
+  finalized_entity_ids: number[];
+  missing_entity_ids: number[];
+  unfinalized_entity_ids: number[];
+  statement_ids: number[];
+  currency_totals: BillingFinalizedPeriodCurrencyTotal[];
+  entity_contributions: Array<{
+    billing_entity_id: number;
+    billing_entity_name: string;
+    billing_entity_code?: string | null;
+    billing_entity_external_id?: string | null;
+    statement_ids: number[];
+    currency_totals: BillingFinalizedPeriodCurrencyTotal[];
+  }>;
+  complete: boolean;
+};
+
+export type BillingFinalizedPeriodAggregation = {
+  scope_type: "entity" | "group";
+  scope_id: number;
+  scope_name: string;
+  scope_code?: string | null;
+  scope_external_id?: string | null;
+  start_month: string;
+  end_month: string;
+  expected_months: string[];
+  finalized_months: string[];
+  missing_months: string[];
+  unfinalized_months: string[];
+  currency_totals: BillingFinalizedPeriodCurrencyTotal[];
+  months: BillingFinalizedPeriodMonth[];
+  complete: boolean;
+};
+
 export async function getBillingAnalysis(month: string): Promise<BillingAnalysisPreview> {
   const { data } = await client.get<BillingAnalysisPreview>("/admin/billing/analysis", {
     params: { month },
+  });
+  return data;
+}
+
+export async function listBillingStatements(
+  month?: string,
+  status?: "draft" | "finalized" | "",
+  billingEntityId?: number | null,
+): Promise<BillingStatementItem[]> {
+  const params: Record<string, string | number> = {};
+  if (month) params.month = month;
+  if (status) params.status = status;
+  if (billingEntityId != null) params.billing_entity_id = billingEntityId;
+  const { data } = await client.get<BillingStatementItem[]>("/admin/billing/statements", { params });
+  return data;
+}
+
+export async function getBillingStatement(statementId: number): Promise<BillingStatementItem> {
+  const { data } = await client.get<BillingStatementItem>(`/admin/billing/statements/${statementId}`);
+  return data;
+}
+
+export async function generateBillingStatements(
+  month: string,
+  billingEntityId: number,
+  regenerate = false,
+): Promise<BillingStatementGenerationResult> {
+  const { data } = await client.post<BillingStatementGenerationResult>("/admin/billing/statements/generate", {
+    month,
+    billing_entity_id: billingEntityId,
+    regenerate,
+  });
+  return data;
+}
+
+export async function finalizeBillingStatement(statementId: number): Promise<BillingStatementItem> {
+  const { data } = await client.post<BillingStatementItem>(`/admin/billing/statements/${statementId}/finalize`);
+  return data;
+}
+
+export async function downloadBillingStatementSnapshot(
+  statementId: number,
+  format: "csv" | "json",
+): Promise<Blob> {
+  const response = await client.get(`/admin/billing/statements/${statementId}/export.${format}`, {
+    responseType: "blob",
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
+  return response.data as Blob;
+}
+
+export async function getBillingFinalizedPeriod(
+  scopeType: "entity" | "group",
+  scopeId: number,
+  startMonth: string,
+  endMonth: string,
+): Promise<BillingFinalizedPeriodAggregation> {
+  const { data } = await client.get<BillingFinalizedPeriodAggregation>("/admin/billing/finalized-period", {
+    params: {
+      scope_type: scopeType,
+      scope_id: scopeId,
+      start_month: startMonth,
+      end_month: endMonth,
+    },
   });
   return data;
 }

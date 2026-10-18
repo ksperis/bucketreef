@@ -55,7 +55,7 @@ Membership is explicit and month-effective. For each Billing Entity in a group, 
 
 Deactivating a group hides it from active administration without deleting its membership history. Historical periods remain available so later reporting can keep the organizational classification that applied for the requested month.
 
-Billing Groups do not convert currencies or create independent billing statements. Group costs are derived from the canonical Billing Entity results and remain separated by currency. The Billing page exposes the monthly Group preview now; multi-month and annual reporting is derived later from persisted monthly statements.
+Billing Groups do not convert currencies or create independent billing statements. Group costs are derived from the canonical Billing Entity results and remain separated by currency. Multi-month and annual reporting reads finalized monthly Billing Entity statements and applies the group membership that was effective for each contributing month.
 
 ## Review monthly Billing
 
@@ -71,14 +71,23 @@ business views under the same page:
 - **Billing Groups** aggregates the Billing Entities whose memberships are
   effective for the selected month. Currencies remain separate, and opening a
   group preserves the drill-down from entity to endpoint and technical subject.
+- **Statements** prepares persistent monthly Billing Entity snapshots. Drafts
+  can be generated or regenerated, reviewed down to endpoint and Account/S3
+  User, exported as CSV/JSON, and finalized after an explicit confirmation.
+  Finalized statements are immutable historical results.
 
 These Entity and Group views are live monthly previews. They resolve current
 membership rules and the tariff version effective for the selected month; they
-are distinct from persisted historical statements. BucketReef stores reviewed
-monthly Billing Entity results as immutable Billing Statements; the dedicated
-statement review/finalization UI is introduced separately from these live
-preview tabs. Conflicted subjects stay visible but are excluded from consolidated
-totals so ambiguity cannot silently become double billing.
+are distinct from persisted historical statements. The Statements view consumes
+the persisted snapshot instead of recalculating a finalized result from current
+tags, quotas, or Rate Plans. Conflicted subjects stay visible but are excluded
+from consolidated totals so ambiguity cannot silently become double billing.
+
+The Statements view also includes finalized-period analysis for a Billing Entity
+or Billing Group. Choose the selected month, a calendar year, or a custom
+month-aligned range. Totals remain separated by currency and list missing or
+unfinalized months explicitly. The monthly breakdown shows which Billing Entity
+contributed each amount and links back to its persisted statement snapshot.
 
 For **Actual usage**, the storage quantity used for pricing is measured storage.
 For **Allocated quota**, the detail keeps measured storage visible for context
@@ -89,12 +98,14 @@ capacity.
 ## Steps
 
 1. Open `/admin/billing`.
-2. Choose the month. It applies to Subjects, Billing Entities, and Billing Groups.
+2. Choose the month. It applies to Subjects, Billing Entities, Billing Groups, and monthly Statement preparation.
 3. In **Subjects**, choose the Ceph endpoint, subject type, and ordering. Review storage, traffic, requests, source coverage, estimated cost, and Rate Plan provenance.
 4. If scheduler data is stale, run **Collect daily** for one UTC day and check the collection result. Partial collection errors are listed below the action.
 5. Select a subject to open daily charts, or export the endpoint-scoped CSV after billing data is available.
 6. In **Billing Entities**, review consolidated totals and coverage, then open an entity to explain its amount down to endpoint and Account/S3 User. For quota-based pricing, compare measured storage with the billed quota quantity.
 7. In **Billing Groups**, review month-effective organizational totals and open a group to trace each currency total through its member entities and technical subjects.
+8. In **Statements**, generate the required Billing Entity draft, review its persisted lines and blockers, then finalize it explicitly. Use CSV/JSON when an external process needs the exact snapshot.
+9. In **Finalized period analysis**, choose an Entity or Group and switch between month, calendar year, and custom range. Treat any listed missing or unfinalized month as incomplete coverage rather than zero cost.
 
 ## Expected result
 

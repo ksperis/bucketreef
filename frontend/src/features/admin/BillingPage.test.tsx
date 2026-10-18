@@ -12,6 +12,14 @@ const mocks = vi.hoisted(() => ({
   getBillingSubjects: vi.fn(),
   getBillingSummary: vi.fn(),
   getBillingAnalysis: vi.fn(),
+  listBillingStatements: vi.fn(),
+  generateBillingStatements: vi.fn(),
+  finalizeBillingStatement: vi.fn(),
+  downloadBillingStatementSnapshot: vi.fn(),
+  getBillingFinalizedPeriod: vi.fn(),
+  getBillingStatement: vi.fn(),
+  listBillingEntities: vi.fn(),
+  listBillingEntityGroups: vi.fn(),
   listStorageEndpoints: vi.fn(),
 }));
 
@@ -22,6 +30,14 @@ vi.mock("../../api/billing", () => ({
   getBillingSubjects: (...args: unknown[]) => mocks.getBillingSubjects(...args),
   getBillingSummary: (...args: unknown[]) => mocks.getBillingSummary(...args),
   getBillingAnalysis: (...args: unknown[]) => mocks.getBillingAnalysis(...args),
+  listBillingStatements: (...args: unknown[]) => mocks.listBillingStatements(...args),
+  generateBillingStatements: (...args: unknown[]) => mocks.generateBillingStatements(...args),
+  finalizeBillingStatement: (...args: unknown[]) => mocks.finalizeBillingStatement(...args),
+  downloadBillingStatementSnapshot: (...args: unknown[]) => mocks.downloadBillingStatementSnapshot(...args),
+  getBillingFinalizedPeriod: (...args: unknown[]) => mocks.getBillingFinalizedPeriod(...args),
+  getBillingStatement: (...args: unknown[]) => mocks.getBillingStatement(...args),
+  listBillingEntities: (...args: unknown[]) => mocks.listBillingEntities(...args),
+  listBillingEntityGroups: (...args: unknown[]) => mocks.listBillingEntityGroups(...args),
 }));
 
 vi.mock("../../api/storageEndpoints", () => ({
@@ -330,6 +346,10 @@ describe("BillingPage", () => {
     });
     mocks.downloadBillingCsv.mockResolvedValue(new Blob(["subject_type\n"], { type: "text/csv" }));
     mocks.getBillingAnalysis.mockResolvedValue(analysis());
+    mocks.listBillingStatements.mockResolvedValue([]);
+    mocks.listBillingEntities.mockResolvedValue([]);
+    mocks.listBillingEntityGroups.mockResolvedValue([]);
+    mocks.getBillingFinalizedPeriod.mockResolvedValue(null);
   });
 
   afterEach(() => {
