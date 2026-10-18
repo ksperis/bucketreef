@@ -8,6 +8,8 @@ from hashlib import sha256
 import json
 from uuid import UUID
 
+from sqlalchemy import select
+
 from app.core.config import get_settings
 from app.db import (
     OnboardingJourney,
@@ -70,9 +72,14 @@ class OnboardingService:
 
     def get(self, actor, journey_id):
         self._require_admin(actor)
-        row = self.db.query(OnboardingJourney).filter_by(
-            id=str(journey_id), user_id=actor.id
-        ).first()
+        row = self.db.scalar(
+            select(OnboardingJourney)
+            .where(
+                OnboardingJourney.id == str(journey_id),
+                OnboardingJourney.user_id == actor.id,
+            )
+            .limit(1)
+        )
         if row is None:
             raise OnboardingError("journey_not_found", 404)
         return row
@@ -335,12 +342,11 @@ class OnboardingService:
     def status(self, actor):
         self._require_admin(actor)
         preference = self.db.get(OnboardingPreference, actor.id)
-        rows = (
-            self.db.query(OnboardingJourney)
-            .filter_by(user_id=actor.id)
+        rows = self.db.scalars(
+            select(OnboardingJourney)
+            .where(OnboardingJourney.user_id == actor.id)
             .order_by(OnboardingJourney.updated_at.desc())
-            .all()
-        )
+        ).all()
         journeys = [self.output(actor, row) for row in rows]
         complete = (
             bool(rows[0].configured_at)
