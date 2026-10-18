@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -66,12 +67,11 @@ class UserOutputService:
         links_by_user: dict[int, list[AccountMembership]] = {
             user_id: [] for user_id in user_ids
         }
-        account_rows = (
-            self.db.query(UserS3Account)
-            .filter(UserS3Account.user_id.in_(user_ids))
+        account_rows = self.db.scalars(
+            select(UserS3Account)
+            .where(UserS3Account.user_id.in_(user_ids))
             .order_by(UserS3Account.id.asc())
-            .all()
-        )
+        ).all()
         for link in account_rows:
             links_by_user[int(link.user_id)].append(
                 AccountMembership(
@@ -90,13 +90,12 @@ class UserOutputService:
         user_ids: list[int],
     ) -> tuple[dict[int, list[int]], dict[int, str]]:
         ids_by_user = {user_id: [] for user_id in user_ids}
-        group_rows = (
-            self.db.query(UserUiGroup, UiGroup.name)
+        group_rows = self.db.execute(
+            select(UserUiGroup, UiGroup.name)
             .join(UiGroup, UiGroup.id == UserUiGroup.group_id)
-            .filter(UserUiGroup.user_id.in_(user_ids))
+            .where(UserUiGroup.user_id.in_(user_ids))
             .order_by(UserUiGroup.id.asc())
-            .all()
-        )
+        ).all()
         group_names: dict[int, str] = {}
         for link, group_name in group_rows:
             group_id = int(link.group_id)
@@ -111,12 +110,11 @@ class UserOutputService:
         links_by_user: dict[int, list[S3UserMembership]] = {
             user_id: [] for user_id in user_ids
         }
-        s3_user_rows = (
-            self.db.query(UserS3User)
-            .filter(UserS3User.user_id.in_(user_ids))
+        s3_user_rows = self.db.scalars(
+            select(UserS3User)
+            .where(UserS3User.user_id.in_(user_ids))
             .order_by(UserS3User.id.asc())
-            .all()
-        )
+        ).all()
         s3_user_ids: set[int] = set()
         for link in s3_user_rows:
             s3_user_id = int(link.s3_user_id)
@@ -136,19 +134,18 @@ class UserOutputService:
         user_ids: list[int],
     ) -> tuple[dict[int, list[int]], dict[int, str]]:
         ids_by_user = {user_id: [] for user_id in user_ids}
-        connection_rows = (
-            self.db.query(UserS3Connection, S3Connection.name)
+        connection_rows = self.db.execute(
+            select(UserS3Connection, S3Connection.name)
             .join(
                 S3Connection,
                 S3Connection.id == UserS3Connection.s3_connection_id,
             )
-            .filter(
+            .where(
                 UserS3Connection.user_id.in_(user_ids),
                 S3Connection.is_shared.is_(True),
             )
             .order_by(UserS3Connection.id.asc())
-            .all()
-        )
+        ).all()
         connection_names: dict[int, str] = {}
         for link, connection_name in connection_rows:
             connection_id = int(link.s3_connection_id)
