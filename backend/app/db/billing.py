@@ -7,6 +7,7 @@ from app.utils.time import utcnow
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     Date,
@@ -257,4 +258,166 @@ class BillingAssignment(Base):
     storage_endpoint = relationship("StorageEndpoint")
     account = relationship("S3Account")
     s3_user = relationship("S3User")
+    rate_plan = relationship("BillingRatePlan")
+
+
+class BillingEntity(Base):
+    __tablename__ = "billing_entities"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_billing_entities_name"),
+        UniqueConstraint("code", name="uq_billing_entities_code"),
+        UniqueConstraint("external_id", name="uq_billing_entities_external_id"),
+        CheckConstraint(
+            "subject_type IN ('account', 's3_user')",
+            name="ck_billing_entities_subject_type",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    code = Column(String, nullable=True)
+    external_id = Column(String, nullable=True)
+    subject_type = Column(String, nullable=False)
+    active = Column(Boolean, nullable=False, default=True, server_default="1")
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    tag_rules = relationship(
+        "BillingEntityTagRule",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="BillingEntityTagRule.id",
+    )
+    subject_rules = relationship(
+        "BillingEntitySubjectRule",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="BillingEntitySubjectRule.id",
+    )
+    rate_assignments = relationship(
+        "BillingEntityRateAssignment",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="BillingEntityRateAssignment.effective_from",
+    )
+
+
+class BillingEntityTagRule(Base):
+    __tablename__ = "billing_entity_tag_rules"
+    __table_args__ = (
+        UniqueConstraint(
+            "billing_entity_id",
+            "tag_definition_id",
+            name="uq_billing_entity_tag_rule",
+        ),
+        Index("ix_billing_entity_tag_rules_tag", "tag_definition_id"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    tag_definition_id = Column(
+        Integer,
+        ForeignKey("tag_definitions.id"),
+        nullable=False,
+    )
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+
+    entity = relationship("BillingEntity", back_populates="tag_rules")
+    tag_definition = relationship("TagDefinition")
+
+
+class BillingEntitySubjectRule(Base):
+    __tablename__ = "billing_entity_subject_rules"
+    __table_args__ = (
+        CheckConstraint(
+            "rule_type IN ('include', 'exclude')",
+            name="ck_billing_entity_subject_rules_type",
+        ),
+        CheckConstraint(
+            "(s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR "
+            "(s3_account_id IS NULL AND s3_user_id IS NOT NULL)",
+            name="ck_billing_entity_subject_rules_subject",
+        ),
+        Index(
+            "uq_billing_entity_subject_rules_account",
+            "billing_entity_id",
+            "rule_type",
+            "s3_account_id",
+            unique=True,
+            sqlite_where=text("s3_account_id IS NOT NULL"),
+            postgresql_where=text("s3_account_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_billing_entity_subject_rules_user",
+            "billing_entity_id",
+            "rule_type",
+            "s3_user_id",
+            unique=True,
+            sqlite_where=text("s3_user_id IS NOT NULL"),
+            postgresql_where=text("s3_user_id IS NOT NULL"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    rule_type = Column(String, nullable=False)
+    s3_account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+
+    entity = relationship("BillingEntity", back_populates="subject_rules")
+    account = relationship("S3Account")
+    s3_user = relationship("S3User")
+
+
+class BillingEntityRateAssignment(Base):
+    __tablename__ = "billing_entity_rate_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "billing_entity_id",
+            "effective_from",
+            name="uq_billing_entity_rate_assignment_start",
+        ),
+        Index(
+            "ix_billing_entity_rate_assignments_effective",
+            "billing_entity_id",
+            "effective_from",
+            "effective_to",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    rate_plan_id = Column(Integer, ForeignKey("billing_rate_plans.id"), nullable=False, index=True)
+    effective_from = Column(Date, nullable=False)
+    effective_to = Column(Date, nullable=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    entity = relationship("BillingEntity", back_populates="rate_assignments")
     rate_plan = relationship("BillingRatePlan")

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import (
     BillingAssignment,
+    BillingEntitySubjectRule,
     BillingRateCard,
     BillingRatePlan,
     BillingStorageDaily,
@@ -98,6 +99,7 @@ class ResourceDeletionPurgeService:
 
     def purge_account_derived_data(self, account_id: int) -> None:
         self._delete_where(BillingAssignment, BillingAssignment.s3_account_id == account_id)
+        self._delete_where(BillingEntitySubjectRule, BillingEntitySubjectRule.s3_account_id == account_id)
         self._delete_where(BillingUsageDaily, BillingUsageDaily.s3_account_id == account_id)
         self._delete_where(BillingStorageDaily, BillingStorageDaily.s3_account_id == account_id)
         self._delete_where(QuotaAlertState, QuotaAlertState.s3_account_id == account_id)
@@ -106,6 +108,7 @@ class ResourceDeletionPurgeService:
 
     def purge_s3_user_derived_data(self, s3_user_id: int) -> None:
         self._delete_where(BillingAssignment, BillingAssignment.s3_user_id == s3_user_id)
+        self._delete_where(BillingEntitySubjectRule, BillingEntitySubjectRule.s3_user_id == s3_user_id)
         self._delete_where(BillingUsageDaily, BillingUsageDaily.s3_user_id == s3_user_id)
         self._delete_where(BillingStorageDaily, BillingStorageDaily.s3_user_id == s3_user_id)
         self._delete_where(QuotaAlertState, QuotaAlertState.s3_user_id == s3_user_id)

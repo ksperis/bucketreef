@@ -15,15 +15,31 @@ Use this page when you need a monthly usage and estimated cost overview for Ceph
 
 Pick the month and subject type you want to explain. Billing views are most useful when you compare the summary cards, subject table, and selected subject charts together.
 
-## Configure rate cards
+## Configure Billing
 
-Superadmins configure tariff versions in **Settings → Billing** (`/admin/billing-settings`). The settings page is available even when Billing collection is disabled, so pricing can be prepared before enabling the feature.
+Superadmins configure tariff versions and Billing Entities in **Settings → Billing** (`/admin/billing-settings`). The settings page is available even when Billing collection is disabled, so pricing and business grouping can be prepared before enabling collection.
 
-Rate cards can be global or scoped to one S3 endpoint. Pricing periods are month-aligned: `effective_from` is the first day of a month and an optional `effective_to` is the last day of a month. Future versions can be edited or deleted. Once a version becomes effective it is immutable; use **Create new version** to start replacement pricing on a future month while preserving historical estimates.
+### Rate Plans
+
+Use the **Rate Plans** tab to manage tariff versions. Rate Plans can be global or scoped to one S3 endpoint. Pricing periods are month-aligned: `effective_from` is the first day of a month and an optional `effective_to` is the last day of a month. Future versions can be edited or deleted. Once a version becomes effective it is immutable; use **Create new version** to start replacement pricing on a future month while preserving historical estimates.
 
 Each tariff version also defines how the storage component is charged. **Actual usage** uses measured storage consumption. **Allocated quota** prices the storage capacity reserved by the subject. The charge basis is versioned with the tariff, so changing it for a future month requires a new version. Traffic and request components continue to use measured activity in both modes.
 
-Quota-based monetary calculation is implemented by the later Billing calculation objective. Its historical contract uses recorded quota observations and must never recalculate a past month from the subject's current live quota.
+Quota-based calculation uses the historical daily quota observations recorded for the same Billing subject level. A missing, disabled, unlimited, or invalid quota observation makes quota-based storage pricing incomplete instead of treating the capacity as zero. Past months are never recalculated from the subject's current live quota.
+
+### Billing Entities
+
+Use the **Billing Entities** tab to group technical Accounts or S3 Users into business units such as teams, laboratories, projects, or cost centers. Each entity uses one subject level only.
+
+Membership uses the existing Admin-managed tag catalog plus explicit exceptions:
+
+1. matching any selected tag includes a subject;
+2. an explicit include adds a subject even without a matching tag;
+3. an explicit exclude wins last.
+
+The editor can preview the resolved members before saving. The preview explains why each subject matched and highlights subjects that would belong to more than one active Billing Entity. Resolve these conflicts before relying on the entity for statement generation; BucketReef does not silently choose an entity or double bill a conflicting subject.
+
+An entity may optionally receive a global Rate Plan through month-effective assignment periods. Current and future periods must not overlap. Historical assignment periods are read-only so later edits to names or membership cannot rewrite prior pricing intent.
 
 ## Steps
 

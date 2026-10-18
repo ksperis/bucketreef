@@ -347,6 +347,8 @@ storage quantities for both measured-usage and allocated-quota charging.
 
 ## Objective 3 — Introduce Billing Entities and hybrid membership
 
+Implementation status: **completed**.
+
 ### Goal
 
 Create the business grouping layer between technical RGW subjects and monthly

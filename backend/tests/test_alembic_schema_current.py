@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0160_billing_storage_quota_history"
+_EXPECTED_ALEMBIC_HEAD = "0161_billing_entities"
 
 
 def _alembic_config() -> Config:

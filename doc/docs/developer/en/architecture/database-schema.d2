@@ -336,6 +336,22 @@ Legend: {
     class: table
     tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_effective(storage_endpoint_id, s3_account_id, effective_from, effective_to) [index]; ix_billing_assignments_endpoint_user_effective(storage_endpoint_id, s3_user_id, effective_from, effective_to) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_plan_id(rate_plan_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
   }
+  "billing_entities": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entities_code(code); uq_billing_entities_external_id(external_id); uq_billing_entities_name(name)\\nCheck: ck_billing_entities_subject_type: subject_type IN ('account', 's3_user')\\nIndexes: ix_billing_entities_id(id) [index]"
+  }
+  "billing_entity_tag_rules": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entity_tag_rule(billing_entity_id, tag_definition_id)\\nIndexes: ix_billing_entity_tag_rules_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_tag_rules_tag(tag_definition_id) [index]"
+  }
+  "billing_entity_subject_rules": {
+    class: table
+    tooltip: "PK: id\\nCheck: ck_billing_entity_subject_rules_subject: (s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR (s3_account_id IS NULL AND s3_user_id IS NOT NULL); ck_billing_entity_subject_rules_type: rule_type IN ('include', 'exclude')\\nIndexes: ix_billing_entity_subject_rules_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_subject_rules_s3_account_id(s3_account_id) [index]; ix_billing_entity_subject_rules_s3_user_id(s3_user_id) [index]; uq_billing_entity_subject_rules_account(billing_entity_id, rule_type, s3_account_id) [unique]; uq_billing_entity_subject_rules_user(billing_entity_id, rule_type, s3_user_id) [unique]"
+  }
+  "billing_entity_rate_assignments": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entity_rate_assignment_start(billing_entity_id, effective_from)\\nIndexes: ix_billing_entity_rate_assignments_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_rate_assignments_effective(billing_entity_id, effective_from, effective_to) [index]; ix_billing_entity_rate_assignments_id(id) [index]; ix_billing_entity_rate_assignments_rate_plan_id(rate_plan_id) [index]"
+  }
 }
 
 "user_ui_groups" -> "users"
@@ -438,3 +454,10 @@ Legend: {
 "billing_assignments" -> "s3_accounts"
 "billing_assignments" -> "s3_users"
 "billing_assignments" -> "billing_rate_plans"
+"billing_entity_tag_rules" -> "billing_entities": "ondelete=CASCADE"
+"billing_entity_tag_rules" -> "tag_definitions"
+"billing_entity_subject_rules" -> "billing_entities": "ondelete=CASCADE"
+"billing_entity_subject_rules" -> "s3_accounts": "ondelete=CASCADE"
+"billing_entity_subject_rules" -> "s3_users": "ondelete=CASCADE"
+"billing_entity_rate_assignments" -> "billing_entities": "ondelete=CASCADE"
+"billing_entity_rate_assignments" -> "billing_rate_plans"

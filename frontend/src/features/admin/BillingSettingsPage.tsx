@@ -14,6 +14,7 @@ import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEnd
 import ModalActions from "../../components/ModalActions";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
+import PageTabs from "../../components/PageTabs";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { ListActionButton, ListActions, ListBadge } from "../../components/list/ListControls";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -29,6 +30,7 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import { extractApiError } from "../../utils/apiError";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
+import BillingEntitiesSettingsPanel from "./BillingEntitiesSettingsPanel";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -106,6 +108,7 @@ export default function BillingSettingsPage() {
   const { text: adminText } = useAdminI18n();
   const breadcrumbs = useAdminPageBreadcrumbs();
   const confirmation = useConfirmActionDialog();
+  const [activeTab, setActiveTab] = useState<"pricing" | "entities">("pricing");
   const [cards, setCards] = useState<BillingRateCard[]>([]);
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -301,9 +304,13 @@ export default function BillingSettingsPage() {
       render: (card) =>
         adminText(card.storage_charge_basis === "allocated_quota" ? "Allocated quota" : "Actual usage"),
     },
-    { id: "storage", label: adminText("Storage / GB-month"), render: (card) => card.storage_gb_month_price ?? "—" },
-    { id: "egress", label: adminText("Egress / GB"), render: (card) => card.egress_gb_price ?? "—" },
-    { id: "ingress", label: adminText("Ingress / GB"), render: (card) => card.ingress_gb_price ?? "—" },
+    {
+      id: "storage",
+      label: adminText("Storage / GiB-month"),
+      render: (card) => card.storage_gb_month_price ?? "—",
+    },
+    { id: "egress", label: adminText("Egress / GiB"), render: (card) => card.egress_gb_price ?? "—" },
+    { id: "ingress", label: adminText("Ingress / GiB"), render: (card) => card.ingress_gb_price ?? "—" },
     { id: "requests", label: adminText("Requests / 1,000"), render: (card) => card.requests_per_1000_price ?? "—" },
     {
       id: "period",
@@ -367,31 +374,59 @@ export default function BillingSettingsPage() {
       <PageHeader
         actionPresentation="listing"
         title={adminText("Billing settings")}
-        description={adminText("Configure global and endpoint-specific tariff versions used for billing estimates.")}
+        description={adminText("Configure tariff versions and business entities used by Billing.")}
         breadcrumbs={breadcrumbs("billing-settings")}
-        actions={isDemo ? [] : [{ label: adminText("Add rate card"), onClick: openCreate }]}
       />
 
       {error && <PageBanner tone="error">{error}</PageBanner>}
       {message && <PageBanner tone="success">{message}</PageBanner>}
 
-      <ListPageSection
-        variant="page"
-        title={adminText("Billing rate cards")}
-        countLabel={adminText(cards.length === 1 ? "{count} rate card" : "{count} rate cards", { count: cards.length })}
-        actions={<ListActionButton onClick={() => void load()} loading={loading}>{adminText("Refresh")}</ListActionButton>}
-      >
-        <DataTableShell
-          columns={columns}
-          rows={cards}
-          rowKey={(card) => card.id}
-          status={tableStatus}
-          loadingMessage={adminText("Loading billing rate cards...")}
-          errorMessage={error ?? adminText("Unable to load billing rate cards.")}
-          emptyMessage={adminText("No billing rate cards configured.")}
-          responsiveCards
-        />
-      </ListPageSection>
+      <PageTabs
+        tabs={[
+          {
+            id: "pricing",
+            label: adminText("Rate Plans"),
+            content: (
+              <ListPageSection
+                variant="page"
+                title={adminText("Billing rate cards")}
+                countLabel={adminText(cards.length === 1 ? "{count} rate card" : "{count} rate cards", { count: cards.length })}
+                actions={
+                  <ListActions>
+                    <ListActionButton onClick={() => void load()} loading={loading}>
+                      {adminText("Refresh")}
+                    </ListActionButton>
+                    <ListActionButton variant="primary" disabled={isDemo || busy} onClick={openCreate}>
+                      {adminText("Add rate card")}
+                    </ListActionButton>
+                  </ListActions>
+                }
+              >
+                <DataTableShell
+                  columns={columns}
+                  rows={cards}
+                  rowKey={(card) => card.id}
+                  status={tableStatus}
+                  loadingMessage={adminText("Loading billing rate cards...")}
+                  errorMessage={error ?? adminText("Unable to load billing rate cards.")}
+                  emptyMessage={adminText("No billing rate cards configured.")}
+                  responsiveCards
+                />
+              </ListPageSection>
+            ),
+          },
+          {
+            id: "entities",
+            label: adminText("Billing Entities"),
+            content: <BillingEntitiesSettingsPanel rateCards={cards} />,
+          },
+        ]}
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId as "pricing" | "entities")}
+        variant="line"
+        ariaLabel={adminText("Billing settings sections")}
+        idPrefix="billing-settings"
+      />
 
       {editor && (
         <SettingsDialog title={title} onClose={closeGuard.requestClose} closeDisabled={busy} maxWidthClass="max-w-2xl">

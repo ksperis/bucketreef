@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from calendar import monthrange
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
@@ -9,6 +10,7 @@ from typing import Literal, Optional
 from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
+from app.models.tagging import TagDefinitionSummary
 
 
 class BillingCoverage(ApiModel):
@@ -210,3 +212,126 @@ class BillingRateCardAdminItem(ApiModel):
     deletable: bool
     created_at: datetime
     updated_at: datetime
+
+
+BillingSubjectType = Literal["account", "s3_user"]
+
+
+class BillingEntitySubjectReference(ApiModel):
+    subject_type: BillingSubjectType
+    subject_id: int
+    name: str
+    rgw_identifier: str
+    storage_endpoint_id: int
+    storage_endpoint_name: str
+
+
+class BillingEntityRateAssignmentInput(ApiModel):
+    rate_plan_id: int = Field(..., ge=1)
+    effective_from: date
+    effective_to: Optional[date] = None
+
+    @model_validator(mode="after")
+    def validate_period(self):
+        if self.effective_from.day != 1:
+            raise ValueError("effective_from must be the first day of a month")
+        if self.effective_to is not None:
+            last_day = monthrange(self.effective_to.year, self.effective_to.month)[1]
+            if self.effective_to.day != last_day:
+                raise ValueError("effective_to must be the last day of a month")
+            if self.effective_to < self.effective_from:
+                raise ValueError("effective_to must not be before effective_from")
+        return self
+
+
+class BillingEntityRateAssignmentItem(BillingEntityRateAssignmentInput):
+    id: int
+    rate_plan_name: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class BillingEntityPayload(ApiModel):
+    name: str = Field(..., min_length=1, max_length=160)
+    code: Optional[str] = Field(default=None, max_length=80)
+    external_id: Optional[str] = Field(default=None, max_length=160)
+    subject_type: BillingSubjectType
+    include_tag_ids: list[int] = Field(default_factory=list)
+    explicit_include_ids: list[int] = Field(default_factory=list)
+    explicit_exclude_ids: list[int] = Field(default_factory=list)
+    rate_assignments: list[BillingEntityRateAssignmentInput] = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_entity_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Billing Entity name is required")
+        return normalized
+
+    @field_validator("code", "external_id")
+    @classmethod
+    def normalize_optional_identifier(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("include_tag_ids", "explicit_include_ids", "explicit_exclude_ids")
+    @classmethod
+    def normalize_id_lists(cls, value: list[int]) -> list[int]:
+        normalized = sorted(set(int(item) for item in value))
+        if any(item <= 0 for item in normalized):
+            raise ValueError("IDs must be positive integers")
+        return normalized
+
+
+class BillingEntityAdminItem(ApiModel):
+    id: int
+    name: str
+    code: Optional[str] = None
+    external_id: Optional[str] = None
+    subject_type: BillingSubjectType
+    active: bool
+    include_tags: list[TagDefinitionSummary] = Field(default_factory=list)
+    explicit_includes: list[BillingEntitySubjectReference] = Field(default_factory=list)
+    explicit_excludes: list[BillingEntitySubjectReference] = Field(default_factory=list)
+    rate_assignments: list[BillingEntityRateAssignmentItem] = Field(default_factory=list)
+    member_count: int = 0
+    conflict_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class BillingEntityMembershipReason(ApiModel):
+    kind: Literal["tag", "explicit_include", "explicit_exclude"]
+    tag_definition_id: Optional[int] = None
+    label: Optional[str] = None
+
+
+class BillingEntityResolvedSubject(BillingEntitySubjectReference):
+    reasons: list[BillingEntityMembershipReason] = Field(default_factory=list)
+
+
+class BillingEntityResolution(ApiModel):
+    entity_id: Optional[int] = None
+    entity_name: str
+    subject_type: BillingSubjectType
+    members: list[BillingEntityResolvedSubject] = Field(default_factory=list)
+    excluded: list[BillingEntityResolvedSubject] = Field(default_factory=list)
+
+
+class BillingEntityConflictEntity(ApiModel):
+    entity_id: Optional[int] = None
+    entity_name: str
+
+
+class BillingEntityConflict(ApiModel):
+    subject: BillingEntitySubjectReference
+    entities: list[BillingEntityConflictEntity]
+
+
+class BillingEntityResolutionResult(ApiModel):
+    entities: list[BillingEntityResolution]
+    unassigned: list[BillingEntitySubjectReference]
+    conflicts: list[BillingEntityConflict]
