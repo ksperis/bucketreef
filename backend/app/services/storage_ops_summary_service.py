@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import S3Connection, User
@@ -62,9 +63,9 @@ class StorageOpsSummaryService:
     def _shared_connection_count(self, connection_ids: set[int]) -> int:
         if not connection_ids:
             return 0
-        rows = (
-            self.db.query(S3Connection.is_shared)
-            .filter(S3Connection.id.in_(connection_ids))
-            .all()
+        shared_flags = self.db.scalars(
+            select(S3Connection.is_shared).where(
+                S3Connection.id.in_(connection_ids)
+            )
         )
-        return sum(1 for (is_shared,) in rows if bool(is_shared))
+        return sum(1 for is_shared in shared_flags if bool(is_shared))
