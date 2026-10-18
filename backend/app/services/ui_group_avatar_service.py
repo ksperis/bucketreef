@@ -87,7 +87,7 @@ class UiGroupAvatarService:
         self.db.refresh(group)
 
     def image(self, group_id: int) -> tuple[bytes, str, str]:
-        group = self.db.query(UiGroup).filter(UiGroup.id == group_id).first()
+        group = self.db.get(UiGroup, group_id)
         if group is None or not group.avatar_image or group.avatar_content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
             raise AvatarNotFoundError("Group avatar not found.")
         version = str(int(group.avatar_updated_at.timestamp()) if group.avatar_updated_at else 0)
