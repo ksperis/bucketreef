@@ -35,9 +35,10 @@ export type DemoIam = {
   users: (IAMUser & { rgw?: Partial<CephAdminRgwUserDetail> })[]; groups: IAMGroup[]; roles: IAMRole[]; policies: IamPolicy[];
   keys: Record<string, AccessKey[]>; attachments: Record<string, IamPolicy[]>; inline: Record<string, InlinePolicy[]>;
 };
+export type DemoUser = Omit<User, "effective_access">;
 export type DemoState = {
   browserFavorites?: Record<number, BrowserFavorite[]>;
-  initializedAt: string; nextId: number; users: User[]; groups: UiGroup[];
+  initializedAt: string; nextId: number; users: DemoUser[]; groups: UiGroup[];
   accounts: (S3Account & { rgw?: Partial<CephAdminRgwAccountDetail> })[]; endpoints: StorageEndpoint[]; buckets: DemoBucket[]; spaces: DemoSpace[];
   requests: PortalAdminRequest[]; iam: Record<number, DemoIam>;
   connections: (S3Connection & S3ConnectionAdminItem)[];
@@ -142,7 +143,7 @@ export function createSeed(): DemoState {
   }));
   const first = ["Alex", "Sam", "Jordan", "Morgan", "Taylor", "Casey", "Robin", "Avery", "Jamie", "Riley", "Cameron", "Drew"];
   const last = ["Martin", "Chen", "Patel", "Garcia", "Kim"];
-  const users: User[] = Array.from({ length: 60 }, (_, i) => {
+  const users: DemoUser[] = Array.from({ length: 60 }, (_, i) => {
     const full_name = `${first[i % 12]} ${last[Math.floor(i / 12)]}`;
     return { id: i + 1, email: `${full_name.toLowerCase().replace(" ", ".")}@example.com`, full_name,
       role: i === 0 ? "ui_superadmin" : i === 4 ? "ui_admin" : "ui_user", is_active: true, has_local_password: true,

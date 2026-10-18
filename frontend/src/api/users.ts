@@ -106,7 +106,7 @@ export type User = {
     id: number;
     name: string;
   }[];
-  effective_access?: EffectiveUserAccess | null;
+  effective_access: EffectiveUserAccess;
   is_active?: boolean;
   last_login_at?: string | null;
 };
