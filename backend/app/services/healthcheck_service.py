@@ -10,6 +10,7 @@ from typing import Literal, Optional
 
 import requests
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -48,10 +49,12 @@ class HealthCheckService:
         app_settings = load_app_settings()
         if not app_settings.general.endpoint_status_enabled:
             raise ValueError("Endpoint Status feature is disabled")
-        query = self.db.query(StorageEndpoint)
+        statement = select(StorageEndpoint)
         if endpoint_id is not None:
-            query = query.filter(StorageEndpoint.id == endpoint_id)
-        endpoints = query.order_by(*name_order_by(StorageEndpoint)).all()
+            statement = statement.where(StorageEndpoint.id == endpoint_id)
+        endpoints = self.db.scalars(
+            statement.order_by(*name_order_by(StorageEndpoint))
+        ).all()
         run_started_at = utcnow()
         profiles = {endpoint.id: resolve_healthcheck_profile(endpoint) for endpoint in endpoints}
         baselines = {
@@ -146,20 +149,22 @@ class HealthCheckService:
         baseline_window_days = max(1, int(settings.healthcheck_latency_baseline_window_days))
         baseline_sample_size = max(5, int(settings.healthcheck_baseline_sample_size))
         start = now - timedelta(days=baseline_window_days)
-        rows = (
-            self.db.query(EndpointHealthCheck.latency_ms)
-            .filter(
-                EndpointHealthCheck.storage_endpoint_id == endpoint_id,
-                EndpointHealthCheck.checked_at >= start,
-                EndpointHealthCheck.status == HealthCheckStatus.UP.value,
-                EndpointHealthCheck.check_mode == check_mode,
-                EndpointHealthCheck.latency_ms.isnot(None),
-            )
-            .order_by(EndpointHealthCheck.checked_at.desc())
-            .limit(baseline_sample_size)
-            .all()
-        )
-        latencies = [int(row[0]) for row in rows if row[0] is not None]
+        latencies = [
+            int(latency_ms)
+            for latency_ms in self.db.scalars(
+                select(EndpointHealthCheck.latency_ms)
+                .where(
+                    EndpointHealthCheck.storage_endpoint_id == endpoint_id,
+                    EndpointHealthCheck.checked_at >= start,
+                    EndpointHealthCheck.status == HealthCheckStatus.UP.value,
+                    EndpointHealthCheck.check_mode == check_mode,
+                    EndpointHealthCheck.latency_ms.isnot(None),
+                )
+                .order_by(EndpointHealthCheck.checked_at.desc())
+                .limit(baseline_sample_size)
+            ).all()
+            if latency_ms is not None
+        ]
         if len(latencies) < 5:
             return None
         return int(sum(latencies) / len(latencies))
