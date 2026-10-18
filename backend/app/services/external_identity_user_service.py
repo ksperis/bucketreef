@@ -7,7 +7,7 @@ import uuid
 from datetime import timedelta
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import ExternalIdentityNotFoundError
@@ -75,19 +75,21 @@ class ExternalIdentityUserService:
         )
 
     def list_link_requests(self, *, include_decided: bool = False) -> list[ExternalIdentityLinkRequest]:
-        query = self.db.query(ExternalIdentityLinkRequest)
+        statement = select(ExternalIdentityLinkRequest)
         if not include_decided:
-            query = query.filter(
+            statement = statement.where(
                 ExternalIdentityLinkRequest.status == "pending",
                 ExternalIdentityLinkRequest.expires_at > utcnow(),
             )
-        return query.order_by(ExternalIdentityLinkRequest.created_at.desc()).all()
+        return self.db.scalars(
+            statement.order_by(ExternalIdentityLinkRequest.created_at.desc())
+        ).all()
 
     def list_for_user(self, user_id: int, *, include_revoked: bool = False) -> list[ExternalIdentity]:
-        query = self.db.query(ExternalIdentity).filter(ExternalIdentity.user_id == user_id)
+        statement = select(ExternalIdentity).where(ExternalIdentity.user_id == user_id)
         if not include_revoked:
-            query = query.filter(ExternalIdentity.revoked_at.is_(None))
-        return query.order_by(ExternalIdentity.created_at.asc()).all()
+            statement = statement.where(ExternalIdentity.revoked_at.is_(None))
+        return self.db.scalars(statement.order_by(ExternalIdentity.created_at.asc())).all()
 
     def decide_link_request(
         self,
@@ -98,11 +100,10 @@ class ExternalIdentityUserService:
         reason: Optional[str] = None,
     ) -> ExternalIdentityLinkRequest:
         now = utcnow()
-        request = (
-            self.db.query(ExternalIdentityLinkRequest)
-            .filter(ExternalIdentityLinkRequest.id == request_id)
+        request = self.db.scalar(
+            select(ExternalIdentityLinkRequest)
+            .where(ExternalIdentityLinkRequest.id == request_id)
             .with_for_update()
-            .first()
         )
         if not request or request.status != "pending" or request.expires_at <= now:
             raise ValueError("External identity link request is unavailable")
@@ -129,7 +130,7 @@ class ExternalIdentityUserService:
                 created_at=now,
                 link_source="manual_approval",
             )
-            user = self.db.query(User).filter(User.id == request.user_id).first()
+            user = self.db.get(User, request.user_id)
             if not user:
                 raise ValueError("Target user no longer exists")
             user.auth_version += 1
@@ -147,11 +148,11 @@ class ExternalIdentityUserService:
         return request
 
     def revoke_identity(self, identity_id: str, *, reason: str = "identity_revoked") -> ExternalIdentity:
-        identity = self.db.query(ExternalIdentity).filter(ExternalIdentity.id == identity_id).first()
+        identity = self.db.get(ExternalIdentity, identity_id)
         if not identity or identity.revoked_at is not None:
             raise ExternalIdentityNotFoundError("External identity not found")
         identity.revoked_at = utcnow()
-        user = self.db.query(User).filter(User.id == identity.user_id).first()
+        user = self.db.get(User, identity.user_id)
         if user:
             user.auth_version += 1
             self.db.add(user)
@@ -167,11 +168,11 @@ class ExternalIdentityUserService:
         return identity
 
     def restore_identity(self, identity_id: str, *, reason: str = "identity_restored") -> ExternalIdentity:
-        identity = self.db.query(ExternalIdentity).filter(ExternalIdentity.id == identity_id).first()
+        identity = self.db.get(ExternalIdentity, identity_id)
         if not identity or identity.revoked_at is None:
             raise ExternalIdentityNotFoundError("Revoked external identity not found")
         identity.revoked_at = None
-        user = self.db.query(User).filter(User.id == identity.user_id).first()
+        user = self.db.get(User, identity.user_id)
         if not user:
             raise ValueError("External identity target does not exist")
         user.auth_version += 1
@@ -247,11 +248,15 @@ class ExternalIdentityUserService:
     def has_alternate_primary_login(self, user: User, *, excluding_identity_id: str) -> bool:
         if bool(user.hashed_password):
             return True
-        return self.db.query(ExternalIdentity.id).filter(
-            ExternalIdentity.user_id == user.id,
-            ExternalIdentity.id != excluding_identity_id,
-            ExternalIdentity.revoked_at.is_(None),
-        ).first() is not None
+        return self.db.scalar(
+            select(ExternalIdentity.id)
+            .where(
+                ExternalIdentity.user_id == user.id,
+                ExternalIdentity.id != excluding_identity_id,
+                ExternalIdentity.revoked_at.is_(None),
+            )
+            .limit(1)
+        ) is not None
 
     def _get_or_create(
         self,
@@ -275,7 +280,7 @@ class ExternalIdentityUserService:
         if identity and identity.revoked_at is not None:
             raise ValueError("External identity has been revoked")
         if identity:
-            user = self.db.query(User).filter(User.id == identity.user_id).first()
+            user = self.db.get(User, identity.user_id)
             if not user:
                 raise ValueError("External identity target does not exist")
             identity.last_login_at = utcnow()
@@ -369,11 +374,13 @@ class ExternalIdentityUserService:
         full_name: Optional[str],
         picture_url: Optional[str],
     ) -> ExternalIdentityLinkRequest:
-        existing = self.db.query(ExternalIdentityLinkRequest).filter(
-            ExternalIdentityLinkRequest.provider_type == provider_type,
-            ExternalIdentityLinkRequest.provider_id == provider_id,
-            ExternalIdentityLinkRequest.subject == subject,
-        ).first()
+        existing = self.db.scalar(
+            select(ExternalIdentityLinkRequest).where(
+                ExternalIdentityLinkRequest.provider_type == provider_type,
+                ExternalIdentityLinkRequest.provider_id == provider_id,
+                ExternalIdentityLinkRequest.subject == subject,
+            )
+        )
         now = utcnow()
         if existing:
             if existing.status == "pending" and existing.expires_at > now:
@@ -419,13 +426,13 @@ class ExternalIdentityUserService:
         }:
             recipient_roles.add(UserRole.UI_ADMIN.value)
         recipient_ids = [
-            int(row[0])
-            for row in self.db.query(User.id)
-            .filter(
+            int(user_id)
+            for user_id in self.db.scalars(
+                select(User.id).where(
                 User.is_active.is_(True),
                 User.role.in_(sorted(recipient_roles)),
             )
-            .all()
+            ).all()
         ]
         UserNotificationsService(self.db).create_notifications(
             user_ids=recipient_ids,
@@ -460,17 +467,17 @@ class ExternalIdentityUserService:
         *,
         include_revoked: bool = False,
     ) -> ExternalIdentity | None:
-        query = self.db.query(ExternalIdentity).filter(
+        statement = select(ExternalIdentity).where(
             ExternalIdentity.provider_type == provider_type,
             ExternalIdentity.provider_id == provider_id,
             ExternalIdentity.subject == subject,
         )
         if not include_revoked:
-            query = query.filter(ExternalIdentity.revoked_at.is_(None))
-        return query.first()
+            statement = statement.where(ExternalIdentity.revoked_at.is_(None))
+        return self.db.scalar(statement)
 
     def _find_email_candidates(self, email: str) -> list[User]:
-        return self.db.query(User).filter(func.lower(User.email) == email).all()
+        return self.db.scalars(select(User).where(func.lower(User.email) == email)).all()
 
     def _can_trust_email_link(
         self,
@@ -491,9 +498,11 @@ class ExternalIdentityUserService:
             return False
         if not user.hashed_password:
             return False
-        return self.db.query(ExternalIdentity.id).filter(
-            ExternalIdentity.user_id == user.id,
-        ).first() is None
+        return self.db.scalar(
+            select(ExternalIdentity.id)
+            .where(ExternalIdentity.user_id == user.id)
+            .limit(1)
+        ) is None
 
     def _close_pending_request(
         self,
@@ -504,12 +513,14 @@ class ExternalIdentityUserService:
         user_id: int,
         source: str,
     ) -> None:
-        request = self.db.query(ExternalIdentityLinkRequest).filter(
-            ExternalIdentityLinkRequest.provider_type == provider_type,
-            ExternalIdentityLinkRequest.provider_id == provider_id,
-            ExternalIdentityLinkRequest.subject == subject,
-            ExternalIdentityLinkRequest.status == "pending",
-        ).first()
+        request = self.db.scalar(
+            select(ExternalIdentityLinkRequest).where(
+                ExternalIdentityLinkRequest.provider_type == provider_type,
+                ExternalIdentityLinkRequest.provider_id == provider_id,
+                ExternalIdentityLinkRequest.subject == subject,
+                ExternalIdentityLinkRequest.status == "pending",
+            )
+        )
         if request is None:
             return
         request.user_id = user_id
