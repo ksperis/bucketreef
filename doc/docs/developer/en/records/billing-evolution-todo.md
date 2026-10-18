@@ -771,6 +771,8 @@ Never purge finalized statements merely because collection rows age out.
 
 ## Objective 8 — Add statement review/finalization UX
 
+Implementation status: **completed**.
+
 ### Goal
 
 Make monthly statement preparation operationally safe in the existing Admin

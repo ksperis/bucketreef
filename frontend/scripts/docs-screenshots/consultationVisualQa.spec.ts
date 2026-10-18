@@ -141,12 +141,17 @@ for (const entry of cases) for (const mode of [
         await expect(collectButton).toBeHidden();
 
         const billingTabs = page.getByRole("tab");
-        await expect(billingTabs).toHaveCount(3);
+        await expect(billingTabs).toHaveCount(4);
         await billingTabs.nth(1).click();
         await expect(page.getByText("Research Labs", { exact: true }).first()).toBeVisible();
         await expect(page.getByLabel(/Endpoint/)).toHaveCount(0);
         await billingTabs.nth(2).click();
         await expect(page.getByText("DSI", { exact: true }).first()).toBeVisible();
+        await billingTabs.nth(3).click();
+        await expect(page.getByText("Monthly Billing Statements", { exact: true })).toBeVisible();
+        await expect(page.getByText("Finalized snapshot", { exact: true })).toBeVisible();
+        await expect(page.getByText("Finalized period analysis", { exact: true })).toBeVisible();
+        await expect(page.getByText("Helios Retail", { exact: true })).toBeVisible();
       }
       if (entry.route.includes("view=access")) {
         const tools = page.locator(".ui-list-toolbar-tools");

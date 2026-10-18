@@ -142,6 +142,35 @@ def test_statement_api_generates_lists_reads_finalizes_and_audits(client, db_ses
     assert finalized["status"] == "finalized"
     assert finalized["finalized_by_user_email"] == "admin@example.com"
 
+    period_response = client.get(
+        "/api/admin/billing/finalized-period",
+        params={
+            "scope_type": "entity",
+            "scope_id": entity.id,
+            "start_month": "2026-01",
+            "end_month": "2026-01",
+        },
+    )
+    assert period_response.status_code == 200, period_response.text
+    period = period_response.json()
+    assert period["complete"] is True
+    assert period["finalized_months"] == ["2026-01"]
+    assert period["currency_totals"][0]["statement_ids"] == [statement["id"]]
+    assert period["currency_totals"][0]["total"] == finalized["total"]
+
+    csv_export = client.get(f"/api/admin/billing/statements/{statement['id']}/export.csv")
+    assert csv_export.status_code == 200
+    assert csv_export.headers["content-type"].startswith("text/csv")
+    assert "statement_public_id" in csv_export.text
+    assert statement["public_id"] in csv_export.text
+    assert "Statement API account" in csv_export.text
+
+    json_export = client.get(f"/api/admin/billing/statements/{statement['id']}/export.json")
+    assert json_export.status_code == 200
+    exported = json_export.json()
+    assert exported["public_id"] == statement["public_id"]
+    assert exported["lines"][0]["snapshot"]["subject_name"] == "Statement API account"
+
     regenerate = client.post(
         "/api/admin/billing/statements/generate",
         json={"month": "2026-01", "billing_entity_id": entity.id, "regenerate": True},

@@ -2,7 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import json
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -109,6 +111,126 @@ class BillingStatementService:
 
     def get(self, statement_id: int) -> BillingStatementItem:
         return self._item(self._row(statement_id))
+
+    def export_json(self, statement_id: int) -> tuple[str, str]:
+        item = self.get(statement_id)
+        filename = f"billing-statement-{item.public_id}.json"
+        return filename, item.model_dump_json(indent=2)
+
+    def export_csv(self, statement_id: int) -> tuple[str, str]:
+        item = self.get(statement_id)
+        output = io.StringIO(newline="")
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "statement_id",
+                "statement_public_id",
+                "status",
+                "period_start",
+                "period_end",
+                "billing_entity_id",
+                "billing_entity_name",
+                "billing_entity_code",
+                "billing_entity_external_id",
+                "currency",
+                "statement_total",
+                "line_index",
+                "subject_type",
+                "subject_id",
+                "subject_name",
+                "rgw_identifier",
+                "endpoint_id",
+                "endpoint_name",
+                "membership_reasons",
+                "membership_conflict",
+                "included_in_total",
+                "storage_charge_basis",
+                "priced_storage_gib_month",
+                "measured_storage_gib_month",
+                "bytes_in",
+                "bytes_out",
+                "requests",
+                "rate_resolution_source",
+                "rate_plan_id",
+                "rate_plan_name",
+                "rate_card_id",
+                "storage_unit_price",
+                "egress_unit_price",
+                "ingress_unit_price",
+                "requests_per_1000_unit_price",
+                "storage_cost",
+                "egress_cost",
+                "ingress_cost",
+                "requests_cost",
+                "line_total",
+                "complete",
+                "issues",
+            ]
+        )
+        for line in item.lines:
+            snapshot = line.snapshot
+            quantity = snapshot.priced_storage_quantity
+            resolution = snapshot.rate_resolution
+            writer.writerow(
+                [
+                    item.id,
+                    item.public_id,
+                    item.status,
+                    item.period_start.isoformat(),
+                    item.period_end.isoformat(),
+                    item.billing_entity_id,
+                    item.billing_entity_name,
+                    item.billing_entity_code or "",
+                    item.billing_entity_external_id or "",
+                    item.currency,
+                    str(item.total),
+                    line.line_index,
+                    snapshot.subject_type,
+                    snapshot.subject_id,
+                    snapshot.subject_name,
+                    snapshot.rgw_identifier,
+                    snapshot.storage_endpoint_id,
+                    snapshot.storage_endpoint_name,
+                    json.dumps(
+                        [reason.model_dump(mode="json") for reason in snapshot.membership_reasons],
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                    snapshot.membership_conflict,
+                    snapshot.included_in_total,
+                    snapshot.storage_charge_basis or "",
+                    str(quantity.quantity_gib_month) if quantity and quantity.quantity_gib_month is not None else "",
+                    str(snapshot.storage.avg_gb_month) if snapshot.storage.avg_gb_month is not None else "",
+                    snapshot.usage.bytes_in,
+                    snapshot.usage.bytes_out,
+                    snapshot.usage.ops_total,
+                    resolution.layer or "",
+                    resolution.rate_plan_id or "",
+                    resolution.rate_plan_name or "",
+                    resolution.rate_card_id or "",
+                    str(snapshot.unit_prices.storage_gb_month_price)
+                    if snapshot.unit_prices.storage_gb_month_price is not None
+                    else "",
+                    str(snapshot.unit_prices.egress_gb_price)
+                    if snapshot.unit_prices.egress_gb_price is not None
+                    else "",
+                    str(snapshot.unit_prices.ingress_gb_price)
+                    if snapshot.unit_prices.ingress_gb_price is not None
+                    else "",
+                    str(snapshot.unit_prices.requests_per_1000_price)
+                    if snapshot.unit_prices.requests_per_1000_price is not None
+                    else "",
+                    str(snapshot.amounts.storage_cost) if snapshot.amounts.storage_cost is not None else "",
+                    str(snapshot.amounts.egress_cost) if snapshot.amounts.egress_cost is not None else "",
+                    str(snapshot.amounts.ingress_cost) if snapshot.amounts.ingress_cost is not None else "",
+                    str(snapshot.amounts.requests_cost) if snapshot.amounts.requests_cost is not None else "",
+                    str(snapshot.amounts.total_cost) if snapshot.amounts.total_cost is not None else "",
+                    snapshot.complete,
+                    json.dumps(snapshot.issues, ensure_ascii=False, separators=(",", ":")),
+                ]
+            )
+        return f"billing-statement-{item.public_id}.csv", output.getvalue()
 
     def generate(
         self,

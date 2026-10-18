@@ -76,7 +76,7 @@ The route does not persist or reprice a statement.
 
 The Admin UI exposes the same structure as `Billing Group -> Billing Entity ->
 Endpoint -> Account/S3 User`. Immutable monthly results and annual/range totals
-are built later from finalized Billing Statements, rather than from repeated live
+are built from finalized Billing Statements rather than from repeated live
 recalculation of this preview.
 
 ## Monthly Billing Statements
@@ -91,6 +91,8 @@ The Admin API exposes the lifecycle used by later UI and integration layers:
 - `POST /api/admin/billing/statements/generate` creates the entity/month drafts;
 - `GET /api/admin/billing/statements` lists persisted drafts and finalized rows;
 - `GET /api/admin/billing/statements/{id}` reads one persisted snapshot;
+- `GET /api/admin/billing/statements/{id}/export.csv` exports snapshot lines as CSV;
+- `GET /api/admin/billing/statements/{id}/export.json` exports the complete snapshot as JSON;
 - `POST /api/admin/billing/statements/{id}/finalize` freezes a reviewed draft.
 
 Generation is idempotent by default: repeating it returns the existing draft
@@ -113,6 +115,33 @@ the draft as stale and requires explicit regeneration first.
 Finalized rows and their line snapshots no longer depend on live tags, Rate
 Plans, quotas, or daily Billing rows for rendering. They therefore remain
 auditable after later configuration changes and after raw daily history ages out.
+
+The **Statements** tab in `/admin/billing` exposes this lifecycle without leaving
+the Billing workspace. Select a month, optionally filter by status, generate or
+regenerate a draft for a Billing Entity, review every persisted subject/endpoint
+line, and finalize only after all blocking conditions are resolved. Finalization
+uses an explicit confirmation showing the entity, month, amount, currency, and
+coverage. Finalized rows are presented as immutable snapshots.
+
+## Finalized period analysis
+
+`GET /api/admin/billing/finalized-period` aggregates persisted finalized monthly
+statements for either one Billing Entity or one Billing Group. The same endpoint
+supports a single month, a calendar year, or any month-aligned start/end range.
+It never re-rates historical usage.
+
+The response keeps currencies separate and returns the contributing statement
+IDs, monthly entity contributions, expected months, finalized months, missing
+months, and months that still contain drafts. Missing months are reported as
+missing rather than represented as zero cost. Group analysis evaluates the
+historized membership that was effective independently for every month in the
+requested period.
+
+The **Finalized period analysis** section in the Statements tab uses this
+contract. Operators can switch between month, calendar year, and custom range,
+inspect each month's completeness and entity contribution, then reopen an
+underlying statement to continue the drill-down through endpoint and Account/S3
+User snapshot lines.
 
 ## Scheduler integration
 
