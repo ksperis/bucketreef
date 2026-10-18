@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, Optional, Tuple
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -157,10 +157,10 @@ class AdminMetricsService:
         self.endpoint_id = endpoint_id
 
     @staticmethod
-    def _endpoint_scoped_count(query, endpoint_column, endpoint_id: int | None) -> int:
+    def _endpoint_scoped_count(db: Session, statement, endpoint_column, endpoint_id: int | None) -> int:
         if endpoint_id is not None:
-            query = query.filter(endpoint_column == endpoint_id)
-        return int(query.scalar() or 0)
+            statement = statement.where(endpoint_column == endpoint_id)
+        return int(db.scalar(statement) or 0)
 
     @classmethod
     def _account_assignment_counts(
@@ -169,16 +169,18 @@ class AdminMetricsService:
         endpoint_id: int | None,
     ) -> _AssignmentCounts:
         total = cls._endpoint_scoped_count(
-            db.query(func.count(S3Account.id)),
+            db,
+            select(func.count(S3Account.id)),
             S3Account.storage_endpoint_id,
             endpoint_id,
         )
-        assigned_accounts_query = (
-            db.query(func.count(func.distinct(S3Account.id)))
+        assigned_accounts_statement = (
+            select(func.count(func.distinct(S3Account.id)))
             .join(UserS3Account, UserS3Account.account_id == S3Account.id)
         )
         assigned = cls._endpoint_scoped_count(
-            assigned_accounts_query,
+            db,
+            assigned_accounts_statement,
             S3Account.storage_endpoint_id,
             endpoint_id,
         )
@@ -191,16 +193,18 @@ class AdminMetricsService:
         endpoint_id: int | None,
     ) -> _AssignmentCounts:
         total = cls._endpoint_scoped_count(
-            db.query(func.count(S3User.id)),
+            db,
+            select(func.count(S3User.id)),
             S3User.storage_endpoint_id,
             endpoint_id,
         )
-        assigned_s3_users_query = (
-            db.query(func.count(func.distinct(S3User.id)))
+        assigned_s3_users_statement = (
+            select(func.count(func.distinct(S3User.id)))
             .join(UserS3User, UserS3User.s3_user_id == S3User.id)
         )
         assigned = cls._endpoint_scoped_count(
-            assigned_s3_users_query,
+            db,
+            assigned_s3_users_statement,
             S3User.storage_endpoint_id,
             endpoint_id,
         )
@@ -208,57 +212,42 @@ class AdminMetricsService:
 
     @staticmethod
     def _ui_user_counts(db: Session) -> tuple[int, int, int]:
-        admin_count = (
-            db.query(func.count(User.id))
-            .filter(User.role.in_([UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value]))
-            .scalar()
-            or 0
-        )
-        manager_count = (
-            db.query(func.count(User.id))
-            .filter(User.role == UserRole.UI_USER.value)
-            .scalar()
-            or 0
-        )
-        none_count = (
-            db.query(func.count(User.id))
-            .filter(User.role == UserRole.UI_NONE.value)
-            .scalar()
-            or 0
-        )
+        admin_count = db.scalar(
+            select(func.count(User.id)).where(
+                User.role.in_([UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value])
+            )
+        ) or 0
+        manager_count = db.scalar(
+            select(func.count(User.id)).where(User.role == UserRole.UI_USER.value)
+        ) or 0
+        none_count = db.scalar(
+            select(func.count(User.id)).where(User.role == UserRole.UI_NONE.value)
+        ) or 0
         return int(admin_count), int(manager_count), int(none_count)
 
     @staticmethod
     def _endpoint_counts(db: Session) -> tuple[int, int]:
-        ceph_count = (
-            db.query(func.count(StorageEndpoint.id))
-            .filter(StorageEndpoint.provider == StorageProvider.CEPH.value)
-            .scalar()
-            or 0
-        )
-        other_count = (
-            db.query(func.count(StorageEndpoint.id))
-            .filter(StorageEndpoint.provider != StorageProvider.CEPH.value)
-            .scalar()
-            or 0
-        )
+        ceph_count = db.scalar(
+            select(func.count(StorageEndpoint.id)).where(
+                StorageEndpoint.provider == StorageProvider.CEPH.value
+            )
+        ) or 0
+        other_count = db.scalar(
+            select(func.count(StorageEndpoint.id)).where(
+                StorageEndpoint.provider != StorageProvider.CEPH.value
+            )
+        ) or 0
         return int(ceph_count), int(other_count)
 
     @staticmethod
     def _connection_counts(db: Session) -> tuple[int, int, int]:
-        total = db.query(func.count(S3Connection.id)).scalar() or 0
-        shared = (
-            db.query(func.count(S3Connection.id))
-            .filter(S3Connection.is_shared.is_(True))
-            .scalar()
-            or 0
-        )
-        private = (
-            db.query(func.count(S3Connection.id))
-            .filter(S3Connection.is_shared.is_(False))
-            .scalar()
-            or 0
-        )
+        total = db.scalar(select(func.count(S3Connection.id))) or 0
+        shared = db.scalar(
+            select(func.count(S3Connection.id)).where(S3Connection.is_shared.is_(True))
+        ) or 0
+        private = db.scalar(
+            select(func.count(S3Connection.id)).where(S3Connection.is_shared.is_(False))
+        ) or 0
         return int(total), int(shared), int(private)
 
     @classmethod
@@ -585,14 +574,18 @@ class AdminMetricsService:
         return any(token in allowed for token in self._expand_identifier(value))
 
     def _load_scope_targets(self) -> tuple[list[S3Account], list[S3User], set[str]]:
-        account_query = self.db.query(S3Account)
+        account_statement = select(S3Account)
         if self.endpoint_id is not None:
-            account_query = account_query.filter(S3Account.storage_endpoint_id == self.endpoint_id)
-        accounts = account_query.all()
-        s3_user_query = self.db.query(S3User)
+            account_statement = account_statement.where(
+                S3Account.storage_endpoint_id == self.endpoint_id
+            )
+        accounts = self.db.scalars(account_statement).all()
+        s3_user_statement = select(S3User)
         if self.endpoint_id is not None:
-            s3_user_query = s3_user_query.filter(S3User.storage_endpoint_id == self.endpoint_id)
-        s3_users = s3_user_query.all()
+            s3_user_statement = s3_user_statement.where(
+                S3User.storage_endpoint_id == self.endpoint_id
+            )
+        s3_users = self.db.scalars(s3_user_statement).all()
 
         allowed: set[str] = set()
         for acc in accounts:
