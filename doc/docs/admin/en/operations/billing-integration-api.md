@@ -29,6 +29,43 @@ Token expiry, rotation, and revocation use the standard BucketReef API-token
 lifecycle. Revoke a token immediately when an integration is retired or its
 credential may have been exposed.
 
+## Generic ingestion workflow
+
+An external system can integrate with BucketReef using ordinary HTTP without a
+vendor-specific connector. A typical monthly pull flow is:
+
+1. list newly finalized statements for the month or range;
+2. store `statement_public_id` as the idempotent external correlation key;
+3. fetch each statement detail (or its JSON/CSV export);
+4. map the Billing Entity `external_id` to the downstream cost center/customer;
+5. apply any tax, invoice, payment, or ledger logic in the external system.
+
+For example:
+
+```bash
+curl -H 'Authorization: Bearer <token>' \
+  'https://bucketreef.example/api/integrations/billing/v1/statements?start_month=2026-09&end_month=2026-09'
+
+curl -H 'Authorization: Bearer <token>' \
+  'https://bucketreef.example/api/integrations/billing/v1/statements/<statement_public_id>'
+
+curl -H 'Authorization: Bearer <token>' \
+  -o statement.csv \
+  'https://bucketreef.example/api/integrations/billing/v1/statements/<statement_public_id>/export.csv'
+```
+
+For showback/reporting without treating a year as a new statement resource, use
+the finalized period endpoints, for example:
+
+```bash
+curl -H 'Authorization: Bearer <token>' \
+  'https://bucketreef.example/api/integrations/billing/v1/groups/42/costs?period=year&year=2026'
+```
+
+The downstream system should use statement IDs/public IDs and contributing
+months for replay/idempotence rather than attempting to reconstruct BucketReef
+membership or RGW usage itself.
+
 ## Resources
 
 The initial v1 contract exposes these read-only resources:

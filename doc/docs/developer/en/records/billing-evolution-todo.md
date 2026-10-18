@@ -1049,6 +1049,8 @@ integration layer consuming the same Billing API/domain contract.
 
 ## Objective 12 — Complete documentation and operational guidance
 
+Implementation status: **completed**.
+
 ### Goal
 
 Document the Billing subsystem according to its final product boundary and make

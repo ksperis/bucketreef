@@ -1292,6 +1292,25 @@ Legend: {
     "snapshot_json": "TEXT [NN]"
     "created_at": "DATETIME [NN]"
   }
+  "billing_automation_runs": {
+    class: table
+    tooltip: "PK: id\\nCheck: ck_billing_automation_runs_mode: mode IN ('automatic_draft', 'automatic_finalize'); ck_billing_automation_runs_status: status IN ('running', 'completed', 'partial', 'failed'); ck_billing_automation_runs_trigger_source: trigger_source IN ('scheduled', 'retry')\\nIndexes: ix_billing_automation_runs_id(id) [index]; ix_billing_automation_runs_period_start(period_start) [index]; ix_billing_automation_runs_period_started(period_start, started_at) [index]"
+    "id": "INTEGER [PK, NN]"
+    "period_start": "DATE [NN]"
+    "mode": "VARCHAR [NN]"
+    "trigger_source": "VARCHAR [NN]"
+    "status": "VARCHAR [NN]"
+    "active_entity_count": "INTEGER [NN]"
+    "generated_statement_count": "INTEGER [NN]"
+    "finalized_statement_count": "INTEGER [NN]"
+    "blocked_statement_count": "INTEGER [NN]"
+    "failed_entity_count": "INTEGER [NN]"
+    "unassigned_subject_count": "INTEGER [NN]"
+    "diagnostics_json": "TEXT [NN]"
+    "started_at": "DATETIME [NN]"
+    "completed_at": "DATETIME"
+    "created_at": "DATETIME [NN]"
+  }
 }
 
 "user_ui_groups"."user_id" -> "users"."id"
