@@ -8,6 +8,7 @@ import csv
 import io
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import ManagerAccountRole, S3Account, S3Connection, S3User, User, UserUiGroup
@@ -188,9 +189,9 @@ class AccessAuditService:
         accounts = (
             {
                 int(account.id): account
-                for account in self.db.query(S3Account)
-                .filter(S3Account.id.in_(account_ids))
-                .all()
+                for account in self.db.scalars(
+                    select(S3Account).where(S3Account.id.in_(account_ids))
+                ).all()
             }
             if account_ids
             else {}
@@ -198,9 +199,9 @@ class AccessAuditService:
         s3_users = (
             {
                 int(s3_user.id): s3_user
-                for s3_user in self.db.query(S3User)
-                .filter(S3User.id.in_(s3_user_ids))
-                .all()
+                for s3_user in self.db.scalars(
+                    select(S3User).where(S3User.id.in_(s3_user_ids))
+                ).all()
             }
             if s3_user_ids
             else {}
@@ -208,12 +209,12 @@ class AccessAuditService:
         connections = (
             {
                 int(connection.id): connection
-                for connection in self.db.query(S3Connection)
-                .filter(
-                    S3Connection.id.in_(connection_ids),
-                    S3Connection.is_shared.is_(True),
-                )
-                .all()
+                for connection in self.db.scalars(
+                    select(S3Connection).where(
+                        S3Connection.id.in_(connection_ids),
+                        S3Connection.is_shared.is_(True),
+                    )
+                ).all()
             }
             if connection_ids
             else {}
@@ -456,14 +457,16 @@ class AccessAuditService:
         return sorted(rows, key=key, reverse=sort_dir.lower() == "desc")
 
     def list_rows(self, filters: AccessAuditFilters) -> list[AccessAuditRow]:
-        query = self.db.query(User)
+        statement = select(User)
         if filters.user_id is not None:
-            query = query.filter(User.id == filters.user_id)
+            statement = statement.where(User.id == filters.user_id)
         if filters.group_id is not None:
-            query = query.join(UserUiGroup, UserUiGroup.user_id == User.id).filter(
+            statement = statement.join(UserUiGroup, UserUiGroup.user_id == User.id).where(
                 UserUiGroup.group_id == filters.group_id
             )
-        users = query.order_by(User.email.asc(), User.id.asc()).all()
+        users = self.db.scalars(
+            statement.order_by(User.email.asc(), User.id.asc())
+        ).all()
         rows = [row for row in self._build_rows(users) if self._matches_filters(row, filters)]
         return self._sort_rows(rows, filters.sort_by, filters.sort_dir)
 
