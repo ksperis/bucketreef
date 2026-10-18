@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from sqlalchemy import func, select
 
 from app.core.domain_errors import S3ConnectionConflictError, S3ConnectionNotFoundError
 from pydantic import ValidationError
@@ -228,7 +229,9 @@ def test_create_connection_rolls_back_service_owned_transaction_on_failure(
             ),
         )
 
-    assert db_session.query(S3Connection).filter_by(name="rollback-private").count() == 0
+    assert db_session.scalar(
+        select(func.count()).select_from(S3Connection).where(S3Connection.name == "rollback-private")
+    ) == 0
     assert db_session.get(User, user.id) is not None
 
 
@@ -256,7 +259,9 @@ def test_create_admin_shared_rolls_back_service_owned_transaction_on_failure(
             ),
         )
 
-    assert db_session.query(S3Connection).filter_by(name="rollback-shared").count() == 0
+    assert db_session.scalar(
+        select(func.count()).select_from(S3Connection).where(S3Connection.name == "rollback-shared")
+    ) == 0
     assert db_session.get(User, user.id) is not None
 
 
@@ -324,7 +329,7 @@ def test_create_and_update_connection_normalize_tags(db_session, monkeypatch):
     assert [tag.label for tag in updated.tags] == ["finance", "archive", "prod"]
     assert [tag.color_key for tag in updated.tags] == ["neutral", "neutral", "neutral"]
     db_session.expire_all()
-    persisted = db_session.query(S3Connection).filter(S3Connection.id == created.id).first()
+    persisted = db_session.get(S3Connection, created.id)
     assert persisted is not None
     assert [
         tag.label for tag in service.tags.get_connection_tags(persisted)
@@ -660,14 +665,18 @@ def test_delete(db_session):
     service = S3ConnectionsService(db_session)
 
     service.delete(owner.id, row.id)
-    assert db_session.query(S3Connection).filter(S3Connection.id == row.id).first() is None
-    assert db_session.query(BrowserFavorite).filter(BrowserFavorite.context == f"conn-{row.id}").count() == 0
-    assert (
-        db_session.query(BucketUsageStatsSnapshot)
-        .filter(BucketUsageStatsSnapshot.scope_kind == "manager", BucketUsageStatsSnapshot.scope_id == f"conn-{row.id}")
-        .count()
-        == 0
-    )
+    assert db_session.get(S3Connection, row.id) is None
+    assert db_session.scalar(
+        select(func.count()).select_from(BrowserFavorite).where(
+            BrowserFavorite.context == f"conn-{row.id}"
+        )
+    ) == 0
+    assert db_session.scalar(
+        select(func.count()).select_from(BucketUsageStatsSnapshot).where(
+            BucketUsageStatsSnapshot.scope_kind == "manager",
+            BucketUsageStatsSnapshot.scope_id == f"conn-{row.id}",
+        )
+    ) == 0
 
 
 def test_delete_rejects_active_bucket_migration(db_session):
@@ -688,7 +697,7 @@ def test_delete_rejects_active_bucket_migration(db_session):
     with pytest.raises(S3ConnectionConflictError, match=rf"bucket migration {migration.id}"):
         S3ConnectionsService(db_session).delete(owner.id, row.id)
 
-    assert db_session.query(S3Connection).filter(S3Connection.id == row.id).one()
+    assert db_session.get(S3Connection, row.id) is not None
 
 
 def test_delete_admin_shared_cleans_links_and_orphan_tags(db_session):
@@ -717,25 +726,16 @@ def test_delete_admin_shared_cleans_links_and_orphan_tags(db_session):
 
     service.delete_admin_shared(row)
 
-    assert db_session.query(S3Connection).filter(S3Connection.id == row.id).first() is None
-    assert (
-        db_session.query(UserS3Connection)
-        .filter(UserS3Connection.s3_connection_id == row.id)
-        .first()
-        is None
-    )
-    assert (
-        db_session.query(UiGroupS3Connection)
-        .filter(UiGroupS3Connection.s3_connection_id == row.id)
-        .first()
-        is None
-    )
-    assert (
-        db_session.query(TagDefinition)
-        .filter(TagDefinition.label_key == "orphan-after-shared-delete")
-        .first()
-        is None
-    )
+    assert db_session.get(S3Connection, row.id) is None
+    assert db_session.scalar(
+        select(UserS3Connection).where(UserS3Connection.s3_connection_id == row.id)
+    ) is None
+    assert db_session.scalar(
+        select(UiGroupS3Connection).where(UiGroupS3Connection.s3_connection_id == row.id)
+    ) is None
+    assert db_session.scalar(
+        select(TagDefinition).where(TagDefinition.label_key == "orphan-after-shared-delete")
+    ) is None
 
 
 def test_delete_admin_shared_rejects_active_managed_source(
@@ -759,4 +759,4 @@ def test_delete_admin_shared_rejects_active_managed_source(
     with pytest.raises(S3ConnectionConflictError, match="managed private accesses"):
         service.delete_admin_shared(row)
 
-    assert db_session.query(S3Connection).filter(S3Connection.id == row.id).one()
+    assert db_session.get(S3Connection, row.id) is not None
