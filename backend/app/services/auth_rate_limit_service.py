@@ -6,7 +6,7 @@ import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -34,10 +34,12 @@ class AuthRateLimitService:
             (self._key("ip", ip_address), self.settings.login_rate_limit_max_attempts * 5),
         )
         for key, maximum in limits:
-            row = self.db.query(AuthRateLimit).filter(
-                AuthRateLimit.bucket_key == key,
-                AuthRateLimit.window_started_at == window,
-            ).first()
+            row = self.db.scalar(
+                select(AuthRateLimit).where(
+                    AuthRateLimit.bucket_key == key,
+                    AuthRateLimit.window_started_at == window,
+                )
+            )
             if row and row.attempts >= maximum:
                 elapsed = int((now - window).total_seconds())
                 raise LoginRateLimitedError(self.settings.login_rate_limit_window_seconds - elapsed)
@@ -77,7 +79,9 @@ class AuthRateLimitService:
 
     def clear_account(self, *, account: str, ip_address: str) -> None:
         key = self._key("account_ip", account.lower(), ip_address)
-        self.db.query(AuthRateLimit).filter(AuthRateLimit.bucket_key == key).delete(synchronize_session=False)
+        self.db.execute(
+            delete(AuthRateLimit).where(AuthRateLimit.bucket_key == key)
+        )
         self.db.commit()
 
     def _window_start(self, now: datetime) -> datetime:
