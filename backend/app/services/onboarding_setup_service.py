@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlsplit
 
+from sqlalchemy import select
+
 from app.db import S3Account, S3Connection, StorageEndpoint, UserS3Account
 from app.models.onboarding import OnboardingApply
 from app.models.s3_account import S3AccountCreate
@@ -568,7 +570,9 @@ class OnboardingSetupService:
         base = hostname
         candidate = base
         index = 2
-        while self.db.query(StorageEndpoint.id).filter_by(name=candidate).first():
+        while self.db.scalar(
+            select(StorageEndpoint.id).where(StorageEndpoint.name == candidate)
+        ):
             candidate = f"{base} {index}"
             index += 1
         return candidate
@@ -582,7 +586,7 @@ class OnboardingSetupService:
         base = onboarding_sample_account_name(rgw_account_id)
         candidate = base
         index = 2
-        while self.db.query(S3Account.id).filter_by(name=candidate).first():
+        while self.db.scalar(select(S3Account.id).where(S3Account.name == candidate)):
             candidate = f"{base}-{index}"
             index += 1
         return candidate
@@ -656,11 +660,12 @@ class OnboardingSetupService:
             manager_role="account_administrator" if draft.manager else None,
             portal_role="portal_manager" if draft.portal else None,
         )
-        link = (
-            self.db.query(UserS3Account)
-            .filter_by(user_id=actor.id, account_id=account.id)
-            .one()
-        )
+        link = self.db.scalars(
+            select(UserS3Account).where(
+                UserS3Account.user_id == actor.id,
+                UserS3Account.account_id == account.id,
+            )
+        ).one()
         if draft.manager and not link.allow_manager_browser_data_access:
             link.allow_manager_browser_data_access = True
             link.updated_at = utcnow()
@@ -681,11 +686,13 @@ class OnboardingSetupService:
         candidate = base
         index = 2
         while (
-            self.db.query(S3Connection.id)
-            .filter_by(
-                created_by_user_id=actor_id, name=candidate, is_shared=False
+            self.db.scalar(
+                select(S3Connection.id).where(
+                    S3Connection.created_by_user_id == actor_id,
+                    S3Connection.name == candidate,
+                    S3Connection.is_shared.is_(False),
+                )
             )
-            .first()
         ):
             candidate = f"{base} {index}"
             index += 1
