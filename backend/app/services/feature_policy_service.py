@@ -3,6 +3,7 @@
 """Configuration resolution shared by resource editors and execution services."""
 from typing import Literal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.base import ApiModel
@@ -144,7 +145,11 @@ def project_account_resource(db: Session, context: S3ExecutionContext) -> S3Acco
             if account is not None:
                 return account
         if context.rgw_account_id:
-            return db.query(S3Account).filter(S3Account.rgw_account_id == context.rgw_account_id).first()
+            return db.scalars(
+                select(S3Account).where(
+                    S3Account.rgw_account_id == context.rgw_account_id
+                )
+            ).first()
     return None
 
 
