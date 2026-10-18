@@ -11,6 +11,7 @@ from time import monotonic
 from typing import Any, Callable, Iterable
 
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import User
@@ -370,15 +371,13 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             scan.emit_progress(target, progress_callback)
 
     def get_latest(self, db: Session, *, scope_kind: str, scope_id: str, bucket_name: str) -> BucketUsageStatsSnapshot | None:
-        row = (
-            db.query(BucketUsageStatsSnapshotRow)
-            .filter(
+        row = db.scalars(
+            select(BucketUsageStatsSnapshotRow).where(
                 BucketUsageStatsSnapshotRow.scope_kind == scope_kind,
                 BucketUsageStatsSnapshotRow.scope_id == scope_id,
                 BucketUsageStatsSnapshotRow.bucket_name == bucket_name,
             )
-            .first()
-        )
+        ).first()
         return self._snapshot_from_row(row) if row else None
 
     def get_aggregate(
@@ -392,14 +391,12 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
     ) -> BucketUsageStatsAggregate:
         expected_bucket_names = _dedupe_bucket_names(bucket_names)
         expected_set = set(expected_bucket_names) if expected_bucket_names is not None else None
-        rows = (
-            db.query(BucketUsageStatsSnapshotRow)
-            .filter(
+        rows = db.scalars(
+            select(BucketUsageStatsSnapshotRow).where(
                 BucketUsageStatsSnapshotRow.scope_kind == scope_kind,
                 BucketUsageStatsSnapshotRow.scope_id == scope_id,
             )
-            .all()
-        )
+        ).all()
         snapshots = [
             self._snapshot_from_row(row)
             for row in rows
@@ -445,14 +442,12 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
 
         rows_by_key: dict[tuple[str, str, str], BucketUsageStatsSnapshotRow] = {}
         for target_scope_kind, target_scope_id in sorted({(target.scope_kind, target.scope_id) for target in expected_targets}):
-            rows = (
-                db.query(BucketUsageStatsSnapshotRow)
-                .filter(
+            rows = db.scalars(
+                select(BucketUsageStatsSnapshotRow).where(
                     BucketUsageStatsSnapshotRow.scope_kind == target_scope_kind,
                     BucketUsageStatsSnapshotRow.scope_id == target_scope_id,
                 )
-                .all()
-            )
+            ).all()
             for row in rows:
                 rows_by_key[(row.scope_kind, row.scope_id, row.bucket_name)] = row
 
@@ -661,15 +656,13 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         return builder.entries(total_count=total_count, total_bytes=total_bytes, include_zero_keys=True)
 
     def upsert_snapshot(self, db: Session, snapshot: BucketUsageStatsSnapshot) -> BucketUsageStatsSnapshot:
-        row = (
-            db.query(BucketUsageStatsSnapshotRow)
-            .filter(
+        row = db.scalars(
+            select(BucketUsageStatsSnapshotRow).where(
                 BucketUsageStatsSnapshotRow.scope_kind == snapshot.scope_kind,
                 BucketUsageStatsSnapshotRow.scope_id == snapshot.scope_id,
                 BucketUsageStatsSnapshotRow.bucket_name == snapshot.bucket_name,
             )
-            .first()
-        )
+        ).first()
         if row is None:
             row = BucketUsageStatsSnapshotRow(
                 scope_kind=snapshot.scope_kind,
