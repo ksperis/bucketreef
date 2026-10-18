@@ -132,11 +132,13 @@ for (const entry of cases) for (const mode of [
       }
       if (entry.route === "/admin/billing") {
         const disclosure = page.locator("details");
+        const disclosureSummary = disclosure.locator("summary");
+        const collectButton = disclosure.getByRole("button");
         await expect(disclosure).not.toHaveAttribute("open");
-        await page.getByText("Manual daily collection", { exact: true }).click();
-        await expect(page.getByRole("button", { name: "Collect daily", exact: true })).toBeVisible();
-        await page.getByText("Manual daily collection", { exact: true }).click();
-        await expect(page.getByRole("button", { name: "Collect daily", exact: true })).toBeHidden();
+        await disclosureSummary.click();
+        await expect(collectButton).toBeVisible();
+        await disclosureSummary.click();
+        await expect(collectButton).toBeHidden();
       }
       if (entry.route.includes("view=access")) {
         const tools = page.locator(".ui-list-toolbar-tools");

@@ -45,6 +45,7 @@ import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEnd
 import { DownloadIcon, RefreshIcon } from "../browser/browserIcons";
 import {
   type BillingDecimal,
+  type BillingRateResolution,
   BillingSubjectDetail,
   BillingSubjectSummary,
   BillingSummary,
@@ -100,6 +101,73 @@ function formatStoragePricing(
   const basis = text(quantity.basis === "allocated_quota" ? "Allocated quota" : "Actual usage");
   const percent = Math.round(Number(quantity.coverage_ratio) * 100);
   return text("{basis} · {percent}% pricing coverage", { basis, percent });
+}
+
+function formatRateResolutionSource(
+  resolution: BillingRateResolution | null | undefined,
+  text: ReturnType<typeof useAdminI18n>["text"],
+): string | null {
+  if (!resolution || resolution.status !== "resolved" || !resolution.layer) return null;
+  if (resolution.layer === "direct") return text("Direct assignment");
+  if (resolution.layer === "billing_entity") {
+    return resolution.billing_entity_name
+      ? text("Billing Entity: {name}", { name: resolution.billing_entity_name })
+      : text("Billing Entity");
+  }
+  if (resolution.layer === "endpoint") return text("Endpoint Rate Plan");
+  return text("Global Rate Plan");
+}
+
+function formatRateResolution(
+  resolution: BillingRateResolution | null | undefined,
+  text: ReturnType<typeof useAdminI18n>["text"],
+): string | null {
+  if (!resolution || resolution.status !== "resolved") return null;
+  return [
+    formatRateResolutionSource(resolution, text),
+    resolution.rate_plan_name
+      ? text("Rate Plan: {name}", { name: resolution.rate_plan_name })
+      : null,
+    resolution.rate_card_effective_from
+      ? text("Effective {date}", { date: resolution.rate_card_effective_from })
+      : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function rateResolutionConflictMessage(
+  resolution: BillingRateResolution,
+  text: ReturnType<typeof useAdminI18n>["text"],
+  subject = false,
+): string {
+  const names = resolution.conflicting_billing_entity_names.join(", ");
+  if (names) {
+    return text(
+      "Rate resolution conflict. This subject matches multiple Billing Entities: {names}. Resolve the membership conflict before using this cost.",
+      { names },
+    );
+  }
+  return subject
+    ? text("Rate resolution conflict prevents cost calculation for this subject. Review its Billing Entity and Rate Plan assignments.")
+    : text("Rate resolution conflict prevents an estimated cost for this scope. Review Billing settings.");
+}
+
+function rateResolutionMissingMessage(
+  resolution: BillingRateResolution,
+  text: ReturnType<typeof useAdminI18n>["text"],
+  subject = false,
+): string {
+  if (
+    resolution.rate_plan_name
+    && resolution.issues.includes("assigned_rate_plan_has_no_effective_version")
+  ) {
+    return text(
+      "Rate Plan {name} has no effective version for the selected month. Cost is unavailable.",
+      { name: resolution.rate_plan_name },
+    );
+  }
+  return subject
+    ? text("No effective Rate Plan matches this subject for the selected month. Cost is unavailable.")
+    : text("No effective Rate Plan matches this scope for the selected month. Usage totals remain available, but estimated cost is unavailable.");
 }
 
 function formatCoverage(
@@ -381,9 +449,7 @@ export default function BillingPage() {
         label: adminText("Estimated cost"),
         value: summary?.cost?.total_cost != null ? formatCurrency(summary.cost.total_cost, summary.cost.currency, intlLocale) : "-",
         hint: [
-          summary?.cost?.rate_card_name
-            ? adminText("Rate card: {name}", { name: summary.cost.rate_card_name })
-            : adminText("No rate card"),
+          formatRateResolution(summary?.rate_resolution, adminText),
           formatStoragePricing(summary?.cost, adminText),
         ].filter(Boolean).join(" · "),
       },
@@ -398,7 +464,16 @@ export default function BillingPage() {
   const canExport = Boolean(selectedEndpointId && hasBillingData && !summaryLoading && !subjectsLoading && !billingDisabled);
   const canCollect = Boolean(collectDay && !collectLoading && !billingDisabled);
   const collectionErrors = extractCollectionErrors(collectResult);
-  const noRateCard = Boolean(summary && summary.coverage.days_collected > 0 && !summary.cost);
+  const rateResolutionMissing = Boolean(
+    summary
+    && summary.coverage.days_collected > 0
+    && summary.rate_resolution.status === "missing",
+  );
+  const rateResolutionConflict = Boolean(
+    summary
+    && summary.coverage.days_collected > 0
+    && summary.rate_resolution.status === "conflict",
+  );
   const lowCoverage = isLowCoverage(summary?.coverage);
   const partialSources = hasPartialBillingSources(summary?.coverage);
   const storagePricingIncomplete = summary?.cost?.complete === false;
@@ -624,9 +699,15 @@ export default function BillingPage() {
               {adminText("Storage pricing is incomplete for this month. Review the storage pricing coverage before using this estimate.")}
             </PageBanner>
           ) : null}
-          {noRateCard ? (
+          {rateResolutionConflict && summary ? (
             <PageBanner tone="warning">
-              {adminText("No matching rate card is attached for this scope. Usage totals are available, but estimated cost stays unavailable.")}</PageBanner>
+              {rateResolutionConflictMessage(summary.rate_resolution, adminText)}
+            </PageBanner>
+          ) : null}
+          {rateResolutionMissing && summary ? (
+            <PageBanner tone="warning">
+              {rateResolutionMissingMessage(summary.rate_resolution, adminText)}
+            </PageBanner>
           ) : null}
           {summaryLoading ? <PageBanner tone="info">{adminText("Loading summary...")}</PageBanner> : <InlineSummary label={`Monthly totals · ${selectedEndpoint?.name ?? ""} · ${month}`} items={stats} />}
 
@@ -712,8 +793,15 @@ export default function BillingPage() {
                     )}
                   </PageBanner>
                 ) : null}
-                {!detail.cost ? (
-                  <PageBanner tone="warning">{adminText("No rate card matched this subject, so cost is unavailable.")}</PageBanner>
+                {detail.rate_resolution.status === "conflict" ? (
+                  <PageBanner tone="warning">
+                    {rateResolutionConflictMessage(detail.rate_resolution, adminText, true)}
+                  </PageBanner>
+                ) : null}
+                {detail.rate_resolution.status === "missing" ? (
+                  <PageBanner tone="warning">
+                    {rateResolutionMissingMessage(detail.rate_resolution, adminText, true)}
+                  </PageBanner>
                 ) : null}
                 <div className="grid gap-4 lg:grid-cols-3">
                   {dailySeries.length > 0 ? (
@@ -797,6 +885,9 @@ export default function BillingPage() {
                         </p>
                         {formatStoragePricing(detail.cost, adminText) ? (
                           <p className={cx("ui-caption", uiMutedTextClass)}>{formatStoragePricing(detail.cost, adminText)}</p>
+                        ) : null}
+                        {formatRateResolution(detail.rate_resolution, adminText) ? (
+                          <p className={cx("ui-caption", uiMutedTextClass)}>{formatRateResolution(detail.rate_resolution, adminText)}</p>
                         ) : null}
                       </div>
                       <div>

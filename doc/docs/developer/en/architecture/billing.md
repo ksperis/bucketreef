@@ -122,6 +122,40 @@ periods can be scheduled safely. Once a period is historical it is preserved
 verbatim when other entity settings are edited; changing or removing that
 historical assignment is rejected.
 
+## Canonical Rate Plan resolution
+
+`BillingRateResolutionService` is the only backend resolver for the effective
+Rate Plan used by Billing calculations. For a priced Account or S3 User it
+applies the following precedence for the requested billing month:
+
+1. direct subject assignment;
+2. resolved Billing Entity assignment;
+3. endpoint `default` Rate Plan;
+4. global `default` Rate Plan.
+
+`BILLING_DEFAULT_RATE_CARD_NAME` may replace the conventional `default` plan
+name used for endpoint/global fallback. Another arbitrarily named Rate Plan is
+never selected merely because it happens to exist in that scope.
+
+Assignments reference the stable Rate Plan. The resolver then selects the one
+tariff version effective for the requested month. An explicit assignment with
+no effective version is reported as `missing`; it does not silently fall
+through to a lower-precedence tariff. Multiple active direct assignments,
+multiple active entity assignments, overlapping effective versions, or a
+subject resolving to several Billing Entities are reported as `conflict`.
+
+Every resolution returns an explanation object containing the status, winning
+layer, Rate Plan and version identifiers, effective dates, Billing Entity when
+applicable, currency, storage charge basis, and machine-readable issues. Admin
+summary/detail views and exports expose this provenance instead of inferring it
+again in the frontend.
+
+The exact resolved tariff version controls both its unit prices and the storage
+charge basis (`actual_usage` or `allocated_quota`). Those two decisions must
+never be resolved independently. Services combining several priced results must
+also reject mixed resolved currencies instead of constructing an ambiguous
+total.
+
 ## Billing Entity Groups
 
 Billing Entity Groups form an analytical layer above Billing Entities. They are

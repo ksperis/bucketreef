@@ -50,6 +50,27 @@ function renderPage() {
   );
 }
 
+function rateResolution(overrides = {}) {
+  return {
+    status: "resolved",
+    layer: "endpoint",
+    rate_plan_id: 4,
+    rate_plan_name: "default",
+    rate_card_id: 9,
+    rate_card_effective_from: "2026-01-01",
+    rate_card_effective_to: null,
+    source_assignment_id: null,
+    billing_entity_id: null,
+    billing_entity_name: null,
+    conflicting_billing_entity_ids: [],
+    conflicting_billing_entity_names: [],
+    currency: "EUR",
+    storage_charge_basis: "actual_usage",
+    issues: [],
+    ...overrides,
+  };
+}
+
 function summary(overrides = {}) {
   return {
     month: "2026-06",
@@ -64,6 +85,7 @@ function summary(overrides = {}) {
       usage_days_collected: 24,
     },
     cost: { total_cost: 12.5, currency: "EUR", rate_card_name: "default" },
+    rate_resolution: rateResolution(),
     ...overrides,
   };
 }
@@ -77,6 +99,7 @@ function subject(id: number, name: string) {
     storage: { avg_bytes: 2048, avg_gb_month: 0.0000019, total_objects: 4 },
     usage: { bytes_in: 512, bytes_out: 1024, ops_total: 250 },
     cost: { total_cost: 3.75, currency: "EUR", rate_card_name: "default" },
+    rate_resolution: rateResolution(),
   };
 }
 
@@ -98,6 +121,7 @@ function detail(id: number, name: string) {
       usage_days_collected: 2,
     },
     cost: { total_cost: 3.75, currency: "EUR", rate_card_name: "default" },
+    rate_resolution: rateResolution(),
   };
 }
 
@@ -149,6 +173,7 @@ describe("BillingPage", () => {
     expect(screen.getByRole("heading", { name: "Billing" })).toBeInTheDocument();
     expect(await screen.findByText("Tenant A")).toBeInTheDocument();
     expect(screen.getByText("12.50 EUR")).toBeInTheDocument();
+    expect(screen.getByText(/Endpoint Rate Plan.*Rate Plan: default.*Effective 2026-01-01/)).toBeInTheDocument();
     expect(mocks.getBillingSubjects).toHaveBeenCalledWith("2026-07", 7, "account", 1, 25, "name", "asc");
     expect(screen.getByLabelText("Month")).toHaveValue("2026-07");
     expect(screen.getByLabelText("Month")).toHaveAttribute("type", "month");
@@ -179,6 +204,7 @@ describe("BillingPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "View" }));
     await waitFor(() => expect(mocks.getBillingSubjectDetail).toHaveBeenCalledWith("2026-07", 7, "account", 43));
     expect(await screen.findByText("This subject has partial source coverage: Storage 1d · Usage 2d.")).toBeInTheDocument();
+    expect(screen.getAllByText(/Endpoint Rate Plan.*Rate Plan: default.*Effective 2026-01-01/).length).toBeGreaterThan(0);
 
     const exportButton = screen.getByRole("button", { name: "Export CSV" });
     expect(exportButton).toBeEnabled();
@@ -290,6 +316,67 @@ describe("BillingPage", () => {
     expect(
       screen.getByText(
         "Storage pricing is incomplete for this month. Review the storage pricing coverage before using this estimate.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an explicit Billing Entity conflict instead of a generic missing rate", async () => {
+    mocks.getBillingSubjectDetail.mockResolvedValue(
+      {
+        ...detail(42, "Tenant A"),
+        cost: null,
+        rate_resolution: rateResolution({
+          status: "conflict",
+          layer: "billing_entity",
+          rate_plan_id: null,
+          rate_plan_name: null,
+          rate_card_id: null,
+          rate_card_effective_from: null,
+          currency: null,
+          storage_charge_basis: null,
+          conflicting_billing_entity_ids: [10, 11],
+          conflicting_billing_entity_names: ["Research", "DSI"],
+          issues: ["billing_entity_membership_conflict"],
+        }),
+      },
+    );
+
+    renderPage();
+    await screen.findByText("Tenant A");
+    fireEvent.click(screen.getByRole("button", { name: "View" }));
+
+    expect(
+      await screen.findByText(
+        "Rate resolution conflict. This subject matches multiple Billing Entities: Research, DSI. Resolve the membership conflict before using this cost.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("explains a Rate Plan assignment with no effective version", async () => {
+    mocks.getBillingSubjectDetail.mockResolvedValue(
+      {
+        ...detail(42, "Tenant A"),
+        cost: null,
+        rate_resolution: rateResolution({
+          status: "missing",
+          layer: "direct",
+          rate_plan_name: "reserved-capacity",
+          rate_card_id: null,
+          rate_card_effective_from: null,
+          currency: null,
+          storage_charge_basis: null,
+          issues: ["assigned_rate_plan_has_no_effective_version"],
+        }),
+      },
+    );
+
+    renderPage();
+    await screen.findByText("Tenant A");
+    fireEvent.click(screen.getByRole("button", { name: "View" }));
+
+    expect(
+      await screen.findByText(
+        "Rate Plan reserved-capacity has no effective version for the selected month. Cost is unavailable.",
       ),
     ).toBeInTheDocument();
   });

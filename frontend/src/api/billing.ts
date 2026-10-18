@@ -38,6 +38,24 @@ export type BillingStorageChargeQuantity = {
   issues: string[];
 };
 
+export type BillingRateResolution = {
+  status: "resolved" | "missing" | "conflict";
+  layer?: "direct" | "billing_entity" | "endpoint" | "global" | null;
+  rate_plan_id?: number | null;
+  rate_plan_name?: string | null;
+  rate_card_id?: number | null;
+  rate_card_effective_from?: string | null;
+  rate_card_effective_to?: string | null;
+  source_assignment_id?: number | null;
+  billing_entity_id?: number | null;
+  billing_entity_name?: string | null;
+  conflicting_billing_entity_ids: number[];
+  conflicting_billing_entity_names: string[];
+  currency?: string | null;
+  storage_charge_basis?: "actual_usage" | "allocated_quota" | null;
+  issues: string[];
+};
+
 export type BillingUsageTotals = {
   bytes_in: number;
   bytes_out: number;
@@ -58,6 +76,7 @@ export type BillingSummary = {
   storage: BillingStorageTotals;
   coverage: BillingCoverage;
   cost?: BillingCost | null;
+  rate_resolution: BillingRateResolution;
 };
 
 export type BillingSubjectSummary = {
@@ -68,6 +87,7 @@ export type BillingSubjectSummary = {
   storage: BillingStorageTotals;
   usage: BillingUsageTotals;
   cost?: BillingCost | null;
+  rate_resolution: BillingRateResolution;
 };
 
 type BillingSubjectsResponse = {
@@ -99,6 +119,7 @@ export type BillingSubjectDetail = {
   storage: BillingStorageTotals;
   coverage: BillingCoverage;
   cost?: BillingCost | null;
+  rate_resolution: BillingRateResolution;
 };
 
 export async function getBillingSummary(month: string, endpointId?: number | null): Promise<BillingSummary> {

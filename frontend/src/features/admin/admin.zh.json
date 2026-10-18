@@ -1880,5 +1880,17 @@
   "Unable to save Billing Group.": "无法保存计费组。",
   "{count} group": "{count} 个组",
   "{count} groups": "{count} 个组",
-  "{count} scheduled": "{count} 个已计划"
+  "{count} scheduled": "{count} 个已计划",
+  "Direct assignment": "直接分配",
+  "Billing Entity: {name}": "计费实体：{name}",
+  "Endpoint Rate Plan": "端点费率计划",
+  "Global Rate Plan": "全局费率计划",
+  "Rate Plan: {name}": "费率计划：{name}",
+  "Effective {date}": "生效日期 {date}",
+  "Rate resolution conflict. This subject matches multiple Billing Entities: {names}. Resolve the membership conflict before using this cost.": "费率解析冲突。此主体匹配多个计费实体：{names}。请先解决成员关系冲突，再使用此成本。",
+  "Rate resolution conflict prevents cost calculation for this subject. Review its Billing Entity and Rate Plan assignments.": "费率解析冲突导致无法计算此主体的成本。请检查其计费实体和费率计划分配。",
+  "Rate resolution conflict prevents an estimated cost for this scope. Review Billing settings.": "费率解析冲突导致无法估算此范围的成本。请检查计费设置。",
+  "Rate Plan {name} has no effective version for the selected month. Cost is unavailable.": "费率计划 {name} 在所选月份没有生效版本，因此成本不可用。",
+  "No effective Rate Plan matches this subject for the selected month. Cost is unavailable.": "所选月份没有适用于此主体的生效费率计划，因此成本不可用。",
+  "No effective Rate Plan matches this scope for the selected month. Usage totals remain available, but estimated cost is unavailable.": "所选月份没有适用于此范围的生效费率计划。用量汇总仍可用，但估算成本不可用。"
 }
