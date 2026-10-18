@@ -151,7 +151,7 @@ class BillingAnalysisService:
             if not entity.members:
                 entity_issues.add("no_members")
 
-            analysis_coverage = self._coverage(lines, period.days_in_month, len(entity.members))
+            analysis_coverage = self.coverage_for_lines(lines, period.days_in_month, len(entity.members))
             conflict_count = sum(1 for line in lines if line.membership_conflict)
             entity_complete = bool(entity.members) and not entity_issues
             currency_totals = [
@@ -244,7 +244,7 @@ class BillingAnalysisService:
                             for basis in entity.storage_charge_bases
                         }
                     ),
-                    coverage=self._coverage(
+                    coverage=self.coverage_for_lines(
                         group_lines,
                         period.days_in_month,
                         group_member_count,
@@ -264,7 +264,7 @@ class BillingAnalysisService:
         )
 
     @staticmethod
-    def _coverage(
+    def coverage_for_lines(
         lines: list[BillingEntityAnalysisLine],
         days_in_month: int,
         member_count: int,

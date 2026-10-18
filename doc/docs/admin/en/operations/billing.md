@@ -79,6 +79,41 @@ Endpoint -> Account/S3 User`. Immutable monthly results and annual/range totals
 are built later from finalized Billing Statements, rather than from repeated live
 recalculation of this preview.
 
+## Monthly Billing Statements
+
+BucketReef can persist the monthly Billing Entity result as a Billing Statement.
+Statements are technical chargeback records, not commercial invoices. One
+Billing Entity may produce one statement per currency for the same month; values
+from different currencies are never combined.
+
+The Admin API exposes the lifecycle used by later UI and integration layers:
+
+- `POST /api/admin/billing/statements/generate` creates the entity/month drafts;
+- `GET /api/admin/billing/statements` lists persisted drafts and finalized rows;
+- `GET /api/admin/billing/statements/{id}` reads one persisted snapshot;
+- `POST /api/admin/billing/statements/{id}/finalize` freezes a reviewed draft.
+
+Generation is idempotent by default: repeating it returns the existing draft
+instead of creating another statement. Set `regenerate=true` explicitly to
+rebuild an existing draft from current membership, collection, and tariff data.
+A finalized statement cannot be regenerated.
+
+Each line snapshots the Billing subject and endpoint identity, membership reason,
+measured storage and usage, source coverage, storage charge basis, billed storage
+quantity, Rate Plan/version provenance, unit prices, and component amounts. In
+`allocated_quota` mode, measured storage remains in the snapshot alongside the
+historical quota quantity used for pricing.
+
+Finalization revalidates the same canonical Billing inputs transactionally. A
+draft with membership conflicts, incomplete required coverage, missing pricing,
+or unusable quota history cannot be finalized. If membership, rates, usage, or
+other priced inputs changed since the draft was generated, finalization reports
+the draft as stale and requires explicit regeneration first.
+
+Finalized rows and their line snapshots no longer depend on live tags, Rate
+Plans, quotas, or daily Billing rows for rendering. They therefore remain
+auditable after later configuration changes and after raw daily history ages out.
+
 ## Scheduler integration
 
 - Compose scheduler calls daily collection with configurable day offset.
@@ -90,6 +125,10 @@ Billing daily tables are purged by the shared `DataRetentionService` (used by bi
 
 - `BILLING_DAILY_RETENTION_DAYS` (default `365`)
 - `0` disables billing purge
+
+Finalized Billing Statements are retained independently from these raw daily
+tables. `BILLING_DAILY_RETENTION_DAYS` never deletes persisted statements or
+their snapshot lines.
 
 ## Related pages
 

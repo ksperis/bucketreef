@@ -536,3 +536,89 @@ class BillingAnalysisPreview(ApiModel):
     groups: list[BillingEntityGroupAnalysisPreview]
     unassigned: list[BillingEntitySubjectReference]
     conflicts: list[BillingEntityConflict]
+
+
+BillingStatementStatus = Literal["draft", "finalized"]
+
+
+class BillingStatementUnitPrices(ApiModel):
+    storage_gb_month_price: Optional[Decimal] = None
+    egress_gb_price: Optional[Decimal] = None
+    ingress_gb_price: Optional[Decimal] = None
+    requests_per_1000_price: Optional[Decimal] = None
+
+
+class BillingStatementComponentAmounts(ApiModel):
+    storage_cost: Optional[Decimal] = None
+    egress_cost: Optional[Decimal] = None
+    ingress_cost: Optional[Decimal] = None
+    requests_cost: Optional[Decimal] = None
+    total_cost: Optional[Decimal] = None
+
+
+class BillingStatementLineSnapshot(ApiModel):
+    subject_type: BillingSubjectType
+    subject_id: int
+    subject_name: str
+    rgw_identifier: str
+    membership_reasons: list[BillingEntityMembershipReason] = Field(default_factory=list)
+    membership_conflict: bool = False
+    included_in_total: bool = True
+    storage_endpoint_id: int
+    storage_endpoint_name: str
+    usage: BillingUsageTotals
+    storage: BillingStorageTotals
+    coverage: BillingCoverage
+    storage_charge_basis: Optional[Literal["actual_usage", "allocated_quota"]] = None
+    priced_storage_quantity: Optional[BillingStorageChargeQuantity] = None
+    rate_resolution: BillingRateResolutionExplanation
+    unit_prices: BillingStatementUnitPrices
+    amounts: BillingStatementComponentAmounts
+    complete: bool
+    issues: list[str] = Field(default_factory=list)
+
+
+class BillingStatementLineItem(ApiModel):
+    id: int
+    line_index: int
+    currency: str
+    snapshot: BillingStatementLineSnapshot
+
+
+class BillingStatementItem(ApiModel):
+    id: int
+    public_id: str
+    billing_entity_id: int
+    billing_entity_name: str
+    billing_entity_code: Optional[str] = None
+    billing_entity_external_id: Optional[str] = None
+    subject_type: BillingSubjectType
+    period_start: date
+    period_end: date
+    currency: str
+    status: BillingStatementStatus
+    member_count: int
+    coverage: BillingAnalysisCoverage
+    blockers: list[str] = Field(default_factory=list)
+    storage_charge_bases: list[Literal["actual_usage", "allocated_quota"]] = Field(default_factory=list)
+    subtotal: Decimal
+    total: Decimal
+    revision: int
+    generated_at: datetime
+    finalized_at: Optional[datetime] = None
+    finalized_by_user_id: Optional[int] = None
+    finalized_by_user_email: Optional[str] = None
+    lines: list[BillingStatementLineItem] = Field(default_factory=list)
+
+
+class BillingStatementGenerationRequest(ApiModel):
+    month: str = Field(..., min_length=7, max_length=7)
+    billing_entity_id: int = Field(..., ge=1)
+    regenerate: bool = False
+
+
+class BillingStatementGenerationResult(ApiModel):
+    month: str
+    billing_entity_id: int
+    blockers: list[str] = Field(default_factory=list)
+    statements: list[BillingStatementItem] = Field(default_factory=list)
