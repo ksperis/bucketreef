@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import QuotaUsageDaily
@@ -74,12 +75,11 @@ def select_usage_trend_baseline(
     today = reference_date or utcnow().date()
     for window, label, min_age_days in USAGE_TREND_WINDOWS:
         cutoff = today - timedelta(days=min_age_days)
-        row = (
-            db.query(QuotaUsageDaily)
-            .filter(*filters, QuotaUsageDaily.day <= cutoff, value_column.isnot(None))
+        row = db.scalars(
+            select(QuotaUsageDaily)
+            .where(*filters, QuotaUsageDaily.day <= cutoff, value_column.isnot(None))
             .order_by(QuotaUsageDaily.day.desc(), QuotaUsageDaily.updated_at.desc(), QuotaUsageDaily.id.desc())
-            .first()
-        )
+        ).first()
         if row is not None:
             return _serialize_usage_trend_baseline(row, window=window, label=label)
     return None
