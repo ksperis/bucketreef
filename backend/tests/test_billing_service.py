@@ -680,7 +680,22 @@ def test_admin_billing_routes_preserve_feature_and_endpoint_status_codes(client,
     assert response.status_code == 403, response.text
     assert response.json()["detail"] == "Billing is disabled"
 
+    response = client.get("/api/admin/billing/analysis", params={"month": "2026-01"})
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Billing is disabled"
+
     monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_billing_settings)
+    response = client.get("/api/admin/billing/analysis", params={"month": "2026-01"})
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "month": "2026-01",
+        "days_in_month": 31,
+        "entities": [],
+        "groups": [],
+        "unassigned": [],
+        "conflicts": [],
+    }
+
     response = client.get(
         "/api/admin/billing/summary",
         params={"month": "2026-01", "endpoint_id": 999},

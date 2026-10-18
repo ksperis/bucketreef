@@ -95,6 +95,7 @@ class BillingSubjectSummary(ApiModel):
     rgw_identifier: Optional[str] = None
     storage: BillingStorageTotals
     usage: BillingUsageTotals
+    coverage: BillingCoverage
     cost: Optional[BillingCost] = None
     rate_resolution: BillingRateResolutionExplanation
 
@@ -457,3 +458,81 @@ class BillingEntityGroupPreviewAggregation(ApiModel):
     currency_totals: list[BillingEntityGroupPreviewCurrencyTotal]
     missing_entity_ids: list[int]
     complete: bool
+
+
+class BillingAnalysisCoverage(ApiModel):
+    member_count: int
+    expected_daily_observations: int
+    storage_observations: int
+    usage_observations: int
+    storage_coverage_ratio: Decimal = Field(..., ge=0, le=1)
+    usage_coverage_ratio: Decimal = Field(..., ge=0, le=1)
+    quota_observations_collected: int = 0
+    quota_observations_expected: int = 0
+    quota_coverage_ratio: Optional[Decimal] = Field(default=None, ge=0, le=1)
+
+
+class BillingAnalysisCurrencyTotal(ApiModel):
+    currency: str
+    total_cost: Decimal
+    complete: bool
+
+
+class BillingEntityAnalysisLine(ApiModel):
+    billing_entity_id: int
+    billing_entity_name: str
+    subject_type: BillingSubjectType
+    subject_id: int
+    subject_name: str
+    rgw_identifier: str
+    storage_endpoint_id: int
+    storage_endpoint_name: str
+    membership_reasons: list[BillingEntityMembershipReason] = Field(default_factory=list)
+    membership_conflict: bool = False
+    included_in_total: bool = True
+    usage: BillingUsageTotals
+    storage: BillingStorageTotals
+    coverage: BillingCoverage
+    cost: Optional[BillingCost] = None
+    rate_resolution: BillingRateResolutionExplanation
+    complete: bool
+    issues: list[str] = Field(default_factory=list)
+
+
+class BillingEntityAnalysisPreview(ApiModel):
+    billing_entity_id: int
+    billing_entity_name: str
+    billing_entity_code: Optional[str] = None
+    subject_type: BillingSubjectType
+    member_count: int
+    conflict_count: int
+    currency_totals: list[BillingAnalysisCurrencyTotal] = Field(default_factory=list)
+    storage_charge_bases: list[Literal["actual_usage", "allocated_quota"]] = Field(default_factory=list)
+    coverage: BillingAnalysisCoverage
+    complete: bool
+    issues: list[str] = Field(default_factory=list)
+    lines: list[BillingEntityAnalysisLine] = Field(default_factory=list)
+
+
+class BillingEntityGroupAnalysisPreview(ApiModel):
+    billing_entity_group_id: int
+    billing_entity_group_name: str
+    billing_entity_group_code: Optional[str] = None
+    active: bool
+    member_entity_ids: list[int]
+    currency_totals: list[BillingEntityGroupPreviewCurrencyTotal] = Field(default_factory=list)
+    missing_entity_ids: list[int] = Field(default_factory=list)
+    conflict_count: int = 0
+    storage_charge_bases: list[Literal["actual_usage", "allocated_quota"]] = Field(default_factory=list)
+    coverage: BillingAnalysisCoverage
+    complete: bool
+    issues: list[str] = Field(default_factory=list)
+
+
+class BillingAnalysisPreview(ApiModel):
+    month: str
+    days_in_month: int
+    entities: list[BillingEntityAnalysisPreview]
+    groups: list[BillingEntityGroupAnalysisPreview]
+    unassigned: list[BillingEntitySubjectReference]
+    conflicts: list[BillingEntityConflict]

@@ -86,6 +86,7 @@ export type BillingSubjectSummary = {
   rgw_identifier?: string | null;
   storage: BillingStorageTotals;
   usage: BillingUsageTotals;
+  coverage: BillingCoverage;
   cost?: BillingCost | null;
   rate_resolution: BillingRateResolution;
 };
@@ -162,6 +163,98 @@ export async function getBillingSubjectDetail(
   const params: Record<string, string | number> = { month, endpoint_id: endpointId };
   const { data } = await client.get<BillingSubjectDetail>(`/admin/billing/subject/${subjectType}/${subjectId}`, {
     params,
+  });
+  return data;
+}
+
+export type BillingAnalysisCoverage = {
+  member_count: number;
+  expected_daily_observations: number;
+  storage_observations: number;
+  usage_observations: number;
+  storage_coverage_ratio: BillingDecimal;
+  usage_coverage_ratio: BillingDecimal;
+  quota_observations_collected: number;
+  quota_observations_expected: number;
+  quota_coverage_ratio?: BillingDecimal | null;
+};
+
+export type BillingAnalysisCurrencyTotal = {
+  currency: string;
+  total_cost: BillingDecimal;
+  complete: boolean;
+};
+
+export type BillingEntityAnalysisLine = {
+  billing_entity_id: number;
+  billing_entity_name: string;
+  subject_type: BillingSubjectType;
+  subject_id: number;
+  subject_name: string;
+  rgw_identifier: string;
+  storage_endpoint_id: number;
+  storage_endpoint_name: string;
+  membership_reasons: BillingEntityMembershipReason[];
+  membership_conflict: boolean;
+  included_in_total: boolean;
+  usage: BillingUsageTotals;
+  storage: BillingStorageTotals;
+  coverage: BillingCoverage;
+  cost?: BillingCost | null;
+  rate_resolution: BillingRateResolution;
+  complete: boolean;
+  issues: string[];
+};
+
+export type BillingEntityAnalysisPreview = {
+  billing_entity_id: number;
+  billing_entity_name: string;
+  billing_entity_code?: string | null;
+  subject_type: BillingSubjectType;
+  member_count: number;
+  conflict_count: number;
+  currency_totals: BillingAnalysisCurrencyTotal[];
+  storage_charge_bases: Array<"actual_usage" | "allocated_quota">;
+  coverage: BillingAnalysisCoverage;
+  complete: boolean;
+  issues: string[];
+  lines: BillingEntityAnalysisLine[];
+};
+
+export type BillingEntityGroupAnalysisCurrencyTotal = {
+  currency: string;
+  total_cost: BillingDecimal;
+  billing_entity_ids: number[];
+  complete: boolean;
+};
+
+export type BillingEntityGroupAnalysisPreview = {
+  billing_entity_group_id: number;
+  billing_entity_group_name: string;
+  billing_entity_group_code?: string | null;
+  active: boolean;
+  member_entity_ids: number[];
+  currency_totals: BillingEntityGroupAnalysisCurrencyTotal[];
+  missing_entity_ids: number[];
+  conflict_count: number;
+  storage_charge_bases: Array<"actual_usage" | "allocated_quota">;
+  coverage: BillingAnalysisCoverage;
+  complete: boolean;
+  issues: string[];
+};
+
+export type BillingAnalysisPreview = {
+  month: string;
+  days_in_month: number;
+  entities: BillingEntityAnalysisPreview[];
+  groups: BillingEntityGroupAnalysisPreview[];
+  unassigned: BillingEntitySubjectReference[];
+  conflicts: BillingEntityConflict[];
+};
+
+export async function getBillingAnalysis(month: string): Promise<BillingAnalysisPreview> {
+  const { data } = await client.get<BillingAnalysisPreview>("/admin/billing/analysis", {
+    params: { month },
   });
   return data;
 }

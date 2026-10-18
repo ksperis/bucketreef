@@ -28,7 +28,7 @@ menus, association popovers, expansion and Browser column resizing.
 | `features/admin/AdminPortalRequestsPage.tsx` | /admin/portal-requests | DataTableShell × 1 | `AdminPortalRequestsPage.test.tsx` |
 | `features/admin/ApiTokensPage.tsx` | /admin/profile?tab=api-tokens | DataTableShell × 1 | `ApiTokensPage.listState.test.tsx` |
 | `features/admin/AuditLogsPage.tsx` | /admin/audit | DataTableShell × 1 | `AuditLogsPage.test.tsx` |
-| `features/admin/BillingPage.tsx` | /admin/billing | DataTableShell × 1 | `BillingPage.test.tsx` |
+| `features/admin/BillingPage.tsx`, `BillingAnalysisView.tsx` | /admin/billing | DataTableShell × 1 raw subjects; consolidated Entity/Group tables and nested subject detail tables | `BillingPage.test.tsx`; consultation visual QA |
 | `features/admin/BillingSettingsPage.tsx` | /admin/billing-settings | DataTableShell × 1 | `BillingSettingsPage.test.tsx` |
 | `features/admin/EndpointStatusDetailPage.tsx` | /admin/endpoint-status/:endpointId; timeline and recent checks | DataTableShell × 2 | `EndpointStatusDetailPage.test.tsx` |
 | `features/admin/EndpointStatusPage.tsx` | /admin/endpoint-status | DataTableShell × 1 | `EndpointStatusPage.test.tsx` |
