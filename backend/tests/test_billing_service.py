@@ -1,7 +1,10 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from app.utils.time import utcnow
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -25,6 +28,7 @@ from app.services.billing_service import (
     _parse_ops_breakdown,
     _resolve_rate_card,
 )
+from app.utils.quota_stats import QuotaSnapshot
 
 
 def _seed_endpoint(db_session) -> StorageEndpoint:
@@ -191,6 +195,193 @@ def test_billing_summary_and_cost(db_session):
     assert summary.cost.currency == "EUR"
     assert summary.cost.total_cost is not None
     assert summary.cost.total_cost > 0
+
+
+def test_allocated_quota_billing_uses_historical_daily_quota_and_serializes_decimals(db_session):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    gib = 1024**3
+    start = date(2026, 1, 1)
+    for offset in range(31):
+        quota_gib = 100 if offset < 15 else 200
+        db_session.add(
+            BillingStorageDaily(
+                day=start + timedelta(days=offset),
+                storage_endpoint_id=endpoint.id,
+                s3_account_id=account.id,
+                total_bytes=0,
+                total_objects=0,
+                quota_size_bytes=quota_gib * gib,
+                quota_state="valid",
+                source="rgw_admin_bucket_stats",
+                collected_at=utcnow(),
+            )
+        )
+    plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
+    db_session.add(
+        BillingRateCard(
+            rate_plan=plan,
+            currency="EUR",
+            storage_charge_basis="allocated_quota",
+            storage_gb_month_price=Decimal("0.020000"),
+            effective_from=start,
+        )
+    )
+    db_session.commit()
+
+    summary = BillingService(db_session).summary("2026-01", endpoint.id)
+
+    assert summary.cost is not None
+    assert summary.cost.complete is True
+    assert summary.cost.storage_cost == Decimal("3.032258")
+    assert summary.cost.total_cost == Decimal("3.032258")
+    assert summary.cost.storage_quantity is not None
+    assert summary.cost.storage_quantity.basis == "allocated_quota"
+    assert summary.cost.storage_quantity.quantity_gib_month == Decimal("151.612903225806")
+    assert summary.cost.storage_quantity.coverage_ratio == Decimal("1.000000")
+    assert summary.cost.storage_quantity.status == "complete"
+
+    serialized = json.loads(summary.model_dump_json())
+    assert serialized["cost"]["storage_cost"] == "3.032258"
+    assert serialized["cost"]["total_cost"] == "3.032258"
+    assert serialized["cost"]["storage_quantity"]["quantity_gib_month"] == "151.612903225806"
+
+
+def test_allocated_quota_missing_or_unlimited_history_is_explicitly_blocking(db_session):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    gib = 1024**3
+    start = date(2026, 1, 1)
+    for offset in range(30):
+        db_session.add(
+            BillingStorageDaily(
+                day=start + timedelta(days=offset),
+                storage_endpoint_id=endpoint.id,
+                s3_account_id=account.id,
+                total_bytes=0,
+                total_objects=0,
+                quota_size_bytes=100 * gib,
+                quota_state="valid",
+                source="rgw_admin_bucket_stats",
+                collected_at=utcnow(),
+            )
+        )
+    db_session.add(
+        BillingStorageDaily(
+            day=start + timedelta(days=30),
+            storage_endpoint_id=endpoint.id,
+            s3_account_id=account.id,
+            total_bytes=0,
+            total_objects=0,
+            quota_size_bytes=None,
+            quota_state="unlimited",
+            source="rgw_admin_bucket_stats",
+            collected_at=utcnow(),
+        )
+    )
+    plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
+    db_session.add(
+        BillingRateCard(
+            rate_plan=plan,
+            currency="EUR",
+            storage_charge_basis="allocated_quota",
+            storage_gb_month_price=Decimal("1.000000"),
+            effective_from=start,
+        )
+    )
+    db_session.commit()
+
+    summary = BillingService(db_session).summary("2026-01", endpoint.id)
+
+    assert summary.cost is not None
+    assert summary.cost.complete is False
+    assert summary.cost.storage_quantity is not None
+    assert summary.cost.storage_quantity.status == "blocked"
+    assert summary.cost.storage_quantity.observations_collected == 30
+    assert summary.cost.storage_quantity.observations_expected == 31
+    assert summary.cost.storage_quantity.coverage_ratio == Decimal("0.967742")
+    assert summary.cost.storage_quantity.issues == ["unlimited_quota"]
+    assert summary.cost.storage_cost == Decimal("96.774194")
+
+
+def test_billing_storage_collection_persists_quota_snapshot_with_storage_stats(db_session):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    gib = 1024**3
+    storage_client = SimpleNamespace(
+        get_all_buckets=lambda **_kwargs: {
+            "buckets": [
+                {"bucket": "data", "usage": {"total_bytes": 42, "total_objects": 2}}
+            ]
+        }
+    )
+    quota_client = SimpleNamespace(
+        get_account_quota_snapshot=lambda _account_id: QuotaSnapshot(200 * gib, None, "valid"),
+        get_user_quota_snapshot=lambda _uid, tenant=None: QuotaSnapshot(100 * gib, None, "valid"),
+    )
+
+    created, errors = BillingCollector(db_session)._collect_storage_for_endpoint(
+        storage_client,
+        endpoint,
+        date(2026, 1, 15),
+        quota_admin=quota_client,
+    )
+
+    assert created == 1
+    assert errors == []
+    row = db_session.query(BillingStorageDaily).filter_by(s3_account_id=account.id).one()
+    assert row.total_bytes == 42
+    assert row.quota_size_bytes == 200 * gib
+    assert row.quota_state == "valid"
+
+
+def test_daily_billing_collects_quota_without_quota_monitoring_enablement(db_session, monkeypatch):
+    endpoint = StorageEndpoint(
+        name="billing-quota-independent",
+        endpoint_url="https://billing-quota-independent.example.test",
+        provider="ceph",
+        features_config="features:\n  admin:\n    enabled: true\n",
+        is_default=False,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+    account = _seed_account(db_session, endpoint.id)
+    gib = 1024**3
+
+    class GeneralSettings:
+        billing_enabled = True
+
+    class AppSettings:
+        general = GeneralSettings()
+
+    supervision = SimpleNamespace(
+        get_usage=lambda **_kwargs: {},
+        get_all_buckets=lambda **_kwargs: {"buckets": []},
+    )
+    runtime = SimpleNamespace(
+        get_account_quota_snapshot=lambda _account_id: QuotaSnapshot(250 * gib, None, "valid"),
+        get_user_quota_snapshot=lambda _uid, tenant=None: QuotaSnapshot(None, None, "missing"),
+    )
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: AppSettings())
+    monkeypatch.setattr(
+        "app.services.billing_collection_service.get_supervision_rgw_client",
+        lambda _endpoint: supervision,
+    )
+    monkeypatch.setattr(
+        "app.services.billing_collection_service.get_endpoint_runtime_rgw_client",
+        lambda _endpoint: runtime,
+    )
+    monkeypatch.setattr(
+        "app.services.billing_collection_service.DataRetentionService.purge_all",
+        lambda _self: {},
+    )
+
+    result = BillingCollector(db_session).collect_daily(date(2026, 1, 16))
+
+    assert result["errors"] == []
+    row = db_session.query(BillingStorageDaily).filter_by(s3_account_id=account.id).one()
+    assert row.quota_size_bytes == 250 * gib
+    assert row.quota_state == "valid"
 
 
 def test_rate_resolution_uses_assignment_windows_and_effective_plan_versions(db_session):

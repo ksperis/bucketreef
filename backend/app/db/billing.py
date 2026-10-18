@@ -89,6 +89,10 @@ class BillingUsageDaily(Base):
 class BillingStorageDaily(Base):
     __tablename__ = "billing_storage_daily"
     __table_args__ = (
+        CheckConstraint(
+            "quota_state IN ('valid', 'missing', 'disabled', 'unlimited', 'invalid')",
+            name="ck_billing_storage_daily_quota_state",
+        ),
         UniqueConstraint(
             "day",
             "storage_endpoint_id",
@@ -138,6 +142,8 @@ class BillingStorageDaily(Base):
     s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
     total_bytes = Column(BigInteger, nullable=False, default=0, server_default="0")
     total_objects = Column(BigInteger, nullable=False, default=0, server_default="0")
+    quota_size_bytes = Column(BigInteger, nullable=True)
+    quota_state = Column(String, nullable=False, default="missing", server_default="missing")
     by_bucket = Column(Text, nullable=True)
     source = Column(String, nullable=False, default="rgw_admin_bucket_stats")
     collected_at = Column(UTCDateTime(), nullable=False, default=utcnow)

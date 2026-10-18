@@ -262,6 +262,38 @@ describe("BillingPage", () => {
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
   });
 
+  it("shows allocated quota provenance and incomplete pricing coverage", async () => {
+    mocks.getBillingSummary.mockResolvedValue(
+      summary({
+        cost: {
+          total_cost: "9.677419",
+          currency: "EUR",
+          rate_card_name: "quota-plan",
+          complete: false,
+          storage_quantity: {
+            basis: "allocated_quota",
+            quantity_gib_month: "96.774193548387",
+            observations_collected: 30,
+            observations_expected: 31,
+            calendar_days: 31,
+            coverage_ratio: "0.967742",
+            status: "blocked",
+            issues: ["missing_quota_observation"],
+          },
+        },
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText(/Allocated quota.*97% pricing coverage/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Storage pricing is incomplete for this month. Review the storage pricing coverage before using this estimate.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("keeps table errors inside the subjects section", async () => {
     mocks.getBillingSubjects.mockRejectedValue(new Error("subject query failed"));
 

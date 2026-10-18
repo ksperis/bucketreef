@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -20,12 +21,25 @@ class BillingCoverage(ApiModel):
 
 class BillingCost(ApiModel):
     currency: Optional[str] = None
-    storage_cost: Optional[float] = None
-    egress_cost: Optional[float] = None
-    ingress_cost: Optional[float] = None
-    requests_cost: Optional[float] = None
-    total_cost: Optional[float] = None
+    storage_cost: Optional[Decimal] = None
+    egress_cost: Optional[Decimal] = None
+    ingress_cost: Optional[Decimal] = None
+    requests_cost: Optional[Decimal] = None
+    total_cost: Optional[Decimal] = None
     rate_card_name: Optional[str] = None
+    storage_quantity: Optional["BillingStorageChargeQuantity"] = None
+    complete: bool = True
+
+
+class BillingStorageChargeQuantity(ApiModel):
+    basis: Literal["actual_usage", "allocated_quota"]
+    quantity_gib_month: Optional[Decimal] = None
+    observations_collected: int
+    observations_expected: int
+    calendar_days: int
+    coverage_ratio: Decimal = Field(..., ge=0, le=1)
+    status: Literal["complete", "partial", "blocked"]
+    issues: list[str] = Field(default_factory=list)
 
 
 class BillingUsageTotals(ApiModel):
@@ -37,7 +51,7 @@ class BillingUsageTotals(ApiModel):
 
 class BillingStorageTotals(ApiModel):
     avg_bytes: Optional[int] = None
-    avg_gb_month: Optional[float] = None
+    avg_gb_month: Optional[Decimal] = None
     total_objects: Optional[int] = None
 
 
@@ -71,6 +85,8 @@ class BillingSubjectsResponse(ApiModel):
 class BillingDailySeriesPoint(ApiModel):
     day: str
     storage_bytes: Optional[int] = None
+    quota_size_bytes: Optional[int] = None
+    quota_state: Optional[Literal["valid", "missing", "disabled", "unlimited", "invalid"]] = None
     bytes_in: Optional[int] = None
     bytes_out: Optional[int] = None
     ops_total: Optional[int] = None
@@ -93,10 +109,10 @@ class BillingRateCardPayload(ApiModel):
     name: str = Field(..., min_length=1, max_length=128)
     currency: str = Field(default="EUR", min_length=3, max_length=3)
     storage_charge_basis: Literal["actual_usage", "allocated_quota"] = "actual_usage"
-    storage_gb_month_price: Optional[float] = Field(default=None, ge=0)
-    egress_gb_price: Optional[float] = Field(default=None, ge=0)
-    ingress_gb_price: Optional[float] = Field(default=None, ge=0)
-    requests_per_1000_price: Optional[float] = Field(default=None, ge=0)
+    storage_gb_month_price: Optional[Decimal] = Field(default=None, ge=0)
+    egress_gb_price: Optional[Decimal] = Field(default=None, ge=0)
+    ingress_gb_price: Optional[Decimal] = Field(default=None, ge=0)
+    requests_per_1000_price: Optional[Decimal] = Field(default=None, ge=0)
     effective_from: date
     effective_to: Optional[date] = None
     storage_endpoint_id: Optional[int] = Field(default=None, ge=1)
@@ -143,10 +159,10 @@ class BillingRateCardPayload(ApiModel):
 class BillingRateCardVersionCreate(ApiModel):
     currency: str = Field(default="EUR", min_length=3, max_length=3)
     storage_charge_basis: Literal["actual_usage", "allocated_quota"] = "actual_usage"
-    storage_gb_month_price: Optional[float] = Field(default=None, ge=0)
-    egress_gb_price: Optional[float] = Field(default=None, ge=0)
-    ingress_gb_price: Optional[float] = Field(default=None, ge=0)
-    requests_per_1000_price: Optional[float] = Field(default=None, ge=0)
+    storage_gb_month_price: Optional[Decimal] = Field(default=None, ge=0)
+    egress_gb_price: Optional[Decimal] = Field(default=None, ge=0)
+    ingress_gb_price: Optional[Decimal] = Field(default=None, ge=0)
+    requests_per_1000_price: Optional[Decimal] = Field(default=None, ge=0)
     effective_from: date
 
     @field_validator("currency")
@@ -180,10 +196,10 @@ class BillingRateCardAdminItem(ApiModel):
     name: str
     currency: str
     storage_charge_basis: Literal["actual_usage", "allocated_quota"]
-    storage_gb_month_price: Optional[float] = None
-    egress_gb_price: Optional[float] = None
-    ingress_gb_price: Optional[float] = None
-    requests_per_1000_price: Optional[float] = None
+    storage_gb_month_price: Optional[Decimal] = None
+    egress_gb_price: Optional[Decimal] = None
+    ingress_gb_price: Optional[Decimal] = None
+    requests_per_1000_price: Optional[Decimal] = None
     effective_from: date
     effective_to: Optional[date] = None
     storage_endpoint_id: Optional[int] = None

@@ -22,9 +22,11 @@ from app.db import (
 )
 from app.services.data_retention_service import DataRetentionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.traffic_service import aggregate_usage, flatten_usage_entries
 from app.utils.numbers import int_or_zero
+from app.utils.quota_stats import QuotaSnapshot
 from app.utils.rgw_payloads import extract_bucket_list, rgw_qualified_uid
 from app.services.rgw_principal_scope import resolve_target_tenant
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -102,6 +104,18 @@ class BillingCollector:
                 continue
 
             summary["endpoints"] += 1
+            try:
+                quota_admin = get_endpoint_runtime_rgw_client(endpoint)
+            except Exception as exc:
+                logger.warning(
+                    "Billing quota collection unavailable for endpoint %s: %s",
+                    endpoint.id,
+                    exc,
+                )
+                quota_admin = None
+                summary["errors"].append(
+                    _collection_error(stage="quota", endpoint_id=endpoint.id)
+                )
             if flags.usage_enabled:
                 usage_records, usage_errors = self._collect_usage_for_endpoint(
                     rgw_admin,
@@ -115,6 +129,7 @@ class BillingCollector:
                 rgw_admin,
                 endpoint,
                 day,
+                quota_admin=quota_admin,
             )
             summary["storage_records"] += storage_records
             summary["errors"].extend(storage_errors)
@@ -158,7 +173,7 @@ class BillingCollector:
     @staticmethod
     def _collection_failure(
         *,
-        stage: Literal["usage", "storage"],
+        stage: Literal["usage", "storage", "quota"],
         endpoint: StorageEndpoint,
         subject: _BillingSubject,
         exc: Exception,
@@ -267,6 +282,7 @@ class BillingCollector:
         endpoint: StorageEndpoint,
         day: date,
         subject: _BillingSubject,
+        quota_snapshot: QuotaSnapshot,
     ) -> None:
         uid = subject.principal.rgw_user_uid
         if not uid:
@@ -286,6 +302,8 @@ class BillingCollector:
             s3_user_id=subject.s3_user_id,
             total_bytes=total_bytes,
             total_objects=total_objects,
+            quota_size_bytes=quota_snapshot.max_size_bytes,
+            quota_state=quota_snapshot.size_state,
             by_bucket=by_bucket,
         )
 
@@ -317,16 +335,61 @@ class BillingCollector:
         rgw_admin: RGWAdminClient,
         endpoint: StorageEndpoint,
         day: date,
+        *,
+        quota_admin: RGWAdminClient | None = None,
     ) -> tuple[int, list[dict[str, Any]]]:
-        return self._collect_subjects(
-            stage="storage",
-            endpoint=endpoint,
-            operation=lambda subject: self._collect_storage_subject(
-                rgw_admin,
-                endpoint,
-                day,
-                subject,
-            ),
+        created = 0
+        errors: list[dict[str, Any]] = []
+        for subject in self._load_subjects(endpoint):
+            quota_snapshot = QuotaSnapshot(None, None, "missing")
+            if quota_admin is not None:
+                try:
+                    quota_snapshot = self._collect_quota_snapshot(quota_admin, subject)
+                except Exception as exc:
+                    errors.append(
+                        self._collection_failure(
+                            stage="quota",
+                            endpoint=endpoint,
+                            subject=subject,
+                            exc=exc,
+                        )
+                    )
+            try:
+                self._collect_storage_subject(
+                    rgw_admin,
+                    endpoint,
+                    day,
+                    subject,
+                    quota_snapshot,
+                )
+                created += 1
+            except Exception as exc:
+                errors.append(
+                    self._collection_failure(
+                        stage="storage",
+                        endpoint=endpoint,
+                        subject=subject,
+                        exc=exc,
+                    )
+                )
+        return created, errors
+
+    @staticmethod
+    def _collect_quota_snapshot(
+        quota_admin: RGWAdminClient,
+        subject: _BillingSubject,
+    ) -> QuotaSnapshot:
+        if subject.kind == "account":
+            account_id = subject.principal.rgw_account_id
+            if not account_id:
+                return QuotaSnapshot(None, None, "missing")
+            return quota_admin.get_account_quota_snapshot(account_id)
+        uid = subject.principal.rgw_user_uid
+        if not uid:
+            return QuotaSnapshot(None, None, "missing")
+        return quota_admin.get_user_quota_snapshot(
+            uid,
+            tenant=resolve_target_tenant(subject.principal),
         )
 
     def _collect_bucket_stats(
@@ -440,6 +503,8 @@ class BillingCollector:
         total_bytes: int,
         total_objects: int,
         by_bucket: Optional[dict[str, dict[str, int]]],
+        quota_size_bytes: Optional[int] = None,
+        quota_state: str = "missing",
     ) -> None:
         existing = (
             self.db.query(BillingStorageDaily)
@@ -457,6 +522,8 @@ class BillingCollector:
         if existing:
             existing.total_bytes = total_bytes
             existing.total_objects = total_objects
+            existing.quota_size_bytes = quota_size_bytes
+            existing.quota_state = quota_state
             existing.by_bucket = payload
             existing.collected_at = now
         else:
@@ -467,6 +534,8 @@ class BillingCollector:
                 s3_user_id=s3_user_id,
                 total_bytes=total_bytes,
                 total_objects=total_objects,
+                quota_size_bytes=quota_size_bytes,
+                quota_state=quota_state,
                 by_bucket=payload,
                 source="rgw_admin_bucket_stats",
                 collected_at=now,
@@ -491,6 +560,8 @@ class BillingCollector:
                     raise
                 existing.total_bytes = total_bytes
                 existing.total_objects = total_objects
+                existing.quota_size_bytes = quota_size_bytes
+                existing.quota_state = quota_state
                 existing.by_bucket = payload
                 existing.collected_at = now
         self.db.commit()

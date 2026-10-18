@@ -107,6 +107,9 @@ describe("BillingSettingsPage", () => {
     const dialog = screen.getByRole("dialog", { name: "Create billing rate version" });
     expect(dialog).toBeInTheDocument();
     expect(screen.getByLabelText("Name")).toBeDisabled();
+    expect(screen.getByLabelText("Storage / measured GiB-month")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Storage billing"), { target: { value: "allocated_quota" } });
+    expect(screen.getByLabelText("Storage / allocated GiB-month")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create version" }));
 
     await waitFor(() => expect(mocks.createVersion).toHaveBeenCalledTimes(1));
@@ -114,8 +117,8 @@ describe("BillingSettingsPage", () => {
     expect(mocks.createVersion.mock.calls[0][1]).toEqual(
       expect.objectContaining({
         currency: "EUR",
-        storage_charge_basis: "actual_usage",
-        storage_gb_month_price: 0.02,
+        storage_charge_basis: "allocated_quota",
+        storage_gb_month_price: "0.02",
         effective_from: expect.stringMatching(/-01$/),
       }),
     );
