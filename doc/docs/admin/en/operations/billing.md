@@ -106,6 +106,11 @@ quantity, Rate Plan/version provenance, unit prices, and component amounts. In
 `allocated_quota` mode, measured storage remains in the snapshot alongside the
 historical quota quantity used for pricing.
 
+Tag-based membership is evaluated when the draft is generated. A later tag
+change affects a future regeneration/new statement, while a finalized statement
+keeps the membership reasons and tag labels captured in its snapshot. BucketReef
+does not reconstruct day-by-day tag history for an already generated month.
+
 Finalization revalidates the same canonical Billing inputs transactionally. A
 draft with membership conflicts, incomplete required coverage, missing pricing,
 or unusable quota history cannot be finalized. If membership, rates, usage, or
@@ -224,6 +229,15 @@ Billing daily tables are purged by the shared `DataRetentionService` (used by bi
 Finalized Billing Statements are retained independently from these raw daily
 tables. `BILLING_DAILY_RETENTION_DAYS` never deletes persisted statements or
 their snapshot lines.
+
+## External invoicing boundary
+
+BucketReef Billing Statements are chargeback/cost records, not automatically
+legal commercial invoices. Invoice numbering, taxes/VAT, payment terms and
+status, payment collection, accounting ledgers, dunning, and commercial credit
+notes belong to the downstream invoicing/accounting system. Use the supported
+Billing Integration API v1 and optional statement-finalized webhook to hand the
+immutable BucketReef result to that system.
 
 ## Related pages
 

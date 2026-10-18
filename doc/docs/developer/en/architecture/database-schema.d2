@@ -368,6 +368,10 @@ Legend: {
     class: table
     tooltip: "PK: id\\nUnique: uq_billing_statement_lines_position(billing_statement_id, line_index)\\nCheck: ck_billing_statement_lines_storage_charge_basis: storage_charge_basis IS NULL OR storage_charge_basis IN ('actual_usage', 'allocated_quota'); ck_billing_statement_lines_subject_type: subject_type IN ('account', 's3_user')\\nIndexes: ix_billing_statement_lines_billing_statement_id(billing_statement_id) [index]; ix_billing_statement_lines_endpoint(storage_endpoint_id) [index]; ix_billing_statement_lines_id(id) [index]; ix_billing_statement_lines_subject(subject_type, subject_id) [index]"
   }
+  "billing_automation_runs": {
+    class: table
+    tooltip: "PK: id\\nCheck: ck_billing_automation_runs_mode: mode IN ('automatic_draft', 'automatic_finalize'); ck_billing_automation_runs_status: status IN ('running', 'completed', 'partial', 'failed'); ck_billing_automation_runs_trigger_source: trigger_source IN ('scheduled', 'retry')\\nIndexes: ix_billing_automation_runs_id(id) [index]; ix_billing_automation_runs_period_start(period_start) [index]; ix_billing_automation_runs_period_started(period_start, started_at) [index]"
+  }
 }
 
 "user_ui_groups" -> "users"

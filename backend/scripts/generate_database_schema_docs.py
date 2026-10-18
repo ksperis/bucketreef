@@ -149,6 +149,7 @@ DOMAINS = (
             "billing_entity_group_memberships",
             "billing_statements",
             "billing_statement_lines",
+            "billing_automation_runs",
         ),
     ),
 )

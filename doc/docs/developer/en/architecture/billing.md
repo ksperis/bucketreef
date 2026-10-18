@@ -5,6 +5,19 @@ the same historical inputs always produce the same monthly result. The month is
 the canonical calculation period; longer reporting periods aggregate monthly
 results instead of recalculating raw observations with a different formula.
 
+## Product boundary
+
+BucketReef is the source of truth for S3 metering, storage-specific pricing,
+Billing Entity membership, finalized monthly Billing Statements, and the
+versioned integration contract that exposes those results. It is suitable for
+showback/chargeback and for feeding a commercial invoicing or accounting system.
+
+BucketReef Billing Statements are technical cost records. They are not legal
+commercial invoices and the Billing domain does not implement invoice numbering,
+VAT/tax rules, payment terms or status, payment collection, dunning, accounting
+ledgers, or commercial credit notes. Those responsibilities stay in the external
+system consuming the finalized statement contract.
+
 ## Numeric contract
 
 Canonical Billing calculations use `Decimal`. Binary floating point is not used
@@ -77,7 +90,7 @@ days, coverage ratio, status, and issue codes. Daily subject detail also exposes
 the recorded quota value and quota state for each storage observation.
 
 This provenance is part of the calculation contract: exports, previews, and
-future immutable Billing Statements must be explainable from the stored
+immutable Billing Statements must be explainable from the stored
 historical observations without consulting mutable live RGW state.
 
 ## Billing Entities
@@ -194,14 +207,133 @@ The aggregation contract:
 - propagates incomplete entity results into the group completeness state;
 - retains the contributing Billing Entity IDs needed for drill-down.
 
-The current preview contract is ready to consume the canonical monthly Billing
-Entity analysis once rate resolution is completed. The Admin consolidated view
-is wired in the later Billing analysis objective so it can reuse the final
-`Direct > Entity > Endpoint > Global` resolver rather than implementing an
-intermediate pricing path here.
+The Admin consolidated preview consumes the canonical monthly Billing Entity
+analysis and the same `Direct > Entity > Endpoint > Global` resolver. It does
+not implement a separate group pricing path.
 
-After finalized `BillingStatement` snapshots are introduced, historical group
-aggregation uses the statement month and the group membership effective for
-that month. It must not use today's group membership and must not create or
-persist a duplicate `BillingGroupStatement`. The canonical entity statement
-remains the source for historical monetary values.
+Historical group aggregation uses the statement month and the group membership
+effective for that month. It never uses today's group membership and does not
+create or persist a duplicate `BillingGroupStatement`. The canonical entity
+statement remains the source for historical monetary values.
+
+## Monthly Billing Statements
+
+`BillingStatementService` is the persistence boundary between mutable Billing
+inputs and immutable historical results. Generation produces one draft per
+Billing Entity, month, and currency. The database uniqueness constraint on that
+triple, together with idempotent service behavior, prevents accidental duplicate
+monthly statements.
+
+Draft generation calls the canonical Billing analysis, membership, rate
+resolution, and calculation services. Each `BillingStatementLine` snapshots the
+technical subject and endpoint identity, membership reasons and tag labels,
+measured usage/storage, storage charge basis and exact priced storage quantity,
+coverage/provenance, Rate Plan/version resolution, unit prices, component
+amounts, and line total. A source fingerprint records the inputs represented by
+the draft.
+
+Tag membership is deliberately evaluated at generation time. BucketReef does
+not reconstruct historical tag changes inside a month. Regenerating a draft
+uses the current membership rules for that requested month and replaces the
+draft snapshot; finalization freezes the resulting membership reasons and tag
+labels permanently.
+
+### Lifecycle
+
+The persisted lifecycle has two states:
+
+```text
+live monthly inputs
+      |
+      v
+    draft  <---- explicit regenerate while still mutable
+      |
+      | revalidate membership, rates, coverage and source fingerprint
+      v
+  finalized  ---- immutable snapshot / API v1 source
+```
+
+Finalization locks and reloads the statement, recomputes the canonical candidate,
+rejects stale or blocked drafts, then records the finalization timestamp and
+actor. Repeating finalization for an already-finalized statement is idempotent.
+A finalized statement is never regenerated or rewritten from later tags, quotas,
+names, rates, or retained daily source rows.
+
+Blocking conditions include unresolved cross-entity membership, missing or
+ambiguous pricing, mixed/incompatible currency inputs, incomplete mandatory
+source coverage, and missing/unusable historical quota observations when the
+effective tariff uses `allocated_quota`.
+
+## Finalized period aggregation
+
+`BillingPeriodService` derives month, calendar-year, and custom month-aligned
+views from finalized monthly statements. It sums persisted monetary component
+amounts without re-rating historical usage. Results retain contributing
+statement IDs and report expected, finalized, missing, and unfinalized months so
+an incomplete period can never look like a zero-cost month.
+
+Currencies remain separate. Storage quantities also preserve their basis:
+measured GiB-month and allocated-quota GiB-month may both contribute monetary
+amounts to a period, but are never collapsed into one synthetic capacity
+quantity. Billing Entity Group periods resolve the group's historized membership
+independently for every contributing month.
+
+## Monthly automation
+
+`BillingStatementAutomationService` supports the three product workflows:
+manual, automatic draft generation, and automatic draft plus finalization. The
+automation path calls `BillingStatementService.generate()` and
+`BillingStatementService.finalize()` rather than maintaining another calculation
+or finalization implementation.
+
+Each run persists its month, mode, trigger source, result counts, completion
+state, and safe diagnostic codes. The same coverage, membership, pricing,
+currency, stale-draft, and quota-history gates used interactively therefore
+apply to automatic finalization. Per-month operational leases and idempotent
+generation/finalization make retries safe across backend replicas.
+
+## Billing Integration API v1
+
+The supported external contract is rooted at
+`/api/integrations/billing/v1`. Internal `/api/admin/billing/...` routes remain
+an application contract for the matching BucketReef frontend and must not be
+used as a third-party compatibility boundary.
+
+API v1 is read-only and accepts API tokens carrying the exact `billing:read`
+scope. It exposes Billing Entity and Group identities, finalized period costs,
+paginated finalized statements, statement details, and JSON/CSV exports. Draft
+statements are excluded. S3 credentials and browser-session authentication are
+outside this integration boundary.
+
+`BillingIntegrationService` projects only persisted finalized snapshots and
+`BillingPeriodService` aggregates. The integration layer never recalculates a
+statement, membership, or tariff independently. Decimal quantities and money
+are serialized deterministically, currencies stay explicit, and line responses
+retain storage charge-basis provenance.
+
+Within v1, existing routes and fields are not removed or renamed, field types
+and established semantics remain stable, and consumers must tolerate additive
+optional fields or enum values. A change that requires a consumer to reinterpret
+existing data requires a new API version.
+
+The optional `billing.statement.finalized` webhook is a discovery primitive.
+It carries statement/entity identifiers, period/currency metadata, finalization
+time, and an API-v1 statement reference. It intentionally omits lines and
+calculated totals so the versioned API remains the canonical statement schema.
+Webhook queue or delivery failures never roll back or mutate the finalized
+statement; the existing durable webhook worker owns signing, retry/backoff,
+idempotent delivery identifiers, and diagnostics.
+
+## Retention and schema
+
+Raw `BillingUsageDaily` and `BillingStorageDaily` rows follow the configured
+Billing daily retention policy. Finalized `BillingStatement` and
+`BillingStatementLine` snapshots are retained independently, so purging raw
+metering history does not remove the canonical historical result.
+
+The generated database documentation contains the Billing tables, group
+membership history, statement snapshots, and their foreign-key topology. See
+[Database](database.md) and the **Observability, quota, and billing** schema
+slice. Regenerate/check those diagrams with
+`backend/scripts/generate_database_schema_docs.py` whenever the Billing ORM
+schema changes.
