@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.domain_errors import BillingDisabledError
 from app.db import User
 from app.models.billing import (
+    BillingAnalysisPreview,
     BillingEntityAdminItem,
     BillingEntityGroupAdminItem,
     BillingEntityGroupPayload,
@@ -65,6 +66,18 @@ def billing_summary(
 ) -> BillingSummary:
     try:
         return AdminBillingService(db).summary(month, endpoint_id)
+    except ValueError as exc:
+        _raise_billing_http_error(exc)
+
+
+@router.get("/analysis", response_model=BillingAnalysisPreview)
+def billing_analysis(
+    month: str = Query(..., description="YYYY-MM"),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> BillingAnalysisPreview:
+    try:
+        return AdminBillingService(db).analysis(month)
     except ValueError as exc:
         _raise_billing_http_error(exc)
 

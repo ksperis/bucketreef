@@ -55,6 +55,30 @@ Billing coverage is tracked separately for storage snapshots and RGW usage logs.
 The UI shows both source counts when they differ, because a month can have storage data without usage traffic, or usage traffic without a storage snapshot.
 Treat estimated costs as provisional when coverage is low or source counts do not match.
 
+Quota-based storage pricing adds a third coverage dimension. The billed storage
+quantity is the prorated historical allocated quota for the month, while measured
+storage remains available for diagnosis. Missing, disabled, unlimited, or invalid
+quota observations make the storage price incomplete; they are never converted
+to a zero-byte quota.
+
+## Consolidated monthly analysis
+
+`GET /api/admin/billing/analysis?month=YYYY-MM` composes the canonical Billing
+Entity membership and Rate Plan resolution services into one monthly preview.
+The route does not persist or reprice a statement.
+
+- Billing Entity totals may span several endpoints and stay separated by currency.
+- Membership conflicts remain visible and are excluded from totals.
+- Billing Group totals reuse the already-priced entity results; group overlap does
+  not cause an entity to be priced again.
+- Group membership is evaluated for the requested month.
+- Storage, usage, and quota coverage are returned with the consolidated preview.
+
+The Admin UI exposes the same structure as `Billing Group -> Billing Entity ->
+Endpoint -> Account/S3 User`. Immutable monthly results and annual/range totals
+are built later from finalized Billing Statements, rather than from repeated live
+recalculation of this preview.
+
 ## Scheduler integration
 
 - Compose scheduler calls daily collection with configurable day offset.

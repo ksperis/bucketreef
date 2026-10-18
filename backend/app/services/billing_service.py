@@ -84,6 +84,14 @@ class BillingStorageAggregate:
     quota_observations: tuple[tuple[Optional[int], str], ...]
 
 
+@dataclass
+class BillingUsageAggregate:
+    bytes_in: int
+    bytes_out: int
+    ops_total: int
+    days_with_data: int
+
+
 def _parse_month(value: str) -> BillingPeriod:
     text = (value or "").strip()
     try:
@@ -323,6 +331,19 @@ class BillingService:
             has_next=has_next,
         )
 
+    def analysis_subjects(
+        self,
+        month: str,
+        endpoint_id: int,
+        subject_type: str,
+    ) -> list[BillingSubjectSummary]:
+        """Return canonical priced subject rows for Billing analysis composition."""
+        period = _parse_month(month)
+        normalized_type = subject_type.lower().strip()
+        if normalized_type not in {"account", "s3_user"}:
+            raise ValueError("Invalid subject type")
+        return self._subject_summaries(period, endpoint_id, normalized_type)
+
     def subject_detail(self, month: str, endpoint_id: int, subject_type: str, subject_id: int) -> BillingSubjectDetail:
         period = _parse_month(month)
         subject_type = subject_type.lower().strip()
@@ -502,7 +523,15 @@ class BillingService:
         items: list[BillingSubjectSummary] = []
         for subject in self._load_subjects(endpoint_id, subject_type):
             subject_id = subject.id
-            usage = usage_totals.get(subject_id, (0, 0, 0))
+            usage = usage_totals.get(
+                subject_id,
+                BillingUsageAggregate(
+                    bytes_in=0,
+                    bytes_out=0,
+                    ops_total=0,
+                    days_with_data=0,
+                ),
+            )
             storage = storage_totals.get(
                 subject_id,
                 BillingStorageAggregate(
@@ -515,16 +544,17 @@ class BillingService:
                 ),
             )
             totals = BillingTotals(
-                bytes_in=usage[0],
-                bytes_out=usage[1],
-                ops_total=usage[2],
+                bytes_in=usage.bytes_in,
+                bytes_out=usage.bytes_out,
+                ops_total=usage.ops_total,
                 ops_breakdown=None,
                 avg_storage_bytes=storage.avg_bytes,
                 avg_storage_gb_month=storage.avg_gb_month,
                 storage_total_bytes=storage.total_bytes,
                 total_objects=storage.total_objects,
-                days_with_data=storage.days_with_data,
+                days_with_data=max(storage.days_with_data, usage.days_with_data),
                 storage_days_with_data=storage.days_with_data,
+                usage_days_with_data=usage.days_with_data,
                 quota_observations=storage.quota_observations,
                 quota_expected_observations=period.days_in_month,
             )
@@ -542,6 +572,7 @@ class BillingService:
                     rgw_identifier=subject.rgw_user_uid,
                     storage=_storage_totals(totals),
                     usage=_usage_totals(totals),
+                    coverage=_coverage_for_period(period, totals),
                     cost=_compute_cost(resolved_rate.rate_card, totals, period),
                     rate_resolution=resolved_rate.explanation,
                 )
@@ -622,7 +653,7 @@ class BillingService:
         period: BillingPeriod,
         endpoint_id: int,
         subject_type: str,
-    ) -> dict[int, tuple[int, int, int]]:
+    ) -> dict[int, BillingUsageAggregate]:
         column = BillingUsageDaily.s3_account_id if subject_type == "account" else BillingUsageDaily.s3_user_id
         rows = self.db.execute(
             select(
@@ -630,6 +661,7 @@ class BillingService:
                 func.sum(BillingUsageDaily.bytes_in),
                 func.sum(BillingUsageDaily.bytes_out),
                 func.sum(BillingUsageDaily.ops_total),
+                func.count(func.distinct(BillingUsageDaily.day)),
             )
             .where(
                 BillingUsageDaily.storage_endpoint_id == endpoint_id,
@@ -639,7 +671,16 @@ class BillingService:
             )
             .group_by(column)
         ).all()
-        return {row[0]: (int(row[1] or 0), int(row[2] or 0), int(row[3] or 0)) for row in rows if row[0] is not None}
+        return {
+            row[0]: BillingUsageAggregate(
+                bytes_in=int(row[1] or 0),
+                bytes_out=int(row[2] or 0),
+                ops_total=int(row[3] or 0),
+                days_with_data=int(row[4] or 0),
+            )
+            for row in rows
+            if row[0] is not None
+        }
 
     def _storage_totals_by_subject(
         self,

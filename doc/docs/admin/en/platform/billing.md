@@ -55,25 +55,56 @@ Membership is explicit and month-effective. For each Billing Entity in a group, 
 
 Deactivating a group hides it from active administration without deleting its membership history. Historical periods remain available so later reporting can keep the organizational classification that applied for the requested month.
 
-Billing Groups do not convert currencies or create independent billing statements. Group costs are derived from the canonical Billing Entity results and remain separated by currency. Monthly and multi-period group cost analysis is exposed in the Billing analysis workflow as the later statement/reporting objectives are completed.
+Billing Groups do not convert currencies or create independent billing statements. Group costs are derived from the canonical Billing Entity results and remain separated by currency. The Billing page exposes the monthly Group preview now; multi-month and annual reporting is derived later from persisted monthly statements.
+
+## Review monthly Billing
+
+`/admin/billing` keeps the operational Account/User view and adds consolidated
+business views under the same page:
+
+- **Subjects** keeps the endpoint-scoped Account/User analysis, daily charts,
+  manual collection, and CSV export. The endpoint selector applies only here.
+- **Billing Entities** consolidates the selected month across every endpoint
+  represented by the entity. It shows totals per currency, source coverage,
+  membership conflicts, unassigned subjects, and the effective storage charge
+  basis. Open an entity to drill down by endpoint and Account/S3 User.
+- **Billing Groups** aggregates the Billing Entities whose memberships are
+  effective for the selected month. Currencies remain separate, and opening a
+  group preserves the drill-down from entity to endpoint and technical subject.
+
+These Entity and Group views are live monthly previews. They resolve current
+membership rules and the tariff version effective for the selected month; they
+are not finalized historical statements. Conflicted subjects stay visible but
+are excluded from consolidated totals so ambiguity cannot silently become
+double billing.
+
+For **Actual usage**, the storage quantity used for pricing is measured storage.
+For **Allocated quota**, the detail keeps measured storage visible for context
+and shows the prorated historical quota separately as the billed quantity. An
+incomplete quota history is reported as incomplete pricing rather than as zero
+capacity.
 
 ## Steps
 
 1. Open `/admin/billing`.
-2. Choose the month, Ceph endpoint, subject type, and ordering used for the analysis.
-3. Review the summary cards for storage, traffic, request volume, source coverage, and estimated cost.
+2. Choose the month. It applies to Subjects, Billing Entities, and Billing Groups.
+3. In **Subjects**, choose the Ceph endpoint, subject type, and ordering. Review storage, traffic, requests, source coverage, estimated cost, and Rate Plan provenance.
 4. If scheduler data is stale, run **Collect daily** for one UTC day and check the collection result. Partial collection errors are listed below the action.
-5. Inspect the paginated subjects table to identify the account or user that drives the highest usage.
-6. Select a subject to open daily charts and review storage, traffic, requests, source coverage, and the resolved Rate Plan source/version.
-7. Export CSV only after the selected endpoint and month have billing data.
+5. Select a subject to open daily charts, or export the endpoint-scoped CSV after billing data is available.
+6. In **Billing Entities**, review consolidated totals and coverage, then open an entity to explain its amount down to endpoint and Account/S3 User. For quota-based pricing, compare measured storage with the billed quota quantity.
+7. In **Billing Groups**, review month-effective organizational totals and open a group to trace each currency total through its member entities and technical subjects.
 
 ## Expected result
 
-You can compare monthly billing exposure across tenants and drill into the subjects that explain the current totals.
+You can compare monthly billing exposure at the technical subject, Billing Entity,
+and Billing Group levels and explain a consolidated amount down to its endpoint,
+subject, Rate Plan provenance, and storage charge basis.
 
 ## You are done when
 
-The selected month shows enough storage and usage source coverage to support the estimate, the highest-cost subject can be traced to storage, traffic, or request volume, and any collection or rate-card gaps are understood.
+The selected month shows enough storage, usage, and quota coverage to support the
+effective pricing mode; consolidated entity/group totals are traceable to their
+technical subjects; and membership, collection, or Rate Plan gaps are understood.
 
 ## If you do not see this action
 
@@ -96,6 +127,6 @@ Check `billing_enabled`, billing collection status, Ceph endpoint selection, rat
 ## Visual example
 
 <div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/admin-billing.light.png" alt="Admin Billing page with scope controls, manual collection, monthly summary, and subject totals" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/admin-billing.dark.png" alt="Admin Billing page with scope controls, manual collection, monthly summary, and subject totals" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/admin-billing.light.png" alt="Admin Billing page showing a consolidated Billing Entity with endpoint, subject, coverage, and quota-based pricing details" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/admin-billing.dark.png" alt="Admin Billing page showing a consolidated Billing Entity with endpoint, subject, coverage, and quota-based pricing details" loading="lazy">
 </div>

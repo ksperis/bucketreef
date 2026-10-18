@@ -21,6 +21,7 @@ import DataTableShell, {
 } from "../../components/list/DataTableShell";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageShell from "../../components/PageShell";
+import PageTabs from "../../components/PageTabs";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
 import InlineSummary from "../../components/InlineSummary";
@@ -45,6 +46,7 @@ import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEnd
 import { DownloadIcon, RefreshIcon } from "../browser/browserIcons";
 import {
   type BillingDecimal,
+  type BillingAnalysisPreview,
   type BillingRateResolution,
   BillingSubjectDetail,
   BillingSubjectSummary,
@@ -54,8 +56,10 @@ import {
   getBillingSummary,
   downloadBillingCsv,
   collectBillingDaily,
+  getBillingAnalysis,
 } from "../../api/billing";
 import { useAdminI18n } from "./adminI18n";
+import BillingAnalysisView from "./BillingAnalysisView";
 
 // QA checklist:
 // - Verify summary loads with selected month/endpoint.
@@ -236,6 +240,7 @@ function isBillingDisabledMessage(message: string): boolean {
 export default function BillingPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
+  const [activeTab, setActiveTab] = useState<"subjects" | "entities" | "groups">("subjects");
   const [month, setMonth] = useState<string>(currentUtcMonthInputValue());
   const [collectDay, setCollectDay] = useState<string>(defaultCollectDay());
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
@@ -259,6 +264,10 @@ export default function BillingPage() {
   const [detail, setDetail] = useState<BillingSubjectDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
+
+  const [analysis, setAnalysis] = useState<BillingAnalysisPreview | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState<boolean>(false);
 
   const [pageError, setPageError] = useState<string | null>(null);
   const [billingDisabled, setBillingDisabled] = useState<boolean>(false);
@@ -416,6 +425,37 @@ export default function BillingPage() {
       cancelled = true;
     };
   }, [adminText, detailSubjectId, detailSubjectType, month, selectedEndpointId, reloadToken]);
+
+  const analysisVisible = activeTab !== "subjects";
+
+  useEffect(() => {
+    if (!analysisVisible) return;
+    let cancelled = false;
+    async function loadAnalysis() {
+      setAnalysisLoading(true);
+      setAnalysisError(null);
+      try {
+        const data = await getBillingAnalysis(month);
+        if (!cancelled) {
+          setAnalysis(data);
+          setBillingDisabled(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = extractApiError(err, adminText("Unable to load consolidated billing analysis."));
+          setAnalysis(null);
+          setAnalysisError(message);
+          if (isBillingDisabledMessage(message)) setBillingDisabled(true);
+        }
+      } finally {
+        if (!cancelled) setAnalysisLoading(false);
+      }
+    }
+    loadAnalysis();
+    return () => {
+      cancelled = true;
+    };
+  }, [adminText, analysisVisible, month, reloadToken]);
 
   const stats = useMemo(() => {
     const storageAvg = summary?.storage?.avg_bytes ?? null;
@@ -619,37 +659,63 @@ export default function BillingPage() {
             size="compact"
             className="ui-list-control"
           />
-          <UiSelect
-            label={adminText("Endpoint")}
-            value={selectedEndpointId ?? ""}
-            onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
-            size="compact"
-            className="ui-list-control"
-          >
-            {endpoints.length === 0 ? <option value="">{adminText("No Ceph endpoint")}</option> : null}
-            {endpoints.map((endpoint) => (
-              <option key={endpoint.id} value={endpoint.id}>
-                {endpoint.name}
-              </option>
-            ))}
-          </UiSelect>
-          <ListActionButton
-            variant="secondary"
-            onClick={() => void handleExport()}
-            disabled={!canExport}
-            title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with billing data before exporting"}
-          >
-            <DownloadIcon aria-hidden="true" className="h-3.5 w-3.5" />
-            {adminText("Export CSV")}</ListActionButton>
+          {activeTab === "subjects" ? (
+            <>
+              <UiSelect
+                label={adminText("Endpoint")}
+                value={selectedEndpointId ?? ""}
+                onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
+                size="compact"
+                className="ui-list-control"
+              >
+                {endpoints.length === 0 ? <option value="">{adminText("No Ceph endpoint")}</option> : null}
+                {endpoints.map((endpoint) => (
+                  <option key={endpoint.id} value={endpoint.id}>
+                    {endpoint.name}
+                  </option>
+                ))}
+              </UiSelect>
+              <ListActionButton
+                variant="secondary"
+                onClick={() => void handleExport()}
+                disabled={!canExport}
+                title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with billing data before exporting"}
+              >
+                <DownloadIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                {adminText("Export CSV")}</ListActionButton>
+            </>
+          ) : null}
         </>
       }
     >
-      {pageError && selectedEndpointId != null ? <PageBanner tone="error">{pageError}</PageBanner> : null}
+      {activeTab === "subjects" && pageError && selectedEndpointId != null ? <PageBanner tone="error">{pageError}</PageBanner> : null}
       {billingDisabled ? (
         <PageBanner tone="warning">
           {adminText("Billing is disabled. Enable it in General settings to use this page.")}</PageBanner>
       ) : null}
-      {!selectedEndpointId ? (
+      <PageTabs
+        tabs={[
+          { id: "subjects", label: adminText("Subjects") },
+          { id: "entities", label: adminText("Billing Entities") },
+          { id: "groups", label: adminText("Billing Groups") },
+        ]}
+        activeTab={activeTab}
+        onChange={(id) => setActiveTab(id as "subjects" | "entities" | "groups")}
+        variant="line"
+        ariaLabel={adminText("Billing analysis views")}
+        idPrefix="admin-billing"
+      />
+      {activeTab !== "subjects" ? (
+        <div className="mt-4">
+          <BillingAnalysisView
+            mode={activeTab}
+            month={month}
+            analysis={analysis}
+            loading={analysisLoading}
+            error={analysisError}
+          />
+        </div>
+      ) : !selectedEndpointId ? (
         <PageEmptyState
           title={adminText("No Ceph endpoint available for billing")}
           description={pageError || "Add or enable a Ceph endpoint before loading billing analytics."}

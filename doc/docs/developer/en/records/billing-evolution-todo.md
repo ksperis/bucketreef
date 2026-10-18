@@ -603,6 +603,8 @@ Requirements:
 
 ## Objective 6 — Add consolidated Billing Entity and Group analysis in Admin
 
+Implementation status: **completed**.
+
 ### Goal
 
 Allow storage administrators to review monthly chargeback by business grouping
