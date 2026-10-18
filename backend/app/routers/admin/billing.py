@@ -12,6 +12,8 @@ from app.core.domain_errors import BillingDisabledError
 from app.db import User
 from app.models.billing import (
     BillingEntityAdminItem,
+    BillingEntityGroupAdminItem,
+    BillingEntityGroupPayload,
     BillingEntityPayload,
     BillingEntityResolutionResult,
     BillingEntitySubjectReference,
@@ -36,6 +38,11 @@ from app.services.billing_entity_service import (
     BillingEntityConflictError,
     BillingEntityNotFoundError,
     BillingEntityService,
+)
+from app.services.billing_entity_group_service import (
+    BillingEntityGroupConflictError,
+    BillingEntityGroupNotFoundError,
+    BillingEntityGroupService,
 )
 from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
@@ -189,6 +196,32 @@ def _billing_entity_audit_metadata(item: BillingEntityAdminItem) -> dict:
     }
 
 
+def _billing_entity_group_http_error(exc: ValueError) -> NoReturn:
+    if isinstance(exc, BillingEntityGroupNotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    if isinstance(exc, BillingEntityGroupConflictError):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    raise_http_error_from_value_error(exc)
+
+
+def _billing_entity_group_audit_metadata(item: BillingEntityGroupAdminItem) -> dict:
+    return {
+        "billing_entity_group_id": item.id,
+        "name": item.name,
+        "code": item.code,
+        "external_id": item.external_id,
+        "active": item.active,
+        "memberships": [
+            {
+                "billing_entity_id": membership.billing_entity_id,
+                "effective_from": membership.effective_from.isoformat(),
+                "effective_to": membership.effective_to.isoformat() if membership.effective_to else None,
+            }
+            for membership in item.memberships
+        ],
+    }
+
+
 @router.get("/entity-subjects", response_model=list[BillingEntitySubjectReference])
 def billing_entity_subjects(
     subject_type: str = Query(...),
@@ -314,6 +347,105 @@ def deactivate_billing_entity(
         metadata={
             "before": _billing_entity_audit_metadata(before),
             "after": _billing_entity_audit_metadata(item),
+        },
+    )
+    return item
+
+
+@router.get("/groups", response_model=list[BillingEntityGroupAdminItem])
+def billing_entity_groups(
+    search: str = Query(""),
+    include_inactive: bool = Query(True),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> list[BillingEntityGroupAdminItem]:
+    return BillingEntityGroupService(db).list(search=search, include_inactive=include_inactive)
+
+
+@router.post("/groups", response_model=BillingEntityGroupAdminItem, status_code=status.HTTP_201_CREATED)
+def create_billing_entity_group(
+    payload: BillingEntityGroupPayload,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingEntityGroupAdminItem:
+    try:
+        item = BillingEntityGroupService(db).create(payload)
+    except ValueError as exc:
+        _billing_entity_group_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_entity_group.create",
+        entity_type="billing_entity_group",
+        entity_id=str(item.id),
+        metadata=_billing_entity_group_audit_metadata(item),
+    )
+    return item
+
+
+@router.get("/groups/{group_id}", response_model=BillingEntityGroupAdminItem)
+def billing_entity_group(
+    group_id: int,
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> BillingEntityGroupAdminItem:
+    try:
+        return BillingEntityGroupService(db).get(group_id)
+    except ValueError as exc:
+        _billing_entity_group_http_error(exc)
+
+
+@router.put("/groups/{group_id}", response_model=BillingEntityGroupAdminItem)
+def update_billing_entity_group(
+    group_id: int,
+    payload: BillingEntityGroupPayload,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingEntityGroupAdminItem:
+    service = BillingEntityGroupService(db)
+    try:
+        before = service.get(group_id)
+        item = service.update(group_id, payload)
+    except ValueError as exc:
+        _billing_entity_group_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_entity_group.update",
+        entity_type="billing_entity_group",
+        entity_id=str(item.id),
+        metadata={
+            "before": _billing_entity_group_audit_metadata(before),
+            "after": _billing_entity_group_audit_metadata(item),
+        },
+    )
+    return item
+
+
+@router.post("/groups/{group_id}/deactivate", response_model=BillingEntityGroupAdminItem)
+def deactivate_billing_entity_group(
+    group_id: int,
+    current_user: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingEntityGroupAdminItem:
+    service = BillingEntityGroupService(db)
+    try:
+        before = service.get(group_id)
+        item = service.deactivate(group_id)
+    except ValueError as exc:
+        _billing_entity_group_http_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_entity_group.deactivate",
+        entity_type="billing_entity_group",
+        entity_id=str(item.id),
+        metadata={
+            "before": _billing_entity_group_audit_metadata(before),
+            "after": _billing_entity_group_audit_metadata(item),
         },
     )
     return item

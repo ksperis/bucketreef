@@ -46,6 +46,8 @@ from .oidc import OidcAuthorizationCode, OidcLoginState, OidcProvider
 from .billing import (
     BillingAssignment,
     BillingEntity,
+    BillingEntityGroup,
+    BillingEntityGroupMembership,
     BillingEntityRateAssignment,
     BillingEntitySubjectRule,
     BillingEntityTagRule,
@@ -121,6 +123,8 @@ __all__ = [
     "OidcProvider",
     "BillingAssignment",
     "BillingEntity",
+    "BillingEntityGroup",
+    "BillingEntityGroupMembership",
     "BillingEntityRateAssignment",
     "BillingEntitySubjectRule",
     "BillingEntityTagRule",

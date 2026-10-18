@@ -17,7 +17,7 @@ Pick the month and subject type you want to explain. Billing views are most usef
 
 ## Configure Billing
 
-Superadmins configure tariff versions and Billing Entities in **Settings → Billing** (`/admin/billing-settings`). The settings page is available even when Billing collection is disabled, so pricing and business grouping can be prepared before enabling collection.
+Superadmins configure tariff versions, Billing Entities, and Billing Groups in **Settings → Billing** (`/admin/billing-settings`). The settings page is available even when Billing collection is disabled, so pricing and business grouping can be prepared before enabling collection.
 
 ### Rate Plans
 
@@ -40,6 +40,16 @@ Membership uses the existing Admin-managed tag catalog plus explicit exceptions:
 The editor can preview the resolved members before saving. The preview explains why each subject matched and highlights subjects that would belong to more than one active Billing Entity. Resolve these conflicts before relying on the entity for statement generation; BucketReef does not silently choose an entity or double bill a conflicting subject.
 
 An entity may optionally receive a global Rate Plan through month-effective assignment periods. Current and future periods must not overlap. Historical assignment periods are read-only so later edits to names or membership cannot rewrite prior pricing intent.
+
+### Billing Groups
+
+Use the **Billing Groups** tab to organize Billing Entities into analytical scopes such as Research, DSI, a region, or a programme. Groups are reporting classifications only: they do not change which Accounts or S3 Users belong to an entity, which Rate Plan applies, or how monthly costs are calculated.
+
+Membership is explicit and month-effective. For each Billing Entity in a group, choose a start month and optionally an end month. The editor shows current, scheduled, and historical memberships and rejects overlapping periods for the same entity/group pair. One Billing Entity may belong to several groups at the same time; this is expected for analytical classifications and is not a billing conflict.
+
+Deactivating a group hides it from active administration without deleting its membership history. Historical periods remain available so later reporting can keep the organizational classification that applied for the requested month.
+
+Billing Groups do not convert currencies or create independent billing statements. Group costs are derived from the canonical Billing Entity results and remain separated by currency. Monthly and multi-period group cost analysis is exposed in the Billing analysis workflow as the later statement/reporting objectives are completed.
 
 ## Steps
 

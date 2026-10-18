@@ -448,6 +448,8 @@ statements are not rewritten in place.
 
 ## Objective 4 — Introduce Billing Entity Groups for analytical aggregation
 
+Implementation status: **completed**.
+
 ### Goal
 
 Allow administrators to answer questions such as **"What does all Research

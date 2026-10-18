@@ -389,3 +389,76 @@ export async function searchBillingEntitySubjects(
   );
   return data;
 }
+
+export type BillingEntityGroupMembershipInput = {
+  billing_entity_id: number;
+  effective_from: string;
+  effective_to?: string | null;
+};
+
+export type BillingEntityGroupMembership = BillingEntityGroupMembershipInput & {
+  id: number;
+  billing_entity_name: string;
+  billing_entity_code?: string | null;
+  billing_entity_active: boolean;
+  status: "historical" | "current" | "future";
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingEntityGroupPayload = {
+  name: string;
+  code?: string | null;
+  external_id?: string | null;
+  description?: string | null;
+  memberships: BillingEntityGroupMembershipInput[];
+};
+
+export type BillingEntityGroupAdminItem = {
+  id: number;
+  name: string;
+  code?: string | null;
+  external_id?: string | null;
+  description?: string | null;
+  active: boolean;
+  memberships: BillingEntityGroupMembership[];
+  current_member_count: number;
+  scheduled_membership_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listBillingEntityGroups(
+  search = "",
+  includeInactive = true,
+): Promise<BillingEntityGroupAdminItem[]> {
+  const { data } = await client.get<BillingEntityGroupAdminItem[]>("/admin/billing/groups", {
+    params: {
+      search,
+      include_inactive: includeInactive,
+    },
+  });
+  return data;
+}
+
+export async function createBillingEntityGroup(
+  payload: BillingEntityGroupPayload,
+): Promise<BillingEntityGroupAdminItem> {
+  const { data } = await client.post<BillingEntityGroupAdminItem>("/admin/billing/groups", payload);
+  return data;
+}
+
+export async function updateBillingEntityGroup(
+  id: number,
+  payload: BillingEntityGroupPayload,
+): Promise<BillingEntityGroupAdminItem> {
+  const { data } = await client.put<BillingEntityGroupAdminItem>("/admin/billing/groups/" + id, payload);
+  return data;
+}
+
+export async function deactivateBillingEntityGroup(id: number): Promise<BillingEntityGroupAdminItem> {
+  const { data } = await client.post<BillingEntityGroupAdminItem>(
+    "/admin/billing/groups/" + id + "/deactivate",
+  );
+  return data;
+}
