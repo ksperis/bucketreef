@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 import logging
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitize_persisted_error
@@ -37,8 +37,7 @@ class EndpointHealthNotificationsService:
         if not endpoint_ids:
             return {}
         ranked = (
-            self.db.query(EndpointHealthCheck)
-            .with_entities(
+            select(
                 EndpointHealthCheck.storage_endpoint_id.label("endpoint_id"),
                 EndpointHealthCheck.check_mode.label("check_mode"),
                 EndpointHealthCheck.status.label("status"),
@@ -55,14 +54,16 @@ class EndpointHealthNotificationsService:
                 )
                 .label("position"),
             )
-            .filter(EndpointHealthCheck.storage_endpoint_id.in_(endpoint_ids))
+            .where(EndpointHealthCheck.storage_endpoint_id.in_(endpoint_ids))
             .subquery()
         )
-        rows = self.db.query(
-            ranked.c.endpoint_id,
-            ranked.c.check_mode,
-            ranked.c.status,
-        ).filter(ranked.c.position == 1)
+        rows = self.db.execute(
+            select(
+                ranked.c.endpoint_id,
+                ranked.c.check_mode,
+                ranked.c.status,
+            ).where(ranked.c.position == 1)
+        )
         return {
             (int(endpoint_id), str(check_mode)): str(status)
             for endpoint_id, check_mode, status in rows
@@ -140,15 +141,15 @@ class EndpointHealthNotificationsService:
 
     def _active_admin_ids(self) -> list[int]:
         return [
-            int(row[0])
-            for row in self.db.query(User.id)
-            .filter(
-                User.is_active.is_(True),
-                User.role.in_(
-                    [UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value]
-                ),
+            int(user_id)
+            for user_id in self.db.scalars(
+                select(User.id).where(
+                    User.is_active.is_(True),
+                    User.role.in_(
+                        [UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value]
+                    ),
+                )
             )
-            .all()
         ]
 
     @staticmethod
