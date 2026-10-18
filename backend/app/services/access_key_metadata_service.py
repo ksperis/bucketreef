@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -31,10 +32,10 @@ class AccessKeyMetadataService:
         if policy == FeaturePolicy.DISABLED:
             return False
         if context.context_kind == "account" and context.id is not None:
-            resource = self.db.query(S3Account).filter(S3Account.id == context.id).first()
+            resource = self.db.get(S3Account, context.id)
             return bool(resource and resolve_feature_policy(policy, resource.allow_access_key_metadata).enabled)
         if context.context_kind == "s3_user" and context.s3_user_id is not None:
-            resource = self.db.query(S3User).filter(S3User.id == context.s3_user_id).first()
+            resource = self.db.get(S3User, context.s3_user_id)
             return bool(resource and resolve_feature_policy(policy, resource.allow_access_key_metadata).enabled)
         return False
 
@@ -49,10 +50,10 @@ class AccessKeyMetadataService:
         if endpoint is None or endpoint.provider != StorageProvider.CEPH.value:
             return False
         if context.context_kind == "account" and context.id is not None:
-            resource = self.db.query(S3Account).filter(S3Account.id == context.id).first()
+            resource = self.db.get(S3Account, context.id)
             return bool(resource and resolve_feature_policy(policy, resource.allow_access_key_expiration).enabled)
         if context.context_kind == "s3_user" and context.s3_user_id is not None:
-            resource = self.db.query(S3User).filter(S3User.id == context.s3_user_id).first()
+            resource = self.db.get(S3User, context.s3_user_id)
             return bool(resource and resolve_feature_policy(policies.ceph_s3_user_keys, resource.allow_access_key_management).enabled
                         and resolve_feature_policy(policy, resource.allow_access_key_expiration).enabled)
         return False
@@ -88,22 +89,59 @@ class AccessKeyMetadataService:
             expiration_last_error=row.expiration_last_error,
         )
 
-    def _iam_query(self, account_id: int, principal_name: str):
-        return self.db.query(ManagerAccessKeyMetadata).filter(
+    @staticmethod
+    def _iam_predicates(account_id: int, principal_name: str):
+        return (
             ManagerAccessKeyMetadata.account_id == account_id,
             ManagerAccessKeyMetadata.principal_name == principal_name,
         )
 
-    def _s3_user_query(self, s3_user_id: int):
-        return self.db.query(ManagerAccessKeyMetadata).filter(
+    @staticmethod
+    def _s3_user_predicates(s3_user_id: int):
+        return (
             ManagerAccessKeyMetadata.s3_user_id == s3_user_id,
         )
 
+    def _iam_row(
+        self,
+        account_id: int,
+        principal_name: str,
+        access_key_id: str,
+    ) -> ManagerAccessKeyMetadata | None:
+        return self.db.scalar(
+            select(ManagerAccessKeyMetadata).where(
+                *self._iam_predicates(account_id, principal_name),
+                ManagerAccessKeyMetadata.access_key_id == access_key_id,
+            )
+        )
+
+    def _s3_user_row(
+        self,
+        s3_user_id: int,
+        access_key_id: str,
+    ) -> ManagerAccessKeyMetadata | None:
+        return self.db.scalar(
+            select(ManagerAccessKeyMetadata).where(
+                *self._s3_user_predicates(s3_user_id),
+                ManagerAccessKeyMetadata.access_key_id == access_key_id,
+            )
+        )
+
     def iam_metadata(self, account_id: int, principal_name: str) -> dict[str, ManagerAccessKeyMetadata]:
-        return {row.access_key_id: row for row in self._iam_query(account_id, principal_name).all()}
+        rows = self.db.scalars(
+            select(ManagerAccessKeyMetadata).where(
+                *self._iam_predicates(account_id, principal_name)
+            )
+        ).all()
+        return {row.access_key_id: row for row in rows}
 
     def s3_user_metadata(self, s3_user_id: int) -> dict[str, ManagerAccessKeyMetadata]:
-        return {row.access_key_id: row for row in self._s3_user_query(s3_user_id).all()}
+        rows = self.db.scalars(
+            select(ManagerAccessKeyMetadata).where(
+                *self._s3_user_predicates(s3_user_id)
+            )
+        ).all()
+        return {row.access_key_id: row for row in rows}
 
     def set_iam_metadata(
         self,
@@ -113,9 +151,7 @@ class AccessKeyMetadataService:
         payload: AccessKeyMetadataInput,
     ) -> ManagerAccessKeyMetadata | None:
         return self._set(
-            self._iam_query(account_id, principal_name).filter(
-                ManagerAccessKeyMetadata.access_key_id == access_key_id
-            ).first(),
+            self._iam_row(account_id, principal_name, access_key_id),
             payload,
             account_id=account_id,
             principal_name=principal_name,
@@ -129,9 +165,7 @@ class AccessKeyMetadataService:
         payload: AccessKeyMetadataInput,
     ) -> ManagerAccessKeyMetadata | None:
         return self._set(
-            self._s3_user_query(s3_user_id).filter(
-                ManagerAccessKeyMetadata.access_key_id == access_key_id
-            ).first(),
+            self._s3_user_row(s3_user_id, access_key_id),
             payload,
             s3_user_id=s3_user_id,
             access_key_id=access_key_id,
@@ -171,26 +205,39 @@ class AccessKeyMetadataService:
         return row
 
     def delete_iam_metadata(self, account_id: int, principal_name: str, access_key_id: str) -> None:
-        self._iam_query(account_id, principal_name).filter(
-            ManagerAccessKeyMetadata.access_key_id == access_key_id
-        ).delete(synchronize_session=False)
+        self.db.execute(
+            delete(ManagerAccessKeyMetadata).where(
+                *self._iam_predicates(account_id, principal_name),
+                ManagerAccessKeyMetadata.access_key_id == access_key_id,
+            )
+        )
         self.db.commit()
 
     def delete_iam_principal_metadata(self, account_id: int, principal_name: str) -> None:
-        self._iam_query(account_id, principal_name).delete(synchronize_session=False)
+        self.db.execute(
+            delete(ManagerAccessKeyMetadata).where(
+                *self._iam_predicates(account_id, principal_name),
+            )
+        )
         self.db.commit()
 
     def rename_iam_principal_metadata(self, account_id: int, principal_name: str, new_principal_name: str) -> None:
-        self._iam_query(account_id, principal_name).update(
-            {ManagerAccessKeyMetadata.principal_name: new_principal_name},
-            synchronize_session=False,
+        self.db.execute(
+            update(ManagerAccessKeyMetadata)
+            .where(
+                *self._iam_predicates(account_id, principal_name),
+            )
+            .values(principal_name=new_principal_name)
         )
         self.db.commit()
 
     def delete_s3_user_metadata(self, s3_user_id: int, access_key_id: str) -> None:
-        self._s3_user_query(s3_user_id).filter(
-            ManagerAccessKeyMetadata.access_key_id == access_key_id
-        ).delete(synchronize_session=False)
+        self.db.execute(
+            delete(ManagerAccessKeyMetadata).where(
+                *self._s3_user_predicates(s3_user_id),
+                ManagerAccessKeyMetadata.access_key_id == access_key_id,
+            )
+        )
         self.db.commit()
 
     def expiration_due(
@@ -202,13 +249,9 @@ class AccessKeyMetadataService:
         s3_user_id: int | None = None,
     ) -> bool:
         if account_id is not None and principal_name is not None:
-            row = self._iam_query(account_id, principal_name).filter(
-                ManagerAccessKeyMetadata.access_key_id == access_key_id
-            ).first()
+            row = self._iam_row(account_id, principal_name, access_key_id)
         elif s3_user_id is not None:
-            row = self._s3_user_query(s3_user_id).filter(
-                ManagerAccessKeyMetadata.access_key_id == access_key_id
-            ).first()
+            row = self._s3_user_row(s3_user_id, access_key_id)
         else:
             return False
         return bool(row and row.expires_at is not None and row.expires_at <= utcnow())
