@@ -929,6 +929,8 @@ Do not create a second calculation/finalization implementation in a cron path.
 
 ## Objective 10 — Establish the supported Billing Integration API v1
 
+Implementation status: **completed**.
+
 ### Goal
 
 Provide external invoicing/ERP/accounting tools with a stable machine-readable

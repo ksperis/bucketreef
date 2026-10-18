@@ -58,6 +58,7 @@ nav:
   - Operations:
       - Healthchecks: operations/healthchecks.md
       - Billing: operations/billing.md
+      - Billing Integration API: operations/billing-integration-api.md
       - Quota monitoring: operations/quota-monitoring.md
       - Webhooks: operations/webhooks.md
       - Observability: operations/observability.md
