@@ -8,6 +8,8 @@ from fastapi import HTTPException
 
 from app.db import (
     AuditLog,
+    BillingStatement,
+    WebhookDelivery,
     BillingEntityRateAssignment,
     BillingRateCard,
     BillingRatePlan,
@@ -18,8 +20,11 @@ from app.db import (
 )
 from app.main import app
 from app.models.billing import BillingEntityPayload
+from app.models.webhook import WebhookEndpointPayload
 from app.routers import dependencies
 from app.services.billing_entity_service import BillingEntityService
+from app.services.webhook_catalog import BILLING_STATEMENT_FINALIZED_EVENT_TYPE
+from app.services.webhook_service import WebhookEventPublisher, WebhookService
 from app.utils.time import utcnow
 
 
@@ -218,3 +223,110 @@ def test_statement_api_requires_superadmin(client):
             app.dependency_overrides[dependencies.get_current_super_admin] = previous
 
     assert response.status_code == 403
+
+
+def test_statement_finalization_queues_reference_webhook_once(
+    client,
+    db_session,
+    monkeypatch,
+):
+    entity = _seed_complete_statement_scope(db_session)
+    monkeypatch.setattr(
+        "app.services.webhook_service.validate_webhook_target_url",
+        lambda *_args, **_kwargs: None,
+    )
+    exact = WebhookService(db_session).create_endpoint(
+        WebhookEndpointPayload(
+            name="billing-finalized",
+            url="https://hooks.example.test/billing",
+            enabled=True,
+            event_types=[BILLING_STATEMENT_FINALIZED_EVENT_TYPE],
+        )
+    )
+    wildcard = WebhookService(db_session).create_endpoint(
+        WebhookEndpointPayload(
+            name="all-events",
+            url="https://hooks.example.test/all",
+            enabled=True,
+            event_types=["*"],
+        )
+    )
+    ignored = WebhookService(db_session).create_endpoint(
+        WebhookEndpointPayload(
+            name="unrelated",
+            url="https://hooks.example.test/unrelated",
+            enabled=True,
+            event_types=["system.endpoint_health.changed"],
+        )
+    )
+
+    generated = client.post(
+        "/api/admin/billing/statements/generate",
+        json={"month": "2026-01", "billing_entity_id": entity.id, "regenerate": False},
+    ).json()["statements"][0]
+    first = client.post(f"/api/admin/billing/statements/{generated['id']}/finalize")
+    assert first.status_code == 200, first.text
+
+    deliveries = (
+        db_session.query(WebhookDelivery)
+        .filter(WebhookDelivery.event_type == BILLING_STATEMENT_FINALIZED_EVENT_TYPE)
+        .order_by(WebhookDelivery.endpoint_id.asc())
+        .all()
+    )
+    assert {row.endpoint_id for row in deliveries} == {exact.id, wildcard.id}
+    assert ignored.id not in {row.endpoint_id for row in deliveries}
+    assert len({row.event_id for row in deliveries}) == 1
+
+    payload = json.loads(deliveries[0].payload_json)
+    assert payload["type"] == BILLING_STATEMENT_FINALIZED_EVENT_TYPE
+    assert payload["version"] == 1
+    finalized_at = payload["data"].pop("finalized_at")
+    assert finalized_at.replace("+00:00", "Z") == first.json()["finalized_at"]
+    assert payload["data"] == {
+        "billing_entity_external_id": "erp-api-entity",
+        "billing_entity_id": entity.id,
+        "currency": "EUR",
+        "period_end": "2026-01-31",
+        "period_start": "2026-01-01",
+        "statement_api_reference": (
+            f"/api/integrations/billing/v1/statements/{generated['public_id']}"
+        ),
+        "statement_id": generated["id"],
+        "statement_public_id": generated["public_id"],
+    }
+    assert "lines" not in payload["data"]
+    assert "total" not in payload["data"]
+
+    repeated = client.post(f"/api/admin/billing/statements/{generated['id']}/finalize")
+    assert repeated.status_code == 200
+    assert (
+        db_session.query(WebhookDelivery)
+        .filter(WebhookDelivery.event_type == BILLING_STATEMENT_FINALIZED_EVENT_TYPE)
+        .count()
+        == 2
+    )
+
+
+def test_statement_finalization_survives_webhook_queue_failure(
+    client,
+    db_session,
+    monkeypatch,
+):
+    entity = _seed_complete_statement_scope(db_session)
+    generated = client.post(
+        "/api/admin/billing/statements/generate",
+        json={"month": "2026-01", "billing_entity_id": entity.id, "regenerate": False},
+    ).json()["statements"][0]
+
+    def fail_queue(self, **_kwargs):
+        raise RuntimeError("webhook queue unavailable")
+
+    monkeypatch.setattr(WebhookEventPublisher, "publish_event_in_current_transaction", fail_queue)
+    response = client.post(f"/api/admin/billing/statements/{generated['id']}/finalize")
+
+    assert response.status_code == 200, response.text
+    db_session.expire_all()
+    persisted = db_session.get(BillingStatement, generated["id"])
+    assert persisted is not None
+    assert persisted.status == "finalized"
+    assert persisted.finalized_at is not None

@@ -6,6 +6,7 @@ import csv
 import hashlib
 import io
 import json
+import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
@@ -15,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import get_settings
 from app.db import (
     BillingEntity,
     BillingRateCard,
@@ -36,7 +38,12 @@ from app.models.billing import (
 from app.services.billing_analysis_service import BillingAnalysisService
 from app.services.billing_calculation import monetary_total
 from app.services.billing_service import _parse_month
+from app.services.webhook_catalog import BILLING_STATEMENT_FINALIZED_EVENT_TYPE
+from app.services.webhook_service import WebhookEventPublisher
 from app.utils.time import utcnow
+
+
+logger = logging.getLogger(__name__)
 
 
 class BillingStatementNotFoundError(ValueError):
@@ -354,6 +361,31 @@ class BillingStatementService:
         row.finalized_by_user_id = actor.id if getattr(actor, "id", None) else None
         row.finalized_by_user_email = actor.email
         row.updated_at = now
+        api_prefix = str(get_settings().api_v1_prefix or "/api").rstrip("/")
+        try:
+            WebhookEventPublisher(self.db).publish_event_in_current_transaction(
+                event_type=BILLING_STATEMENT_FINALIZED_EVENT_TYPE,
+                data={
+                    "statement_id": int(row.id),
+                    "statement_public_id": row.public_id,
+                    "billing_entity_id": int(row.billing_entity_id),
+                    "billing_entity_external_id": row.billing_entity_external_id,
+                    "period_start": row.period_start.isoformat(),
+                    "period_end": row.period_end.isoformat(),
+                    "currency": row.currency,
+                    "finalized_at": now.isoformat(),
+                    "statement_api_reference": (
+                        f"{api_prefix}/integrations/billing/v1/statements/{row.public_id}"
+                    ),
+                },
+                occurred_at=now,
+            )
+        except Exception as exc:  # noqa: BLE001 - notification failure must not invalidate finalization
+            logger.warning(
+                "Failed to queue Billing statement finalized webhook statement=%s: %s",
+                row.id,
+                exc,
+            )
         self.db.commit()
         return self.get(statement_id)
 
