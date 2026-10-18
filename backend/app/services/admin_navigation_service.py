@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -19,24 +19,25 @@ from app.utils.time import utcnow
 class AdminNavigationService:
     @staticmethod
     def pending_request_counts(db: Session, actor: User) -> AdminPendingRequestCounts:
-        identity_query = (
-            db.query(func.count(ExternalIdentityLinkRequest.id))
+        identity_statement = (
+            select(func.count(ExternalIdentityLinkRequest.id))
             .join(User, User.id == ExternalIdentityLinkRequest.user_id)
-            .filter(
+            .where(
                 ExternalIdentityLinkRequest.status == "pending",
                 ExternalIdentityLinkRequest.expires_at > utcnow(),
             )
         )
         if not is_superadmin_ui_role(actor.role):
-            identity_query = identity_query.filter(User.role.in_(STANDARD_UI_ROLES))
+            identity_statement = identity_statement.where(
+                User.role.in_(STANDARD_UI_ROLES)
+            )
 
-        portal_count = (
-            db.query(func.count(PortalAdminRequest.id))
-            .filter(PortalAdminRequest.status == "pending")
-            .scalar()
-            or 0
+        portal_count = db.scalar(
+            select(func.count(PortalAdminRequest.id)).where(
+                PortalAdminRequest.status == "pending"
+            )
         )
         return AdminPendingRequestCounts(
-            identity_link_requests=int(identity_query.scalar() or 0),
-            portal_requests=int(portal_count),
+            identity_link_requests=int(db.scalar(identity_statement) or 0),
+            portal_requests=int(portal_count or 0),
         )
