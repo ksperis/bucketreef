@@ -50,6 +50,22 @@ describe("buildAdminNav", () => {
     expect(portalLink?.disabledHint).toBe("Portal feature is disabled in General settings.");
   });
 
+  it("disables Billing settings when Billing is globally disabled", () => {
+    const billingLink = getSettingsLink("Billing", [true, true, false, false, false, true]);
+
+    expect(billingLink?.disabled).toBe(true);
+    expect(billingLink?.disabledHint).toBe(
+      "Billing is disabled. Enable it in General settings to use this page.",
+    );
+  });
+
+  it("keeps Billing settings enabled when Billing is globally enabled", () => {
+    const billingLink = getSettingsLink("Billing", [true, true, true, false, false, true]);
+
+    expect(billingLink?.disabled).toBe(false);
+    expect(billingLink?.disabledHint).toBeUndefined();
+  });
+
   it("does not expose API Tokens in settings navigation", () => {
     const apiTokensLink = getSettingsLink("API tokens", [true, true, true, false, true, true]);
 

@@ -67,7 +67,13 @@ export const buildAdminNav = (
       disabled: !portalEnabled,
       disabledHint: !portalEnabled ? text("Portal feature is disabled in General settings.") : undefined,
     },
-    pageLink(ADMIN_PAGE_CONTRACTS["billing-settings"], text),
+    {
+      ...pageLink(ADMIN_PAGE_CONTRACTS["billing-settings"], text),
+      disabled: !billingEnabled,
+      disabledHint: !billingEnabled
+        ? text("Billing is disabled. Enable it in General settings to use this page.")
+        : undefined,
+    },
     pageLink(ADMIN_PAGE_CONTRACTS["webhook-settings"], text),
     {
       ...pageLink(ADMIN_PAGE_CONTRACTS["production-readiness"], text),
