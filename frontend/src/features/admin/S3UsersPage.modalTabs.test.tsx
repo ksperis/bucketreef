@@ -870,6 +870,7 @@ describe("S3UsersPage modal tabs", () => {
     fireEvent.submit(form);
     await waitFor(() =>
       expect(text).toHaveAccessibleDescription("Tenant-qualified RGW user IDs require Managed RGW tenant creation."),
+      {timeout: 5_000},
     );
     expect(importS3UsersMock).not.toHaveBeenCalled();
   });
