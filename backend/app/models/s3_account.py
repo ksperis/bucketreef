@@ -91,6 +91,7 @@ class S3AccountCreate(ApiModel):
 
 class S3AccountImport(ApiModel):
     rgw_account_id: str
+    rgw_tenant: Optional[str] = None
     root_uid: Optional[str] = None
     name: Optional[str] = None
     email: Optional[str] = None
@@ -103,6 +104,13 @@ class S3AccountImport(ApiModel):
         if not normalized or not is_rgw_account_id(normalized):
             raise ValueError("rgw_account_id must match RGW followed by 17 digits")
         return normalized
+
+    @field_validator("rgw_tenant")
+    @classmethod
+    def validate_import_tenant(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return validate_rgw_tenant(value.strip())
 
 
 class S3AccountUpdate(ApiModel):

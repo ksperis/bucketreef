@@ -683,6 +683,30 @@ class FakeRGWAdminImport:
         return data.get("keys", [])
 
 
+class FakeRGWAdminImportTenanted(FakeRGWAdminImport):
+    def __init__(self, account_id: str, tenant: str = "research"):
+        super().__init__()
+        self.account_id = account_id
+        self.tenant = tenant
+
+    def get_account(self, account_id, **kwargs):
+        return {"account": {"id": account_id, "name": "Tenanted account", "tenant": self.tenant}}
+
+    def list_user_ids(self):
+        return [f"{self.tenant}$custom-root", "unrelated$root"]
+
+    def get_user(self, uid, tenant=None, allow_not_found=False):
+        self.calls.append(("get_user", tenant))
+        if uid != "custom-root" or tenant != self.tenant:
+            return None
+        return {
+            "uid": f"{self.tenant}$custom-root",
+            "account_id": self.account_id,
+            "type": "root",
+            "keys": [{"access_key": "EXISTING", "secret_key": "SECRET"}],
+        }
+
+
 def test_import_account_reuses_existing_root_user_keys(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImport()
@@ -707,29 +731,56 @@ def test_import_account_reuses_existing_root_user_keys(db_session, monkeypatch):
 def test_import_account_discovers_custom_tenant_root(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     account_id = "RGW12345678901234567"
-
-    class TenantedRootAdmin(FakeRGWAdminImport):
-        def get_account(self, account_id, **kwargs):
-            return {"account": {"id": account_id, "name": "Tenanted account", "tenant": "research"}}
-
-        def list_user_ids(self):
-            return ["research$custom-root", "unrelated$root"]
-
-        def get_user(self, uid, tenant=None, allow_not_found=False):
-            self.calls.append(("get_user", tenant))
-            assert uid == "custom-root"
-            assert tenant == "research"
-            return {"uid": "research$custom-root", "account_id": account_id,
-                    "type": "root", "keys": [{"access_key": "EXISTING", "secret_key": "SECRET"}]}
-
-    admin = TenantedRootAdmin()
+    admin = FakeRGWAdminImportTenanted(account_id)
     service = _build_service(db_session, monkeypatch, admin)
-    created = service.import_accounts([S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)])
+    settings = load_app_settings_for_db_readonly(db_session)
+    settings.general.allow_managed_rgw_tenant_creation = True
+    monkeypatch.setattr(
+        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        lambda _db: settings,
+    )
+    created = service.import_accounts(
+        [S3AccountImport(rgw_account_id=account_id, rgw_tenant="research", storage_endpoint_id=endpoint.id)]
+    )
 
     assert created[0].rgw_tenant == "research"
     row = db_session.query(S3Account).filter_by(rgw_account_id=account_id).one()
     assert (row.rgw_user_uid, row.rgw_tenant, row.rgw_access_key) == ("custom-root", "research", "EXISTING")
     assert admin.calls == [("get_user", "research")] * 4
+
+
+def test_import_tenanted_account_rejects_when_managed_tenant_creation_disabled(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    account_id = "RGW12345678901234567"
+    admin = FakeRGWAdminImportTenanted(account_id)
+    service = _build_service(db_session, monkeypatch, admin)
+
+    with pytest.raises(ValueError, match="Managed RGW tenant creation is disabled"):
+        service.import_accounts(
+            [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
+        )
+
+    assert db_session.query(S3Account).count() == 0
+
+
+def test_import_tenanted_account_rejects_mismatched_tenant_assertion(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    account_id = "RGW12345678901234567"
+    admin = FakeRGWAdminImportTenanted(account_id)
+    service = _build_service(db_session, monkeypatch, admin)
+    settings = load_app_settings_for_db_readonly(db_session)
+    settings.general.allow_managed_rgw_tenant_creation = True
+    monkeypatch.setattr(
+        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        lambda _db: settings,
+    )
+
+    with pytest.raises(ValueError, match="does not match the account tenant"):
+        service.import_accounts(
+            [S3AccountImport(rgw_account_id=account_id, rgw_tenant="other", storage_endpoint_id=endpoint.id)]
+        )
+
+    assert db_session.query(S3Account).count() == 0
 
 
 def test_import_account_rejects_other_tenant_root_response(db_session, monkeypatch):
@@ -742,6 +793,12 @@ def test_import_account_rejects_other_tenant_root_response(db_session, monkeypat
 
     admin = WrongTenantRoot()
     service = _build_service(db_session, monkeypatch, admin)
+    settings = load_app_settings_for_db_readonly(db_session)
+    settings.general.allow_managed_rgw_tenant_creation = True
+    monkeypatch.setattr(
+        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        lambda _db: settings,
+    )
     with pytest.raises(ValueError, match="another tenant"):
         service.import_accounts([S3AccountImport(
             rgw_account_id="RGW12345678901234567", root_uid="research$custom-root",

@@ -444,6 +444,7 @@ class S3AccountsService:
         )
 
     def _prepare_account_imports(self, imports: list[S3AccountImport]) -> list[_PreparedAccountImport]:
+        app_settings = load_app_settings_for_db_readonly(self.db)
         requested_ids = {item.rgw_account_id for item in imports}
         existing_ids = {
             str(row[0])
@@ -472,6 +473,10 @@ class S3AccountsService:
                 item.rgw_account_id,
                 item.root_uid,
             )
+            if item.rgw_tenant is not None and item.rgw_tenant != rgw_tenant:
+                raise ValueError("Requested RGW tenant does not match the account tenant returned by RGW")
+            if rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
+                raise ValueError("Managed RGW tenant creation is disabled")
             prepared.append(
                 _PreparedAccountImport(
                     source=item,

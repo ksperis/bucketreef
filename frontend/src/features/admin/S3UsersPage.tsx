@@ -604,7 +604,7 @@ export default function S3UsersPage() {
   };
 
   const createValidation = useAdminRgwFormValidation(createForm, rgwCreateErrors(createForm, "user"));
-  const importEntries = rgwImportEntries(importText, "user");
+  const importEntries = rgwImportEntries(importText, "user", managedTenantCreationEnabled);
   const importValidation = useAdminRgwFormValidation({importText, storage_endpoint_id: importEndpointId}, {
     ...(importEntries.error ? {importText: importEntries.error} : {}),
     ...(!importEndpointId ? {storage_endpoint_id: adminText("Select a Ceph endpoint.")} : {}),
@@ -979,7 +979,9 @@ export default function S3UsersPage() {
             submitDisabled={importPermissionLoading || !importEndpointCanWrite}
             onCancel={importCloseGuard.requestClose} submitLabel={adminText("Import")} busyLabel={adminText("Importing...")}>
             <div className="settings-fields settings-form">
-              <p className="settings-body text-[var(--ui-text-muted)]">{adminText("Enter RGW user IDs, one per line. Use tenant$uid for an explicit tenant, or uid for the default tenant. The platform creates a dedicated access key.")}</p>
+              <p className="settings-body text-[var(--ui-text-muted)]">{adminText(managedTenantCreationEnabled
+                ? "Enter RGW user IDs, one per line. Use tenant$uid for an explicit tenant, or uid for the default tenant. The platform creates a dedicated access key."
+                : "Enter RGW user IDs, one per line, for the default tenant. Enable Managed RGW tenant creation to import tenant-qualified users. The platform creates a dedicated access key.")}</p>
               <UiTextarea label={adminText("RGW user IDs")} name="importText" rows={6} required value={importText}
                 error={importValidation.errors.importText} placeholder="user-alpha"
                 onChange={event => setImportText(event.target.value)} />

@@ -531,6 +531,8 @@
   "Endpoints unavailable": "端点不可用",
   "Enter RGW account IDs, one per line. Optionally add an existing root UID after a space (e.g. customer01$customer01-root). The Ceph tenant is read from RGW.": "请输入 RGW 账户 ID，每行一个。可在空格后添加现有 root UID（例如 customer01$customer01-root）。Ceph Tenant从 RGW 读取。",
   "Enter RGW user IDs, one per line. Use tenant$uid for an explicit tenant, or uid for the default tenant. The platform creates a dedicated access key.": "请输入 RGW 用户 ID，每行一个。显式Tenant使用 tenant$uid，默认Tenant使用 uid。平台会创建专用访问密钥。",
+  "Enter RGW user IDs, one per line, for the default tenant. Enable Managed RGW tenant creation to import tenant-qualified users. The platform creates a dedicated access key.": "请输入默认 Tenant 的 RGW 用户 ID，每行一个。启用托管 RGW Tenant 创建后，才能导入带 Tenant 的用户。平台会创建专用访问密钥。",
+  "Tenant-qualified RGW user IDs require Managed RGW tenant creation.": "带 Tenant 的 RGW 用户 ID 需要启用托管 RGW Tenant 创建。",
   "Enter a valid HTTP or HTTPS URL.": "请输入有效的 HTTP 或 HTTPS URL。",
   "Enter a valid email address.": "请输入有效的邮箱地址。",
   "Enter both the Admin Ops access key and secret key.": "请输入 Admin Ops 访问密钥和秘密密钥。",

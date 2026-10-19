@@ -820,6 +820,7 @@ describe("S3UsersPage modal tabs", () => {
   });
 
   it("validates import identifiers inline and freezes the same payload through a retry", async () => {
+    managedTenantCreationEnabled = true;
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
     fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));
     const form = await screen.findByRole("form", {name: "Import RGW users"});
@@ -853,6 +854,19 @@ describe("S3UsersPage modal tabs", () => {
     fireEvent.click(fields.getByRole("button", {name: "Cancel"}));
     expect(screen.queryByText("Discard changes?")).not.toBeInTheDocument();
     expect(screen.queryByRole("form", {name: "Import RGW users"})).not.toBeInTheDocument();
+  });
+
+  it("blocks tenant-qualified imports while managed RGW tenant creation is disabled", async () => {
+    render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));
+    const form = await screen.findByRole("form", {name: "Import RGW users"});
+    const fields = within(form);
+    const text = fields.getByLabelText("RGW user IDs");
+    expect(fields.getByText(/for the default tenant/)).toBeInTheDocument();
+    fireEvent.change(text, {target: {value: "tenant$user-alpha"}});
+    fireEvent.submit(form);
+    expect(text).toHaveAccessibleDescription("Tenant-qualified RGW user IDs require Managed RGW tenant creation.");
+    expect(importS3UsersMock).not.toHaveBeenCalled();
   });
 
   it("keeps endpoint capability failures visible and prevents creating or importing", async () => {

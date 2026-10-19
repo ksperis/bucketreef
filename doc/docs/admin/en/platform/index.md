@@ -33,8 +33,8 @@ imported accounts and standalone RGW users in the default tenant or an explicit
 tenant. Managed Account and RGW User creation uses the default tenant unless a
 super-admin enables **Managed RGW tenant creation** in General settings
 (`general.allow_managed_rgw_tenant_creation`). The option is disabled by
-default and affects managed creation only; imports remain tenant-aware and Ceph
-Admin can always create an Account or User in an explicit tenant.
+default and gates both managed creation and tenant-aware imports. Ceph Admin can
+always create an Account or User in an explicit tenant.
 
 To import an account, enter one Account ID per line. The importer preserves the
 tenant returned by RGW and discovers its existing account root, including custom
@@ -43,9 +43,11 @@ root UIDs. You may append an existing root UID after a space, for example
 the user inventory when the root is already known. The selected root must belong
 to the imported account and tenant.
 
-For standalone users, import either `uid` for the default tenant or `tenant$uid`.
-When **Managed RGW tenant creation** is enabled, the Account and RGW User create
-forms also accept an optional tenant. Namespaces remain scoped by endpoint,
+For standalone users, import either `uid` for the default tenant or, when
+**Managed RGW tenant creation** is enabled, `tenant$uid`. Account imports read
+the tenant from RGW and may optionally assert the expected tenant through the API.
+When the setting is enabled, the Account and RGW User create forms also accept
+an optional tenant. Namespaces remain scoped by endpoint,
 tenant and UID, so the same UID can be imported from different tenants. The
 stored tenant is read-only after import or creation. Portal continues to require
 an RGW Account and personal IAM identities; standalone RGW users are

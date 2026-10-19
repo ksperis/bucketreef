@@ -198,6 +198,12 @@ def test_import_same_uid_across_isolated_tenants(db_session, monkeypatch):
     for tenant in ("", "team_a", "team_b"):
         fake.add_principal("analyst", tenant)
     service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db_readonly(db_session)
+    settings.general.allow_managed_rgw_tenant_creation = True
+    monkeypatch.setattr(
+        "app.services.s3_users_service.load_app_settings_for_db_readonly",
+        lambda _db: settings,
+    )
 
     items = [S3UserImport(uid=f"{tenant + '$' if tenant else ''}analyst",
                           storage_endpoint_id=endpoint.id) for tenant in ("", "team_a", "team_b")]
@@ -208,6 +214,25 @@ def test_import_same_uid_across_isolated_tenants(db_session, monkeypatch):
     assert db_session.query(S3User).filter_by(rgw_user_uid="analyst").count() == 3
     assert fake.key_creations == [("", "analyst"), ("team_a", "analyst"), ("team_b", "analyst")]
     assert service.import_users(items) == []
+
+
+def test_import_tenanted_user_rejects_when_managed_tenant_creation_disabled(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeTenantedRGWAdmin()
+    fake.add_principal("default-user", "")
+    fake.add_principal("analyst", "team_a")
+    service = _build_service(db_session, monkeypatch, fake)
+
+    with pytest.raises(ValueError, match="Managed RGW tenant creation is disabled"):
+        service.import_users(
+            [
+                S3UserImport(uid="default-user", storage_endpoint_id=endpoint.id),
+                S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id),
+            ]
+        )
+
+    assert fake.key_creations == []
+    assert db_session.query(S3User).count() == 0
 
 
 def test_create_managed_user_rejects_explicit_tenant_when_disabled(db_session, monkeypatch):
@@ -284,6 +309,12 @@ def test_import_allows_same_uid_in_another_tenant(db_session, monkeypatch):
     db_session.add(row)
     db_session.commit()
     service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db_readonly(db_session)
+    settings.general.allow_managed_rgw_tenant_creation = True
+    monkeypatch.setattr(
+        "app.services.s3_users_service.load_app_settings_for_db_readonly",
+        lambda _db: settings,
+    )
     imported = service.import_users([S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id)])
     assert len(imported) == 1
     assert imported[0].rgw_tenant == "team_a"
