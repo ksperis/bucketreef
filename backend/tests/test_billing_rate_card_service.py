@@ -3,7 +3,12 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.db import BillingAssignment, StorageEndpoint
+from app.db import (
+    BillingAssignment,
+    BillingEntity,
+    BillingEntityRateAssignment,
+    StorageEndpoint,
+)
 from app.models.billing import BillingRateCardPayload, BillingRateCardVersionCreate
 from app.services.billing_rate_card_service import (
     BillingRateCardConflictError,
@@ -222,6 +227,43 @@ def test_assigned_only_future_version_cannot_be_deleted(db_session):
     # BillingAssignment normally targets one subject; this service-level test
     # only needs a persisted plan reference to exercise the delete safeguard.
     db_session.flush()
+
+    with pytest.raises(BillingRateCardConflictError, match="assigned"):
+        service.delete(item.id)
+
+
+def test_entity_assigned_future_plan_keeps_identity_stable_and_protects_only_version(db_session):
+    start = _next_month(utcnow().date())
+    service = BillingRateCardService(db_session)
+    item = service.create(_payload("entity-assigned-plan", start))
+    entity = BillingEntity(name="Assigned entity", subject_type="account")
+    db_session.add(entity)
+    db_session.flush()
+    db_session.add(
+        BillingEntityRateAssignment(
+            billing_entity_id=entity.id,
+            rate_plan_id=item.rate_plan_id,
+            effective_from=start,
+        )
+    )
+    db_session.commit()
+
+    protected = service.get(item.id)
+    assert protected.identity_editable is False
+    assert protected.deletable is False
+
+    with pytest.raises(BillingRateCardImmutableError, match="identity"):
+        service.update(item.id, _payload("renamed-plan", start))
+
+    updated = service.update(
+        item.id,
+        _payload(
+            "entity-assigned-plan",
+            start,
+            storage_charge_basis="allocated_quota",
+        ),
+    )
+    assert updated.storage_charge_basis == "allocated_quota"
 
     with pytest.raises(BillingRateCardConflictError, match="assigned"):
         service.delete(item.id)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -170,3 +170,57 @@ def test_group_update_preserves_unchanged_membership_row_identity(db_session):
 
     assert updated.name == "Research renamed"
     assert updated.memberships[0].id == membership_id
+
+
+def test_group_update_preserves_past_membership_history_but_allows_future_end(
+    db_session,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.services.billing_entity_group_service.utcnow",
+        lambda: datetime(2026, 10, 19, tzinfo=timezone.utc),
+    )
+    historical_entity = _entity(db_session, "Historical unit")
+    current_entity = _entity(db_session, "Current unit")
+    service = BillingEntityGroupService(db_session)
+    historical = _membership(
+        historical_entity.id,
+        date(2026, 1, 1),
+        date(2026, 3, 31),
+    )
+    current = _membership(current_entity.id, date(2026, 4, 1))
+    group = service.create(_payload("Stable history", [historical, current]))
+
+    updated = service.update(
+        group.id,
+        _payload(
+            "Stable history",
+            [
+                historical,
+                _membership(current_entity.id, date(2026, 4, 1), date(2026, 12, 31)),
+            ],
+        ),
+    )
+    assert updated.memberships[1].effective_to == date(2026, 12, 31)
+
+    with pytest.raises(BillingEntityGroupConflictError, match="history cannot be removed"):
+        service.update(
+            group.id,
+            _payload(
+                "Stable history",
+                [_membership(current_entity.id, date(2026, 4, 1), date(2026, 12, 31))],
+            ),
+        )
+
+    with pytest.raises(BillingEntityGroupConflictError, match="cannot be added retroactively"):
+        service.update(
+            group.id,
+            _payload(
+                "Stable history",
+                [
+                    historical,
+                    _membership(current_entity.id, date(2026, 4, 1), date(2026, 12, 31)),
+                    _membership(historical_entity.id, date(2026, 5, 1), date(2026, 5, 31)),
+                ],
+            ),
+        )

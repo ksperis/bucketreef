@@ -77,7 +77,7 @@ class BillingEntityGroupService:
 
     def update(self, group_id: int, payload: BillingEntityGroupPayload) -> BillingEntityGroupAdminItem:
         row = self._group_row(group_id)
-        self._validate_payload(payload)
+        self._validate_payload(payload, existing_group=row)
         now = utcnow()
         row.name = payload.name
         row.code = payload.code
@@ -176,7 +176,12 @@ class BillingEntityGroupService:
             raise BillingEntityGroupNotFoundError("Billing Group not found")
         return row
 
-    def _validate_payload(self, payload: BillingEntityGroupPayload) -> None:
+    def _validate_payload(
+        self,
+        payload: BillingEntityGroupPayload,
+        *,
+        existing_group: BillingEntityGroup | None = None,
+    ) -> None:
         entity_ids = sorted({membership.billing_entity_id for membership in payload.memberships})
         if entity_ids:
             existing_ids = set(
@@ -198,6 +203,47 @@ class BillingEntityGroupService:
                     raise BillingEntityGroupConflictError(
                         "Billing Group membership periods for the same entity must not overlap"
                     )
+        if existing_group is not None:
+            self._validate_historical_membership_changes(existing_group, payload.memberships)
+
+    @staticmethod
+    def _validate_historical_membership_changes(
+        row: BillingEntityGroup,
+        requested: list[BillingEntityGroupMembershipInput],
+    ) -> None:
+        current_month = utcnow().date().replace(day=1)
+        existing_by_anchor = {
+            (membership.billing_entity_id, membership.effective_from): membership
+            for membership in row.memberships
+        }
+        requested_by_anchor = {
+            (membership.billing_entity_id, membership.effective_from): membership
+            for membership in requested
+        }
+
+        for anchor, membership in existing_by_anchor.items():
+            if membership.effective_from >= current_month:
+                continue
+            incoming = requested_by_anchor.get(anchor)
+            if incoming is None:
+                raise BillingEntityGroupConflictError(
+                    "Billing Group membership history cannot be removed or moved"
+                )
+            if membership.effective_to is not None and membership.effective_to < current_month:
+                if incoming.effective_to != membership.effective_to:
+                    raise BillingEntityGroupConflictError(
+                        "Historical Billing Group membership periods cannot be changed"
+                    )
+            elif incoming.effective_to is not None and incoming.effective_to < current_month:
+                raise BillingEntityGroupConflictError(
+                    "Billing Group membership cannot be ended retroactively"
+                )
+
+        for anchor, membership in requested_by_anchor.items():
+            if membership.effective_from < current_month and anchor not in existing_by_anchor:
+                raise BillingEntityGroupConflictError(
+                    "New Billing Group membership periods cannot be added retroactively"
+                )
 
     def _replace_memberships(
         self,
@@ -206,22 +252,26 @@ class BillingEntityGroupService:
         *,
         now,
     ) -> None:
-        existing_by_key = {
-            (membership.billing_entity_id, membership.effective_from, membership.effective_to): membership
+        existing_by_anchor = {
+            (membership.billing_entity_id, membership.effective_from): membership
             for membership in row.memberships
         }
-        requested_keys = {
-            (membership.billing_entity_id, membership.effective_from, membership.effective_to)
+        requested_anchors = {
+            (membership.billing_entity_id, membership.effective_from)
             for membership in requested
         }
         for membership in list(row.memberships):
-            key = (membership.billing_entity_id, membership.effective_from, membership.effective_to)
-            if key not in requested_keys:
+            anchor = (membership.billing_entity_id, membership.effective_from)
+            if anchor not in requested_anchors:
                 row.memberships.remove(membership)
 
         for membership in requested:
-            key = (membership.billing_entity_id, membership.effective_from, membership.effective_to)
-            if key in existing_by_key:
+            anchor = (membership.billing_entity_id, membership.effective_from)
+            existing = existing_by_anchor.get(anchor)
+            if existing is not None:
+                if existing.effective_to != membership.effective_to:
+                    existing.effective_to = membership.effective_to
+                    existing.updated_at = now
                 continue
             row.memberships.append(
                 BillingEntityGroupMembership(

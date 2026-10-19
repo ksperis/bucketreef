@@ -432,6 +432,29 @@ describe("BillingSettingsPage", () => {
     );
   });
 
+  it("keeps past Billing Group membership identity locked while allowing a future end", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/billing-settings"]}>
+        <BillingSettingsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/Ceph production/);
+    fireEvent.click(screen.getByRole("tab", { name: "Billing Groups" }));
+    await screen.findByText("Research portfolio");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const editor = screen.getByRole("dialog", { name: "Edit Billing Group" });
+    expect(within(editor).getByLabelText("Billing Entity")).toBeDisabled();
+    expect(within(editor).getByLabelText("Effective from")).toBeDisabled();
+    expect(within(editor).getByLabelText("Effective to")).toBeEnabled();
+    expect(within(editor).getByRole("button", { name: "Remove" })).toBeDisabled();
+    expect(
+      within(editor).getByText(
+        "Past group membership is locked; only its current or future end can be changed.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("validates group period overlap, guards dirty edits, and confirms deactivation", async () => {
     render(
       <MemoryRouter initialEntries={["/admin/billing-settings"]}>

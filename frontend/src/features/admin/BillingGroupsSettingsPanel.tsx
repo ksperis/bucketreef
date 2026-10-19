@@ -59,6 +59,11 @@ function currentMonthStart(): string {
   return localIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
 }
 
+function currentMonthEnd(): string {
+  const now = new Date();
+  return localIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+}
+
 function emptyDraft(): GroupDraft {
   return {
     name: "",
@@ -514,6 +519,22 @@ export default function BillingGroupsSettingsPanel() {
                     {draft.memberships.map((membership, index) => {
                       const status = membershipStatus(membership);
                       const entity = entityById.get(membership.billing_entity_id);
+                      const persistedMembership = editor.mode === "edit"
+                        ? editor.group?.memberships.find(
+                            (item) =>
+                              item.billing_entity_id === membership.billing_entity_id
+                              && item.effective_from === membership.effective_from,
+                          )
+                        : undefined;
+                      const pastAnchorLocked = Boolean(
+                        persistedMembership
+                        && persistedMembership.effective_from < currentMonthStart(),
+                      );
+                      const historicalLocked = Boolean(
+                        pastAnchorLocked
+                        && persistedMembership?.effective_to
+                        && persistedMembership.effective_to < currentMonthStart(),
+                      );
                       return (
                         <div
                           key={`${membership.billing_entity_id}-${membership.effective_from}-${index}`}
@@ -522,6 +543,7 @@ export default function BillingGroupsSettingsPanel() {
                           <SettingsSelect
                             label={text("Billing Entity")}
                             value={String(membership.billing_entity_id)}
+                            disabled={pastAnchorLocked}
                             onChange={(event) =>
                               updateMembership(index, { billing_entity_id: Number(event.target.value) })
                             }
@@ -536,21 +558,39 @@ export default function BillingGroupsSettingsPanel() {
                             label={text("Effective from")}
                             type="date"
                             value={membership.effective_from}
+                            disabled={pastAnchorLocked}
                             onChange={(event) => updateMembership(index, { effective_from: event.target.value })}
                           />
                           <SettingsInput
                             label={text("Effective to")}
                             type="date"
                             value={membership.effective_to ?? ""}
+                            disabled={historicalLocked}
+                            min={pastAnchorLocked && !historicalLocked ? currentMonthEnd() : undefined}
                             onChange={(event) => updateMembership(index, { effective_to: event.target.value || null })}
                             hint={text("Optional. Use the last day of a month.")}
                           />
                           <ListBadge tone={status === "future" ? "warning" : status === "current" ? "success" : "neutral"}>
                             {text(status === "future" ? "Scheduled" : status === "current" ? "Current" : "Historical")}
                           </ListBadge>
-                          <SettingsButton type="button" variant="ghost" size="xs" onClick={() => removeMembership(index)}>
+                          <SettingsButton
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            disabled={pastAnchorLocked}
+                            onClick={() => removeMembership(index)}
+                          >
                             {text("Remove")}
                           </SettingsButton>
+                          {pastAnchorLocked && (
+                            <p className="lg:col-span-5 settings-description">
+                              {text(
+                                historicalLocked
+                                  ? "Historical group membership is read-only."
+                                  : "Past group membership is locked; only its current or future end can be changed.",
+                              )}
+                            </p>
+                          )}
                           {entity && !entity.active && (
                             <p className="lg:col-span-5 settings-description">
                               {text("This Billing Entity is inactive; its membership is retained for historical analysis.")}

@@ -247,7 +247,11 @@ class BillingStatementService:
         regenerate: bool = False,
     ) -> BillingStatementGenerationResult:
         period = _parse_month(month)
-        existing = self._rows_for_entity_period(billing_entity_id, period.start)
+        existing = self._rows_for_entity_period(
+            billing_entity_id,
+            period.start,
+            for_update=regenerate,
+        )
         if existing and not regenerate:
             return BillingStatementGenerationResult(
                 month=period.month,
@@ -639,17 +643,26 @@ class BillingStatementService:
             raise BillingStatementNotFoundError("Billing Statement not found")
         return row
 
-    def _rows_for_entity_period(self, billing_entity_id: int, period_start) -> list[BillingStatement]:
+    def _rows_for_entity_period(
+        self,
+        billing_entity_id: int,
+        period_start,
+        *,
+        for_update: bool = False,
+    ) -> list[BillingStatement]:
+        statement = (
+            select(BillingStatement)
+            .where(
+                BillingStatement.billing_entity_id == billing_entity_id,
+                BillingStatement.period_start == period_start,
+            )
+            .options(selectinload(BillingStatement.lines))
+            .order_by(BillingStatement.currency.asc(), BillingStatement.id.asc())
+        )
+        if for_update:
+            statement = statement.with_for_update()
         return list(
-            self.db.scalars(
-                select(BillingStatement)
-                .where(
-                    BillingStatement.billing_entity_id == billing_entity_id,
-                    BillingStatement.period_start == period_start,
-                )
-                .options(selectinload(BillingStatement.lines))
-                .order_by(BillingStatement.currency.asc(), BillingStatement.id.asc())
-            ).unique().all()
+            self.db.scalars(statement).unique().all()
         )
 
     @staticmethod

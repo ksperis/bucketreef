@@ -33,7 +33,7 @@ surface these states so an unresolved price cannot be mistaken for a zero cost.
 
 Without a matching rate card, Admin and Portal still show storage, traffic, request, and coverage data, but estimated costs are unavailable.
 
-Superadmins manage global and endpoint-specific rate cards in `/admin/billing-settings`. Tariff versions use month boundaries and overlapping periods for the same name and scope are rejected. Future versions are editable; active and expired prices are immutable. Creating a new version from an active rate card closes the current version at the end of the preceding month and creates the replacement atomically.
+Superadmins manage global and endpoint-specific rate cards in `/admin/billing-settings`. Tariff versions use month boundaries and overlapping periods for the same name and scope are rejected. Future versions are editable; active and expired prices are immutable. Once a Rate Plan is assigned directly or to a Billing Entity, its name and scope stay fixed, and its only tariff version cannot be deleted. Future prices can still be edited until they become effective. Creating a new version from an active rate card closes the current version at the end of the preceding month and creates the replacement atomically.
 
 Each tariff version stores a storage charge basis: `actual_usage` or `allocated_quota`. Existing pricing is migrated to `actual_usage`. The basis belongs to the effective tariff version, so a future switch between measured consumption and reserved-capacity pricing is scheduled through a new version rather than rewriting an active or historical tariff. In quota mode, ingress, egress, and request quantities remain usage-based.
 

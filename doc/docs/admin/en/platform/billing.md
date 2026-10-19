@@ -51,7 +51,7 @@ The Billing page shows the winning source, Rate Plan, and effective version for 
 
 Use the **Billing Groups** tab to organize Billing Entities into analytical scopes such as Research, DSI, a region, or a programme. Groups are reporting classifications only: they do not change which Accounts or S3 Users belong to an entity, which Rate Plan applies, or how monthly costs are calculated.
 
-Membership is explicit and month-effective. For each Billing Entity in a group, choose a start month and optionally an end month. The editor shows current, scheduled, and historical memberships and rejects overlapping periods for the same entity/group pair. One Billing Entity may belong to several groups at the same time; this is expected for analytical classifications and is not a billing conflict.
+Membership is explicit and month-effective. For each Billing Entity in a group, choose a start month and optionally an end month. The editor shows current, scheduled, and historical memberships and rejects overlapping periods for the same entity/group pair. Months that are already historical are immutable so annual and custom-range reporting cannot be rewritten later; an ongoing membership may still be scheduled to end in the current or a future month. One Billing Entity may belong to several groups at the same time; this is expected for analytical classifications and is not a billing conflict.
 
 Deactivating a group hides it from active administration without deleting its membership history. Historical periods remain available so later reporting can keep the organizational classification that applied for the requested month.
 
