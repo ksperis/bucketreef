@@ -258,7 +258,14 @@ class BillingCollector:
             show_summary=False,
         )
         entries = flatten_usage_entries(payload)
-        aggregation = aggregate_usage(entries, start=start, end=end)
+        # Daily billing windows are half-open: [day 00:00, next day 00:00).
+        # RGW may return a bucket exactly on the requested end boundary, while
+        # the shared traffic aggregator otherwise treats its end as inclusive.
+        aggregation = aggregate_usage(
+            entries,
+            start=start,
+            end=end - timedelta(microseconds=1),
+        )
         totals = aggregation.get("totals", {})
         breakdown = {
             entry["category"]: entry["ops"]
@@ -408,9 +415,16 @@ class BillingCollector:
             name = bucket.get("bucket") or bucket.get("name")
             if not name:
                 continue
-            used_bytes, object_count = extract_usage_stats(bucket.get("usage"))
-            used_bytes = used_bytes or 0
-            object_count = object_count or 0
+            usage = bucket.get("usage")
+            if usage == {}:
+                # Ceph uses an explicit empty usage map for a measured empty
+                # bucket. Missing/partial usage data is different: accepting it
+                # as zero would silently understate billable storage.
+                used_bytes, object_count = 0, 0
+            else:
+                used_bytes, object_count = extract_usage_stats(usage)
+                if used_bytes is None or object_count is None:
+                    raise ValueError("RGW bucket statistics are incomplete")
             total_bytes += used_bytes
             total_objects += object_count
             if settings.billing_store_by_bucket:
