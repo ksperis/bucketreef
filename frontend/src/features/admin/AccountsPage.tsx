@@ -363,7 +363,7 @@ export default function S3AccountsPage() {
               <span className="min-w-0 truncate">{account.name}</span>
               {account.rgw_tenant && (
                 <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">
-                  {adminText("RGW tenant: {tenant}", { tenant: account.rgw_tenant })}
+                  ({account.rgw_tenant})
                 </span>
               )}
             </div>
