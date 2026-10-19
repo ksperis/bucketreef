@@ -1898,6 +1898,8 @@
   "Inactive groups remain available for historical analysis but are hidden from active group lists.": "停用的组仍可用于历史分析，但不会显示在活动组列表中。",
   "Loading Billing Groups...": "正在加载计费组...",
   "Memberships are explicit and month-aligned so organizational history remains explainable.": "成员关系采用显式定义并按月边界对齐，以便组织历史保持可解释。",
+  "Historical group membership is read-only.": "历史组成员关系为只读。",
+  "Past group membership is locked; only its current or future end can be changed.": "过去的组成员关系已锁定；只能修改其当前或未来的结束日期。",
   "No Billing Entity membership configured.": "尚未配置计费实体成员关系。",
   "No Billing Groups configured.": "尚未配置计费组。",
   "Optional identifier used by an external reporting or cost-center system.": "供外部报表或成本中心系统使用的可选标识符。",

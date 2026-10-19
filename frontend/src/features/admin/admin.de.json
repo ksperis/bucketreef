@@ -1894,6 +1894,8 @@
   "Inactive groups remain available for historical analysis but are hidden from active group lists.": "Inaktive Gruppen bleiben für historische Analysen verfügbar, werden aber in aktiven Gruppenlisten ausgeblendet.",
   "Loading Billing Groups...": "Abrechnungsgruppen werden geladen...",
   "Memberships are explicit and month-aligned so organizational history remains explainable.": "Mitgliedschaften sind explizit und an Monatsgrenzen ausgerichtet, damit die Organisationshistorie nachvollziehbar bleibt.",
+  "Historical group membership is read-only.": "Eine historische Gruppenmitgliedschaft ist schreibgeschützt.",
+  "Past group membership is locked; only its current or future end can be changed.": "Eine bereits vergangene Gruppenmitgliedschaft ist gesperrt; nur ihr aktuelles oder zukünftiges Enddatum kann geändert werden.",
   "No Billing Entity membership configured.": "Keine Mitgliedschaft einer Abrechnungseinheit konfiguriert.",
   "No Billing Groups configured.": "Keine Abrechnungsgruppen konfiguriert.",
   "Optional identifier used by an external reporting or cost-center system.": "Optionaler Bezeichner für ein externes Reporting- oder Kostenstellensystem.",

@@ -10,7 +10,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.db import BillingAssignment, BillingRateCard, BillingRatePlan, StorageEndpoint
+from app.db import (
+    BillingAssignment,
+    BillingEntityRateAssignment,
+    BillingRateCard,
+    BillingRatePlan,
+    StorageEndpoint,
+)
 from app.models.billing import (
     BillingRateCardAdminItem,
     BillingRateCardPayload,
@@ -102,7 +108,7 @@ class BillingRateCardService:
         if identity_changed:
             if not self._identity_editable(row):
                 raise BillingRateCardImmutableError(
-                    "Rate plan identity cannot change after another version exists"
+                    "Rate plan identity cannot change after another version exists or while the plan is assigned"
                 )
             self._require_endpoint(payload.storage_endpoint_id)
             existing = self._find_plan(payload.name, payload.storage_endpoint_id)
@@ -187,12 +193,7 @@ class BillingRateCardService:
 
         plan = row.rate_plan
         version_count = self._version_count(plan.id)
-        assigned = self.db.scalar(
-            select(BillingAssignment.id)
-            .where(BillingAssignment.rate_plan_id == plan.id)
-            .limit(1)
-        )
-        if version_count == 1 and assigned is not None:
+        if version_count == 1 and self._plan_is_assigned(plan.id):
             raise BillingRateCardConflictError(
                 "This rate plan is assigned and its only version cannot be deleted"
             )
@@ -289,8 +290,32 @@ class BillingRateCardService:
             or 0
         )
 
+    def _plan_is_assigned(self, rate_plan_id: int) -> bool:
+        direct_assignment = self.db.scalar(
+            select(BillingAssignment.id)
+            .where(BillingAssignment.rate_plan_id == rate_plan_id)
+            .limit(1)
+        )
+        if direct_assignment is not None:
+            return True
+        entity_assignment = self.db.scalar(
+            select(BillingEntityRateAssignment.id)
+            .where(BillingEntityRateAssignment.rate_plan_id == rate_plan_id)
+            .limit(1)
+        )
+        return entity_assignment is not None
+
     def _identity_editable(self, row: BillingRateCard) -> bool:
-        return self._status(row) == "future" and self._version_count(row.rate_plan_id) == 1
+        return self._future_mutability(row)[0]
+
+    def _future_mutability(self, row: BillingRateCard) -> tuple[bool, bool]:
+        if self._status(row) != "future":
+            return False, False
+        version_count = self._version_count(row.rate_plan_id)
+        assigned = self._plan_is_assigned(row.rate_plan_id)
+        identity_editable = version_count == 1 and not assigned
+        deletable = version_count > 1 or not assigned
+        return identity_editable, deletable
 
     def _commit_or_conflict(self, message: str) -> None:
         try:
@@ -315,6 +340,7 @@ class BillingRateCardService:
     def _item(self, row: BillingRateCard) -> BillingRateCardAdminItem:
         status = self._status(row)
         plan = row.rate_plan
+        identity_editable, deletable = self._future_mutability(row)
         return BillingRateCardAdminItem(
             id=row.id,
             rate_plan_id=plan.id,
@@ -335,8 +361,8 @@ class BillingRateCardService:
             ),
             status=status,
             editable=status == "future",
-            identity_editable=self._identity_editable(row),
-            deletable=status == "future",
+            identity_editable=identity_editable,
+            deletable=deletable,
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
