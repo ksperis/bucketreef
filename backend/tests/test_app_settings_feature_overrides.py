@@ -66,6 +66,31 @@ def test_managed_rgw_tenant_creation_defaults_off_and_round_trips():
     )
 
 
+def test_browser_upload_modes_default_on_and_require_one_enabled():
+    browser = AppSettings().browser
+    assert browser.allow_direct_uploads is True
+    assert browser.allow_sts_uploads is True
+    assert browser.allow_proxy_transfers is True
+
+    for enabled in ("allow_direct_uploads", "allow_sts_uploads", "allow_proxy_transfers"):
+        values = {
+            "allow_direct_uploads": False,
+            "allow_sts_uploads": False,
+            "allow_proxy_transfers": False,
+            enabled: True,
+        }
+        assert getattr(AppSettings(browser=values).browser, enabled) is True
+
+    with pytest.raises(ValidationError, match="At least one Browser upload mode must be enabled"):
+        AppSettings(
+            browser={
+                "allow_direct_uploads": False,
+                "allow_sts_uploads": False,
+                "allow_proxy_transfers": False,
+            }
+        )
+
+
 def test_documentation_base_url_defaults_normalizes_and_validates():
     assert AppSettings().general.documentation_base_url == "https://docs.bucketreef.ksperis.com"
     assert (

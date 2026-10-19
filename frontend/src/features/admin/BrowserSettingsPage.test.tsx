@@ -80,6 +80,8 @@ function buildSettings(overrides: Partial<AppSettings["general"]> = {}): AppSett
       smtp_timeout_seconds: 15,
     },
     browser: {
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: true,
       direct_upload_parallelism: 5,
       proxy_upload_parallelism: 2,
@@ -131,5 +133,22 @@ describe("BrowserSettingsPage", () => {
     await waitFor(() => {
       expect(toggle).toBeChecked();
     });
+  });
+
+  it("requires at least one upload mode", async () => {
+    render(<BrowserSettingsPage />);
+
+    const direct = await screen.findByLabelText("Allow direct uploads");
+    const sts = screen.getByLabelText("Allow STS uploads");
+    const proxy = screen.getByLabelText("Enable proxy mode");
+    fireEvent.click(direct);
+    fireEvent.click(sts);
+    fireEvent.click(proxy);
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(updateAppSettingsMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Enable at least one upload mode: direct, STS, or proxy."),
+    ).toBeInTheDocument();
   });
 });

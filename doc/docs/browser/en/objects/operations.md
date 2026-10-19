@@ -118,10 +118,18 @@ Check the selected object state, Browser profile, feature settings, and IAM/S3 p
 
 !!! note
     Browser availability and operation sets depend on Browser settings, the selected context, and endpoint capabilities.
-    Direct transfers also require bucket CORS rules for the Browser origin. Multipart
-    uploads require those rules to expose `ETag`; when BucketReef can read an
-    incompatible configuration, it offers the existing CORS repair action and uses
-    proxy transfers when they are enabled.
+    Administrators can independently allow direct uploads, STS uploads, and
+    backend proxy transfers; at least one upload mode must remain enabled.
+    BucketReef prefers STS when it is allowed and available, then direct
+    backend-presigned uploads, then the backend proxy. SSE-C disables STS for
+    that upload and falls back through the remaining allowed modes.
+
+    Direct and STS uploads require bucket CORS rules for the Browser origin.
+    Multipart uploads also require those rules to expose `ETag`. When CORS is
+    explicitly disabled, BucketReef uses the proxy when it is allowed; otherwise
+    uploads are disabled for that bucket. An STS-only configuration likewise
+    disables uploads for contexts where STS is unavailable. These upload controls
+    do not change Browser download selection.
 
 Direct requests use a worker restricted to the selected S3 endpoint. This also
 applies to the file browser inside Portal. Changing projects or execution

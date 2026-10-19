@@ -128,7 +128,10 @@ import {
   MIN_FOLDERS_PANEL_WIDTH_PX,
   readStoredBrowserRootUiState,
 } from "./browserRootUiState";
-import { shouldUseStsPresigner } from "./sseBrowserLogic";
+import {
+  resolveBrowserUploadMode,
+  shouldUseStsPresigner,
+} from "./sseBrowserLogic";
 import { VERSIONS_LIST_HARD_LIMIT, storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import {
@@ -742,26 +745,43 @@ export default function BrowserPage({
     requestOptions: browserRequestOptions,
     setStatusMessage,
   });
+  const directUploadAllowed = browserSettings?.allow_direct_uploads ?? false;
+  const stsUploadAllowed = browserSettings?.allow_sts_uploads ?? false;
   const proxyAllowed = browserSettings?.allow_proxy_transfers ?? false;
   const corsAvailability = resolveBrowserCorsAvailability(corsStatus);
   const corsEnabled =
     corsAvailability === "unknown" ? null : corsAvailability === "enabled";
   const corsInformation =
     corsEnabled === false ? text(CORS_DIRECT_TRANSFER_WARNING) : null;
+  const uploadMode = resolveBrowserUploadMode({
+    settingsLoaded: browserSettings !== null,
+    hasContext: hasExecutionContext,
+    hasBucket: Boolean(bucketName),
+    corsEnabled,
+    directAllowed: directUploadAllowed,
+    stsAllowed: stsUploadAllowed,
+    stsAvailable,
+    sseActive,
+    proxyAllowed,
+  });
   const useProxyTransfers = Boolean(
     bucketName &&
       hasExecutionContext &&
       proxyAllowed &&
       corsAvailability === "disabled",
   );
-  const transferParallelism = useMemo(
+  const uploadTransferParallelism = useMemo(
     () =>
-      resolveBrowserTransferParallelism(browserSettings, useProxyTransfers),
+      resolveBrowserTransferParallelism(browserSettings, uploadMode === "proxy"),
+    [browserSettings, uploadMode],
+  );
+  const downloadTransferParallelism = useMemo(
+    () => resolveBrowserTransferParallelism(browserSettings, useProxyTransfers),
     [browserSettings, useProxyTransfers],
   );
-  const uploadParallelism = transferParallelism.upload;
-  const downloadParallelism = transferParallelism.download;
-  const otherOperationsParallelism = transferParallelism.otherOperations;
+  const uploadParallelism = uploadTransferParallelism.upload;
+  const downloadParallelism = downloadTransferParallelism.download;
+  const otherOperationsParallelism = downloadTransferParallelism.otherOperations;
   const useStsPresigner = shouldUseStsPresigner({ stsAvailable, sseActive });
   const { presignObjectRequest, presignPartRequest } =
     useBrowserPresignRequests({
@@ -769,6 +789,7 @@ export default function BrowserPage({
       ensureStsCredentials,
       requestOptions: browserRequestOptions,
       sseCustomerKeyBase64,
+      uploadMode,
       useStsPresigner,
     });
   const { copyPath: handleCopyPath, copyUrl: handleCopyUrl } =
@@ -789,12 +810,22 @@ export default function BrowserPage({
         stsCredentialsError,
         corsEnabled,
         proxyAllowed,
+        uploadUnavailable: Boolean(
+          browserSettings &&
+            bucketName &&
+            hasExecutionContext &&
+            uploadMode === "unavailable",
+        ),
       }, text),
     [
+      browserSettings,
+      bucketName,
       corsFixError,
       corsEnabled,
+      hasExecutionContext,
       proxyAllowed,
       stsCredentialsError,
+      uploadMode,
       warningMessage,
     text,
     ],
@@ -811,10 +842,8 @@ export default function BrowserPage({
   const accessBadge = useMemo(
     () =>
       resolveBrowserTransferAccessBadge({
-        hasContext: hasExecutionContext,
-        corsEnabled,
-        proxyAllowed,
-        useProxyTransfers,
+        hasContext: hasExecutionContext && Boolean(bucketName),
+        uploadMode,
         sseActive,
         hasStsCredentials: Boolean(stsCredentials),
         stsExpirationLabel,
@@ -822,15 +851,14 @@ export default function BrowserPage({
         text,
       }),
     [
-      corsEnabled,
+      bucketName,
       hasExecutionContext,
       directCredentialStsTooltip,
-      proxyAllowed,
       sseActive,
       stsCredentials,
       stsExpirationLabel,
       text,
-      useProxyTransfers,
+      uploadMode,
     ],
   );
   useDismissibleLayer({
@@ -1293,6 +1321,9 @@ export default function BrowserPage({
       resolvedCapabilityFacts.canCreatePublicLinks &&
       canOpenExternalObjectDetails,
     restoreObjectAvailable: Boolean(deletedObjectsOptions?.onRestoreObject),
+    uploadAvailable: uploadMode !== "unavailable",
+    uploadDisabledReason:
+      "Uploads are unavailable with the current Browser transfer settings.",
     showDeletedToggle: Boolean(
       isPortalProfile && deletedObjectsOptions?.showToggle,
     ),
@@ -1816,7 +1847,7 @@ export default function BrowserPage({
     startOperation,
     transferReporter,
     updateOperation,
-    useProxyTransfers,
+    uploadMode,
   });
 
   const {
@@ -1835,7 +1866,7 @@ export default function BrowserPage({
     contextId: contextIdForApi,
     bucketName,
     cancelOperationController,
-    enabled: hasExecutionContext,
+    enabled: hasExecutionContext && uploadMode !== "unavailable",
     normalizedPrefix,
     onRefreshListing: refreshUploadedListing,
     onShowOperations: showOperationsBar,

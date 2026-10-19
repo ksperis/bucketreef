@@ -71,6 +71,8 @@ def _build_app_settings_payload() -> str:
             "allow_login_custom_endpoint": False,
         },
         "browser": {
+            "allow_direct_uploads": True,
+            "allow_sts_uploads": True,
             "allow_proxy_transfers": True,
         },
     }

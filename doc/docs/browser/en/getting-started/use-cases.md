@@ -8,8 +8,12 @@ identity. Use search and listing options appropriate to the Browser profile.
 ## Transfer files
 
 Upload and download objects while the Browser tracks progress for the current
-session. Direct transfers use bucket CORS; configured proxy transfers provide an
-alternative path when available.
+session. Administrators can allow STS uploads, backend-presigned direct uploads,
+and backend proxy uploads independently, with at least one upload mode enabled.
+For uploads, BucketReef prefers STS when available, then direct presigned
+transfer, then proxy. Direct and STS uploads need bucket CORS; the proxy remains
+the fallback when it is allowed. Download behavior keeps its existing transfer
+selection.
 
 ## Reorganize objects
 
