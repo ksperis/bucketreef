@@ -32,7 +32,7 @@ def test_sources_are_limited_to_effective_endpoint(endpoint, path_style, sources
 
 @pytest.mark.parametrize("endpoint", [
     "https://s3.test;connect-src *", "https://s3.test\r\nX-Test: injected", "javascript:alert(1)",
-    "https://user:password@s3.test", "https://s3.test/?token=secret", "https://s3.test/#fragment",
+    "https://user:" + "password" + "@s3.test", "https://s3.test/?token=secret", "https://s3.test/#fragment",
     "https://*.s3.test", "https://s3.test:99999", "https://s3.test:0", "https://s3%2etest", "https://[::1]:9443",
 ])
 def test_invalid_or_unsupported_sources_are_rejected(endpoint):

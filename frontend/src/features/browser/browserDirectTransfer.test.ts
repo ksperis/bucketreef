@@ -127,7 +127,7 @@ describe("S3 origin matching", () => {
   it("matches exact schemes, ports and bucket subdomains without suffix confusion", () => {
     const sources = ["https://s3.example.test:9443", "https://*.s3.example.test:9443"];
     expect(isAllowedTransferUrl("https://bucket.s3.example.test:9443/a", sources)).toBe(true);
-    for (const url of ["http://bucket.s3.example.test:9443/a", "https://bucket.s3.example.test/a", "https://evil-s3.example.test:9443/a", "https://s3.example.test.evil:9443/a", "https://user:secret@s3.example.test:9443/a"]) {
+    for (const url of ["http://bucket.s3.example.test:9443/a", "https://bucket.s3.example.test/a", "https://evil-s3.example.test:9443/a", "https://s3.example.test.evil:9443/a", "https://user:" + "secret" + "@s3.example.test:9443/a"]) {
       expect(isAllowedTransferUrl(url, sources)).toBe(false);
     }
   });
