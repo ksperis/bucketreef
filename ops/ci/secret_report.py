@@ -54,11 +54,19 @@ REMOVED_PASSWORD_URL_FIXTURES = {
     "deploy/compose/.env.example": {
         "41475cc279b00bb2db4a32baa4d8e31525abfed44bb29cbff4f09769e1e89cc6",
     },
+    "backend/tests/test_browser_transfer_policy.py": {
+        "07a8fa2513d651c8593c2c08943f9eeae32df86ae796eae60ab88d2aeec8a391",
+    },
+    "frontend/src/features/browser/browserDirectTransfer.test.ts": {
+        "80a255b495906586cb7eeb3b6aac63c5ee70d27689517d8292616d31950be480",
+    },
 }
 REMOVED_PASSWORD_URL_BOUNDARIES = {
     "backend/.env.example": "20928ea6415bf5bd5ee23fe271d7ffaea4764bd5",
     "backend/tests/test_admin_onboarding.py": "54e42de088d8ba3208657410e984cd307c4c1f8e",
     "deploy/compose/.env.example": "3900ea5bfaf9eac3189ce1bf9ce37936ab0f130b",
+    "backend/tests/test_browser_transfer_policy.py": "767e5f65fa38bb3b05fac15e1c8a6b301e0293ec",
+    "frontend/src/features/browser/browserDirectTransfer.test.ts": "767e5f65fa38bb3b05fac15e1c8a6b301e0293ec",
 }
 CURRENT_PATHS = {
     "deploy/compose/.env.example": "deploy/bundle/.env.example",
