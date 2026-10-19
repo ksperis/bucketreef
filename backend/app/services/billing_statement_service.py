@@ -31,12 +31,19 @@ from app.models.billing import (
     BillingStatementComponentAmounts,
     BillingStatementGenerationResult,
     BillingStatementItem,
+    BillingStatementLineEstimation,
     BillingStatementLineItem,
     BillingStatementLineSnapshot,
     BillingStatementUnitPrices,
 )
 from app.services.billing_analysis_service import BillingAnalysisService
-from app.services.billing_calculation import monetary_total
+from app.services.billing_calculation import (
+    component_amount,
+    extrapolate_monetary_amount,
+    extrapolate_quantity,
+    extrapolation_factor,
+    monetary_total,
+)
 from app.services.billing_service import _parse_month
 from app.services.webhook_catalog import BILLING_STATEMENT_FINALIZED_EVENT_TYPE
 from app.services.webhook_service import WebhookEventPublisher
@@ -76,6 +83,7 @@ class _StatementCandidate:
     coverage: BillingAnalysisCoverage
     blockers: tuple[str, ...]
     storage_charge_bases: tuple[str, ...]
+    estimation_mode: str
     subtotal: Decimal
     total: Decimal
     lines: tuple[BillingStatementLineSnapshot, ...]
@@ -245,7 +253,15 @@ class BillingStatementService:
         month: str,
         billing_entity_id: int,
         regenerate: bool = False,
+        estimation_mode: str = "strict",
+        estimation_reason: str | None = None,
+        estimation_requested_by_email: str | None = None,
     ) -> BillingStatementGenerationResult:
+        if estimation_mode not in {"strict", "coverage_extrapolation"}:
+            raise ValueError("estimation_mode must be 'strict' or 'coverage_extrapolation'")
+        normalized_reason = estimation_reason.strip() if estimation_reason else None
+        if estimation_mode == "coverage_extrapolation" and not normalized_reason:
+            normalized_reason = "Incomplete source coverage accepted by administrator"
         period = _parse_month(month)
         existing = self._rows_for_entity_period(
             billing_entity_id,
@@ -253,6 +269,11 @@ class BillingStatementService:
             for_update=regenerate,
         )
         if existing and not regenerate:
+            existing_modes = {row.estimation_mode or "strict" for row in existing}
+            if existing_modes != {estimation_mode}:
+                raise BillingStatementImmutableError(
+                    "An existing Billing Statement draft uses another estimation mode; regenerate it explicitly"
+                )
             return BillingStatementGenerationResult(
                 month=period.month,
                 billing_entity_id=billing_entity_id,
@@ -267,6 +288,7 @@ class BillingStatementService:
             entity_row=entity_row,
             entity_preview=entity_preview,
             month=period.month,
+            estimation_mode=estimation_mode,
         )
 
         now = utcnow()
@@ -294,7 +316,13 @@ class BillingStatementService:
                 row.revision += 1
                 row.lines = []
                 self.db.flush()
-            self._apply_candidate(row, candidate, generated_at=now)
+            self._apply_candidate(
+                row,
+                candidate,
+                generated_at=now,
+                estimation_reason=normalized_reason,
+                estimation_requested_by_email=estimation_requested_by_email,
+            )
             persisted.append(row)
 
         try:
@@ -348,6 +376,7 @@ class BillingStatementService:
             entity_row=entity_row,
             entity_preview=entity_preview,
             month=month,
+            estimation_mode=row.estimation_mode or "strict",
         )
         candidate = next((item for item in candidates if item.currency == row.currency), None)
         if candidate is None or candidate.source_fingerprint != row.source_fingerprint:
@@ -380,6 +409,14 @@ class BillingStatementService:
                     "finalized_at": now.isoformat(),
                     "statement_api_reference": (
                         f"{api_prefix}/integrations/billing/v1/statements/{row.public_id}"
+                    ),
+                    **(
+                        {
+                            "estimation_mode": row.estimation_mode,
+                            "estimation_reason": row.estimation_reason,
+                        }
+                        if row.estimation_mode == "coverage_extrapolation"
+                        else {}
                     ),
                 },
                 occurred_at=now,
@@ -419,6 +456,7 @@ class BillingStatementService:
         entity_row: BillingEntity,
         entity_preview: BillingEntityAnalysisPreview,
         month: str,
+        estimation_mode: str = "strict",
     ) -> tuple[list[_StatementCandidate], list[str]]:
         period = _parse_month(month)
         currencies = sorted(
@@ -453,8 +491,20 @@ class BillingStatementService:
                 and line.cost.currency
                 and line.cost.currency.upper() == currency
             ]
-            snapshots = tuple(self._snapshot_line(line) for line in source_lines)
-            line_blockers = self._line_blockers(source_lines)
+            snapshots_with_ignored = [
+                self._snapshot_line_for_mode(
+                    line,
+                    estimation_mode=estimation_mode,
+                    days_in_month=period.days_in_month,
+                )
+                for line in source_lines
+            ]
+            snapshots = tuple(item[0] for item in snapshots_with_ignored)
+            ignored_issues = {
+                (line.subject_type, line.subject_id): ignored
+                for line, (_, ignored) in zip(source_lines, snapshots_with_ignored)
+            }
+            line_blockers = self._line_blockers(source_lines, ignored_issues=ignored_issues)
             blockers = tuple(sorted(set(generation_blockers + line_blockers)))
             coverage = BillingAnalysisService.coverage_for_lines(
                 source_lines,
@@ -471,11 +521,9 @@ class BillingStatementService:
                 )
             )
             included_amounts = [
-                line.cost.total_cost
-                for line in source_lines
-                if line.included_in_total
-                and line.cost is not None
-                and line.cost.total_cost is not None
+                snapshot.amounts.total_cost
+                for snapshot in snapshots
+                if snapshot.included_in_total and snapshot.amounts.total_cost is not None
             ]
             total = monetary_total(included_amounts)
             fingerprint_payload = {
@@ -487,6 +535,7 @@ class BillingStatementService:
                 "period_start": period.start.isoformat(),
                 "period_end": (period.end - timedelta(days=1)).isoformat(),
                 "currency": currency,
+                "estimation_mode": estimation_mode,
                 "coverage": coverage.model_dump(mode="json"),
                 "blockers": blockers,
                 "storage_charge_bases": storage_bases,
@@ -515,6 +564,7 @@ class BillingStatementService:
                     coverage=coverage,
                     blockers=blockers,
                     storage_charge_bases=storage_bases,
+                    estimation_mode=estimation_mode,
                     subtotal=total,
                     total=total,
                     lines=snapshots,
@@ -522,6 +572,114 @@ class BillingStatementService:
                 )
             )
         return candidates, sorted(set(generation_blockers))
+
+    def _snapshot_line_for_mode(
+        self,
+        line: BillingEntityAnalysisLine,
+        *,
+        estimation_mode: str,
+        days_in_month: int,
+    ) -> tuple[BillingStatementLineSnapshot, set[str]]:
+        snapshot = self._snapshot_line(line)
+        if estimation_mode != "coverage_extrapolation":
+            return snapshot, set()
+
+        ignored: set[str] = set()
+        usage_days = snapshot.coverage.usage_days_collected or 0
+        storage_days = snapshot.coverage.storage_days_collected or 0
+        usage_factor = None
+        storage_method = None
+        storage_factor = None
+        amounts = snapshot.amounts
+        quantity = snapshot.priced_storage_quantity
+
+        if usage_days < days_in_month and usage_days > 0:
+            usage_factor = extrapolation_factor(usage_days, days_in_month)
+            amounts = amounts.model_copy(
+                update={
+                    "egress_cost": extrapolate_monetary_amount(
+                        amounts.egress_cost, observed=usage_days, expected=days_in_month
+                    ),
+                    "ingress_cost": extrapolate_monetary_amount(
+                        amounts.ingress_cost, observed=usage_days, expected=days_in_month
+                    ),
+                    "requests_cost": extrapolate_monetary_amount(
+                        amounts.requests_cost, observed=usage_days, expected=days_in_month
+                    ),
+                }
+            )
+            ignored.add("incomplete_usage_coverage")
+
+        storage_price = snapshot.unit_prices.storage_gb_month_price
+        if storage_days < days_in_month:
+            if storage_price is None:
+                ignored.add("incomplete_storage_coverage")
+            elif snapshot.storage_charge_basis == "actual_usage" and storage_days > 0:
+                storage_method = "observed_daily_average"
+                ignored.update({"incomplete_storage_coverage", "missing_storage_observations"})
+                if quantity is not None:
+                    quantity = quantity.model_copy(update={"status": "estimated"})
+
+        if (
+            storage_price is not None
+            and snapshot.storage_charge_basis == "allocated_quota"
+            and quantity is not None
+            and quantity.observations_collected > 0
+            and quantity.observations_collected < quantity.observations_expected
+            and set(quantity.issues).issubset({"missing_quota_observation"})
+        ):
+            estimated_quantity = extrapolate_quantity(
+                quantity.quantity_gib_month,
+                observed=quantity.observations_collected,
+                expected=quantity.observations_expected,
+            )
+            if estimated_quantity is not None:
+                storage_method = "allocated_quota_average"
+                storage_factor = extrapolation_factor(
+                    quantity.observations_collected,
+                    quantity.observations_expected,
+                )
+                quantity = quantity.model_copy(
+                    update={
+                        "quantity_gib_month": estimated_quantity,
+                        "status": "estimated",
+                    }
+                )
+                amounts = amounts.model_copy(
+                    update={
+                        "storage_cost": component_amount(storage_price, estimated_quantity),
+                    }
+                )
+                ignored.add("missing_quota_observation")
+                if storage_days > 0:
+                    ignored.add("incomplete_storage_coverage")
+
+        amounts = amounts.model_copy(
+            update={
+                "total_cost": monetary_total(
+                    (
+                        amounts.storage_cost,
+                        amounts.egress_cost,
+                        amounts.ingress_cost,
+                        amounts.requests_cost,
+                    )
+                )
+            }
+        )
+        estimation = None
+        if usage_factor is not None or storage_method is not None:
+            estimation = BillingStatementLineEstimation(
+                usage_extrapolation_factor=usage_factor,
+                storage_method=storage_method,
+                storage_extrapolation_factor=storage_factor,
+            )
+        return snapshot.model_copy(
+            update={
+                "priced_storage_quantity": quantity,
+                "amounts": amounts,
+                "estimation": estimation,
+            }
+        ), ignored
 
     def _snapshot_line(self, line: BillingEntityAnalysisLine) -> BillingStatementLineSnapshot:
         rate_card = (
@@ -580,10 +738,18 @@ class BillingStatementService:
         return blockers
 
     @staticmethod
-    def _line_blockers(lines: list[BillingEntityAnalysisLine]) -> list[str]:
+    def _line_blockers(
+        lines: list[BillingEntityAnalysisLine],
+        *,
+        ignored_issues: dict[tuple[str, int], set[str]] | None = None,
+    ) -> list[str]:
         blockers: list[str] = []
+        ignored_issues = ignored_issues or {}
         for line in lines:
+            ignored = ignored_issues.get((line.subject_type, line.subject_id), set())
             for issue in line.issues:
+                if issue in ignored:
+                    continue
                 blockers.append(f"subject:{line.subject_type}:{line.subject_id}:{issue}")
             if not line.complete and not line.issues:
                 blockers.append(f"subject:{line.subject_type}:{line.subject_id}:incomplete")
@@ -595,6 +761,8 @@ class BillingStatementService:
         candidate: _StatementCandidate,
         *,
         generated_at,
+        estimation_reason: str | None = None,
+        estimation_requested_by_email: str | None = None,
     ) -> None:
         row.billing_entity_name = candidate.billing_entity_name
         row.billing_entity_code = candidate.billing_entity_code
@@ -606,6 +774,11 @@ class BillingStatementService:
         row.coverage_json = candidate.coverage.model_dump_json()
         row.blockers_json = json.dumps(list(candidate.blockers), separators=(",", ":"))
         row.storage_charge_bases_json = json.dumps(list(candidate.storage_charge_bases), separators=(",", ":"))
+        row.estimation_mode = candidate.estimation_mode
+        row.estimation_reason = estimation_reason if candidate.estimation_mode != "strict" else None
+        row.estimation_requested_by_email = (
+            estimation_requested_by_email if candidate.estimation_mode != "strict" else None
+        )
         row.subtotal = candidate.subtotal
         row.total = candidate.total
         row.source_fingerprint = candidate.source_fingerprint
@@ -690,6 +863,9 @@ class BillingStatementService:
             coverage=BillingAnalysisCoverage.model_validate_json(row.coverage_json),
             blockers=BillingStatementService._json_list(row.blockers_json),
             storage_charge_bases=BillingStatementService._json_list(row.storage_charge_bases_json),
+            estimation_mode=row.estimation_mode or "strict",
+            estimation_reason=row.estimation_reason,
+            estimation_requested_by_email=row.estimation_requested_by_email,
             subtotal=row.subtotal,
             total=row.total,
             revision=row.revision,

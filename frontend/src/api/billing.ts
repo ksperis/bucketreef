@@ -268,6 +268,12 @@ export type BillingStatementComponentAmounts = {
   total_cost?: BillingDecimal | null;
 };
 
+export type BillingStatementLineEstimation = {
+  usage_extrapolation_factor?: BillingDecimal | null;
+  storage_method?: "observed_daily_average" | "allocated_quota_average" | null;
+  storage_extrapolation_factor?: BillingDecimal | null;
+};
+
 export type BillingStatementLineSnapshot = {
   subject_type: BillingSubjectType;
   subject_id: number;
@@ -286,6 +292,7 @@ export type BillingStatementLineSnapshot = {
   rate_resolution: BillingRateResolution;
   unit_prices: BillingStatementUnitPrices;
   amounts: BillingStatementComponentAmounts;
+  estimation?: BillingStatementLineEstimation | null;
   complete: boolean;
   issues: string[];
 };
@@ -313,6 +320,9 @@ export type BillingStatementItem = {
   coverage: BillingAnalysisCoverage;
   blockers: string[];
   storage_charge_bases: Array<"actual_usage" | "allocated_quota">;
+  estimation_mode: "strict" | "coverage_extrapolation";
+  estimation_reason?: string | null;
+  estimation_requested_by_email?: string | null;
   subtotal: BillingDecimal;
   total: BillingDecimal;
   revision: number;
@@ -480,11 +490,15 @@ export async function generateBillingStatements(
   month: string,
   billingEntityId: number,
   regenerate = false,
+  estimationMode: "strict" | "coverage_extrapolation" = "strict",
+  estimationReason?: string | null,
 ): Promise<BillingStatementGenerationResult> {
   const { data } = await client.post<BillingStatementGenerationResult>("/admin/billing/statements/generate", {
     month,
     billing_entity_id: billingEntityId,
     regenerate,
+    estimation_mode: estimationMode,
+    estimation_reason: estimationReason || null,
   });
   return data;
 }

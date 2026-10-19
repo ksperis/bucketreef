@@ -99,6 +99,15 @@ function statementCoverage(statement: BillingStatementItem): string {
   return `Storage ${formatPercentage(statement.coverage.storage_coverage_ratio)} · Usage ${formatPercentage(statement.coverage.usage_coverage_ratio)}`;
 }
 
+function hasEstimatableCoverageBlocker(statement: BillingStatementItem): boolean {
+  return statement.blockers.some((blocker) => [
+    "incomplete_storage_coverage",
+    "incomplete_usage_coverage",
+    "missing_storage_observations",
+    "missing_quota_observation",
+  ].some((issue) => blocker.endsWith(`:${issue}`)));
+}
+
 function periodRange(
   mode: PeriodMode,
   pageMonth: string,
@@ -256,14 +265,24 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
     }
   }
 
-  async function runGeneration(regenerate: boolean, entityId: number) {
-    const actionKey = `${regenerate ? "regenerate" : "generate"}:${entityId}`;
+  async function runGeneration(
+    regenerate: boolean,
+    entityId: number,
+    estimationMode: "strict" | "coverage_extrapolation" = "strict",
+  ) {
+    const actionKey = `${estimationMode === "coverage_extrapolation" ? "estimate" : regenerate ? "regenerate" : "generate"}:${entityId}`;
     setPendingAction(actionKey);
     setError(null);
     setMessage(null);
     try {
-      const result = await generateBillingStatements(month, entityId, regenerate);
-      setMessage(regenerate ? text("Billing Statement draft regenerated.") : text("Billing Statement draft generated."));
+      const result = await generateBillingStatements(month, entityId, regenerate, estimationMode);
+      setMessage(
+        estimationMode === "coverage_extrapolation"
+          ? text("Estimated Billing Statement draft generated from available coverage.")
+          : regenerate
+            ? text("Billing Statement draft regenerated.")
+            : text("Billing Statement draft generated."),
+      );
       if (result.statements[0]) setSelectedStatementId(result.statements[0].id);
       setReloadToken((current) => current + 1);
     } catch (actionError) {
@@ -345,6 +364,9 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
           <UiBadge tone={statement.status === "finalized" ? "success" : "warning"}>
             {text(statement.status === "finalized" ? "Finalized" : "Draft")}
           </UiBadge>
+          {statement.estimation_mode === "coverage_extrapolation" ? (
+            <UiBadge tone="warning">{text("Estimated")}</UiBadge>
+          ) : null}
           {statement.blockers.length > 0 ? (
             <UiBadge tone="danger">{text("{count} blocker(s)", { count: statement.blockers.length })}</UiBadge>
           ) : null}
@@ -388,12 +410,24 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
           {statement.status === "draft" ? (
             <>
               <ListActionButton
-                onClick={() => void runGeneration(true, statement.billing_entity_id)}
-                loading={pendingAction === `regenerate:${statement.billing_entity_id}`}
+                onClick={() => void runGeneration(true, statement.billing_entity_id, statement.estimation_mode)}
+                loading={
+                  pendingAction === `${statement.estimation_mode === "coverage_extrapolation" ? "estimate" : "regenerate"}:${statement.billing_entity_id}`
+                }
                 disabled={pendingAction != null || isConfirming}
               >
                 {text("Regenerate")}
               </ListActionButton>
+              {statement.estimation_mode === "strict" && hasEstimatableCoverageBlocker(statement) ? (
+                <ListActionButton
+                  onClick={() => void runGeneration(true, statement.billing_entity_id, "coverage_extrapolation")}
+                  loading={pendingAction === `estimate:${statement.billing_entity_id}`}
+                  disabled={pendingAction != null || isConfirming}
+                  title={text("Recalculate this draft by extrapolating incomplete source coverage.")}
+                >
+                  {text("Estimate")}
+                </ListActionButton>
+              ) : null}
               <ListActionButton
                 variant="primary"
                 onClick={() => requestFinalize(statement)}
@@ -483,6 +517,7 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
         <span className="flex flex-wrap gap-1">
           {line.snapshot.membership_conflict ? <UiBadge tone="danger">{text("Conflict")}</UiBadge> : null}
           <UiBadge tone={line.snapshot.complete ? "success" : "warning"}>{text(line.snapshot.complete ? "Complete" : "Incomplete")}</UiBadge>
+          {line.snapshot.estimation ? <UiBadge tone="warning">{text("Estimated")}</UiBadge> : null}
         </span>
       ),
     },
@@ -585,6 +620,14 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
             >
               {text("Generate draft")}
             </ListActionButton>
+            <ListActionButton
+              onClick={() => selectedEntityId != null && void runGeneration(true, selectedEntityId, "coverage_extrapolation")}
+              loading={selectedEntityId != null && pendingAction === `estimate:${selectedEntityId}`}
+              disabled={selectedEntityId == null || pendingAction != null || isConfirming}
+              title={text("Generate an auditable estimate from the available monthly coverage.")}
+            >
+              {text("Generate estimated draft")}
+            </ListActionButton>
           </div>
         }
       >
@@ -634,6 +677,13 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
             {selectedStatement.blockers.length > 0 ? (
               <PageBanner tone="warning">
                 {text("Finalization is blocked:")} {selectedStatement.blockers.join(" · ")}
+              </PageBanner>
+            ) : null}
+            {selectedStatement.estimation_mode === "coverage_extrapolation" ? (
+              <PageBanner tone="warning">
+                {text("Estimated statement: incomplete source coverage was extrapolated from observed monthly data.")}
+                {selectedStatement.estimation_reason ? ` ${selectedStatement.estimation_reason}.` : ""}
+                {selectedStatement.estimation_requested_by_email ? ` ${text("Requested by")} ${selectedStatement.estimation_requested_by_email}.` : ""}
               </PageBanner>
             ) : null}
             <DataTableShell

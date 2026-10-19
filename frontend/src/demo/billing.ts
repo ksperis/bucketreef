@@ -116,6 +116,7 @@ function statement(c: DemoRequest, entityId: number, status: "draft" | "finalize
     billing_entity_external_id: entity.external_id, subject_type: "account", period_start: `${month}-01`,
     period_end: monthEnd(month), currency: "EUR", status, member_count: entity.member_count,
     coverage: entityAnalysis.coverage, blockers: [], storage_charge_bases: entityAnalysis.storage_charge_bases,
+    estimation_mode: "strict", estimation_reason: null, estimation_requested_by_email: null,
     subtotal: total, total, revision: 1, generated_at: `${monthEnd(month)}T23:00:00Z`,
     finalized_at: status === "finalized" ? `${monthEnd(month)}T23:30:00Z` : null,
     finalized_by_user_id: status === "finalized" ? 1 : null,

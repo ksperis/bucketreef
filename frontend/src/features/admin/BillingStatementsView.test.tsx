@@ -77,6 +77,9 @@ function statement(overrides: Record<string, unknown> = {}) {
     },
     blockers: [],
     storage_charge_bases: ["actual_usage"],
+    estimation_mode: "strict",
+    estimation_reason: null,
+    estimation_requested_by_email: null,
     subtotal: "7.541000",
     total: "7.541000",
     revision: 1,
@@ -252,7 +255,7 @@ describe("BillingStatementsView", () => {
     expect(screen.getAllByText("7.54 EUR").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Generate draft" }));
-    await waitFor(() => expect(mocks.generateBillingStatements).toHaveBeenCalledWith("2026-07", 10, false));
+    await waitFor(() => expect(mocks.generateBillingStatements).toHaveBeenCalledWith("2026-07", 10, false, "strict"));
   });
 
   it("blocks unsafe finalization and explicitly confirms a valid draft", async () => {
@@ -272,6 +275,35 @@ describe("BillingStatementsView", () => {
     expect(within(dialog).getByText(/Storage 100% · Usage 100%/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Finalize statement" }));
     await waitFor(() => expect(mocks.finalizeBillingStatement).toHaveBeenCalledWith(41));
+  });
+
+  it("regenerates an incomplete draft as an explicit coverage estimate", async () => {
+    const blocked = statement({
+      blockers: [
+        "subject:account:5:incomplete_storage_coverage",
+        "subject:account:5:incomplete_usage_coverage",
+      ],
+      coverage: {
+        ...statement().coverage,
+        storage_observations: 29,
+        usage_observations: 29,
+        storage_coverage_ratio: "0.935484",
+        usage_coverage_ratio: "0.935484",
+      },
+    });
+    mocks.listBillingStatements.mockResolvedValue([blocked]);
+    render(<BillingStatementsView month="2026-07" />);
+
+    const tables = await screen.findAllByRole("table");
+    const row = within(tables[0]).getAllByRole("row")[1];
+    fireEvent.click(within(row).getByRole("button", { name: "Estimate" }));
+
+    await waitFor(() => expect(mocks.generateBillingStatements).toHaveBeenCalledWith(
+      "2026-07",
+      10,
+      true,
+      "coverage_extrapolation",
+    ));
   });
 
   it("offers PDF export only for finalized statements", async () => {

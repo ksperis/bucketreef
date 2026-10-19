@@ -306,6 +306,109 @@ def test_finalization_rejects_stale_or_blocked_drafts(db_session):
         service.finalize(blocked_statement.id, actor=_actor())
 
 
+def test_estimated_statement_extrapolates_usage_and_uses_observed_storage_average(db_session):
+    endpoint = _endpoint(db_session, "estimated-endpoint")
+    account = _account(db_session, endpoint, "estimated-account")
+    plan = _plan(db_session, name="estimated-plan")
+    entity = _entity(db_session, account, plan)
+    _month_data(db_session, endpoint, account)
+    missing_days = [date(2026, 1, 10), date(2026, 1, 20)]
+    db_session.query(BillingUsageDaily).filter(
+        BillingUsageDaily.s3_account_id == account.id,
+        BillingUsageDaily.day.in_(missing_days),
+    ).delete(synchronize_session=False)
+    db_session.query(BillingStorageDaily).filter(
+        BillingStorageDaily.s3_account_id == account.id,
+        BillingStorageDaily.day.in_(missing_days),
+    ).delete(synchronize_session=False)
+    db_session.commit()
+    service = BillingStatementService(db_session)
+
+    strict = service.generate(month="2026-01", billing_entity_id=entity.id)
+    assert any("incomplete_usage_coverage" in blocker for blocker in strict.blockers)
+    assert any("incomplete_storage_coverage" in blocker for blocker in strict.blockers)
+
+    estimated = service.generate(
+        month="2026-01",
+        billing_entity_id=entity.id,
+        regenerate=True,
+        estimation_mode="coverage_extrapolation",
+        estimation_requested_by_email="admin@example.com",
+    ).statements[0]
+
+    assert estimated.blockers == []
+    assert estimated.estimation_mode == "coverage_extrapolation"
+    assert estimated.estimation_reason == "Incomplete source coverage accepted by administrator"
+    assert estimated.estimation_requested_by_email == "admin@example.com"
+    assert estimated.coverage.storage_coverage_ratio == Decimal("0.935484")
+    assert estimated.coverage.usage_coverage_ratio == Decimal("0.935484")
+    assert estimated.total == Decimal("7.541000")
+    line = estimated.lines[0].snapshot
+    assert line.estimation is not None
+    assert line.estimation.usage_extrapolation_factor == Decimal("1.068965517241")
+    assert line.estimation.storage_method == "observed_daily_average"
+    assert line.priced_storage_quantity is not None
+    assert line.priced_storage_quantity.status == "estimated"
+    assert line.amounts.storage_cost == Decimal("1.000000")
+    assert line.amounts.egress_cost == Decimal("6.200000")
+    assert line.amounts.ingress_cost == Decimal("0.310000")
+    assert line.amounts.requests_cost == Decimal("0.031000")
+    assert service.finalize(estimated.id, actor=_actor()).status == "finalized"
+
+
+def test_estimated_statement_can_extrapolate_missing_quota_observations_but_not_unlimited_quota(db_session):
+    endpoint = _endpoint(db_session, "estimated-quota-endpoint")
+    account = _account(db_session, endpoint, "estimated-quota-account")
+    plan = _plan(
+        db_session,
+        name="estimated-quota-plan",
+        basis="allocated_quota",
+    )
+    entity = _entity(db_session, account, plan)
+    _month_data(db_session, endpoint, account, quota_gib=2)
+    row = db_session.query(BillingStorageDaily).filter_by(
+        s3_account_id=account.id,
+        day=date(2026, 1, 15),
+    ).one()
+    row.quota_size_bytes = None
+    row.quota_state = "missing"
+    db_session.commit()
+    service = BillingStatementService(db_session)
+
+    estimated = service.generate(
+        month="2026-01",
+        billing_entity_id=entity.id,
+        estimation_mode="coverage_extrapolation",
+        estimation_requested_by_email="admin@example.com",
+    ).statements[0]
+
+    assert estimated.blockers == []
+    assert estimated.total == Decimal("8.541000")
+    line = estimated.lines[0].snapshot
+    assert line.estimation is not None
+    assert line.estimation.storage_method == "allocated_quota_average"
+    assert line.estimation.storage_extrapolation_factor == Decimal("1.033333333333")
+    assert line.priced_storage_quantity is not None
+    assert line.priced_storage_quantity.status == "estimated"
+    assert line.priced_storage_quantity.quantity_gib_month == Decimal("2.000000000000")
+
+    unlimited = db_session.query(BillingStorageDaily).filter_by(
+        s3_account_id=account.id,
+        day=date(2026, 1, 16),
+    ).one()
+    unlimited.quota_size_bytes = None
+    unlimited.quota_state = "unlimited"
+    db_session.commit()
+    regenerated = service.generate(
+        month="2026-01",
+        billing_entity_id=entity.id,
+        regenerate=True,
+        estimation_mode="coverage_extrapolation",
+        estimation_requested_by_email="admin@example.com",
+    )
+    assert any("unlimited_quota" in blocker for blocker in regenerated.blockers)
+
+
 def test_generation_reports_unpriced_subject_without_creating_fake_currency(db_session):
     endpoint = _endpoint(db_session, "unpriced-endpoint")
     account = _account(db_session, endpoint, "unpriced-account")

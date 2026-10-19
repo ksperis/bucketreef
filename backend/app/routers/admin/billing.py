@@ -261,6 +261,9 @@ def generate_billing_statements(
             month=payload.month,
             billing_entity_id=payload.billing_entity_id,
             regenerate=payload.regenerate,
+            estimation_mode=payload.estimation_mode,
+            estimation_reason=payload.estimation_reason,
+            estimation_requested_by_email=current_user.email,
         )
     except ValueError as exc:
         _billing_statement_http_error(exc)
@@ -277,6 +280,8 @@ def generate_billing_statements(
             "currencies": [item.currency for item in result.statements],
             "revisions": [item.revision for item in result.statements],
             "blockers": result.blockers,
+            "estimation_mode": payload.estimation_mode,
+            "estimation_reason": payload.estimation_reason,
         },
     )
     return result
@@ -378,6 +383,8 @@ def finalize_billing_statement(
             "currency": item.currency,
             "total": str(item.total),
             "revision": item.revision,
+            "estimation_mode": item.estimation_mode,
+            "estimation_reason": item.estimation_reason,
         },
     )
     return item

@@ -25,6 +25,7 @@ from app.models.billing_integration import (
     BillingIntegrationGroupMembershipV1,
     BillingIntegrationGroupV1,
     BillingIntegrationLineCoverageV1,
+    BillingIntegrationLineEstimationV1,
     BillingIntegrationMembershipReasonV1,
     BillingIntegrationPeriodMonthV1,
     BillingIntegrationPeriodV1,
@@ -459,6 +460,9 @@ class BillingIntegrationService:
             member_count=row.member_count,
             coverage=BillingIntegrationCoverageV1(**coverage.model_dump()),
             storage_charge_bases=json.loads(row.storage_charge_bases_json or "[]"),
+            estimation_mode=row.estimation_mode or "strict",
+            estimation_reason=row.estimation_reason,
+            estimation_requested_by_email=row.estimation_requested_by_email,
             subtotal=row.subtotal,
             total=row.total,
             revision=row.revision,
@@ -501,6 +505,11 @@ class BillingIntegrationService:
             rate_resolution=BillingIntegrationRateResolutionV1(**resolution.model_dump()),
             unit_prices=BillingIntegrationUnitPricesV1(**snapshot.unit_prices.model_dump()),
             amounts=BillingIntegrationAmountsV1(**snapshot.amounts.model_dump()),
+            estimation=(
+                BillingIntegrationLineEstimationV1(**snapshot.estimation.model_dump())
+                if snapshot.estimation is not None
+                else None
+            ),
             complete=snapshot.complete,
             issues=snapshot.issues,
         )

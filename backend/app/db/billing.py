@@ -506,6 +506,10 @@ class BillingStatement(Base):
             name="ck_billing_statements_status",
         ),
         CheckConstraint(
+            "estimation_mode IN ('strict', 'coverage_extrapolation')",
+            name="ck_billing_statements_estimation_mode",
+        ),
+        CheckConstraint(
             "subject_type IN ('account', 's3_user')",
             name="ck_billing_statements_subject_type",
         ),
@@ -546,6 +550,9 @@ class BillingStatement(Base):
     coverage_json = Column(Text, nullable=False)
     blockers_json = Column(Text, nullable=False, default="[]", server_default="[]")
     storage_charge_bases_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    estimation_mode = Column(String, nullable=False, default="strict", server_default="strict")
+    estimation_reason = Column(Text, nullable=True)
+    estimation_requested_by_email = Column(String, nullable=True)
     subtotal = Column(Numeric(24, 6), nullable=False, default=0, server_default="0")
     total = Column(Numeric(24, 6), nullable=False, default=0, server_default="0")
     source_fingerprint = Column(String(64), nullable=False)
