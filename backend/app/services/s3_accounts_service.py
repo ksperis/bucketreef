@@ -110,6 +110,25 @@ class S3AccountsService:
             .first()
         )
 
+    def _ensure_account_name_available(
+        self,
+        *,
+        storage_endpoint_id: int,
+        rgw_tenant: str,
+        name: str,
+        exclude_account_id: Optional[int] = None,
+        error_message: str = "S3Account already exists",
+    ) -> None:
+        query = self.db.query(S3Account.id).filter(
+            S3Account.storage_endpoint_id == storage_endpoint_id,
+            S3Account.rgw_tenant == rgw_tenant,
+            S3Account.name == name,
+        )
+        if exclude_account_id is not None:
+            query = query.filter(S3Account.id != exclude_account_id)
+        if query.first():
+            raise ValueError(error_message)
+
     def _endpoint_capabilities(self, endpoint: StorageEndpoint) -> dict[str, bool]:
         features = normalize_features_config(endpoint.provider, endpoint.features_config)
         return features_to_capabilities(features)
@@ -492,16 +511,18 @@ class S3AccountsService:
                 )
             )
 
-        names = [item.account_name for item in prepared]
-        existing_names = {
-            str(row[0])
-            for row in self.db.query(S3Account.name).filter(S3Account.name.in_(names)).all()
-        }
-        seen_names = set(existing_names)
+        seen_scopes: set[tuple[int, str, str]] = set()
         for item in prepared:
-            if item.account_name in seen_names:
+            scope = (item.endpoint.id, item.rgw_tenant, item.account_name)
+            if scope in seen_scopes:
                 raise ValueError(f"S3Account name already exists: {item.account_name}")
-            seen_names.add(item.account_name)
+            self._ensure_account_name_available(
+                storage_endpoint_id=item.endpoint.id,
+                rgw_tenant=item.rgw_tenant,
+                name=item.account_name,
+                error_message=f"S3Account name already exists: {item.account_name}",
+            )
+            seen_scopes.add(scope)
         return prepared
 
     def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
@@ -602,8 +623,11 @@ class S3AccountsService:
             ):
                 raise ValueError("Provisioned account scope changed")
             return self.get_account_detail(existing.id, include_usage=False)
-        if self.db.query(S3Account.id).filter(S3Account.name == payload.name).first():
-            raise ValueError("S3Account already exists")
+        self._ensure_account_name_available(
+            storage_endpoint_id=payload.storage_endpoint_id,
+            rgw_tenant=payload.rgw_tenant,
+            name=payload.name,
+        )
         endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
         if not self._endpoint_capabilities(endpoint).get("account", False):
             raise ValueError("Selected endpoint does not support RGW accounts")
@@ -662,9 +686,11 @@ class S3AccountsService:
         validate_manager_overrides(payload, app_settings.manager.feature_policies)
         if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
             raise ValueError("Managed RGW tenant creation is disabled")
-        existing = self.db.query(S3Account).filter(S3Account.name == payload.name).first()
-        if existing:
-            raise ValueError("S3Account already exists")
+        self._ensure_account_name_available(
+            storage_endpoint_id=payload.storage_endpoint_id,
+            rgw_tenant=payload.rgw_tenant,
+            name=payload.name,
+        )
 
         endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
         endpoint_capabilities = self._endpoint_capabilities(endpoint)
@@ -724,13 +750,24 @@ class S3AccountsService:
         validate_manager_overrides(payload, app_settings.manager.feature_policies, account)
         validate_project_overrides(payload, app_settings.general.project_feature_policies, account)
         validate_project_collection_overrides(payload, app_settings.general.project_collection_policies, account)
+        target_endpoint_id = account.storage_endpoint_id
+        if payload.storage_endpoint_id is not None:
+            endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
+            target_endpoint_id = endpoint.id
+        target_name = payload.name if payload.name else account.name
+        if target_name != account.name or target_endpoint_id != account.storage_endpoint_id:
+            self._ensure_account_name_available(
+                storage_endpoint_id=target_endpoint_id,
+                rgw_tenant=account.rgw_tenant,
+                name=target_name,
+                exclude_account_id=account.id,
+            )
         if payload.name:
             account.name = payload.name
         if payload.email is not None:
             account.email = payload.email
         if payload.storage_endpoint_id is not None:
-            endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
-            account.storage_endpoint_id = endpoint.id
+            account.storage_endpoint_id = target_endpoint_id
         if payload.tags is not None:
             self.tags.replace_account_tags(account, payload.tags)
         apply_resource_feature_overrides(payload, account)

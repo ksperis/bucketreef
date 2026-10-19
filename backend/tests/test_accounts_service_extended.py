@@ -96,10 +96,18 @@ def _seed_endpoint(
     return endpoint
 
 
-def _seed_account(db_session, endpoint_id: int | None, *, name: str = "acc", rgw_account_id: str = "RGW0001") -> S3Account:
+def _seed_account(
+    db_session,
+    endpoint_id: int | None,
+    *,
+    name: str = "acc",
+    rgw_account_id: str = "RGW0001",
+    rgw_tenant: str = "",
+) -> S3Account:
     account = S3Account(
         name=name,
         rgw_account_id=rgw_account_id,
+        rgw_tenant=rgw_tenant,
         rgw_access_key="AKIA-ROOT",
         rgw_secret_key="SECRET-ROOT",
         rgw_user_uid=f"{rgw_account_id.lower()}-admin",
@@ -321,6 +329,63 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
         .first()
         is None
     )
+
+
+def test_update_account_rejects_name_collision_in_final_scope(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session, name="ceph-update-name-scope", is_default=True)
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="Before rename",
+        rgw_account_id="RGW-U-SCOPE-1",
+        rgw_tenant="team_a",
+    )
+    _seed_account(
+        db_session,
+        endpoint.id,
+        name="Existing scoped name",
+        rgw_account_id="RGW-U-SCOPE-2",
+        rgw_tenant="team_a",
+    )
+    service, _ = _service(db_session)
+
+    with pytest.raises(ValueError, match="S3Account already exists"):
+        service.update_account(
+            account.id,
+            S3AccountUpdate(name="Existing scoped name"),
+        )
+
+    db_session.refresh(account)
+    assert account.name == "Before rename"
+
+
+def test_update_account_rejects_endpoint_move_into_name_collision(db_session):
+    first_endpoint = _seed_endpoint(db_session, name="ceph-update-scope-a", is_default=True)
+    second_endpoint = _seed_endpoint(db_session, name="ceph-update-scope-b")
+    account = _seed_account(
+        db_session,
+        first_endpoint.id,
+        name="Shared move name",
+        rgw_account_id="RGW-U-MOVE-1",
+        rgw_tenant="team_a",
+    )
+    _seed_account(
+        db_session,
+        second_endpoint.id,
+        name="Shared move name",
+        rgw_account_id="RGW-U-MOVE-2",
+        rgw_tenant="team_a",
+    )
+    service, _ = _service(db_session)
+
+    with pytest.raises(ValueError, match="S3Account already exists"):
+        service.update_account(
+            account.id,
+            S3AccountUpdate(storage_endpoint_id=second_endpoint.id),
+        )
+
+    db_session.refresh(account)
+    assert account.storage_endpoint_id == first_endpoint.id
 
 
 def test_update_account_persists_privileged_bucket_quota_grant(db_session, monkeypatch):
