@@ -771,7 +771,7 @@ export default function S3UsersPage() {
               <span className="min-w-0 truncate">{user.name}</span>
               {user.rgw_tenant && (
                 <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">
-                  {adminText("RGW tenant: {tenant}", { tenant: user.rgw_tenant })}
+                  ({user.rgw_tenant})
                 </span>
               )}
             </div>
