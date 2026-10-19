@@ -29,6 +29,7 @@ describe("CephAdminAccountCreateModal", () => {
       throw new Error("Create account workflow page not found");
     }
     expect(within(dialog).getByLabelText("Account name")).toHaveClass("ui-control");
+    expect(within(dialog).getByLabelText("Tenant")).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Email")).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Max access keys")).toHaveClass("ui-control");
 
@@ -70,6 +71,26 @@ describe("CephAdminAccountCreateModal", () => {
       })
     );
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ account_id: "RGW000000000000001" }));
+  });
+
+  it("submits an explicit account tenant", async () => {
+    render(<CephAdminAccountCreateModal endpointId={7} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Account name"), {
+      target: { value: "Tenant Analytics" },
+    });
+    fireEvent.change(screen.getByLabelText("Tenant"), {
+      target: { value: "team_a" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() => expect(createCephAdminAccountMock).toHaveBeenCalledOnce());
+    expect(createCephAdminAccountMock).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({
+        account_name: "Tenant Analytics",
+        tenant: "team_a",
+      })
+    );
   });
 
   it("focuses missing identity and invalid limits, then accepts zero without activating quotas", async () => {

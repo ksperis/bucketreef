@@ -321,8 +321,9 @@ def test_ceph_admin_accounts_advanced_filter_uses_cached_listing_and_lazy_includ
         ctx=ctx,
     )
     assert [item.email for item in enriched.items] == ["alpha@example.test"]
+    assert enriched.items[0].tenant == ""
     assert rgw_admin.list_accounts_calls == 1
-    assert rgw_admin.get_account_calls == 0
+    assert rgw_admin.get_account_calls == 1
 
 
 def test_ceph_admin_accounts_advanced_filter_rejects_invalid_json():

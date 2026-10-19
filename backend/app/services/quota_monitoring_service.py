@@ -241,7 +241,8 @@ class QuotaMonitoringService:
         try:
             used_bytes, used_objects, bucket_count = self._collect_usage(
                 usage_client,
-                rgw_qualified_uid(subject.usage_uid, subject.rgw_tenant) if subject.usage_uid else None,
+                subject.usage_uid,
+                subject.rgw_tenant,
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning(
@@ -569,10 +570,15 @@ class QuotaMonitoringService:
         self,
         admin: RGWAdminClient,
         usage_uid: str | None,
+        tenant: str = "",
     ) -> tuple[int, int, int]:
         if not usage_uid:
             return 0, 0, 0
-        payload = admin.get_all_buckets(uid=usage_uid, with_stats=True)
+        payload = admin.get_all_buckets(
+            uid=usage_uid,
+            tenant=tenant or None,
+            with_stats=True,
+        )
         buckets = extract_bucket_list(payload)
         total_bytes = 0
         total_objects = 0

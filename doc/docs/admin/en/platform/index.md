@@ -30,8 +30,11 @@ URL. Backend account endpoints under `/api/admin/accounts` are unchanged.
 
 RGW Account IDs and Ceph tenants are independent identifiers. BucketReef supports
 imported accounts and standalone RGW users in the default tenant or an explicit
-tenant. Account creation through BucketReef uses the default tenant; the Accounts
-page displays the tenant as read-only metadata and does not administer tenants.
+tenant. Managed Account and RGW User creation uses the default tenant unless a
+super-admin enables **Managed RGW tenant creation** in General settings
+(`general.allow_managed_rgw_tenant_creation`). The option is disabled by
+default and affects managed creation only; imports remain tenant-aware and Ceph
+Admin can always create an Account or User in an explicit tenant.
 
 To import an account, enter one Account ID per line. The importer preserves the
 tenant returned by RGW and discovers its existing account root, including custom
@@ -41,10 +44,11 @@ the user inventory when the root is already known. The selected root must belong
 to the imported account and tenant.
 
 For standalone users, import either `uid` for the default tenant or `tenant$uid`.
-The user creation form also accepts an optional tenant. Namespaces remain scoped
-by endpoint, tenant and UID, so the same UID can be imported from different
-tenants. The stored tenant is read-only after import or creation. Portal continues
-to require an RGW Account and personal IAM identities; standalone RGW users are
+When **Managed RGW tenant creation** is enabled, the Account and RGW User create
+forms also accept an optional tenant. Namespaces remain scoped by endpoint,
+tenant and UID, so the same UID can be imported from different tenants. The
+stored tenant is read-only after import or creation. Portal continues to require
+an RGW Account and personal IAM identities; standalone RGW users are
 Manager/Browser contexts.
 
 Statistics, traffic, quotas, keys, physical bucket tags and usage-history

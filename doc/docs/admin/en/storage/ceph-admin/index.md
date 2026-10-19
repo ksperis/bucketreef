@@ -52,6 +52,10 @@ scroll position, and focused bucket preserved.
 
 ### Accounts
 
+Account creation accepts an optional Ceph tenant. This is a direct Ceph Admin
+operation and remains available even when **Managed RGW tenant creation** is
+disabled in General settings.
+
 Use **Delete account** to remove an empty RGW Account. RGW Accounts require
 Ceph Squid or later. RGW rejects deletion while the Account still owns Users,
 Buckets, Roles, Groups, or other resources.
@@ -71,6 +75,10 @@ verify the UID and account association in RGW before retrying. User configuratio
 access-key operations and deletion also verify the selected account association;
 refresh the users list if the identity or account changed. Editing a user's
 ordinary profile does not change its account-root status.
+
+Without an Account, the create form accepts an optional tenant. When an Account
+is selected, BucketReef inherits that Account's tenant and locks the tenant field;
+a contradictory tenant is rejected by the backend.
 
 Use **Delete user** to remove an empty RGW User. **Purge owned data** is off by
 default and passes `purge-data` to RGW when explicitly enabled. The RGW User

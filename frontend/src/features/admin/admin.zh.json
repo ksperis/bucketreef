@@ -784,6 +784,8 @@
   "Managed account usage composition, platform storage, and traffic analytics.": "查看托管账户用量构成、平台存储及流量分析。",
   "Managed accounts usage composition": "托管账户用量构成",
   "Managed by BucketReef": "由 BucketReef 管理",
+  "Managed RGW tenant creation": "托管 RGW 租户创建",
+  "Allow Admin managed RGW Accounts and Users to be created in an explicit Ceph tenant. Ceph Admin is unaffected.": "允许 Admin 在显式 Ceph 租户中创建托管 RGW 账户和用户。Ceph Admin 不受影响。",
   "Managed private connection provisioning": "托管私有连接预配",
   "Management mode is unavailable.": "管理模式不可用。",
   "Management mode is unavailable. Return to endpoints and retry before making changes.": "管理模式不可用。请返回端点列表并重试后再修改。",

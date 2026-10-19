@@ -64,6 +64,7 @@ from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_ids,
+    extract_rgw_account_tenant,
 )
 from app.utils.usage_stats import aggregate_bucket_usage
 from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
@@ -557,7 +558,7 @@ class S3AccountsService:
         account = S3Account(
             name=payload.name,
             rgw_account_id=rgw_account_id,
-            rgw_tenant="",
+            rgw_tenant=payload.rgw_tenant,
             rgw_access_key=access_key,
             rgw_secret_key=secret_key,
             rgw_user_uid=root_uid,
@@ -583,10 +584,17 @@ class S3AccountsService:
         Account and root creation stay on the same RGW client/session. A retry
         reconciles whichever remote resources were already created.
         """
-        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies)
+        app_settings = load_app_settings_for_db_readonly(self.db)
+        validate_manager_overrides(payload, app_settings.manager.feature_policies)
+        if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
+            raise ValueError("Managed RGW tenant creation is disabled")
         existing = self.db.query(S3Account).filter(S3Account.rgw_account_id == rgw_account_id).first()
         if existing:
-            if existing.storage_endpoint_id != payload.storage_endpoint_id or existing.name != payload.name:
+            if (
+                existing.storage_endpoint_id != payload.storage_endpoint_id
+                or existing.name != payload.name
+                or existing.rgw_tenant != payload.rgw_tenant
+            ):
                 raise ValueError("Provisioned account scope changed")
             return self.get_account_detail(existing.id, include_usage=False)
         if self.db.query(S3Account.id).filter(S3Account.name == payload.name).first():
@@ -606,6 +614,7 @@ class S3AccountsService:
                 create_result = admin.create_account(
                     account_id=rgw_account_id,
                     account_name=payload.name,
+                    tenant=payload.rgw_tenant or None,
                 )
             except RGWAdminError as exc:
                 raise ValueError(f"RGW account creation failed: {exc}") from exc
@@ -613,13 +622,23 @@ class S3AccountsService:
         else:
             nested_account = remote.get("account")
             remote_ids = extract_rgw_account_ids(remote, nested_account)
-            if remote.get("name") != payload.name or remote_ids != {rgw_account_id}:
+            remote_name = None
+            for record in (nested_account, remote):
+                if isinstance(record, dict) and record.get("name") is not None:
+                    remote_name = record.get("name")
+                    break
+            if (
+                remote_name != payload.name
+                or remote_ids != {rgw_account_id}
+                or extract_rgw_account_tenant(remote) != payload.rgw_tenant
+            ):
                 raise ValueError("Provisioned RGW account does not match the requested identity")
         root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
             admin,
             rgw_account_id=rgw_account_id,
             account_name=payload.name,
             resume=resume,
+            tenant=payload.rgw_tenant,
         )
         account = self._persist_provisioned_account(
             payload,
@@ -634,7 +653,10 @@ class S3AccountsService:
         return self.get_account_detail(account.id, include_usage=False)
 
     def create_account_with_manager(self, payload: S3AccountCreate) -> S3AccountSchema:
-        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies)
+        app_settings = load_app_settings_for_db_readonly(self.db)
+        validate_manager_overrides(payload, app_settings.manager.feature_policies)
+        if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
+            raise ValueError("Managed RGW tenant creation is disabled")
         existing = self.db.query(S3Account).filter(S3Account.name == payload.name).first()
         if existing:
             raise ValueError("S3Account already exists")
@@ -655,6 +677,7 @@ class S3AccountsService:
             create_result = admin.create_account(
                 account_id=rgw_account_id,
                 account_name=payload.name,
+                tenant=payload.rgw_tenant or None,
             )
             self._ensure_account_creation_succeeded(create_result, rgw_account_id)
             logger.debug("Created RGW account %s (%s)", rgw_account_id, payload.name)
@@ -666,6 +689,7 @@ class S3AccountsService:
             rgw_account_id=rgw_account_id,
             account_name=payload.name,
             resume=False,
+            tenant=payload.rgw_tenant,
         )
         account = self._persist_provisioned_account(
             payload,

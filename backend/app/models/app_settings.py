@@ -73,6 +73,7 @@ class GeneralSettings(ApiModel):
     project_feature_policies: ProjectFeaturePolicies = Field(default_factory=ProjectFeaturePolicies)
     project_collection_policies: ProjectCollectionPolicies = Field(default_factory=ProjectCollectionPolicies)
     rgw_account_id_prefix: str = Field(default="80", pattern=r"^\d{1,3}$")
+    allow_managed_rgw_tenant_creation: bool = False
     documentation_base_url: str = DEFAULT_DOCUMENTATION_BASE_URL
     manager_enabled: bool = True
     ceph_admin_enabled: bool = False

@@ -62,6 +62,7 @@ export default function S3AccountsPage() {
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { generalSettings } = useGeneralSettings();
   const portalEnabled = generalSettings.portal_enabled;
+  const managedTenantCreationEnabled = generalSettings.allow_managed_rgw_tenant_creation;
   const [accounts, setS3Accounts] = useState<S3Account[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,6 +86,7 @@ export default function S3AccountsPage() {
   const [pageSize, setPageSize] = useState(25);
   const [form, setForm] = useState({
     name: "",
+    rgw_tenant: "",
     email: "",
     tags: [] as UiTagDefinition[],
     quota_max_size_gb: "",
@@ -471,6 +473,7 @@ export default function S3AccountsPage() {
     try {
       await createS3Account({
         name: form.name.trim(),
+        rgw_tenant: managedTenantCreationEnabled ? form.rgw_tenant.trim() || undefined : undefined,
         email: form.email.trim() || undefined,
         tags: normalizeUiTags(form.tags),
         quota_max_size_gb: form.quota_max_size_gb ? Number(form.quota_max_size_gb) : undefined,
@@ -483,6 +486,7 @@ export default function S3AccountsPage() {
         accountCephEndpoints.find((ep) => ep.is_default) || accountCephEndpoints[0];
       setForm({
         name: "",
+        rgw_tenant: "",
         email: "",
         tags: [],
         quota_max_size_gb: "",
@@ -690,6 +694,7 @@ export default function S3AccountsPage() {
             submitDisabled={createPermissionLoading || !createEndpointCanWrite}
             onCancel={createCloseGuard.requestClose} submitLabel={adminText("Create account")} busyLabel={adminText("Creating...")}>
             <AdminRgwCreateFields kind="account" value={form} onChange={patch => setForm(current => ({...current, ...patch}))}
+              showTenant={managedTenantCreationEnabled}
               errors={createValidation.errors} busy={creating}
               endpoint={{label: adminText("Storage endpoint (Ceph) *"), endpoints: accountCephEndpoints, loading: loadingEndpoints,
                 operation: "accounts", permissionLoading: createPermissionLoading, permissionError: createPermissionError, canWrite: createEndpointCanWrite}}

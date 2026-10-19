@@ -19,9 +19,10 @@ type Draft = {
   tags: UiTagDefinition[];
 };
 
-export default function AdminRgwCreateFields({kind, value, onChange, errors, busy, endpoint, tags}: {
+export default function AdminRgwCreateFields({kind, value, onChange, errors, busy, endpoint, tags, showTenant = false}: {
   kind: "account" | "user"; value: Draft; onChange: (patch: Partial<Draft>) => void;
   errors: Record<string, string | undefined>; busy: boolean;
+  showTenant?: boolean;
   endpoint: Omit<ComponentProps<typeof AdminRgwEndpointField>, "value" | "onChange" | "error">;
   tags: { catalog: ComponentProps<typeof UiTagEditor>["catalog"]; loading: boolean; error: string | null };
 }) {
@@ -36,7 +37,7 @@ export default function AdminRgwCreateFields({kind, value, onChange, errors, bus
             error={errors.name ?? liveNameError} required onChange={event => onChange({name: event.target.value})} />
           {kind === "user" && <UiInput label={adminText("UID (optional)")} name="uid" value={value.uid ?? ""} placeholder="user-123" error={rgwUserNameErrorText(errors.uid ?? rgwUserUidFormatError((value.uid ?? "").trim(), value.rgw_tenant?.trim()), locale)}
             onChange={event => onChange({uid: event.target.value})} />}
-          {kind === "user" && <UiInput label={adminText("Ceph tenant (optional)")} name="rgw_tenant" value={value.rgw_tenant ?? ""}
+          {showTenant && <UiInput label={adminText("Ceph tenant (optional)")} name="rgw_tenant" value={value.rgw_tenant ?? ""}
             placeholder="customer01" error={errors.rgw_tenant ?? rgwTenantFormatError(value.rgw_tenant ?? "")}
             onChange={event => onChange({rgw_tenant: event.target.value})} />}
           <UiInput label={kind === "account" ? "Email contact" : "Email"} name="email" type="email" value={value.email}

@@ -15,6 +15,7 @@ import { parseCephAdminAccountLimits, validateCephAdminAccountForm } from "./cep
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
+import { rgwTenantFormatError } from "../../utils/resourceNames";
 import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import {
@@ -33,6 +34,7 @@ type Props = {
 export default function CephAdminAccountCreateModal({ endpointId, onClose, onCreated }: Props) {
   const { text: surfaceText } = useCephAdminI18n();
   const [accountName, setAccountName] = useState("");
+  const [tenant, setTenant] = useState("");
   const [email, setEmail] = useState("");
   const [maxUsers, setMaxUsers] = useState("");
   const [maxBuckets, setMaxBuckets] = useState("");
@@ -57,6 +59,7 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
     () =>
       stableSignature({
         accountName,
+        tenant,
         email,
         maxUsers,
         maxBuckets,
@@ -74,6 +77,7 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
       }),
     [
       accountName,
+      tenant,
       accountQuotaEnabled,
       accountQuotaObjects,
       accountQuotaSize,
@@ -96,13 +100,14 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
   const validation = validateCephAdminAccountForm(profileValues,
     { enabled: accountQuotaEnabled, size: accountQuotaSize, unit: accountQuotaUnit, objects: accountQuotaObjects },
     { enabled: bucketQuotaEnabled, size: bucketQuotaSize, unit: bucketQuotaUnit, objects: bucketQuotaObjects }, true);
+  const tenantError = rgwTenantFormatError(tenant.trim());
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (saving) return;
     setError(null);
     setStatus(null);
     setValidationAttempted(true);
-    if (validation.invalid) {
+    if (validation.invalid || tenantError) {
       focusFirstInvalidField(event.currentTarget);
       return;
     }
@@ -114,6 +119,7 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
 
     const payload: CreateCephAdminAccountPayload = {
       account_name: accountName.trim(),
+      tenant: tenant.trim() || undefined,
       email: email.trim() || undefined,
       max_users: limits.max_users ?? undefined,
       max_buckets: limits.max_buckets ?? undefined,
@@ -162,6 +168,7 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
     >
       {status && <PageBanner tone="success">{status}</PageBanner>}
       <CephAdminAccountFormFields creating values={profileValues}
+        tenant={{ value: tenant, error: validationAttempted ? tenantError ?? undefined : undefined, onChange: setTenant }}
         errors={validationAttempted ? validation.profile : undefined}
         onChange={(field, value) => ({ accountName: setAccountName, email: setEmail,
           maxBuckets: setMaxBuckets, maxUsers: setMaxUsers, maxRoles: setMaxRoles,

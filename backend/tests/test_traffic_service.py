@@ -143,6 +143,21 @@ def test_traffic_service_aggregates_usage_entries():
     assert request_groups.get("delete") == 1
 
 
+def test_traffic_service_preserves_explicit_account_tenant():
+    account = _make_account()
+    account.rgw_tenant = "team_a"
+    fake_client = FakeRGWClient([{"entries": []}])
+    service = TrafficService(account, rgw_client=fake_client, admin_client=fake_client)
+
+    service.get_traffic(
+        TrafficWindow.DAY,
+        now=datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert fake_client.requests[0]["uid"] == account.rgw_account_id
+    assert fake_client.requests[0]["tenant"] == "team_a"
+
+
 def test_traffic_service_aggregates_multiple_bucket_filters():
     account = _make_account()
     payload = {

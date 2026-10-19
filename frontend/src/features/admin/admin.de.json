@@ -746,6 +746,8 @@
   "Managed account usage composition, platform storage, and traffic analytics.": "Nutzungszusammensetzung verwalteter Konten, Plattform-Speicher und Traff",
   "Managed accounts usage composition": "Nutzungszusammensetzung verwalteter Konten",
   "Managed by BucketReef": "Von BucketReef verwaltet",
+  "Managed RGW tenant creation": "Verwaltete RGW-Tenant-Erstellung",
+  "Allow Admin managed RGW Accounts and Users to be created in an explicit Ceph tenant. Ceph Admin is unaffected.": "Erlaubt Admin, verwaltete RGW-Konten und -Benutzer in einem expliziten Ceph-Tenant zu erstellen. Ceph Admin ist davon nicht betroffen.",
   "Managed private connection provisioning": "Bereitstellung verwalteter privater Verbindungen",
   "Management mode is unavailable.": "Der Verwaltungsmodus ist nicht verfügbar.",
   "Management mode is unavailable. Return to endpoints and retry before making changes.": "Der Verwaltungsmodus ist nicht verfügbar. Kehren Sie zu den Endpunkten zurück und versuchen Sie es erneut, bevor Sie Änderungen vornehmen.",

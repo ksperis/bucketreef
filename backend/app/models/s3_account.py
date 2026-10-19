@@ -18,6 +18,7 @@ from app.utils.rgw_identifiers import (
     is_rgw_account_id,
     normalize_rgw_identifier,
     validate_rgw_account_name,
+    validate_rgw_tenant,
 )
 
 
@@ -68,6 +69,7 @@ class S3Account(ApiModel):
 
 class S3AccountCreate(ApiModel):
     name: str
+    rgw_tenant: str = ""
     email: Optional[str] = None
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[str] = None
@@ -79,6 +81,12 @@ class S3AccountCreate(ApiModel):
     @classmethod
     def validate_account_name(cls, value: str) -> str:
         return validate_rgw_account_name(value)
+
+    @field_validator("rgw_tenant")
+    @classmethod
+    def validate_tenant(cls, value: str) -> str:
+        normalized = value.strip()
+        return validate_rgw_tenant(normalized)
 
 
 class S3AccountImport(ApiModel):

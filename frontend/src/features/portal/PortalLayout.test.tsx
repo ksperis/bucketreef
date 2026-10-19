@@ -42,6 +42,7 @@ const mocks = vi.hoisted(() => ({
       managed_private_connection_provisioning: "disabled" as const,
     },
     rgw_account_id_prefix: "80",
+    allow_managed_rgw_tenant_creation: false,
     documentation_base_url: "https://docs.bucketreef.ksperis.com",
     manager_enabled: true,
     ceph_admin_enabled: false,

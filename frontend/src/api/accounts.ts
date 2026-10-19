@@ -111,6 +111,7 @@ export async function getS3Account(accountId: number, options?: GetS3AccountOpti
 
 type CreateS3AccountPayload = {
   name: string;
+  rgw_tenant?: string | null;
   email?: string | null;
   quota_max_size_gb?: number | null;
   quota_max_size_unit?: string | null;

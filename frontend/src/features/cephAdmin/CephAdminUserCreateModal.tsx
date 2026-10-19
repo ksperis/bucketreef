@@ -47,6 +47,7 @@ type Props = {
 type AccountOption = {
   account_id: string;
   account_name?: string | null;
+  tenant: string;
 };
 
 export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onClose, onCreated }: Props) {
@@ -137,7 +138,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         });
         if (cancelled) return;
         const options = (response.items ?? [])
-          .map((item) => ({ account_id: item.account_id, account_name: item.account_name }))
+          .map((item) => ({ account_id: item.account_id, account_name: item.account_name, tenant: item.tenant ?? "" }))
           .filter((item) => item.account_id)
           .sort((a, b) => {
             const aLabel = `${a.account_name ?? ""} ${a.account_id}`.trim().toLowerCase();
@@ -160,17 +161,20 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
     };
   }, [endpointId, surfaceText]);
 
+  const selectedAccount = useMemo(
+    () => accounts.find((account) => account.account_id === selectedAccountId) ?? null,
+    [accounts, selectedAccountId],
+  );
+  const effectiveTenant = selectedAccount ? selectedAccount.tenant : tenant.trim();
+
   const [validationShown, setValidationShown] = useState(false);
-  const uidFormatError = rgwUserNameErrorText(rgwUserUidFormatError(uid.trim(), tenant.trim()), locale);
-  const tenantFormatError = rgwUserNameErrorText(rgwTenantFormatError(tenant.trim()), locale);
+  const uidFormatError = rgwUserNameErrorText(rgwUserUidFormatError(uid.trim(), effectiveTenant), locale);
+  const tenantFormatError = rgwUserNameErrorText(rgwTenantFormatError(effectiveTenant), locale);
   const validationErrors = {
     ...(uidFormatError ? { uid: uidFormatError } : {}),
     ...(tenantFormatError ? { tenant: tenantFormatError } : {}),
     ...validateCephAdminUserLimits({ maxBuckets, quotaEnabled, quotaSize, quotaUnit, quotaObjects }),
     ...(!uid.trim() ? { uid: rgwUserNameErrorText("UID is required.", locale)! } : {}),
-    ...(selectedAccountId && tenant.trim()
-      ? { tenant: surfaceText("Tenant cannot be used when an account is selected.") }
-      : {}),
   };
   const fieldErrors = validationShown ? validationErrors : { uid: uidFormatError, tenant: tenantFormatError };
 
@@ -187,7 +191,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
 
     const normalizedUid = uid.trim();
     const normalizedAccountId = selectedAccountId.trim() || undefined;
-    const normalizedTenant = tenant.trim() || undefined;
+    const normalizedTenant = effectiveTenant || undefined;
     const parsedMaxBuckets = parseOptionalNonNegativeInteger(maxBuckets);
     const parsedQuotaBytes = quotaEnabled ? parseQuotaBytes(quotaSize, quotaUnit) : null;
     const parsedQuotaObjects = quotaEnabled ? parseOptionalNonNegativeInteger(quotaObjects) : null;
@@ -235,7 +239,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
   const addConnectionDefaults = generatedKey
     ? buildCephConnectionDefaults(uid, generatedKey.access_key, {
         accountId: selectedAccountId,
-        tenant,
+        tenant: effectiveTenant,
       })
     : null;
 
@@ -286,11 +290,13 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
               <option value="">{surfaceText("No account")}</option>
               {accounts.map((account) => <option key={account.account_id} value={account.account_id}>
                 {account.account_name ? `${account.account_name} (${account.account_id})` : account.account_id}
+                {account.tenant ? ` · ${account.tenant}` : ""}
               </option>)}
             </UiSelect>
             <UiInput label={surfaceText("UID")} required value={uid} onChange={(event) => setUid(event.target.value)} error={fieldErrors.uid} />
-            <UiInput label={surfaceText("Tenant")} value={tenant} onChange={(event) => setTenant(event.target.value)}
-              hint={surfaceText("Leave empty when an account is selected.")} error={fieldErrors.tenant} />
+            <UiInput label={surfaceText("Tenant")} value={effectiveTenant} disabled={Boolean(selectedAccount)}
+              onChange={(event) => setTenant(event.target.value)}
+              hint={selectedAccount ? surfaceText("Inherited from the selected account.") : undefined} error={fieldErrors.tenant} />
           </div>
           <CephAdminUserProfileFields values={{ displayName, email, maxBuckets, opMask }}
             onChange={(field, value) => ({ displayName: setDisplayName, email: setEmail, maxBuckets: setMaxBuckets, opMask: setOpMask })[field](value)}

@@ -143,6 +143,23 @@ describe("GeneralSettingsPage branding", () => {
     expect(updateAppSettingsMock.mock.calls[0][0].general.rgw_account_id_prefix).toBe("123");
   });
 
+  it("keeps managed RGW tenant creation disabled by default and saves an explicit opt-in", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Managed RGW tenant creation",
+    });
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
+    expect(
+      updateAppSettingsMock.mock.calls[0][0].general.allow_managed_rgw_tenant_creation
+    ).toBe(true);
+  });
+
   it("configures bucket composition availability and automatic collection independently", async () => {
     const user = userEvent.setup();
     renderPage();

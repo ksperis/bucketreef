@@ -58,6 +58,7 @@ const smtpFields = [
 const paths = [
   ...featureFields.map((field) => `general.${field}` as const),
   "general.rgw_account_id_prefix",
+  "general.allow_managed_rgw_tenant_creation",
   "general.documentation_base_url",
   "general.project_feature_policies.bucket_usage_stats",
   "general.project_collection_policies.bucket_usage_stats",
@@ -471,6 +472,21 @@ export default function GeneralSettingsPage() {
                 form.setValue("general.rgw_account_id_prefix", event.target.value)
               }
               className="w-28"
+            />
+          }
+        />
+        <SettingsItem
+          compact
+          title={adminText("Managed RGW tenant creation")}
+          description={adminText("Allow Admin managed RGW Accounts and Users to be created in an explicit Ceph tenant. Ceph Admin is unaffected.")}
+          action={
+            <SettingsSwitch
+              ariaLabel={adminText("Managed RGW tenant creation")}
+              checked={Boolean(form.draft["general.allow_managed_rgw_tenant_creation"])}
+              disabled={form.busy}
+              onChange={(value) =>
+                form.setValue("general.allow_managed_rgw_tenant_creation", value)
+              }
             />
           }
         />

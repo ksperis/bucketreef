@@ -24,6 +24,19 @@ def _require_cleanup_success(result: Any) -> None:
     )
 
 
+def _is_rgw_account_verification_error(exc: BackendAPIError) -> bool:
+    if exc.status_code not in {400, 404}:
+        return False
+    payload_text = str(exc.payload).lower() if exc.payload is not None else ""
+    return any(
+        marker in payload_text
+        for marker in (
+            "cannot delete the rgw tenant",
+            "cannot delete the rgw account",
+        )
+    )
+
+
 class RgwCleanupClient(Protocol):
     def delete_user(self, uid: str, tenant: str | None = None) -> None:
         ...
@@ -228,11 +241,7 @@ class ResourceTracker:
             except BackendAPIError as exc:
                 # Some RGW backends deny tenant deletion checks while DB unlink is still valid.
                 # Retry with delete_rgw=false to avoid leaking UI-side resources.
-                retry_without_rgw = (
-                    delete_rgw
-                    and exc.status_code in {400, 404}
-                    and "cannot delete the rgw tenant" in str(exc.payload).lower()
-                )
+                retry_without_rgw = delete_rgw and _is_rgw_account_verification_error(exc)
                 if retry_without_rgw:
                     try:
                         self.admin_session.delete(
@@ -247,6 +256,7 @@ class ResourceTracker:
                     else:
                         if self.rgw_admin_client is not None and rgw_account_id:
                             try:
+                                self._cleanup_rgw_account_users(rgw_account_id, log=log)
                                 self.rgw_admin_client.delete_account(rgw_account_id)
                                 if log:
                                     log(f"Deleted RGW account {rgw_account_id} after DB unlink fallback")

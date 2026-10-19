@@ -246,6 +246,7 @@
   "Target only ({count})": "Nur Ziel ({count})",
   "Target type": "Zieltyp",
   "Tenant": "Tenant",
+  "Inherited from the selected account.": "Vom ausgewählten Konto übernommen.",
   "Tenant cannot be used when an account is selected.": "Tenant kann nicht verwendet werden, wenn ein Konto ausgewählt ist.",
   "The account is removed only when RGW considers it empty. Users and buckets must be removed first.": "Das Konto wird nur entfernt, wenn RGW es als leer betrachtet. Benutzer und Buckets müssen zuerst entfernt werden.",
   "The active Ceph Admin service identity cannot delete itself": "Die aktive Ceph-Admin-Dienstidentität kann sich nicht selbst löschen",

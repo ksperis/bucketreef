@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import copy
 import io
 import uuid
 from typing import Any
@@ -129,6 +130,303 @@ def _purge_bucket_history(client, bucket: str) -> None:
         version_id_marker = page.get("NextVersionIdMarker")
 
 
+def test_managed_explicit_tenant_creation_respects_global_opt_in(
+    ceph_test_settings: CephTestSettings,
+    super_admin_session: BackendSession,
+    storage_endpoint_id: int,
+    resource_tracker: ResourceTracker,
+) -> None:
+    suffix = uuid.uuid4().hex[:8]
+    tenant = f"brmanaged_{suffix}"
+    account_name = f"Managed tenant account {suffix}"
+    user_name = f"managed-tenant-user-{suffix}"
+    account_bucket = f"br-{suffix}-managed-account"
+    user_bucket = f"br-{suffix}-managed-user"
+    account_object = "managed-account.bin"
+    user_object = "managed-user.bin"
+    original_settings = super_admin_session.get("/admin/settings")
+    managed_account_id: int | None = None
+    managed_s3_user_id: int | None = None
+    managed_account_bucket_created = False
+    managed_user_bucket_created = False
+
+    try:
+        disabled_settings = copy.deepcopy(original_settings)
+        disabled_settings["general"]["allow_managed_rgw_tenant_creation"] = False
+        super_admin_session.put("/admin/settings", json=disabled_settings)
+
+        blocked_account = super_admin_session.post(
+            "/admin/accounts",
+            json={
+                "name": f"Blocked tenant account {suffix}",
+                "rgw_tenant": tenant,
+                "storage_endpoint_id": storage_endpoint_id,
+            },
+            expected_status=400,
+        )
+        assert "Managed RGW tenant creation is disabled" in str(blocked_account.get("detail"))
+        blocked_user = super_admin_session.post(
+            "/admin/s3-users",
+            json={
+                "name": f"Blocked tenant user {suffix}",
+                "uid": f"blocked-{suffix}",
+                "rgw_tenant": tenant,
+                "storage_endpoint_id": storage_endpoint_id,
+            },
+            expected_status=400,
+        )
+        assert "Managed RGW tenant creation is disabled" in str(blocked_user.get("detail"))
+
+        enabled_settings = copy.deepcopy(disabled_settings)
+        enabled_settings["general"]["allow_managed_rgw_tenant_creation"] = True
+        super_admin_session.put("/admin/settings", json=enabled_settings)
+
+        managed_account = super_admin_session.post(
+            "/admin/accounts",
+            json={
+                "name": account_name,
+                "rgw_tenant": tenant,
+                "storage_endpoint_id": storage_endpoint_id,
+            },
+            expected_status=201,
+        )
+        managed_account_id = int(managed_account["id"])
+        assert managed_account["rgw_tenant"] == tenant
+
+        managed_user = super_admin_session.post(
+            "/admin/s3-users",
+            json={
+                "name": user_name,
+                "uid": user_name,
+                "rgw_tenant": tenant,
+                "storage_endpoint_id": storage_endpoint_id,
+            },
+            expected_status=201,
+        )
+        managed_s3_user_id = int(managed_user["id"])
+        managed_s3_user_ref = f"s3u-{managed_s3_user_id}"
+        assert managed_user["rgw_tenant"] == tenant
+        assert managed_user["rgw_user_uid"] == user_name
+
+        super_admin_user_id = _super_admin_id(
+            super_admin_session,
+            ceph_test_settings.super_admin_email,
+        )
+        super_admin_session.put(
+            f"/admin/users/{super_admin_user_id}",
+            json={
+                "account_links": [
+                    {
+                        "account_id": managed_account_id,
+                        "manager_role": "account_administrator",
+                        "portal_role": None,
+                        "allow_manager_browser_data_access": True,
+                    }
+                ],
+                "s3_user_links": [
+                    {
+                        "s3_user_id": managed_s3_user_id,
+                        "allow_manager_browser_data_access": True,
+                    }
+                ],
+            },
+        )
+        resource_tracker.track_account(
+            managed_account_id,
+            rgw_account_id=str(managed_account["rgw_account_id"]),
+        )
+
+        account_context = super_admin_session.get(
+            "/manager/context",
+            params={"context_id": managed_account_id, "include_limits": "true"},
+        )
+        assert account_context["context_kind"] == "account"
+        assert account_context["access_mode"] == "admin"
+        super_admin_session.post(
+            "/manager/buckets",
+            params={"context_id": managed_account_id},
+            json={"name": account_bucket, "versioning": False},
+            expected_status=201,
+        )
+        managed_account_bucket_created = True
+        _upload(
+            super_admin_session,
+            account_ref=managed_account_id,
+            bucket=account_bucket,
+            key=account_object,
+            body=b"managed-account-tenant-object",
+        )
+        account_objects = super_admin_session.get(
+            f"/browser/buckets/{account_bucket}/objects",
+            params={
+                "context_id": managed_account_id,
+                "recursive": "true",
+                "max_keys": 1000,
+            },
+        )
+        assert [item["key"] for item in account_objects.get("objects", [])] == [account_object]
+
+        account_overview = super_admin_session.get(
+            "/manager/stats/overview",
+            params={"context_id": managed_account_id},
+        )
+        assert account_overview["total_buckets"] == 1
+        assert [item["name"] for item in account_overview["bucket_usage"]] == [account_bucket]
+        account_admin_stats = super_admin_session.get(
+            "/admin/stats/account",
+            params={"account_id": managed_account_id},
+        )
+        assert account_admin_stats["total_buckets"] == 1
+        assert [item["name"] for item in account_admin_stats["bucket_usage"]] == [account_bucket]
+        account_ceph_admin_metrics = super_admin_session.get(
+            f"/ceph-admin/endpoints/{storage_endpoint_id}/accounts/{managed_account['rgw_account_id']}/metrics",
+        )
+        assert account_ceph_admin_metrics["bucket_count"] == 1
+        assert [item["name"] for item in account_ceph_admin_metrics["bucket_usage"]] == [account_bucket]
+
+        user_context = super_admin_session.get(
+            "/manager/context",
+            params={"context_id": managed_s3_user_ref, "include_limits": "true"},
+        )
+        assert user_context["context_kind"] == "account"
+        assert user_context["access_mode"] == "s3_user"
+        super_admin_session.post(
+            "/manager/buckets",
+            params={"context_id": managed_s3_user_ref},
+            json={"name": user_bucket, "versioning": False},
+            expected_status=201,
+        )
+        managed_user_bucket_created = True
+        _upload(
+            super_admin_session,
+            account_ref=managed_s3_user_ref,
+            bucket=user_bucket,
+            key=user_object,
+            body=b"managed-user-tenant-object",
+        )
+        user_objects = super_admin_session.get(
+            f"/browser/buckets/{user_bucket}/objects",
+            params={
+                "context_id": managed_s3_user_ref,
+                "recursive": "true",
+                "max_keys": 1000,
+            },
+        )
+        assert [item["key"] for item in user_objects.get("objects", [])] == [user_object]
+
+        user_overview = super_admin_session.get(
+            "/manager/stats/overview",
+            params={"context_id": managed_s3_user_ref},
+        )
+        assert user_overview["total_buckets"] == 1
+        assert [item["name"] for item in user_overview["bucket_usage"]] == [user_bucket]
+        user_admin_stats = super_admin_session.get(
+            "/admin/stats/s3-user",
+            params={"user_id": managed_s3_user_id},
+        )
+        assert user_admin_stats["total_buckets"] == 1
+        assert [item["name"] for item in user_admin_stats["bucket_usage"]] == [user_bucket]
+        user_usage = super_admin_session.get(
+            "/browser/usage-summary",
+            params={"context_id": managed_s3_user_ref},
+        )
+        assert user_usage["available"] is True
+        assert user_usage["source"] == "s3_user"
+        assert user_usage["object_count"] == 1
+        user_ceph_admin_metrics = super_admin_session.get(
+            f"/ceph-admin/endpoints/{storage_endpoint_id}/users/{user_name}/metrics",
+            params={"tenant": tenant},
+        )
+        assert user_ceph_admin_metrics["bucket_count"] == 1
+        assert [item["name"] for item in user_ceph_admin_metrics["bucket_usage"]] == [user_bucket]
+
+        initial_keys = super_admin_session.get(f"/admin/s3-users/{managed_s3_user_id}/keys")
+        assert any(item.get("is_ui_managed") is True for item in initial_keys)
+        generated_key = super_admin_session.post(
+            f"/admin/s3-users/{managed_s3_user_id}/keys",
+            expected_status=201,
+        )
+        generated_access_key = str(generated_key["access_key_id"])
+        assert generated_key["secret_access_key"]
+        listed_keys = super_admin_session.get(f"/admin/s3-users/{managed_s3_user_id}/keys")
+        assert generated_access_key in {str(item["access_key_id"]) for item in listed_keys}
+        disabled_key = super_admin_session.put(
+            f"/admin/s3-users/{managed_s3_user_id}/keys/{generated_access_key}/status",
+            json={"active": False},
+        )
+        assert disabled_key["is_active"] is False
+        enabled_key = super_admin_session.put(
+            f"/admin/s3-users/{managed_s3_user_id}/keys/{generated_access_key}/status",
+            json={"active": True},
+        )
+        assert enabled_key["is_active"] is True
+        super_admin_session.delete(
+            f"/admin/s3-users/{managed_s3_user_id}/keys/{generated_access_key}",
+            expected_status=204,
+        )
+        remaining_keys = super_admin_session.get(f"/admin/s3-users/{managed_s3_user_id}/keys")
+        assert generated_access_key not in {str(item["access_key_id"]) for item in remaining_keys}
+
+        _delete_object(
+            super_admin_session,
+            account_ref=managed_account_id,
+            bucket=account_bucket,
+            key=account_object,
+        )
+        super_admin_session.delete(
+            f"/manager/buckets/{account_bucket}",
+            params={"context_id": managed_account_id, "force": "true"},
+            expected_status=(200, 204),
+        )
+        managed_account_bucket_created = False
+
+        _delete_object(
+            super_admin_session,
+            account_ref=managed_s3_user_ref,
+            bucket=user_bucket,
+            key=user_object,
+        )
+        super_admin_session.delete(
+            f"/manager/buckets/{user_bucket}",
+            params={"context_id": managed_s3_user_ref, "force": "true"},
+            expected_status=(200, 204),
+        )
+        managed_user_bucket_created = False
+    finally:
+        try:
+            for bucket_name, was_created in (
+                (account_bucket, managed_account_bucket_created),
+                (user_bucket, managed_user_bucket_created),
+            ):
+                if not was_created:
+                    continue
+                super_admin_session.delete(
+                    f"/ceph-admin/endpoints/{storage_endpoint_id}/buckets/{bucket_name}",
+                    params={"tenant": tenant},
+                    json={
+                        "confirmation": f"PURGE AND DELETE BUCKET {tenant}/{bucket_name}",
+                        "purge_objects": True,
+                        "bypass_gc": False,
+                    },
+                    expected_status=(200, 404),
+                )
+            if managed_s3_user_id is not None:
+                super_admin_session.delete(
+                    f"/admin/s3-users/{managed_s3_user_id}",
+                    params={"delete_rgw": "true"},
+                    expected_status=(204, 404),
+                )
+            if managed_account_id is not None:
+                super_admin_session.delete(
+                    f"/admin/accounts/{managed_account_id}",
+                    params={"delete_rgw": "true"},
+                    expected_status=(204, 404),
+                )
+                resource_tracker.discard_account(managed_account_id)
+        finally:
+            super_admin_session.put("/admin/settings", json=original_settings)
+
+
 def test_explicit_tenant_account_user_manager_portal_and_metrics(
     ceph_test_settings: CephTestSettings,
     super_admin_session: BackendSession,
@@ -152,7 +450,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     rgw.create_account(
         account_id=rgw_account_id,
         account_name=f"Tenant account {suffix}",
-        extra_params={"tenant": account_tenant},
+        tenant=account_tenant,
     )
     resource_tracker.track_ceph_admin_account(
         rgw_account_id,

@@ -766,6 +766,7 @@ def test_create_update_delete_account_branches(monkeypatch):
     created = client.create_account(
         account_id="RGW-CONFLICT",
         account_name="existing",
+        tenant="team_a",
         email="acc@test",
         max_users=10,
         max_buckets=20,
@@ -776,6 +777,7 @@ def test_create_update_delete_account_branches(monkeypatch):
     )
     assert created == {"conflict": True}
     create_params = calls[0]["params"]
+    assert create_params["tenant"] == "team_a"
     assert create_params["email"] == "acc@test"
     assert create_params["max-users"] == 10
     assert create_params["max-buckets"] == 20
@@ -807,7 +809,7 @@ def test_create_update_delete_account_branches(monkeypatch):
     assert deleted == {"id": "RGW-DEL"}
 
 
-@pytest.mark.parametrize("extra_key", ["id", "account_id", "NAME", " format ", "max-buckets", "email"])
+@pytest.mark.parametrize("extra_key", ["id", "account_id", "NAME", " format ", "max-buckets", "email", "tenant"])
 def test_account_raw_params_cannot_override_dedicated_fields(monkeypatch, extra_key):
     client = _client()
     monkeypatch.setattr(client, "_request", lambda *args, **kwargs: pytest.fail("Unexpected RGW mutation"))

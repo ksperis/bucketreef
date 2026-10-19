@@ -16,6 +16,7 @@ import type { PaginatedResponse } from "./types";
 
 export type CephAdminRgwAccount = {
   account_id: string;
+  tenant?: string | null;
   account_name?: string | null;
   email?: string | null;
   max_users?: number | null;
@@ -28,6 +29,7 @@ export type CephAdminRgwAccount = {
 
 export type CephAdminRgwAccountDetail = {
   account_id: string;
+  tenant?: string | null;
   account_name?: string | null;
   email?: string | null;
   max_users?: number | null;
@@ -61,6 +63,7 @@ export type UpdateCephAdminAccountPayload = {
 export type CreateCephAdminAccountPayload = {
   account_id?: string | null;
   account_name: string;
+  tenant?: string | null;
   email?: string | null;
   max_users?: number | null;
   max_buckets?: number | null;

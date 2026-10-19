@@ -53,6 +53,7 @@ def create_rgw_account(
         create_result = ctx.rgw_admin.create_account(
             account_id=requested_account_id,
             account_name=account_name,
+            tenant=payload.tenant,
             email=payload.email,
             max_users=payload.max_users,
             max_buckets=payload.max_buckets,

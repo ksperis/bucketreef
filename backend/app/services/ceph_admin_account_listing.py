@@ -141,6 +141,7 @@ def _account_from_entry(entry: object) -> CephAdminRgwAccountSummary | None:
     )
     return CephAdminRgwAccountSummary(
         account_id=account_id,
+        tenant=(str(entry.get("tenant") or "").strip() if "tenant" in entry else None),
         account_name=normalize_optional_scalar(
             entry.get("account_name") or entry.get("name") or entry.get("display_name")
         ),
