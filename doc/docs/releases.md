@@ -54,6 +54,7 @@ Compare v0.2.16 → v0.2.17: [GitHub](https://github.com/ksperis/bucketreef/comp
 - Add the supported read-only Billing Integration API v1 for external invoicing, ERP, accounting, reporting, and chargeback consumers using scoped API tokens and finalized statement snapshots.
 - Add explicit Admin controls for creating RGW resources in non-default tenants, tenant-aware account/user imports, and endpoint-map hover details.
 - Add Browser direct-transfer workers with per-context endpoint authorization and CSP so eligible uploads and downloads can communicate with the selected S3 endpoint without proxying object payloads through BucketReef.
+- Add Browser upload-mode controls so administrators can independently allow direct presigned, STS, and proxy uploads while requiring at least one upload path to remain enabled.
 
 ### Changed
 
