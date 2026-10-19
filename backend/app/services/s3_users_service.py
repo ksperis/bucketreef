@@ -493,10 +493,17 @@ class S3UsersService:
 
     def import_users(self, items: list[S3UserImport]) -> list[S3UserSchema]:
         created: list[S3UserSchema] = []
+        app_settings = load_app_settings_for_db_readonly(self.db)
+        parsed_items: list[tuple[S3UserImport, str, str]] = []
         for payload in items:
             uid, tenant = split_rgw_tenant_uid(payload.uid, payload.rgw_tenant)
             if not uid:
                 raise ValueError("uid is required")
+            if tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
+                raise ValueError("Managed RGW tenant creation is disabled")
+            parsed_items.append((payload, uid, tenant))
+
+        for payload, uid, tenant in parsed_items:
             endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
             admin = self._admin_for_endpoint(endpoint)
             exists = self._existing_identity(uid, tenant, endpoint.id)

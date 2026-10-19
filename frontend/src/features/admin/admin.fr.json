@@ -514,6 +514,8 @@
   "Endpoints unavailable": "Endpoints indisponibles",
   "Enter RGW account IDs, one per line. Optionally add an existing root UID after a space (e.g. customer01$customer01-root). The Ceph tenant is read from RGW.": "Saisissez les ID de comptes RGW, un par ligne. Vous pouvez ajouter un UID root existant après un espace (ex. customer01$customer01-root). Le tenant Ceph est lu depuis RGW.",
   "Enter RGW user IDs, one per line. Use tenant$uid for an explicit tenant, or uid for the default tenant. The platform creates a dedicated access key.": "Saisissez les ID utilisateurs RGW, un par ligne. Utilisez tenant$uid pour un tenant explicite, sinon uid. La plateforme crée une clé d’accès dédiée.",
+  "Enter RGW user IDs, one per line, for the default tenant. Enable Managed RGW tenant creation to import tenant-qualified users. The platform creates a dedicated access key.": "Saisissez les ID utilisateurs RGW, un par ligne, pour le tenant par défaut. Activez la création de tenants RGW managés pour importer des utilisateurs avec tenant. La plateforme crée une clé d’accès dédiée.",
+  "Tenant-qualified RGW user IDs require Managed RGW tenant creation.": "Les ID utilisateurs RGW avec tenant nécessitent l’activation de la création de tenants RGW managés.",
   "Enter a valid HTTP or HTTPS URL.": "Saisissez une URL HTTP ou HTTPS valide.",
   "Enter a valid email address.": "Entrez une adresse e-mail valide.",
   "Enter both the Admin Ops access key and secret key.": "Saisissez la clé d’accès et la clé secrète Admin Ops.",

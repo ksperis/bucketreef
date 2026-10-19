@@ -513,46 +513,72 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     resource_tracker.track_ceph_admin_bucket(shared_bucket, tenant=user_tenant)
     resource_tracker.track_ceph_admin_bucket(shared_bucket, tenant=None)
 
-    imported_account = super_admin_session.post(
+    original_settings = super_admin_session.get("/admin/settings")
+    disabled_settings = copy.deepcopy(original_settings)
+    disabled_settings["general"]["allow_managed_rgw_tenant_creation"] = False
+    super_admin_session.put("/admin/settings", json=disabled_settings)
+    account_import_payload = [
+        {
+            "rgw_account_id": rgw_account_id,
+            "rgw_tenant": account_tenant,
+            "root_uid": f"{account_tenant}${root_uid}",
+            "name": f"Imported tenant account {suffix}",
+            "storage_endpoint_id": storage_endpoint_id,
+        }
+    ]
+    user_import_payload = [
+        {
+            "uid": f"{user_tenant}${standalone_uid}",
+            "name": f"Imported tenant user {suffix}",
+            "storage_endpoint_id": storage_endpoint_id,
+        }
+    ]
+    blocked_account_import = super_admin_session.post(
         "/admin/accounts/import",
-        json=[
-            {
-                "rgw_account_id": rgw_account_id,
-                "root_uid": f"{account_tenant}${root_uid}",
-                "name": f"Imported tenant account {suffix}",
-                "storage_endpoint_id": storage_endpoint_id,
-            }
-        ],
-    )[0]
-    account_id = int(imported_account["id"])
-    assert imported_account["rgw_tenant"] == account_tenant
-    imported_account_detail = super_admin_session.get(f"/admin/accounts/{account_id}")
-    assert imported_account_detail["rgw_tenant"] == account_tenant
-    portal_log_bucket = portal_access_log_bucket_name(
-        account_id,
-        rgw_account_id,
-        str(imported_account["name"]),
+        json=account_import_payload,
+        expected_status=400,
     )
-    resource_tracker.track_ceph_admin_bucket(
-        portal_log_bucket,
-        tenant=account_tenant,
-    )
-    resource_tracker.track_account(
-        account_id,
-        delete_rgw=False,
-        rgw_account_id=rgw_account_id,
-    )
-
-    imported_user = super_admin_session.post(
+    assert "Managed RGW tenant creation is disabled" in str(blocked_account_import.get("detail"))
+    blocked_user_import = super_admin_session.post(
         "/admin/s3-users/import",
-        json=[
-            {
-                "uid": f"{user_tenant}${standalone_uid}",
-                "name": f"Imported tenant user {suffix}",
-                "storage_endpoint_id": storage_endpoint_id,
-            }
-        ],
-    )[0]
+        json=user_import_payload,
+        expected_status=400,
+    )
+    assert "Managed RGW tenant creation is disabled" in str(blocked_user_import.get("detail"))
+
+    enabled_settings = copy.deepcopy(disabled_settings)
+    enabled_settings["general"]["allow_managed_rgw_tenant_creation"] = True
+    super_admin_session.put("/admin/settings", json=enabled_settings)
+    try:
+        imported_account = super_admin_session.post(
+            "/admin/accounts/import",
+            json=account_import_payload,
+        )[0]
+        account_id = int(imported_account["id"])
+        assert imported_account["rgw_tenant"] == account_tenant
+        imported_account_detail = super_admin_session.get(f"/admin/accounts/{account_id}")
+        assert imported_account_detail["rgw_tenant"] == account_tenant
+        portal_log_bucket = portal_access_log_bucket_name(
+            account_id,
+            rgw_account_id,
+            str(imported_account["name"]),
+        )
+        resource_tracker.track_ceph_admin_bucket(
+            portal_log_bucket,
+            tenant=account_tenant,
+        )
+        resource_tracker.track_account(
+            account_id,
+            delete_rgw=False,
+            rgw_account_id=rgw_account_id,
+        )
+
+        imported_user = super_admin_session.post(
+            "/admin/s3-users/import",
+            json=user_import_payload,
+        )[0]
+    finally:
+        super_admin_session.put("/admin/settings", json=original_settings)
     s3_user_id = int(imported_user["id"])
     s3_user_ref = f"s3u-{s3_user_id}"
     assert imported_user["rgw_tenant"] == user_tenant

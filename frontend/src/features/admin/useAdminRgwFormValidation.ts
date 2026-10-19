@@ -59,11 +59,12 @@ export function adminQuotaErrors(value: { quota_max_size_gb: string; quota_max_o
   return errors;
 }
 
-export function rgwImportEntries(text: string, kind: "account" | "user") {
+export function rgwImportEntries(text: string, kind: "account" | "user", allowTenant = true) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const entries = kind === "account" ? lines : lines.map(line => line.trim());
+  const tenantQualified = kind === "user" ? lines.filter(line => line.includes("$")) : [];
   const invalid = lines.filter((_, index) => kind === "account" ? !/^RGW\d{17}$/.test(entries[index]) : !entries[index] || Boolean(rgwUserUidFormatError(entries[index])) || entries[index].endsWith("$") || entries[index].startsWith("$") || entries[index].includes("/") || /\s/.test(entries[index]));
-  return {entries, error: !entries.length ? "Enter at least one identifier." : invalid.length ? `Invalid identifiers: ${invalid.join(", ")}` : undefined};
+  return {entries, error: !entries.length ? "Enter at least one identifier." : !allowTenant && tenantQualified.length ? "Tenant-qualified RGW user IDs require Managed RGW tenant creation." : invalid.length ? `Invalid identifiers: ${invalid.join(", ")}` : undefined};
 }
 
 /** One account per line, optionally followed by the existing root UID. */
