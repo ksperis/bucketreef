@@ -290,6 +290,32 @@ def test_removed_onboarding_password_urls_work_without_report_commit(commit, lin
     assert len(summarize(changed)) == 1
 
 
+@pytest.mark.parametrize("path,line", [
+    ("backend/tests/test_browser_transfer_policy.py", 35),
+    ("frontend/src/features/browser/browserDirectTransfer.test.ts", 130),
+])
+def test_removed_direct_transfer_userinfo_urls_are_exact_historical_fixtures(path, line):
+    commit = "7baf73ba4b63f5fcdb3b46d375e1b88aab5758fb"
+    source = subprocess.check_output(
+        ["git", "show", f"{commit}:{path}"],
+        cwd=ROOT,
+        text=True,
+    ).splitlines()[line - 1]
+    extract, = re.findall(r"https://[^:\"\s]+:[^@\"\s]+@[^:/\"\s]+", source)
+    finding = {
+        "location": {"file": path, "start_line": line, "commit": {"sha": commit}},
+        "raw_source_code_extract": extract,
+        "identifiers": [{"type": "gitleaks_rule_id", "value": "Password in URL"}],
+    }
+    report = {"scan": {"status": "success"}, "vulnerabilities": [finding]}
+    assert summarize(report) == []
+    changed = copy.deepcopy(report)
+    changed["vulnerabilities"][0]["raw_source_code_extract"] = extract + ".changed"
+    assert len(summarize(changed)) == 1
+    finding["location"]["commit"] = {"sha": "767e5f65fa38bb3b05fac15e1c8a6b301e0293ec"}
+    assert len(summarize(report)) == 1
+
+
 def test_removed_password_url_accepts_pre_removal_report_commit_only():
     source = subprocess.check_output(
         ['git', 'show', 'c89e196026d1e085d3c31746d2390ab4d0f8015a:backend/tests/test_admin_onboarding.py'],

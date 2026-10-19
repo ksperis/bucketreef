@@ -25,7 +25,27 @@ def _entries(file_name: str, guard: str, *functions: str) -> dict[tuple[str, str
 # mutation must be reviewed and added here. CI rejects missing/stale entries and
 # any drift between the expected guard and the route implementation.
 EXPECTED_GUARDS: dict[tuple[str, str], str] = {
-    **_entries("billing.py", ADMIN_AUTH, "billing_collect_daily"),
+    **_entries(
+        "billing.py",
+        ADMIN_AUTH,
+        "billing_collect_daily",
+        "create_billing_entity",
+        "create_billing_entity_group",
+        "create_billing_rate_card",
+        "create_billing_rate_card_version",
+        "deactivate_billing_entity",
+        "deactivate_billing_entity_group",
+        "delete_billing_rate_card",
+        "finalize_billing_statement",
+        "generate_billing_statements",
+        "preview_billing_entity",
+        "preview_billing_statement_pdf",
+        "update_billing_automation_settings",
+        "update_billing_entity",
+        "update_billing_entity_group",
+        "update_billing_rate_card",
+        "update_billing_statement_pdf_settings",
+    ),
     **_entries("groups.py", RECENT_WEBAUTHN, "create_group", "update_group"),
     **_entries(
         "groups.py",
