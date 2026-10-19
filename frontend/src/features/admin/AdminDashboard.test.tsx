@@ -455,7 +455,9 @@ describe("AdminDashboard feature summary", () => {
     expect(screen.getByRole("link", { name: "View all incidents" })).toHaveAttribute("href", "/admin/endpoint-status");
     const platformSummary = screen.getByRole("heading", { name: "Storage & traffic" }).closest("section");
     expect(platformSummary).not.toBeNull();
-    expect(screen.getByRole("heading", { name: "Recent activity" })).toBeInTheDocument();
+    const recentActivityHeading = screen.getByRole("heading", { name: "Recent activity" });
+    expect(recentActivityHeading).toBeInTheDocument();
+    expect(within(recentActivityHeading.parentElement!).getByRole("link", { name: "View audit logs" })).toHaveAttribute("href", "/admin/audit");
     expect(screen.getByText("INRAE-eprod-debug")).toBeInTheDocument();
     expect(screen.getAllByText("INRAE-eprod-idf").length).toBeGreaterThan(0);
     const infrastructureMap = await screen.findByRole("img", { name: "Infrastructure endpoint map" });
