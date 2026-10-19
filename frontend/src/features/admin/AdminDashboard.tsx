@@ -9,7 +9,6 @@ import {
   fetchHealthOverview,
   fetchHealthWorkspaceOverview,
   type EndpointHealthOverviewResponse,
-  type HealthCheckStatus,
   type WorkspaceEndpointHealthEntry,
   type WorkspaceEndpointHealthOverviewResponse,
 } from "../../api/healthchecks";
