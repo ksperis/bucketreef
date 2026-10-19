@@ -25,6 +25,7 @@ RUN apk upgrade --no-cache \
     && apk add --no-cache 'libexpat>=2.8.5-r0' \
     && rm -f /tmp/alpine-main-APKINDEX.tar.gz /tmp/alpine-community-APKINDEX.tar.gz
 COPY nginx.conf.template /etc/nginx/bucketreef.conf.template
+COPY security-headers.conf /etc/nginx/bucketreef-security-headers.conf
 COPY docker-entrypoint.sh /usr/local/bin/bucketreef-entrypoint
 COPY --from=build /app/dist /usr/share/nginx/html
 RUN chmod 0755 /usr/local/bin/bucketreef-entrypoint

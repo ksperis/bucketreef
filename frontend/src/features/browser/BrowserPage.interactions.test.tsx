@@ -6236,3 +6236,8 @@ describe("BrowserPage interactions", () => {
     ).toBeInTheDocument();
   });
 });
+
+vi.mock("./browserDirectTransfer", async () => {
+  const actual = await vi.importActual<typeof import("./browserDirectTransfer")>("./browserDirectTransfer");
+  return { ...actual, createBrowserDirectFetch: () => (url: string, init?: RequestInit) => fetch(url, init) };
+});

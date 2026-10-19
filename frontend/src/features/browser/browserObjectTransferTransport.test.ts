@@ -227,3 +227,8 @@ describe("browser object transfer transport", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+vi.mock("./browserDirectTransfer", async () => {
+  const actual = await vi.importActual<typeof import("./browserDirectTransfer")>("./browserDirectTransfer");
+  return { ...actual, createBrowserDirectFetch: () => (url: string, init?: RequestInit) => fetch(url, init) };
+});

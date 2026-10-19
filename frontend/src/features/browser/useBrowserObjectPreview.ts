@@ -13,6 +13,7 @@ import {
 } from "../../api/browserTransfers";
 import type { ObjectPreviewLoadResult } from "../shared/ObjectPreview";
 import { buildInlinePreviewDisposition } from "./browserObjectDetailsModel";
+import { browserTransferScope, createBrowserDirectFetch } from "./browserDirectTransfer";
 
 type UseBrowserObjectPreviewOptions = {
   contextId: S3ExecutionContextSelector;
@@ -64,11 +65,14 @@ export function useBrowserObjectPreview({
               bucketName,
               previewRequest,
             );
-            const response = await fetch(presign.url, {
+            const response = await createBrowserDirectFetch(browserTransferScope(contextId, requestOptions))(presign.url, {
               headers: presign.headers || undefined,
               signal,
             });
-            if (!response.ok) throw new Error("Preview download failed.");
+            if (!response.ok) {
+              await response.body?.cancel();
+              throw new Error("Preview download failed.");
+            }
             return response.blob();
           })();
       return { blob, contentType: blob.type || null };

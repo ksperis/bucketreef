@@ -246,6 +246,7 @@ frontend-browser-e2e:
   - sh ops/ci/install-node.sh
   - npm ci --prefix frontend --no-audit --no-fund
   - python3 ops/ci/toolchain.py check-node
+  - sh ops/ci/tasks/install-nginx.sh
   script:
   - sh ops/ci/tasks/run.sh frontend-browser-e2e
   artifacts:
@@ -253,10 +254,13 @@ frontend-browser-e2e:
     expire_in: 1 week
     paths:
     - gl-test-reports/frontend-browser-e2e-junit.xml
+    - gl-test-reports/frontend-transfer-policy-junit.xml
     - frontend/playwright-report/
     - frontend/test-results/
     reports:
-      junit: gl-test-reports/frontend-browser-e2e-junit.xml
+      junit:
+      - gl-test-reports/frontend-browser-e2e-junit.xml
+      - gl-test-reports/frontend-transfer-policy-junit.xml
 frontend-demo:
   stage: test
   image: mcr.microsoft.com/playwright:v1.58.2-noble

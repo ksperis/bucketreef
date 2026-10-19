@@ -301,3 +301,8 @@ describe("useBrowserClipboard", () => {
     expect(apiMocks.getBrowserBucketCorsStatus).toHaveBeenCalledTimes(2);
   });
 });
+
+vi.mock("./browserDirectTransfer", async () => {
+  const actual = await vi.importActual<typeof import("./browserDirectTransfer")>("./browserDirectTransfer");
+  return { ...actual, createBrowserDirectFetch: () => (url: string, init?: RequestInit) => fetch(url, init) };
+});

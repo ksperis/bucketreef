@@ -1815,7 +1815,6 @@ export default function BrowserPage({
     sseCustomerKeyBase64,
     startOperation,
     transferReporter,
-    allowProxyFallback: proxyAllowed,
     updateOperation,
     useProxyTransfers,
   });

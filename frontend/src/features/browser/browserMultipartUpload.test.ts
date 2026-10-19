@@ -24,7 +24,7 @@ describe("browser multipart uploads", () => {
     const lifecycle = createLifecycle();
     fetchMock.mockResolvedValue(new Response(null, { status: 200, headers: { ETag: "etag" } }));
     const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new Uint8Array(9)); controller.close(); } });
-    await expect(uploadBrowserStreamMultipart({ stream, sizeBytes: 10, partSize: 5, lifecycle })).rejects.toThrow("size mismatch");
+    await expect(uploadBrowserStreamMultipart({ directFetch: fetchMock, stream, sizeBytes: 10, partSize: 5, lifecycle })).rejects.toThrow("size mismatch");
     expect(lifecycle.presignPart).toHaveBeenCalledOnce();
     expect(lifecycle.complete).not.toHaveBeenCalled();
     expect(lifecycle.abort).toHaveBeenCalledWith("upload-1");
@@ -48,7 +48,7 @@ describe("browser multipart uploads", () => {
       });
     });
 
-    await uploadBrowserFileMultipart({
+    await uploadBrowserFileMultipart({ directFetch: fetchMock,
       file: new File([new Uint8Array(20)], "large.bin"),
       partSize: 8,
       concurrency: 2,
@@ -75,7 +75,7 @@ describe("browser multipart uploads", () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
 
     await expect(
-      uploadBrowserFileMultipart({
+      uploadBrowserFileMultipart({ directFetch: fetchMock,
         file: new File([new Uint8Array(8)], "broken.bin"),
         partSize: 8,
         concurrency: 1,
@@ -101,7 +101,7 @@ describe("browser multipart uploads", () => {
     );
 
     await expect(
-      uploadBrowserFileMultipart({
+      uploadBrowserFileMultipart({ directFetch: fetchMock,
         file: new File([new Uint8Array(8)], "too-large.bin"),
         partSize: 8,
         concurrency: 1,
@@ -138,7 +138,7 @@ describe("browser multipart uploads", () => {
       },
     });
 
-    await uploadBrowserStreamMultipart({
+    await uploadBrowserStreamMultipart({ directFetch: fetchMock,
       stream,
       sizeBytes: 10,
       contentType: "application/octet-stream",
@@ -172,7 +172,7 @@ describe("browser multipart uploads", () => {
     });
 
     await expect(
-      uploadBrowserStreamMultipart({
+      uploadBrowserStreamMultipart({ directFetch: fetchMock,
         stream,
         sizeBytes: 4,
         partSize: 4,

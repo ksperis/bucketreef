@@ -13,19 +13,53 @@ http {
   uwsgi_temp_path /tmp/uwsgi_temp;
   scgi_temp_path /tmp/scgi_temp;
 
+  # $request_uri survives the auth subrequest, including the original scope.
+  map $request_uri $browser_transfer_query {
+    default "";
+    ~^[^?]*\?(?<browser_transfer_original_args>.*)$ $browser_transfer_original_args;
+  }
+  map $browser_transfer_csp $browser_transfer_safe_csp {
+    default $browser_transfer_csp;
+    "" "default-src 'none'; script-src 'none'; worker-src 'none'; connect-src 'none'";
+  }
+  map $browser_transfer_csp $browser_transfer_file {
+    default $browser_transfer_asset;
+    "" /__browser_transfer_policy_missing__;
+  }
+
   server {
     listen 8080;
     server_name _;
 
-    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src ${CSP_CONNECT_SRC}" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-    add_header X-Frame-Options "DENY" always;
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src ${CSP_CONNECT_SRC}" always;
+    include /etc/nginx/bucketreef-security-headers.conf;
 
     root /usr/share/nginx/html;
     index index.html;
+
+    location = /_browser_transfer_policy {
+      internal;
+      proxy_pass http://${BACKEND_UPSTREAM}/api/browser/direct-transfer-policy?$browser_transfer_query;
+      proxy_pass_request_body off;
+      proxy_method GET;
+      proxy_set_header Content-Length "";
+      proxy_set_header Authorization "";
+      proxy_set_header Cookie $http_cookie;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location ~ ^/(?:api/browser/direct-transfer-worker/|assets/)(browserDirectTransfer\.worker-[a-zA-Z0-9_-]+\.js)$ {
+      set $browser_transfer_asset /assets/$1;
+      auth_request /_browser_transfer_policy;
+      auth_request_set $browser_transfer_csp $upstream_http_x_bucketreef_transfer_csp;
+      add_header Content-Security-Policy $browser_transfer_safe_csp always;
+      include /etc/nginx/bucketreef-security-headers.conf;
+      add_header Cache-Control "no-store, private" always;
+      etag off;
+      if_modified_since off;
+      try_files $browser_transfer_file =404;
+    }
 
     location ~ ^/api/browser/buckets/[^/]+/proxy-upload$ {
       client_max_body_size ${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE};

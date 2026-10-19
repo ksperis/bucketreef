@@ -28,6 +28,7 @@ import { formatBrowserOperationError } from "./browserOperationErrors";
 import type { BrowserTransferReporter } from "./browserPageContract";
 import type { UploadQueueItem } from "./browserTypes";
 import { isAbortError, isLikelyCorsError } from "./browserUtils";
+import { browserTransferScope, createBrowserDirectFetch } from "./browserDirectTransfer";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import { useBrowserI18n } from "./browserI18n";
 
@@ -52,7 +53,6 @@ type UseBrowserQueuedUploadOptions = {
   sseCustomerKeyBase64: string | null;
   startOperation: OperationRegistry["startOperation"];
   transferReporter?: BrowserTransferReporter;
-  allowProxyFallback: boolean;
   updateOperation: OperationRegistry["updateOperation"];
   useProxyTransfers: boolean;
 };
@@ -69,7 +69,6 @@ export function useBrowserQueuedUpload({
   sseCustomerKeyBase64,
   startOperation,
   transferReporter,
-  allowProxyFallback,
   updateOperation,
   useProxyTransfers,
 }: UseBrowserQueuedUploadOptions) {
@@ -113,9 +112,11 @@ export function useBrowserQueuedUpload({
         }) ?? null;
 
       try {
+        const directFetch = createBrowserDirectFetch(browserTransferScope(contextId, requestOptions));
         if (!useProxyTransfers && file.size >= MULTIPART_THRESHOLD) {
           updateOperation(operationId, { label: text("Multipart upload") });
           await uploadBrowserFileMultipart({
+            directFetch,
             file,
             partSize: Math.max(PART_SIZE, Math.ceil(file.size / 10000 / 1048576) * 1048576),
             concurrency: MULTIPART_CONCURRENCY,
@@ -183,6 +184,7 @@ export function useBrowserQueuedUpload({
               requestOptions,
             );
           const uploadFile = (mode: "direct" | "proxy") => uploadBrowserFile({
+            directFetch,
         text,
             file,
             mode,
@@ -197,22 +199,7 @@ export function useBrowserQueuedUpload({
                 expires_in: 1800,
               }),
           });
-          try {
-            await uploadFile(useProxyTransfers ? "proxy" : "direct");
-          } catch (directError) {
-            if (
-              useProxyTransfers ||
-              !allowProxyFallback ||
-              !isLikelyCorsError(directError)
-            ) {
-              throw directError;
-            }
-            updateOperation(operationId, { label: text("Proxy upload fallback") });
-            onWarning(
-              text("Direct upload was unavailable, so BucketReef completed it through the proxy."),
-            );
-            await uploadFile("proxy");
-          }
+          await uploadFile(useProxyTransfers ? "proxy" : "direct");
         }
         completeOperation(operationId, "done");
         if (transferId) {
@@ -251,7 +238,6 @@ export function useBrowserQueuedUpload({
     },
     [
       clearOperationController,
-      allowProxyFallback,
       completeOperation,
       createOperationController,
       onStatus,

@@ -23,6 +23,7 @@ import {
 } from "./browserFetchTransferResponse";
 
 import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
+import { browserTransferScope, createBrowserDirectFetch } from "./browserDirectTransfer";
 
 type BrowserTransferMode = "direct" | "proxy";
 
@@ -103,7 +104,7 @@ export const downloadBrowserTransferBlob = async (
     );
   }
   const signedDownload = await presignDownload(params);
-  const response = await fetch(signedDownload.url, {
+  const response = await createBrowserDirectFetch(browserTransferScope(selector, options))(signedDownload.url, {
     headers: signedDownload.headers || undefined,
     signal,
   });
@@ -137,7 +138,7 @@ export const downloadBrowserTransferStream = async (
     return readBrowserTransferStream(response, text("Download failed for {key}", { key }));
   }
   const signedDownload = await presignDownload(params);
-  const response = await fetch(signedDownload.url, {
+  const response = await createBrowserDirectFetch(browserTransferScope(selector, options))(signedDownload.url, {
     headers: signedDownload.headers || undefined,
     signal,
   });
@@ -186,7 +187,7 @@ export const uploadBrowserTransferBlob = async ({
   if (method !== "PUT") {
     throw new Error(text("Unexpected presigned upload method: {method}.", { method }));
   }
-  const response = await fetch(signedUpload.url, {
+  const response = await createBrowserDirectFetch(browserTransferScope(selector, options))(signedUpload.url, {
     method: "PUT",
     headers: {
       ...(signedUpload.headers || {}),

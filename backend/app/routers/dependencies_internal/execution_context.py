@@ -99,6 +99,7 @@ def _resolve_s3_user_context(
     s3_user_id: int,
     *,
     surface: str,
+    metadata_only: bool = False,
 ) -> S3ExecutionContext:
     if surface not in {"manager", "manager-browser"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="S3 users are not available in Browser")
@@ -116,6 +117,12 @@ def _resolve_s3_user_context(
     except S3UserNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3 user not found")
 
+    if metadata_only:
+        return S3ExecutionContext(
+            context_id=f"s3u-{s3_user.id}", context_kind="s3_user", name=s3_user.name,
+            access_key=None, secret_key=None, storage_endpoint=s3_user.storage_endpoint,
+            storage_endpoint_id=s3_user.storage_endpoint_id,
+        )
     return _build_s3_user_context(
         s3_user,
         capabilities=AccountCapabilities(
@@ -133,6 +140,7 @@ def _resolve_connection_context(
     *,
     surface: str,
     touch_usage: bool = True,
+    metadata_only: bool = False,
 ) -> S3ExecutionContext:
     """Resolve a connection through the same policy used by the catalogue."""
     connections = S3ConnectionsService(db)
@@ -166,6 +174,15 @@ def _resolve_connection_context(
             ) from exc
 
     # Keep a minimal usage signal for UX (recently used sorting / hints).
+    if metadata_only:
+        details = resolve_connection_details(conn)
+        return S3ExecutionContext(
+            context_id=f"conn-{conn.id}", context_kind="connection", name=conn.name,
+            access_key=None, secret_key=None, storage_endpoint=conn.storage_endpoint,
+            storage_endpoint_id=conn.storage_endpoint_id, session_endpoint=details.endpoint_url,
+            session_region=details.region, session_force_path_style=details.force_path_style,
+            session_verify_tls=details.verify_tls,
+        )
     if touch_usage:
         connections.touch_usage_best_effort(conn)
     can_manage_iam = _connection_iam_capable(conn)
@@ -198,6 +215,7 @@ def _resolve_session_account(
     actor: ManagerSessionPrincipal,
     account_id: Optional[int],
     requested_endpoint: Optional[str] = None,
+    metadata_only: bool = False,
 ) -> S3ExecutionContext:
     if not actor.account_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="S3Account context unavailable for session")
@@ -215,8 +233,13 @@ def _resolve_session_account(
     context_endpoint = account.storage_endpoint if account is not None else None
     context_endpoint_id = account.storage_endpoint_id if account is not None else None
     resolved_endpoint: Optional[StorageEndpoint] = None
-    if not requested_endpoint and not resolve_s3_endpoint(account):
-        endpoint = resolve_default_endpoint(db)
+    if not requested_endpoint and (account is None or not resolve_s3_endpoint(account)):
+        endpoint = (
+            get_storage_endpoints_service(db).get_default_endpoint_record()
+            if metadata_only else resolve_default_endpoint(db)
+        )
+        if endpoint is None:
+            raise HTTPException(status_code=503, detail="Default storage endpoint is not configured")
         requested_endpoint = endpoint.endpoint_url
         resolved_endpoint = endpoint
     elif requested_endpoint:
@@ -233,8 +256,8 @@ def _resolve_session_account(
         email=context_email,
         rgw_user_uid=context_rgw_user_uid,
         rgw_tenant=account.rgw_tenant if account is not None else None,
-        access_key=actor.access_key,
-        secret_key=actor.secret_key,
+        access_key=None if metadata_only else actor.access_key,
+        secret_key=None if metadata_only else actor.secret_key,
         storage_endpoint_id=context_endpoint_id,
         storage_endpoint=context_endpoint,
         source_account=account,
@@ -276,8 +299,24 @@ def get_s3_execution_context(
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> S3ExecutionContext:
+    return resolve_s3_execution_context(request, context_ref, actor, db)
+
+
+def resolve_s3_execution_context(
+    request: Request,
+    context_ref: Optional[str],
+    actor: ManagerActor,
+    db: Session,
+    *,
+    metadata_only: bool = False,
+    workspace: Optional[str] = None,
+) -> S3ExecutionContext:
+    """Share exact-context authorization with read-only transfer-policy resolution."""
     account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_execution_context_selector(context_ref)
-    surface = resolve_workspace_surface(request)
+    surface = (
+        "manager-browser" if workspace == "manager" else "browser"
+    ) if workspace is not None else resolve_workspace_surface(request)
+    portal_browser = workspace == "portal" if workspace is not None else is_portal_browser_request(request, surface)
     requested_endpoint = normalize_s3_endpoint(request.headers.get("X-S3-Endpoint")) if request else None
     if isinstance(actor, ManagerSessionPrincipal):
         requested_endpoint = _resolve_requested_session_endpoint(db, actor, requested_endpoint)
@@ -295,7 +334,10 @@ def get_s3_execution_context(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Ceph Admin contexts are not available in Manager Browser",
                 )
-            return resolve_ceph_admin_browser_context(db, actor, ceph_admin_endpoint_id, surface=surface)
+            return resolve_ceph_admin_browser_context(
+                db, actor, ceph_admin_endpoint_id, surface=surface,
+                **({"metadata_only": True} if metadata_only else {}),
+            )
         if connection_id is not None:
             return _resolve_connection_context(
                 db,
@@ -303,17 +345,24 @@ def get_s3_execution_context(
                 connection_id,
                 surface=surface,
                 touch_usage=not is_storage_ops_surface,
+                **({"metadata_only": True} if metadata_only else {}),
             )
         if s3_user_id is not None:
-            return _resolve_s3_user_context(db, actor, s3_user_id, surface=surface)
-        if surface == "browser" and not is_portal_browser_request(request, surface):
+            return _resolve_s3_user_context(
+                db, actor, s3_user_id, surface=surface,
+                **({"metadata_only": True} if metadata_only else {}),
+            )
+        if surface == "browser" and not portal_browser:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Accounts are not available in standard Browser",
             )
         account, link = resolve_user_account_link(db, actor, account_id, allow_default=False)
-        if is_portal_browser_request(request, surface):
-            return resolve_portal_browser_context(db, actor, account, link, request=request)
+        if portal_browser:
+            return resolve_portal_browser_context(
+                db, actor, account, link, request=request,
+                **({"metadata_only": True} if metadata_only else {}),
+            )
         if surface == "manager-browser" and not (
             isinstance(link, EffectiveAccountLink) and link.manager_browser_allowed
         ):
@@ -324,6 +373,8 @@ def get_s3_execution_context(
         capabilities = manager_membership_capabilities(link)
         if not capabilities.can_manage_buckets:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this account")
+        if metadata_only:
+            return S3ExecutionContext.from_account(account, manager_capabilities=capabilities)
         access_key, secret_key = account.effective_rgw_credentials()
         if not access_key or not secret_key:
             raise HTTPException(
@@ -345,4 +396,7 @@ def get_s3_execution_context(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Browser access is not allowed for this session",
         )
-    return _resolve_session_account(db, actor, account_id, requested_endpoint=requested_endpoint)
+    return _resolve_session_account(
+        db, actor, account_id, requested_endpoint=requested_endpoint,
+        **({"metadata_only": True} if metadata_only else {}),
+    )

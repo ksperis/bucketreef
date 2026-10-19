@@ -61,6 +61,27 @@ test("creates a folder and uploads a file through the browser flow", async ({ pa
   await expect(operationsDialog).toContainText("upload-smoke.txt");
 });
 
+test("uploads multipart directly through a worker authenticated by the API-scoped cookie", async ({ page, baseURL }) => {
+  await openBucket(page);
+  await page.waitForURL(url => url.searchParams.has("ctx"));
+  const selector = new URL(page.url()).searchParams.get("ctx")!;
+  const csrf = (await page.context().cookies()).find(cookie => cookie.name === "csrf_token")!.value;
+  const cors = await page.request.post(`/api/browser/buckets/${E2E_BUCKET_NAME}/cors/ensure`, {
+    params: { context_id: selector }, data: { origin: baseURL },
+    headers: { Origin: baseURL!, "X-CSRF-Token": csrf },
+  });
+  expect(cors.ok(), await cors.text()).toBe(true);
+  const readCors = page.waitForResponse(response => response.url().includes("/cors?") && response.request().method() === "GET");
+  await page.reload();
+  expect((await (await readCors).json()).enabled).toBe(true);
+  const workerStarted = page.waitForEvent("worker");
+  await uploadFilePayloads(page, [{ name: "direct-worker-multipart.bin", mimeType: "application/octet-stream", buffer: Buffer.alloc(26 * 1024 * 1024, 42) }]);
+  const worker = await workerStarted;
+  expect(new URL(worker.url()).pathname).toContain("/api/browser/direct-transfer-worker/");
+  expect(new URL(worker.url()).searchParams.get("context_id")).toBe(selector);
+  await expect(getFileButton(page, "direct-worker-multipart.bin")).toBeVisible();
+});
+
 test("keeps root uploads visible after refresh, search, and reload", async ({ page }) => {
   await openBucket(page);
 

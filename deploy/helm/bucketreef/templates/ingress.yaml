@@ -17,6 +17,15 @@ spec:
     - host: {{ .Values.ingress.host }}
       http:
         paths:
+          # Worker scripts need the /api-scoped session cookie but are served
+          # by the frontend, whose auth_request attaches their contextual CSP.
+          - path: /api/browser/direct-transfer-worker
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "bucketreef.fullname" . }}-frontend
+                port:
+                  number: {{ .Values.service.frontend.port }}
           - path: /api
             pathType: Prefix
             backend:

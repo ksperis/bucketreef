@@ -4,6 +4,8 @@
  */
 import type { UploadProgressEvent } from "../../api/browserTransfers";
 import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
+import type { BrowserDirectFetch } from "./browserDirectTransfer";
+import { ensureSuccessfulBrowserTransferResponse } from "./browserFetchTransferResponse";
 
 type PresignedFileUpload = {
   url: string;
@@ -19,6 +21,7 @@ type UploadBrowserFileParams = {
   onProgress: (event: UploadProgressEvent) => void;
   uploadProxy: () => Promise<void>;
   presign: () => Promise<PresignedFileUpload>;
+  directFetch: BrowserDirectFetch;
 };
 
 export const uploadBrowserFile = async ({
@@ -28,6 +31,7 @@ export const uploadBrowserFile = async ({
   onProgress,
   uploadProxy,
   presign,
+  directFetch,
   text = defaultBrowserText,
 }: UploadBrowserFileParams): Promise<void> => {
   if (mode === "proxy") {
@@ -42,7 +46,7 @@ export const uploadBrowserFile = async ({
   }
 
   onProgress({ loaded: 0, total: file.size, progress: 0 });
-  const response = await fetch(signedUpload.url, {
+  const response = await directFetch(signedUpload.url, {
     method: "PUT",
     headers: {
       ...(signedUpload.headers || {}),
@@ -52,6 +56,6 @@ export const uploadBrowserFile = async ({
     credentials: "omit",
     signal,
   });
-  if (!response.ok) throw new Error(text("Direct upload failed with status {status}", { status: response.status }));
+  await ensureSuccessfulBrowserTransferResponse(response, text("Upload failed for {path}", { path: file.name }));
   onProgress({ loaded: file.size, total: file.size, progress: 1 });
 };

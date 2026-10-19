@@ -13,6 +13,10 @@ transfer fails.
 4. Check [feature availability](feature-availability.md) if the action is hidden.
 5. For direct-transfer failures, check bucket CORS for the BucketReef origin and
    make sure multipart uploads expose `ETag`.
+6. If the transfer worker cannot start, ask the administrator to check its
+   authenticated response and CSP through the frontend and any outer proxy.
+   An endpoint change takes effect at the next transfer; a stale locally signed
+   URL may require refreshing the transfer credentials.
 
 ## Common symptoms
 
@@ -28,6 +32,11 @@ transfer fails.
 
 Closing or reloading Browser interrupts active transfers. Multipart uploads are
 not resumed after returning to the page.
+
+A failed direct write is not automatically repeated through the proxy. Refresh
+the listing to check whether S3 received it before retrying. When bucket CORS is
+incompatible and proxy transfers are enabled, BucketReef selects the proxy
+before starting the operation.
 
 ## Report a problem
 

@@ -123,6 +123,13 @@ Check the selected object state, Browser profile, feature settings, and IAM/S3 p
     incompatible configuration, it offers the existing CORS repair action and uses
     proxy transfers when they are enabled.
 
+Direct requests use a worker restricted to the selected S3 endpoint. This also
+applies to the file browser inside Portal. Changing projects or execution
+contexts does not require reloading the page to update its CSP. Copies between
+endpoints use separate source and destination workers. Bucket CORS remains
+required, and direct writes are not automatically replayed through the proxy
+after a network failure.
+
 ## Related pages
 
 - [Workspace: Browser](../index.md)

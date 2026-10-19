@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 context-bound direct transfer workers
+
+Deploy the backend and frontend together. Direct transfers now obtain their
+authorized endpoint policy through `/api/browser/direct-transfer-policy` and
+load an HTTP worker below `/api/browser/direct-transfer-worker/`. Route that
+worker prefix to the frontend Nginx, preserving its query string and the
+existing `/api` session cookie. The bundled Helm ingress includes the exception
+to its general backend API route. Outer proxies must preserve the worker's
+single dynamic CSP and disable caching. No database migration is required.
+
+Failed direct writes are no longer automatically replayed through the proxy;
+check the destination before retrying an uncertain write.
+
 ## 2026-10 Ceph Admin access-key read contract
 
 Ceph Admin user access-key list and user-detail responses no longer include

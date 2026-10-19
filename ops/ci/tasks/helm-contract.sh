@@ -9,6 +9,13 @@ if helm template bucketreef deploy/helm/bucketreef --set backend.existingSecret=
 grep -q 'networkPolicy.ingressController.namespaceSelector.matchLabels is required' /tmp/bucketreef-network-invalid.err
 helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth > /tmp/bucketreef-rendered.yaml
 test -s /tmp/bucketreef-rendered.yaml
+helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set ingress.enabled=true > /tmp/bucketreef-worker-ingress.yaml
+awk '
+  /path: \/api\/browser\/direct-transfer-worker$/ { worker = 1; next }
+  worker && /name:.*-frontend$/ { found = 1; exit }
+  worker && /path:/ { exit }
+  END { exit !found }
+' /tmp/bucketreef-worker-ingress.yaml
 grep -q 'name: TRUSTED_PROXY_CIDRS' /tmp/bucketreef-rendered.yaml
 grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-rendered.yaml | grep -q 'value: "full"'
 grep -Fq '[\"10.244.0.0/16\"]' /tmp/bucketreef-rendered.yaml
