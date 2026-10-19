@@ -272,7 +272,7 @@ Legend: {
   }
   "billing_statements": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_statements_entity_period_currency(billing_entity_id, period_start, currency)\\nCheck: ck_billing_statements_period: period_end >= period_start; ck_billing_statements_status: status IN ('draft', 'finalized'); ck_billing_statements_subject_type: subject_type IN ('account', 's3_user')\\nIndexes: ix_billing_statements_billing_entity_id(billing_entity_id) [index]; ix_billing_statements_id(id) [index]; ix_billing_statements_period_start(period_start) [index]; ix_billing_statements_period_status(period_start, status) [index]; ix_billing_statements_public_id(public_id) [unique]"
+    tooltip: "PK: id\\nUnique: uq_billing_statements_entity_period_currency(billing_entity_id, period_start, currency)\\nCheck: ck_billing_statements_estimation_mode: estimation_mode IN ('strict', 'coverage_extrapolation'); ck_billing_statements_period: period_end >= period_start; ck_billing_statements_status: status IN ('draft', 'finalized'); ck_billing_statements_subject_type: subject_type IN ('account', 's3_user')\\nIndexes: ix_billing_statements_billing_entity_id(billing_entity_id) [index]; ix_billing_statements_id(id) [index]; ix_billing_statements_period_start(period_start) [index]; ix_billing_statements_period_status(period_start, status) [index]; ix_billing_statements_public_id(public_id) [unique]"
     "id": "INTEGER [PK, NN]"
     "public_id": "VARCHAR(36) [NN, UQ]"
     "billing_entity_id": "INTEGER [FK, NN]"
@@ -288,6 +288,9 @@ Legend: {
     "coverage_json": "TEXT [NN]"
     "blockers_json": "TEXT [NN]"
     "storage_charge_bases_json": "TEXT [NN]"
+    "estimation_mode": "VARCHAR [NN]"
+    "estimation_reason": "TEXT"
+    "estimation_requested_by_email": "VARCHAR"
     "subtotal": "NUMERIC(24, 6) [NN]"
     "total": "NUMERIC(24, 6) [NN]"
     "source_fingerprint": "VARCHAR(64) [NN]"
