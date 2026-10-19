@@ -66,6 +66,10 @@ class _PdfStatement:
     storage_coverage: Decimal
     usage_coverage: Decimal
     quota_coverage: Decimal | None
+    estimation_mode: str
+    estimation_reason: str | None
+    estimation_requested_by_email: str | None
+    estimation_methods: tuple[str, ...]
     finalized_at: datetime
     lines: tuple[_PdfLine, ...]
 
@@ -90,6 +94,17 @@ def _rate_plan(snapshot) -> str:
 def _statement_from_item(item: BillingStatementItem) -> _PdfStatement:
     if item.status != "finalized" or item.finalized_at is None:
         raise ValueError("Billing Statement PDF is available only for finalized statements")
+    estimation_methods: set[str] = set()
+    for line in item.lines:
+        estimation = line.snapshot.estimation
+        if estimation is None:
+            continue
+        if estimation.usage_extrapolation_factor is not None:
+            estimation_methods.add("Usage extrapolated from observed monthly activity")
+        if estimation.storage_method == "observed_daily_average":
+            estimation_methods.add("Storage estimated from observed daily average")
+        elif estimation.storage_method == "allocated_quota_average":
+            estimation_methods.add("Allocated quota estimated from observed quota average")
     return _PdfStatement(
         public_id=item.public_id,
         entity_name=item.billing_entity_name,
@@ -103,6 +118,10 @@ def _statement_from_item(item: BillingStatementItem) -> _PdfStatement:
         storage_coverage=item.coverage.storage_coverage_ratio,
         usage_coverage=item.coverage.usage_coverage_ratio,
         quota_coverage=item.coverage.quota_coverage_ratio,
+        estimation_mode=item.estimation_mode,
+        estimation_reason=item.estimation_reason,
+        estimation_requested_by_email=item.estimation_requested_by_email,
+        estimation_methods=tuple(sorted(estimation_methods)),
         finalized_at=item.finalized_at,
         lines=tuple(
             _PdfLine(
@@ -140,6 +159,10 @@ def _preview_statement() -> _PdfStatement:
         storage_coverage=Decimal("1"),
         usage_coverage=Decimal("1"),
         quota_coverage=Decimal("1"),
+        estimation_mode="strict",
+        estimation_reason=None,
+        estimation_requested_by_email=None,
+        estimation_methods=(),
         finalized_at=datetime(2026, 10, 5, 8, 30, tzinfo=timezone.utc),
         lines=(
             _PdfLine("Research data", "Ceph primary", "Actual Usage", "842.731 GiB-month", "research-standard", "842.73 EUR"),
@@ -274,6 +297,15 @@ class BillingStatementPdfService:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
         story.append(meta)
+
+        if statement.estimation_mode == "coverage_extrapolation":
+            story.append(cls._paragraph("Estimated statement — incomplete source coverage", heading))
+            estimation_text = "; ".join(statement.estimation_methods) or "Coverage extrapolation applied"
+            if statement.estimation_reason:
+                estimation_text += f". Reason: {statement.estimation_reason}"
+            if statement.estimation_requested_by_email:
+                estimation_text += f". Requested by: {statement.estimation_requested_by_email}"
+            story.append(cls._paragraph(estimation_text, body))
 
         coverage = (
             f"Storage {_decimal_text(statement.storage_coverage * 100, places=0)}%  ·  "

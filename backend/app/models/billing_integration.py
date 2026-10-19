@@ -71,6 +71,9 @@ class BillingIntegrationStatementSummaryV1(ApiModel):
     member_count: int
     coverage: BillingIntegrationCoverageV1
     storage_charge_bases: list[BillingIntegrationStorageBasis] = Field(default_factory=list)
+    estimation_mode: Literal["strict", "coverage_extrapolation"] = "strict"
+    estimation_reason: Optional[str] = None
+    estimation_requested_by_email: Optional[str] = None
     subtotal: Decimal
     total: Decimal
     revision: int
@@ -112,8 +115,14 @@ class BillingIntegrationPricedStorageQuantityV1(ApiModel):
     observations_expected: int
     calendar_days: int
     coverage_ratio: Decimal
-    status: Literal["complete", "partial", "blocked"]
+    status: Literal["complete", "partial", "blocked", "estimated"]
     issues: list[str] = Field(default_factory=list)
+
+
+class BillingIntegrationLineEstimationV1(ApiModel):
+    usage_extrapolation_factor: Optional[Decimal] = None
+    storage_method: Optional[Literal["observed_daily_average", "allocated_quota_average"]] = None
+    storage_extrapolation_factor: Optional[Decimal] = None
 
 
 class BillingIntegrationRateResolutionV1(ApiModel):
@@ -168,6 +177,7 @@ class BillingIntegrationStatementLineV1(ApiModel):
     rate_resolution: BillingIntegrationRateResolutionV1
     unit_prices: BillingIntegrationUnitPricesV1
     amounts: BillingIntegrationAmountsV1
+    estimation: Optional[BillingIntegrationLineEstimationV1] = None
     complete: bool
     issues: list[str] = Field(default_factory=list)
 

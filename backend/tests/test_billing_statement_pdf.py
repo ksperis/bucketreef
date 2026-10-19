@@ -146,6 +146,10 @@ def test_pdf_renderer_is_deterministic_and_handles_multipage_tables() -> None:
         storage_coverage=Decimal("1"),
         usage_coverage=Decimal("1"),
         quota_coverage=Decimal("1"),
+        estimation_mode="strict",
+        estimation_reason=None,
+        estimation_requested_by_email=None,
+        estimation_methods=(),
         finalized_at=datetime(2026, 10, 5, 8, 30, tzinfo=timezone.utc),
         lines=tuple(
             _PdfLine(

@@ -218,6 +218,57 @@ def test_statement_api_generates_lists_reads_finalizes_and_audits(client, db_ses
     assert all("secret" not in (row.metadata_json or "").lower() for row in audits)
 
 
+def test_statement_api_can_generate_and_finalize_an_estimated_draft(client, db_session):
+    entity = _seed_complete_statement_scope(db_session)
+    account = db_session.query(S3Account).filter_by(rgw_account_id="RGW-STATEMENT-API").one()
+    missing_days = [date(2026, 1, 10), date(2026, 1, 20)]
+    db_session.query(BillingStorageDaily).filter(
+        BillingStorageDaily.s3_account_id == account.id,
+        BillingStorageDaily.day.in_(missing_days),
+    ).delete(synchronize_session=False)
+    db_session.query(BillingUsageDaily).filter(
+        BillingUsageDaily.s3_account_id == account.id,
+        BillingUsageDaily.day.in_(missing_days),
+    ).delete(synchronize_session=False)
+    db_session.commit()
+
+    response = client.post(
+        "/api/admin/billing/statements/generate",
+        json={
+            "month": "2026-01",
+            "billing_entity_id": entity.id,
+            "regenerate": False,
+            "estimation_mode": "coverage_extrapolation",
+            "estimation_reason": "collector outage",
+        },
+    )
+    assert response.status_code == 200, response.text
+    statement = response.json()["statements"][0]
+    assert statement["blockers"] == []
+    assert statement["estimation_mode"] == "coverage_extrapolation"
+    assert statement["estimation_reason"] == "collector outage"
+    assert statement["estimation_requested_by_email"] == "admin@example.com"
+    assert statement["coverage"]["storage_coverage_ratio"] == "0.935484"
+    assert statement["coverage"]["usage_coverage_ratio"] == "0.935484"
+    assert statement["lines"][0]["snapshot"]["estimation"]["storage_method"] == "observed_daily_average"
+
+    finalized = client.post(f"/api/admin/billing/statements/{statement['id']}/finalize")
+    assert finalized.status_code == 200, finalized.text
+    assert finalized.json()["status"] == "finalized"
+    assert finalized.json()["estimation_mode"] == "coverage_extrapolation"
+
+    audit = (
+        db_session.query(AuditLog)
+        .filter(AuditLog.action == "billing_statement.finalize")
+        .order_by(AuditLog.id.desc())
+        .first()
+    )
+    assert audit is not None
+    metadata = json.loads(audit.metadata_json or "{}")
+    assert metadata["estimation_mode"] == "coverage_extrapolation"
+    assert metadata["estimation_reason"] == "collector outage"
+
+
 def test_statement_api_requires_superadmin(client):
     previous = app.dependency_overrides.get(dependencies.get_current_super_admin)
 

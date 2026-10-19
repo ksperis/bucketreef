@@ -56,6 +56,40 @@ def component_amount(unit_price: Optional[Decimal], quantity: Optional[Decimal])
     return _quantize(unit_price * quantity, MONEY_QUANTUM)
 
 
+def extrapolation_factor(observed: int, expected: int) -> Optional[Decimal]:
+    if observed <= 0 or expected <= 0:
+        return None
+    return _quantize(Decimal(expected) / Decimal(observed), QUANTITY_QUANTUM)
+
+
+def extrapolate_monetary_amount(
+    amount: Optional[Decimal],
+    *,
+    observed: int,
+    expected: int,
+) -> Optional[Decimal]:
+    if amount is None:
+        return None
+    factor = extrapolation_factor(observed, expected)
+    if factor is None:
+        return None
+    return _quantize(amount * factor, MONEY_QUANTUM)
+
+
+def extrapolate_quantity(
+    quantity: Optional[Decimal],
+    *,
+    observed: int,
+    expected: int,
+) -> Optional[Decimal]:
+    if quantity is None:
+        return None
+    factor = extrapolation_factor(observed, expected)
+    if factor is None:
+        return None
+    return _quantize(quantity * factor, QUANTITY_QUANTUM)
+
+
 def monetary_total(components: Iterable[Optional[Decimal]]) -> Optional[Decimal]:
     present = [value for value in components if value is not None]
     if not present:

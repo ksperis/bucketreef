@@ -40,7 +40,7 @@ class BillingStorageChargeQuantity(ApiModel):
     observations_expected: int
     calendar_days: int
     coverage_ratio: Decimal = Field(..., ge=0, le=1)
-    status: Literal["complete", "partial", "blocked"]
+    status: Literal["complete", "partial", "blocked", "estimated"]
     issues: list[str] = Field(default_factory=list)
 
 
@@ -539,6 +539,7 @@ class BillingAnalysisPreview(ApiModel):
 
 
 BillingStatementStatus = Literal["draft", "finalized"]
+BillingStatementEstimationMode = Literal["strict", "coverage_extrapolation"]
 
 
 class BillingStatementUnitPrices(ApiModel):
@@ -554,6 +555,12 @@ class BillingStatementComponentAmounts(ApiModel):
     ingress_cost: Optional[Decimal] = None
     requests_cost: Optional[Decimal] = None
     total_cost: Optional[Decimal] = None
+
+
+class BillingStatementLineEstimation(ApiModel):
+    usage_extrapolation_factor: Optional[Decimal] = None
+    storage_method: Optional[Literal["observed_daily_average", "allocated_quota_average"]] = None
+    storage_extrapolation_factor: Optional[Decimal] = None
 
 
 class BillingStatementLineSnapshot(ApiModel):
@@ -574,6 +581,7 @@ class BillingStatementLineSnapshot(ApiModel):
     rate_resolution: BillingRateResolutionExplanation
     unit_prices: BillingStatementUnitPrices
     amounts: BillingStatementComponentAmounts
+    estimation: Optional[BillingStatementLineEstimation] = None
     complete: bool
     issues: list[str] = Field(default_factory=list)
 
@@ -601,6 +609,9 @@ class BillingStatementItem(ApiModel):
     coverage: BillingAnalysisCoverage
     blockers: list[str] = Field(default_factory=list)
     storage_charge_bases: list[Literal["actual_usage", "allocated_quota"]] = Field(default_factory=list)
+    estimation_mode: BillingStatementEstimationMode = "strict"
+    estimation_reason: Optional[str] = None
+    estimation_requested_by_email: Optional[str] = None
     subtotal: Decimal
     total: Decimal
     revision: int
@@ -615,6 +626,8 @@ class BillingStatementGenerationRequest(ApiModel):
     month: str = Field(..., min_length=7, max_length=7)
     billing_entity_id: int = Field(..., ge=1)
     regenerate: bool = False
+    estimation_mode: BillingStatementEstimationMode = "strict"
+    estimation_reason: Optional[str] = Field(default=None, max_length=1000)
 
 
 class BillingStatementGenerationResult(ApiModel):
