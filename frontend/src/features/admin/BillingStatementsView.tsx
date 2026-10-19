@@ -311,7 +311,7 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
     });
   }
 
-  async function exportSnapshot(statement: BillingStatementItem, format: "csv" | "json") {
+  async function exportSnapshot(statement: BillingStatementItem, format: "csv" | "json" | "pdf") {
     const actionKey = `export-${format}:${statement.id}`;
     setPendingAction(actionKey);
     setError(null);
@@ -419,6 +419,15 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
           >
             JSON
           </ListActionButton>
+          {statement.status === "finalized" ? (
+            <ListActionButton
+              onClick={() => void exportSnapshot(statement, "pdf")}
+              loading={pendingAction === `export-pdf:${statement.id}`}
+              disabled={pendingAction != null}
+            >
+              PDF
+            </ListActionButton>
+          ) : null}
         </ListActions>
       ),
     },
@@ -560,7 +569,7 @@ export default function BillingStatementsView({ month }: BillingStatementsViewPr
               <option value="finalized">{text("Finalized")}</option>
             </UiSelect>
             <UiSelect
-              label={text("Billing Entity")}
+              label={text("Generate for")}
               value={selectedEntityId ?? ""}
               onChange={(event) => setSelectedEntityId(event.target.value ? Number(event.target.value) : null)}
               size="compact"

@@ -74,6 +74,14 @@ export function createAppSettings(
       schedule_day: 5,
       require_all_subjects_assigned: true,
     },
+    billing_statement_pdf: {
+      organization_name: "BucketReef",
+      organization_details: null,
+      accent_color: "#0569f8",
+      logo_data_url: null,
+      statement_note: null,
+      footer_text: null,
+    },
     onboarding: { dismissed: false },
     branding: {
       primary_color: "#0569f8",

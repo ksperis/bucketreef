@@ -100,7 +100,8 @@ business views under the same page:
 - **Statements** prepares persistent monthly Billing Entity snapshots. Drafts
   can be generated or regenerated, reviewed down to endpoint and Account/S3
   User, exported as CSV/JSON, and finalized after an explicit confirmation.
-  Finalized statements are immutable historical results.
+  Finalized statements are immutable historical results and can also be
+  downloaded as human-readable PDF cost statements.
 
 These Entity and Group views are live monthly previews. They resolve current
 membership rules and the tariff version effective for the selected month; they
@@ -133,6 +134,14 @@ capacity.
 8. In **Statements**, generate the required Billing Entity draft, review its persisted lines and blockers, then finalize it explicitly. Use CSV/JSON when an external process needs the exact snapshot.
 9. In **Finalized period analysis**, choose an Entity or Group and switch between month, calendar year, and custom range. Treat any listed missing or unfinalized month as incomplete coverage rather than zero cost.
 10. In **Settings → Billing → Automation**, choose whether the next completed month should remain manual, generate drafts automatically, or generate and finalize eligible statements automatically. Review the recent run history after the configured day.
+11. In **Settings → Billing → Statement PDF**, configure the organization name,
+    optional PNG/JPEG logo, accent color, statement note, and footer. Use
+    **Generate preview** to inspect the server-rendered format before saving.
+
+The PDF always identifies itself as a technical cost statement, not a legal
+commercial invoice. Presentation settings are independent from the immutable
+financial snapshot: changing the logo, color, note, or footer later can change
+the appearance of a re-export, but never its persisted amounts or line data.
 
 ## Expected result
 

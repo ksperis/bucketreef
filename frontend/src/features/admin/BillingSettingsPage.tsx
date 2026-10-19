@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   createBillingRateCard,
@@ -33,10 +33,12 @@ import { useAdminI18n } from "./adminI18n";
 import BillingEntitiesSettingsPanel from "./BillingEntitiesSettingsPanel";
 import BillingGroupsSettingsPanel from "./BillingGroupsSettingsPanel";
 import BillingAutomationSettingsPanel from "./BillingAutomationSettingsPanel";
+import BillingStatementPdfSettingsPanel from "./BillingStatementPdfSettingsPanel";
 
 const isDemo = import.meta.env.MODE === "demo";
 
 type EditorMode = "create" | "edit" | "version";
+type BillingSettingsTab = "pricing" | "entities" | "groups" | "automation" | "pdf";
 
 type Draft = {
   name: string;
@@ -110,7 +112,9 @@ export default function BillingSettingsPage() {
   const { text: adminText } = useAdminI18n();
   const breadcrumbs = useAdminPageBreadcrumbs();
   const confirmation = useConfirmActionDialog();
-  const [activeTab, setActiveTab] = useState<"pricing" | "entities" | "groups" | "automation">("pricing");
+  const [activeTab, setActiveTab] = useState<BillingSettingsTab>("pricing");
+  const [pdfDirty, setPdfDirty] = useState(false);
+  const pendingTab = useRef<BillingSettingsTab | null>(null);
   const [cards, setCards] = useState<BillingRateCard[]>([]);
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -209,6 +213,30 @@ export default function BillingSettingsPage() {
     confirmLabel: adminText("Discard changes"),
     cancelLabel: adminText("Keep editing"),
   });
+  const pdfTabCloseGuard = useSettingsCloseGuard({
+    hasUnsavedChanges: activeTab === "pdf" && pdfDirty,
+    onClose: () => {
+      const nextTab = pendingTab.current;
+      pendingTab.current = null;
+      setPdfDirty(false);
+      if (nextTab) setActiveTab(nextTab);
+    },
+    title: adminText("Discard changes?"),
+    description: adminText("Your changes have not been saved."),
+    confirmLabel: adminText("Discard changes"),
+    cancelLabel: adminText("Keep editing"),
+  });
+
+  const changeTab = (tabId: string) => {
+    const nextTab = tabId as BillingSettingsTab;
+    if (nextTab === activeTab) return;
+    if (activeTab === "pdf" && pdfDirty) {
+      pendingTab.current = nextTab;
+      pdfTabCloseGuard.requestClose();
+      return;
+    }
+    setActiveTab(nextTab);
+  };
 
   const buildPayload = (): BillingRateCardPayload => ({
     name: draft.name.trim(),
@@ -376,7 +404,7 @@ export default function BillingSettingsPage() {
       <PageHeader
         actionPresentation="listing"
         title={adminText("Billing settings")}
-        description={adminText("Configure tariff versions and business entities used by Billing.")}
+        description={adminText("Configure pricing, customer allocation, monthly automation, and statement presentation.")}
         breadcrumbs={breadcrumbs("billing-settings")}
       />
 
@@ -432,13 +460,19 @@ export default function BillingSettingsPage() {
             label: adminText("Automation"),
             content: <BillingAutomationSettingsPanel />,
           },
+          {
+            id: "pdf",
+            label: adminText("Statement PDF"),
+            content: <BillingStatementPdfSettingsPanel onDirtyChange={setPdfDirty} />,
+          },
         ]}
         activeTab={activeTab}
-        onChange={(tabId) => setActiveTab(tabId as "pricing" | "entities" | "groups" | "automation")}
+        onChange={changeTab}
         variant="line"
         ariaLabel={adminText("Billing settings sections")}
         idPrefix="billing-settings"
       />
+      {pdfTabCloseGuard.confirmationDialog}
 
       {editor && (
         <SettingsDialog title={title} onClose={closeGuard.requestClose} closeDisabled={busy} maxWidthClass="max-w-2xl">

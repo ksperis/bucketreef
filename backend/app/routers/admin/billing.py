@@ -30,13 +30,14 @@ from app.models.billing import (
     BillingSubjectsResponse,
     BillingSummary,
 )
-from app.models.app_settings import BillingAutomationSettings
+from app.models.app_settings import BillingAutomationSettings, BillingStatementPdfSettings
 from app.routers.billing_common import parse_billing_day
 from app.routers.dependencies import get_audit_service, get_current_super_admin
 from app.services.admin_billing_service import AdminBillingService
 from app.services.audit_service import AuditService
 from app.services.app_settings_service import load_app_settings, save_app_settings
 from app.services.billing_statement_automation_service import BillingStatementAutomationService
+from app.services.billing_statement_pdf_service import BillingStatementPdfService
 from app.services.billing_rate_card_service import (
     BillingRateCardConflictError,
     BillingRateCardImmutableError,
@@ -68,6 +69,62 @@ from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
+
+
+def _pdf_settings_audit_payload(settings: BillingStatementPdfSettings) -> dict:
+    return {
+        "organization_name": settings.organization_name,
+        "organization_details": settings.organization_details,
+        "accent_color": settings.accent_color,
+        "has_logo": settings.logo_data_url is not None,
+        "statement_note": settings.statement_note,
+        "footer_text": settings.footer_text,
+    }
+
+
+@router.get("/pdf/settings", response_model=BillingStatementPdfSettings)
+def get_billing_statement_pdf_settings(
+    _: User = Depends(get_current_super_admin),
+) -> BillingStatementPdfSettings:
+    return load_app_settings().billing_statement_pdf
+
+
+@router.put("/pdf/settings", response_model=BillingStatementPdfSettings)
+def update_billing_statement_pdf_settings(
+    payload: BillingStatementPdfSettings,
+    current_user: User = Depends(get_current_super_admin),
+    audit: AuditService = Depends(get_audit_service),
+) -> BillingStatementPdfSettings:
+    current = load_app_settings()
+    before = _pdf_settings_audit_payload(current.billing_statement_pdf)
+    updated = current.model_copy(deep=True)
+    updated.billing_statement_pdf = payload
+    saved = save_app_settings(updated).billing_statement_pdf
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="billing_statement_pdf.settings_update",
+        entity_type="billing_statement_pdf_settings",
+        entity_id="global",
+        metadata={
+            "before": before,
+            "after": _pdf_settings_audit_payload(saved),
+        },
+    )
+    return saved
+
+
+@router.post("/pdf/preview")
+def preview_billing_statement_pdf(
+    payload: BillingStatementPdfSettings,
+    _: User = Depends(get_current_super_admin),
+) -> Response:
+    rendered = BillingStatementPdfService.render_preview(payload)
+    return Response(
+        content=rendered,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="billing-statement-preview.pdf"'},
+    )
 
 
 @router.get("/automation/settings", response_model=BillingAutomationSettings)
@@ -267,6 +324,32 @@ def billing_statement_export_json(
     return Response(
         content=payload,
         media_type="application/json",
+        headers={"Content-Disposition": build_attachment_content_disposition(filename)},
+    )
+
+
+@router.get("/statements/{statement_id}/export.pdf")
+def billing_statement_export_pdf(
+    statement_id: int,
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        item = BillingStatementService(db).get(statement_id)
+        if item.status != "finalized":
+            raise BillingStatementImmutableError(
+                "Billing Statement PDF is available only after finalization"
+            )
+        payload = BillingStatementPdfService.render_statement(
+            item,
+            load_app_settings().billing_statement_pdf,
+        )
+    except ValueError as exc:
+        _billing_statement_http_error(exc)
+    filename = f"billing-statement-{item.public_id}.pdf"
+    return Response(
+        content=payload,
+        media_type="application/pdf",
         headers={"Content-Disposition": build_attachment_content_disposition(filename)},
     )
 

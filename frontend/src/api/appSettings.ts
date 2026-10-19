@@ -169,6 +169,15 @@ export type BillingAutomationSettings = {
   require_all_subjects_assigned: boolean;
 };
 
+export type BillingStatementPdfSettings = {
+  organization_name: string;
+  organization_details: string | null;
+  accent_color: string;
+  logo_data_url: string | null;
+  statement_note: string | null;
+  footer_text: string | null;
+};
+
 export type AppSettings = {
   general: GeneralConfiguration;
   portal: PortalConfiguration;
@@ -176,6 +185,7 @@ export type AppSettings = {
   quota_notifications: QuotaNotificationSettings;
   browser: BrowserSettings;
   billing_automation: BillingAutomationSettings;
+  billing_statement_pdf: BillingStatementPdfSettings;
   onboarding: OnboardingSettings;
   branding: BrandingSettings;
 };

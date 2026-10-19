@@ -141,6 +141,9 @@ def test_statement_api_generates_lists_reads_finalizes_and_audits(client, db_ses
     assert detail.status_code == 200
     assert detail.json()["lines"][0]["snapshot"]["subject_name"] == "Statement API account"
 
+    draft_pdf = client.get(f"/api/admin/billing/statements/{statement['id']}/export.pdf")
+    assert draft_pdf.status_code == 409
+
     finalized_response = client.post(f"/api/admin/billing/statements/{statement['id']}/finalize")
     assert finalized_response.status_code == 200, finalized_response.text
     finalized = finalized_response.json()
@@ -175,6 +178,14 @@ def test_statement_api_generates_lists_reads_finalizes_and_audits(client, db_ses
     exported = json_export.json()
     assert exported["public_id"] == statement["public_id"]
     assert exported["lines"][0]["snapshot"]["subject_name"] == "Statement API account"
+
+    pdf_export = client.get(f"/api/admin/billing/statements/{statement['id']}/export.pdf")
+    assert pdf_export.status_code == 200
+    assert pdf_export.headers["content-type"].startswith("application/pdf")
+    assert pdf_export.headers["content-disposition"].startswith(
+        f'attachment; filename="billing-statement-{statement["public_id"]}.pdf"'
+    )
+    assert pdf_export.content.startswith(b"%PDF-")
 
     regenerate = client.post(
         "/api/admin/billing/statements/generate",
