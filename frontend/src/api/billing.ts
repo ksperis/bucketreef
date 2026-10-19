@@ -28,7 +28,7 @@ export type BillingCost = {
   complete: boolean;
 };
 
-export type BillingStorageChargeQuantity = {
+type BillingStorageChargeQuantity = {
   basis: "actual_usage" | "allocated_quota";
   quantity_gib_month?: BillingDecimal | null;
   observations_collected: number;
@@ -253,14 +253,14 @@ export type BillingAnalysisPreview = {
   conflicts: BillingEntityConflict[];
 };
 
-export type BillingStatementUnitPrices = {
+type BillingStatementUnitPrices = {
   storage_gb_month_price?: BillingDecimal | null;
   egress_gb_price?: BillingDecimal | null;
   ingress_gb_price?: BillingDecimal | null;
   requests_per_1000_price?: BillingDecimal | null;
 };
 
-export type BillingStatementComponentAmounts = {
+type BillingStatementComponentAmounts = {
   storage_cost?: BillingDecimal | null;
   egress_cost?: BillingDecimal | null;
   ingress_cost?: BillingDecimal | null;
@@ -268,7 +268,7 @@ export type BillingStatementComponentAmounts = {
   total_cost?: BillingDecimal | null;
 };
 
-export type BillingStatementLineEstimation = {
+type BillingStatementLineEstimation = {
   usage_extrapolation_factor?: BillingDecimal | null;
   storage_method?: "observed_daily_average" | "allocated_quota_average" | null;
   storage_extrapolation_factor?: BillingDecimal | null;
@@ -333,7 +333,7 @@ export type BillingStatementItem = {
   lines: BillingStatementLineItem[];
 };
 
-export type BillingStatementGenerationResult = {
+type BillingStatementGenerationResult = {
   month: string;
   billing_entity_id: number;
   blockers: string[];
@@ -597,7 +597,7 @@ export type BillingRateCardPayload = {
   storage_endpoint_id?: number | null;
 };
 
-export type BillingRateCardVersionPayload = Omit<
+type BillingRateCardVersionPayload = Omit<
   BillingRateCardPayload,
   "name" | "storage_endpoint_id" | "effective_to"
 >;
