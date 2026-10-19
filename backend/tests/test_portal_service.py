@@ -2317,6 +2317,14 @@ def _storage_space_policy_principals(statement: dict) -> set[str]:
     return {principal for principal in principals if isinstance(principal, str)}
 
 
+def test_storage_space_bucket_policy_actions_cover_all_portal_role_actions(db_session):
+    service = PortalService(db_session)
+    boundary_actions = set(service._storage_space_policy_actions())
+
+    for role in ("Viewer", "Editor", "Owner", "Manager"):
+        assert set(service._storage_space_role_actions(role)).issubset(boundary_actions)
+
+
 def test_storage_space_bucket_policy_preserves_external_statements_and_private_owner_guard(db_session):
     account = make_s3_account(db_session,
         name="portal-policy-space",

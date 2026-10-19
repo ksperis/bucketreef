@@ -246,10 +246,33 @@ class UsersService:
         if payload.group_ids is not None:
             associations.set_group_links(user, payload.group_ids)
 
+    def _revoke_portal_iam_for_deactivated_user(
+        self,
+        user: User,
+        *,
+        was_active: bool,
+    ) -> None:
+        if not was_active or user.is_active:
+            return
+
+        from app.services.portal_service import PortalService
+
+        portal_service = PortalService(self.db)
+        portal_accounts = (
+            self.db.query(S3Account)
+            .join(AccountIAMUser, AccountIAMUser.account_id == S3Account.id)
+            .filter(AccountIAMUser.user_id == user.id)
+            .order_by(S3Account.id.asc())
+            .all()
+        )
+        for account in portal_accounts:
+            portal_service.sync_existing_portal_user_access(user, account, None)
+
     def update_user(self, user_id: int, payload: UserUpdate) -> User:
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
             raise UiUserNotFoundError("User not found")
+        was_active = bool(user.is_active)
         associations = UserAssociationsService(self.db)
         affected_portal_account_ids = associations.affected_portal_account_ids(
             user,
@@ -270,6 +293,10 @@ class UsersService:
             user.auth_version += 1
         self.db.add(user)
         self.db.flush()
+        self._revoke_portal_iam_for_deactivated_user(
+            user,
+            was_active=was_active,
+        )
         portal_roles_after = capture_effective_portal_roles(
             self.db,
             user_ids=[user.id],
