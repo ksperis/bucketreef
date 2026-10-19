@@ -868,7 +868,9 @@ describe("S3UsersPage modal tabs", () => {
     expect(fields.getByText(/for the default tenant/)).toBeInTheDocument();
     fireEvent.change(text, {target: {value: "tenant$user-alpha"}});
     fireEvent.submit(form);
-    expect(text).toHaveAccessibleDescription("Tenant-qualified RGW user IDs require Managed RGW tenant creation.");
+    await waitFor(() =>
+      expect(text).toHaveAccessibleDescription("Tenant-qualified RGW user IDs require Managed RGW tenant creation."),
+    );
     expect(importS3UsersMock).not.toHaveBeenCalled();
   });
 
