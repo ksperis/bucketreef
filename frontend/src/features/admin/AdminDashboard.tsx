@@ -375,7 +375,7 @@ function RecentActivityCard({ logs, loading, unavailableReason }: {
     >
       {loading ? <p role="status" className="ui-dashboard-note">{text("loadingActivity")}</p> : unavailableReason ? <p role="status" className="ui-dashboard-note">{unavailableReason}</p> : logs.length === 0 ? <p className="ui-dashboard-note">{text("noActivity")}</p> : (
         <ul className="ui-dashboard-activity">
-          {logs.slice(0, 5).map((log) => (
+          {logs.slice(0, 6).map((log) => (
             <li key={log.id}>
               <span className="ui-dashboard-note ui-dashboard-activity-text">{formatAuditAction(log, text)}</span>
               <span className="ui-dashboard-note" title={formatLocalDateTime(log.created_at)}>{formatRelativeTime(log.created_at, text)}</span>
@@ -509,7 +509,7 @@ export default function AdminDashboard() {
     let cancelled = false;
     setAuditLoading(true);
     setAuditError(null);
-    listAuditLogs({ limit: 5 })
+    listAuditLogs({ limit: 6 })
       .then((data) => {
         if (cancelled) return;
         setAuditLogs(data.logs ?? []);
