@@ -78,6 +78,8 @@ export function browserTransferWorkerUrl() {
   config = config.replaceAll("${CSP_CONNECT_SRC}", "'self'")
     .replaceAll("${BACKEND_UPSTREAM}", `127.0.0.1:${backendPort}`)
     .replaceAll("${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE}", "5g")
+    .replace("error_log /dev/stderr notice;", "error_log logs/error.log notice;")
+    .replace("access_log /dev/stdout;", "access_log logs/access.log;")
     .replace("listen 8080;", `listen ${frontendPort};`)
     .replace("/usr/share/nginx/html", dist)
     .replaceAll("/etc/nginx/bucketreef-security-headers.conf", join(root, "security-headers.conf"))
