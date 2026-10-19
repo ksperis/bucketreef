@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.core.security import get_password_hash
 from app.db import (
+    AccountIAMUser,
     ManagerAccountRole,
     PortalAccountRole,
     S3Account,
@@ -14,11 +15,14 @@ from app.db import (
     S3User,
     StorageEndpoint,
     StorageProvider,
+    UiGroup,
+    UiGroupS3Account,
     User,
     UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
+    UserUiGroup,
 )
 from app.models.user import PASSWORD_POLICY_ERROR, S3UserMembership, UserCreate, UserUpdate
 from app.services.user_output_service import UserOutputService
@@ -202,6 +206,133 @@ def test_update_user_and_link_validations(db_session):
     assert updated.can_provision_managed_private_connections is True
     assert updated.quota_alerts_global_watch is False
     assert updated.is_active is False
+
+
+@pytest.mark.parametrize("membership_source", ["direct", "group"])
+def test_deactivating_user_revokes_existing_portal_iam_identity(
+    db_session,
+    monkeypatch,
+    membership_source,
+):
+    service = UsersService(db_session)
+    user = _seed_user(db_session, f"deactivate-{membership_source}@example.com")
+    account = _seed_account(
+        db_session,
+        f"deactivate-{membership_source}",
+        f"RGW-DEACTIVATE-{membership_source.upper()}",
+    )
+    if membership_source == "direct":
+        db_session.add(
+            UserS3Account(
+                user_id=user.id,
+                account_id=account.id,
+                manager_role=None,
+                portal_role=PortalAccountRole.PORTAL_USER.value,
+            )
+        )
+    else:
+        group = UiGroup(name=f"Deactivate {membership_source}")
+        db_session.add(group)
+        db_session.flush()
+        db_session.add_all(
+            [
+                UserUiGroup(user_id=user.id, group_id=group.id),
+                UiGroupS3Account(
+                    group_id=group.id,
+                    account_id=account.id,
+                    manager_role=None,
+                    portal_role=PortalAccountRole.PORTAL_USER.value,
+                ),
+            ]
+        )
+    db_session.add(
+        AccountIAMUser(
+            user_id=user.id,
+            account_id=account.id,
+            iam_user_id=f"iam-{membership_source}",
+            iam_username=f"portal-{membership_source}",
+            active_access_key=f"AK-{membership_source}",
+            active_secret_key=f"SK-{membership_source}",
+        )
+    )
+    db_session.commit()
+
+    revoked: list[tuple[int, int, object]] = []
+
+    from app.services.portal_service import PortalService
+
+    def revoke_existing_portal_access(portal_service, target, target_account, portal_role):
+        revoked.append((target.id, target_account.id, portal_role))
+        link = (
+            portal_service.db.query(AccountIAMUser)
+            .filter(
+                AccountIAMUser.user_id == target.id,
+                AccountIAMUser.account_id == target_account.id,
+            )
+            .one()
+        )
+        portal_service.db.delete(link)
+        portal_service.db.flush()
+
+    monkeypatch.setattr(
+        PortalService,
+        "sync_existing_portal_user_access",
+        revoke_existing_portal_access,
+    )
+
+    updated = service.update_user(user.id, UserUpdate(is_active=False))
+
+    assert updated.is_active is False
+    assert revoked == [(user.id, account.id, None)]
+    assert (
+        db_session.query(AccountIAMUser)
+        .filter(
+            AccountIAMUser.user_id == user.id,
+            AccountIAMUser.account_id == account.id,
+        )
+        .one_or_none()
+        is None
+    )
+
+
+def test_reactivating_user_does_not_reprovision_portal_iam_identity(
+    db_session,
+    monkeypatch,
+):
+    service = UsersService(db_session)
+    user = _seed_user(db_session, "reactivate-portal@example.com")
+    account = _seed_account(db_session, "reactivate-portal", "RGW-REACTIVATE-PORTAL")
+    db_session.add(
+        UserS3Account(
+            user_id=user.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    user.is_active = False
+    db_session.commit()
+
+    from app.services.portal_service import PortalService
+
+    monkeypatch.setattr(
+        PortalService,
+        "sync_existing_portal_user_access",
+        lambda *_args, **_kwargs: pytest.fail("Reactivation must stay lazy"),
+    )
+
+    updated = service.update_user(user.id, UserUpdate(is_active=True))
+
+    assert updated.is_active is True
+    assert (
+        db_session.query(AccountIAMUser)
+        .filter(
+            AccountIAMUser.user_id == user.id,
+            AccountIAMUser.account_id == account.id,
+        )
+        .one_or_none()
+        is None
+    )
 
 
 def test_update_user_validates_s3_users_before_replacing_links(db_session):

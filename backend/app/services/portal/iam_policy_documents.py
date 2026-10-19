@@ -116,23 +116,7 @@ class PortalIamPolicyDocumentsMixin:
         return [bucket_arn, f"{bucket_arn}/*"]
 
     def _storage_space_policy_actions(self) -> list[str]:
-        return [
-            "s3:GetBucketLocation",
-            "s3:GetBucketVersioning",
-            "s3:GetLifecycleConfiguration",
-            "s3:ListBucket",
-            "s3:ListBucketVersions",
-            "s3:GetObject",
-            "s3:GetObjectVersion",
-            "s3:PutObject",
-            "s3:DeleteObject",
-            "s3:DeleteObjectVersion",
-            "s3:AbortMultipartUpload",
-            "s3:ListBucketMultipartUploads",
-            "s3:ListMultipartUploadParts",
-            "s3:PutBucketVersioning",
-            "s3:PutLifecycleConfiguration",
-        ]
+        return self._storage_space_role_actions("Manager")
 
     def _without_storage_space_policy_statements(self, policy: Optional[dict]) -> Optional[dict]:
         if not isinstance(policy, dict):

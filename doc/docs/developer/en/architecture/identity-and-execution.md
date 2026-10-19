@@ -28,6 +28,10 @@ for password, role, activation, MFA, and external-identity changes.
 - Portal already executes S3 operations with the signed-in user's personal IAM
   identity. Portal external access is assigned to one named person and must
   preserve that attribution.
+- Deactivating a UI user immediately removes any provisioned personal Portal
+  IAM identity and its keys. Portal account roles and Storage Space ownership
+  remain canonical in the database; reactivation provisions IAM lazily on the
+  next Portal use.
 - Application audit identifies control-plane actors. Object-level attribution
   comes from provider S3 access logs. Without provider logging and retention,
   the application cannot reconstruct an exhaustive object audit trail.
