@@ -9,7 +9,7 @@ export type AnchoredMenuPlacement = "bottom-start" | "bottom-end" | "top-start" 
 
 type UseAnchoredMenuPositionParams = {
   open: boolean;
-  anchorRef: RefObject<HTMLElement | null>;
+  anchorRef: RefObject<Element | null>;
   menuRef: RefObject<HTMLElement | null>;
   placement?: AnchoredMenuPlacement;
   offset?: number;
@@ -18,7 +18,7 @@ type UseAnchoredMenuPositionParams = {
 
 type AnchoredPortalMenuProps = {
   open: boolean;
-  anchorRef: RefObject<HTMLElement | null>;
+  anchorRef: RefObject<Element | null>;
   placement?: AnchoredMenuPlacement;
   offset?: number;
   minWidth?: number | "anchor";

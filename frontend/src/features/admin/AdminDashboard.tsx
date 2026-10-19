@@ -728,17 +728,25 @@ export default function AdminDashboard() {
   }, [summary, text]);
 
   const mapMarkers = useMemo<AdminDashboardMapMarker[]>(() => {
-    const statusByEndpointId = new Map<number, HealthCheckStatus>();
+    const healthByEndpointId = new Map<number, WorkspaceEndpointHealthEntry>();
     workspaceHealth?.endpoints.forEach((endpoint) => {
-      statusByEndpointId.set(endpoint.endpoint_id, endpoint.status);
+      healthByEndpointId.set(endpoint.endpoint_id, endpoint);
     });
-    return mapEndpoints.map((endpoint) => ({
-      id: endpoint.id,
-      name: endpoint.name,
-      latitude: endpoint.latitude,
-      longitude: endpoint.longitude,
-      status: statusByEndpointId.get(endpoint.id) ?? "unknown",
-    }));
+    return mapEndpoints.map((endpoint) => {
+      const health = healthByEndpointId.get(endpoint.id);
+      return {
+        id: endpoint.id,
+        name: endpoint.name,
+        endpointUrl: endpoint.endpoint_url,
+        provider: endpoint.provider,
+        region: endpoint.region,
+        isDefault: endpoint.is_default,
+        latitude: endpoint.latitude,
+        longitude: endpoint.longitude,
+        status: health?.is_stale ? "unknown" : (health?.status ?? "unknown"),
+        latencyMs: health?.latency_ms,
+      };
+    });
   }, [mapEndpoints, workspaceHealth]);
 
   const endpointUnavailableReason = !generalSettings.endpoint_status_enabled
