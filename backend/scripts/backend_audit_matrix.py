@@ -70,6 +70,7 @@ ALLOWLISTED_UNAUDITED_ROUTES: dict[tuple[str, str, str, str], str] = {
     ("POST", "app/routers/admin/storage_endpoints.py", "detect_storage_endpoint_features", "/detect-features"): "feature detection probe",
     ("POST", "app/routers/admin/usage_stats.py", "stream_admin_managed_usage_stats_aggregate", "/admin/usage-stats/stream"): "read-only stream",
     ("POST", "app/routers/admin/billing.py", "billing_collect_daily", "/collect/daily"): "operational collection excluded by audit policy",
+    ("POST", "app/routers/admin/billing.py", "preview_billing_statement_pdf", "/pdf/preview"): "read-only Billing Statement PDF preview",
     ("POST", "app/routers/admin/billing.py", "preview_billing_entity", "/entities/preview"): "read-only Billing Entity membership preview",
     ("POST", "app/routers/admin/healthchecks.py", "run_healthchecks", "/run"): "operational health probe excluded by audit policy",
     ("POST", "app/routers/admin/settings.py", "send_quota_notifications_test_email", "/quota-notifications/test-email"): "notification delivery probe",

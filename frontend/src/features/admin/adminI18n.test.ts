@@ -26,6 +26,7 @@ const translatedAttributeNames = new Set([
 const TECHNICAL_IDENTICAL_KEYS = new Set([
   "=write",
   "Admin",
+  "AWS",
   "Browser",
   "Ceph",
   "Ceph Admin",
@@ -50,6 +51,9 @@ const TECHNICAL_IDENTICAL_KEYS = new Set([
 ]);
 
 const RAW_TECHNICAL_COPY = new Set([
+  "#0569f8",
+  "CSV",
+  "PDF",
   "alice",
   "ansible-production",
   "contact@example.com",
@@ -97,6 +101,7 @@ const IDENTICAL_KEYS_BY_LOCALE: Record<string, Set<string>> = {
     "Manager UI",
     "Message",
     "Messages",
+    "Logo",
     "Min {latency}",
     "min",
     "Mode",
@@ -121,6 +126,7 @@ const IDENTICAL_KEYS_BY_LOCALE: Record<string, Set<string>> = {
     "Administration",
     "Browser",
     "Buckets",
+    "Buckets:",
     "Code",
     "Detail",
     "Details",
@@ -128,6 +134,7 @@ const IDENTICAL_KEYS_BY_LOCALE: Record<string, Set<string>> = {
     "jane.doe@example.com",
     "Manager",
     "Name",
+    "Logo",
     "Portal",
     "Prompt",
     "Snapshots",

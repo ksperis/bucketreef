@@ -23,6 +23,7 @@ from app.services.billing_integration_service import (
     BillingIntegrationService,
 )
 from app.services.billing_period_service import BillingPeriodScopeNotFoundError
+from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.http_headers import build_attachment_content_disposition
 
 
@@ -36,8 +37,8 @@ def _integration_error(exc: ValueError) -> NoReturn:
     if isinstance(exc, BillingDisabledError):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Billing is disabled") from exc
     if isinstance(exc, (BillingIntegrationNotFoundError, BillingPeriodScopeNotFoundError)):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
+    raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @router.get("/entities", response_model=list[BillingIntegrationEntityV1])

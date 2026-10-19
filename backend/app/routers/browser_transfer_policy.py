@@ -16,6 +16,7 @@ from app.routers.dependencies_internal.execution_context import resolve_s3_execu
 from app.services import app_settings_service
 from app.services.auth_session_guards import current_auth_session
 from app.services.browser_transfer_policy_service import build_transfer_policy, worker_content_security_policy
+from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter()
 
@@ -54,7 +55,7 @@ def get_direct_transfer_policy(
     try:
         policy = build_transfer_policy(context, workspace=workspace, context_id=None if is_session else context.context_id)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise_http_exception_from_exception(422, exc)
     if policy_id is not None and policy_id != policy.policy_id:
         raise HTTPException(status_code=403, detail="Direct transfer policy changed")
     response.headers["Cache-Control"] = "no-store, private"

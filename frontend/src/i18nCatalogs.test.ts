@@ -21,6 +21,9 @@ import sharedFr from "./features/shared/shared.fr.json";
 import sharedZh from "./features/shared/shared.zh.json";
 
 const TECHNICAL_TERMS = ["Ceph", "RGW", "S3", "IAM", "CORS", "Bucket", "Tenant"] as const;
+const LOCALIZED_TECHNICAL_TERMS: Partial<Record<"fr" | "de" | "zh", ReadonlySet<(typeof TECHNICAL_TERMS)[number]>>> = {
+  zh: new Set(["Bucket"]),
+};
 
 describe("compact i18n catalogs", () => {
   it("reconstructs every source catalog without changing keys or translations", () => {
@@ -59,8 +62,10 @@ describe("compact i18n catalogs", () => {
     ] as const;
 
     for (const [catalogName, catalog] of catalogs) {
+      const locale = catalogName.slice(catalogName.lastIndexOf(".") + 1) as "fr" | "de" | "zh";
       for (const [source, translation] of Object.entries(catalog)) {
         for (const term of TECHNICAL_TERMS) {
+          if (LOCALIZED_TECHNICAL_TERMS[locale]?.has(term)) continue;
           const termPattern = new RegExp(`\\b${term}s?\\b`, "i");
           if (!termPattern.test(source)) continue;
 
