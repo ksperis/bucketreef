@@ -149,15 +149,17 @@ export function portalDateTimeLabel(value?: string | null, locale: UiLanguage = 
   });
 }
 
-export function formatPortalCurrency(value: number | null | undefined, currency: string | null | undefined, locale: UiLanguage): string {
+export function formatPortalCurrency(value: number | string | null | undefined, currency: string | null | undefined, locale: UiLanguage): string {
   if (value == null) return "-";
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "-";
   try {
     return new Intl.NumberFormat(intlLocale(locale), {
       style: "currency",
       currency: currency || "EUR",
       maximumFractionDigits: 2,
-    }).format(value);
+    }).format(numericValue);
   } catch {
-    return `${value.toFixed(2)} ${currency || "EUR"}`;
+    return `${numericValue.toFixed(2)} ${currency || "EUR"}`;
   }
 }

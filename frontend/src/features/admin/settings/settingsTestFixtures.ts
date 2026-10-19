@@ -69,6 +69,19 @@ export function createAppSettings(
       other_operations_parallelism: 3,
       streaming_zip_threshold_mb: 200,
     },
+    billing_automation: {
+      mode: "manual",
+      schedule_day: 5,
+      require_all_subjects_assigned: true,
+    },
+    billing_statement_pdf: {
+      organization_name: "BucketReef",
+      organization_details: null,
+      accent_color: "#0569f8",
+      logo_data_url: null,
+      statement_note: null,
+      footer_text: null,
+    },
     onboarding: { dismissed: false },
     branding: {
       primary_color: "#0569f8",

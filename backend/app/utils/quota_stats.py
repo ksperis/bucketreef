@@ -1,6 +1,17 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Any, Dict, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Literal, Optional, Tuple
+
+
+QuotaSizeState = Literal["valid", "missing", "disabled", "unlimited", "invalid"]
+
+
+@dataclass(frozen=True)
+class QuotaSnapshot:
+    max_size_bytes: Optional[int]
+    max_objects: Optional[int]
+    size_state: QuotaSizeState
 
 
 def _parse_bool(value: Any) -> Optional[bool]:
@@ -65,8 +76,17 @@ def extract_quota_limits(
     *,
     keys: Tuple[str, ...] = ("quota", "user_quota", "account_quota"),
 ) -> Tuple[Optional[int], Optional[int]]:
+    snapshot = extract_quota_snapshot(payload, keys=keys)
+    return snapshot.max_size_bytes, snapshot.max_objects
+
+
+def extract_quota_snapshot(
+    payload: Optional[Dict[str, Any]],
+    *,
+    keys: Tuple[str, ...] = ("quota", "user_quota", "account_quota"),
+) -> QuotaSnapshot:
     if not isinstance(payload, dict):
-        return None, None
+        return QuotaSnapshot(None, None, "missing")
     quota: Optional[Dict[str, Any]] = None
     for key in keys:
         value = payload.get(key)
@@ -74,27 +94,35 @@ def extract_quota_limits(
             quota = value
             break
     if not isinstance(quota, dict):
-        return None, None
+        return QuotaSnapshot(None, None, "missing")
 
     enabled = _parse_bool(quota.get("enabled"))
     if enabled is False:
-        return None, None
+        return QuotaSnapshot(None, None, "disabled")
 
-    max_size = _parse_int(quota.get("max_size") or quota.get("max_size_bytes"))
-    if max_size is None or max_size <= 0:
-        max_size_kb = _parse_int(quota.get("max_size_kb"))
-        if max_size_kb is not None and max_size_kb > 0:
-            max_size = max_size_kb * 1024
-        else:
-            max_size = None
-    if max_size is not None and max_size <= 0:
-        max_size = None
+    raw_size = quota.get("max_size")
+    if raw_size is None:
+        raw_size = quota.get("max_size_bytes")
+    raw_size_kb = quota.get("max_size_kb")
+    max_size = _parse_int(raw_size)
+    if max_size is None and raw_size_kb is not None:
+        parsed_kb = _parse_int(raw_size_kb)
+        if parsed_kb is not None:
+            max_size = parsed_kb * 1024
 
     max_objects = _parse_int(quota.get("max_objects"))
     if max_objects is not None and max_objects <= 0:
         max_objects = None
 
-    return max_size, max_objects
+    if max_size is not None and max_size > 0:
+        return QuotaSnapshot(max_size, max_objects, "valid")
+    if raw_size is not None or raw_size_kb is not None:
+        parsed_raw_size = _parse_int(raw_size)
+        parsed_raw_kb = _parse_int(raw_size_kb)
+        if parsed_raw_size is None and parsed_raw_kb is None:
+            return QuotaSnapshot(None, max_objects, "invalid")
+        return QuotaSnapshot(None, max_objects, "unlimited")
+    return QuotaSnapshot(None, max_objects, "unlimited")
 
 
 def bytes_to_gb(value: Optional[int]) -> Optional[float]:

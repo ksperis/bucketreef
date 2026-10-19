@@ -19,9 +19,15 @@ Admin API tokens provide long-lived bearer authentication for automation.
 
 ## Required scopes
 
-Choose the minimum `read` and `write` scopes from `profile`, `admin`,
-`manager`, `browser`, `portal`, `ceph-admin`, and `storage-ops`. A token is
-denied on every protected route that has no explicit scope mapping.
+Choose the minimum required scope. The UI and storage domains expose `read` and
+`write` scopes for `profile`, `admin`, `manager`, `browser`, `portal`,
+`ceph-admin`, and `storage-ops`. Billing integrations expose only
+`billing:read`; there is intentionally no `billing:write` scope in v1. A token
+is denied on every protected route that has no explicit scope mapping.
+
+Use a dedicated `billing:read` token for
+[Billing Integration API v1](../operations/billing-integration-api.md) instead
+of granting an external accounting system `admin:read`.
 
 Bearer tokens cannot call the direct UI-user and identity-security routes.
 No non-interactive identity-mutation endpoint is exposed; use an authorized

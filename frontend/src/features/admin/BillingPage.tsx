@@ -21,6 +21,7 @@ import DataTableShell, {
 } from "../../components/list/DataTableShell";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageShell from "../../components/PageShell";
+import PageTabs from "../../components/PageTabs";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
 import InlineSummary from "../../components/InlineSummary";
@@ -44,6 +45,9 @@ import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
 import { DownloadIcon, RefreshIcon } from "../browser/browserIcons";
 import {
+  type BillingDecimal,
+  type BillingAnalysisPreview,
+  type BillingRateResolution,
   BillingSubjectDetail,
   BillingSubjectSummary,
   BillingSummary,
@@ -52,8 +56,11 @@ import {
   getBillingSummary,
   downloadBillingCsv,
   collectBillingDaily,
+  getBillingAnalysis,
 } from "../../api/billing";
 import { useAdminI18n } from "./adminI18n";
+import BillingAnalysisView from "./BillingAnalysisView";
+import BillingStatementsView from "./BillingStatementsView";
 
 // QA checklist:
 // - Verify summary loads with selected month/endpoint.
@@ -82,10 +89,90 @@ function defaultCollectDay(): string {
   return utc.toISOString().slice(0, 10);
 }
 
-function formatCurrency(value: number | null | undefined, currency: string | null | undefined, intlLocale: string): string {
+function formatCurrency(value: BillingDecimal | null | undefined, currency: string | null | undefined, intlLocale: string): string {
   if (value === undefined || value === null) return "-";
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "-";
   const code = currency || "EUR";
-  return `${new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} ${code}`;
+  return `${new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numericValue)} ${code}`;
+}
+
+function formatStoragePricing(
+  cost: BillingSummary["cost"] | BillingSubjectDetail["cost"] | null | undefined,
+  text: ReturnType<typeof useAdminI18n>["text"],
+): string | null {
+  const quantity = cost?.storage_quantity;
+  if (!quantity) return null;
+  const basis = text(quantity.basis === "allocated_quota" ? "Allocated quota" : "Actual usage");
+  const percent = Math.round(Number(quantity.coverage_ratio) * 100);
+  return text("{basis} · {percent}% pricing coverage", { basis, percent });
+}
+
+function formatRateResolutionSource(
+  resolution: BillingRateResolution | null | undefined,
+  text: ReturnType<typeof useAdminI18n>["text"],
+): string | null {
+  if (!resolution || resolution.status !== "resolved" || !resolution.layer) return null;
+  if (resolution.layer === "direct") return text("Direct assignment");
+  if (resolution.layer === "billing_entity") {
+    return resolution.billing_entity_name
+      ? text("Billing Entity: {name}", { name: resolution.billing_entity_name })
+      : text("Billing Entity");
+  }
+  if (resolution.layer === "endpoint") return text("Endpoint Rate Plan");
+  return text("Global Rate Plan");
+}
+
+function formatRateResolution(
+  resolution: BillingRateResolution | null | undefined,
+  text: ReturnType<typeof useAdminI18n>["text"],
+): string | null {
+  if (!resolution || resolution.status !== "resolved") return null;
+  return [
+    formatRateResolutionSource(resolution, text),
+    resolution.rate_plan_name
+      ? text("Rate Plan: {name}", { name: resolution.rate_plan_name })
+      : null,
+    resolution.rate_card_effective_from
+      ? text("Effective {date}", { date: resolution.rate_card_effective_from })
+      : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function rateResolutionConflictMessage(
+  resolution: BillingRateResolution,
+  text: ReturnType<typeof useAdminI18n>["text"],
+  subject = false,
+): string {
+  const names = resolution.conflicting_billing_entity_names.join(", ");
+  if (names) {
+    return text(
+      "Rate resolution conflict. This subject matches multiple Billing Entities: {names}. Resolve the membership conflict before using this cost.",
+      { names },
+    );
+  }
+  return subject
+    ? text("Rate resolution conflict prevents cost calculation for this subject. Review its Billing Entity and Rate Plan assignments.")
+    : text("Rate resolution conflict prevents an estimated cost for this scope. Review Billing settings.");
+}
+
+function rateResolutionMissingMessage(
+  resolution: BillingRateResolution,
+  text: ReturnType<typeof useAdminI18n>["text"],
+  subject = false,
+): string {
+  if (
+    resolution.rate_plan_name
+    && resolution.issues.includes("assigned_rate_plan_has_no_effective_version")
+  ) {
+    return text(
+      "Rate Plan {name} has no effective version for the selected month. Cost is unavailable.",
+      { name: resolution.rate_plan_name },
+    );
+  }
+  return subject
+    ? text("No effective Rate Plan matches this subject for the selected month. Cost is unavailable.")
+    : text("No effective Rate Plan matches this scope for the selected month. Usage totals remain available, but estimated cost is unavailable.");
 }
 
 function formatCoverage(
@@ -128,7 +215,7 @@ function extractCollectionErrors(result: Record<string, unknown> | null): Array<
 
 function formatCollectionIssue(entry: Record<string, unknown>): string {
   const stage = typeof entry.stage === "string" ? entry.stage : "collection";
-  const stageLabel = stage === "usage" ? "Usage" : stage === "storage" ? "Storage" : stage === "endpoint" ? "Endpoint client" : "Collection";
+  const stageLabel = stage === "usage" ? "Usage" : stage === "storage" ? "Storage" : stage === "quota" ? "Quota" : stage === "endpoint" ? "Endpoint client" : "Collection";
   const endpoint = entry.endpoint_id != null ? `endpoint #${String(entry.endpoint_id)}` : null;
   const subject = typeof entry.subject === "string"
     ? `${entry.subject}${entry.subject_id != null ? ` #${String(entry.subject_id)}` : ""}`
@@ -154,6 +241,7 @@ function isBillingDisabledMessage(message: string): boolean {
 export default function BillingPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
+  const [activeTab, setActiveTab] = useState<"subjects" | "entities" | "groups" | "statements">("subjects");
   const [month, setMonth] = useState<string>(currentUtcMonthInputValue());
   const [collectDay, setCollectDay] = useState<string>(defaultCollectDay());
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
@@ -177,6 +265,10 @@ export default function BillingPage() {
   const [detail, setDetail] = useState<BillingSubjectDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
+
+  const [analysis, setAnalysis] = useState<BillingAnalysisPreview | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState<boolean>(false);
 
   const [pageError, setPageError] = useState<string | null>(null);
   const [billingDisabled, setBillingDisabled] = useState<boolean>(false);
@@ -335,6 +427,37 @@ export default function BillingPage() {
     };
   }, [adminText, detailSubjectId, detailSubjectType, month, selectedEndpointId, reloadToken]);
 
+  const analysisVisible = activeTab === "entities" || activeTab === "groups";
+
+  useEffect(() => {
+    if (!analysisVisible) return;
+    let cancelled = false;
+    async function loadAnalysis() {
+      setAnalysisLoading(true);
+      setAnalysisError(null);
+      try {
+        const data = await getBillingAnalysis(month);
+        if (!cancelled) {
+          setAnalysis(data);
+          setBillingDisabled(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = extractApiError(err, adminText("Unable to load consolidated billing analysis."));
+          setAnalysis(null);
+          setAnalysisError(message);
+          if (isBillingDisabledMessage(message)) setBillingDisabled(true);
+        }
+      } finally {
+        if (!cancelled) setAnalysisLoading(false);
+      }
+    }
+    loadAnalysis();
+    return () => {
+      cancelled = true;
+    };
+  }, [adminText, analysisVisible, month, reloadToken]);
+
   const stats = useMemo(() => {
     const storageAvg = summary?.storage?.avg_bytes ?? null;
     const egress = summary?.usage?.bytes_out ?? null;
@@ -366,9 +489,10 @@ export default function BillingPage() {
       {
         label: adminText("Estimated cost"),
         value: summary?.cost?.total_cost != null ? formatCurrency(summary.cost.total_cost, summary.cost.currency, intlLocale) : "-",
-        hint: summary?.cost?.rate_card_name
-          ? adminText("Rate card: {name}", { name: summary.cost.rate_card_name })
-          : adminText("No rate card"),
+        hint: [
+          formatRateResolution(summary?.rate_resolution, adminText),
+          formatStoragePricing(summary?.cost, adminText),
+        ].filter(Boolean).join(" · "),
       },
     ];
   }, [adminText, intlLocale, summary]);
@@ -381,9 +505,19 @@ export default function BillingPage() {
   const canExport = Boolean(selectedEndpointId && hasBillingData && !summaryLoading && !subjectsLoading && !billingDisabled);
   const canCollect = Boolean(collectDay && !collectLoading && !billingDisabled);
   const collectionErrors = extractCollectionErrors(collectResult);
-  const noRateCard = Boolean(summary && summary.coverage.days_collected > 0 && !summary.cost);
+  const rateResolutionMissing = Boolean(
+    summary
+    && summary.coverage.days_collected > 0
+    && summary.rate_resolution.status === "missing",
+  );
+  const rateResolutionConflict = Boolean(
+    summary
+    && summary.coverage.days_collected > 0
+    && summary.rate_resolution.status === "conflict",
+  );
   const lowCoverage = isLowCoverage(summary?.coverage);
   const partialSources = hasPartialBillingSources(summary?.coverage);
+  const storagePricingIncomplete = summary?.cost?.complete === false;
 
   async function handleRowClick(subject: BillingSubjectSummary) {
     if (!selectedEndpointId) return;
@@ -526,37 +660,68 @@ export default function BillingPage() {
             size="compact"
             className="ui-list-control"
           />
-          <UiSelect
-            label={adminText("Endpoint")}
-            value={selectedEndpointId ?? ""}
-            onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
-            size="compact"
-            className="ui-list-control"
-          >
-            {endpoints.length === 0 ? <option value="">{adminText("No Ceph endpoint")}</option> : null}
-            {endpoints.map((endpoint) => (
-              <option key={endpoint.id} value={endpoint.id}>
-                {endpoint.name}
-              </option>
-            ))}
-          </UiSelect>
-          <ListActionButton
-            variant="secondary"
-            onClick={() => void handleExport()}
-            disabled={!canExport}
-            title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with billing data before exporting"}
-          >
-            <DownloadIcon aria-hidden="true" className="h-3.5 w-3.5" />
-            {adminText("Export CSV")}</ListActionButton>
+          {activeTab === "subjects" ? (
+            <>
+              <UiSelect
+                label={adminText("Endpoint")}
+                value={selectedEndpointId ?? ""}
+                onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
+                size="compact"
+                className="ui-list-control"
+              >
+                {endpoints.length === 0 ? <option value="">{adminText("No Ceph endpoint")}</option> : null}
+                {endpoints.map((endpoint) => (
+                  <option key={endpoint.id} value={endpoint.id}>
+                    {endpoint.name}
+                  </option>
+                ))}
+              </UiSelect>
+              <ListActionButton
+                variant="secondary"
+                onClick={() => void handleExport()}
+                disabled={!canExport}
+                title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with billing data before exporting"}
+              >
+                <DownloadIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                {adminText("Export CSV")}</ListActionButton>
+            </>
+          ) : null}
         </>
       }
     >
-      {pageError && selectedEndpointId != null ? <PageBanner tone="error">{pageError}</PageBanner> : null}
+      {activeTab === "subjects" && pageError && selectedEndpointId != null ? <PageBanner tone="error">{pageError}</PageBanner> : null}
       {billingDisabled ? (
         <PageBanner tone="warning">
           {adminText("Billing is disabled. Enable it in General settings to use this page.")}</PageBanner>
       ) : null}
-      {!selectedEndpointId ? (
+      <PageTabs
+        tabs={[
+          { id: "subjects", label: adminText("Subjects") },
+          { id: "entities", label: adminText("Billing Entities") },
+          { id: "groups", label: adminText("Billing Groups") },
+          { id: "statements", label: adminText("Statements") },
+        ]}
+        activeTab={activeTab}
+        onChange={(id) => setActiveTab(id as "subjects" | "entities" | "groups" | "statements")}
+        variant="line"
+        ariaLabel={adminText("Billing analysis views")}
+        idPrefix="admin-billing"
+      />
+      {activeTab === "entities" || activeTab === "groups" ? (
+        <div className="mt-4">
+          <BillingAnalysisView
+            mode={activeTab}
+            month={month}
+            analysis={analysis}
+            loading={analysisLoading}
+            error={analysisError}
+          />
+        </div>
+      ) : activeTab === "statements" ? (
+        <div className="mt-4">
+          <BillingStatementsView month={month} />
+        </div>
+      ) : !selectedEndpointId ? (
         <PageEmptyState
           title={adminText("No Ceph endpoint available for billing")}
           description={pageError || "Add or enable a Ceph endpoint before loading billing analytics."}
@@ -601,9 +766,20 @@ export default function BillingPage() {
               {adminText("Storage and usage sources do not cover the same number of days (")}{formatCoverageBreakdown(summary?.coverage, adminText)}).
             </PageBanner>
           ) : null}
-          {noRateCard ? (
+          {storagePricingIncomplete ? (
             <PageBanner tone="warning">
-              {adminText("No matching rate card is attached for this scope. Usage totals are available, but estimated cost stays unavailable.")}</PageBanner>
+              {adminText("Storage pricing is incomplete for this month. Review the storage pricing coverage before using this estimate.")}
+            </PageBanner>
+          ) : null}
+          {rateResolutionConflict && summary ? (
+            <PageBanner tone="warning">
+              {rateResolutionConflictMessage(summary.rate_resolution, adminText)}
+            </PageBanner>
+          ) : null}
+          {rateResolutionMissing && summary ? (
+            <PageBanner tone="warning">
+              {rateResolutionMissingMessage(summary.rate_resolution, adminText)}
+            </PageBanner>
           ) : null}
           {summaryLoading ? <PageBanner tone="info">{adminText("Loading summary...")}</PageBanner> : <InlineSummary label={`Monthly totals · ${selectedEndpoint?.name ?? ""} · ${month}`} items={stats} />}
 
@@ -689,8 +865,15 @@ export default function BillingPage() {
                     )}
                   </PageBanner>
                 ) : null}
-                {!detail.cost ? (
-                  <PageBanner tone="warning">{adminText("No rate card matched this subject, so cost is unavailable.")}</PageBanner>
+                {detail.rate_resolution.status === "conflict" ? (
+                  <PageBanner tone="warning">
+                    {rateResolutionConflictMessage(detail.rate_resolution, adminText, true)}
+                  </PageBanner>
+                ) : null}
+                {detail.rate_resolution.status === "missing" ? (
+                  <PageBanner tone="warning">
+                    {rateResolutionMissingMessage(detail.rate_resolution, adminText, true)}
+                  </PageBanner>
                 ) : null}
                 <div className="grid gap-4 lg:grid-cols-3">
                   {dailySeries.length > 0 ? (
@@ -772,6 +955,12 @@ export default function BillingPage() {
                         <p className={cx("ui-body font-semibold", uiTitleTextClass)}>
                           {detail.cost?.total_cost != null ? formatCurrency(detail.cost.total_cost, detail.cost.currency, intlLocale) : "-"}
                         </p>
+                        {formatStoragePricing(detail.cost, adminText) ? (
+                          <p className={cx("ui-caption", uiMutedTextClass)}>{formatStoragePricing(detail.cost, adminText)}</p>
+                        ) : null}
+                        {formatRateResolution(detail.rate_resolution, adminText) ? (
+                          <p className={cx("ui-caption", uiMutedTextClass)}>{formatRateResolution(detail.rate_resolution, adminText)}</p>
+                        ) : null}
                       </div>
                       <div>
                         <p className={cx("ui-caption", uiMutedTextClass)}>{adminText("Coverage")}</p>

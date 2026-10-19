@@ -7,7 +7,7 @@ from typing import Optional, Sequence
 from sqlalchemy import delete, exists, select
 from sqlalchemy.orm import Session
 
-from app.db import BucketUiTagAssignment, S3Account, S3AccountTag, S3Connection, S3ConnectionTag, S3User, S3UserTag, StorageEndpoint, StorageEndpointTag, TagDefinition
+from app.db import BillingEntityTagRule, BucketUiTagAssignment, S3Account, S3AccountTag, S3Connection, S3ConnectionTag, S3User, S3UserTag, StorageEndpoint, StorageEndpointTag, TagDefinition
 from app.models.tagging import TagDefinitionSummary
 from app.utils.tagging import (
     DEFAULT_TAG_COLOR_KEY,
@@ -136,6 +136,9 @@ class TagsService:
                     ~exists().where(S3UserTag.tag_definition_id == TagDefinition.id),
                     ~exists().where(
                         S3ConnectionTag.tag_definition_id == TagDefinition.id
+                    ),
+                    ~exists().where(
+                        BillingEntityTagRule.tag_definition_id == TagDefinition.id
                     ),
                 )
             elif domain_kind == TAG_DOMAIN_PRIVATE_CONNECTION_USER:

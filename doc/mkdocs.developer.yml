@@ -21,6 +21,7 @@ nav:
       - Backend: architecture/backend.md
       - Frontend: architecture/frontend.md
       - Database: architecture/database.md
+      - Billing calculation: architecture/billing.md
       - Identity and execution: architecture/identity-and-execution.md
       - Audit boundary: architecture/audit-boundary.md
       - Workspace surfaces: architecture/workspace-surfaces.md
@@ -49,6 +50,7 @@ nav:
       - Repository layout: reference/repository-layout.md
       - Listings feature matrix: reference/listings-feature-matrix.md
   - Records:
+      - Billing evolution validation: records/billing-evolution-validation.md
       - Browser evolution validation: records/browser-evolutions-validation.md
       - Interface convergence: records/interface-convergence.md
       - Listing presentation inventory: records/listing-presentation-inventory.md
