@@ -823,7 +823,9 @@ describe("S3UsersPage modal tabs", () => {
     managedTenantCreationEnabled = true;
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
     fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));
+    const dialog = screen.getByRole("dialog", {name: "Import RGW users"});
     const form = await screen.findByRole("form", {name: "Import RGW users"});
+    expect(dialog).toContainElement(form);
     const fields = within(form), text = fields.getByLabelText("RGW user IDs");
     await waitFor(() => expect(fields.getByRole("button", {name: "Import", exact: true})).toBeEnabled());
     fireEvent.submit(form);
@@ -842,6 +844,7 @@ describe("S3UsersPage modal tabs", () => {
     expect(text).toBeDisabled();
     expect(fields.getByRole("combobox")).toBeDisabled();
     expect(fields.getByRole("button", {name: "Cancel"})).toBeDisabled();
+    expect(within(dialog).getByRole("button", {name: "Close modal"})).toBeDisabled();
     await act(async () => reject(new Error("Fixture import refused")));
     expect(await fields.findByText("Fixture import refused")).toHaveAttribute("role", "alert");
     expect(text).toHaveValue("tenant$user-alpha\nuser-beta");

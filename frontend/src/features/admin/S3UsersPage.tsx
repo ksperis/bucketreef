@@ -868,7 +868,7 @@ export default function S3UsersPage() {
   };
 
   return (
-    <div className={workflowPageHostClass(showImportModal || Boolean(editingUser))}>
+    <div className={workflowPageHostClass(Boolean(editingUser))}>
       <PageHeader actionPresentation="listing"
         title={adminText("RGW Users")}
         description={adminText("Manage standalone RGW users for direct access to Manager.")}
@@ -974,8 +974,8 @@ export default function S3UsersPage() {
       )}
 
       {showImportModal && (
-        <WorkflowPage title={adminText("Import RGW users")} description={adminText("Import existing standalone RGW users from a Ceph endpoint.")} breadcrumbs={adminBreadcrumbs("rgw-users", {label: adminText("Import")})} backLabel={adminText("Back to RGW users")} backDisabled={importBusy} onBack={importCloseGuard.requestClose} contentVariant="plain" width="standard">
-          <SettingsForm label={adminText("Import RGW users")} busy={importBusy} onSubmit={submitImport}
+        <SettingsDialog title={adminText("Import RGW users")} onClose={importCloseGuard.requestClose} closeDisabled={importBusy} maxWidthClass="max-w-xl">
+          <SettingsForm label={adminText("Import RGW users")} presentation="dialog" busy={importBusy} onSubmit={submitImport}
             submitDisabled={importPermissionLoading || !importEndpointCanWrite}
             onCancel={importCloseGuard.requestClose} submitLabel={adminText("Import")} busyLabel={adminText("Importing...")}>
             <div className="settings-fields settings-form">
@@ -994,7 +994,7 @@ export default function S3UsersPage() {
             </div>
           </SettingsForm>
           {importCloseGuard.confirmationDialog}
-        </WorkflowPage>
+        </SettingsDialog>
       )}
 
       {editingUser && (
