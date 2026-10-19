@@ -455,7 +455,9 @@ describe("AdminDashboard feature summary", () => {
     expect(screen.getByRole("link", { name: "View all incidents" })).toHaveAttribute("href", "/admin/endpoint-status");
     const platformSummary = screen.getByRole("heading", { name: "Storage & traffic" }).closest("section");
     expect(platformSummary).not.toBeNull();
-    expect(screen.getByRole("heading", { name: "Recent activity" })).toBeInTheDocument();
+    const recentActivityHeading = screen.getByRole("heading", { name: "Recent activity" });
+    expect(recentActivityHeading).toBeInTheDocument();
+    expect(within(recentActivityHeading.parentElement!).getByRole("link", { name: "View audit logs" })).toHaveAttribute("href", "/admin/audit");
     expect(screen.getByText("S3-DEMO-PRIMARY")).toBeInTheDocument();
     expect(screen.getAllByText("S3-DEMO-SECONDARY").length).toBeGreaterThan(0);
     const infrastructureMap = await screen.findByRole("img", { name: "Infrastructure endpoint map" });

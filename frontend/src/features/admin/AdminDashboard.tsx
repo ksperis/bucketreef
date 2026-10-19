@@ -369,7 +369,10 @@ function RecentActivityCard({ logs, loading, unavailableReason }: {
 }) {
   const { text } = useAdminDashboardI18n();
   return (
-    <WorkspaceDashboardCard title={text("recentActivity")}>
+    <WorkspaceDashboardCard
+      title={text("recentActivity")}
+      action={<WorkspaceDashboardActionLink to="/admin/audit">{text("auditLogs")}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
+    >
       {loading ? <p role="status" className="ui-dashboard-note">{text("loadingActivity")}</p> : unavailableReason ? <p role="status" className="ui-dashboard-note">{unavailableReason}</p> : logs.length === 0 ? <p className="ui-dashboard-note">{text("noActivity")}</p> : (
         <ul className="ui-dashboard-activity">
           {logs.slice(0, 5).map((log) => (
@@ -380,9 +383,6 @@ function RecentActivityCard({ logs, loading, unavailableReason }: {
           ))}
         </ul>
       )}
-      <div className="ui-dashboard-panel-footer">
-        <WorkspaceDashboardActionLink to="/admin/audit">{text("auditLogs")}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>
-      </div>
     </WorkspaceDashboardCard>
   );
 }
