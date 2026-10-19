@@ -10,7 +10,7 @@ import {
 
 describe("browser transfer presentation", () => {
   it("does not present a working proxy as a warning", () => {
-    expect(buildBrowserTransferWarnings({ warningMessage: null, corsFixError: null, stsCredentialsError: null, corsEnabled: false, proxyAllowed: true })).toEqual([]);
+    expect(buildBrowserTransferWarnings({ warningMessage: null, corsFixError: null, stsCredentialsError: null, corsEnabled: false, proxyAllowed: true, uploadUnavailable: false })).toEqual([]);
   });
   it("distinguishes verified CORS states from an unknown status", () => {
     expect(
@@ -78,6 +78,7 @@ describe("browser transfer presentation", () => {
         stsCredentialsError: "STS failed",
         corsEnabled: false,
         proxyAllowed: false,
+        uploadUnavailable: true,
       }),
     ).toEqual([
       "Request warning",
@@ -90,9 +91,7 @@ describe("browser transfer presentation", () => {
   it("keeps transfer badge precedence and presign context", () => {
     const base = {
       hasContext: true,
-      corsEnabled: true,
-      proxyAllowed: true,
-      useProxyTransfers: false,
+      uploadMode: "direct" as const,
       sseActive: false,
       hasStsCredentials: false,
       stsExpirationLabel: "",
@@ -102,15 +101,13 @@ describe("browser transfer presentation", () => {
     expect(
       resolveBrowserTransferAccessBadge({
         ...base,
-        corsEnabled: false,
-        proxyAllowed: false,
-        useProxyTransfers: true,
+        uploadMode: "unavailable",
       })?.label,
     ).toBe("Unavailable");
     expect(
       resolveBrowserTransferAccessBadge({
         ...base,
-        useProxyTransfers: true,
+        uploadMode: "proxy",
         sseActive: true,
       })?.label,
     ).toBe("Proxy");
@@ -124,13 +121,14 @@ describe("browser transfer presentation", () => {
     expect(
       resolveBrowserTransferAccessBadge({
         ...base,
+        uploadMode: "sts",
         hasStsCredentials: true,
         stsExpirationLabel: "2026-08-02 12:30",
       }),
     ).toMatchObject({
       label: "STS",
       title:
-        "Download/Upload mode: STS credentials active (expires at 2026-08-02 12:30).",
+        "Upload mode: STS credentials active (expires at 2026-08-02 12:30).",
     });
 
     const connectionTooltip = resolveDirectCredentialStsTooltip("connection");

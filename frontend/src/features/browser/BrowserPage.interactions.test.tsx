@@ -722,6 +722,8 @@ describe("BrowserPage interactions", () => {
     );
 
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: false,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,
@@ -1103,7 +1105,7 @@ describe("BrowserPage interactions", () => {
 
     expect(
       within(moreMenu).getByText(
-        "Download/Upload mode: Presigned URLs are active. STS is not available for S3 connections. Presigned URLs are used instead.",
+        "Upload mode: Presigned URLs are active. STS is not available for S3 connections. Presigned URLs are used instead.",
       ),
     ).toBeInTheDocument();
   });
@@ -2692,6 +2694,8 @@ describe("BrowserPage interactions", () => {
   it("renders a passive Proxy badge when proxy transfers are active", async () => {
     const user = userEvent.setup();
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: true,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,
@@ -2719,6 +2723,8 @@ describe("BrowserPage interactions", () => {
 
   it("keeps Portal uploads direct when the CORS status is unknown", async () => {
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: true,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,
@@ -5150,6 +5156,8 @@ describe("BrowserPage interactions", () => {
   it("shows Stop all for multi-item same-context paste and cancels queued copy tasks", async () => {
     const user = userEvent.setup();
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: false,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,
@@ -5323,6 +5331,8 @@ describe("BrowserPage interactions", () => {
   it("keeps the operations panel expanded while queued uploads start", async () => {
     const user = userEvent.setup();
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: true,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 1,
@@ -5427,6 +5437,8 @@ describe("BrowserPage interactions", () => {
   it("cancels cross-context move batches without deleting pending sources and keeps paste available", async () => {
     const user = userEvent.setup();
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: false,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,
@@ -5665,6 +5677,8 @@ describe("BrowserPage interactions", () => {
   it("falls back to proxy transfers for cross-context paste when direct access is unavailable", async () => {
     const user = userEvent.setup();
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: true,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,
@@ -5709,6 +5723,8 @@ describe("BrowserPage interactions", () => {
       contextSelections: {},
     });
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: false,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,
@@ -5768,6 +5784,8 @@ describe("BrowserPage interactions", () => {
   it("supports Stop for bulk attributes and leaves queued items cancelled", async () => {
     const user = userEvent.setup();
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: false,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,
@@ -5845,6 +5863,8 @@ describe("BrowserPage interactions", () => {
       status: "Enabled",
     });
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: false,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,

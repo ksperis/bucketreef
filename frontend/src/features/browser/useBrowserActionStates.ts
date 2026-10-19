@@ -35,6 +35,8 @@ type UseBrowserActionStatesOptions = {
   copyUrlDisabledReason: string;
   publicLinkAvailable: boolean;
   restoreObjectAvailable: boolean;
+  uploadAvailable: boolean;
+  uploadDisabledReason: string;
   showDeletedToggle: boolean;
 };
 
@@ -58,6 +60,8 @@ export function useBrowserActionStates({
   copyUrlDisabledReason,
   publicLinkAvailable,
   restoreObjectAvailable,
+  uploadAvailable,
+  uploadDisabledReason,
   showDeletedToggle,
 }: UseBrowserActionStatesOptions) {
   const pathActionStates = useMemo(
@@ -74,6 +78,8 @@ export function useBrowserActionStates({
         showDeletedObjects,
         restoreAvailable: restorePrefixAvailable,
         refreshPending,
+        uploadAvailable,
+        uploadDisabledReason,
         functionalProfile,
         capabilityFacts,
         multipartUploadsAvailable: functionalProfile === "advanced",
@@ -94,6 +100,8 @@ export function useBrowserActionStates({
       restorePrefixAvailable,
       showDeletedObjects,
       showFolderItems,
+      uploadAvailable,
+      uploadDisabledReason,
       versioningEnabled,
     ],
   );

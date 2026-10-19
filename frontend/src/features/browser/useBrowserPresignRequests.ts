@@ -16,6 +16,7 @@ import {
   type PresignRequest,
   type PresignedUrl,
 } from "../../api/browserTransfers";
+import type { BrowserUploadMode } from "./sseBrowserLogic";
 import { presignObjectWithSts, presignPartWithSts } from "./stsPresigner";
 
 type EnsureStsCredentials = (
@@ -27,6 +28,7 @@ type UseBrowserPresignRequestsOptions = {
   ensureStsCredentials: EnsureStsCredentials;
   requestOptions?: BrowserRequestOptions;
   sseCustomerKeyBase64: string | null;
+  uploadMode: BrowserUploadMode;
   useStsPresigner: boolean;
 };
 
@@ -54,6 +56,7 @@ export function useBrowserPresignRequests({
   ensureStsCredentials,
   requestOptions,
   sseCustomerKeyBase64,
+  uploadMode,
   useStsPresigner,
 }: UseBrowserPresignRequestsOptions) {
   const presignObjectRequest = useCallback(
@@ -61,6 +64,27 @@ export function useBrowserPresignRequests({
       bucketName: string,
       payload: PresignRequest,
     ): Promise<PresignedUrl> => {
+      if (payload.operation === "put_object") {
+        if (uploadMode === "sts") {
+          const stsResponse = await tryStsPresign(
+            ensureStsCredentials,
+            (credentials) =>
+              presignObjectWithSts(credentials, bucketName, payload),
+          );
+          if (stsResponse) return stsResponse;
+          throw new Error("STS upload signing is unavailable.");
+        }
+        if (uploadMode !== "direct") {
+          throw new Error("Direct upload signing is disabled by Browser settings.");
+        }
+        return presignObject(
+          contextId,
+          bucketName,
+          payload,
+          sseCustomerKeyBase64,
+          requestOptions,
+        );
+      }
       if (useStsPresigner) {
         const stsResponse = await tryStsPresign(
           ensureStsCredentials,
@@ -82,6 +106,7 @@ export function useBrowserPresignRequests({
       ensureStsCredentials,
       requestOptions,
       sseCustomerKeyBase64,
+      uploadMode,
       useStsPresigner,
     ],
   );
@@ -92,13 +117,17 @@ export function useBrowserPresignRequests({
       uploadId: string,
       payload: PresignPartRequest,
     ): Promise<PresignPartResponse> => {
-      if (useStsPresigner) {
+      if (uploadMode === "sts") {
         const stsResponse = await tryStsPresign(
           ensureStsCredentials,
           (credentials) =>
             presignPartWithSts(credentials, bucketName, uploadId, payload),
         );
         if (stsResponse) return stsResponse;
+        throw new Error("STS upload signing is unavailable.");
+      }
+      if (uploadMode !== "direct") {
+        throw new Error("Direct upload signing is disabled by Browser settings.");
       }
       return presignPart(
         contextId,
@@ -114,7 +143,7 @@ export function useBrowserPresignRequests({
       ensureStsCredentials,
       requestOptions,
       sseCustomerKeyBase64,
-      useStsPresigner,
+      uploadMode,
     ],
   );
 

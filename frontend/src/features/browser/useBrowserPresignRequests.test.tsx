@@ -29,6 +29,10 @@ const objectPayload = {
   key: "reports/report.csv",
   operation: "get_object" as const,
 };
+const uploadPayload = {
+  key: "reports/report.csv",
+  operation: "put_object" as const,
+};
 const partPayload = {
   key: "archives/archive.zip",
   part_number: 2,
@@ -47,9 +51,11 @@ function credentials(accessKeyId: string): StsCredentials {
 
 function renderPresignRequests({
   ensureStsCredentials = vi.fn().mockResolvedValue(credentials("sts-1")),
+  uploadMode = "sts",
   useStsPresigner = true,
 }: {
   ensureStsCredentials?: ReturnType<typeof vi.fn>;
+  uploadMode?: "sts" | "direct" | "proxy" | "unavailable";
   useStsPresigner?: boolean;
 } = {}) {
   const { result } = renderHook(() =>
@@ -58,6 +64,7 @@ function renderPresignRequests({
       ensureStsCredentials,
       requestOptions: { workspaceSurface: "manager" },
       sseCustomerKeyBase64: "customer-key",
+      uploadMode,
       useStsPresigner,
     }),
   );
@@ -91,6 +98,7 @@ describe("useBrowserPresignRequests", () => {
 
   it("uses backend object and multipart presign when STS is disabled", async () => {
     const { ensureStsCredentials, result } = renderPresignRequests({
+      uploadMode: "direct",
       useStsPresigner: false,
     });
 
@@ -136,6 +144,23 @@ describe("useBrowserPresignRequests", () => {
     );
     expect(ensureStsCredentials).toHaveBeenCalledTimes(1);
     expect(apiMocks.presignObject).not.toHaveBeenCalled();
+  });
+
+  it("uses backend presign for direct uploads even when STS is otherwise available", async () => {
+    const { ensureStsCredentials, result } = renderPresignRequests({
+      uploadMode: "direct",
+    });
+
+    await expect(
+      result.current.presignObjectRequest("bucket-a", uploadPayload),
+    ).resolves.toMatchObject({ url: "https://backend.example.test/object" });
+    await expect(
+      result.current.presignPartRequest("bucket-a", "upload-1", partPayload),
+    ).resolves.toMatchObject({ url: "https://backend.example.test/part" });
+
+    expect(ensureStsCredentials).not.toHaveBeenCalled();
+    expect(apiMocks.presignObjectWithSts).not.toHaveBeenCalled();
+    expect(apiMocks.presignPartWithSts).not.toHaveBeenCalled();
   });
 
   it("refreshes STS credentials once after a multipart signing error", async () => {
@@ -190,15 +215,33 @@ describe("useBrowserPresignRequests", () => {
     expect(apiMocks.presignObject).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to the backend when STS credentials are unavailable", async () => {
+  it("does not bypass STS-only upload policy when credentials are unavailable", async () => {
     const ensureStsCredentials = vi.fn().mockResolvedValue(null);
     const { result } = renderPresignRequests({ ensureStsCredentials });
 
     await expect(
       result.current.presignPartRequest("bucket-a", "upload-1", partPayload),
-    ).resolves.toMatchObject({ url: "https://backend.example.test/part" });
+    ).rejects.toThrow("STS upload signing is unavailable");
 
     expect(apiMocks.presignPartWithSts).not.toHaveBeenCalled();
-    expect(apiMocks.presignPart).toHaveBeenCalledTimes(1);
+    expect(apiMocks.presignPart).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to backend upload presign after refreshed STS signing fails", async () => {
+    const ensureStsCredentials = vi
+      .fn()
+      .mockResolvedValueOnce(credentials("sts-current"))
+      .mockResolvedValueOnce(credentials("sts-refreshed"));
+    apiMocks.presignObjectWithSts.mockRejectedValue(
+      new Error("STS signing unavailable"),
+    );
+    const { result } = renderPresignRequests({ ensureStsCredentials });
+
+    await expect(
+      result.current.presignObjectRequest("bucket-a", uploadPayload),
+    ).rejects.toThrow("STS upload signing is unavailable");
+
+    expect(apiMocks.presignObjectWithSts).toHaveBeenCalledTimes(2);
+    expect(apiMocks.presignObject).not.toHaveBeenCalled();
   });
 });

@@ -102,6 +102,8 @@ describe("BrowserPage multipart uploads modal", () => {
     window.localStorage.clear();
 
     fetchBrowserSettingsMock.mockResolvedValue({
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: false,
       direct_upload_parallelism: 3,
       proxy_upload_parallelism: 2,

@@ -19,6 +19,8 @@ const paths = [
   "general.browser_manager_enabled",
   "general.browser_portal_enabled",
   "general.browser_ceph_admin_enabled",
+  "browser.allow_direct_uploads",
+  "browser.allow_sts_uploads",
   "browser.allow_proxy_transfers",
   "browser.direct_upload_parallelism",
   "browser.proxy_upload_parallelism",
@@ -30,6 +32,15 @@ const paths = [
 
 function validate(values: AppSettingsValues, text: (message: string) => string): FieldErrors {
   const errors: FieldErrors = {};
+  if (
+    !values["browser.allow_direct_uploads"] &&
+    !values["browser.allow_sts_uploads"] &&
+    !values["browser.allow_proxy_transfers"]
+  ) {
+    errors["browser.allow_direct_uploads"] = text(
+      "Enable at least one upload mode: direct, STS, or proxy.",
+    );
+  }
   for (const path of paths.filter((path) => path.endsWith("parallelism")))
     errors[path] = validateInteger(values[path], text("Parallelism"), 1, 20);
   errors["browser.streaming_zip_threshold_mb"] = validateInteger(
@@ -91,11 +102,27 @@ export default function BrowserSettingsPage() {
         title={text("Direct transfers")}
         description={text("Concurrent browser-to-storage operations. Limits are between 1 and 20.")}
       >
+        <AppSettingsToggle
+          form={form}
+          field="browser.allow_direct_uploads"
+          title={text("Allow direct uploads")}
+          description={text("Use backend-presigned URLs for browser-to-storage uploads.")}
+        />
+        <AppSettingsToggle
+          form={form}
+          field="browser.allow_sts_uploads"
+          title={text("Allow STS uploads")}
+          description={text("Use temporary STS credentials for browser-to-storage uploads when available.")}
+        />
         <AppSettingsNumber
           form={form}
           field="browser.direct_upload_parallelism"
           title={text("Direct uploads")}
           max={20}
+          disabled={
+            !form.draft["browser.allow_direct_uploads"] &&
+            !form.draft["browser.allow_sts_uploads"]
+          }
         />
         <AppSettingsNumber
           form={form}

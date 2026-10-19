@@ -62,6 +62,8 @@ export function createAppSettings(
       smtp_timeout_seconds: 15,
     },
     browser: {
+      allow_direct_uploads: true,
+      allow_sts_uploads: true,
       allow_proxy_transfers: true,
       direct_upload_parallelism: 5,
       proxy_upload_parallelism: 2,

@@ -57,6 +57,8 @@ export type ListBrowserObjectsResponse = {
 };
 
 export type BrowserSettings = {
+  allow_direct_uploads: boolean;
+  allow_sts_uploads: boolean;
   allow_proxy_transfers: boolean;
   direct_upload_parallelism: number;
   proxy_upload_parallelism: number;

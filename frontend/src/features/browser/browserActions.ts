@@ -101,6 +101,8 @@ type ResolveBrowserActionsInput = {
   previewAvailable?: boolean;
   operationPending?: boolean;
   refreshPending?: boolean;
+  uploadAvailable?: boolean;
+  uploadDisabledReason?: string;
   multipartUploadsAvailable?: boolean;
   bucketConfigurationAvailable?: boolean;
   bucketConfigurationReadOnly?: boolean;
@@ -420,6 +422,8 @@ export const resolveBrowserActions = ({
   previewAvailable = false,
   operationPending = false,
   refreshPending = false,
+  uploadAvailable = true,
+  uploadDisabledReason,
   multipartUploadsAvailable = false,
   bucketConfigurationAvailable = false,
   bucketConfigurationReadOnly = false,
@@ -482,12 +486,16 @@ export const resolveBrowserActions = ({
     setState("uploadFiles", {
       label: "Upload files",
       visible: true,
-      enabled: canUseContextActions,
+      enabled: canUseContextActions && uploadAvailable,
+      disabledReason:
+        canUseContextActions && !uploadAvailable ? uploadDisabledReason : undefined,
     });
     setState("uploadFolder", {
       label: "Upload folder",
       visible: true,
-      enabled: canUseContextActions,
+      enabled: canUseContextActions && uploadAvailable,
+      disabledReason:
+        canUseContextActions && !uploadAvailable ? uploadDisabledReason : undefined,
     });
     setState("newFolder", {
       label: "New folder",

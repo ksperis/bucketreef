@@ -168,6 +168,25 @@ describe("resolveBrowserActions", () => {
     });
   });
 
+  it("keeps upload actions visible but disabled when no upload mode is available", () => {
+    const actions = resolveBrowserActions({
+      ...baseInput,
+      scope: "path",
+      functionalProfile: "standard",
+      uploadAvailable: false,
+      uploadDisabledReason:
+        "Uploads are unavailable with the current Browser transfer settings.",
+    });
+
+    expect(actions.uploadFiles).toMatchObject({
+      visible: true,
+      enabled: false,
+      disabledReason:
+        "Uploads are unavailable with the current Browser transfer settings.",
+    });
+    expect(actions.uploadFolder.enabled).toBe(false);
+  });
+
   it("keeps deleted objects outside ordinary actions but exposes authorized Portal restore", () => {
     const deletedFile = { ...fileItem, id: "deleted", isDeleted: true };
     const actions = resolveBrowserActions({

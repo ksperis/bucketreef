@@ -28,6 +28,8 @@ function deferred<T>() {
 
 function settings(parallelism: number): BrowserSettings {
   return {
+    allow_direct_uploads: true,
+    allow_sts_uploads: true,
     allow_proxy_transfers: true,
     direct_upload_parallelism: parallelism,
     proxy_upload_parallelism: parallelism,
