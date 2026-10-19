@@ -40,11 +40,13 @@ class FakeAccountsAdmin:
     def __init__(self):
         self.create_account_calls: list[dict] = []
         self.set_account_quota_calls: list[dict] = []
+        self.account_tenants: dict[str, str] = {}
 
     def create_account(
         self,
         account_id: str | None = None,
         account_name: str | None = None,
+        tenant: str | None = None,
         email: str | None = None,
         max_users: int | None = None,
         max_buckets: int | None = None,
@@ -54,10 +56,12 @@ class FakeAccountsAdmin:
         extra_params: dict | None = None,
     ):
         resolved_account_id = account_id or "RGW99999999999999990"
+        self.account_tenants[resolved_account_id] = tenant or ""
         self.create_account_calls.append(
             {
                 "account_id": resolved_account_id,
                 "account_name": account_name,
+                "tenant": tenant,
                 "email": email,
                 "max_users": max_users,
                 "max_buckets": max_buckets,
@@ -67,7 +71,11 @@ class FakeAccountsAdmin:
                 "extra_params": extra_params,
             }
         )
-        return {"id": resolved_account_id, "name": account_name or resolved_account_id}
+        return {
+            "id": resolved_account_id,
+            "name": account_name or resolved_account_id,
+            "tenant": tenant or "",
+        }
 
     def set_account_quota(
         self,
@@ -96,6 +104,7 @@ class FakeAccountsAdmin:
     ):
         return {
             "id": account_id,
+            "tenant": self.account_tenants.get(account_id, ""),
             "name": f"Account-{account_id}",
             "max_users": 8,
             "max_buckets": 20,
@@ -140,6 +149,21 @@ def test_create_rgw_account_supports_quota():
     assert fake_rgw.set_account_quota_calls[0]["enabled"] is True
 
 
+def test_create_rgw_account_supports_explicit_tenant_independently():
+    fake_rgw = FakeAccountsAdmin()
+    response = account_profiles_router.create_rgw_account(
+        payload=CephAdminRgwAccountCreate(
+            account_id="RGW12345678901234567",
+            account_name="Tenant Account",
+            tenant="team_a",
+        ),
+        ctx=_ctx(901, fake_rgw),
+    )
+
+    assert fake_rgw.create_account_calls[0]["tenant"] == "team_a"
+    assert response.account.tenant == "team_a"
+
+
 def test_create_rgw_account_generates_configured_id_when_omitted(monkeypatch):
     fake_rgw = FakeAccountsAdmin()
     ctx = _ctx(901, fake_rgw)
@@ -165,7 +189,7 @@ def test_create_rgw_account_generates_configured_id_when_omitted(monkeypatch):
     (CephAdminRgwAccountCreate, {"account_name": "A"}),
     (CephAdminRgwAccountConfigUpdate, {}),
 ])
-@pytest.mark.parametrize("key", ["id", "account_id", "NAME", "email", "format", "max_users"])
+@pytest.mark.parametrize("key", ["id", "account_id", "NAME", "email", "format", "max_users", "tenant"])
 def test_account_model_rejects_extra_params_overriding_dedicated_fields(model, fields, key):
     with pytest.raises(ValidationError, match="cannot be overridden"):
         model(**fields, extra_params={key: "foreign"})
@@ -336,6 +360,7 @@ class FakeUsersAdmin:
         self.set_user_caps_calls: list[dict] = []
         self.set_user_quota_calls: list[dict] = []
         self.get_account_calls = 0
+        self.account_tenants: dict[str, str] = {}
         self.existing_users: dict[tuple[str, str | None], str | None] = {
             ("billing-user", None): "RGW99999999999999999",
             ("billing-user", "tenant-a"): None,
@@ -378,6 +403,7 @@ class FakeUsersAdmin:
         email: str | None = None,
         generate_key: bool = True,
         extra_params: dict | None = None,
+        tenant: str | None = None,
     ):
         self.create_user_with_account_id_calls.append(
             {
@@ -388,9 +414,10 @@ class FakeUsersAdmin:
                 "email": email,
                 "generate_key": generate_key,
                 "extra_params": extra_params,
+                "tenant": tenant,
             }
         )
-        self.existing_users[(uid, None)] = account_id
+        self.existing_users[(uid, tenant)] = account_id
         return {"keys": [{"access_key": "AKIA-ACCOUNT", "secret_key": "SECRET-ACCOUNT"}]}
 
     def update_user(self, uid: str, **kwargs):
@@ -436,7 +463,11 @@ class FakeUsersAdmin:
         allow_not_implemented: bool = False,
     ):
         self.get_account_calls += 1
-        return {"id": account_id, "name": f"Account-{account_id}"}
+        return {
+            "id": account_id,
+            "tenant": self.account_tenants.get(account_id, ""),
+            "name": f"Account-{account_id}",
+        }
 
     def list_user_keys(self, uid: str, tenant: str | None = None):
         return [{"access_key": "AKIA-LISTED", "secret_key": "SECRET-LISTED", "status": "enabled"}]
@@ -488,6 +519,45 @@ def test_create_rgw_user_with_account_scope_returns_generated_key():
     assert len(fake_rgw.set_user_caps_calls) == 1
     assert fake_rgw.set_user_caps_calls[0]["caps"] == ["usage=read"]
     assert len(fake_rgw.set_user_quota_calls) == 1
+
+
+def test_create_rgw_user_inherits_selected_account_tenant():
+    fake_rgw = FakeUsersAdmin()
+    fake_rgw.existing_users.clear()
+    fake_rgw.account_tenants["RGW99999999999999999"] = "team_a"
+
+    response = user_profiles_router.create_rgw_user(
+        payload=CephAdminRgwUserCreate(
+            uid="billing-user",
+            account_id="RGW99999999999999999",
+            display_name="Billing user",
+            generate_key=True,
+        ),
+        ctx=_ctx(902, fake_rgw),
+    )
+
+    assert fake_rgw.create_user_with_account_id_calls[0]["tenant"] == "team_a"
+    assert response.detail.tenant == "team_a"
+    assert response.detail.account_id == "RGW99999999999999999"
+
+
+def test_create_rgw_user_rejects_tenant_conflicting_with_selected_account():
+    fake_rgw = FakeUsersAdmin()
+    fake_rgw.existing_users.clear()
+    fake_rgw.account_tenants["RGW99999999999999999"] = "team_a"
+
+    with pytest.raises(HTTPException) as raised:
+        user_profiles_router.create_rgw_user(
+            payload=CephAdminRgwUserCreate(
+                uid="billing-user",
+                account_id="RGW99999999999999999",
+                tenant="team_b",
+            ),
+            ctx=_ctx(902, fake_rgw),
+        )
+
+    assert raised.value.status_code == 400
+    assert fake_rgw.create_user_with_account_id_calls == []
 
 
 @pytest.mark.parametrize("existing_account", ["RGW88888888888888888", "RGW99999999999999999"])

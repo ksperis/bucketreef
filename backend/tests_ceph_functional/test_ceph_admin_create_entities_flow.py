@@ -31,6 +31,7 @@ def test_ceph_admin_create_account_and_user_with_cleanup(
 
     account_name = f"{ceph_test_settings.test_prefix}-ca-account-{uuid.uuid4().hex[:8]}"
     account_email = f"{ceph_test_settings.test_prefix}.{uuid.uuid4().hex[:8]}@example.com"
+    tenant = f"ca_{uuid.uuid4().hex[:8]}"
 
     created_account = run_or_skip(
         "ceph-admin account creation",
@@ -38,6 +39,7 @@ def test_ceph_admin_create_account_and_user_with_cleanup(
             accounts_path,
             json={
                 "account_name": account_name,
+                "tenant": tenant,
                 "email": account_email,
                 "max_users": 20,
                 "max_buckets": 20,
@@ -52,14 +54,16 @@ def test_ceph_admin_create_account_and_user_with_cleanup(
     account = created_account["account"]
     account_id = account["account_id"]
     bootstrap_uid = f"{account_id}-admin"
-    resource_tracker.track_ceph_admin_user(bootstrap_uid, tenant=None)
+    resource_tracker.track_ceph_admin_user(bootstrap_uid, tenant=tenant)
     resource_tracker.track_ceph_admin_account(account_id)
+    assert account["tenant"] == tenant
 
     detail = run_or_skip(
         "ceph-admin created account detail",
         lambda: super_admin_session.get(f"{accounts_path}/{account_id}/detail"),
     )
     assert detail["account_id"] == account_id
+    assert detail["tenant"] == tenant
 
     uid = f"cfu-{uuid.uuid4().hex[:8]}"
     created_user = run_or_skip(
@@ -78,18 +82,22 @@ def test_ceph_admin_create_account_and_user_with_cleanup(
             expected_status=201,
         ),
     )
-    resource_tracker.track_ceph_admin_user(uid, tenant=None)
+    resource_tracker.track_ceph_admin_user(uid, tenant=tenant)
     assert created_user["detail"]["uid"] == uid
+    assert created_user["detail"]["tenant"] == tenant
 
     run_or_skip(
         "ceph-admin created user detail",
-        lambda: super_admin_session.get(f"{users_path}/{uid}/detail"),
+        lambda: super_admin_session.get(
+            f"{users_path}/{uid}/detail",
+            params={"tenant": tenant, "expected_account_id": account_id},
+        ),
     )
     keys = run_or_skip(
         "ceph-admin created user keys listing",
         lambda: super_admin_session.get(
             f"{users_path}/{uid}/keys",
-            params={"expected_account_id": account_id},
+            params={"tenant": tenant, "expected_account_id": account_id},
         ),
     )
     assert isinstance(keys, list)

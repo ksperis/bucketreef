@@ -56,6 +56,24 @@ def extract_rgw_account_ids(*records: object) -> set[str]:
     }
 
 
+def extract_rgw_account_tenant(payload: Any) -> str:
+    """Return the account tenant while rejecting conflicting RGW payload fields."""
+    if not isinstance(payload, dict):
+        return ""
+    candidates = [payload]
+    nested = payload.get("account")
+    if isinstance(nested, dict):
+        candidates.append(nested)
+    tenants = {
+        str(candidate.get("tenant") or "").strip()
+        for candidate in candidates
+        if "tenant" in candidate
+    }
+    if len(tenants) > 1:
+        raise ValueError("RGW returned conflicting account tenant identity fields")
+    return next(iter(tenants), "")
+
+
 def extract_bucket_list(payload: Any) -> list[dict]:
     def normalize(entries: list[Any]) -> list[dict]:
         normalized: list[dict] = []

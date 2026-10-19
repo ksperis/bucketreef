@@ -158,36 +158,44 @@ describe("CephAdminUserCreateModal", () => {
     expect(within(dialog).queryByRole("button", { name: "Add as S3 Connection" })).not.toBeInTheDocument();
   });
 
-  it("associates validation with each field and lets the user correct an account and tenant conflict", async () => {
+  it("inherits the tenant from the selected account and keeps it read-only", async () => {
+    listCephAdminAccountsMock.mockResolvedValueOnce({
+      items: [
+        {
+          account_id: "RGW000000000000001",
+          account_name: "Analytics",
+          tenant: "tenant_a",
+        },
+      ],
+    });
     render(<CephAdminUserCreateModal endpointId={7} onClose={vi.fn()} />);
-    await screen.findByRole("option", { name: "Analytics (RGW000000000000001)" });
+    await screen.findByRole("option", { name: "Analytics (RGW000000000000001) · tenant_a" });
     const form = screen.getByRole("form", { name: "Create RGW user" });
     fireEvent.submit(form);
     expect(screen.getByLabelText("UID")).toHaveAccessibleDescription("UID is required.");
     await waitFor(() => expect(screen.getByLabelText("UID")).toHaveFocus());
     expect(createCephAdminUserMock).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("UID"), { target: { value: "alice" } });
-    fireEvent.change(screen.getByLabelText("Tenant"), { target: { value: "tenant-a" } });
     fireEvent.change(screen.getByLabelText("Account (optional)"), { target: { value: "RGW000000000000001" } });
-    expect(screen.getByLabelText("Tenant")).toBeEnabled();
-    expect(screen.getByLabelText("Tenant")).toHaveAccessibleDescription(/Tenant cannot be used/);
+    expect(screen.getByLabelText("Tenant")).toBeDisabled();
+    expect(screen.getByLabelText("Tenant")).toHaveValue("tenant_a");
+    expect(screen.getByLabelText("Tenant")).toHaveAccessibleDescription("Inherited from the selected account.");
     fireEvent.change(screen.getByLabelText("Max buckets"), { target: { value: "1.5" } });
     fireEvent.click(screen.getByLabelText("Enable user quota"));
     fireEvent.change(screen.getByLabelText("Storage quota"), { target: { value: "-1" } });
     fireEvent.change(screen.getByLabelText("Object quota"), { target: { value: "-1" } });
     fireEvent.submit(form);
-    for (const label of ["Tenant", "Max buckets", "Storage quota", "Object quota"]) {
+    for (const label of ["Max buckets", "Storage quota", "Object quota"]) {
       expect(screen.getByLabelText(label)).toHaveAttribute("aria-invalid", "true");
     }
     expect(createCephAdminUserMock).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText("Tenant"), { target: { value: "" } });
     for (const label of ["Max buckets", "Storage quota", "Object quota"]) {
       fireEvent.change(screen.getByLabelText(label), { target: { value: "0" } });
       expect(screen.getByLabelText(label)).not.toHaveAttribute("aria-invalid", "true");
     }
     fireEvent.submit(form);
     await waitFor(() => expect(createCephAdminUserMock).toHaveBeenCalledWith(7, expect.objectContaining({
-      uid: "alice", account_root: true, tenant: undefined, max_buckets: 0, quota_max_size_bytes: 0, quota_max_objects: 0,
+      uid: "alice", account_root: true, tenant: "tenant_a", max_buckets: 0, quota_max_size_bytes: 0, quota_max_objects: 0,
     })));
   });
 

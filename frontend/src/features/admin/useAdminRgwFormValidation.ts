@@ -37,10 +37,10 @@ export function rgwCreateErrors(value: {name: string; storage_endpoint_id: strin
     const nameFormatError = rgwAccountNameFormatError(value.name);
     if (nameFormatError) errors.name = nameFormatError;
   }
+  const tenant = value.rgw_tenant?.trim() ?? "";
+  const tenantError = rgwTenantFormatError(tenant);
+  if (tenantError) errors.rgw_tenant = tenantError;
   if (kind === "user") {
-    const tenant = value.rgw_tenant?.trim() ?? "";
-    const tenantError = rgwTenantFormatError(tenant);
-    if (tenantError) errors.rgw_tenant = tenantError;
     const uidError = rgwUserUidFormatError(value.uid?.trim() ?? "", tenant);
     if (uidError) errors.uid = uidError;
     const qualifiedTenant = value.uid?.trim().split("$")[0];

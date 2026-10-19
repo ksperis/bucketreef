@@ -246,6 +246,7 @@
   "Target only ({count})": "仅目标端 ({count})",
   "Target type": "目标类型",
   "Tenant": "Tenant",
+  "Inherited from the selected account.": "继承自所选账户。",
   "Tenant cannot be used when an account is selected.": "已选择账户时不能使用 Tenant。",
   "The account is removed only when RGW considers it empty. Users and buckets must be removed first.": "只有当 RGW 认为账户为空时才会删除它。必须先删除用户和 Buckets。",
   "The active Ceph Admin service identity cannot delete itself": "当前 Ceph Admin 服务身份不能删除自身",

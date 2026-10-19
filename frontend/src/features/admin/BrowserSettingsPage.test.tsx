@@ -26,6 +26,7 @@ function buildSettings(overrides: Partial<AppSettings["general"]> = {}): AppSett
       project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
       project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,
       rgw_account_id_prefix: "80",
+      allow_managed_rgw_tenant_creation: false,
       documentation_base_url: "https://docs.bucketreef.ksperis.com",
       manager_enabled: true,
       ceph_admin_enabled: false,

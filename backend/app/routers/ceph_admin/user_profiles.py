@@ -20,6 +20,7 @@ from app.models.ceph_admin import (
 )
 from app.routers.ceph_admin import user_keys
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
+from app.services.ceph_admin_account_access import load_account_payload
 from app.services.ceph_admin_context import CephAdminContext
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
 from app.services.ceph_admin_user_access import (
@@ -38,6 +39,7 @@ from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
+    extract_rgw_account_tenant,
     extract_rgw_user_payload,
     parse_rgw_bool,
     parse_rgw_int,
@@ -330,11 +332,16 @@ def create_rgw_user(
     tenant = tenant or None
     account_id = payload.account_id.strip() if isinstance(payload.account_id, str) else None
     account_id = account_id or None
-    if account_id and tenant:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="tenant cannot be combined with account_id",
+    if account_id:
+        account_tenant = extract_rgw_account_tenant(
+            load_account_payload(account_id, ctx.rgw_admin)
         )
+        if tenant and tenant != account_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="tenant does not match the selected RGW account",
+            )
+        tenant = account_tenant or None
 
     # A manual create must never reuse another principal (even within the same account).
     try:
@@ -354,8 +361,9 @@ def create_rgw_user(
                 email=payload.email,
                 generate_key=bool(payload.generate_key),
                 extra_params=payload.extra_params or None,
+                tenant=tenant,
             )
-            lookup_tenant: Optional[str] = None
+            lookup_tenant = tenant
         else:
             create_result = ctx.rgw_admin.create_user(
                 uid=uid,

@@ -95,6 +95,7 @@ export default function S3UsersPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { generalSettings } = useGeneralSettings();
+  const managedTenantCreationEnabled = generalSettings.allow_managed_rgw_tenant_creation;
   const [users, setUsers] = useState<S3User[]>([]);
   const [portalUsers, setPortalUsers] = useState<UserSummary[]>([]);
   const [portalUsersLoaded, setPortalUsersLoaded] = useState(false);
@@ -629,7 +630,7 @@ export default function S3UsersPage() {
       await createS3User({
         name: createForm.name.trim(),
         uid: createForm.uid.trim() || undefined,
-        rgw_tenant: createForm.rgw_tenant.trim(),
+        rgw_tenant: managedTenantCreationEnabled ? createForm.rgw_tenant.trim() : "",
         email: createForm.email.trim() || undefined,
         tags: normalizeUiTags(createForm.tags),
         quota_max_size_gb: createForm.quota_max_size_gb ? Number(createForm.quota_max_size_gb) : undefined,
@@ -961,6 +962,7 @@ export default function S3UsersPage() {
             submitDisabled={createPermissionLoading || !createEndpointCanWrite}
             onCancel={createCloseGuard.requestClose} submitLabel={adminText("Create user")} busyLabel={adminText("Creating...")}>
             <AdminRgwCreateFields kind="user" value={createForm} onChange={patch => setCreateForm(current => ({...current, ...patch}))}
+              showTenant={managedTenantCreationEnabled}
               errors={createValidation.errors} busy={creating}
               endpoint={{label: adminText("Ceph endpoint *"), endpoints: adminCephEndpoints, loading: loadingEndpoints,
                 operation: "users", permissionLoading: createPermissionLoading, permissionError: createPermissionError, canWrite: createEndpointCanWrite}}

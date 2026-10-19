@@ -30,6 +30,7 @@ class RGWAdminAccountOperations:
         self,
         account_id: Optional[str] = None,
         account_name: Optional[str] = None,
+        tenant: Optional[str] = None,
         email: Optional[str] = None,
         max_users: Optional[int] = None,
         max_buckets: Optional[int] = None,
@@ -44,6 +45,8 @@ class RGWAdminAccountOperations:
         }
         if account_id:
             params["id"] = account_id
+        if tenant:
+            params["tenant"] = tenant
         if email is not None:
             params["email"] = email
         if max_users is not None:

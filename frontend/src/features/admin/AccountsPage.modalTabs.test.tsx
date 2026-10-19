@@ -24,6 +24,7 @@ const listMinimalGroupsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
 const adminAccountStatsMock = vi.fn();
 let portalEnabled = false;
+let managedTenantCreationEnabled = false;
 
 const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
   id,
@@ -105,7 +106,13 @@ vi.mock("../../api/accounts", () => ({
 
 vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
-    generalSettings: { portal_enabled: portalEnabled, project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES, project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES, manager_feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_quota_management: "targeted" } },
+    generalSettings: {
+      portal_enabled: portalEnabled,
+      allow_managed_rgw_tenant_creation: managedTenantCreationEnabled,
+      project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
+      project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,
+      manager_feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_quota_management: "targeted" },
+    },
     loading: false,
     refresh: vi.fn(),
     setGeneralSettings: vi.fn(),
@@ -140,6 +147,7 @@ describe("AccountsPage modal tabs", () => {
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
 
     portalEnabled = false;
+    managedTenantCreationEnabled = false;
     adminAccountStatsMock.mockReturnValue({ stats: null, loading: false, error: null, reload: vi.fn() });
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
     listS3AccountsMock.mockResolvedValue({
@@ -988,6 +996,7 @@ describe("AccountsPage modal tabs", () => {
     expect(within(dialog).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Object quota")).toHaveClass("ui-control");
+    expect(within(dialog).queryByLabelText("Ceph tenant (optional)")).not.toBeInTheDocument();
 
     fireEvent.change(nameInput, { target: { value: "account-with-tags" } });
     fireEvent.change(within(dialog).getByLabelText("Storage quota"), { target: { value: "2" } });
@@ -1014,6 +1023,29 @@ describe("AccountsPage modal tabs", () => {
         quota_max_objects: 1000,
         tags: [expect.objectContaining({ label: "finance", color_key: "neutral" })],
       })
+    );
+  });
+
+  it("shows and submits the account tenant only when managed tenant creation is enabled", async () => {
+    managedTenantCreationEnabled = true;
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Create account" }));
+    const dialog = screen.getByRole("dialog", { name: "Create an account" });
+    fireEvent.change(within(dialog).getByLabelText("Account name *"), {
+      target: { value: "tenant-account" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Ceph tenant (optional)"), {
+      target: { value: "team_a" },
+    });
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Create account" })).toBeEnabled()
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create account" }));
+
+    await waitFor(() => expect(createS3AccountMock).toHaveBeenCalled());
+    expect(createS3AccountMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "tenant-account", rgw_tenant: "team_a" })
     );
   });
 

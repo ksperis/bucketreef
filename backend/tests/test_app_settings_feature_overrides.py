@@ -57,6 +57,15 @@ def test_rgw_account_id_prefix_defaults_to_80_and_requires_one_to_three_digits()
             AppSettings(general={"rgw_account_id_prefix": value})
 
 
+def test_managed_rgw_tenant_creation_defaults_off_and_round_trips():
+    assert AppSettings().general.allow_managed_rgw_tenant_creation is False
+    assert (
+        AppSettings(general={"allow_managed_rgw_tenant_creation": True})
+        .general.allow_managed_rgw_tenant_creation
+        is True
+    )
+
+
 def test_documentation_base_url_defaults_normalizes_and_validates():
     assert AppSettings().general.documentation_base_url == "https://docs.bucketreef.ksperis.com"
     assert (

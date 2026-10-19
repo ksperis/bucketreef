@@ -5,11 +5,12 @@ import { rgwAccountNameFormatError } from "../../utils/rgwAccountName";
 import { ACCOUNT_LIMIT_FIELDS, type CephAdminAccountProfileValues, type CephAdminAccountProfileErrors } from "./cephAdminAccountForm";
 import { useCephAdminI18n } from "./cephAdminI18n";
 
-export default function CephAdminAccountFormFields({ values, onChange, errors, creating = false }: {
+export default function CephAdminAccountFormFields({ values, onChange, errors, creating = false, tenant }: {
   values: CephAdminAccountProfileValues;
   onChange: (field: keyof CephAdminAccountProfileValues, value: string) => void;
   errors?: CephAdminAccountProfileErrors;
   creating?: boolean;
+  tenant?: { value: string; error?: string; onChange: (value: string) => void };
 }) {
   const { text: surfaceText } = useCephAdminI18n();
   const liveNameError = rgwAccountNameFormatError(values.accountName);
@@ -18,6 +19,8 @@ export default function CephAdminAccountFormFields({ values, onChange, errors, c
       <div className="settings-fields md:grid-cols-2">
         <UiInput label={surfaceText("Account name")} required={creating} value={values.accountName}
           onChange={(event) => onChange("accountName", event.target.value)} error={errors?.accountName ?? liveNameError} />
+        {tenant && <UiInput label={surfaceText("Tenant")} value={tenant.value}
+          onChange={(event) => tenant.onChange(event.target.value)} error={tenant.error} />}
         <UiInput label={surfaceText("Email")} type="email" value={values.email}
           onChange={(event) => onChange("email", event.target.value)} />
       </div>

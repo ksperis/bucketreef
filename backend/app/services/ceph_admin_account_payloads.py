@@ -8,7 +8,12 @@ from app.models.ceph_admin import CephAdminRgwAccountDetail, CephAdminRgwQuotaCo
 from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import extract_bucket_list, parse_rgw_bool, parse_rgw_int
+from app.utils.rgw_payloads import (
+    extract_bucket_list,
+    extract_rgw_account_tenant,
+    parse_rgw_bool,
+    parse_rgw_int,
+)
 
 
 def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
@@ -98,6 +103,7 @@ def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> C
         )
     return CephAdminRgwAccountDetail(
         account_id=account_id,
+        tenant=extract_rgw_account_tenant(payload),
         account_name=normalize_optional_scalar(
             payload.get("name") or payload.get("account_name") or payload.get("display_name")
         ),

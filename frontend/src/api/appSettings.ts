@@ -64,6 +64,7 @@ export type GeneralConfiguration = {
   project_feature_policies: ProjectFeaturePolicies;
   project_collection_policies: ProjectCollectionPolicies;
   rgw_account_id_prefix: string;
+  allow_managed_rgw_tenant_creation: boolean;
   documentation_base_url: string;
   manager_enabled: boolean;
   ceph_admin_enabled: boolean;

@@ -46,8 +46,10 @@ class _FakeAdminClient:
         self.usage_objects = usage_objects
         self.quota_bytes = quota_bytes
         self.quota_objects = quota_objects
+        self.bucket_calls: list[dict] = []
 
     def get_all_buckets(self, **kwargs):
+        self.bucket_calls.append(kwargs)
         return {
             "buckets": [
                 {
@@ -284,6 +286,27 @@ def test_usage_history_prefers_supervision_client_and_keeps_quota_optional(db_se
     assert hourly.usage_ratio_pct is None
 
 
+def test_collect_usage_passes_explicit_tenant_to_supervision_client():
+    fake_admin = _FakeAdminClient(
+        usage_bytes=75,
+        usage_objects=7,
+        quota_bytes=0,
+        quota_objects=0,
+    )
+
+    result = QuotaMonitoringService._collect_usage(
+        object(),
+        fake_admin,
+        "tenant-root",
+        "team_a",
+    )
+
+    assert result == (75, 7, 1)
+    assert fake_admin.bucket_calls == [
+        {"uid": "tenant-root", "tenant": "team_a", "with_stats": True}
+    ]
+
+
 def test_usage_client_does_not_fallback_to_admin_ops(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="supervision-required")
     admin_calls = 0
@@ -345,9 +368,10 @@ def test_usage_collection_failure_does_not_block_remaining_subjects(
         quota_objects=10,
     )
 
-    def collect_usage(self, admin, usage_uid):  # noqa: ARG001
+    def collect_usage(self, admin, usage_uid, tenant):  # noqa: ARG001
         if usage_uid == account.rgw_user_uid:
             raise RuntimeError("account usage unavailable")
+        assert tenant == s3_user.rgw_tenant
         return 25, 2, 1
 
     monkeypatch.setattr(

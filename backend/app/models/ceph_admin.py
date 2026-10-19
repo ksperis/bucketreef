@@ -174,6 +174,7 @@ class CephAdminBucketIndexCheckBatchResult(ApiModel):
 
 class CephAdminRgwAccountSummary(ApiModel):
     account_id: str
+    tenant: Optional[str] = None
     account_name: Optional[str] = None
     email: Optional[str] = None
     max_users: Optional[int] = None
@@ -243,6 +244,7 @@ class CephAdminRgwAccessKeyStatusChange(ApiModel):
 
 class CephAdminRgwAccountDetail(ApiModel):
     account_id: str
+    tenant: Optional[str] = None
     account_name: Optional[str] = None
     email: Optional[str] = None
     max_users: Optional[int] = None
@@ -284,6 +286,7 @@ class CephAdminRgwUserCapsUpdate(ApiModel):
 class CephAdminRgwAccountCreate(ApiModel):
     account_id: Optional[str] = None
     account_name: str
+    tenant: Optional[str] = None
     email: Optional[str] = None
     max_users: Optional[int] = Field(default=None, ge=0)
     max_buckets: Optional[int] = Field(default=None, ge=0)
@@ -301,6 +304,15 @@ class CephAdminRgwAccountCreate(ApiModel):
     _validate_extra_params = field_validator("extra_params")(
         validate_rgw_account_extra_params
     )
+
+    @field_validator("tenant")
+    @classmethod
+    def validate_tenant(_cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        validate_rgw_tenant(normalized)
+        return normalized or None
 
     @model_validator(mode="after")
     def validate_name(self):
@@ -347,13 +359,6 @@ class CephAdminRgwUserCreate(ApiModel):
     _validate_extra_identifiers = field_validator("extra_params")(
         _safe_rgw_user_extra_params
     )
-
-    @model_validator(mode="after")
-    def validate_scope(self):
-        if self.account_id and self.tenant:
-            raise ValueError("tenant cannot be combined with account_id.")
-        return self
-
 
 class CephAdminRgwUserCreateResponse(ApiModel):
     detail: CephAdminRgwUserDetail

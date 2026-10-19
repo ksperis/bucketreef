@@ -225,6 +225,7 @@ class RgwAccountRootService:
         rgw_account_id: str,
         account_name: str,
         resume: bool,
+        tenant: str = "",
     ) -> tuple[str, str, str]:
         """Create or reconcile the root identity for a provisioned RGW account.
 
@@ -239,6 +240,7 @@ class RgwAccountRootService:
                 admin,
                 root_uid,
                 rgw_account_id,
+                tenant,
             )
 
         if not root_payload:
@@ -248,12 +250,14 @@ class RgwAccountRootService:
                     account_id=rgw_account_id,
                     display_name=self.root_display_name(account_name, rgw_account_id),
                     account_root=True,
+                    tenant=tenant or None,
                 )
                 if isinstance(root_payload, dict) and root_payload.get("conflict"):
                     root_payload = self.load_existing_root_user(
                         admin,
                         root_uid,
                         rgw_account_id,
+                        tenant,
                     )
                     if not root_payload:
                         raise ValueError(
@@ -270,13 +274,14 @@ class RgwAccountRootService:
                 admin,
                 root_uid,
                 rgw_account_id,
+                tenant,
             )
             access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
                 admin.extract_keys(reconciled or {})
             )
         if not access_key or not secret_key:
             try:
-                key_payload = admin.create_access_key(root_uid)
+                key_payload = admin.create_access_key(root_uid, tenant=tenant or None)
             except RGWAdminError as exc:
                 raise ValueError(
                     f"RGW root access key creation failed: {exc}"

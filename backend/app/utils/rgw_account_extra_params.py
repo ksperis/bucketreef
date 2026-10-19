@@ -7,6 +7,7 @@ from typing import Any
 
 _PROTECTED_ACCOUNT_PARAMS = {
     "id", "account-id", "name", "account-name", "email", "format",
+    "tenant",
     "max-users", "max-buckets", "max-roles", "max-groups", "max-access-keys",
 }
 

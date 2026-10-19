@@ -21,7 +21,7 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import parse_rgw_int
+from app.utils.rgw_payloads import extract_rgw_account_tenant, parse_rgw_int
 from app.utils.usage_stats import summarize_bucket_usage
 
 
@@ -41,7 +41,11 @@ def account_field_needs_enrichment(
 def account_profile_needs_enrichment(
     account: CephAdminRgwAccountSummary,
 ) -> bool:
-    return account_field_needs_enrichment(account, "account_name") or account.email is None
+    return (
+        account_field_needs_enrichment(account, "account_name")
+        or account.email is None
+        or account.tenant is None
+    )
 
 
 def enrich_accounts(
@@ -109,6 +113,7 @@ def _apply_account_detail_payload(
     buckets_payload: Any | None = None,
 ) -> None:
     if "profile" in requested:
+        account.tenant = extract_rgw_account_tenant(payload)
         if not account.account_name:
             account.account_name = normalize_optional_scalar(
                 payload.get("account_name") or payload.get("name") or payload.get("display_name")
