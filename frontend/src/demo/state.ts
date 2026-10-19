@@ -72,6 +72,14 @@ export const settings: AppSettings = {
   browser: { allow_proxy_transfers: true, direct_upload_parallelism: 2, proxy_upload_parallelism: 2,
     direct_download_parallelism: 2, proxy_download_parallelism: 2, other_operations_parallelism: 2, streaming_zip_threshold_mb: 200 },
   billing_automation: { mode: "manual", schedule_day: 5, require_all_subjects_assigned: true },
+  billing_statement_pdf: {
+    organization_name: "BucketReef",
+    organization_details: null,
+    accent_color: "#0569f8",
+    logo_data_url: null,
+    statement_note: null,
+    footer_text: null,
+  },
   onboarding: { dismissed: true }, branding: { primary_color: "#0569f8", login_logo_url: null },
   quota_notifications: { threshold_percent: 80, include_subject_contact_email: false, smtp_port: 587, smtp_starttls: true, smtp_timeout_seconds: 10 },
 };

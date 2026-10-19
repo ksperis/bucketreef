@@ -245,6 +245,7 @@ describe("BillingStatementsView", () => {
     render(<BillingStatementsView month="2026-07" />);
 
     expect(await screen.findByText("Research storage")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Generate for" })).toHaveValue("10");
     expect(screen.getByText("RGW-RESEARCH")).toBeInTheDocument();
     expect(screen.getByText("Ceph main")).toBeInTheDocument();
     expect(screen.getByText("Billing Entity · research-plan")).toBeInTheDocument();
@@ -271,6 +272,30 @@ describe("BillingStatementsView", () => {
     expect(within(dialog).getByText(/Storage 100% · Usage 100%/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Finalize statement" }));
     await waitFor(() => expect(mocks.finalizeBillingStatement).toHaveBeenCalledWith(41));
+  });
+
+  it("offers PDF export only for finalized statements", async () => {
+    mocks.listBillingStatements.mockResolvedValue([
+      statement(),
+      statement({
+        id: 43,
+        public_id: "33333333-3333-3333-3333-333333333333",
+        status: "finalized",
+        finalized_at: "2026-08-01T09:00:00Z",
+      }),
+    ]);
+    render(<BillingStatementsView month="2026-07" />);
+
+    const tables = await screen.findAllByRole("table");
+    const rows = within(tables[0]).getAllByRole("row").slice(1);
+    expect(within(rows[0]).queryByRole("button", { name: "PDF" })).not.toBeInTheDocument();
+    fireEvent.click(within(rows[1]).getByRole("button", { name: "PDF" }));
+
+    await waitFor(() => expect(mocks.downloadBillingStatementSnapshot).toHaveBeenCalledWith(43, "pdf"));
+    expect(mocks.triggerBlobDownload).toHaveBeenCalledWith(
+      "billing-statement-33333333-3333-3333-3333-333333333333.pdf",
+      expect.any(Blob),
+    );
   });
 
   it("shows annual partial completeness without treating missing months as zero", async () => {

@@ -93,7 +93,26 @@ The Admin API exposes the lifecycle used by later UI and integration layers:
 - `GET /api/admin/billing/statements/{id}` reads one persisted snapshot;
 - `GET /api/admin/billing/statements/{id}/export.csv` exports snapshot lines as CSV;
 - `GET /api/admin/billing/statements/{id}/export.json` exports the complete snapshot as JSON;
+- `GET /api/admin/billing/statements/{id}/export.pdf` renders a finalized
+  snapshot as a human-readable PDF cost statement;
 - `POST /api/admin/billing/statements/{id}/finalize` freezes a reviewed draft.
+
+PDF export is deliberately limited to finalized statements. A draft returns a
+conflict response because its snapshot can still be regenerated. Rendering is
+server-side and uses the persisted statement lines for all business content; it
+does not resolve current tags, quotas, membership, or Rate Plans.
+
+PDF presentation settings are available through
+`GET/PUT /api/admin/billing/pdf/settings`. The optional logo is an embedded
+PNG/JPEG data URL limited to 512 KiB. Audit metadata records whether a logo is
+configured but never stores the base64 image payload.
+`POST /api/admin/billing/pdf/preview` renders a deterministic sample using the
+submitted settings, allowing the Admin UI to preview unsaved presentation
+changes.
+
+The PDF does not add legal invoice numbering, VAT/tax calculation, payment
+terms or status, credit notes, or payment collection. Commercial invoicing
+systems should consume finalized data through Billing Integration API v1.
 
 Generation is idempotent by default: repeating it returns the existing draft
 instead of creating another statement. Set `regenerate=true` explicitly to

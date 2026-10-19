@@ -4,6 +4,7 @@
  */
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
 import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import type { BillingStatementPdfSettings } from "./appSettings";
 
 export type BillingDecimal = string | number;
 
@@ -421,6 +422,28 @@ export async function updateBillingAutomationSettings(
   return data;
 }
 
+export async function getBillingStatementPdfSettings(): Promise<BillingStatementPdfSettings> {
+  const { data } = await client.get<BillingStatementPdfSettings>("/admin/billing/pdf/settings");
+  return data;
+}
+
+export async function updateBillingStatementPdfSettings(
+  payload: BillingStatementPdfSettings,
+): Promise<BillingStatementPdfSettings> {
+  const { data } = await client.put<BillingStatementPdfSettings>("/admin/billing/pdf/settings", payload);
+  return data;
+}
+
+export async function previewBillingStatementPdf(
+  payload: BillingStatementPdfSettings,
+): Promise<Blob> {
+  const response = await client.post("/admin/billing/pdf/preview", payload, {
+    responseType: "blob",
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
+  return response.data as Blob;
+}
+
 export async function listBillingAutomationRuns(limit = 20): Promise<BillingAutomationRun[]> {
   const { data } = await client.get<BillingAutomationRun[]>("/admin/billing/automation/runs", {
     params: { limit },
@@ -473,7 +496,7 @@ export async function finalizeBillingStatement(statementId: number): Promise<Bil
 
 export async function downloadBillingStatementSnapshot(
   statementId: number,
-  format: "csv" | "json",
+  format: "csv" | "json" | "pdf",
 ): Promise<Blob> {
   const response = await client.get(`/admin/billing/statements/${statementId}/export.${format}`, {
     responseType: "blob",

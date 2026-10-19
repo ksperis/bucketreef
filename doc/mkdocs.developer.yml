@@ -50,7 +50,7 @@ nav:
       - Repository layout: reference/repository-layout.md
       - Listings feature matrix: reference/listings-feature-matrix.md
   - Records:
-      - Billing evolution TODO: records/billing-evolution-todo.md
+      - Billing evolution validation: records/billing-evolution-validation.md
       - Browser evolution validation: records/browser-evolutions-validation.md
       - Interface convergence: records/interface-convergence.md
       - Listing presentation inventory: records/listing-presentation-inventory.md

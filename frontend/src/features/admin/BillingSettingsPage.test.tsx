@@ -21,6 +21,9 @@ const mocks = vi.hoisted(() => ({
   updateGroup: vi.fn(),
   deactivateGroup: vi.fn(),
   listTags: vi.fn(),
+  getPdfSettings: vi.fn(),
+  updatePdfSettings: vi.fn(),
+  previewPdf: vi.fn(),
 }));
 
 vi.mock("../../api/billing", async (importOriginal) => ({
@@ -40,6 +43,9 @@ vi.mock("../../api/billing", async (importOriginal) => ({
   createBillingEntityGroup: (...args: unknown[]) => mocks.createGroup(...args),
   updateBillingEntityGroup: (...args: unknown[]) => mocks.updateGroup(...args),
   deactivateBillingEntityGroup: (...args: unknown[]) => mocks.deactivateGroup(...args),
+  getBillingStatementPdfSettings: () => mocks.getPdfSettings(),
+  updateBillingStatementPdfSettings: (...args: unknown[]) => mocks.updatePdfSettings(...args),
+  previewBillingStatementPdf: (...args: unknown[]) => mocks.previewPdf(...args),
 }));
 
 vi.mock("../../api/storageEndpoints", async (importOriginal) => ({
@@ -166,6 +172,16 @@ describe("BillingSettingsPage", () => {
     mocks.createGroup.mockResolvedValue({});
     mocks.updateGroup.mockResolvedValue({});
     mocks.deactivateGroup.mockResolvedValue({});
+    mocks.getPdfSettings.mockResolvedValue({
+      organization_name: "BucketReef",
+      organization_details: null,
+      accent_color: "#0569f8",
+      logo_data_url: null,
+      statement_note: null,
+      footer_text: null,
+    });
+    mocks.updatePdfSettings.mockImplementation(async (payload) => payload);
+    mocks.previewPdf.mockResolvedValue(new Blob(["pdf"], { type: "application/pdf" }));
   });
 
   it("shows immutable active pricing and editable future endpoint pricing", async () => {
@@ -180,6 +196,30 @@ describe("BillingSettingsPage", () => {
     expect(screen.getByRole("button", { name: "Edit" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled();
     expect(screen.getByText("Allocated quota")).toBeInTheDocument();
+  });
+
+  it("protects unsaved PDF settings when switching Billing settings tabs", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/billing-settings"]}>
+        <BillingSettingsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/Ceph production/);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Statement PDF" }));
+    const name = await screen.findByLabelText("Organization name");
+    fireEvent.change(name, { target: { value: "Research IT" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Rate Plans" }));
+
+    expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Organization name")).toHaveValue("Research IT");
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByLabelText("Organization name")).toHaveValue("Research IT");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Rate Plans" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    await waitFor(() => expect(screen.queryByLabelText("Organization name")).not.toBeInTheDocument());
+    expect(screen.getByRole("tab", { name: "Rate Plans" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("prefills a new version and submits it against the active rate card", async () => {
@@ -424,5 +464,18 @@ describe("BillingSettingsPage", () => {
     const deactivateDialog = screen.getByRole("dialog", { name: "Deactivate Billing Group?" });
     fireEvent.click(within(deactivateDialog).getByRole("button", { name: "Deactivate" }));
     await waitFor(() => expect(mocks.deactivateGroup).toHaveBeenCalledWith(41));
+  });
+
+  it("exposes Billing Statement PDF configuration as a settings tab", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/billing-settings"]}>
+        <BillingSettingsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/Ceph production/);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Statement PDF" }));
+    expect(await screen.findByLabelText("Organization name")).toHaveValue("BucketReef");
+    expect(mocks.getPdfSettings).toHaveBeenCalledTimes(1);
   });
 });

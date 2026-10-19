@@ -26,6 +26,7 @@ AUDIT_EVENT_TYPES = (
     'audit.admin.billing_rate_card.update',
     'audit.admin.billing_rate_card.version_create',
     'audit.admin.billing_statement.finalize',
+    'audit.admin.billing_statement_pdf.settings_update',
     'audit.admin.connection.create',
     'audit.admin.connection.delete',
     'audit.admin.connection.remediate',
