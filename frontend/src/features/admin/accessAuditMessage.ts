@@ -65,7 +65,7 @@ const accessAuditMessage = {
   portalUser: m("Portal user", "Portal 用户"),
   managerBrowserDataAccess: m("Manager Browser data access", "Manager Browser 数据访问"),
   rgwUserAccess: m("RGW user access", "RGW 用户访问"),
-  sharedConnectionAccess: m("Shared S3 connection access", "共享 S3 连接访问"),
+  sharedConnectionAccess: m("S3 connection access", "S3 连接访问"),
 } satisfies Record<string, I18nMessage>;
 
 type AccessAuditMessageKey = keyof typeof accessAuditMessage;

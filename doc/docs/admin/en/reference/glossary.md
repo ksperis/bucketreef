@@ -4,7 +4,7 @@
 |---|---|
 | Storage endpoint | A configured S3-compatible backend and its capabilities. |
 | S3 account | Platform-level storage account used for account administration, usage, quotas, and related workflows. |
-| S3 connection | Credential-backed S3 context. Admin manages shared connections; private connections belong to individual users. |
+| S3 connection | Credential-backed S3 context used for generic compatibility when BucketReef cannot manage the remote identity as a native RGW Account or RGW User. Admin S3 connections can be assigned to UI users and groups; private connections belong to individual users. |
 | Ceph Admin | Administrative Ceph RGW workspace for cluster-level account, user, bucket, and metrics workflows. |
 | Storage Ops | Administrative workspace for operations across authorized storage contexts. |
 | Admin Ops credentials | Dedicated endpoint credentials used for explicitly authorized administrative Ceph/RGW workflows. |

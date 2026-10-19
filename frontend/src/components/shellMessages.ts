@@ -47,7 +47,7 @@ export const shellMessages = {
   connectionShort: m("Connection", "连接"),
   s3UserMode: m("S3 user mode", "S3 用户模式"),
   s3UserShort: m("S3 user", "S3 用户"),
-  sharedConnection: m4("Shared connection", "Connexion partagée", "Freigegebene Verbindung", "共享连接"),
+  sharedConnection: m4("S3 connection", "Connexion S3", "S3-Verbindung", "S3 连接"),
   privateConnection: m4("Private connection", "Connexion privée", "Private Verbindung", "私有连接"),
   s3UserIdentity: m4("S3 user identity", "Identité utilisateur S3", "S3-Benutzeridentität", "S3 用户身份"),
   rgwAccount: m4("RGW account", "Compte RGW", "RGW-Konto", "RGW 账户"),

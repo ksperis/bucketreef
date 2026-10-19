@@ -107,7 +107,7 @@ const messages = {
   accounts: m("Accounts", "账户"),
   assigned: m("Assigned: {count}", "已分配：{count}"),
   s3Users: m("S3 Users", "S3 用户"),
-  sharedConnections: m("Shared S3 Connections", "共享 S3 连接"),
+  sharedConnections: m("S3 Connections", "S3 连接"),
   adminManaged: m("Admin-managed", "由管理员管理"),
   endpointCounts: m("Ceph: {ceph}  Other: {other}", "Ceph：{ceph}  其他：{other}"),
   endpointStatusDisabled: m("Endpoint Status feature is disabled.", "端点状态功能已禁用。"),

@@ -973,8 +973,8 @@ export default function S3ConnectionsPage() {
   return (
     <div className={workflowPageHostClass(showCreateModal || Boolean(editing))}>
       <PageHeader actionPresentation="listing"
-        title={adminText("Shared S3 Connections")}
-        description={adminText("Admin-managed S3 connections shared with linked UI users.")}
+        title={adminText("S3 Connections")}
+        description={adminText("Credential-based S3 contexts assigned to linked UI users and groups.")}
         breadcrumbs={adminBreadcrumbs("shared-connections")}
         actions={[{ label: "Add connection", onClick: openCreateModal }]}
       />
@@ -983,7 +983,7 @@ export default function S3ConnectionsPage() {
       {error && <PageBanner tone="error">{error}</PageBanner>}
 
       <ListPageSection variant="page"
-          title={adminText("Shared S3 Connections")}
+          title={adminText("S3 Connections")}
           countLabel={`${total} entr${total === 1 ? "y" : "ies"}`}
           search={
             <ToolbarSearchInput
@@ -1067,7 +1067,7 @@ export default function S3ConnectionsPage() {
       {showCreateModal && (
         <WorkflowPage
           title={adminText("Add S3 connection")}
-          description={adminText("Configure endpoint access, credentials, and workspace availability for this shared connection.")}
+          description={adminText("Configure endpoint access, credentials, and workspace availability for this S3 connection.")}
           breadcrumbs={adminBreadcrumbs("shared-connections", { label: adminText("Create") })}
           backLabel={adminText("Back to connections")}
           onBack={createCloseGuard.requestClose}
@@ -1081,13 +1081,13 @@ export default function S3ConnectionsPage() {
               {createError}
             </UiInlineMessage>
           )}
-          <SettingsForm label={adminText("Create shared S3 connection")} onSubmit={submitCreate} busy={creating}
+          <SettingsForm label={adminText("Create S3 connection")} onSubmit={submitCreate} busy={creating}
             onCancel={createCloseGuard.requestClose} submitLabel={adminText("Create")} busyLabel={adminText("Creating...")}>
             <S3ConnectionIdentityFields name={createForm.name} nameError={createFormValidation.errorFor("name")}
               onNameChange={(name) => setCreateForm((current) => ({ ...current, name }))} catalogError={adminTagCatalogError}
               tagEditor={{ tags: createForm.tags, catalog: adminTagCatalog,
                 onChange: (tags) => setCreateForm((current) => ({ ...current, tags })),
-                placeholder: adminText("Add a tag for this shared connection"), disabled: creating,
+                placeholder: adminText("Add a tag for this S3 connection"), disabled: creating,
                 hint: adminTagCatalogLoading ? adminText("Loading existing tag catalog...") : undefined }} />
             <S3ConnectionEndpointFields mode={createEndpointMode}
               onModeChange={(mode) => { setCreateEndpointMode(mode); if (mode === "preset") setCreateEndpointPresetId(preferredS3ConnectionEndpointId(createEndpointPresetId, storageEndpoints)); }}
@@ -1105,10 +1105,10 @@ export default function S3ConnectionsPage() {
               </div>
             </SettingsSection>
             <SettingsSection title={adminText("Access")} presentation="compact">
-              <p className="settings-label">{adminText("Visibility: Shared")}</p>
-              <p className="settings-description mt-1">{adminText("Admin connections are always shared with linked UI users.")}</p>
+              <p className="settings-label">{adminText("Admin assignment")}</p>
+              <p className="settings-description mt-1">{adminText("Admin S3 connections are available to linked UI users and groups.")}</p>
               <p className="settings-label mt-3">{adminText("Manager-only execution")}</p>
-              <p className="settings-description mt-1">{adminText("Shared connections are never exposed to Browser. Browser users must create a private connection.")}</p>
+              <p className="settings-description mt-1">{adminText("Admin S3 connections are never exposed to Browser. Browser users must create a private connection.")}</p>
             </SettingsSection>
           </SettingsForm>
           {createCloseGuard.confirmationDialog}
@@ -1119,7 +1119,7 @@ export default function S3ConnectionsPage() {
       {editing && (
         <WorkflowPage
           title={adminText("Edit connection · {name}", { name: editing.name })}
-          description={adminText("Manage endpoint access, credentials, workspace availability, and UI associations for this shared connection.")}
+          description={adminText("Manage endpoint access, credentials, workspace availability, and UI associations for this S3 connection.")}
           breadcrumbs={adminBreadcrumbs("shared-connections", { label: adminText("Edit") })}
           backLabel={adminText("Back to connections")}
           onBack={editCloseGuard.requestClose}
@@ -1134,7 +1134,7 @@ export default function S3ConnectionsPage() {
             </UiInlineMessage>
           )}
           {actionMessage && <UiInlineMessage tone="success" role="status" className="mb-3">{actionMessage}</UiInlineMessage>}
-          <SettingsForm label={adminText("Edit shared S3 connection")} onSubmit={submitEdit} busy={editBusy}
+          <SettingsForm label={adminText("Edit S3 connection")} onSubmit={submitEdit} busy={editBusy}
             onCancel={editCloseGuard.requestClose} submitLabel={adminText("Save")} busyLabel={adminText("Saving...")}
             actions={<SettingsPersistentEditActions dirty={Boolean(editInitialSignature && editCurrentSignature !== editInitialSignature)}
               busy={editBusy} onCancel={editCloseGuard.requestClose} saveLabel={adminText("Save")} savingLabel={adminText("Saving...")} />}>
@@ -1142,7 +1142,7 @@ export default function S3ConnectionsPage() {
               panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
               activeTab={editTab}
               onTabChange={setEditTab}
-              ariaLabel={adminText("Shared connection configuration sections")}
+              ariaLabel={adminText("S3 connection configuration sections")}
               idPrefix="admin-shared-connection-edit"
               tabs={[
                 { id: "general", label: adminText("General") },
@@ -1157,7 +1157,7 @@ export default function S3ConnectionsPage() {
               onNameChange={(name) => setEditForm((current) => ({ ...current, name }))} catalogError={adminTagCatalogError}
               tagEditor={{ tags: editForm.tags, catalog: adminTagCatalog,
                 onChange: (tags) => setEditForm((current) => ({ ...current, tags })),
-                placeholder: adminText("Add a tag for this shared connection"), disabled: editBusy,
+                placeholder: adminText("Add a tag for this S3 connection"), disabled: editBusy,
                 hint: adminTagCatalogLoading ? adminText("Loading existing tag catalog...") : undefined }} />
             <S3ConnectionEndpointFields mode={editEndpointMode}
               onModeChange={(mode) => { setEditEndpointMode(mode); if (mode === "preset") setEditEndpointPresetId(preferredS3ConnectionEndpointId(editEndpointPresetId, storageEndpoints)); }}
@@ -1177,10 +1177,10 @@ export default function S3ConnectionsPage() {
                 <SettingsSection title={adminText("Access and RGW identity")} presentation="compact"
                   description={adminText("Persist the canonical RGW principal used for metrics and identity resolution when it is known.")}>
                   <div className="settings-stack">
-                    <div><p className="settings-label">{adminText("Visibility: Shared")}</p>
+                    <div><p className="settings-label">{adminText("Admin assignment")}</p>
                       <p className="settings-description mt-1 [overflow-wrap:anywhere]">{adminText("Created by:")}{editing.created_by_email || editing.created_by_user_id}</p></div>
                     <div><p className="settings-label">{adminText("Manager-only execution")}</p>
-                      <p className="settings-description mt-1">{adminText("Browser access is disabled for all shared connections.")}</p></div>
+                      <p className="settings-description mt-1">{adminText("Browser access is disabled for Admin S3 connections.")}</p></div>
                     <div className="settings-fields sm:grid-cols-3">
                     <UiInput
                       label={adminText("RGW user UID")}

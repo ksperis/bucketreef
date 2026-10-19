@@ -64,7 +64,7 @@ describe("AdminAssociationPicker", () => {
         { id: "accounts", label: "Accounts", count: 1, actionLabel: "Add accounts", onAction: addAccounts,
           content: <p>Account memberships</p> },
         { id: "connections", label: "Connections", count: 0, actionLabel: "Add connections", onAction: addConnections,
-          hint: "Shared connections only", content: <p>Connection memberships</p> },
+          hint: "Admin S3 connections only", content: <p>Connection memberships</p> },
       ]} />;
     }
     render(<Associations />);
@@ -79,7 +79,7 @@ describe("AdminAssociationPicker", () => {
     expect(screen.getByRole("tab", { name: "Connections (0)" })).toHaveFocus();
     expect(screen.getByRole("tabpanel", { name: "Connections (0)" })).toHaveTextContent("Connection memberships");
     expect(screen.queryByRole("button", { name: "Add accounts" })).not.toBeInTheDocument();
-    expect(screen.getByText("Shared connections only")).toBeInTheDocument();
+    expect(screen.getByText("Admin S3 connections only")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add connections" }));
     expect(addConnections).toHaveBeenCalledTimes(1);
     screen.getByRole("tab", { name: "Connections (0)" }).focus();

@@ -106,7 +106,7 @@ describe("TopbarContextAccountSelector", () => {
 
     const listbox = await openMenu(user);
     expect(within(listbox).getByRole("option", { name: /Personal storage.*Private connection/ })).toBeInTheDocument();
-    expect(within(listbox).getByRole("option", { name: /Team storage.*Shared connection/ })).toBeInTheDocument();
+    expect(within(listbox).getByRole("option", { name: /Team storage.*S3 connection/ })).toBeInTheDocument();
   });
 
   it("uses id as deterministic tie-breaker when type, name and label are identical", async () => {

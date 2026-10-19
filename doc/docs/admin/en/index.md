@@ -18,7 +18,7 @@ It also covers the administrative workspaces **Admin**, **Ceph Admin**, and
 ## Administration boundaries
 
 - **Admin** governs the BucketReef platform: UI users, endpoints, S3 accounts,
-  shared connections, settings, audit, billing, and platform-wide features.
+  S3 connections, settings, audit, billing, and platform-wide features.
 - **Ceph Admin** provides Ceph RGW cluster-level workflows to authorized
   administrators.
 - **Storage Ops** provides operational workflows across authorized storage
