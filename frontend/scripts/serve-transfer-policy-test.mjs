@@ -3,7 +3,7 @@
 // backend authorization itself is covered by test_browser_transfer_policy.py.
 import { createServer } from "node:http";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, writeFile, mkdir, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -11,6 +11,7 @@ import { build } from "vite";
 
 const root = process.cwd();
 const temp = await mkdtemp(join(tmpdir(), "bucketreef-csp-test-"));
+await chmod(temp, 0o755);
 const nginxBin = process.env.E2E_NGINX_BIN || "nginx";
 const frontendPort = Number(process.env.CSP_E2E_PORT || 19493);
 const servers = [];
