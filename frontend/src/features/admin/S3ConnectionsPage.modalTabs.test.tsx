@@ -141,7 +141,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     renderPage();
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    const form = screen.getByRole("form", { name: "Edit shared S3 connection" });
+    const form = screen.getByRole("form", { name: "Edit S3 connection" });
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Retained draft" } });
     fireEvent.submit(form);
     await waitFor(() => expect(updateAdminS3ConnectionMock).toHaveBeenCalledTimes(1));
@@ -155,7 +155,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     fireEvent.submit(form);
     await waitFor(() => expect(updateAdminS3ConnectionMock).toHaveBeenCalledTimes(2));
     expect(updateAdminS3ConnectionMock.mock.calls[1]).toEqual(updateAdminS3ConnectionMock.mock.calls[0]);
-    await waitFor(() => expect(screen.getByRole("form", { name: "Edit shared S3 connection" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("form", { name: "Edit S3 connection" })).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
@@ -231,10 +231,10 @@ describe("S3ConnectionsPage modal tabs", () => {
     const dialog = getWorkflowPage("Edit connection · connection-1");
     expect(
       within(dialog).getByText(
-        "Manage endpoint access, credentials, workspace availability, and UI associations for this shared connection."
+        "Manage endpoint access, credentials, workspace availability, and UI associations for this S3 connection."
       )
     ).toBeInTheDocument();
-    const tagInput = within(dialog).getByRole("textbox", { name: "Add a tag for this shared connection" });
+    const tagInput = within(dialog).getByRole("textbox", { name: "Add a tag for this S3 connection" });
     expect(tagInput).toBeInTheDocument();
     expect(tagInput.parentElement?.parentElement?.className).toContain("min-h-10");
     const tagLabel = within(dialog).getByText("Tags");
@@ -405,7 +405,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     const dialog = getWorkflowPage("Add S3 connection");
     expect(
       within(dialog).getByText(
-        "Configure endpoint access, credentials, and workspace availability for this shared connection."
+        "Configure endpoint access, credentials, and workspace availability for this S3 connection."
       )
     ).toBeInTheDocument();
     const nameInput = dialog.querySelector("input[required]") as HTMLInputElement | null;
@@ -415,7 +415,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     expect(nameInput).toHaveClass("ui-control");
 
     fireEvent.change(nameInput, { target: { value: "tagged-shared-connection" } });
-    const tagInput = within(dialog).getByRole("textbox", { name: "Add a tag for this shared connection" });
+    const tagInput = within(dialog).getByRole("textbox", { name: "Add a tag for this S3 connection" });
     expect(tagInput.parentElement?.parentElement?.className).toContain("min-h-10");
     const tagLabel = within(dialog).getByText("Tags");
     expect(tagLabel).toHaveAttribute("for", tagInput.id);

@@ -14,7 +14,7 @@ assignment, one or more UI Groups, or both.
 
 Inactive UI users remain visible so their saved authorization state can still
 be reviewed. Private S3 connections are excluded from the Admin inventory;
-only Admin-managed shared S3 connections appear.
+only S3 connections created in Admin appear.
 
 This page audits BucketReef UI authorization. It does not evaluate storage-side
 IAM policies, bucket policies, S3 ACLs, object permissions, or other permissions
@@ -33,7 +33,7 @@ not limit the export.
 ## Reviewing one resource
 
 Use **Review access** from the **UI Users**, **UI Groups**, **RGW Accounts**,
-**RGW Users**, or **Shared S3 Connections** list. BucketReef opens this audit
+**RGW Users**, or **S3 Connections** list. BucketReef opens this audit
 directly with the corresponding context filter applied.
 
 For a UI Group, the filtered inventory contains rows where that group
@@ -47,7 +47,7 @@ changes before using **Review access** to verify the resulting access.
 ## Visual example
 
 The Admin workspace provides the navigation context for the global access
-audit and the related user, account, RGW user, and shared-connection editors.
+audit and the related user, account, RGW user, and S3 connection editors.
 
 <div class="docs-themed-shot" data-docs-themed-shot>
   <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/workspace-admin.light.png" alt="Admin workspace with platform-level navigation for access review" loading="lazy">

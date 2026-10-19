@@ -55,7 +55,7 @@ export const ADMIN_PAGE_CONTRACTS = {
   "identity-security": { label: "Identity Security", path: "/admin/identity-security" },
   accounts: { label: "RGW Accounts", path: "/admin/s3-accounts" },
   "rgw-users": { label: "RGW Users", path: "/admin/s3-users" },
-  "shared-connections": { label: "Shared S3 Connections", path: "/admin/s3-connections" },
+  "shared-connections": { label: "S3 Connections", path: "/admin/s3-connections" },
   "storage-endpoints": { label: "S3 Endpoints", path: "/admin/storage-endpoints" },
   "endpoint-status": { label: "Endpoint Status", path: "/admin/endpoint-status" },
   "portal-requests": { label: "Portal Requests", path: "/admin/portal-requests" },

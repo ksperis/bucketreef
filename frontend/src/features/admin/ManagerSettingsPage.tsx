@@ -158,7 +158,7 @@ export default function ManagerSettingsPage() {
           form={form}
           field="manager.feature_policies.activity_history"
           title={text("Manager activity history")}
-          description={text("Control and configuration history for supported Manager execution contexts. Enabled by default; each RGW Account, RGW User, or shared S3 Connection can inherit, enable, or disable it.")}
+          description={text("Control and configuration history for supported Manager execution contexts. Enabled by default; each RGW Account, RGW User, or S3 Connection can inherit, enable, or disable it.")}
         />
         <AppSettingsPolicy
           form={form}

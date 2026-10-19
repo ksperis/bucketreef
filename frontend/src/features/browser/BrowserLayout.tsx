@@ -194,8 +194,8 @@ function BrowserShell() {
                 contexts.length > 0
                   ? text("Choose a private connection explicitly to start browsing.")
                   : canManagePrivateConnections
-                    ? text("Accounts, RGW users and shared connections are unavailable in Browser. Create a private connection with a dedicated access key.")
-                    : text("Accounts, RGW users and shared connections are unavailable in Browser. Ask your administrator to allow manual private connections before adding a dedicated access key.")
+                    ? text("Accounts, RGW users and Admin S3 connections are unavailable in Browser. Create a private connection with a dedicated access key.")
+                    : text("Accounts, RGW users and Admin S3 connections are unavailable in Browser. Ask your administrator to allow manual private connections before adding a dedicated access key.")
               }
               primaryAction={canManagePrivateConnections ? {
                 label: text("Manage private connections"),

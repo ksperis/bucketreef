@@ -44,7 +44,7 @@ const userMessage = {
   noLinkedUser: m("No user linked yet.", "尚未关联用户。"),
   loadingUsers: m("Loading users...", "正在加载用户…"),
   addConnections: m("Add connections", "添加连接"),
-  sharedConnectionsOnly: m("Shared connections only", "仅共享连接"),
+  sharedConnectionsOnly: m("Admin S3 connections only", "仅限管理员 S3 连接"),
   noLinkedConnection: m("No connection linked yet.", "尚未关联连接。"),
   loadingConnections: m("Loading connections...", "正在加载连接…"),
 

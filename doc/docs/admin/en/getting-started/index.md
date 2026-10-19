@@ -9,7 +9,7 @@ or operate its storage integrations.
 |---|---|
 | Evaluate or install BucketReef | [Local quickstart](../install/quickstart.md), then choose [Docker Compose](../install/docker-compose.md) or [Helm](../install/helm.md). |
 | Take over an existing deployment | [Sysadmin onboarding](sysadmin-onboarding.md). |
-| Configure users, endpoints, accounts, shared connections, settings, audit, or billing | [Admin workspace](../platform/index.md). |
+| Configure users, endpoints, accounts, S3 connections, settings, audit, or billing | [Admin workspace](../platform/index.md). |
 | Operate Ceph RGW at cluster scope | [Ceph Admin](../storage/ceph-admin/index.md). |
 | Run bucket operations across authorized contexts | [Storage Ops](../storage/storage-ops/index.md). |
 | Prepare a service for application or end-user teams | [Storage admin runbook](storage-admin-runbook.md). |

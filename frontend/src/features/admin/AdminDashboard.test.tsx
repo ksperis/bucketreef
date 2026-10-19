@@ -99,7 +99,7 @@ async function renderDashboard(role: SessionUser["role"] = "ui_superadmin") {
     </MemoryRouter>
   );
 
-  await screen.findByText("Shared S3 Connections");
+  await screen.findByText("S3 Connections");
 }
 
 describe("AdminDashboard feature summary", () => {
