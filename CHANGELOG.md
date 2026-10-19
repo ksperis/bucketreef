@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.2.17 - 2026-10-19
+
+### Added
+
+- Add versioned Billing Rate Plans with effective-month tariffs, endpoint/global defaults, account and S3-user assignments, deterministic storage charging, and explicit actual-usage versus allocated-quota pricing.
+- Add Billing Entities and historical analytical groups so chargeback can consolidate subjects across endpoints while preserving membership provenance, currency separation, and conflict reporting.
+- Add persisted monthly Billing Statements with draft review, immutable finalization, JSON/CSV/PDF exports, finalized-period analytics, configurable PDF branding, webhook notification, and scheduled statement automation.
+- Add the supported read-only Billing Integration API v1 for external invoicing, ERP, accounting, reporting, and chargeback consumers using scoped API tokens and finalized statement snapshots.
+- Add explicit Admin controls for creating RGW resources in non-default tenants, tenant-aware account/user imports, and endpoint-map hover details.
+- Add Browser direct-transfer workers with per-context endpoint authorization and CSP so eligible uploads and downloads can communicate with the selected S3 endpoint without proxying object payloads through BucketReef.
+
+### Changed
+
+- Resolve Billing Rate Plans through explicit subject assignments, Billing Entity assignments, endpoint defaults, and the global default, while keeping pricing provenance and incomplete-coverage states visible instead of silently falling back.
+- Treat finalized Billing Statements as the canonical immutable source for historical period totals and external integrations; raw daily Billing retention no longer affects persisted statements.
+- Scope RGW account names by tenant and keep tenant qualification compact in Admin inventories and creation/import workflows.
+- Simplify S3 Connection terminology, Admin activity presentation, Billing feature gating, and several workspace navigation/localization details.
+- Modernize backend query paths across health, audit, usage, onboarding, Portal, quota, Browser, and Admin services without changing their supported external contracts.
+- Serve Browser direct-transfer workers from the frontend through an authenticated `/api/browser/direct-transfer-worker/` path with a request-scoped CSP.
+
+### Fixed
+
+- Enforce Portal IAM revocation boundaries and strengthen RGW Billing input validation, statement history invariants, stale-draft detection, and estimated-statement finalization.
+- Preserve tenant-aware RGW account/user uniqueness and imports, including migration of existing account-name uniqueness to the tenant scope.
+- Isolate Browser direct transfers by execution context, prevent stale endpoint policy reuse, and avoid replaying uncertain direct writes through the backend proxy.
+- Keep Billing settings disabled when the feature is off and align RGW user/account creation dialogs with their tenant-aware contracts.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path before starting the matching backend. Migrations `0159` through `0166` add versioned Billing tariffs, historical quota data, Billing Entities and Groups, persisted statements and automation state, tenant-scoped S3 account-name uniqueness, and estimated-statement state.
+- Deploy the backend and bundled frontend from the same release. Application API changes used only by the bundled frontend are coordinated within 0.2.17 and are not treated as breaking external contracts.
+- The Billing Integration API under `/api/integrations/billing/v1` is now a supported external read-only contract. Use dedicated API tokens with the documented `billing:read` scope; internal Admin Billing routes remain application-private.
+- **Breaking change for custom reverse proxies:** Browser direct-transfer workers are served by the frontend under `/api/browser/direct-transfer-worker/`. Deployments that route all `/api` traffic directly to the backend must add this frontend exception, preserve the query string and existing session cookie, and keep the worker response CSP uncached. The bundled Helm ingress already includes this route.
+
 ## 0.2.16 - 2026-10-17
 
 ### Added
