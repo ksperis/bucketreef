@@ -230,7 +230,7 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     if settings.app_env == "production":
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-    if request.url.path.startswith(f"{settings.api_v1_prefix}/auth"):
+    if request.url.path.startswith(f"{settings.api_v1_prefix}/auth") or request.url.path == f"{settings.api_v1_prefix}/browser/direct-transfer-policy":
         response.headers["Cache-Control"] = "no-store"
         response.headers["Pragma"] = "no-cache"
     return response

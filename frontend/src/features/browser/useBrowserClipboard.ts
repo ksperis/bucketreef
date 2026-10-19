@@ -51,6 +51,7 @@ import {
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import { useBrowserI18n } from "./browserI18n";
+import { browserTransferScope, createBrowserDirectFetch } from "./browserDirectTransfer";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 type ClipboardTransferParameters = Parameters<
@@ -245,6 +246,7 @@ export function useBrowserClipboard({
       signal,
     }) => {
       await uploadBrowserStreamMultipart({
+        directFetch: createBrowserDirectFetch(browserTransferScope(selector, requestOptions)),
         stream,
         sizeBytes,
         contentType,

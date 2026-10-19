@@ -37,7 +37,7 @@ from app.models.browser import (
     PaginatedBrowserBucketsResponse,
     SseCustomerContext,
 )
-from app.routers import browser_bucket_config, browser_objects, browser_transfers
+from app.routers import browser_bucket_config, browser_objects, browser_transfers, browser_transfer_policy
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_audit_service,
@@ -67,6 +67,7 @@ router = APIRouter(
 router.include_router(browser_bucket_config.router)
 router.include_router(browser_objects.router)
 router.include_router(browser_transfers.router)
+router.include_router(browser_transfer_policy.router)
 
 
 @router.get("/settings", response_model=BrowserSettings)

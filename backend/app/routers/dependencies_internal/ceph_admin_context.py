@@ -45,6 +45,7 @@ def resolve_ceph_admin_browser_context(
     endpoint_id: int,
     *,
     surface: str,
+    metadata_only: bool = False,
 ) -> S3ExecutionContext:
     if surface != "browser":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ceph Admin context is only allowed in browser workspace")
@@ -69,6 +70,8 @@ def resolve_ceph_admin_browser_context(
             detail="Ceph Admin is not active on this endpoint",
         )
 
+    if metadata_only:
+        return S3ExecutionContext.from_ceph_admin_endpoint(endpoint, access_key=None, secret_key=None)
     identity_validation_error = validate_ceph_admin_service_identity(endpoint)
     if identity_validation_error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=identity_validation_error)

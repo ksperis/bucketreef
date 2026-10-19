@@ -4,6 +4,7 @@
  */
 import { ensureSuccessfulBrowserTransferResponse } from "./browserFetchTransferResponse";
 import { normalizeEtag } from "./browserUtils";
+import type { BrowserDirectFetch } from "./browserDirectTransfer";
 
 type CompletedPart = { part_number: number; etag: string };
 
@@ -23,6 +24,7 @@ export type BrowserMultipartUploadLifecycle = {
 };
 
 type UploadFileMultipartParams = {
+  directFetch: BrowserDirectFetch;
   file: File;
   partSize: number;
   concurrency: number;
@@ -32,6 +34,7 @@ type UploadFileMultipartParams = {
 };
 
 type UploadStreamMultipartParams = {
+  directFetch: BrowserDirectFetch;
   stream: ReadableStream<Uint8Array>;
   sizeBytes: number;
   contentType?: string | null;
@@ -53,6 +56,7 @@ const abortStartedUpload = async (
 };
 
 export const uploadBrowserFileMultipart = async ({
+  directFetch,
   file,
   partSize,
   concurrency,
@@ -108,7 +112,7 @@ export const uploadBrowserFileMultipart = async ({
           const blob = file.slice(part.start, part.end);
           const presignedPart = await lifecycle.presignPart(startedUploadId, part.partNumber);
           transferController.signal.throwIfAborted();
-          const response = await fetch(presignedPart.url, { method: "PUT", headers: presignedPart.headers || {}, body: blob, credentials: "omit", signal: transferController.signal });
+          const response = await directFetch(presignedPart.url, { method: "PUT", headers: presignedPart.headers || {}, body: blob, credentials: "omit", signal: transferController.signal });
           await ensureSuccessfulBrowserTransferResponse(response, "Multipart upload failed");
           const etag = normalizeEtag(response.headers.get("etag") ?? undefined);
           if (!etag) {
@@ -137,6 +141,7 @@ export const uploadBrowserFileMultipart = async ({
 };
 
 export const uploadBrowserStreamMultipart = async ({
+  directFetch,
   stream,
   sizeBytes,
   contentType,
@@ -164,7 +169,7 @@ export const uploadBrowserStreamMultipart = async ({
       currentPartNumber,
     );
     const partBuffer = new Uint8Array(partBytes).buffer;
-    const response = await fetch(presignedPart.url, {
+    const response = await directFetch(presignedPart.url, {
       method: "PUT",
       headers: presignedPart.headers || {},
       body: new Blob([partBuffer], {

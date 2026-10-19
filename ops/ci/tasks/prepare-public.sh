@@ -9,9 +9,10 @@ case "$1" in
     npm ci --prefix frontend --no-audit --no-fund
     cd frontend; npx playwright install --with-deps chromium firefox webkit ;;
   frontend-browser-e2e)
+    sh ops/ci/tasks/install-nginx.sh
     python3 -m pip install -r backend/requirements-browser-e2e.txt
     npm ci --prefix frontend --no-audit --no-fund
     python3 ops/ci/toolchain.py check-node
-    cd frontend; npx playwright install --with-deps chromium ;;
+    cd frontend; npx playwright install --with-deps chromium firefox webkit ;;
   helm-contract) sudo sh ops/ci/install-helm.sh ;;
 esac

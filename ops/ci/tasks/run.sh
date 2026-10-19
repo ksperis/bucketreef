@@ -36,7 +36,9 @@ case "${1:?Validation name required}" in
   frontend-browser-e2e)
     export E2E_START_MOTO=true E2E_S3_ENDPOINT=http://127.0.0.1:5000
     export E2E_S3_ACCESS_KEY=minio E2E_S3_SECRET_KEY=minio123 S3_IGNORE_SUBDOMAIN_BUCKETNAME=true
-    cd frontend; CI=1 npm run test:e2e:ci ;;
+    cd frontend
+    CI=1 npm run test:e2e:ci
+    CI=1 npm run test:transfer-policy ;;
   docs-build) python3 doc/build_docs.py --strict ;;
   docs-screenshots) node frontend/scripts/docs-screenshots/check.mjs ;;
   helm-contract|compose-contract|scheduler-contract) sh "ops/ci/tasks/$1.sh" ;;

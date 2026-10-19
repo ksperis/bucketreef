@@ -376,12 +376,42 @@ imported resources are never renamed automatically.
 ## Frontend runtime settings
 
 - `VITE_API_URL` for API base URL in frontend build/runtime.
-- In container deployments, route `/api` to backend via reverse proxy/ingress.
+- In container deployments, route `/api` to backend via reverse proxy/ingress,
+  except `/api/browser/direct-transfer-worker/`, which must reach the frontend
+  Nginx. The bundled Helm ingress includes this more specific route.
 - `BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE` controls the Nginx request limit for
   Browser uploads relayed through the backend. It accepts Nginx size syntax and
   defaults to `5g`; any outer ingress or proxy must allow the same request size.
 - Browser identity always comes from `/api/auth/session`; UI tokens must never
   be added to `VITE_*` values or browser storage.
+
+### Direct S3 transfers and Content Security Policy
+
+BucketReef pages keep `connect-src 'self'` by default. Direct S3 requests run in
+HTTP Web Workers whose CSP is calculated from the authorized execution context.
+This applies to standalone Browser, Manager Browser, Ceph Admin Browser and the
+embedded Portal file browser. Changing a connection or project does not require
+adding its endpoint to `CSP_CONNECT_SRC` or reloading the page. New operations
+resolve the current endpoint; active transfers retain their existing policy.
+
+The bundled frontend Nginx uses `auth_request` for
+`/api/browser/direct-transfer-worker/browserDirectTransfer.worker-*.js`.
+This path receives the existing access cookie scoped to `/api`; its cookie path
+is not widened. Preserve the worker request's session cookies,
+query parameters, `Cache-Control: no-store` and single dynamic
+`Content-Security-Policy` header through any outer reverse proxy. A second
+`connect-src 'self'` policy on worker responses blocks direct transfers again.
+Do not cache authenticated worker responses. Other pages retain their static
+policy, including first-admin setup and login when the backend is unavailable.
+
+`CSP_CONNECT_SRC` remains an explicit override for page connections; it is not an
+S3 endpoint catalogue. The worker policy permits the effective endpoint origin,
+including its configured port, and bucket subdomains when virtual-hosted S3
+addressing is enabled. Literal IPv6 endpoint URLs require a DNS hostname for
+direct transfers; that hostname may resolve to IPv6. Bucket CORS still has to
+authorize the public BucketReef origin and expose `ETag` for multipart uploads.
+
+Deploy the matching backend and frontend together for this transfer contract.
 
 ## From user error to configuration area
 

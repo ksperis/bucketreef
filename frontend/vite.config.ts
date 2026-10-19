@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { bucketReefI18nCatalogPlugin } from "./scripts/i18nCatalogPlugin";
+import { browserTransferPolicyPlugin } from "./scripts/browserTransferPolicyPlugin";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -17,7 +18,7 @@ export default defineConfig(({ mode }) => {
   const shouldProxyApi = apiUrl.startsWith("/");
 
   return {
-    plugins: [bucketReefI18nCatalogPlugin(), react(), ...(demo ? [{
+    plugins: [bucketReefI18nCatalogPlugin(), react(), ...(!demo ? [browserTransferPolicyPlugin(apiProxyTarget, shouldProxyApi ? apiUrl : new URL(apiUrl).pathname)] : []), ...(demo ? [{
       name: "bucketreef-static-demo",
       generateBundle() {
         this.emitFile({ type: "asset", fileName: "demo-release.json", source: JSON.stringify({

@@ -88,6 +88,9 @@ for arch in amd64 arm64; do
         sleep 1
       done
       docker exec "$container" grep -F "connect-src 'self'" /tmp/nginx.conf
+      docker exec "$container" sh -c 'nginx -V 2>&1 | grep -F -- --with-http_auth_request_module'
+      docker exec "$container" nginx -t -c /tmp/nginx.conf
+      docker exec "$container" sh -c 'test "$(wget -S -O /dev/null http://127.0.0.1:8080/setup/first-admin 2>&1 | grep -ic "Content-Security-Policy:")" = 1'
       docker rm --force "$container" >/dev/null
       trap 'rm -rf "$temporary"; docker buildx rm "$builder" >/dev/null 2>&1 || true' EXIT
       ;;

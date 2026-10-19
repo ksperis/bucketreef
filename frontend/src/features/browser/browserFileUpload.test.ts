@@ -14,7 +14,7 @@ describe("uploadBrowserFile", () => {
     const uploadProxy = vi.fn().mockResolvedValue(undefined);
     const presign = vi.fn();
 
-    await uploadBrowserFile({
+    await uploadBrowserFile({ directFetch: fetchMock,
       file: new File(["proxy"], "proxy.txt", { type: "text/plain" }),
       mode: "proxy",
       onProgress: vi.fn(),
@@ -34,7 +34,7 @@ describe("uploadBrowserFile", () => {
     const signal = new AbortController().signal;
     const onProgress = vi.fn();
 
-    await uploadBrowserFile({
+    await uploadBrowserFile({ directFetch: fetchMock,
       file,
       mode: "direct",
       signal,
@@ -71,7 +71,7 @@ describe("uploadBrowserFile", () => {
 
   it("rejects non-PUT presigned responses instead of keeping a POST fallback", async () => {
     await expect(
-      uploadBrowserFile({
+      uploadBrowserFile({ directFetch: fetchMock,
         file: new File(["post"], "post.txt"),
         mode: "direct",
         onProgress: vi.fn(),

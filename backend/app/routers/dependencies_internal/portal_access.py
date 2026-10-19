@@ -73,7 +73,7 @@ def _is_portal_browser_basic_route_allowed(request: Request) -> bool:
     if method in {"HEAD", "OPTIONS"}:
         return True
     segments = _portal_browser_relative_segments(request)
-    if method == "GET" and segments == ["settings"]:
+    if method == "GET" and segments in (["settings"], ["direct-transfer-policy"]):
         return True
     if method == "GET" and segments == ["buckets", "search"]:
         return True
@@ -132,6 +132,7 @@ def resolve_portal_browser_context(
     link: UserS3Account | EffectiveAccountLink,
     *,
     request: Request,
+    metadata_only: bool = False,
 ) -> S3ExecutionContext:
     app_settings = app_settings_service.load_app_settings()
     if not app_settings.general.portal_enabled:
@@ -154,6 +155,11 @@ def resolve_portal_browser_context(
         capabilities=portal_capabilities,
         portal_role=portal_role,
     )
+    if metadata_only:
+        context = S3ExecutionContext.from_account(account, context_kind="portal_account")
+        context.portal_browser_role = portal_role
+        context.portal_browser_access = portal_access
+        return context
     try:
         access_key, secret_key = portal_service.get_portal_credentials(
             user,
