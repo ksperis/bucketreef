@@ -14,6 +14,12 @@ from .base import Base
 class S3Account(Base):
     __tablename__ = "s3_accounts"
     __table_args__ = (
+        UniqueConstraint(
+            "storage_endpoint_id",
+            "rgw_tenant",
+            "name",
+            name="uq_s3_accounts_endpoint_tenant_name",
+        ),
         Index("ix_s3_accounts_storage_endpoint", "storage_endpoint_id"),
         CheckConstraint(
             "rgw_account_id = TRIM(rgw_account_id) AND LENGTH(rgw_account_id) > 0",
@@ -26,7 +32,7 @@ class S3Account(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
     rgw_account_id = Column(String, unique=True, nullable=False)
     rgw_tenant = Column(String, nullable=False, default="", server_default="")
     email = Column(String, nullable=True)

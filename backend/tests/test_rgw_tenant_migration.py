@@ -121,3 +121,97 @@ def test_compat_migration_repairs_databases_that_already_ran_original_0152(tmp_p
     finally:
         engine.dispose()
         get_settings.cache_clear()
+
+
+def test_account_name_scope_migration_replaces_global_uniqueness(tmp_path, monkeypatch):
+    url = f"sqlite:///{tmp_path / 'account-name-scope.sqlite'}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    get_settings.cache_clear()
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.attributes["configure_logger"] = False
+    engine = sa.create_engine(url)
+    try:
+        command.upgrade(config, "0164_billing_statement_automation")
+        with Session(engine) as session:
+            session.add_all(
+                [
+                    StorageEndpoint(
+                        id=1,
+                        name="scope-a",
+                        endpoint_url="https://scope-a.invalid",
+                        provider="ceph",
+                    ),
+                    StorageEndpoint(
+                        id=2,
+                        name="scope-b",
+                        endpoint_url="https://scope-b.invalid",
+                        provider="ceph",
+                    ),
+                ]
+            )
+            session.commit()
+        with engine.begin() as conn:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO s3_accounts "
+                    "(name, rgw_account_id, rgw_tenant, rgw_user_uid, storage_endpoint_id, created_at, updated_at) "
+                    "VALUES ('Research', 'RGW-SCOPE-1', 'team_a', 'root-a', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+
+        command.upgrade(config, "0165_scope_s3_account_names")
+
+        with engine.begin() as conn:
+            constraints = sa.inspect(conn).get_unique_constraints("s3_accounts")
+            assert any(
+                constraint["name"] == "uq_s3_accounts_endpoint_tenant_name"
+                and constraint["column_names"] == ["storage_endpoint_id", "rgw_tenant", "name"]
+                for constraint in constraints
+            )
+            assert not any(
+                constraint["column_names"] == ["name"]
+                for constraint in constraints
+            )
+            conn.execute(
+                sa.text(
+                    "INSERT INTO s3_accounts "
+                    "(name, rgw_account_id, rgw_tenant, rgw_user_uid, storage_endpoint_id, created_at, updated_at) "
+                    "VALUES ('Research', 'RGW-SCOPE-2', 'team_b', 'root-b', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            conn.execute(
+                sa.text(
+                    "INSERT INTO s3_accounts "
+                    "(name, rgw_account_id, rgw_tenant, rgw_user_uid, storage_endpoint_id, created_at, updated_at) "
+                    "VALUES ('Research', 'RGW-SCOPE-3', 'team_a', 'root-c', 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            with pytest.raises(sa.exc.IntegrityError):
+                with conn.begin_nested():
+                    conn.execute(
+                        sa.text(
+                            "INSERT INTO s3_accounts "
+                            "(name, rgw_account_id, rgw_tenant, rgw_user_uid, storage_endpoint_id, created_at, updated_at) "
+                            "VALUES ('Research', 'RGW-SCOPE-4', 'team_a', 'root-d', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                        )
+                    )
+
+        with pytest.raises(RuntimeError, match="globally non-unique"):
+            command.downgrade(config, "0164_billing_statement_automation")
+
+        with engine.begin() as conn:
+            conn.execute(sa.text("DELETE FROM s3_accounts WHERE rgw_account_id IN ('RGW-SCOPE-2', 'RGW-SCOPE-3')"))
+        command.downgrade(config, "0164_billing_statement_automation")
+        with engine.begin() as conn:
+            with pytest.raises(sa.exc.IntegrityError):
+                with conn.begin_nested():
+                    conn.execute(
+                        sa.text(
+                            "INSERT INTO s3_accounts "
+                            "(name, rgw_account_id, rgw_tenant, rgw_user_uid, storage_endpoint_id, created_at, updated_at) "
+                            "VALUES ('Research', 'RGW-SCOPE-5', 'team_b', 'root-e', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                        )
+                    )
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()

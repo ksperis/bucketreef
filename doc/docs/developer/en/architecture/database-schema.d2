@@ -134,7 +134,7 @@ Legend: {
   }
   "s3_accounts": {
     class: table
-    tooltip: "PK: id\\nUnique: unnamed(name); unnamed(rgw_account_id)\\nCheck: ck_s3_accounts_rgw_account_id_canonical: rgw_account_id = TRIM(rgw_account_id) AND LENGTH(rgw_account_id) > 0; ck_s3_accounts_rgw_user_uid_canonical: rgw_user_uid = TRIM(rgw_user_uid) AND LENGTH(rgw_user_uid) > 0\\nIndexes: ix_s3_accounts_id(id) [index]; ix_s3_accounts_storage_endpoint(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: unnamed(rgw_account_id); uq_s3_accounts_endpoint_tenant_name(storage_endpoint_id, rgw_tenant, name)\\nCheck: ck_s3_accounts_rgw_account_id_canonical: rgw_account_id = TRIM(rgw_account_id) AND LENGTH(rgw_account_id) > 0; ck_s3_accounts_rgw_user_uid_canonical: rgw_user_uid = TRIM(rgw_user_uid) AND LENGTH(rgw_user_uid) > 0\\nIndexes: ix_s3_accounts_id(id) [index]; ix_s3_accounts_storage_endpoint(storage_endpoint_id) [index]"
   }
   "user_s3_accounts": {
     class: table

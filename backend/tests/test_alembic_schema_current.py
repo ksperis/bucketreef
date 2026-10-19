@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0164_billing_statement_automation"
+_EXPECTED_ALEMBIC_HEAD = "0165_scope_s3_account_names"
 
 
 def _alembic_config() -> Config:
