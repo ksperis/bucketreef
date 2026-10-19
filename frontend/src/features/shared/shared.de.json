@@ -37,7 +37,7 @@
   "Bucket comparison progress": "Fortschritt des Bucket-Vergleichs",
   "Bucket index checks are limited to {count} buckets. Narrow the selection to continue.": "Bucket-Indexprüfungen sind auf {count} Buckets begrenzt. Auswahl verkleinern.",
   "Bucket integrity check mode": "Modus der Bucket-Integritätsprüfung",
-  "Bucket integrity progress": "Fortschritt der Integritätsprüfung",
+  "Bucket integrity progress": "Fortschritt der Bucket-Integritätsprüfung",
   "Bucket list": "Bucket-Liste",
   "Bucket name(s)": "Bucket-Name(n)",
   "Bucket purge progress": "Fortschritt der Bucket-Löschung",

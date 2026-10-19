@@ -20,6 +20,8 @@ import sharedDe from "./features/shared/shared.de.json";
 import sharedFr from "./features/shared/shared.fr.json";
 import sharedZh from "./features/shared/shared.zh.json";
 
+const TECHNICAL_TERMS = ["Ceph", "RGW", "S3", "IAM", "CORS", "Bucket", "Tenant"] as const;
+
 describe("compact i18n catalogs", () => {
   it("reconstructs every source catalog without changing keys or translations", () => {
     const cases = [
@@ -34,6 +36,40 @@ describe("compact i18n catalogs", () => {
       expect({ ...catalogs.fr }).toEqual(fr);
       expect({ ...catalogs.de }).toEqual(de);
       expect({ ...catalogs.zh }).toEqual(zh);
+    }
+  });
+
+  it("keeps storage technical terms untranslated", () => {
+    const catalogs = [
+      ["admin.fr", adminFr],
+      ["admin.de", adminDe],
+      ["admin.zh", adminZh],
+      ["browser.fr", browserFr],
+      ["browser.de", browserDe],
+      ["browser.zh", browserZh],
+      ["cephAdmin.fr", cephAdminFr],
+      ["cephAdmin.de", cephAdminDe],
+      ["cephAdmin.zh", cephAdminZh],
+      ["manager.fr", managerFr],
+      ["manager.de", managerDe],
+      ["manager.zh", managerZh],
+      ["shared.fr", sharedFr],
+      ["shared.de", sharedDe],
+      ["shared.zh", sharedZh],
+    ] as const;
+
+    for (const [catalogName, catalog] of catalogs) {
+      for (const [source, translation] of Object.entries(catalog)) {
+        for (const term of TECHNICAL_TERMS) {
+          const termPattern = new RegExp(`\\b${term}s?\\b`, "i");
+          if (!termPattern.test(source)) continue;
+
+          expect(
+            termPattern.test(translation),
+            `${catalogName} must preserve ${term} in: ${source}`,
+          ).toBe(true);
+        }
+      }
     }
   });
 });

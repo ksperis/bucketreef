@@ -940,7 +940,7 @@
   "Bucket data management": "Gestion des données du bucket",
   "Configure lifecycle and replication rules that control how bucket data is retained and copied.": "Configurez les règles de cycle de vie et de réplication qui contrôlent la conservation et la copie des données du bucket.",
   "Bucket overview, objects, configuration, data management, usage and metrics.": "Vue d’ensemble du bucket, objets, configuration, gestion des données, utilisation et métriques.",
-  "Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available above.": "Les métriques temps réel de l’endpoint sont indisponibles. Les statistiques d’utilisation calculées par BucketReef à partir des listes d’objets restent disponibles ci-dessus.",
+  "Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available above.": "Les métriques temps réel de l’endpoint sont indisponibles. Les statistiques d’utilisation calculées par BucketReef à partir des listes de Buckets restent disponibles ci-dessus.",
   "Inventory statistics": "Statistiques d’inventaire",
   "IAM user details": "Détails de l’utilisateur IAM",
   "IAM group details": "Détails du groupe IAM",
