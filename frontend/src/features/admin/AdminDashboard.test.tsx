@@ -467,7 +467,19 @@ describe("AdminDashboard feature summary", () => {
     const geography = screen.getByTestId("admin-dashboard-map-geography");
     expect(geography).toHaveAttribute("data-basemap", "france");
     expect(geography).toHaveAttribute("data-x-scale", "0.69");
-    expect(screen.getAllByTestId("admin-dashboard-map-marker")).toHaveLength(2);
+    const mapMarkers = screen.getAllByTestId("admin-dashboard-map-marker");
+    expect(mapMarkers).toHaveLength(2);
+    expect(screen.queryByRole("tooltip", { name: "Endpoint: INRAE-eprod-debug" })).not.toBeInTheDocument();
+    fireEvent.mouseEnter(mapMarkers[0]);
+    const endpointTooltip = within(screen.getByRole("tooltip", { name: "Endpoint: INRAE-eprod-debug" }));
+    expect(endpointTooltip.getByText("INRAE-eprod-debug")).toBeInTheDocument();
+    expect(endpointTooltip.getByText("https://s3.example.test")).toBeInTheDocument();
+    expect(endpointTooltip.getByText("Ceph")).toBeInTheDocument();
+    expect(endpointTooltip.getByText("Up")).toBeInTheDocument();
+    expect(endpointTooltip.getByText("76 ms")).toBeInTheDocument();
+    expect(endpointTooltip.getByText("Default")).toBeInTheDocument();
+    fireEvent.mouseLeave(mapMarkers[0]);
+    expect(screen.queryByRole("tooltip", { name: "Endpoint: INRAE-eprod-debug" })).not.toBeInTheDocument();
     expect(infrastructureMap.querySelector("polyline")).toBeNull();
     expect(screen.getByText("Infrastructure map")).toBeInTheDocument();
     expect(screen.getByText("12.4M")).toBeInTheDocument();
@@ -659,6 +671,9 @@ describe("AdminDashboard feature summary", () => {
     expect(staleEndpointRow).toHaveTextContent("Unknown");
     expect(staleEndpointRow).toHaveTextContent("Stale");
     expect(staleEndpointRow).not.toHaveTextContent(/\bUp\b/);
+    const staleMapMarkers = await screen.findAllByTestId("admin-dashboard-map-marker");
+    fireEvent.mouseEnter(staleMapMarkers[0]);
+    expect(within(screen.getByRole("tooltip", { name: "Endpoint: INRAE-eprod-debug" })).getByText("Unknown")).toBeInTheDocument();
     expect(within(endpointRegion).queryByRole("img", { name: "Infrastructure endpoint map" })).not.toBeInTheDocument();
   });
 

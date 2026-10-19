@@ -1,13 +1,22 @@
-import type { ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import type { HealthCheckStatus } from "../../../api/healthchecks";
+import type { StorageProvider } from "../../../api/storageEndpoints";
+import AnchoredPortalMenu from "../../../components/ui/AnchoredPortalMenu";
+import UiBadge from "../../../components/ui/UiBadge";
+import { uiMenuClass } from "../../../components/ui/styles";
 import { useAdminDashboardMapI18n } from "./adminDashboardMapMessages";
 
 export type AdminDashboardMapMarker = {
   id: number;
   name: string;
+  endpointUrl: string;
+  provider: StorageProvider;
+  region?: string | null;
+  isDefault?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   status: HealthCheckStatus;
+  latencyMs?: number | null;
 };
 
 type AdminDashboardMapProps = {
@@ -670,6 +679,84 @@ function MapFrame({
   );
 }
 
+function EndpointMarker({
+  marker,
+  markerRadius,
+  markerHaloRadius,
+}: {
+  marker: ProjectedMarker;
+  markerRadius: number;
+  markerHaloRadius: number;
+}) {
+  const { text } = useAdminDashboardMapI18n();
+  const tooltipId = useId();
+  const anchorRef = useRef<SVGGElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const endpointLabel = `${text("endpoint")}: ${marker.name}`;
+  const providerLabel = text(marker.provider === "ceph" ? "providerCeph" : marker.provider === "aws" ? "providerAws" : "providerOther");
+  const statusLabel = text(marker.status);
+
+  return (
+    <>
+      <g
+        ref={anchorRef}
+        data-testid="admin-dashboard-map-marker"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+      >
+        <circle
+          cx={marker.x}
+          cy={marker.y}
+          r={markerHaloRadius}
+          fill={statusColorMap[marker.status]}
+          opacity="0.18"
+        />
+        <circle
+          cx={marker.x}
+          cy={marker.y}
+          r={markerRadius}
+          fill={statusColorMap[marker.status]}
+          stroke="rgba(248, 250, 252, 0.94)"
+          strokeWidth={markerRadius * 0.28}
+        />
+      </g>
+      <AnchoredPortalMenu
+        open={open}
+        anchorRef={anchorRef}
+        placement="bottom-start"
+        offset={6}
+        minWidth={280}
+        className={`${uiMenuClass} pointer-events-none w-72 p-3`}
+      >
+        <div id={tooltipId} role="tooltip" aria-label={endpointLabel}>
+          <div className="border-b border-[color:var(--ui-border-soft)] pb-2">
+            <div className="flex items-start justify-between gap-2">
+              <p className="min-w-0 break-words text-sm font-semibold text-[var(--ui-text)]">{marker.name}</p>
+              {marker.isDefault ? <UiBadge tone="primary">{text("default")}</UiBadge> : null}
+            </div>
+            <p className="mt-0.5 break-all text-[11px] leading-4 text-[var(--ui-text-muted)]">{marker.endpointUrl}</p>
+          </div>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs leading-4">
+            <dt className="text-[var(--ui-text-muted)]">{text("provider")}</dt>
+            <dd className="min-w-0 break-words text-right font-medium text-[var(--ui-text)]">
+              {providerLabel}{marker.region ? ` · ${marker.region}` : ""}
+            </dd>
+            <dt className="text-[var(--ui-text-muted)]">{text("status")}</dt>
+            <dd className="flex items-center justify-end gap-1.5 font-medium text-[var(--ui-text)]">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: statusColorMap[marker.status] }} aria-hidden="true" />
+              {statusLabel}
+            </dd>
+            <dt className="text-[var(--ui-text-muted)]">{text("latency")}</dt>
+            <dd className="text-right font-medium text-[var(--ui-text)]">
+              {marker.latencyMs != null && Number.isFinite(marker.latencyMs) ? `${Math.round(marker.latencyMs)} ms` : "—"}
+            </dd>
+          </dl>
+        </div>
+      </AnchoredPortalMenu>
+    </>
+  );
+}
+
 export default function AdminDashboardMap({ markers, loading = false, error = null }: AdminDashboardMapProps) {
   const { text } = useAdminDashboardMapI18n();
   const { basemap, projectedMarkers } = projectMarkers(markers);
@@ -708,23 +795,12 @@ export default function AdminDashboardMap({ markers, loading = false, error = nu
       >
         <GeographyBasemap basemap={basemap} muted={projectedMarkers.length === 0} />
         {projectedMarkers.map((marker) => (
-          <g key={marker.id} data-testid="admin-dashboard-map-marker">
-            <circle
-              cx={marker.x}
-              cy={marker.y}
-              r={markerHaloRadius}
-              fill={statusColorMap[marker.status]}
-              opacity="0.18"
-            />
-            <circle
-              cx={marker.x}
-              cy={marker.y}
-              r={markerRadius}
-              fill={statusColorMap[marker.status]}
-              stroke="rgba(248, 250, 252, 0.94)"
-              strokeWidth={markerRadius * 0.28}
-            />
-          </g>
+          <EndpointMarker
+            key={marker.id}
+            marker={marker}
+            markerRadius={markerRadius}
+            markerHaloRadius={markerHaloRadius}
+          />
         ))}
       </svg>
       {projectedMarkers.length === 0 && (
