@@ -163,12 +163,29 @@ export type OnboardingSettings = {
   dismissed: boolean;
 };
 
+export type BillingAutomationSettings = {
+  mode: "manual" | "automatic_draft" | "automatic_finalize";
+  schedule_day: number;
+  require_all_subjects_assigned: boolean;
+};
+
+export type BillingStatementPdfSettings = {
+  organization_name: string;
+  organization_details: string | null;
+  accent_color: string;
+  logo_data_url: string | null;
+  statement_note: string | null;
+  footer_text: string | null;
+};
+
 export type AppSettings = {
   general: GeneralConfiguration;
   portal: PortalConfiguration;
   manager: ManagerSettings;
   quota_notifications: QuotaNotificationSettings;
   browser: BrowserSettings;
+  billing_automation: BillingAutomationSettings;
+  billing_statement_pdf: BillingStatementPdfSettings;
   onboarding: OnboardingSettings;
   branding: BrandingSettings;
 };

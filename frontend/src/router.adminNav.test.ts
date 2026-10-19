@@ -73,6 +73,7 @@ describe("buildAdminNav", () => {
       "Manager",
       "Browser",
       "Portal",
+      "Billing",
       "Webhooks",
       "Production readiness",
       "Key Rotation",
@@ -164,7 +165,10 @@ describe("buildAdminNav", () => {
   it("keeps settings collapsed until the admin settings route asks for expansion", () => {
     const baseArgs = [true, true, false, false, false, true] as const;
 
-    expect(buildAdminNav(...baseArgs).find((section) => section.label === "Settings")?.collapsed).toBe(true);
+    const settingsSection = buildAdminNav(...baseArgs).find((section) => section.label === "Settings");
+    expect(settingsSection?.id).toBe("settings");
+    expect(settingsSection?.collapsible).toBe(true);
+    expect(settingsSection?.collapsed).toBe(true);
     expect(buildAdminNav(...baseArgs, true).find((section) => section.label === "Settings")?.collapsed).toBe(false);
   });
 

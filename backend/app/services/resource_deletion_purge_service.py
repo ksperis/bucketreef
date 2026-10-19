@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.db import (
     BillingAssignment,
+    BillingEntitySubjectRule,
     BillingRateCard,
+    BillingRatePlan,
     BillingStorageDaily,
     BillingUsageDaily,
     BrowserFavorite,
@@ -97,6 +99,7 @@ class ResourceDeletionPurgeService:
 
     def purge_account_derived_data(self, account_id: int) -> None:
         self._delete_where(BillingAssignment, BillingAssignment.s3_account_id == account_id)
+        self._delete_where(BillingEntitySubjectRule, BillingEntitySubjectRule.s3_account_id == account_id)
         self._delete_where(BillingUsageDaily, BillingUsageDaily.s3_account_id == account_id)
         self._delete_where(BillingStorageDaily, BillingStorageDaily.s3_account_id == account_id)
         self._delete_where(QuotaAlertState, QuotaAlertState.s3_account_id == account_id)
@@ -105,6 +108,7 @@ class ResourceDeletionPurgeService:
 
     def purge_s3_user_derived_data(self, s3_user_id: int) -> None:
         self._delete_where(BillingAssignment, BillingAssignment.s3_user_id == s3_user_id)
+        self._delete_where(BillingEntitySubjectRule, BillingEntitySubjectRule.s3_user_id == s3_user_id)
         self._delete_where(BillingUsageDaily, BillingUsageDaily.s3_user_id == s3_user_id)
         self._delete_where(BillingStorageDaily, BillingStorageDaily.s3_user_id == s3_user_id)
         self._delete_where(QuotaAlertState, QuotaAlertState.s3_user_id == s3_user_id)
@@ -115,7 +119,11 @@ class ResourceDeletionPurgeService:
         self._delete_where(BillingAssignment, BillingAssignment.storage_endpoint_id == endpoint_id)
         self._delete_where(BillingUsageDaily, BillingUsageDaily.storage_endpoint_id == endpoint_id)
         self._delete_where(BillingStorageDaily, BillingStorageDaily.storage_endpoint_id == endpoint_id)
-        self._delete_where(BillingRateCard, BillingRateCard.storage_endpoint_id == endpoint_id)
+        endpoint_rate_plan_ids = select(BillingRatePlan.id).where(
+            BillingRatePlan.storage_endpoint_id == endpoint_id
+        )
+        self._delete_where(BillingRateCard, BillingRateCard.rate_plan_id.in_(endpoint_rate_plan_ids))
+        self._delete_where(BillingRatePlan, BillingRatePlan.storage_endpoint_id == endpoint_id)
         self._delete_where(QuotaAlertState, QuotaAlertState.storage_endpoint_id == endpoint_id)
         self._delete_where(QuotaUsageHourly, QuotaUsageHourly.storage_endpoint_id == endpoint_id)
         self._delete_where(QuotaUsageDaily, QuotaUsageDaily.storage_endpoint_id == endpoint_id)

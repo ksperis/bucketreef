@@ -7,6 +7,8 @@ from app.utils.time import utcnow
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
+    CheckConstraint,
     Column,
     Date,
     ForeignKey,
@@ -88,6 +90,10 @@ class BillingUsageDaily(Base):
 class BillingStorageDaily(Base):
     __tablename__ = "billing_storage_daily"
     __table_args__ = (
+        CheckConstraint(
+            "quota_state IN ('valid', 'missing', 'disabled', 'unlimited', 'invalid')",
+            name="ck_billing_storage_daily_quota_state",
+        ),
         UniqueConstraint(
             "day",
             "storage_endpoint_id",
@@ -137,6 +143,8 @@ class BillingStorageDaily(Base):
     s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
     total_bytes = Column(BigInteger, nullable=False, default=0, server_default="0")
     total_objects = Column(BigInteger, nullable=False, default=0, server_default="0")
+    quota_size_bytes = Column(BigInteger, nullable=True)
+    quota_state = Column(String, nullable=False, default="missing", server_default="missing")
     by_bucket = Column(Text, nullable=True)
     source = Column(String, nullable=False, default="rgw_admin_bucket_stats")
     collected_at = Column(UTCDateTime(), nullable=False, default=utcnow)
@@ -146,48 +154,94 @@ class BillingStorageDaily(Base):
     s3_user = relationship("S3User")
 
 
+class BillingRatePlan(Base):
+    __tablename__ = "billing_rate_plans"
+    __table_args__ = (
+        Index(
+            "uq_billing_rate_plans_global_name",
+            "name",
+            unique=True,
+            sqlite_where=text("storage_endpoint_id IS NULL"),
+            postgresql_where=text("storage_endpoint_id IS NULL"),
+        ),
+        Index(
+            "uq_billing_rate_plans_endpoint_name",
+            "storage_endpoint_id",
+            "name",
+            unique=True,
+            sqlite_where=text("storage_endpoint_id IS NOT NULL"),
+            postgresql_where=text("storage_endpoint_id IS NOT NULL"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=True, index=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+
+    storage_endpoint = relationship("StorageEndpoint")
+    versions = relationship(
+        "BillingRateCard",
+        back_populates="rate_plan",
+        cascade="all, delete-orphan",
+        order_by="BillingRateCard.effective_from",
+    )
+
+
 class BillingRateCard(Base):
     __tablename__ = "billing_rate_cards"
     __table_args__ = (
-        UniqueConstraint("name", name="uq_billing_rate_cards_name"),
+        CheckConstraint(
+            "storage_charge_basis IN ('actual_usage', 'allocated_quota')",
+            name="ck_billing_rate_cards_storage_charge_basis",
+        ),
+        UniqueConstraint("rate_plan_id", "effective_from", name="uq_billing_rate_cards_plan_effective"),
         Index(
-            "ix_billing_rate_cards_endpoint_effective_window",
-            "storage_endpoint_id",
+            "ix_billing_rate_cards_plan_effective_window",
+            "rate_plan_id",
             "effective_from",
             "effective_to",
         ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    rate_plan_id = Column(Integer, ForeignKey("billing_rate_plans.id"), nullable=False, index=True)
     currency = Column(String, nullable=False, default="EUR", server_default="EUR")
+    storage_charge_basis = Column(
+        String,
+        nullable=False,
+        default="actual_usage",
+        server_default="actual_usage",
+    )
     storage_gb_month_price = Column(Numeric(12, 6), nullable=True)
     egress_gb_price = Column(Numeric(12, 6), nullable=True)
     ingress_gb_price = Column(Numeric(12, 6), nullable=True)
     requests_per_1000_price = Column(Numeric(12, 6), nullable=True)
     effective_from = Column(Date, nullable=False)
     effective_to = Column(Date, nullable=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=True, index=True)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
-    storage_endpoint = relationship("StorageEndpoint")
+    rate_plan = relationship("BillingRatePlan", back_populates="versions")
 
 
 class BillingAssignment(Base):
     __tablename__ = "billing_assignments"
     __table_args__ = (
         Index(
-            "ix_billing_assignments_endpoint_account_created",
+            "ix_billing_assignments_endpoint_account_effective",
             "storage_endpoint_id",
             "s3_account_id",
-            "created_at",
+            "effective_from",
+            "effective_to",
         ),
         Index(
-            "ix_billing_assignments_endpoint_user_created",
+            "ix_billing_assignments_endpoint_user_effective",
             "storage_endpoint_id",
             "s3_user_id",
-            "created_at",
+            "effective_from",
+            "effective_to",
         ),
     )
 
@@ -195,10 +249,409 @@ class BillingAssignment(Base):
     storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
     s3_account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True, index=True)
     s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
-    rate_card_id = Column(Integer, ForeignKey("billing_rate_cards.id"), nullable=False, index=True)
+    rate_plan_id = Column(Integer, ForeignKey("billing_rate_plans.id"), nullable=False, index=True)
+    effective_from = Column(Date, nullable=False)
+    effective_to = Column(Date, nullable=True)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
     storage_endpoint = relationship("StorageEndpoint")
     account = relationship("S3Account")
     s3_user = relationship("S3User")
-    rate_card = relationship("BillingRateCard")
+    rate_plan = relationship("BillingRatePlan")
+
+
+class BillingEntity(Base):
+    __tablename__ = "billing_entities"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_billing_entities_name"),
+        UniqueConstraint("code", name="uq_billing_entities_code"),
+        UniqueConstraint("external_id", name="uq_billing_entities_external_id"),
+        CheckConstraint(
+            "subject_type IN ('account', 's3_user')",
+            name="ck_billing_entities_subject_type",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    code = Column(String, nullable=True)
+    external_id = Column(String, nullable=True)
+    subject_type = Column(String, nullable=False)
+    active = Column(Boolean, nullable=False, default=True, server_default="1")
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    tag_rules = relationship(
+        "BillingEntityTagRule",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="BillingEntityTagRule.id",
+    )
+    subject_rules = relationship(
+        "BillingEntitySubjectRule",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="BillingEntitySubjectRule.id",
+    )
+    rate_assignments = relationship(
+        "BillingEntityRateAssignment",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="BillingEntityRateAssignment.effective_from",
+    )
+    group_memberships = relationship(
+        "BillingEntityGroupMembership",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="BillingEntityGroupMembership.effective_from",
+    )
+
+
+class BillingEntityTagRule(Base):
+    __tablename__ = "billing_entity_tag_rules"
+    __table_args__ = (
+        UniqueConstraint(
+            "billing_entity_id",
+            "tag_definition_id",
+            name="uq_billing_entity_tag_rule",
+        ),
+        Index("ix_billing_entity_tag_rules_tag", "tag_definition_id"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    tag_definition_id = Column(
+        Integer,
+        ForeignKey("tag_definitions.id"),
+        nullable=False,
+    )
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+
+    entity = relationship("BillingEntity", back_populates="tag_rules")
+    tag_definition = relationship("TagDefinition")
+
+
+class BillingEntitySubjectRule(Base):
+    __tablename__ = "billing_entity_subject_rules"
+    __table_args__ = (
+        CheckConstraint(
+            "rule_type IN ('include', 'exclude')",
+            name="ck_billing_entity_subject_rules_type",
+        ),
+        CheckConstraint(
+            "(s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR "
+            "(s3_account_id IS NULL AND s3_user_id IS NOT NULL)",
+            name="ck_billing_entity_subject_rules_subject",
+        ),
+        Index(
+            "uq_billing_entity_subject_rules_account",
+            "billing_entity_id",
+            "rule_type",
+            "s3_account_id",
+            unique=True,
+            sqlite_where=text("s3_account_id IS NOT NULL"),
+            postgresql_where=text("s3_account_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_billing_entity_subject_rules_user",
+            "billing_entity_id",
+            "rule_type",
+            "s3_user_id",
+            unique=True,
+            sqlite_where=text("s3_user_id IS NOT NULL"),
+            postgresql_where=text("s3_user_id IS NOT NULL"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    rule_type = Column(String, nullable=False)
+    s3_account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+
+    entity = relationship("BillingEntity", back_populates="subject_rules")
+    account = relationship("S3Account")
+    s3_user = relationship("S3User")
+
+
+class BillingEntityRateAssignment(Base):
+    __tablename__ = "billing_entity_rate_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "billing_entity_id",
+            "effective_from",
+            name="uq_billing_entity_rate_assignment_start",
+        ),
+        Index(
+            "ix_billing_entity_rate_assignments_effective",
+            "billing_entity_id",
+            "effective_from",
+            "effective_to",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    rate_plan_id = Column(Integer, ForeignKey("billing_rate_plans.id"), nullable=False, index=True)
+    effective_from = Column(Date, nullable=False)
+    effective_to = Column(Date, nullable=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    entity = relationship("BillingEntity", back_populates="rate_assignments")
+    rate_plan = relationship("BillingRatePlan")
+
+
+class BillingEntityGroup(Base):
+    __tablename__ = "billing_entity_groups"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_billing_entity_groups_name"),
+        UniqueConstraint("code", name="uq_billing_entity_groups_code"),
+        UniqueConstraint("external_id", name="uq_billing_entity_groups_external_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    code = Column(String, nullable=True)
+    external_id = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    active = Column(Boolean, nullable=False, default=True, server_default="1")
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    memberships = relationship(
+        "BillingEntityGroupMembership",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        order_by="BillingEntityGroupMembership.effective_from",
+    )
+
+
+class BillingEntityGroupMembership(Base):
+    __tablename__ = "billing_entity_group_memberships"
+    __table_args__ = (
+        UniqueConstraint(
+            "billing_entity_group_id",
+            "billing_entity_id",
+            "effective_from",
+            name="uq_billing_entity_group_membership_start",
+        ),
+        CheckConstraint(
+            "effective_to IS NULL OR effective_to >= effective_from",
+            name="ck_billing_entity_group_membership_period",
+        ),
+        Index(
+            "ix_billing_entity_group_memberships_effective",
+            "billing_entity_group_id",
+            "billing_entity_id",
+            "effective_from",
+            "effective_to",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    billing_entity_group_id = Column(
+        Integer,
+        ForeignKey("billing_entity_groups.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    effective_from = Column(Date, nullable=False)
+    effective_to = Column(Date, nullable=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    group = relationship("BillingEntityGroup", back_populates="memberships")
+    entity = relationship("BillingEntity", back_populates="group_memberships")
+
+
+class BillingStatement(Base):
+    __tablename__ = "billing_statements"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'finalized')",
+            name="ck_billing_statements_status",
+        ),
+        CheckConstraint(
+            "subject_type IN ('account', 's3_user')",
+            name="ck_billing_statements_subject_type",
+        ),
+        CheckConstraint(
+            "period_end >= period_start",
+            name="ck_billing_statements_period",
+        ),
+        UniqueConstraint(
+            "billing_entity_id",
+            "period_start",
+            "currency",
+            name="uq_billing_statements_entity_period_currency",
+        ),
+        Index(
+            "ix_billing_statements_period_status",
+            "period_start",
+            "status",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(String(36), nullable=False, unique=True, index=True)
+    billing_entity_id = Column(
+        Integer,
+        ForeignKey("billing_entities.id"),
+        nullable=False,
+        index=True,
+    )
+    billing_entity_name = Column(String, nullable=False)
+    billing_entity_code = Column(String, nullable=True)
+    billing_entity_external_id = Column(String, nullable=True)
+    subject_type = Column(String, nullable=False)
+    period_start = Column(Date, nullable=False, index=True)
+    period_end = Column(Date, nullable=False)
+    currency = Column(String(3), nullable=False)
+    status = Column(String, nullable=False, default="draft", server_default="draft")
+    member_count = Column(Integer, nullable=False, default=0, server_default="0")
+    coverage_json = Column(Text, nullable=False)
+    blockers_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    storage_charge_bases_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    subtotal = Column(Numeric(24, 6), nullable=False, default=0, server_default="0")
+    total = Column(Numeric(24, 6), nullable=False, default=0, server_default="0")
+    source_fingerprint = Column(String(64), nullable=False)
+    revision = Column(Integer, nullable=False, default=1, server_default="1")
+    generated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    finalized_at = Column(UTCDateTime(), nullable=True)
+    finalized_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    finalized_by_user_email = Column(String, nullable=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+    entity = relationship("BillingEntity")
+    finalized_by = relationship("User")
+    lines = relationship(
+        "BillingStatementLine",
+        back_populates="statement",
+        cascade="all, delete-orphan",
+        order_by="BillingStatementLine.line_index",
+    )
+
+
+class BillingStatementLine(Base):
+    __tablename__ = "billing_statement_lines"
+    __table_args__ = (
+        CheckConstraint(
+            "subject_type IN ('account', 's3_user')",
+            name="ck_billing_statement_lines_subject_type",
+        ),
+        CheckConstraint(
+            "storage_charge_basis IS NULL OR storage_charge_basis IN ('actual_usage', 'allocated_quota')",
+            name="ck_billing_statement_lines_storage_charge_basis",
+        ),
+        UniqueConstraint(
+            "billing_statement_id",
+            "line_index",
+            name="uq_billing_statement_lines_position",
+        ),
+        Index(
+            "ix_billing_statement_lines_subject",
+            "subject_type",
+            "subject_id",
+        ),
+        Index(
+            "ix_billing_statement_lines_endpoint",
+            "storage_endpoint_id",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    billing_statement_id = Column(
+        Integer,
+        ForeignKey("billing_statements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    line_index = Column(Integer, nullable=False)
+    subject_type = Column(String, nullable=False)
+    subject_id = Column(Integer, nullable=False)
+    subject_name = Column(String, nullable=False)
+    rgw_identifier = Column(String, nullable=False)
+    storage_endpoint_id = Column(Integer, nullable=False)
+    storage_endpoint_name = Column(String, nullable=False)
+    currency = Column(String(3), nullable=False)
+    storage_charge_basis = Column(String, nullable=True)
+    total_cost = Column(Numeric(24, 6), nullable=True)
+    complete = Column(Boolean, nullable=False, default=False, server_default="0")
+    snapshot_json = Column(Text, nullable=False)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+
+    statement = relationship("BillingStatement", back_populates="lines")
+
+
+class BillingAutomationRun(Base):
+    __tablename__ = "billing_automation_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "mode IN ('automatic_draft', 'automatic_finalize')",
+            name="ck_billing_automation_runs_mode",
+        ),
+        CheckConstraint(
+            "trigger_source IN ('scheduled', 'retry')",
+            name="ck_billing_automation_runs_trigger_source",
+        ),
+        CheckConstraint(
+            "status IN ('running', 'completed', 'partial', 'failed')",
+            name="ck_billing_automation_runs_status",
+        ),
+        Index(
+            "ix_billing_automation_runs_period_started",
+            "period_start",
+            "started_at",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    period_start = Column(Date, nullable=False, index=True)
+    mode = Column(String, nullable=False)
+    trigger_source = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="running", server_default="running")
+    active_entity_count = Column(Integer, nullable=False, default=0, server_default="0")
+    generated_statement_count = Column(Integer, nullable=False, default=0, server_default="0")
+    finalized_statement_count = Column(Integer, nullable=False, default=0, server_default="0")
+    blocked_statement_count = Column(Integer, nullable=False, default=0, server_default="0")
+    failed_entity_count = Column(Integer, nullable=False, default=0, server_default="0")
+    unassigned_subject_count = Column(Integer, nullable=False, default=0, server_default="0")
+    diagnostics_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    started_at = Column(UTCDateTime(), nullable=False, default=utcnow)
+    completed_at = Column(UTCDateTime(), nullable=True)
+    created_at = Column(UTCDateTime(), nullable=False, default=utcnow)

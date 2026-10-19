@@ -1128,7 +1128,7 @@ Legend: {
   }
   "billing_storage_daily": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_billing_storage_daily_day(day) [index]; ix_billing_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_storage_daily_id(id) [index]; ix_billing_storage_daily_s3_account_id(s3_account_id) [index]; ix_billing_storage_daily_s3_user_id(s3_user_id) [index]; ix_billing_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_storage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_storage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
+    tooltip: "PK: id\\nUnique: uq_billing_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nCheck: ck_billing_storage_daily_quota_state: quota_state IN ('valid', 'missing', 'disabled', 'unlimited', 'invalid')\\nIndexes: ix_billing_storage_daily_day(day) [index]; ix_billing_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_storage_daily_id(id) [index]; ix_billing_storage_daily_s3_account_id(s3_account_id) [index]; ix_billing_storage_daily_s3_user_id(s3_user_id) [index]; ix_billing_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_storage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_storage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
     "id": "INTEGER [PK, NN]"
     "day": "DATE [NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
@@ -1136,34 +1136,179 @@ Legend: {
     "s3_user_id": "INTEGER [FK]"
     "total_bytes": "BIGINT [NN]"
     "total_objects": "BIGINT [NN]"
+    "quota_size_bytes": "BIGINT"
+    "quota_state": "VARCHAR [NN]"
     "by_bucket": "TEXT"
     "source": "VARCHAR [NN]"
     "collected_at": "DATETIME [NN]"
   }
-  "billing_rate_cards": {
+  "billing_rate_plans": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_rate_cards_name(name)\\nIndexes: ix_billing_rate_cards_endpoint_effective_window(storage_endpoint_id, effective_from, effective_to) [index]; ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_billing_rate_plans_id(id) [index]; ix_billing_rate_plans_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_rate_plans_endpoint_name(storage_endpoint_id, name) [unique]; uq_billing_rate_plans_global_name(name) [unique]"
     "id": "INTEGER [PK, NN]"
     "name": "VARCHAR [NN]"
+    "storage_endpoint_id": "INTEGER [FK]"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "billing_rate_cards": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_rate_cards_plan_effective(rate_plan_id, effective_from)\\nCheck: ck_billing_rate_cards_storage_charge_basis: storage_charge_basis IN ('actual_usage', 'allocated_quota')\\nIndexes: ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_plan_effective_window(rate_plan_id, effective_from, effective_to) [index]; ix_billing_rate_cards_rate_plan_id(rate_plan_id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "rate_plan_id": "INTEGER [FK, NN]"
     "currency": "VARCHAR [NN]"
+    "storage_charge_basis": "VARCHAR [NN]"
     "storage_gb_month_price": "NUMERIC(12, 6)"
     "egress_gb_price": "NUMERIC(12, 6)"
     "ingress_gb_price": "NUMERIC(12, 6)"
     "requests_per_1000_price": "NUMERIC(12, 6)"
     "effective_from": "DATE [NN]"
     "effective_to": "DATE"
-    "storage_endpoint_id": "INTEGER [FK]"
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
   }
   "billing_assignments": {
     class: table
-    tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_created(storage_endpoint_id, s3_account_id, created_at) [index]; ix_billing_assignments_endpoint_user_created(storage_endpoint_id, s3_user_id, created_at) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_card_id(rate_card_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_effective(storage_endpoint_id, s3_account_id, effective_from, effective_to) [index]; ix_billing_assignments_endpoint_user_effective(storage_endpoint_id, s3_user_id, effective_from, effective_to) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_plan_id(rate_plan_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
     "s3_account_id": "INTEGER [FK]"
     "s3_user_id": "INTEGER [FK]"
-    "rate_card_id": "INTEGER [FK, NN]"
+    "rate_plan_id": "INTEGER [FK, NN]"
+    "effective_from": "DATE [NN]"
+    "effective_to": "DATE"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "billing_entities": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entities_code(code); uq_billing_entities_external_id(external_id); uq_billing_entities_name(name)\\nCheck: ck_billing_entities_subject_type: subject_type IN ('account', 's3_user')\\nIndexes: ix_billing_entities_id(id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "name": "VARCHAR [NN]"
+    "code": "VARCHAR"
+    "external_id": "VARCHAR"
+    "subject_type": "VARCHAR [NN]"
+    "active": "BOOLEAN [NN]"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "billing_entity_tag_rules": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entity_tag_rule(billing_entity_id, tag_definition_id)\\nIndexes: ix_billing_entity_tag_rules_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_tag_rules_tag(tag_definition_id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "billing_entity_id": "INTEGER [FK, NN]"
+    "tag_definition_id": "INTEGER [FK, NN]"
+    "created_at": "DATETIME [NN]"
+  }
+  "billing_entity_subject_rules": {
+    class: table
+    tooltip: "PK: id\\nCheck: ck_billing_entity_subject_rules_subject: (s3_account_id IS NOT NULL AND s3_user_id IS NULL) OR (s3_account_id IS NULL AND s3_user_id IS NOT NULL); ck_billing_entity_subject_rules_type: rule_type IN ('include', 'exclude')\\nIndexes: ix_billing_entity_subject_rules_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_subject_rules_s3_account_id(s3_account_id) [index]; ix_billing_entity_subject_rules_s3_user_id(s3_user_id) [index]; uq_billing_entity_subject_rules_account(billing_entity_id, rule_type, s3_account_id) [unique]; uq_billing_entity_subject_rules_user(billing_entity_id, rule_type, s3_user_id) [unique]"
+    "id": "INTEGER [PK, NN]"
+    "billing_entity_id": "INTEGER [FK, NN]"
+    "rule_type": "VARCHAR [NN]"
+    "s3_account_id": "INTEGER [FK]"
+    "s3_user_id": "INTEGER [FK]"
+    "created_at": "DATETIME [NN]"
+  }
+  "billing_entity_rate_assignments": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entity_rate_assignment_start(billing_entity_id, effective_from)\\nIndexes: ix_billing_entity_rate_assignments_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_rate_assignments_effective(billing_entity_id, effective_from, effective_to) [index]; ix_billing_entity_rate_assignments_id(id) [index]; ix_billing_entity_rate_assignments_rate_plan_id(rate_plan_id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "billing_entity_id": "INTEGER [FK, NN]"
+    "rate_plan_id": "INTEGER [FK, NN]"
+    "effective_from": "DATE [NN]"
+    "effective_to": "DATE"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "billing_entity_groups": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entity_groups_code(code); uq_billing_entity_groups_external_id(external_id); uq_billing_entity_groups_name(name)\\nIndexes: ix_billing_entity_groups_id(id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "name": "VARCHAR [NN]"
+    "code": "VARCHAR"
+    "external_id": "VARCHAR"
+    "description": "TEXT"
+    "active": "BOOLEAN [NN]"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "billing_entity_group_memberships": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_entity_group_membership_start(billing_entity_group_id, billing_entity_id, effective_from)\\nCheck: ck_billing_entity_group_membership_period: effective_to IS NULL OR effective_to >= effective_from\\nIndexes: ix_billing_entity_group_memberships_billing_entity_group_id(billing_entity_group_id) [index]; ix_billing_entity_group_memberships_billing_entity_id(billing_entity_id) [index]; ix_billing_entity_group_memberships_effective(billing_entity_group_id, billing_entity_id, effective_from, effective_to) [index]; ix_billing_entity_group_memberships_id(id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "billing_entity_group_id": "INTEGER [FK, NN]"
+    "billing_entity_id": "INTEGER [FK, NN]"
+    "effective_from": "DATE [NN]"
+    "effective_to": "DATE"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "billing_statements": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_statements_entity_period_currency(billing_entity_id, period_start, currency)\\nCheck: ck_billing_statements_period: period_end >= period_start; ck_billing_statements_status: status IN ('draft', 'finalized'); ck_billing_statements_subject_type: subject_type IN ('account', 's3_user')\\nIndexes: ix_billing_statements_billing_entity_id(billing_entity_id) [index]; ix_billing_statements_id(id) [index]; ix_billing_statements_period_start(period_start) [index]; ix_billing_statements_period_status(period_start, status) [index]; ix_billing_statements_public_id(public_id) [unique]"
+    "id": "INTEGER [PK, NN]"
+    "public_id": "VARCHAR(36) [NN, UQ]"
+    "billing_entity_id": "INTEGER [FK, NN]"
+    "billing_entity_name": "VARCHAR [NN]"
+    "billing_entity_code": "VARCHAR"
+    "billing_entity_external_id": "VARCHAR"
+    "subject_type": "VARCHAR [NN]"
+    "period_start": "DATE [NN]"
+    "period_end": "DATE [NN]"
+    "currency": "VARCHAR(3) [NN]"
+    "status": "VARCHAR [NN]"
+    "member_count": "INTEGER [NN]"
+    "coverage_json": "TEXT [NN]"
+    "blockers_json": "TEXT [NN]"
+    "storage_charge_bases_json": "TEXT [NN]"
+    "subtotal": "NUMERIC(24, 6) [NN]"
+    "total": "NUMERIC(24, 6) [NN]"
+    "source_fingerprint": "VARCHAR(64) [NN]"
+    "revision": "INTEGER [NN]"
+    "generated_at": "DATETIME [NN]"
+    "finalized_at": "DATETIME"
+    "finalized_by_user_id": "INTEGER [FK]"
+    "finalized_by_user_email": "VARCHAR"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "billing_statement_lines": {
+    class: table
+    tooltip: "PK: id\\nUnique: uq_billing_statement_lines_position(billing_statement_id, line_index)\\nCheck: ck_billing_statement_lines_storage_charge_basis: storage_charge_basis IS NULL OR storage_charge_basis IN ('actual_usage', 'allocated_quota'); ck_billing_statement_lines_subject_type: subject_type IN ('account', 's3_user')\\nIndexes: ix_billing_statement_lines_billing_statement_id(billing_statement_id) [index]; ix_billing_statement_lines_endpoint(storage_endpoint_id) [index]; ix_billing_statement_lines_id(id) [index]; ix_billing_statement_lines_subject(subject_type, subject_id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "billing_statement_id": "INTEGER [FK, NN]"
+    "line_index": "INTEGER [NN]"
+    "subject_type": "VARCHAR [NN]"
+    "subject_id": "INTEGER [NN]"
+    "subject_name": "VARCHAR [NN]"
+    "rgw_identifier": "VARCHAR [NN]"
+    "storage_endpoint_id": "INTEGER [NN]"
+    "storage_endpoint_name": "VARCHAR [NN]"
+    "currency": "VARCHAR(3) [NN]"
+    "storage_charge_basis": "VARCHAR"
+    "total_cost": "NUMERIC(24, 6)"
+    "complete": "BOOLEAN [NN]"
+    "snapshot_json": "TEXT [NN]"
+    "created_at": "DATETIME [NN]"
+  }
+  "billing_automation_runs": {
+    class: table
+    tooltip: "PK: id\\nCheck: ck_billing_automation_runs_mode: mode IN ('automatic_draft', 'automatic_finalize'); ck_billing_automation_runs_status: status IN ('running', 'completed', 'partial', 'failed'); ck_billing_automation_runs_trigger_source: trigger_source IN ('scheduled', 'retry')\\nIndexes: ix_billing_automation_runs_id(id) [index]; ix_billing_automation_runs_period_start(period_start) [index]; ix_billing_automation_runs_period_started(period_start, started_at) [index]"
+    "id": "INTEGER [PK, NN]"
+    "period_start": "DATE [NN]"
+    "mode": "VARCHAR [NN]"
+    "trigger_source": "VARCHAR [NN]"
+    "status": "VARCHAR [NN]"
+    "active_entity_count": "INTEGER [NN]"
+    "generated_statement_count": "INTEGER [NN]"
+    "finalized_statement_count": "INTEGER [NN]"
+    "blocked_statement_count": "INTEGER [NN]"
+    "failed_entity_count": "INTEGER [NN]"
+    "unassigned_subject_count": "INTEGER [NN]"
+    "diagnostics_json": "TEXT [NN]"
+    "started_at": "DATETIME [NN]"
+    "completed_at": "DATETIME"
     "created_at": "DATETIME [NN]"
   }
 }
@@ -1267,8 +1412,21 @@ Legend: {
 "billing_storage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
 "billing_storage_daily"."s3_account_id" -> "s3_accounts"."id"
 "billing_storage_daily"."s3_user_id" -> "s3_users"."id"
-"billing_rate_cards"."storage_endpoint_id" -> "storage_endpoints"."id"
+"billing_rate_plans"."storage_endpoint_id" -> "storage_endpoints"."id"
+"billing_rate_cards"."rate_plan_id" -> "billing_rate_plans"."id"
 "billing_assignments"."storage_endpoint_id" -> "storage_endpoints"."id"
 "billing_assignments"."s3_account_id" -> "s3_accounts"."id"
 "billing_assignments"."s3_user_id" -> "s3_users"."id"
-"billing_assignments"."rate_card_id" -> "billing_rate_cards"."id"
+"billing_assignments"."rate_plan_id" -> "billing_rate_plans"."id"
+"billing_entity_tag_rules"."billing_entity_id" -> "billing_entities"."id": "ondelete=CASCADE"
+"billing_entity_tag_rules"."tag_definition_id" -> "tag_definitions"."id"
+"billing_entity_subject_rules"."billing_entity_id" -> "billing_entities"."id": "ondelete=CASCADE"
+"billing_entity_subject_rules"."s3_account_id" -> "s3_accounts"."id": "ondelete=CASCADE"
+"billing_entity_subject_rules"."s3_user_id" -> "s3_users"."id": "ondelete=CASCADE"
+"billing_entity_rate_assignments"."billing_entity_id" -> "billing_entities"."id": "ondelete=CASCADE"
+"billing_entity_rate_assignments"."rate_plan_id" -> "billing_rate_plans"."id"
+"billing_entity_group_memberships"."billing_entity_group_id" -> "billing_entity_groups"."id": "ondelete=CASCADE"
+"billing_entity_group_memberships"."billing_entity_id" -> "billing_entities"."id": "ondelete=CASCADE"
+"billing_statements"."billing_entity_id" -> "billing_entities"."id"
+"billing_statements"."finalized_by_user_id" -> "users"."id"
+"billing_statement_lines"."billing_statement_id" -> "billing_statements"."id": "ondelete=CASCADE"

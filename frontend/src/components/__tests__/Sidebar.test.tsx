@@ -461,24 +461,29 @@ describe("Sidebar", () => {
   it("persists collapsible section state for the workspace sidebar", () => {
     const sections = [
       {
-        label: "Settings",
+        id: "settings",
+        label: "Paramètres",
+        collapsible: true,
         links: [{ to: "/admin/general-settings", label: "General" }],
       },
     ];
     const firstRender = render(
-      <MemoryRouter>
-        <Sidebar title="ADMIN" sections={sections} />
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Sidebar title="ADMINISTRATION" sections={sections} />
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Paramètres" }));
     expect(screen.queryByRole("link", { name: "General" })).not.toBeInTheDocument();
-    expect(window.localStorage.getItem("shell:sidebar-sections:v1:admin")).toContain('"Settings":true');
+    expect(window.localStorage.getItem("shell:sidebar-sections:v1:admin")).toContain('"settings":true');
     firstRender.unmount();
 
     render(
-      <MemoryRouter>
-        <Sidebar title="ADMIN" sections={sections} />
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Sidebar
+          title="ADMIN"
+          sections={sections.map((section) => ({ ...section, label: "Settings" }))}
+        />
       </MemoryRouter>
     );
     expect(screen.queryByRole("link", { name: "General" })).not.toBeInTheDocument();
@@ -487,7 +492,7 @@ describe("Sidebar", () => {
   it("keeps the active route section open even when it was persisted as collapsed", () => {
     window.localStorage.setItem(
       "shell:sidebar-sections:v1:admin",
-      JSON.stringify({ Settings: true }),
+      JSON.stringify({ settings: true }),
     );
 
     render(
@@ -496,7 +501,9 @@ describe("Sidebar", () => {
           title="ADMIN"
           sections={[
             {
-              label: "Settings",
+              id: "settings",
+              label: "Paramètres",
+              collapsible: true,
               links: [{ to: "/admin/general-settings", label: "General" }],
             },
           ]}

@@ -9,9 +9,24 @@ MIGRATION_EVENT_TYPE = "manager.bucket_migration.event"
 ENDPOINT_HEALTH_EVENT_TYPE = "system.endpoint_health.changed"
 QUOTA_THRESHOLD_EVENT_TYPE = "system.quota.threshold_reached"
 WEBHOOK_TEST_EVENT_TYPE = "system.webhook.test"
+BILLING_STATEMENT_FINALIZED_EVENT_TYPE = "billing.statement.finalized"
 
 AUDIT_EVENT_TYPES = (
     'audit.admin.approve_portal_request',
+    'audit.admin.billing_automation.run',
+    'audit.admin.billing_automation.settings_update',
+    'audit.admin.billing_entity.create',
+    'audit.admin.billing_entity.deactivate',
+    'audit.admin.billing_entity.update',
+    'audit.admin.billing_entity_group.create',
+    'audit.admin.billing_entity_group.deactivate',
+    'audit.admin.billing_entity_group.update',
+    'audit.admin.billing_rate_card.create',
+    'audit.admin.billing_rate_card.delete',
+    'audit.admin.billing_rate_card.update',
+    'audit.admin.billing_rate_card.version_create',
+    'audit.admin.billing_statement.finalize',
+    'audit.admin.billing_statement_pdf.settings_update',
     'audit.admin.connection.create',
     'audit.admin.connection.delete',
     'audit.admin.connection.remediate',
@@ -282,6 +297,7 @@ AUDIT_EVENT_TYPES = (
 )
 
 SPECIAL_EVENT_TYPES = (
+    BILLING_STATEMENT_FINALIZED_EVENT_TYPE,
     MIGRATION_EVENT_TYPE,
     ENDPOINT_HEALTH_EVENT_TYPE,
     QUOTA_THRESHOLD_EVENT_TYPE,
@@ -292,6 +308,10 @@ KNOWN_WEBHOOK_EVENT_TYPES = frozenset((*AUDIT_EVENT_TYPES, *SPECIAL_EVENT_TYPES)
 
 
 def _category(event_type: str) -> str:
+    if event_type == BILLING_STATEMENT_FINALIZED_EVENT_TYPE:
+        return "Billing"
+    if event_type.startswith("audit.admin.billing_"):
+        return "Billing"
     if event_type.startswith("audit.auth.") or event_type.startswith("audit.security."):
         return "Authentication & Identity"
     if event_type.startswith("audit.portal."):
@@ -311,6 +331,8 @@ def _category(event_type: str) -> str:
 
 
 def _label(event_type: str) -> str:
+    if event_type == BILLING_STATEMENT_FINALIZED_EVENT_TYPE:
+        return "Billing statement finalized"
     if event_type == MIGRATION_EVENT_TYPE:
         return "Bucket migration event"
     if event_type == ENDPOINT_HEALTH_EVENT_TYPE:
@@ -324,6 +346,8 @@ def _label(event_type: str) -> str:
 
 
 def _description(event_type: str) -> str:
+    if event_type == BILLING_STATEMENT_FINALIZED_EVENT_TYPE:
+        return "A monthly Billing Statement was finalized and is available through Billing Integration API v1."
     if event_type == MIGRATION_EVENT_TYPE:
         return "Detailed progress and lifecycle events emitted by BucketReef bucket migrations."
     if event_type == ENDPOINT_HEALTH_EVENT_TYPE:

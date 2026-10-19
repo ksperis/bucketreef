@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0158_connection_rgw_identity"
+_EXPECTED_ALEMBIC_HEAD = "0164_billing_statement_automation"
 
 
 def _alembic_config() -> Config:
@@ -50,6 +50,148 @@ def test_alembic_head_matches_sqlalchemy_metadata(tmp_path, monkeypatch):
             assert compare_metadata(context, Base.metadata) == []
         engine.dispose()
     finally:
+        get_settings.cache_clear()
+
+
+def test_billing_rate_plan_migration_backfills_existing_cards_and_assignments(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "billing-rate-plan-cutover.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0158_connection_rgw_identity")
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO storage_endpoints "
+                    "(id, name, endpoint_url, provider, is_default, is_editable, created_at, updated_at, "
+                    "verify_tls, force_path_style, identity_namespace, ceph_admin_allowed) "
+                    "VALUES (41, 'Billing endpoint', 'https://billing.example.test', 'ceph', 0, 1, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 0, 'billing-cutover', 0)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_rate_cards "
+                    "(id, name, currency, storage_gb_month_price, effective_from, storage_endpoint_id, "
+                    "created_at, updated_at) "
+                    "VALUES (51, 'default', 'EUR', 0.020000, '2026-03-01', 41, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_assignments "
+                    "(id, storage_endpoint_id, rate_card_id, created_at) "
+                    "VALUES (61, 41, 51, CURRENT_TIMESTAMP)"
+                )
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            plan = connection.execute(
+                sa.text(
+                    "SELECT id, name, storage_endpoint_id FROM billing_rate_plans WHERE name = 'default'"
+                )
+            ).mappings().one()
+            card = connection.execute(
+                sa.text(
+                    "SELECT rate_plan_id, storage_charge_basis, effective_from, effective_to "
+                    "FROM billing_rate_cards WHERE id = 51"
+                )
+            ).mappings().one()
+            assignment = connection.execute(
+                sa.text(
+                    "SELECT rate_plan_id, effective_from, effective_to "
+                    "FROM billing_assignments WHERE id = 61"
+                )
+            ).mappings().one()
+
+            assert plan["storage_endpoint_id"] == 41
+            assert card["rate_plan_id"] == plan["id"]
+            assert card["storage_charge_basis"] == "actual_usage"
+            assert str(card["effective_from"]) == "2026-03-01"
+            assert assignment["rate_plan_id"] == plan["id"]
+            assert str(assignment["effective_from"]) == "2026-03-01"
+            assert assignment["effective_to"] is None
+            assert "ck_billing_rate_cards_storage_charge_basis" in {
+                item["name"]
+                for item in sa.inspect(connection).get_check_constraints("billing_rate_cards")
+            }
+
+        command.downgrade(config, "0158_connection_rgw_identity")
+        with engine.connect() as connection:
+            restored_card = connection.execute(
+                sa.text(
+                    "SELECT name, storage_endpoint_id FROM billing_rate_cards WHERE id = 51"
+                )
+            ).mappings().one()
+            restored_assignment = connection.execute(
+                sa.text("SELECT rate_card_id FROM billing_assignments WHERE id = 61")
+            ).mappings().one()
+            assert restored_card == {"name": "default", "storage_endpoint_id": 41}
+            assert restored_assignment["rate_card_id"] == 51
+            assert "billing_rate_plans" not in sa.inspect(connection).get_table_names()
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
+
+
+def test_billing_quota_history_migration_marks_existing_storage_rows_missing(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "billing-quota-history-cutover.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0159_billing_rate_card_versions")
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO storage_endpoints "
+                    "(id, name, endpoint_url, provider, is_default, is_editable, created_at, updated_at, "
+                    "verify_tls, force_path_style, identity_namespace, ceph_admin_allowed) "
+                    "VALUES (71, 'Billing quota endpoint', 'https://quota.example.test', 'ceph', 0, 1, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 0, 'billing-quota', 0)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_storage_daily "
+                    "(id, day, storage_endpoint_id, total_bytes, total_objects, source, collected_at) "
+                    "VALUES (81, '2026-09-01', 71, 1024, 1, 'rgw_admin_bucket_stats', CURRENT_TIMESTAMP)"
+                )
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            row = connection.execute(
+                sa.text(
+                    "SELECT quota_size_bytes, quota_state FROM billing_storage_daily WHERE id = 81"
+                )
+            ).mappings().one()
+            assert row == {"quota_size_bytes": None, "quota_state": "missing"}
+            assert "ck_billing_storage_daily_quota_state" in {
+                item["name"]
+                for item in sa.inspect(connection).get_check_constraints("billing_storage_daily")
+            }
+    finally:
+        engine.dispose()
         get_settings.cache_clear()
 
 

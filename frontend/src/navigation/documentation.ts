@@ -44,6 +44,7 @@ const ROUTE_TARGETS: Array<{ prefix: string; target: DocumentationTarget }> = [
   { prefix: "/admin/usage-history", target: { guide: "admin", page: "platform/usage-history" } },
   { prefix: "/admin/access-audit", target: { guide: "admin", page: "platform/access-audit" } },
   { prefix: "/admin/audit", target: { guide: "admin", page: "platform/audit" } },
+  { prefix: "/admin/billing-settings", target: { guide: "admin", page: "platform/billing" } },
   { prefix: "/admin/billing", target: { guide: "admin", page: "platform/billing" } },
   { prefix: "/admin/portal-requests", target: { guide: "admin", page: "platform/portal-delegation" } },
   { prefix: "/admin/authentication-settings", target: { guide: "admin", page: "security/authentication" } },
