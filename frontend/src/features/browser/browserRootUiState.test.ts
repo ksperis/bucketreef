@@ -1,14 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   BROWSER_ROOT_CONTEXT_SELECTIONS_STORAGE_KEY,
-  BROWSER_ROOT_UI_STATE_V2_STORAGE_KEY,
   BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY,
   readBrowserRootContextSelection,
   readBrowserRootObjectColumns,
   readBrowserRootUiState,
-  readStoredBrowserRootUiState,
   writeBrowserRootContextSelection,
-  writeBrowserRootDensity,
   writeBrowserRootObjectColumns,
   writeBrowserRootUiLayout,
 } from "./browserRootUiState";
@@ -27,58 +24,6 @@ describe("browserRootUiState v3", () => {
       objectColumns: [],
       objectColumnWidths: {},
     });
-  });
-
-  it("ignores the obsolete v1 snapshot", () => {
-    window.localStorage.setItem(
-      "browser:root-ui-state:v1",
-      JSON.stringify({
-        layout: { showFolders: true, showInspector: true },
-        objectColumns: ["etag"],
-      }),
-    );
-
-    expect(readStoredBrowserRootUiState()).toBeNull();
-    expect(readBrowserRootUiState().showFolders).toBe(false);
-    expect(
-      window.localStorage.getItem(BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY),
-    ).toBeNull();
-  });
-
-  it("migrates the active v2 layout into one set of display preferences", () => {
-    window.localStorage.setItem(
-      BROWSER_ROOT_UI_STATE_V2_STORAGE_KEY,
-      JSON.stringify({
-        activeLayout: "workbench",
-        density: "comfortable",
-        layouts: {
-          standard: { showFolders: false, objectColumns: ["size"] },
-          workbench: {
-            showFolders: true,
-            showInspector: true,
-            foldersPanelWidthPx: 360,
-            objectColumns: ["modified", "etag"],
-            objectColumnWidths: { name: 410 },
-          },
-        },
-      }),
-    );
-
-    expect(readBrowserRootUiState()).toMatchObject({
-      density: "comfortable",
-      showFolders: true,
-      foldersPanelWidthPx: 360,
-      objectColumns: ["modified", "etag"],
-      objectColumnWidths: { name: 410 },
-    });
-
-    writeBrowserRootDensity("compact");
-    expect(
-      window.localStorage.getItem(BROWSER_ROOT_UI_STATE_V2_STORAGE_KEY),
-    ).toBeNull();
-    expect(
-      window.localStorage.getItem(BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY),
-    ).not.toBeNull();
   });
 
   it("persists the folders preference and columns in one root Browser scope", () => {

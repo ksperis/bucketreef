@@ -15,7 +15,6 @@ export const CLIENT_STORAGE_KEYS = {
   generalSettingsCache: "settings:general:v3",
   selectorTagsPreference: "showSelectorTags",
   sidebarCompact: "shell:sidebar-compact:v1",
-  browserRootUiStateV2: "browser:root-ui-state:v2",
   browserRootUiStateV3: "browser:root-ui-state:v3",
   browserRootContextSelections: "browser:root-context-selections:v2",
   browserPathHistory: "browser:path-history:v1",
