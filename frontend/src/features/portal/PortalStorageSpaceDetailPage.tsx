@@ -4,24 +4,17 @@
  */
 import ErrorState from "../../components/errors/ErrorState";
 import PortalAddPeopleWorkflow from "./PortalAddPeopleWorkflow";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   deletePortalStorageSpace,
   restorePortalStorageSpaceObject,
   takePortalStorageSpaceOwnership,
   updatePortalStorageSpace,
-  type PortalStorageSpaceAccountMemberRole,
-  type PortalStorageSpaceGrantRole,
 } from "../../api/portal";
 import {
-  fetchPortalStorageSpaceAccessSummary,
   listPortalStorageSpacePublicLinks,
-  revokePortalStorageSpaceShare,
-  updatePortalStorageSpaceShare,
   type PortalPublicLink,
-  type PortalStorageSpaceAccessSummary,
-  type PortalStorageSpaceShare,
 } from "../../api/portalSharing";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
@@ -42,11 +35,6 @@ import type {
   BrowserDeletedObjectTarget,
   BrowserObjectDetailsRouteTarget,
 } from "../browser/browserPageContract";
-import {
-  portalAccessModeFromParts,
-  portalAccessPayloadFromMode,
-  type PortalAccessMode,
-} from "./PortalAccessControls";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalDeletedPrefixRestoreWorkflow from "./PortalDeletedPrefixRestoreWorkflow";
@@ -59,10 +47,7 @@ import {
 import PortalStorageSpaceStatistics from "./PortalStorageSpaceStatistics";
 import PortalStorageSpaceHistoryCleanupWorkflow from "./PortalStorageSpaceHistoryCleanupWorkflow";
 import PortalStorageSpaceCollaboratorsPanel from "./PortalStorageSpaceCollaboratorsPanel";
-import PortalStorageSpaceAccessDialogs, {
-  type PendingAccessChange,
-  type PendingAccessRoleChange,
-} from "./PortalStorageSpaceAccessDialogs";
+import PortalStorageSpaceAccessDialogs from "./PortalStorageSpaceAccessDialogs";
 import PortalStorageSpaceLifecycleDialogs from "./PortalStorageSpaceLifecycleDialogs";
 import PortalStorageSpaceManagementDialogs from "./PortalStorageSpaceManagementDialogs";
 import PortalStorageSpaceStartGuide from "./PortalStorageSpaceStartGuide";
@@ -76,9 +61,9 @@ import {
   resolvePortalWorkspacePageState,
 } from "./portalUi";
 import {
-  portalRoleLabel,
   portalStatusLabel,
 } from "./portalI18n";
+import { usePortalStorageSpaceAccess } from "./usePortalStorageSpaceAccess";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 import { usePortalPublicLinkActions } from "./usePortalPublicLinkActions";
 
@@ -115,16 +100,6 @@ function StorageSpaceDetail() {
   const [metadataBusy, setMetadataBusy] = useState(false);
   const [historyCleanupConfirmOpen, setHistoryCleanupConfirmOpen] = useState(false);
   const [historyCleanupDialogOpen, setHistoryCleanupDialogOpen] = useState(false);
-  const [accessSummary, setAccessSummary] = useState<PortalStorageSpaceAccessSummary | null>(null);
-  const [accessSummaryLoading, setAccessSummaryLoading] = useState(false);
-  const [accessError, setAccessError] = useState<string | null>(null);
-  const [accessMode, setAccessMode] = useState<PortalAccessMode>("private");
-  const [accessAccountMemberRole, setAccessAccountMemberRole] = useState<PortalStorageSpaceAccountMemberRole>("Editor");
-  const [accessBusy, setAccessBusy] = useState(false);
-  const [accessPeopleDialogOpen, setAccessPeopleDialogOpen] = useState(false);
-  const [pendingAccessChange, setPendingAccessChange] = useState<PendingAccessChange | null>(null);
-  const [pendingAccessRoleChange, setPendingAccessRoleChange] = useState<PendingAccessRoleChange | null>(null);
-  const [pendingAccessRevoke, setPendingAccessRevoke] = useState<PortalStorageSpaceShare | null>(null);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -153,6 +128,41 @@ function StorageSpaceDetail() {
   });
   const decodedSpaceId = decodePortalRouteValue(spaceId);
   const space = workspace.spaces.find((item) => item.id === decodedSpaceId) ?? null;
+  const {
+    accessSummary,
+    accessSummaryLoading,
+    accessError,
+    accessMode,
+    setAccessMode,
+    accessAccountMemberRole,
+    setAccessAccountMemberRole,
+    accessBusy,
+    accessChanged,
+    savedAccessMode,
+    existingAccessRolesByUserId,
+    accessPeopleDialogOpen,
+    setAccessPeopleDialogOpen,
+    pendingAccessChange,
+    setPendingAccessChange,
+    pendingAccessRoleChange,
+    setPendingAccessRoleChange,
+    pendingAccessRevoke,
+    setPendingAccessRevoke,
+    loadAccessSummary,
+    requestSaveAccess: handleRequestSaveAccess,
+    requestAccessRoleChange: handleAccessRoleChange,
+    confirmAccessChange,
+    confirmAccessRoleChange,
+    confirmAccessRevoke,
+  } = usePortalStorageSpaceAccess({
+    accountId: accountIdForApi,
+    activeTab,
+    browserEnabled: Boolean(generalSettings.browser_enabled),
+    browserPortalEnabled: Boolean(generalSettings.browser_portal_enabled),
+    space,
+    refreshWorkspaceData,
+    onMessage: setMessage,
+  });
   const lockedBucketName = space?.internalName ?? space?.id ?? "";
   const {
     selectTab: selectSpaceDetailTab,
@@ -181,30 +191,8 @@ function StorageSpaceDetail() {
     ? `portal.storage-space-detail.start-guide.dismissed.${accountIdForApi ?? "default"}.${space.id}`
     : null;
   const [startGuideDismissed, setStartGuideDismissed] = useState(false);
-  const spaceAccessMode: PortalAccessMode = space ? portalAccessModeFromParts(space.visibility, space.shareScope) : "private";
-  const savedAccessMode: PortalAccessMode = accessSummary
-    ? accessSummary.mode === "all"
-      ? "account"
-      : accessSummary.mode
-    : spaceAccessMode;
-  const savedAccountMemberRole = accessSummary?.default_account_member_role ?? space?.accountMemberRole ?? "Editor";
-  const accessChanged = accessMode !== savedAccessMode || (accessMode === "account" && accessAccountMemberRole !== savedAccountMemberRole);
-  const existingAccessRolesByUserId = useMemo(
-    () =>
-      Object.fromEntries(
-        (accessSummary?.explicit_shares ?? [])
-          .filter((share) => share.user_id != null)
-          .map((share) => [share.user_id as number, share.role]),
-      ) as Record<number, PortalStorageSpaceGrantRole>,
-    [accessSummary?.explicit_shares],
-  );
   const onboardingState = (location.state as { portalSpaceCreated?: boolean; portalSpaceImported?: boolean } | null) ?? null;
   const showSpaceReadyBanner = Boolean(onboardingState?.portalSpaceCreated || onboardingState?.portalSpaceImported);
-  useEffect(() => {
-    if (!space) return;
-    setAccessMode(spaceAccessMode);
-    setAccessAccountMemberRole(space.accountMemberRole ?? "Editor");
-  }, [space, spaceAccessMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,122 +255,9 @@ function StorageSpaceDetail() {
     setStartGuideDismissed(readClientStorageKey(startGuideStorageKey) === "true");
   }, [startGuideStorageKey]);
 
-  const shouldLoadAccessSummary = Boolean(
-    space &&
-      accountIdForApi &&
-      (activeTab === "collaborators" ||
-        (activeTab === "files" &&
-          (space.shareCount == null ||
-            (generalSettings.browser_enabled &&
-              generalSettings.browser_portal_enabled &&
-              space.status !== "Archived" &&
-              space.canBrowse &&
-              space.role === "Manager" &&
-              space.visibility === "shared"))))
-  );
-
-  const loadAccessSummary = useCallback(async () => {
-    if (!space || !accountIdForApi || !shouldLoadAccessSummary) {
-      setAccessSummary(null);
-      return;
-    }
-    setAccessSummaryLoading(true);
-    setAccessError(null);
-    try {
-      const summary = await fetchPortalStorageSpaceAccessSummary(accountIdForApi, space.id);
-      setAccessSummary(summary);
-      const mode = summary.mode === "all" ? "account" : summary.mode;
-      setAccessMode(mode);
-      setAccessAccountMemberRole(summary.default_account_member_role ?? space.accountMemberRole ?? "Editor");
-    } catch (err) {
-      console.error(err);
-      setAccessSummary(null);
-      setAccessError(extractApiError(err, t({ en: "Unable to load access details.", fr: "Impossible de charger les détails d'accès.", de: "Zugriffsdetails können nicht geladen werden.", zh: "无法加载访问详情。" })));
-    } finally {
-      setAccessSummaryLoading(false);
-    }
-  }, [accountIdForApi, shouldLoadAccessSummary, space, t]);
-
-  useEffect(() => {
-    void loadAccessSummary();
-  }, [loadAccessSummary]);
-
   const handleArchive = () => {
     if (!space || !accountIdForApi) return;
     setArchiveDialogOpen(true);
-  };
-
-  const handleRequestSaveAccess = () => {
-    if (!space || !accountIdForApi || !accessChanged) return;
-    setPendingAccessChange({ mode: accessMode, accountMemberRole: accessAccountMemberRole });
-  };
-
-  const confirmAccessChange = async (change: PendingAccessChange) => {
-    if (!space || !accountIdForApi) return;
-    setAccessBusy(true);
-    setMessage(null);
-    try {
-      await updatePortalStorageSpace(accountIdForApi, space.id, {
-        ...portalAccessPayloadFromMode(change.mode, change.accountMemberRole),
-      });
-      setPendingAccessChange(null);
-      refreshWorkspaceData();
-      await loadAccessSummary();
-      setMessage(t({ en: "Access updated.", fr: "Accès mis à jour.", de: "Zugriff aktualisiert.", zh: "访问权限已更新。" }));
-    } catch (err) {
-      console.error(err);
-      setMessage(extractApiError(err, t({ en: "Unable to update access.", fr: "Impossible de mettre à jour l'accès.", de: "Zugriff kann nicht aktualisiert werden.", zh: "无法更新访问权限。" })));
-      setPendingAccessChange(null);
-    } finally {
-      setAccessBusy(false);
-    }
-  };
-
-  const handleAccessRoleChange = (share: PortalStorageSpaceShare, role: PortalStorageSpaceGrantRole) => {
-    if (role === share.role) return;
-    setPendingAccessRoleChange({ share, role });
-  };
-
-  const confirmAccessRoleChange = async ({ share, role }: PendingAccessRoleChange) => {
-    if (!space || !accountIdForApi || share.user_id == null) return;
-    setAccessBusy(true);
-    setMessage(null);
-    try {
-      await updatePortalStorageSpaceShare(accountIdForApi, space.id, share.user_id, role);
-      await loadAccessSummary();
-      setPendingAccessRoleChange(null);
-      setMessage(t({
-        en: `${share.email} now has ${portalRoleLabel(role, t)} access to ${space.name}.`,
-        fr: `${share.email} dispose maintenant de l'accès ${portalRoleLabel(role, t)} à ${space.name}.`,
-        de: `${share.email} hat jetzt ${portalRoleLabel(role, t)}-Zugriff auf ${space.name}.`,
-        zh: `${share.email} 现在对 ${space.name} 拥有${portalRoleLabel(role, t)}权限。`,
-      }));
-    } catch (err) {
-      console.error(err);
-      setMessage(extractApiError(err, t({ en: "Unable to update this person.", fr: "Impossible de mettre à jour cette personne.", de: "Diese Person kann nicht aktualisiert werden.", zh: "无法更新此人员。" })));
-      setPendingAccessRoleChange(null);
-    } finally {
-      setAccessBusy(false);
-    }
-  };
-
-
-  const confirmAccessRevoke = async (share: PortalStorageSpaceShare) => {
-    if (!space || !accountIdForApi || share.user_id == null) return;
-    setAccessBusy(true);
-    setMessage(null);
-    try {
-      await revokePortalStorageSpaceShare(accountIdForApi, space.id, share.user_id);
-      setPendingAccessRevoke(null);
-      await loadAccessSummary();
-      setMessage(t({ en: "Access revoked.", fr: "Accès révoqué.", de: "Zugriff widerrufen.", zh: "访问权限已撤销。" }));
-    } catch (err) {
-      console.error(err);
-      setMessage(extractApiError(err, t({ en: "Unable to revoke access.", fr: "Impossible de révoquer l'accès.", de: "Zugriff kann nicht widerrufen werden.", zh: "无法撤销访问权限。" })));
-      setPendingAccessRevoke(null);
-    } finally {
-      setAccessBusy(false);
-    }
   };
 
   const confirmArchive = async () => {
