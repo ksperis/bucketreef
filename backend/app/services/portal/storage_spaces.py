@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+from sqlalchemy import delete, func, select
+
 from app.db import (
     PortalAccountRole,
     PortalExternalAccessCredential,
@@ -375,23 +377,21 @@ class PortalStorageSpacesMixin:
             )
 
         participant_user_ids = self._storage_space_participant_user_ids(metadata)
-        external_access_count = (
-            self.db.query(PortalExternalAccessCredential)
-            .filter(
+        external_access_count = self.db.scalar(
+            select(func.count())
+            .select_from(PortalExternalAccessCredential)
+            .where(
                 PortalExternalAccessCredential.account_id == access.account.id,
                 PortalExternalAccessCredential.storage_space_metadata_id == metadata.id,
             )
-            .count()
-        )
-        public_links = (
-            self.db.query(DBPortalPublicLink)
-            .filter(
+        ) or 0
+        public_links = self.db.scalars(
+            select(DBPortalPublicLink).where(
                 DBPortalPublicLink.account_id == access.account.id,
                 DBPortalPublicLink.bucket_name == bucket_name,
                 DBPortalPublicLink.revoked_at.is_(None),
             )
-            .all()
-        )
+        ).all()
         storage_space_name = self._display_storage_space_name(bucket_name, metadata)
         origin = self._storage_space_origin(metadata)
         bucket_already_absent = not bucket_exists
@@ -410,12 +410,16 @@ class PortalStorageSpacesMixin:
             for link in public_links:
                 link.revoked_at = now
                 self.db.add(link)
-            self.db.query(PortalExternalAccessCredential).filter(
-                PortalExternalAccessCredential.storage_space_metadata_id == metadata.id,
-            ).delete(synchronize_session=False)
-            self.db.query(PortalStorageSpaceGrant).filter(
-                PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
-            ).delete(synchronize_session=False)
+            self.db.execute(
+                delete(PortalExternalAccessCredential)
+                .where(PortalExternalAccessCredential.storage_space_metadata_id == metadata.id)
+                .execution_options(synchronize_session=False)
+            )
+            self.db.execute(
+                delete(PortalStorageSpaceGrant)
+                .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
+                .execution_options(synchronize_session=False)
+            )
             self.db.delete(metadata)
             self.db.flush()
             self._sync_storage_space_user_projections(access.account, participant_user_ids)
