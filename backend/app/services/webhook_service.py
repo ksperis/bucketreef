@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
-from sqlalchemy import func, or_
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -150,7 +150,12 @@ class WebhookService:
         self.settings = settings or get_settings()
 
     def list_endpoints(self) -> list[WebhookEndpointOut]:
-        rows = self.db.query(WebhookEndpoint).order_by(WebhookEndpoint.name.asc(), WebhookEndpoint.id.asc()).all()
+        rows = self.db.scalars(
+            select(WebhookEndpoint).order_by(
+                WebhookEndpoint.name.asc(),
+                WebhookEndpoint.id.asc(),
+            )
+        ).all()
         latest = self._latest_deliveries([int(row.id) for row in rows])
         return [self._endpoint_out(row, latest_delivery=latest.get(int(row.id))) for row in rows]
 
@@ -237,13 +242,12 @@ class WebhookService:
 
     def list_deliveries(self, endpoint_id: int, *, limit: int = 100) -> list[WebhookDeliveryOut]:
         self._require_endpoint(endpoint_id)
-        rows = (
-            self.db.query(WebhookDelivery)
-            .filter(WebhookDelivery.endpoint_id == endpoint_id)
+        rows = self.db.scalars(
+            select(WebhookDelivery)
+            .where(WebhookDelivery.endpoint_id == endpoint_id)
             .order_by(WebhookDelivery.created_at.desc(), WebhookDelivery.id.desc())
             .limit(max(1, min(int(limit), 200)))
-            .all()
-        )
+        ).all()
         return [self._delivery_out(row) for row in rows]
 
     def _require_endpoint(self, endpoint_id: int) -> WebhookEndpoint:
@@ -270,9 +274,11 @@ class WebhookService:
     def _replace_subscriptions(self, row: WebhookEndpoint, event_types: list[str]) -> None:
         if row.id is None:
             self.db.flush()
-        self.db.query(WebhookEndpointSubscription).filter(
-            WebhookEndpointSubscription.endpoint_id == row.id
-        ).delete(synchronize_session=False)
+        self.db.execute(
+            delete(WebhookEndpointSubscription)
+            .where(WebhookEndpointSubscription.endpoint_id == row.id)
+            .execution_options(synchronize_session=False)
+        )
         for event_type in event_types:
             self.db.add(
                 WebhookEndpointSubscription(
@@ -291,18 +297,19 @@ class WebhookService:
         if not ids:
             return {}
         latest_ids = [
-            int(row[0])
-            for row in (
-                self.db.query(func.max(WebhookDelivery.id))
-                .filter(WebhookDelivery.endpoint_id.in_(ids))
+            int(delivery_id)
+            for delivery_id in self.db.scalars(
+                select(func.max(WebhookDelivery.id))
+                .where(WebhookDelivery.endpoint_id.in_(ids))
                 .group_by(WebhookDelivery.endpoint_id)
-                .all()
-            )
-            if row[0] is not None
+            ).all()
+            if delivery_id is not None
         ]
         if not latest_ids:
             return {}
-        rows = self.db.query(WebhookDelivery).filter(WebhookDelivery.id.in_(latest_ids)).all()
+        rows = self.db.scalars(
+            select(WebhookDelivery).where(WebhookDelivery.id.in_(latest_ids))
+        ).all()
         return {int(row.endpoint_id): row for row in rows}
 
     def _endpoint_out(
@@ -409,17 +416,17 @@ class WebhookEventPublisher:
             occurred_at=occurred_at,
             data=data,
         )
-        query = self.db.query(WebhookEndpoint)
+        statement = select(WebhookEndpoint)
         forced_ids = sorted({int(item) for item in endpoint_ids or [] if int(item) > 0})
         if forced_ids:
-            query = query.filter(WebhookEndpoint.id.in_(forced_ids))
+            statement = statement.where(WebhookEndpoint.id.in_(forced_ids))
         else:
-            query = (
-                query.join(
+            statement = (
+                statement.join(
                     WebhookEndpointSubscription,
                     WebhookEndpointSubscription.endpoint_id == WebhookEndpoint.id,
                 )
-                .filter(
+                .where(
                     WebhookEndpoint.enabled.is_(True),
                     WebhookEndpoint.signing_secret.is_not(None),
                     or_(
@@ -429,7 +436,9 @@ class WebhookEventPublisher:
                 )
                 .distinct()
             )
-        endpoint_rows = query.order_by(WebhookEndpoint.id.asc()).all()
+        endpoint_rows = self.db.scalars(
+            statement.order_by(WebhookEndpoint.id.asc())
+        ).all()
         delivery_ids: list[str] = []
         for endpoint in endpoint_rows:
             if not forced_ids and (not endpoint.enabled or not endpoint.signing_secret):
