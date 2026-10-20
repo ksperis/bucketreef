@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0176_remove_bucket_migration_plan_blocked"
+_EXPECTED_ALEMBIC_HEAD = "0177_remove_bucket_migration_plan_safety"
 
 
 def _alembic_config() -> Config:
