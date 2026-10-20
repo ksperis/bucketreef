@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import StorageEndpointNotFoundError
@@ -97,7 +98,11 @@ class S3ConnectionValidationService:
         enforce_manual_endpoint_policy: bool,
     ) -> tuple[str, str | None, bool, bool]:
         if payload.storage_endpoint_id is not None:
-            endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == payload.storage_endpoint_id).first()
+            endpoint = self.db.scalar(
+                select(StorageEndpoint)
+                .where(StorageEndpoint.id == payload.storage_endpoint_id)
+                .limit(1)
+            )
             if not endpoint:
                 raise StorageEndpointNotFoundError("Storage endpoint not found")
             return endpoint.endpoint_url, endpoint.region, endpoint.force_path_style, True
