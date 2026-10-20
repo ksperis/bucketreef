@@ -10,6 +10,7 @@ function createOptions() {
     loadObjects: vi.fn(async () => undefined),
     loadTreeChildren: vi.fn(async () => undefined),
     prefix: "current/",
+    refreshVisibleVersions: vi.fn(async () => undefined),
     refreshToken: 1,
   };
 }
@@ -58,6 +59,22 @@ describe("useBrowserListingRefresh", () => {
     expect(options.loadTreeChildren).toHaveBeenLastCalledWith("uploaded/", {
       expand: false,
     });
+  });
+
+  it("owns the current-listing refresh including visible versions", async () => {
+    const options = createOptions();
+    const { result } = renderHook(() => useBrowserListingRefresh(options));
+
+    await act(async () => {
+      await result.current.refreshCurrentListing();
+    });
+
+    expect(options.loadObjects).toHaveBeenCalledWith({
+      prefixOverride: "current/",
+      forceRefresh: true,
+    });
+    expect(options.refreshVisibleVersions).toHaveBeenCalledOnce();
+    expect(options.loadTreeChildren).not.toHaveBeenCalled();
   });
 
   it("coalesces delayed refreshes onto the latest requested prefix", async () => {

@@ -1020,6 +1020,7 @@ export default function BrowserPage({
   const primaryItemButtonHeightClasses = compactMode ? "" : "min-h-11";
   const {
     refreshAfterUpload: refreshUploadedListing,
+    refreshCurrentListing,
     refreshNow: refreshObjectsNow,
     reload: reloadObjects,
     requestRefresh: requestObjectsRefresh,
@@ -1030,6 +1031,7 @@ export default function BrowserPage({
     loadObjects,
     loadTreeChildren,
     prefix,
+    refreshVisibleVersions: refreshPrefixVersionsIfVisible,
     refreshToken,
   });
 
@@ -1291,8 +1293,7 @@ export default function BrowserPage({
       void refreshBucketList();
       return;
     }
-    loadObjects({ prefixOverride: prefix, forceRefresh: true });
-    void refreshPrefixVersionsIfVisible();
+    void refreshCurrentListing();
   };
 
   const addActivity = (action: string, path: string) => {
@@ -1601,11 +1602,6 @@ export default function BrowserPage({
     selectedItems,
   });
 
-  const refreshObjectListing = async (_targetKey: string) => {
-    await loadObjects({ prefixOverride: prefix, forceRefresh: true });
-    await refreshPrefixVersionsIfVisible();
-  };
-
   const {
     remove: handleDeleteVersion,
     restore: handleRestoreVersion,
@@ -1618,7 +1614,7 @@ export default function BrowserPage({
     enabled: hasExecutionContext,
     isOperationAborted,
     onConfirm: openConfirmDialog,
-    onRefreshListing: refreshObjectListing,
+    onRefreshListing: refreshCurrentListing,
     onRefreshVersions: async () => undefined,
     onStatus: setStatusMessage,
     onWarning: setWarningMessage,
@@ -2243,7 +2239,7 @@ export default function BrowserPage({
           item={objectDetailsTarget.item}
           onClose={closeObjectDetailsDrawer}
           onMessage={setStatusMessage}
-          onRefreshObjects={refreshObjectListing}
+          onRefreshObjects={refreshCurrentListing}
         />
       ) : objectDetailsTarget && objectDetailsTarget.item.type === "file" ? (
         <BrowserObjectDetailsDrawer
@@ -2265,7 +2261,7 @@ export default function BrowserPage({
           onDownload={handleDownloadTarget}
           onCopyUrl={(item) => handleCopyUrl(item)}
           onDelete={(item) => handleDeleteItems([item])}
-          onRefreshBrowserObjects={refreshObjectListing}
+          onRefreshBrowserObjects={refreshCurrentListing}
           onDownloadVersion={handleDownloadVersion}
           onRestoreVersion={handleRestoreVersion}
           onDeleteVersion={handleDeleteVersion}
