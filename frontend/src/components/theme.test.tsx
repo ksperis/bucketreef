@@ -53,6 +53,11 @@ describe("ThemeProvider", () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
     document.documentElement.classList.remove("dark");
+    document.querySelector('meta[name="theme-color"]')?.remove();
+    const themeColor = document.createElement("meta");
+    themeColor.name = "theme-color";
+    themeColor.content = "#f7f9fc";
+    document.head.appendChild(themeColor);
   });
 
   afterEach(() => {
@@ -61,6 +66,7 @@ describe("ThemeProvider", () => {
       value: originalMatchMedia,
     });
     document.documentElement.classList.remove("dark");
+    document.querySelector('meta[name="theme-color"]')?.remove();
   });
 
   it("follows the system theme until the user chooses an explicit theme", () => {
@@ -73,10 +79,12 @@ describe("ThemeProvider", () => {
 
     expect(screen.getByText("light")).toBeInTheDocument();
     expect(systemTheme.listeners.size).toBe(1);
+    expect(document.querySelector('meta[name="theme-color"]')).toHaveAttribute("content", "#f7f9fc");
 
     systemTheme.setMatches(true);
     expect(screen.getByText("dark")).toBeInTheDocument();
     expect(document.documentElement).toHaveClass("dark");
+    expect(document.querySelector('meta[name="theme-color"]')).toHaveAttribute("content", "#0b0f14");
 
     fireEvent.click(screen.getByRole("button", { name: "Set light" }));
     expect(screen.getByText("light")).toBeInTheDocument();
@@ -84,6 +92,7 @@ describe("ThemeProvider", () => {
     expect(window.localStorage.getItem(CLIENT_STORAGE_KEYS.theme)).toBe(
       "light",
     );
+    expect(document.querySelector('meta[name="theme-color"]')).toHaveAttribute("content", "#f7f9fc");
 
     systemTheme.setMatches(false);
     systemTheme.setMatches(true);
@@ -108,5 +117,6 @@ describe("ThemeProvider", () => {
 
     expect(screen.getByText("dark")).toBeInTheDocument();
     expect(systemTheme.listeners.size).toBe(0);
+    expect(document.querySelector('meta[name="theme-color"]')).toHaveAttribute("content", "#0b0f14");
   });
 });

@@ -18,6 +18,10 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 const STORAGE_KEY = CLIENT_STORAGE_KEYS.theme;
+const THEME_COLORS: Record<Theme, string> = {
+  light: "#f7f9fc",
+  dark: "#0b0f14",
+};
 
 function getPreferredTheme(): { theme: Theme; source: ThemeSource } {
   if (typeof window === "undefined") return { theme: "light", source: "system" };
@@ -56,6 +60,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       root.classList.remove("dark");
     }
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[theme]);
     if (themeSource === "user") {
       writeClientStorage(STORAGE_KEY, theme);
     } else {
