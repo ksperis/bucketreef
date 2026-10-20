@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0173_canonical_bucket_migration_severity"
+_EXPECTED_ALEMBIC_HEAD = "0174_remove_bucket_migration_item_identities"
 
 
 def _alembic_config() -> Config:

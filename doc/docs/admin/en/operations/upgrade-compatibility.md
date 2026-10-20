@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical bucket migration item identities
+
+Migration `0174_remove_bucket_migration_item_identities` removes duplicated
+`source_identity` and `target_identity` fields from persisted per-bucket
+precheck items. The execution contexts already belong to the migration record
+and report context block, so keeping a copy on every item created redundant
+state that could drift.
+
+Deploy the migration, backend, and frontend together. New precheck reports no
+longer emit the per-item identity copies. Downgrade reconstructs them from the
+canonical migration source and target context IDs for the previous application
+version.
+
 ## 2026-10 canonical bucket migration diagnostic severity
 
 Migration `0173_canonical_bucket_migration_severity` rewrites persisted bucket

@@ -1656,6 +1656,8 @@ def test_run_precheck_passed_then_start_allowed(db_session):
     assert report.get("status") == "passed"
     assert isinstance(report["items"][0]["checks"], list)
     assert "messages" not in report["items"][0]
+    assert "source_identity" not in report["items"][0]
+    assert "target_identity" not in report["items"][0]
     assert migration.items[0].execution_plan_json is not None
     queued = service.start_migration(migration.id, configuration_revision=1, confirm_write_interruption=True)
     assert queued.status == "queued"

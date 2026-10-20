@@ -635,8 +635,8 @@ export default function ManagerMigrationDetailPage() {
                   <pre className="mt-2 whitespace-pre-wrap break-all ui-caption">
                     {JSON.stringify(
                       {
-                        source_identity: migration.source_context_id,
-                        destination_identity: migration.target_context_id,
+                        source_context: migration.source_context_id,
+                        target_context: migration.target_context_id,
                         phase: item.step,
                         checks: reports.get(item.id)?.checks,
                       },
