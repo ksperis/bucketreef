@@ -129,12 +129,10 @@ describe("useBrowserObjectListing", () => {
     });
     expect(result.current.prefixes).toEqual(["docs/"]);
     expect(result.current.objectsNextToken).toBe("page-2");
+    expect(result.current.canLoadMore).toBe(true);
 
     await act(async () => {
-      await result.current.loadObjects({
-        append: true,
-        continuationToken: "page-2",
-      });
+      await result.current.loadMore();
     });
 
     expect(result.current.objects.map((entry) => entry.key)).toEqual([
@@ -151,6 +149,84 @@ describe("useBrowserObjectListing", () => {
         workspaceSurface: "browser",
       }),
     );
+    expect(result.current.canLoadMore).toBe(false);
+  });
+
+  it("continues deleted-object pagination after active objects are exhausted", async () => {
+    apiMocks.getBrowserBucketVersioning.mockResolvedValue({
+      status: "Enabled",
+      enabled: true,
+    });
+    apiMocks.listBrowserObjects.mockResolvedValue(objectPage([]));
+    apiMocks.listObjectVersions.mockImplementation(
+      (
+        _contextId: string,
+        _bucketName: string,
+        options?: { keyMarker?: string; versionIdMarker?: string },
+      ) =>
+        Promise.resolve(
+          options?.keyMarker === "deleted-199.txt"
+            ? {
+                versions: [],
+                delete_markers: [
+                  {
+                    key: "deleted-next.txt",
+                    version_id: "delete-next",
+                    is_latest: true,
+                    is_delete_marker: true,
+                  },
+                ],
+                common_prefixes: [],
+                is_truncated: false,
+                next_key_marker: null,
+                next_version_id_marker: null,
+              }
+            : {
+                versions: [],
+                delete_markers: Array.from({ length: 200 }, (_, index) => ({
+                    key: `deleted-${String(index).padStart(3, "0")}.txt`,
+                    version_id: `delete-${index}`,
+                    is_latest: true,
+                    is_delete_marker: true,
+                  })),
+                common_prefixes: [],
+                is_truncated: true,
+                next_key_marker: "deleted-199.txt",
+                next_version_id_marker: "delete-199",
+              },
+        ),
+    );
+    const options = {
+      ...createOptions(),
+      showDeletedObjects: true,
+    };
+    const { result } = renderHook(() => useBrowserObjectListing(options));
+
+    await waitFor(() => {
+      expect(result.current.isVersioningEnabled).toBe(true);
+    });
+    await act(async () => {
+      await result.current.loadObjects({ forceRefresh: true });
+    });
+
+    expect(result.current.deletedObjects).toHaveLength(200);
+    expect(result.current.canLoadMore).toBe(true);
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(result.current.deletedObjects).toHaveLength(201);
+    expect(result.current.deletedObjects.at(-1)?.key).toBe("deleted-next.txt");
+    expect(apiMocks.listObjectVersions).toHaveBeenLastCalledWith(
+      "account-a",
+      "bucket-a",
+      expect.objectContaining({
+        keyMarker: "deleted-199.txt",
+        versionIdMarker: "delete-199",
+      }),
+    );
+    expect(result.current.canLoadMore).toBe(false);
   });
 
   it("ignores a response from the previous account even when abort is ignored", async () => {

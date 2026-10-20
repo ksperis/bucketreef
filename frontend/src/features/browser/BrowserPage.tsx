@@ -464,17 +464,18 @@ export default function BrowserPage({
     deletedObjectsOptions,
   });
   const {
+    canLoadMore: canLoadMoreObjectResults,
     deletedObjects,
     deletedObjectsIsTruncated,
     deletedPrefixes,
     isVersioningEnabled,
+    loadMore: handleLoadMoreObjectResults,
     loadObjects,
     objects,
     objectsIsTruncated,
     objectsIssue,
     objectsLoading,
     objectsLoadingMore,
-    objectsNextToken,
     prefixes,
     setShowObjectsIssueTechnicalDetails,
     showObjectsIssueTechnicalDetails,
@@ -1292,21 +1293,6 @@ export default function BrowserPage({
     }
     loadObjects({ prefixOverride: prefix, forceRefresh: true });
     void refreshPrefixVersionsIfVisible();
-  };
-
-  const canLoadMoreObjectResults = Boolean(
-    (objectsIsTruncated && objectsNextToken) || deletedObjectsIsTruncated,
-  );
-
-  const handleLoadMoreObjectResults = () => {
-    if (objectsLoadingMore) return;
-    if (objectsIsTruncated && objectsNextToken) {
-      void loadObjects({ append: true, continuationToken: objectsNextToken });
-      return;
-    }
-    if (deletedObjectsIsTruncated) {
-      void loadObjects({ append: true, loadDeletedOnly: true });
-    }
   };
 
   const addActivity = (action: string, path: string) => {
