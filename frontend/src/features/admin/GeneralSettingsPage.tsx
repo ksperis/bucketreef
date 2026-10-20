@@ -514,6 +514,7 @@ export default function GeneralSettingsPage() {
           form.draft["general.cost_enabled"]
             ? "Cost dashboards. Enable the cost collection cron job separately."
             : "Cost dashboards.",
+          true,
         )}
         {feature(
           "endpoint_status_enabled",
