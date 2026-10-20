@@ -7,6 +7,7 @@ from datetime import datetime
 import logging
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -163,7 +164,7 @@ class QuotaMonitoringService:
     ) -> _QuotaMonitorRun:
         endpoint_map = {
             endpoint.id: endpoint
-            for endpoint in self.db.query(StorageEndpoint).all()
+            for endpoint in self.db.scalars(select(StorageEndpoint)).all()
         }
         alert_states = QuotaAlertStateService(self.db)
         recipients = QuotaAlertRecipientsService(self.db)
@@ -485,7 +486,7 @@ class QuotaMonitoringService:
     ) -> list[SubjectContext]:
         subjects: list[SubjectContext] = []
 
-        accounts = self.db.query(S3Account).all()
+        accounts = self.db.scalars(select(S3Account)).all()
         for account in accounts:
             endpoint_id = account.storage_endpoint_id
             endpoint = endpoint_map.get(endpoint_id)
@@ -507,7 +508,7 @@ class QuotaMonitoringService:
                 )
             )
 
-        s3_users = self.db.query(S3User).all()
+        s3_users = self.db.scalars(select(S3User)).all()
         for s3_user in s3_users:
             endpoint_id = s3_user.storage_endpoint_id
             endpoint = endpoint_map.get(endpoint_id)
