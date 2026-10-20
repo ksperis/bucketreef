@@ -552,24 +552,12 @@ class AdminMetricsService:
         )
         return payload or {}
 
-    def _normalize_identifier(self, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            value = str(value)
-        normalized = value.strip()
-        return normalized or None
-
-    def _expand_identifier(self, value: Optional[str]) -> set[str]:
-        normalized = self._normalize_identifier(value)
-        if not normalized:
-            return set()
-        return {normalized}
-
-    def _identifier_in_scope(self, value: Optional[str], allowed: set[str]) -> bool:
-        if not allowed:
+    @staticmethod
+    def _identifier_in_scope(value: object, allowed: set[str]) -> bool:
+        if value is None or not allowed:
             return False
-        return any(token in allowed for token in self._expand_identifier(value))
+        normalized = str(value).strip()
+        return bool(normalized and normalized in allowed)
 
     def _load_scope_targets(self) -> tuple[list[S3Account], list[S3User], set[str]]:
         account_statement = select(S3Account)
