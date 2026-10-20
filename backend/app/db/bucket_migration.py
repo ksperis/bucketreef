@@ -125,7 +125,7 @@ class BucketMigrationItem(Base):
 
     source_snapshot_json = Column(Text, nullable=True)
     target_snapshot_json = Column(Text, nullable=True)
-    execution_plan_json = Column(Text, nullable=True)
+    execution_strategy = Column(String, nullable=True)
     replication_state_json = Column(Text, nullable=True)
 
     source_policy_backup_json = Column(Text, nullable=True)

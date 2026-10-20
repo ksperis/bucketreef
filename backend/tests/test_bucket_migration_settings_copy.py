@@ -2,23 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 from types import SimpleNamespace
 from unittest.mock import ANY
 
 import pytest
 
 from app.services.bucket_migration_service import BucketMigrationService
-
-
-def _execution_plan(strategy: str) -> str:
-    return json.dumps(
-        {
-            "strategy": strategy,
-            "supported": True,
-            "blocking_codes": [],
-        }
-    )
 
 
 class _SettingsStub:
@@ -130,7 +119,7 @@ def _run_copy(db_session, *, strategy: str, settings: _SettingsStub):
         object(),
         "target-bucket",
         SimpleNamespace(),
-        SimpleNamespace(execution_plan_json=_execution_plan(strategy)),
+        SimpleNamespace(execution_strategy=strategy),
     )
     return events
 
@@ -200,7 +189,7 @@ def test_copy_bucket_settings_continues_after_failure_and_aggregates(db_session)
             object(),
             "target-bucket",
             SimpleNamespace(),
-            SimpleNamespace(execution_plan_json=_execution_plan("current_only")),
+            SimpleNamespace(execution_strategy="current_only"),
         )
 
     assert ("set_bucket_logging", None) in settings.calls

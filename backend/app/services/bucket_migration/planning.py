@@ -224,7 +224,7 @@ class BucketMigrationPlanningMixin:
             step="create_bucket",
             source_snapshot_json=None,
             target_snapshot_json=None,
-            execution_plan_json=None,
+            execution_strategy=None,
             replication_state_json=None,
             created_at=timestamp,
             updated_at=timestamp,
@@ -255,7 +255,7 @@ class BucketMigrationPlanningMixin:
         item.diff_sample_json = None
         item.source_snapshot_json = None
         item.target_snapshot_json = None
-        item.execution_plan_json = None
+        item.execution_strategy = None
         item.replication_state_json = None
         item.source_policy_backup_json = None
         item.target_policy_backup_json = None
@@ -538,7 +538,7 @@ class BucketMigrationPlanningMixin:
             raise ValueError("Precheck must pass before start. Run /precheck first.")
         for item in migration.items:
             try:
-                self._assert_item_execution_plan_supported(item)
+                self._assert_item_execution_strategy_supported(item)
             except RuntimeError as exc:
                 raise ValueError(
                     "Precheck must be re-run before start. "

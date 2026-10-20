@@ -677,8 +677,6 @@ class BucketMigrationPrecheckPlanner:
             source_profile=source.profile,
             target_profile=target.profile,
             strategy=source_plan.strategy,
-            blocking=blocking,
-            checks=checks,
         )
         configured = (source.profile or {}).get("supported_settings", {})
         availability = (source.profile or {}).get("feature_availability", {})
@@ -736,19 +734,10 @@ class BucketMigrationPrecheckPlanner:
         source_profile: dict[str, Any] | None,
         target_profile: dict[str, Any] | None,
         strategy: str,
-        blocking: bool,
-        checks: list[dict[str, Any]],
     ) -> None:
         item.source_snapshot_json = self._service._json_dumps_safe(source_profile)
         item.target_snapshot_json = self._service._json_dumps_safe(target_profile)
-        execution_plan = {
-            "strategy": strategy,
-            "supported": not blocking,
-            "blocking_codes": [
-                entry["code"] for entry in checks if bool(entry.get("blocking"))
-            ],
-        }
-        item.execution_plan_json = self._service._json_dumps_safe(execution_plan)
+        item.execution_strategy = strategy
         item.updated_at = checked_at
 
     def _finalize_report(

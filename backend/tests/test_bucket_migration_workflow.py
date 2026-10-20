@@ -24,7 +24,7 @@ from tests.test_bucket_migration_service import (
     _create_account,
     _create_user,
     _bucket_profile_stub,
-    _current_only_execution_plan,
+    _current_only_execution_strategy,
 )
 
 
@@ -498,7 +498,7 @@ def test_cleanup_target_keeps_success_and_source_protection(prepared):
     migration.status = "completed_with_errors"
     failed = migration.items[0]
     failed.status = "failed"
-    failed.execution_plan_json = _current_only_execution_plan()
+    failed.execution_strategy = _current_only_execution_strategy()
     failed.target_created_by_migration = True
     failed.read_only_applied = True
     complete = BucketMigrationItem(

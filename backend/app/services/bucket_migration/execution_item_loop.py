@@ -51,7 +51,7 @@ class _MigrationItemExecutionLoop:
         }
 
     def run(self) -> None:
-        self.service._assert_item_execution_plan_supported(self.item)
+        self.service._assert_item_execution_strategy_supported(self.item)
         while True:
             self._persist_heartbeat_if_due()
             if not self._may_continue():
