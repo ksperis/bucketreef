@@ -33,6 +33,7 @@ import { useBrowserBulkAttributes } from "./useBrowserBulkAttributes";
 import { useBrowserBulkRestore } from "./useBrowserBulkRestore";
 import { useBrowserBucketPanelViewport } from "./useBrowserBucketPanelViewport";
 import { useBrowserBucketCatalog } from "./useBrowserBucketCatalog";
+import { useBrowserBucketInteractions } from "./useBrowserBucketInteractions";
 import { useBrowserClipboard } from "./useBrowserClipboard";
 import { useBrowserConfirmDialog } from "./useBrowserConfirmDialog";
 import { useBrowserContextMenu } from "./useBrowserContextMenu";
@@ -904,15 +905,6 @@ export default function BrowserPage({
     rows: workspaceSidebarRows,
     scheduleAccessProbe: scheduleBucketAccessProbe,
   });
-  const handleBucketChange = useCallback(
-    (value: string) => {
-      setShowBucketMenu(false);
-      requestDetailsDrawerTransition(() => {
-        if (selectBucket(value)) clearActiveItem();
-      });
-    },
-    [clearActiveItem, requestDetailsDrawerTransition, selectBucket],
-  );
   const workspaceAccountAction = useBrowserWorkspaceAccountAction({
     selectedContext,
     contextIdForApi,
@@ -1108,23 +1100,6 @@ export default function BrowserPage({
     handleSelectionKeyDown(event, openItemPrimaryAction);
   };
 
-  const openBucketConfigurationDrawer = (targetBucket: string) => {
-    if (!bucketConfigurationEnabled) return;
-    const normalized = targetBucket.trim();
-    if (!normalized) return;
-    setShowBucketMenu(false);
-    setBucketFilter("");
-    requestDetailsDrawerTransition(() =>
-      openBucketConfigurationTarget(normalized),
-    );
-  };
-
-  const handleBrowserBucketCreated = useCallback(
-    async (createdBucketName: string) => {
-      await refreshBucketList({ preferredBucket: createdBucketName });
-    },
-    [refreshBucketList],
-  );
   const {
     showModal: showCreateBucketModal,
     name: createBucketNameValue,
@@ -1145,17 +1120,28 @@ export default function BrowserPage({
     hasContext: hasExecutionContext,
     requestOptions: browserRequestOptions,
     uiOrigin,
-    onCreated: handleBrowserBucketCreated,
+    onCreated: async (createdBucketName) => {
+      await refreshBucketList({ preferredBucket: createdBucketName });
+    },
     setCorsError: setCorsFixError,
     setCorsStatus,
     setStatusMessage,
   });
-  const openCreateBucketDialog = useCallback(() => {
-    if (!bucketManagementEnabled) return;
-    setShowBucketMenu(false);
-    setBucketFilter("");
-    openCreateBucketForm();
-  }, [bucketManagementEnabled, openCreateBucketForm, setBucketFilter]);
+  const {
+    openBucketConfiguration: openBucketConfigurationDrawer,
+    openCreateBucket: openCreateBucketDialog,
+    selectBucketFromMenu: handleBucketChange,
+  } = useBrowserBucketInteractions({
+    bucketConfigurationEnabled,
+    bucketManagementEnabled,
+    clearActiveItem,
+    openBucketConfigurationTarget,
+    openCreateBucketForm,
+    requestDetailsDrawerTransition,
+    selectBucket,
+    setBucketFilter,
+    setShowBucketMenu,
+  });
 
   const {
     accountUser,
