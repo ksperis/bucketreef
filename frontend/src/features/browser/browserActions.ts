@@ -578,7 +578,12 @@ export const resolveBrowserActions = ({
     return finalize();
   }
 
-  setState("downloadZip", { label: "Download as ZIP", visible: true, enabled: canUseContextActions && items.some(item => !item.isDeleted), disabledReason: "Select current files or folders to archive." });
+  setState("downloadZip", {
+    label: "Download as ZIP",
+    visible: !selectionInfo.canDownloadFolder,
+    enabled: canUseContextActions && items.some(item => !item.isDeleted),
+    disabledReason: "Select current files or folders to archive.",
+  });
   if (scope === "item") {
     setState("details", {
       label: "Details",

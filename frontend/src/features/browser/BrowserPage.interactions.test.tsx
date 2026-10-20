@@ -4049,6 +4049,11 @@ describe("BrowserPage interactions", () => {
     expect(
       within(actionsToolbar).queryByRole("button", { name: "Preview" }),
     ).not.toBeInTheDocument();
+
+    const menu = await openActionsMoreMenu(user);
+    expect(
+      within(menu).queryByRole("menuitem", { name: "Download as ZIP" }),
+    ).not.toBeInTheDocument();
   });
 
   it("uses shared controls and English labels in the SSE-C key modal", async () => {
@@ -4581,6 +4586,9 @@ describe("BrowserPage interactions", () => {
     expect(
       within(menu).getByRole("button", { name: "Download folder" }),
     ).toBeInTheDocument();
+    expect(
+      within(menu).queryByRole("button", { name: "Download as ZIP" }),
+    ).not.toBeInTheDocument();
     expect(
       within(menu).getByRole("button", { name: "Copy" }),
     ).toBeInTheDocument();
