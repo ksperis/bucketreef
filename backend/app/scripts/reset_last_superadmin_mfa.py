@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -30,9 +31,11 @@ def reset_last_superadmin_mfa(db: Session, *, email: str, confirmation: str) -> 
     if confirmation != expected:
         raise OperatorRecoveryError(f"Confirmation must exactly match: {expected}")
 
-    active_superadmins = db.query(User).filter(
-        User.role == UserRole.UI_SUPERADMIN.value,
-        User.is_active.is_(True),
+    active_superadmins = db.scalars(
+        select(User).where(
+            User.role == UserRole.UI_SUPERADMIN.value,
+            User.is_active.is_(True),
+        )
     ).all()
     if len(active_superadmins) != 1:
         raise OperatorRecoveryError("Operator recovery is restricted to the sole active superadministrator")
