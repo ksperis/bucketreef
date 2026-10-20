@@ -6,6 +6,7 @@ from __future__ import annotations
 import secrets
 from typing import TYPE_CHECKING
 
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -39,14 +40,12 @@ def pending_rotation(
     key_type: str,
     target_id: int,
 ) -> KeyRotationIntent | None:
-    return (
-        db.query(KeyRotationIntent)
-        .filter_by(
-            endpoint_id=endpoint_id,
-            key_type=key_type,
-            target_id=target_id,
+    return db.scalar(
+        select(KeyRotationIntent).where(
+            KeyRotationIntent.endpoint_id == endpoint_id,
+            KeyRotationIntent.key_type == key_type,
+            KeyRotationIntent.target_id == target_id,
         )
-        .first()
     )
 
 
@@ -88,7 +87,11 @@ class DurableKeyRotationService:
         target_id: int,
     ) -> RotationTarget:
         model = EndpointServiceIdentity if key_type in IDENTITY_TYPES else S3Account if key_type == "account" else S3User if key_type == "s3_user" else StorageEndpoint
-        target = self.db.query(model).populate_existing().filter(model.id == target_id).first()
+        target = self.db.scalar(
+            select(model)
+            .where(model.id == target_id)
+            .execution_options(populate_existing=True)
+        )
         if target is None or ((target.id if model == StorageEndpoint else target.endpoint_id if model == EndpointServiceIdentity else target.storage_endpoint_id) != endpoint.id):
             raise ValueError("Rotation target no longer belongs to this endpoint.")
         if key_type in SERVICE_TYPES and (target.kind != SERVICE_TYPES[key_type] or target.mode != "managed"):
@@ -487,7 +490,11 @@ class DurableKeyRotationService:
         intent = None
         try:
             endpoint_id = endpoint.id
-            endpoint = self.db.query(StorageEndpoint).populate_existing().filter_by(id=endpoint_id).first()
+            endpoint = self.db.scalar(
+                select(StorageEndpoint)
+                .where(StorageEndpoint.id == endpoint_id)
+                .execution_options(populate_existing=True)
+            )
             if endpoint is None or endpoint.provider != "ceph":
                 raise ValueError("Key rotation is only supported for an available Ceph endpoint.")
             target = self._target(endpoint, key_type, target_id)
