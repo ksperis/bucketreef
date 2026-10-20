@@ -654,6 +654,30 @@ export function useBrowserObjectListing({
     ],
   );
 
+  const canLoadMore = Boolean(
+    (objectsIsTruncated && objectsNextToken) || deletedObjectsIsTruncated,
+  );
+
+  const loadMore = useCallback(async () => {
+    if (objectsLoadingMore) return;
+    if (objectsIsTruncated && objectsNextToken) {
+      await loadObjects({
+        append: true,
+        continuationToken: objectsNextToken,
+      });
+      return;
+    }
+    if (deletedObjectsIsTruncated) {
+      await loadObjects({ append: true, loadDeletedOnly: true });
+    }
+  }, [
+    deletedObjectsIsTruncated,
+    loadObjects,
+    objectsIsTruncated,
+    objectsLoadingMore,
+    objectsNextToken,
+  ]);
+
   useEffect(() => {
     if (contextSwitchInFlight) {
       invalidateRequests();
@@ -749,10 +773,12 @@ export function useBrowserObjectListing({
   );
 
   return {
+    canLoadMore,
     deletedObjects,
     deletedObjectsIsTruncated,
     deletedPrefixes,
     isVersioningEnabled,
+    loadMore,
     loadObjects,
     objects,
     objectsIsTruncated,
