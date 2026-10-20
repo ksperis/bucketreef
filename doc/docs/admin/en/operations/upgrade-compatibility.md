@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical bucket migration precheck diagnostics
+
+Migration `0172_canonical_bucket_migration_checks` rewrites persisted bucket
+migration precheck reports so item diagnostics use only the canonical `checks`
+field. Historical reports that contain only the retired `messages` alias are
+migrated into `checks`; when both fields exist, `checks` remains authoritative
+and `messages` is removed.
+
+Deploy the migration, backend, and frontend together. New reports no longer
+emit duplicate `messages` data, and the frontend reads only `checks`. Downgrade
+recreates `messages` from canonical checks for the previous application version.
+
 ## 2026-10 context-bound direct transfer workers
 
 Deploy the backend and frontend together. Direct transfers now obtain their

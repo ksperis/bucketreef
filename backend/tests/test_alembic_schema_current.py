@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0171_s3_user_rgw_usage_metrics"
+_EXPECTED_ALEMBIC_HEAD = "0172_canonical_bucket_migration_checks"
 
 
 def _alembic_config() -> Config:
