@@ -118,6 +118,33 @@ describe("resolveBrowserActions", () => {
     });
   });
 
+  it("avoids offering a duplicate ZIP action for a single folder", () => {
+    const selection = resolveBrowserActions({
+      ...baseInput,
+      scope: "selection",
+      items: [folderItem],
+    });
+    const item = resolveBrowserActions({
+      ...baseInput,
+      scope: "item",
+      items: [folderItem],
+    });
+    const fileSelection = resolveBrowserActions({
+      ...baseInput,
+      scope: "selection",
+      items: [fileItem],
+    });
+
+    expect(selection.download).toMatchObject({
+      label: "Download folder",
+      visible: true,
+      enabled: true,
+    });
+    expect(selection.downloadZip.visible).toBe(false);
+    expect(item.downloadZip.visible).toBe(false);
+    expect(fileSelection.downloadZip.visible).toBe(true);
+  });
+
   it("uses Portal capability facts without reconstructing permissions from roles", () => {
     const viewerFacts = {
       canWriteObjects: false,
