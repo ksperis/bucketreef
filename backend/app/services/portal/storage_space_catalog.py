@@ -5,6 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
+
 from app.db import PortalAccountRole, PortalStorageSpaceMetadata, S3Account, User
 from app.models.bucket import Bucket
 from app.models.portal_storage_spaces import (
@@ -45,7 +48,7 @@ class PortalStorageSpaceCatalogMixin:
         metadata: PortalStorageSpaceMetadata | None,
     ) -> str:
         if metadata and metadata.owner_user_id:
-            owner = self.db.query(User).filter(User.id == metadata.owner_user_id).first()
+            owner = metadata.owner_user
             if owner and owner.email:
                 return owner.email
         return account.name if self._metadata_visibility(metadata) == "private" else ""
@@ -59,19 +62,21 @@ class PortalStorageSpaceCatalogMixin:
     def _storage_space_metadata_map(self, account: S3Account) -> dict[str, PortalStorageSpaceMetadata]:
         return {
             item.bucket_name: item
-            for item in self.db.query(PortalStorageSpaceMetadata)
-            .filter(PortalStorageSpaceMetadata.account_id == account.id)
-            .all()
+            for item in self.db.scalars(
+                select(PortalStorageSpaceMetadata)
+                .options(joinedload(PortalStorageSpaceMetadata.owner_user))
+                .where(PortalStorageSpaceMetadata.account_id == account.id)
+            ).all()
         }
 
     def _storage_space_metadata(self, account: S3Account, bucket_name: str) -> PortalStorageSpaceMetadata | None:
-        return (
-            self.db.query(PortalStorageSpaceMetadata)
-            .filter(
+        return self.db.scalar(
+            select(PortalStorageSpaceMetadata)
+            .options(joinedload(PortalStorageSpaceMetadata.owner_user))
+            .where(
                 PortalStorageSpaceMetadata.account_id == account.id,
                 PortalStorageSpaceMetadata.bucket_name == bucket_name,
             )
-            .first()
         )
 
     def _display_storage_space_name(self, bucket_name: str, metadata: PortalStorageSpaceMetadata | None = None) -> str:
