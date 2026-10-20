@@ -45,13 +45,6 @@ def billing_daily_operation_name(day_iso: str) -> str:
     return f"billing:daily:{day_iso}"
 
 
-def billing_statement_monthly_operation_name(month: str) -> str:
-    normalized = str(month or "").strip()
-    if not normalized:
-        raise ValueError("Billing statement month is required")
-    return f"billing:statements:{normalized}"
-
-
 def default_operation_lease_ttl_seconds() -> int:
     return max(15, int(get_settings().operation_lease_ttl_seconds))
 

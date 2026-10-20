@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0167_restore_billing_0216_model"
+_EXPECTED_ALEMBIC_HEAD = "0168_remove_retired_billing_settings"
 
 
 def _alembic_config() -> Config:
@@ -314,6 +314,56 @@ def test_billing_0216_restore_preserves_history_and_resets_v2_configuration(
                 column["name"] for column in inspector.get_columns("billing_storage_daily")
             }
             assert {"quota_size_bytes", "quota_state"}.issubset(storage_columns)
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
+
+
+def test_billing_0216_followup_removes_retired_settings_from_existing_0167_database(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "billing-0216-settings-followup.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0167_restore_billing_0216_model")
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO app_settings (key, payload_json, created_at, updated_at) "
+                    "VALUES ('default', :payload_json, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                ),
+                {
+                    "payload_json": json.dumps(
+                        {
+                            "general": {"billing_enabled": True},
+                            "billing_automation": {"mode": "automatic_draft"},
+                            "billing_statement_pdf": {"organization_name": "BucketReef"},
+                        }
+                    )
+                },
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            payload = json.loads(
+                connection.scalar(
+                    sa.text(
+                        "SELECT payload_json FROM app_settings WHERE key = 'default'"
+                    )
+                )
+            )
+            assert payload == {"general": {"billing_enabled": True}}
+            assert connection.scalar(
+                sa.text("SELECT version_num FROM alembic_version")
+            ) == _EXPECTED_ALEMBIC_HEAD
     finally:
         engine.dispose()
         get_settings.cache_clear()
