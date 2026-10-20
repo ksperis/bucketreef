@@ -85,9 +85,12 @@ class FirstAdminBootstrapService:
     def _empty_users_predicate():
         return ~exists(select(User.id))
 
+    def _has_users(self) -> bool:
+        return int(self.db.scalar(select(func.count(User.id))) or 0) != 0
+
     def is_available(self) -> bool:
         now = utcnow()
-        if int(self.db.query(func.count(User.id)).scalar() or 0) != 0:
+        if self._has_users():
             return False
         row = self.db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
         return bool(
@@ -107,7 +110,7 @@ class FirstAdminBootstrapService:
             raise FirstAdminBootstrapError(
                 "Bootstrap token lifetime must be between 1 and 60 minutes"
             )
-        if int(self.db.query(func.count(User.id)).scalar() or 0) != 0:
+        if self._has_users():
             raise FirstAdminBootstrapUnavailableError(
                 "The database already contains users"
             )
@@ -262,7 +265,7 @@ class FirstAdminBootstrapService:
                 f"Confirmation must exactly match: {expected}"
             )
         self._validate_password(password)
-        if int(self.db.query(func.count(User.id)).scalar() or 0) != 0:
+        if self._has_users():
             raise FirstAdminBootstrapUnavailableError(
                 "The database already contains users; "
                 "create administrators through the UI"
