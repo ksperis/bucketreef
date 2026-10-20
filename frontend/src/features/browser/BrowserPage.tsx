@@ -14,14 +14,9 @@ import {
 } from "react";
 import {
   useLocation,
-  useNavigate,
   useSearchParams,
 } from "react-router-dom";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
-import {
-  CLIENT_STORAGE_KEYS,
-  writeClientStorage,
-} from "../../utils/clientStorage";
 import { readStoredUser } from "../../utils/workspaces";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
@@ -76,6 +71,7 @@ import { useBrowserTransferRuntime } from "./useBrowserTransferRuntime";
 import { useBrowserUploadQueue } from "./useBrowserUploadQueue";
 import { useBrowserVersionCleanup } from "./useBrowserVersionCleanup";
 import { useBrowserVersionActions } from "./useBrowserVersionActions";
+import { useBrowserWorkspaceAccountAction } from "./useBrowserWorkspaceAccountAction";
 import { useBrowserWorkspaceSidebarBody } from "./useBrowserWorkspaceSidebarBody";
 import BrowserBulkRestoreModal from "./BrowserBulkRestoreModal";
 import BrowserArchivePreparationDialog from "./BrowserArchivePreparationDialog";
@@ -134,7 +130,6 @@ import {
   buildBrowserBucketPresentation,
 } from "./browserBucketModel";
 import {
-  resolveBrowserWorkspaceAccountDestination,
   resolveBrowserWorkspaceContext,
 } from "./browserPageContextModel";
 import type {
@@ -175,7 +170,6 @@ export default function BrowserPage({
   const { setSidebarBody } = useBrowserSidebarSlot();
   const selectedContext = browserContext.selectedContext;
   const location = useLocation();
-  const navigate = useNavigate();
   const workspaceSurface =
     workspaceSurfaceOverride ??
     (selectedContext?.kind === "portal_account" ? "portal" : "browser");
@@ -919,51 +913,11 @@ export default function BrowserPage({
     },
     [clearActiveItem, requestDetailsDrawerTransition, selectBucket],
   );
-  const workspaceAccountDestination = useMemo(
-    () =>
-      resolveBrowserWorkspaceAccountDestination({
-        selectedContext,
-        contextIdForApi,
-        isPortalBrowserSurface,
-      }),
-    [contextIdForApi, isPortalBrowserSurface, selectedContext],
-  );
-  const handleOpenWorkspaceAccount = useCallback(() => {
-    if (!workspaceAccountDestination) return;
-    if (workspaceAccountDestination.workspace === "manager") {
-      writeClientStorage(
-        CLIENT_STORAGE_KEYS.selectedManagerExecutionContext,
-        workspaceAccountDestination.contextId,
-      );
-    } else {
-      writeClientStorage(
-        CLIENT_STORAGE_KEYS.selectedPortalAccount,
-        workspaceAccountDestination.contextId,
-      );
-    }
-    writeClientStorage(
-      CLIENT_STORAGE_KEYS.selectedWorkspace,
-      workspaceAccountDestination.workspace,
-    );
-    navigate(workspaceAccountDestination.path);
-  }, [navigate, workspaceAccountDestination]);
-  const workspaceAccountAction = useMemo(() => {
-    if (workspaceAccountDestination?.workspace === "manager") {
-      return {
-        label: text("Open in Manager"),
-        title: text("Open this account in Manager"),
-        onClick: handleOpenWorkspaceAccount,
-      };
-    }
-    if (workspaceAccountDestination?.workspace === "portal") {
-      return {
-        label: text("Open in Portal"),
-        title: text("Open this account in Portal"),
-        onClick: handleOpenWorkspaceAccount,
-      };
-    }
-    return undefined;
-  }, [handleOpenWorkspaceAccount, text, workspaceAccountDestination?.workspace]);
+  const workspaceAccountAction = useBrowserWorkspaceAccountAction({
+    selectedContext,
+    contextIdForApi,
+    isPortalBrowserSurface,
+  });
 
   const availableStorageClasses = useMemo(
     () => collectAvailableStorageClasses(items),
