@@ -3,8 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
-import TableSortControls from "../../components/list/TableSortControls";
-import { ListActions, ListActionButton, ListActionLink } from "../../components/list/ListControls";
+import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -23,10 +22,7 @@ import {
 import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { getStorageEndpoint, listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import { listMinimalUsers, type UserSummary } from "../../api/users";
-import ActiveFiltersBar from "../../components/ActiveFiltersBar";
-import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
-import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsButton, SettingsDialog, SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
@@ -43,12 +39,6 @@ import WorkflowPage, {
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
 import InlineSummary from "../../components/InlineSummary";
-import DataTableShell, {
-  dataTableDefaultActionProps,
-  type DataTableColumn,
-} from "../../components/list/DataTableShell";
-import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiTagEditor from "../../components/UiTagEditor";
 import UsageTile from "../../components/UsageTile";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -63,18 +53,16 @@ import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
 import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
-import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import AdminQuotaFields from "./AdminQuotaFields";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
-import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
-import { buildAccessAuditHref } from "./accessAuditLink";
 import { useAdminI18n } from "./adminI18n";
+import AdminS3UsersList, { type AdminS3UsersSortField } from "./AdminS3UsersList";
 
-type SortField = "name" | "uid";
 type EditTab = "general" | "users" | "groups" | "manager";
 
 function getS3UserSearchCandidates(user: S3User): Array<string | number | null | undefined> {
@@ -109,7 +97,7 @@ export default function S3UsersPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [filter, setFilter] = useState("");
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
-  const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>({
+  const [sort, setSort] = useState<{ field: AdminS3UsersSortField; direction: "asc" | "desc" }>({
     field: "name",
     direction: "asc",
   });
@@ -175,24 +163,10 @@ export default function S3UsersPage() {
   const [showEditGroupPanel, setShowEditGroupPanel] = useState(false);
   const [editPortalUserSelections, setEditPortalUserSelections] = useState<number[]>([]);
   const [editGroupSelections, setEditGroupSelections] = useState<number[]>([]);
-  const handleFilterChange = (value: string) => {
-    setFilter(value);
-    setPage(1);
-  };
-  const clearAllFilters = () => {
-    setFilter("");
-    setQuickFilterMode("contains");
-    setPage(1);
-  };
-  const toggleQuickFilterMode = () => {
-    setQuickFilterMode((prev) => (prev === "contains" ? "exact" : "contains"));
-    setPage(1);
-  };
-  const toggleSort = (field: SortField) => {
+  const toggleSort = (field: AdminS3UsersSortField) => {
     setSort((current) => nextSortState(current, field, "desc"));
     setPage(1);
   };
-  const quickFilterActive = filter.trim().length > 0;
   const handlePageChange = (nextPage: number) => {
     if (nextPage === page) return;
     setPage(Math.max(1, nextPage));
@@ -376,24 +350,6 @@ export default function S3UsersPage() {
     uiGroups.forEach((group) => map.set(group.id, group.name));
     return map;
   }, [uiGroups]);
-  const renderUserAssociations = (user: S3User) => {
-    const userItems: AssociationPrincipalItem[] = (user.user_links ?? []).map((link) => {
-      return {
-        id: link.user_id,
-        kind: "user",
-        label: link.user_full_name || link.user_email || `User #${link.user_id}`,
-        email: link.user_email,
-        avatar: link.user_avatar,
-      };
-    });
-    const groupItems: AssociationPrincipalItem[] = (user.group_links ?? []).map((link) => ({
-      id: link.group_id,
-      kind: "group" as const,
-      label: link.group_name || `Group #${link.group_id}`,
-      avatar: link.group_avatar,
-    }));
-    return <AssociationPrincipalStack items={[...userItems, ...groupItems]} />;
-  };
   const availablePortalUsers = useMemo(() => {
     const query = portalUserSearch.trim().toLowerCase();
     return portalUserOptions.filter(
@@ -764,99 +720,6 @@ export default function S3UsersPage() {
     disabled: editBusy,
     onClose: closeEditModal,
   });
-  const userTableColumns: Array<DataTableColumn<S3User, SortField>> = [
-    {
-      id: "name",
-      label: "Name",
-      field: "name",
-      primary: true,
-      cellClassName: "min-w-[280px] max-w-[420px]",
-      render: (user) => {
-        const tagItems = buildUiTagItems(user.tags);
-        return (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <div className="flex min-w-0 flex-1 items-baseline gap-2">
-              <span className="min-w-0 truncate">{user.name}</span>
-              {user.rgw_tenant && (
-                <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">
-                  ({user.rgw_tenant})
-                </span>
-              )}
-            </div>
-            {tagItems.length > 0 && (
-              <UiTagBadgeList
-                items={tagItems}
-                variant="listing-compact"
-                layout="inline-compact"
-                className="ml-auto max-w-full"
-                maxVisible={4}
-              />
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "uid",
-      label: "UID",
-      field: "uid",
-      cellClassName: "min-w-[190px]",
-      render: (user) => user.rgw_user_uid,
-    },
-    {
-      id: "endpoint",
-      label: "Endpoint",
-      cellClassName: "min-w-[180px]",
-      render: (user) => (
-        <span title={user.storage_endpoint_url || undefined}>
-          {user.storage_endpoint_name}
-        </span>
-      ),
-    },
-    {
-      id: "associations",
-      label: "UI Users / Groups",
-      cellClassName: "min-w-[200px] max-w-[260px] align-middle",
-      render: renderUserAssociations,
-    },
-    {
-      id: "actions",
-      label: "Actions",
-      align: "right",
-      mobileRole: "actions",
-      cellClassName: "min-w-[272px]",
-      render: (user) => {
-        const deleteBusy = deleteBusyId === user.id;
-        return (
-          <ListActions>
-            <ListActionButton
-              type="button"
-              onClick={() => openEditModal(user)}
-
-              {...dataTableDefaultActionProps}
-            >
-              {adminText("Edit")}</ListActionButton>
-            <ListActionLink to={buildAccessAuditHref({
-              scope: "rgw_user",
-              targetId: user.id,
-            })}>
-              {adminText("Review access")}</ListActionLink>
-            <ListActionLink to={`/admin/s3-users/${user.id}/keys`}>
-              {adminText("Keys")}</ListActionLink>
-            <ListActionButton type="button" onClick={() => startDeleteUser(user)}  variant="danger" disabled={deleteBusy}>
-              {deleteBusy ? "Deleting..." : "Delete"}
-            </ListActionButton>
-          </ListActions>
-        );
-      },
-    },
-  ];
-  const tableStatus = resolveListTableStatus({
-    loading,
-    error,
-    rowCount: users.length,
-  });
-
   const confirmDeleteUser = async () => {
     if (!userToDelete || deleteModalBusy) return;
     setDeleteBusyId(userToDelete.id);
@@ -910,59 +773,31 @@ export default function S3UsersPage() {
       {error && <PageBanner tone="error">{error}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
-      <ListPageSection
-        variant="page"
-        mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-          title={adminText("RGW Users")}
-          countLabel={`${totalUsers} entr${totalUsers === 1 ? "y" : "ies"}`}
-          search={
-            <ToolbarSearchInput
-              value={filter}
-              onChange={handleFilterChange}
-              placeholder={adminText("Search by name, UID, email, group, or tag")}
-              className="w-full sm:w-64"
-              active={quickFilterActive}
-              matchMode={quickFilterMode}
-              onToggleMatchMode={toggleQuickFilterMode}
-            />
-          }
-          secondaryContent={
-            quickFilterActive ? (
-              <ActiveFiltersBar
-                label={adminText("Active filters summary")}
-                items={[
-                  {
-                    id: "search",
-                    label: `Search ${quickFilterMode === "exact" ? "exact" : "contains"}: ${filter.trim()}`,
-                  },
-                ]}
-                onClearAll={clearAllFilters}
-              />
-            ) : null
-          }
-      >
-        <DataTableShell
-          columns={userTableColumns}
-          rows={users}
-          rowKey={(user) => user.id}
-          status={tableStatus}
-          loadingMessage={adminText("Loading users...")}
-          errorMessage={adminText("Unable to load users.")}
-          emptyMessage={adminText("No users.")}
-          sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
-          primaryColumnId="name"
-          responsiveCards
-          tableClassName="ui-data-table"
-          pagination={{
-            page,
-            pageSize,
-            total: totalUsers,
-            onPageChange: handlePageChange,
-            onPageSizeChange: handlePageSizeChange,
-            disabled: loading,
-          }}
-        />
-      </ListPageSection>
+      <AdminS3UsersList
+        users={users}
+        loading={loading}
+        error={error}
+        filter={filter}
+        quickFilterMode={quickFilterMode}
+        sort={sort}
+        page={page}
+        pageSize={pageSize}
+        total={totalUsers}
+        deleteBusyId={deleteBusyId}
+        onFilterChange={(value) => {
+          setFilter(value);
+          setPage(1);
+        }}
+        onQuickFilterModeChange={(mode) => {
+          setQuickFilterMode(mode);
+          setPage(1);
+        }}
+        onSort={toggleSort}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        onEdit={openEditModal}
+        onDelete={startDeleteUser}
+      />
 
       {showCreateModal && (
         <SettingsDialog title={adminText("Create user")} onClose={createCloseGuard.requestClose} closeDisabled={creating} maxWidthClass="max-w-2xl">
