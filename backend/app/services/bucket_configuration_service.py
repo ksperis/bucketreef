@@ -13,7 +13,7 @@ from app.services import (
     s3_bucket_security,
     s3_client,
 )
-from app.services.rgw_principal_scope import resolve_target_tenant
+from app.services.rgw_principal_scope import resolve_target_admin_uid, resolve_target_tenant
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.models.bucket import (
@@ -38,7 +38,6 @@ from app.models.bucket import (
 )
 from app.utils.rgw_identifiers import (
     resolve_account_scope,
-    resolve_admin_uid,
 )
 from app.utils.storage_endpoint_features import resolve_admin_endpoint, resolve_feature_flags
 from app.utils.size_units import size_to_bytes
@@ -80,8 +79,7 @@ class BucketConfigurationService:
         account_id, tenant = resolve_account_scope(execution_context.rgw_account_id)
         if getattr(execution_context, "context_kind", None) != "ceph_admin":
             tenant = resolve_target_tenant(execution_context) or None
-        root_identifier = account_id or tenant
-        root_uid = resolve_admin_uid(root_identifier, execution_context.rgw_user_uid)
+        root_uid = resolve_target_admin_uid(execution_context)
         if root_uid:
             return account_id, tenant, root_uid
 
