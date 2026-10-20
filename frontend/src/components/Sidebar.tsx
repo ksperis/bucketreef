@@ -536,13 +536,15 @@ export type SidebarLinkIconName =
   | "portal"
   | "key"
   | "audit"
+  | "access-audit"
   | "user"
   | "group"
   | "shield"
   | "document"
   | "cog"
   | "bell"
-  | "wallet"
+  | "webhook"
+  | "cost"
   | "tools"
   | "rules"
   | "compare"
@@ -565,14 +567,16 @@ export function resolveSidebarLinkIconName(link: Pick<SidebarLink, "label" | "to
   if (key.includes("endpoint")) return "endpoint";
   if (key.includes("portal")) return "portal";
   if (key.includes("key") || key.includes("rotation")) return "key";
+  if (key.includes("access audit") || key.includes("access-audit")) return "access-audit";
   if (key.includes("audit")) return "audit";
   if (key.includes("user")) return "user";
   if (key.includes("group")) return "group";
   if (key.includes("role")) return "shield";
   if (key.includes("polic")) return "document";
-  if (key.includes("setting") || key.includes("general")) return "cog";
   if (key.includes("topic") || key.includes("event")) return "bell";
-  if (key.includes("cost")) return "wallet";
+  if (key.includes("webhook")) return "webhook";
+  if (key.includes("cost")) return "cost";
+  if (key.includes("setting") || key.includes("general")) return "cog";
   if (key.includes("feature") || key.includes("rule")) return "rules";
   if (key.includes("compare")) return "compare";
   if (key.includes("integrity")) return "integrity";
@@ -596,13 +600,15 @@ function resolveSidebarLinkIcon(link: SidebarLink) {
   if (iconName === "portal") return <NavPortalIcon />;
   if (iconName === "key") return <NavKeyIcon />;
   if (iconName === "audit") return <NavAuditIcon />;
+  if (iconName === "access-audit") return <NavAccessAuditIcon />;
   if (iconName === "user") return <NavUserIcon />;
   if (iconName === "group") return <NavGroupIcon />;
   if (iconName === "shield") return <NavShieldIcon />;
   if (iconName === "document") return <NavDocumentIcon />;
   if (iconName === "cog") return <NavCogIcon />;
   if (iconName === "bell") return <NavBellIcon />;
-  if (iconName === "wallet") return <NavWalletIcon />;
+  if (iconName === "webhook") return <NavWebhookIcon />;
+  if (iconName === "cost") return <NavCostIcon />;
   if (iconName === "tools") return <NavToolsIcon />;
   if (iconName === "rules") return <NavRulesIcon />;
   if (iconName === "compare") return <NavCompareIcon />;
@@ -707,6 +713,21 @@ function NavAuditIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function NavAccessAuditIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.7}
+        d="M8.5 3.5 13 5.4v3.8c0 2.3-1.5 4-4.5 5.2C5.5 13.2 4 11.5 4 9.2V5.4l4.5-1.9Z"
+      />
+      <circle cx="13.7" cy="13.2" r="2.4" strokeWidth={1.7} />
+      <path strokeLinecap="round" strokeWidth={1.7} d="m15.5 15 1.6 1.6" />
+    </svg>
+  );
+}
+
 function NavUserIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
@@ -764,10 +785,27 @@ function NavBellIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-function NavWalletIcon(props: React.SVGProps<SVGSVGElement>) {
+function NavWebhookIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M3.5 6.5h13v8h-13v-8Zm9.2 3.8h2.8M3.5 6.5l1.8-2h9.2l2 2" />
+      <circle cx="4.5" cy="10" r="1.8" strokeWidth={1.7} />
+      <circle cx="15.5" cy="5.5" r="1.8" strokeWidth={1.7} />
+      <circle cx="15.5" cy="14.5" r="1.8" strokeWidth={1.7} />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.7}
+        d="M6.3 10h2.2c2.2 0 2.2-4.5 5.2-4.5M8.5 10c2.2 0 2.2 4.5 5.2 4.5"
+      />
+    </svg>
+  );
+}
+
+function NavCostIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
+      <rect x="4" y="3.5" width="12" height="13" rx="1.8" strokeWidth={1.7} />
+      <path strokeLinecap="round" strokeWidth={1.7} d="M6.7 6.8h6.6M7 10.3h.1M10 10.3h.1M13 10.3h.1M7 13.3h.1M10 13.3h.1M13 13.3h.1" />
     </svg>
   );
 }

@@ -50,8 +50,11 @@ describe("Sidebar", () => {
 
   it("uses specific icons for admin navigation labels instead of the generic dot", () => {
     const adminLinks = [
-      { to: "/admin/cost", label: "Cost", iconName: "wallet" },
+      { to: "/admin/cost", label: "Cost", iconName: "cost" },
+      { to: "/admin/cost-settings", label: "Cost", iconName: "cost" },
       { to: "/admin/usage-history", label: "Usage History", iconName: "history" },
+      { to: "/admin/webhook-settings", label: "Webhooks", iconName: "webhook" },
+      { to: "/admin/access-audit", label: "Access audit", iconName: "access-audit" },
       { to: "/admin/audit", label: "Audit trail", iconName: "audit" },
       { to: "/admin/s3-connections", label: "S3 Connections", iconName: "connection" },
       { to: "/admin/storage-endpoints", label: "S3 Endpoints", iconName: "endpoint" },
