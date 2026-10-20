@@ -6,25 +6,18 @@ import ErrorState from "../../components/errors/ErrorState";
 import PortalAddPeopleWorkflow from "./PortalAddPeopleWorkflow";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { restorePortalStorageSpaceObject } from "../../api/portal";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
 import UiBadge from "../../components/ui/UiBadge";
 import { useI18n } from "../../i18n";
-import { extractApiError } from "../../utils/apiError";
 import {
   readClientStorageKey,
   writeClientStorageKey,
 } from "../../utils/clientStorage";
-import { formatBytes } from "../../utils/format";
 import BrowserEmbed from "../browser/BrowserEmbed";
 import StorageSpaceObjectDetailsDrawer from "../shared/StorageSpaceObjectDetailsDrawer";
-import type {
-  BrowserDeletedObjectTarget,
-  BrowserObjectDetailsRouteTarget,
-} from "../browser/browserPageContract";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalDeletedPrefixRestoreWorkflow from "./PortalDeletedPrefixRestoreWorkflow";
@@ -57,6 +50,7 @@ import {
 import { usePortalStorageSpaceAccess } from "./usePortalStorageSpaceAccess";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 import { usePortalStorageSpaceExternalLinks } from "./usePortalStorageSpaceExternalLinks";
+import { usePortalStorageSpaceRecovery } from "./usePortalStorageSpaceRecovery";
 
 import { usePortalAccountContext } from "./PortalAccountContext";
 import PortalStorageSpaceSettings from "./PortalStorageSpaceSettings";
@@ -81,14 +75,6 @@ function StorageSpaceDetail() {
   const activeTab = resolvePortalStorageSpaceDetailTab(location.search);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const draftLabels = settingsLabels(t);
-  const [trashRestoreTarget, setTrashRestoreTarget] =
-    useState<BrowserDeletedObjectTarget | null>(null);
-  const [restoringTrashKey, setRestoringTrashKey] = useState<string | null>(null);
-  const [browserRefreshToken, setBrowserRefreshToken] = useState(0);
-  const [deletedPrefixRestoreTarget, setDeletedPrefixRestoreTarget] =
-    useState<BrowserObjectDetailsRouteTarget | null>(null);
-  const [historyCleanupConfirmOpen, setHistoryCleanupConfirmOpen] = useState(false);
-  const [historyCleanupDialogOpen, setHistoryCleanupDialogOpen] = useState(false);
   const {
     workspace,
     state,
@@ -107,6 +93,7 @@ function StorageSpaceDetail() {
   });
   const decodedSpaceId = decodePortalRouteValue(spaceId);
   const space = workspace.spaces.find((item) => item.id === decodedSpaceId) ?? null;
+  const historyCleanupEnabled = Boolean(state?.storage_space_version_cleanup_enabled);
   const {
     accessSummary,
     accessSummaryLoading,
@@ -198,6 +185,33 @@ function StorageSpaceDetail() {
     space,
     onMessage: setMessage,
   });
+  const {
+    canCleanHistory,
+    trashRestoreTarget,
+    restoringTrashKey,
+    requestTrashRestore,
+    cancelTrashRestore,
+    confirmTrashRestore,
+    browserRefreshToken,
+    refreshBrowser,
+    deletedPrefixRestoreTarget,
+    requestDeletedPrefixRestore,
+    cancelDeletedPrefixRestore,
+    historyCleanupConfirmOpen,
+    historyCleanupDialogOpen,
+    requestHistoryCleanup,
+    cancelHistoryCleanup,
+    confirmHistoryCleanup,
+    closeHistoryCleanup,
+    startHistoryCleanup,
+    completeHistoryCleanup,
+  } = usePortalStorageSpaceRecovery({
+    accountId: accountIdForApi,
+    space,
+    historyCleanupEnabled,
+    refreshWorkspaceData,
+    onMessage: setMessage,
+  });
   const startGuideStorageKey = space
     ? `portal.storage-space-detail.start-guide.dismissed.${accountIdForApi ?? "default"}.${space.id}`
     : null;
@@ -212,42 +226,6 @@ function StorageSpaceDetail() {
     }
     setStartGuideDismissed(readClientStorageKey(startGuideStorageKey) === "true");
   }, [startGuideStorageKey]);
-
-  const confirmTrashRestore = async (item: BrowserDeletedObjectTarget) => {
-    if (!space || !accountIdForApi || restoringTrashKey) return;
-    setRestoringTrashKey(item.key);
-    setMessage(null);
-    try {
-      await restorePortalStorageSpaceObject(accountIdForApi, space.id, item.key);
-      setTrashRestoreTarget(null);
-      setBrowserRefreshToken((current) => current + 1);
-      refreshWorkspaceData();
-      setMessage(
-        t({
-          en: `${item.name} restored to its original location.`,
-          fr: `${item.name} restauré à son emplacement d'origine.`,
-          de: `${item.name} wurde am ursprünglichen Ort wiederhergestellt.`,
-          zh: `已将 ${item.name} 恢复到原始位置。`,
-        }),
-      );
-    } catch (err) {
-      console.error(err);
-      setMessage(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to restore this file.",
-            fr: "Impossible de restaurer ce fichier.",
-            de: "Diese Datei kann nicht wiederhergestellt werden.",
-            zh: "无法恢复此文件。",
-          }),
-        ),
-      );
-      setTrashRestoreTarget(null);
-    } finally {
-      setRestoringTrashKey(null);
-    }
-  };
 
   const pageState = resolvePortalWorkspacePageState({
     accountLoading,
@@ -293,8 +271,6 @@ function StorageSpaceDetail() {
     hasFullAccess &&
     state?.can_create_external_sharing
   );
-  const historyCleanupEnabled = Boolean(state?.storage_space_version_cleanup_enabled);
-  const canCleanHistory = Boolean(historyCleanupEnabled && !isArchived && hasFullAccess);
   const pageDescription = space.description
     ? t({
         en: `${space.description} Created ${space.createdLabel}. Region: ${space.region ?? "-"}.`,
@@ -313,21 +289,6 @@ function StorageSpaceDetail() {
     setStartGuideDismissed(true);
     if (!startGuideStorageKey) return;
     writeClientStorageKey(startGuideStorageKey, "true");
-  };
-
-  const openHistoryCleanupDialog = () => {
-    if (!canCleanHistory) return;
-    setHistoryCleanupConfirmOpen(true);
-  };
-
-  const closeHistoryCleanupDialog = () => {
-    setHistoryCleanupDialogOpen(false);
-  };
-
-  const confirmHistoryCleanup = () => {
-    if (!canCleanHistory) return;
-    setHistoryCleanupConfirmOpen(false);
-    setHistoryCleanupDialogOpen(true);
   };
 
   const filesSection = (
@@ -367,10 +328,10 @@ function StorageSpaceDetail() {
               canRestore: canModifyObjects,
               onVisibilityChange: setDeletedFilesVisible,
               onRestoreObject: canModifyObjects
-                ? setTrashRestoreTarget
+                ? requestTrashRestore
                 : undefined,
               onRestorePrefix: !isDemo && canModifyObjects
-                ? setDeletedPrefixRestoreTarget
+                ? requestDeletedPrefixRestore
                 : undefined,
             }}
           />
@@ -555,7 +516,7 @@ function StorageSpaceDetail() {
                 onClick={openTakeOwnershipDialog}>{t({ en: "Take ownership", fr: "Reprendre la propriété", de: "Eigentümerschaft übernehmen", zh: "接管所有权" })}</SettingsButton>}
               <SettingsButton variant={isArchived ? "secondary" : "warning"} disabled={historyDirty || metadataBusy}
                 onClick={isArchived ? handleRestore : handleArchive}>{isArchived ? t({ en: "Restore", fr: "Restaurer", de: "Wiederherstellen", zh: "恢复" }) : t({ en: "Archive", fr: "Archiver", de: "Archivieren", zh: "归档" })}</SettingsButton>
-              <SettingsButton variant="danger" disabled={historyDirty || !canCleanHistory} onClick={openHistoryCleanupDialog}>
+              <SettingsButton variant="danger" disabled={historyDirty || !canCleanHistory} onClick={requestHistoryCleanup}>
                 {t({ en: "Clean up history", fr: "Nettoyer l’historique", de: "Historie bereinigen", zh: "清理历史记录" })}</SettingsButton>
               {space.canDelete && <SettingsButton variant="danger" disabled={historyDirty || metadataBusy || deleteBusy}
                 onClick={openDeleteDialog}>{t({ en: "Delete space", fr: "Supprimer l’espace", de: "Bereich löschen", zh: "删除空间" })}</SettingsButton>}
@@ -579,7 +540,7 @@ function StorageSpaceDetail() {
           onMessage={setMessage}
           onPublicLinkCreated={() => void loadAccessSummary()}
           onRefreshObjects={() => {
-            setBrowserRefreshToken((current) => current + 1);
+            refreshBrowser();
             refreshWorkspaceData();
           }}
           onViewChange={setObjectDrawerView}
@@ -607,10 +568,8 @@ function StorageSpaceDetail() {
           spaceId={space.id}
           spaceName={space.name}
           target={deletedPrefixRestoreTarget}
-          onClose={() => setDeletedPrefixRestoreTarget(null)}
-          onBrowserRefresh={() =>
-            setBrowserRefreshToken((current) => current + 1)
-          }
+          onClose={cancelDeletedPrefixRestore}
+          onBrowserRefresh={refreshBrowser}
           onWorkspaceRefresh={refreshWorkspaceData}
         />
       ) : null}
@@ -622,19 +581,10 @@ function StorageSpaceDetail() {
           spaceName={space.name}
           usedBytes={space.usedBytes}
           enabled={canCleanHistory}
-          onClose={closeHistoryCleanupDialog}
-          onStart={() => setMessage(null)}
+          onClose={closeHistoryCleanup}
+          onStart={startHistoryCleanup}
           onRefresh={refreshWorkspaceData}
-          onCompleted={(bytesFreed) => {
-            setMessage(
-              t({
-                en: `History cleanup completed. Estimated space gained: ${formatBytes(bytesFreed)}.`,
-                fr: `Nettoyage de l'historique terminé. Espace estimé gagné : ${formatBytes(bytesFreed)}.`,
-                de: `Historienbereinigung abgeschlossen. Geschätzter frei gewordener Speicher: ${formatBytes(bytesFreed)}.`,
-                zh: `历史记录清理完成。预计释放空间：${formatBytes(bytesFreed)}。`,
-              }),
-            );
-          }}
+          onCompleted={completeHistoryCleanup}
         />
       ) : null}
 
@@ -667,9 +617,9 @@ function StorageSpaceDetail() {
         trashRestoreTarget={trashRestoreTarget}
         restoringTrashKey={restoringTrashKey}
         historyCleanupConfirmOpen={historyCleanupConfirmOpen}
-        onTrashRestoreCancel={() => setTrashRestoreTarget(null)}
+        onTrashRestoreCancel={cancelTrashRestore}
         onTrashRestoreConfirm={confirmTrashRestore}
-        onHistoryCleanupCancel={() => setHistoryCleanupConfirmOpen(false)}
+        onHistoryCleanupCancel={cancelHistoryCleanup}
         onHistoryCleanupConfirm={confirmHistoryCleanup}
       />
 
