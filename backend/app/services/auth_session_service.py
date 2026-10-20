@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
-from sqlalchemy import func, or_, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -107,7 +107,7 @@ class AuthSessionService:
         ip_address: Optional[str],
         user_agent: Optional[str],
     ) -> SessionCredentials:
-        s3_session = self.db.query(S3Session).filter(S3Session.id == session_id).first()
+        s3_session = self.db.get(S3Session, session_id)
         if s3_session is None:
             raise AuthSessionError("S3 session is unavailable")
         return self.create_for_s3_session(
@@ -119,25 +119,27 @@ class AuthSessionService:
     def rotate(self, raw_token: str) -> SessionCredentials:
         now = utcnow()
         token_hash = hash_refresh_token(raw_token or "")
-        current = self.db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+        current = self.db.scalar(
+            select(RefreshToken).where(RefreshToken.token_hash == token_hash).limit(1)
+        )
         if current is None:
             raise AuthSessionError("Invalid refresh token")
         if current.used_at is not None or current.revoked_at is not None:
             self.revoke_family(current.family_id, "refresh_replay")
             raise RefreshReplayError("Refresh token replay detected")
-        session = self.db.query(AuthSession).filter(AuthSession.id == current.auth_session_id).first()
+        session = self.db.get(AuthSession, current.auth_session_id)
         if not self._is_session_active(session, now) or current.expires_at <= now:
             self.revoke_session(current.auth_session_id, "expired")
             raise AuthSessionError("Session expired")
         if session.user_id is not None:
-            user = self.db.query(User).filter(User.id == session.user_id).first()
+            user = self.db.get(User, session.user_id)
             if not user or not user.is_active or user.auth_version != session.auth_version:
                 self.revoke_session(session.id, "principal_changed")
                 raise AuthSessionError("User is unavailable")
             s3_session = None
         else:
             user = None
-            s3_session = self.db.query(S3Session).filter(S3Session.id == session.s3_session_id).first()
+            s3_session = self.db.get(S3Session, session.s3_session_id)
             if not self._is_s3_session_active(s3_session, now):
                 self.revoke_session(session.id, "s3_session_expired")
                 raise AuthSessionError("S3 session expired")
@@ -193,7 +195,7 @@ class AuthSessionService:
 
     def validate_access(self, session_id: str, *, expected_type: str) -> tuple[AuthSession, User | S3Session]:
         now = utcnow()
-        session = self.db.query(AuthSession).filter(AuthSession.id == session_id).first()
+        session = self.db.get(AuthSession, session_id)
         expected_principal = "s3" if expected_type == "s3_access" else "user"
         if session is None:
             raise AuthSessionError("Session expired or invalid")
@@ -204,12 +206,12 @@ class AuthSessionService:
             self.revoke_session(session.id, "principal_type_mismatch")
             raise AuthSessionError("Session expired or invalid")
         if session.user_id is not None:
-            principal = self.db.query(User).filter(User.id == session.user_id).first()
+            principal = self.db.get(User, session.user_id)
             if not principal or not principal.is_active or principal.auth_version != session.auth_version:
                 self.revoke_session(session.id, "principal_changed")
                 raise AuthSessionError("Session expired or invalid")
         else:
-            principal = self.db.query(S3Session).filter(S3Session.id == session.s3_session_id).first()
+            principal = self.db.get(S3Session, session.s3_session_id)
             if not self._is_s3_session_active(principal, now):
                 self.revoke_session(session.id, "s3_session_expired")
                 raise AuthSessionError("Session expired or invalid")
@@ -239,7 +241,7 @@ class AuthSessionService:
         return session
 
     def revoke_session(self, session_id: str, reason: str) -> None:
-        session = self.db.query(AuthSession).filter(AuthSession.id == session_id).first()
+        session = self.db.get(AuthSession, session_id)
         if session is None:
             return
         self._revoke_session_row(session, reason)
@@ -250,13 +252,13 @@ class AuthSessionService:
         session_id: str,
         reason: str,
     ) -> Optional[AuthSession]:
-        session = (
-            self.db.query(AuthSession)
-            .filter(
+        session = self.db.scalar(
+            select(AuthSession)
+            .where(
                 AuthSession.id == session_id,
                 AuthSession.user_id == user_id,
             )
-            .first()
+            .limit(1)
         )
         if session is None:
             return None
@@ -270,7 +272,7 @@ class AuthSessionService:
         *,
         csrf_token: str,
     ) -> str:
-        session = self.db.query(AuthSession).filter(AuthSession.id == session_id).first()
+        session = self.db.get(AuthSession, session_id)
         if session is None or not self.validate_csrf(session, csrf_token):
             raise AuthSessionError("Invalid CSRF token")
         self._revoke_session_row(session, reason)
@@ -280,10 +282,15 @@ class AuthSessionService:
         now = utcnow()
         session.revoked_at = session.revoked_at or now
         session.revoke_reason = session.revoke_reason or reason
-        self.db.query(RefreshToken).filter(
-            RefreshToken.auth_session_id == session.id,
-            RefreshToken.revoked_at.is_(None),
-        ).update({RefreshToken.revoked_at: now, RefreshToken.revoke_reason: reason}, synchronize_session=False)
+        self.db.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.auth_session_id == session.id,
+                RefreshToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=now, revoke_reason=reason)
+            .execution_options(synchronize_session=False)
+        )
         if session.s3_session_id:
             self._erase_s3_session(session.s3_session_id, reason, now)
         self.db.add(session)
@@ -291,19 +298,21 @@ class AuthSessionService:
 
     def revoke_family(self, family_id: str, reason: str) -> None:
         now = utcnow()
-        session_ids = [
-            row[0]
-            for row in self.db.query(RefreshToken.auth_session_id)
-            .filter(RefreshToken.family_id == family_id)
-            .distinct()
-            .all()
-        ]
-        self.db.query(RefreshToken).filter(RefreshToken.family_id == family_id).update(
-            {RefreshToken.revoked_at: now, RefreshToken.revoke_reason: reason},
-            synchronize_session=False,
+        session_ids = list(
+            self.db.scalars(
+                select(RefreshToken.auth_session_id)
+                .where(RefreshToken.family_id == family_id)
+                .distinct()
+            ).all()
+        )
+        self.db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.family_id == family_id)
+            .values(revoked_at=now, revoke_reason=reason)
+            .execution_options(synchronize_session=False)
         )
         for session_id in session_ids:
-            session = self.db.query(AuthSession).filter(AuthSession.id == session_id).first()
+            session = self.db.get(AuthSession, session_id)
             if session:
                 session.revoked_at = session.revoked_at or now
                 session.revoke_reason = session.revoke_reason or reason
@@ -318,12 +327,14 @@ class AuthSessionService:
         *,
         csrf_token: Optional[str] = None,
     ) -> Optional[str]:
-        row = self.db.query(RefreshToken).filter(
-            RefreshToken.token_hash == hash_refresh_token(raw_token or ""),
-        ).first()
+        row = self.db.scalar(
+            select(RefreshToken)
+            .where(RefreshToken.token_hash == hash_refresh_token(raw_token or ""))
+            .limit(1)
+        )
         if row is None:
             return None
-        session = self.db.query(AuthSession).filter(AuthSession.id == row.auth_session_id).first()
+        session = self.db.get(AuthSession, row.auth_session_id)
         if session is None:
             return None
         if csrf_token is not None and not self.validate_csrf(session, csrf_token):
@@ -336,36 +347,54 @@ class AuthSessionService:
         if increment_version:
             user.auth_version += 1
             self.db.add(user)
-        rows = self.db.query(AuthSession).filter(AuthSession.user_id == user.id, AuthSession.revoked_at.is_(None)).all()
+        rows = self.db.scalars(
+            select(AuthSession).where(
+                AuthSession.user_id == user.id,
+                AuthSession.revoked_at.is_(None),
+            )
+        ).all()
         for row in rows:
             row.revoked_at = now
             row.revoke_reason = reason
             self.db.add(row)
         session_ids = [row.id for row in rows]
         if session_ids:
-            self.db.query(RefreshToken).filter(
-                RefreshToken.auth_session_id.in_(session_ids),
-                RefreshToken.revoked_at.is_(None),
-            ).update({RefreshToken.revoked_at: now, RefreshToken.revoke_reason: reason}, synchronize_session=False)
-        self.db.query(ApiToken).filter(
-            ApiToken.user_id == user.id,
-            ApiToken.revoked_at.is_(None),
-        ).update({ApiToken.revoked_at: now}, synchronize_session=False)
+            self.db.execute(
+                update(RefreshToken)
+                .where(
+                    RefreshToken.auth_session_id.in_(session_ids),
+                    RefreshToken.revoked_at.is_(None),
+                )
+                .values(revoked_at=now, revoke_reason=reason)
+                .execution_options(synchronize_session=False)
+            )
+        self.db.execute(
+            update(ApiToken)
+            .where(
+                ApiToken.user_id == user.id,
+                ApiToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+            .execution_options(synchronize_session=False)
+        )
         self.db.commit()
 
     def list_for_user(self, user_id: int) -> list[AuthSession]:
-        return (
-            self.db.query(AuthSession)
-            .filter(AuthSession.user_id == user_id)
-            .order_by(AuthSession.created_at.desc())
-            .all()
+        return list(
+            self.db.scalars(
+                select(AuthSession)
+                .where(AuthSession.user_id == user_id)
+                .order_by(AuthSession.created_at.desc())
+            ).all()
         )
 
     def list_for_admin(self, actor: User, *, include_revoked: bool = False) -> list[AuthSession]:
-        return (
-            self._admin_inventory_query(actor, include_revoked=include_revoked)
-            .order_by(AuthSession.created_at.desc())
-            .all()
+        return list(
+            self.db.scalars(
+                select(AuthSession)
+                .where(*self._admin_inventory_filters(actor, include_revoked=include_revoked))
+                .order_by(AuthSession.created_at.desc())
+            ).all()
         )
 
     def counts_by_principal_type_for_admin(
@@ -374,20 +403,21 @@ class AuthSessionService:
         *,
         include_revoked: bool = False,
     ) -> dict[str, int]:
-        rows = (
-            self._admin_inventory_query(actor, include_revoked=include_revoked)
-            .with_entities(AuthSession.principal_type, func.count(AuthSession.id))
+        rows = self.db.execute(
+            select(AuthSession.principal_type, func.count(AuthSession.id))
+            .where(*self._admin_inventory_filters(actor, include_revoked=include_revoked))
             .group_by(AuthSession.principal_type)
-            .all()
         )
         return {str(principal_type): int(count) for principal_type, count in rows}
 
     def cleanup_expired(self) -> int:
         """Revoke expired rows and irreversibly erase dormant S3 credentials."""
         now = utcnow()
-        expired_s3 = self.db.query(S3Session).filter(
-            S3Session.revoked_at.is_(None),
-            or_(S3Session.idle_expires_at <= now, S3Session.absolute_expires_at <= now),
+        expired_s3 = self.db.scalars(
+            select(S3Session).where(
+                S3Session.revoked_at.is_(None),
+                or_(S3Session.idle_expires_at <= now, S3Session.absolute_expires_at <= now),
+            )
         ).all()
         expired_s3_ids = [row.id for row in expired_s3]
         auth_conditions = [
@@ -396,9 +426,11 @@ class AuthSessionService:
         ]
         if expired_s3_ids:
             auth_conditions.append(AuthSession.s3_session_id.in_(expired_s3_ids))
-        expired_auth = self.db.query(AuthSession).filter(
-            AuthSession.revoked_at.is_(None),
-            or_(*auth_conditions),
+        expired_auth = self.db.scalars(
+            select(AuthSession).where(
+                AuthSession.revoked_at.is_(None),
+                or_(*auth_conditions),
+            )
         ).all()
         auth_ids = [row.id for row in expired_auth]
         for row in expired_auth:
@@ -406,12 +438,14 @@ class AuthSessionService:
             row.revoke_reason = "expired"
             self.db.add(row)
         if auth_ids:
-            self.db.query(RefreshToken).filter(
-                RefreshToken.auth_session_id.in_(auth_ids),
-                RefreshToken.revoked_at.is_(None),
-            ).update(
-                {RefreshToken.revoked_at: now, RefreshToken.revoke_reason: "expired"},
-                synchronize_session=False,
+            self.db.execute(
+                update(RefreshToken)
+                .where(
+                    RefreshToken.auth_session_id.in_(auth_ids),
+                    RefreshToken.revoked_at.is_(None),
+                )
+                .values(revoked_at=now, revoke_reason="expired")
+                .execution_options(synchronize_session=False)
             )
         for row in expired_s3:
             row.access_key_enc = None
@@ -471,14 +505,14 @@ class AuthSessionService:
     def _idle_minutes(self, session: AuthSession) -> int:
         return self.settings.s3_session_idle_minutes if session.principal_type == "s3" else self.settings.ui_session_idle_minutes
 
-    def _admin_inventory_query(self, actor: User, *, include_revoked: bool):
-        query = self.db.query(AuthSession)
+    def _admin_inventory_filters(self, actor: User, *, include_revoked: bool) -> list:
+        filters = []
         if not include_revoked:
-            query = query.filter(AuthSession.revoked_at.is_(None))
+            filters.append(AuthSession.revoked_at.is_(None))
         if not is_superadmin_ui_role(actor.role):
-            standard_user_ids = self.db.query(User.id).filter(User.role.in_(STANDARD_UI_ROLES))
-            query = query.filter(AuthSession.user_id.in_(standard_user_ids))
-        return query
+            standard_user_ids = select(User.id).where(User.role.in_(STANDARD_UI_ROLES))
+            filters.append(AuthSession.user_id.in_(standard_user_ids))
+        return filters
 
     @staticmethod
     def _is_session_active(session: Optional[AuthSession], now) -> bool:
@@ -501,7 +535,7 @@ class AuthSessionService:
         )
 
     def _erase_s3_session(self, session_id: str, reason: str, now) -> None:
-        row = self.db.query(S3Session).filter(S3Session.id == session_id).first()
+        row = self.db.get(S3Session, session_id)
         if row:
             row.access_key_enc = None
             row.secret_key_enc = None
