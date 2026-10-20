@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from typing import Optional
 
 from app.core.config import get_settings
@@ -115,7 +115,9 @@ class BucketMigrationExecutionControlMixin:
                 logger.exception("Bucket migration item failed: migration=%s item=%s", migration.id, item.id)
                 self.db.rollback()
                 migration = self.get_migration(migration.id)
-                failed_item = self.db.query(BucketMigrationItem).filter(BucketMigrationItem.id == item.id).first()
+                failed_item = self.db.scalars(
+                    select(BucketMigrationItem).where(BucketMigrationItem.id == item.id)
+                ).first()
                 if failed_item is None:
                     continue
                 failed_item.status = "failed"
@@ -145,15 +147,16 @@ class BucketMigrationExecutionControlMixin:
     def _active_endpoint_usage(self, *, now) -> dict[str, int]:
         usage: dict[str, int] = {}
         cache: dict[str, str] = {}
-        rows = (
-            self.db.query(BucketMigration.source_context_id, BucketMigration.target_context_id)
-            .filter(
+        rows = self.db.execute(
+            select(
+                BucketMigration.source_context_id,
+                BucketMigration.target_context_id,
+            ).where(
                 or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.maintenance_status.in_({"queued", "running"})),
                 BucketMigration.worker_lease_until.isnot(None),
                 BucketMigration.worker_lease_until >= now,
             )
-            .all()
-        )
+        ).all()
         for row in rows:
             for key in self._endpoint_keys_for_contexts(
                 row.source_context_id,
@@ -175,20 +178,19 @@ class BucketMigrationExecutionControlMixin:
         if not endpoint_keys:
             return True
         allowed_per_endpoint = max(1, int(max_active_per_endpoint))
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 BucketMigration.id,
                 BucketMigration.source_context_id,
                 BucketMigration.target_context_id,
             )
-            .filter(
+            .where(
                 or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.maintenance_status.in_({"queued", "running"})),
                 BucketMigration.worker_lease_until.isnot(None),
                 BucketMigration.worker_lease_until >= now,
             )
             .order_by(BucketMigration.created_at.asc(), BucketMigration.id.asc())
-            .all()
-        )
+        ).all()
         ranked_by_endpoint: dict[str, list[int]] = {}
         for row in rows:
             row_keys = self._endpoint_keys_for_contexts(
