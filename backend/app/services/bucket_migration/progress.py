@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select, update
 from app.core.sensitive_data import sanitized_error_log_detail
 
 import logging
@@ -39,21 +39,21 @@ class BucketMigrationProgressMixin:
         now = utcnow()
         lease_duration = max(15, int(lease_seconds))
         lease_until = now + timedelta(seconds=lease_duration)
-        updated = (
-            self.db.query(BucketMigration)
-            .filter(
+        updated = self.db.execute(
+            update(BucketMigration)
+            .where(
                 BucketMigration.id == migration_id,
                 BucketMigration.worker_lease_owner == worker_id,
                 or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.preparation_status == "checking", BucketMigration.maintenance_status.in_({"queued", "running"})),
             )
-            .update(
+            .values(
                 {
                     BucketMigration.worker_lease_until: lease_until,
                     BucketMigration.updated_at: now,
-                },
-                synchronize_session=False,
+                }
             )
-        )
+            .execution_options(synchronize_session=False)
+        ).rowcount
         if updated == 1:
             self._commit()
             return True
@@ -61,15 +61,16 @@ class BucketMigrationProgressMixin:
         return False
 
     def _release_migration_lease(self, migration_id: int, *, worker_id: Optional[str] = None) -> None:
-        query = self.db.query(BucketMigration).filter(BucketMigration.id == migration_id)
+        statement = update(BucketMigration).where(BucketMigration.id == migration_id)
         if worker_id:
-            query = query.filter(BucketMigration.worker_lease_owner == worker_id)
-        query.update(
-            {
-                BucketMigration.worker_lease_owner: None,
-                BucketMigration.worker_lease_until: None,
-            },
-            synchronize_session=False,
+            statement = statement.where(BucketMigration.worker_lease_owner == worker_id)
+        self.db.execute(
+            statement.values(
+                {
+                    BucketMigration.worker_lease_owner: None,
+                    BucketMigration.worker_lease_until: None,
+                }
+            ).execution_options(synchronize_session=False)
         )
 
     def fail_migration_fatal(
@@ -80,7 +81,9 @@ class BucketMigrationProgressMixin:
         worker_id: Optional[str] = None,
     ) -> None:
         try:
-            migration = self.db.query(BucketMigration).filter(BucketMigration.id == migration_id).first()
+            migration = self.db.scalars(
+                select(BucketMigration).where(BucketMigration.id == migration_id)
+            ).first()
             if not migration or (worker_id and migration.worker_lease_owner != worker_id):
                 return
 
@@ -145,7 +148,15 @@ class BucketMigrationProgressMixin:
         worker_id: Optional[str] = None,
         lease_seconds: Optional[int] = None,
     ) -> str:
-        migration = self.db.query(BucketMigration.worker_lease_owner, BucketMigration.worker_lease_until, BucketMigration.cancel_requested, BucketMigration.pause_requested, BucketMigration.status).filter(BucketMigration.id == migration_id).one()
+        migration = self.db.execute(
+            select(
+                BucketMigration.worker_lease_owner,
+                BucketMigration.worker_lease_until,
+                BucketMigration.cancel_requested,
+                BucketMigration.pause_requested,
+                BucketMigration.status,
+            ).where(BucketMigration.id == migration_id)
+        ).one()
         if worker_id:
             if migration.worker_lease_owner != worker_id:
                 return "lost_lease"
