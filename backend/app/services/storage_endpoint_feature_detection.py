@@ -137,11 +137,7 @@ class StorageEndpointFeatureDetector:
 
         stored_endpoint: Optional[StorageEndpoint] = None
         if payload.endpoint_id is not None:
-            stored_endpoint = (
-                self.db.query(StorageEndpoint)
-                .filter(StorageEndpoint.id == payload.endpoint_id)
-                .first()
-            )
+            stored_endpoint = self.db.get(StorageEndpoint, payload.endpoint_id)
             if not stored_endpoint:
                 raise StorageEndpointNotFoundError("Endpoint not found.")
 
