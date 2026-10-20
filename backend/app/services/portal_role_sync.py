@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import S3Account, User
@@ -24,14 +25,16 @@ def capture_effective_portal_roles(
     user_ids: Iterable[int],
     account_ids: Iterable[int],
 ) -> PortalRoleMap:
-    users = db.query(User).filter(User.id.in_(sorted(set(user_ids)))).all()
+    normalized_account_ids = sorted(set(account_ids))
+    users = db.scalars(select(User).where(User.id.in_(sorted(set(user_ids))))).all()
+    access_service = EffectiveAccessService(db)
     resolved_by_user = {
-        int(user.id): EffectiveAccessService(db).resolve_user(user)
+        int(user.id): access_service.resolve_user(user)
         for user in users
     }
     roles: PortalRoleMap = {}
     for user_id, resolved in resolved_by_user.items():
-        for account_id in sorted(set(account_ids)):
+        for account_id in normalized_account_ids:
             link = resolved.account_link_for(account_id)
             roles[(user_id, account_id)] = link.portal_role if link else None
     return roles
@@ -54,8 +57,8 @@ def sync_portal_role_downgrades(
             continue
         if next_role is None:
             require_no_private_storage_space_ownership(db, user_id=user_id, account_id=account_id)
-        user = db.query(User).filter(User.id == user_id).one()
-        account = db.query(S3Account).filter(S3Account.id == account_id).one()
+        user = db.execute(select(User).where(User.id == user_id)).scalar_one()
+        account = db.execute(select(S3Account).where(S3Account.id == account_id)).scalar_one()
         service.sync_existing_portal_user_access(user, account, next_role)
 
 
@@ -74,6 +77,6 @@ def sync_portal_role_promotions(
             previous_role
         ):
             continue
-        user = db.query(User).filter(User.id == user_id).one()
-        account = db.query(S3Account).filter(S3Account.id == account_id).one()
+        user = db.execute(select(User).where(User.id == user_id)).scalar_one()
+        account = db.execute(select(S3Account).where(S3Account.id == account_id)).scalar_one()
         service.sync_existing_portal_user_access(user, account, next_role)
