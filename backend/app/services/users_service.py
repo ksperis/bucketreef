@@ -4,8 +4,9 @@ import json
 import logging
 from typing import Any, Optional
 
-from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Query, Session, aliased
+from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql import Select
 
 from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
 from app.core.security import (
@@ -84,27 +85,31 @@ class UsersService:
         self.db = db
 
     def get_by_email(self, email: str) -> Optional[User]:
-        return self.db.query(User).filter(User.email == email).first()
+        return self.db.scalar(select(User).where(User.email == email).limit(1))
 
     def get_by_email_case_insensitive(self, email: str) -> Optional[User]:
         normalized = str(email or "").strip().lower()
         if not normalized:
             return None
-        return self.db.query(User).filter(func.lower(User.email) == normalized).first()
+        return self.db.scalar(
+            select(User).where(func.lower(User.email) == normalized).limit(1)
+        )
 
     def get_by_id(self, user_id: int) -> Optional[User]:
-        return self.db.query(User).filter(User.id == user_id).first()
+        return self.db.get(User, user_id)
 
     def _active_superadmin_count(self, actor: User) -> int:
-        count = (
-            self.db.query(User)
-            .filter(
+        count = self.db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(
                 User.role == UserRole.UI_SUPERADMIN.value,
                 User.is_active.is_(True),
             )
-            .count()
+        ) or 0
+        actor_is_persisted = self.db.scalar(
+            select(User.id).where(User.id == actor.id).limit(1)
         )
-        actor_is_persisted = self.db.query(User.id).filter(User.id == actor.id).first()
         if (
             actor_is_persisted is None
             and actor.role == UserRole.UI_SUPERADMIN.value
@@ -258,18 +263,17 @@ class UsersService:
         from app.services.portal_service import PortalService
 
         portal_service = PortalService(self.db)
-        portal_accounts = (
-            self.db.query(S3Account)
+        portal_accounts = self.db.scalars(
+            select(S3Account)
             .join(AccountIAMUser, AccountIAMUser.account_id == S3Account.id)
-            .filter(AccountIAMUser.user_id == user.id)
+            .where(AccountIAMUser.user_id == user.id)
             .order_by(S3Account.id.asc())
-            .all()
-        )
+        ).unique().all()
         for account in portal_accounts:
             portal_service.sync_existing_portal_user_access(user, account, None)
 
     def update_user(self, user_id: int, payload: UserUpdate) -> User:
-        user = self.db.query(User).filter(User.id == user_id).first()
+        user = self.db.get(User, user_id)
         if not user:
             raise UiUserNotFoundError("User not found")
         was_active = bool(user.is_active)
@@ -392,11 +396,11 @@ class UsersService:
         return user
 
     def _created_private_connection_ids_for_deletion(self, user_id: int) -> list[int]:
-        created_connection_rows = (
-            self.db.query(S3Connection.id, S3Connection.is_shared)
-            .filter(S3Connection.created_by_user_id == user_id)
-            .all()
-        )
+        created_connection_rows = self.db.execute(
+            select(S3Connection.id, S3Connection.is_shared).where(
+                S3Connection.created_by_user_id == user_id
+            )
+        ).all()
         created_shared_ids = sorted([row[0] for row in created_connection_rows if bool(row[1])])
         if created_shared_ids:
             created_shared_str = ", ".join(str(conn_id) for conn_id in created_shared_ids)
@@ -413,12 +417,11 @@ class UsersService:
         from app.services.portal_service import PortalService
 
         portal_service = PortalService(self.db)
-        portal_accounts = (
-            self.db.query(S3Account)
+        portal_accounts = self.db.scalars(
+            select(S3Account)
             .join(AccountIAMUser, AccountIAMUser.account_id == S3Account.id)
-            .filter(AccountIAMUser.user_id == user.id)
-            .all()
-        )
+            .where(AccountIAMUser.user_id == user.id)
+        ).unique().all()
         for account in portal_accounts:
             portal_service.sync_existing_portal_user_access(
                 user,
@@ -432,94 +435,102 @@ class UsersService:
         created_private_ids: list[int],
     ) -> None:
         # Remove dependent links/tokens first to satisfy FK constraints on PostgreSQL.
-        (
-            self.db.query(AccountIAMUser)
-            .filter(AccountIAMUser.user_id == user_id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(AccountIAMUser)
+            .where(AccountIAMUser.user_id == user_id)
+            .execution_options(synchronize_session=False)
         )
-        (
-            self.db.query(UserS3Account)
-            .filter(UserS3Account.user_id == user_id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(UserS3Account)
+            .where(UserS3Account.user_id == user_id)
+            .execution_options(synchronize_session=False)
         )
-        (
-            self.db.query(UserS3User)
-            .filter(UserS3User.user_id == user_id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(UserS3User)
+            .where(UserS3User.user_id == user_id)
+            .execution_options(synchronize_session=False)
         )
-        (
-            self.db.query(UserS3Connection)
-            .filter(UserS3Connection.user_id == user_id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(UserS3Connection)
+            .where(UserS3Connection.user_id == user_id)
+            .execution_options(synchronize_session=False)
         )
-        (
-            self.db.query(UserUiGroup)
-            .filter(UserUiGroup.user_id == user_id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(UserUiGroup)
+            .where(UserUiGroup.user_id == user_id)
+            .execution_options(synchronize_session=False)
         )
         if created_private_ids:
-            (
-                self.db.query(UserS3Connection)
-                .filter(UserS3Connection.s3_connection_id.in_(created_private_ids))
-                .delete(synchronize_session=False)
+            self.db.execute(
+                delete(UserS3Connection)
+                .where(UserS3Connection.s3_connection_id.in_(created_private_ids))
+                .execution_options(synchronize_session=False)
             )
-            (
-                self.db.query(S3Connection)
-                .filter(S3Connection.id.in_(created_private_ids))
-                .delete(synchronize_session=False)
+            self.db.execute(
+                delete(S3Connection)
+                .where(S3Connection.id.in_(created_private_ids))
+                .execution_options(synchronize_session=False)
             )
 
     def _delete_user_auth_artifacts(self, user_id: int) -> None:
-        (
-            self.db.query(ApiToken)
-            .filter(ApiToken.user_id == user_id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(ApiToken)
+            .where(ApiToken.user_id == user_id)
+            .execution_options(synchronize_session=False)
         )
-        auth_session_ids = [
-            row[0]
-            for row in self.db.query(AuthSession.id).filter(AuthSession.user_id == user_id).all()
-        ]
+        auth_session_ids = list(
+            self.db.scalars(
+                select(AuthSession.id).where(AuthSession.user_id == user_id)
+            ).all()
+        )
         if auth_session_ids:
-            self.db.query(RefreshToken).filter(
-                RefreshToken.auth_session_id.in_(auth_session_ids)
-            ).delete(synchronize_session=False)
-            self.db.query(AuthSession).filter(
-                AuthSession.id.in_(auth_session_ids)
-            ).delete(synchronize_session=False)
+            self.db.execute(
+                delete(RefreshToken)
+                .where(RefreshToken.auth_session_id.in_(auth_session_ids))
+                .execution_options(synchronize_session=False)
+            )
+            self.db.execute(
+                delete(AuthSession)
+                .where(AuthSession.id.in_(auth_session_ids))
+                .execution_options(synchronize_session=False)
+            )
 
     def _anonymize_user_history(self, user_id: int) -> None:
-        (
-            self.db.query(AuditLog)
-            .filter(AuditLog.user_id == user_id)
-            .update({AuditLog.user_id: None}, synchronize_session=False)
+        self.db.execute(
+            update(AuditLog)
+            .where(AuditLog.user_id == user_id)
+            .values(user_id=None)
+            .execution_options(synchronize_session=False)
         )
-        (
-            self.db.query(BucketMigration)
-            .filter(BucketMigration.created_by_user_id == user_id)
-            .update({BucketMigration.created_by_user_id: None}, synchronize_session=False)
+        self.db.execute(
+            update(BucketMigration)
+            .where(BucketMigration.created_by_user_id == user_id)
+            .values(created_by_user_id=None)
+            .execution_options(synchronize_session=False)
         )
 
     def _cleanup_owned_tag_definitions(self, user_id: int) -> None:
         # Private bucket UI tags must disappear with their owner. Turning them
         # into global definitions would silently make private metadata shared.
-        (
-            self.db.query(TagDefinition)
-            .filter(
+        self.db.execute(
+            delete(TagDefinition)
+            .where(
                 TagDefinition.owner_user_id == user_id,
                 TagDefinition.domain_kind.in_(
                     [TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS]
                 ),
             )
-            .delete(synchronize_session=False)
+            .execution_options(synchronize_session=False)
         )
-        (
-            self.db.query(TagDefinition)
-            .filter(TagDefinition.owner_user_id == user_id)
-            .update({TagDefinition.owner_user_id: None}, synchronize_session=False)
+        self.db.execute(
+            update(TagDefinition)
+            .where(TagDefinition.owner_user_id == user_id)
+            .values(owner_user_id=None)
+            .execution_options(synchronize_session=False)
         )
 
     def delete_user(self, user_id: int) -> None:
-        user = self.db.query(User).filter(User.id == user_id).first()
+        user = self.db.get(User, user_id)
         if not user:
             raise UiUserNotFoundError("User not found")
         require_no_private_storage_space_ownership(self.db, user_id=user.id)
@@ -534,10 +545,10 @@ class UsersService:
         logger.debug("Deleted user id=%s email=%s", user.id, user.email)
 
     def list_users(self) -> list[User]:
-        return self.db.query(User).all()
+        return list(self.db.scalars(select(User)).all())
 
     def list_users_minimal(self) -> list[UserSummary]:
-        rows = self.db.query(User).order_by(User.email.asc()).all()
+        rows = self.db.scalars(select(User).order_by(User.email.asc())).all()
         avatar_service = UserAvatarService(self.db)
         return [
             UserSummary(
@@ -551,14 +562,14 @@ class UsersService:
         ]
 
     @staticmethod
-    def _apply_user_search(query: Query, search_value: str) -> Query:
+    def _apply_user_search(statement: Select[tuple[User]], search_value: str) -> Select[tuple[User]]:
         if not search_value:
-            return query
+            return statement
 
         linked_connection = aliased(S3Connection)
         pattern = f"%{search_value}%"
         return (
-            query.outerjoin(UserS3Account, User.id == UserS3Account.user_id)
+            statement.outerjoin(UserS3Account, User.id == UserS3Account.user_id)
             .outerjoin(S3Account, UserS3Account.account_id == S3Account.id)
             .outerjoin(UserS3User, User.id == UserS3User.user_id)
             .outerjoin(S3User, UserS3User.s3_user_id == S3User.id)
@@ -572,7 +583,7 @@ class UsersService:
             )
             .outerjoin(UserUiGroup, User.id == UserUiGroup.user_id)
             .outerjoin(UiGroup, UserUiGroup.group_id == UiGroup.id)
-            .filter(
+            .where(
                 or_(
                     User.email.ilike(pattern),
                     User.full_name.ilike(pattern),
@@ -629,16 +640,17 @@ class UsersService:
         sort_direction: str = "asc",
     ) -> tuple[list[UserOut], int]:
         search_value = search.strip() if isinstance(search, str) else ""
-        query = self._apply_user_search(self.db.query(User), search_value)
-        total_query = query.with_entities(func.count(func.distinct(User.id)))
-        total = total_query.scalar() or 0
+        statement = self._apply_user_search(select(User), search_value)
+        total = self.db.scalar(
+            select(func.count()).select_from(statement.order_by(None).subquery())
+        ) or 0
         offset = max(page - 1, 0) * page_size
-        rows = (
-            query.order_by(*self._user_order_columns(sort_field, sort_direction))
+        rows = self.db.scalars(
+            statement.order_by(*self._user_order_columns(sort_field, sort_direction))
             .offset(offset)
             .limit(page_size)
-            .all()
         )
+        rows = rows.unique().all()
         output_service = UserOutputService(self.db)
         preloaded = output_service.preload(rows)
         outputs = [
@@ -655,10 +667,10 @@ class UsersService:
         manager_role: Optional[ManagerAccountRoleValue],
         portal_role: Optional[PortalAccountRoleValue],
     ) -> User:
-        user = self.db.query(User).filter(User.id == user_id).first()
+        user = self.db.get(User, user_id)
         if not user:
             raise UiUserNotFoundError("User not found")
-        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
+        account = self.db.get(S3Account, account_id)
         if not account:
             raise S3AccountNotFoundError("S3Account not found")
         before_roles = capture_effective_portal_roles(
@@ -666,10 +678,13 @@ class UsersService:
             user_ids=[user.id],
             account_ids=[account.id],
         )
-        link = (
-            self.db.query(UserS3Account)
-            .filter(UserS3Account.user_id == user.id, UserS3Account.account_id == account.id)
-            .first()
+        link = self.db.scalar(
+            select(UserS3Account)
+            .where(
+                UserS3Account.user_id == user.id,
+                UserS3Account.account_id == account.id,
+            )
+            .limit(1)
         )
         if user.role == UserRole.UI_NONE.value:
             user.role = UserRole.UI_USER.value
