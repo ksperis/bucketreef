@@ -57,6 +57,7 @@ def _require_supervision_access(
     disabled_detail: str,
     required_feature: Literal["metrics", "usage"],
 ) -> ManagerActor:
+    caps = require_manager_capabilities(context)
     settings = app_settings_service.load_app_settings_for_db_readonly(db)
     metrics_state = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
@@ -68,7 +69,6 @@ def _require_supervision_access(
             detail="RGW traffic and usage metrics are disabled",
         )
 
-    caps = require_manager_capabilities(context)
     if isinstance(actor, ManagerSessionPrincipal) and not actor.capabilities.can_view_traffic:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this profile")
     if not caps.can_manage_buckets:
