@@ -855,8 +855,6 @@ class BucketMigrationPrecheckPlanner:
                     else "warning" if planned.warnings else "ready"
                 )
             )
-            planned.report["source_identity"] = migration.source_context_id
-            planned.report["target_identity"] = migration.target_context_id
             report["items"].append(planned.report)
             if on_progress:
                 on_progress(report)

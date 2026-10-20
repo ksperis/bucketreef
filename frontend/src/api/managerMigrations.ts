@@ -41,8 +41,6 @@ type BucketMigrationPrecheckItemReport = {
   state?: "ready" | "blocked" | "unverified" | "warning";
   settings_copied?: string[];
   settings_omitted?: string[];
-  source_identity?: string;
-  target_identity?: string;
   source_bucket?: string;
   target_bucket?: string;
   strategy?: string;
