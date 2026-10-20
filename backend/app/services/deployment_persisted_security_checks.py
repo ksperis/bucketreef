@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import StorageEndpoint, User, UserRole, WebAuthnCredential
@@ -9,30 +10,27 @@ from app.services.deployment_check_models import DeploymentCheckFinding, finding
 
 
 def persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
-    active_admins = (
-        db.query(User.id)
-        .filter(
+    admin_ids = db.scalars(
+        select(User.id).where(
             User.is_active.is_(True),
             User.role.in_([UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value]),
         )
-        .all()
-    )
-    admin_ids = [row[0] for row in active_admins]
+    ).all()
     enrolled_admin_ids: set[int] = set()
     if admin_ids:
-        enrolled_admin_ids = {
-            row[0]
-            for row in db.query(WebAuthnCredential.user_id)
-            .filter(
-                WebAuthnCredential.user_id.in_(admin_ids),
-                WebAuthnCredential.revoked_at.is_(None),
-            )
-            .distinct()
-            .all()
-        }
+        enrolled_admin_ids = set(
+            db.scalars(
+                select(WebAuthnCredential.user_id)
+                .where(
+                    WebAuthnCredential.user_id.in_(admin_ids),
+                    WebAuthnCredential.revoked_at.is_(None),
+                )
+                .distinct()
+            ).all()
+        )
     missing_passkeys = len(admin_ids) - len(enrolled_admin_ids)
 
-    endpoints = db.query(StorageEndpoint).all()
+    endpoints = db.scalars(select(StorageEndpoint)).all()
     unverified_tls = sum(1 for endpoint in endpoints if not endpoint.verify_tls)
     reused_privileged_identity = 0
     for endpoint in endpoints:
