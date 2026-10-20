@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from sqlalchemy import func, select
+
 from app.db import (
     PortalAccountRole,
     PortalPublicLink as DBPortalPublicLink,
@@ -39,6 +41,18 @@ if TYPE_CHECKING:
 
 
 class PortalSharingMixin:
+    def _storage_space_grant(
+        self,
+        storage_space_metadata_id: int,
+        user_id: int,
+    ) -> PortalStorageSpaceGrant | None:
+        return self.db.execute(
+            select(PortalStorageSpaceGrant).where(
+                PortalStorageSpaceGrant.storage_space_metadata_id == storage_space_metadata_id,
+                PortalStorageSpaceGrant.user_id == user_id,
+            )
+        ).scalar_one_or_none()
+
     def _portal_user_can_create_external_sharing(
         self,
         user: User,
@@ -111,14 +125,7 @@ class PortalSharingMixin:
         initial_shares: list[PortalStorageSpaceInitialShare],
     ) -> None:
         for share in initial_shares:
-            grant = (
-                self.db.query(PortalStorageSpaceGrant)
-                .filter(
-                    PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
-                    PortalStorageSpaceGrant.user_id == share.user_id,
-                )
-                .first()
-            )
+            grant = self._storage_space_grant(metadata.id, share.user_id)
             if grant is None:
                 grant = PortalStorageSpaceGrant(
                     storage_space_metadata_id=metadata.id,
@@ -140,7 +147,9 @@ class PortalSharingMixin:
             return None
         owner: User | None = None
         if metadata and metadata.owner_user_id is not None:
-            owner = self.db.query(User).filter(User.id == metadata.owner_user_id).first()
+            owner = self.db.execute(
+                select(User).where(User.id == metadata.owner_user_id)
+            ).scalar_one_or_none()
         if owner is None:
             raise RuntimeError("Private Storage Space owner is missing.")
         member = self._portal_account_member_map(account).get(owner.id)
@@ -160,11 +169,14 @@ class PortalSharingMixin:
         user_ids: set[int] = set()
         if metadata.owner_user_id is not None:
             user_ids.add(metadata.owner_user_id)
-        account = self.db.query(S3Account).filter(S3Account.id == metadata.account_id).first()
+        account = self.db.execute(
+            select(S3Account).where(S3Account.id == metadata.account_id)
+        ).scalar_one_or_none()
+        member_map = self._portal_account_member_map(account) if account is not None else {}
         if account is not None:
             user_ids.update(
                 user_id
-                for user_id, (_target, role, _sources) in self._portal_account_member_map(account).items()
+                for user_id, (_target, role, _sources) in member_map.items()
                 if role == PortalAccountRole.PORTAL_MANAGER.value
             )
         if self._metadata_visibility(metadata) != "shared":
@@ -173,16 +185,16 @@ class PortalSharingMixin:
             if account is not None:
                 user_ids.update(
                     user_id
-                    for user_id, (_target, role, _sources) in self._portal_account_member_map(account).items()
+                    for user_id, (_target, role, _sources) in member_map.items()
                     if role == PortalAccountRole.PORTAL_USER.value
                 )
             return user_ids
-        grant_rows = (
-            self.db.query(PortalStorageSpaceGrant.user_id)
-            .filter(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
-            .all()
-        )
-        user_ids.update(user_id for (user_id,) in grant_rows if user_id is not None)
+        grant_user_ids = self.db.scalars(
+            select(PortalStorageSpaceGrant.user_id).where(
+                PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id
+            )
+        ).all()
+        user_ids.update(user_id for user_id in grant_user_ids if user_id is not None)
         return user_ids
 
     def get_storage_space_access_summary(
@@ -216,25 +228,25 @@ class PortalSharingMixin:
         mode = "private"
         if self._metadata_visibility(metadata) == "shared":
             mode = "all" if self._metadata_share_scope(metadata) == "account" else "restricted"
-        query = (
-            self.db.query(PortalStorageSpaceGrant, User)
+        explicit_share_rows = self.db.execute(
+            select(PortalStorageSpaceGrant, User)
             .join(User, User.id == PortalStorageSpaceGrant.user_id)
-            .filter(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
-        )
+            .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
+        ).all()
         explicit_shares = [
             self._storage_space_share_card(user, target, storage_space, grant.role)
-            for grant, target in query.all()
+            for grant, target in explicit_share_rows
             if grant.role in {"Viewer", "Editor"}
         ]
-        public_link_count = (
-            self.db.query(DBPortalPublicLink)
-            .filter(
+        public_link_count = self.db.execute(
+            select(func.count())
+            .select_from(DBPortalPublicLink)
+            .where(
                 DBPortalPublicLink.account_id == access.account.id,
                 DBPortalPublicLink.bucket_name == bucket_name,
                 DBPortalPublicLink.revoked_at.is_(None),
             )
-            .count()
-        )
+        ).scalar_one()
         return PortalStorageSpaceAccessSummary(
             mode=mode,
             default_account_member_role=self._metadata_account_member_role(metadata),
@@ -313,13 +325,13 @@ class PortalSharingMixin:
         if metadata is None:
             return shares
         query = (
-            self.db.query(PortalStorageSpaceGrant, User)
+            select(PortalStorageSpaceGrant, User)
             .join(User, User.id == PortalStorageSpaceGrant.user_id)
-            .filter(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
+            .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
         )
         if not can_see_all:
-            query = query.filter(PortalStorageSpaceGrant.user_id == user.id)
-        for grant, target in query.all():
+            query = query.where(PortalStorageSpaceGrant.user_id == user.id)
+        for grant, target in self.db.execute(query).all():
             if grant.role not in {"Viewer", "Editor"}:
                 continue
             shares.append(self._storage_space_share_card(user, target, storage_space, grant.role))
@@ -344,14 +356,13 @@ class PortalSharingMixin:
                 raise RuntimeError("Storage space metadata is missing.")
             if metadata.owner_user_id is not None:
                 excluded_user_ids.add(metadata.owner_user_id)
-            shared_user_ids = {
-                user_id
-                for (user_id,) in (
-                    self.db.query(PortalStorageSpaceGrant.user_id)
-                    .filter(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
-                    .all()
-                )
-            }
+            shared_user_ids = set(
+                self.db.scalars(
+                    select(PortalStorageSpaceGrant.user_id).where(
+                        PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id
+                    )
+                ).all()
+            )
         rows = []
         for user_id, (target, portal_role, sources) in self._portal_account_member_map(access.account).items():
             if user_id in excluded_user_ids or portal_role != PortalAccountRole.PORTAL_USER.value:
@@ -389,14 +400,7 @@ class PortalSharingMixin:
         )
         if portal_role != PortalAccountRole.PORTAL_USER.value:
             raise PortalBadRequestError("Only Portal users can receive an explicit team Storage Space role.")
-        grant = (
-            self.db.query(PortalStorageSpaceGrant)
-            .filter(
-                PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
-                PortalStorageSpaceGrant.user_id == target.id,
-            )
-            .first()
-        )
+        grant = self._storage_space_grant(metadata.id, target.id)
         if grant is None:
             grant = PortalStorageSpaceGrant(
                 storage_space_metadata_id=metadata.id,
@@ -445,14 +449,7 @@ class PortalSharingMixin:
         metadata = self._require_storage_space_active(access.account, bucket_name)
         if metadata is None:
             raise RuntimeError("Storage space metadata is missing.")
-        grant = (
-            self.db.query(PortalStorageSpaceGrant)
-            .filter(
-                PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
-                PortalStorageSpaceGrant.user_id == target.id,
-            )
-            .first()
-        )
+        grant = self._storage_space_grant(metadata.id, target.id)
         try:
             if grant is not None:
                 self.db.delete(grant)
