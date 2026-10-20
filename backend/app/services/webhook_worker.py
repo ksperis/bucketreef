@@ -12,6 +12,7 @@ from email.utils import parsedate_to_datetime
 from typing import Optional
 
 import requests
+from sqlalchemy import delete, select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
@@ -98,17 +99,16 @@ class WebhookDeliveryWorker:
         now = utcnow()
         with self._session_factory() as db:
             ids = [
-                int(row[0])
-                for row in (
-                    db.query(WebhookDelivery.id)
-                    .filter(
+                int(delivery_id)
+                for delivery_id in db.scalars(
+                    select(WebhookDelivery.id)
+                    .where(
                         WebhookDelivery.status.in_(("pending", "retrying")),
                         WebhookDelivery.next_attempt_at <= now,
                     )
                     .order_by(WebhookDelivery.next_attempt_at.asc(), WebhookDelivery.id.asc())
                     .limit(self._runtime.workers)
-                    .all()
-                )
+                ).all()
             ]
         if not ids:
             return False
@@ -248,10 +248,14 @@ class WebhookDeliveryWorker:
             return
         cutoff = now - timedelta(days=retention_days)
         with self._session_factory() as db:
-            db.query(WebhookDelivery).filter(
-                WebhookDelivery.status.in_(_TERMINAL_STATUSES),
-                WebhookDelivery.updated_at < cutoff,
-            ).delete(synchronize_session=False)
+            db.execute(
+                delete(WebhookDelivery)
+                .where(
+                    WebhookDelivery.status.in_(_TERMINAL_STATUSES),
+                    WebhookDelivery.updated_at < cutoff,
+                )
+                .execution_options(synchronize_session=False)
+            )
             db.commit()
         self._last_purge_at = now
 
