@@ -100,6 +100,20 @@ describe("resource feature inheritance", () => {
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
+  it("renders concise guidance inline without an information trigger", () => {
+    render(<FeatureOverrideField
+      title="Cost estimation"
+      value={null}
+      policy="targeted"
+      onChange={() => undefined}
+      description="Controls the Cost tab for this resource."
+      triState
+    />);
+
+    expect(screen.getByText("Controls the Cost tab for this resource.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Cost estimation: information" })).not.toBeInTheDocument();
+  });
+
   it("prevents a new enabled choice in the select presentation while allowing cleanup", async () => {
     const user = userEvent.setup();
     function Editor() {

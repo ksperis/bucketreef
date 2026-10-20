@@ -211,12 +211,12 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                 <FeatureOverrideField title={adminText("Bucket composition statistics")} value={form.draft.allow_bucket_usage_stats}
                   policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
                   triState
-                  help={adminText("Shared project capability used by both Manager and Portal.")}
+                  description={adminText("Shared project capability used by both Manager and Portal.")}
                   onChange={value => update("allow_bucket_usage_stats", value)} />
                 <FeatureOverrideField title={adminText("Automatic bucket composition collection")} value={form.draft.allow_bucket_usage_stats_collection}
                   policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={controller.locked}
                   triState
-                  help={adminText("Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled.")}
+                  description={adminText("Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled.")}
                   onChange={value => update("allow_bucket_usage_stats_collection", value)} />
               </SettingsSection>
               {permissions.loading ? <p role="status">{adminText("Checking endpoint permissions...")}</p> : permissions.loadError ? <UiInlineMessage tone="error" role="alert">
@@ -245,14 +245,14 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                 <FeatureOverrideField title={adminText("Cost estimation")} value={form.draft.allow_cost_estimation}
                   policy={generalSettings.manager_feature_policies.cost_estimation} disabled={controller.locked}
                   triState
-                  help={adminText("Controls the Cost tab for this RGW Account in Manager Usage & Metrics.")}
+                  description={adminText("Controls the Cost tab for this RGW Account in Manager Usage & Metrics.")}
                   onChange={value => update("allow_cost_estimation", value)} />
               </SettingsSection>
               <SettingsSection presentation="compact" title={adminText("Access-key extensions")}>
                 <FeatureOverrideField title={adminText("Access-key names and notes")} value={form.draft.allow_access_key_metadata}
                   policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={controller.locked}
                   triState
-                  help={adminText("Optional. Name and notes are stored in BucketReef.")} onChange={value => update("allow_access_key_metadata", value)} />
+                  description={adminText("Optional. Name and notes are stored in BucketReef.")} onChange={value => update("allow_access_key_metadata", value)} />
                 <FeatureOverrideField title={adminText("Access-key expiration")} value={form.draft.allow_access_key_expiration}
                   policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={controller.locked}
                   triState
@@ -263,7 +263,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                 <FeatureOverrideField title={adminText("Manager activity history")} value={form.draft.allow_activity_history}
                   policy={generalSettings.manager_feature_policies.activity_history} disabled={controller.locked}
                   triState
-                  help={adminText("Shows account-scoped Manager control and configuration actions. It does not include S3 object access logs.")}
+                  description={adminText("Shows account-scoped Manager control and configuration actions. It does not include S3 object access logs.")}
                   onChange={value => update("allow_activity_history", value)} />
               </SettingsSection>
               <SettingsSection presentation="compact" title={adminText("Privileged Ceph operations")}>
@@ -271,7 +271,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                   policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={controller.locked}
                   triState
                   unavailable={!allowBucketQuotas ? adminText("Endpoint permission required") : undefined}
-                  help={adminText("Requires buckets=write on the endpoint Admin Ops identity. Storage authorization remains required.")}
+                  description={adminText("Requires buckets=write on the endpoint Admin Ops identity. Storage authorization remains required.")}
                   onChange={value => update("allow_bucket_quota_management", value)} />
               </SettingsSection>
             </div></div>}

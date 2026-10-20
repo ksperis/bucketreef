@@ -11,11 +11,12 @@ import { SettingsSelect } from "./SettingsControls";
 
 type FeatureOverrideValue = "disabled" | "inherit" | "enabled";
 
-export default function FeatureOverrideField({ title, value, policy, onChange, help, disabled, unavailable, triState = false }: {
+export default function FeatureOverrideField({ title, value, policy, onChange, description, help, disabled, unavailable, triState = false }: {
   title: string;
   value: boolean | null;
   policy: FeaturePolicy;
   onChange: (value: boolean | null) => void;
+  description?: ReactNode;
   help?: ReactNode;
   disabled?: boolean;
   unavailable?: string;
@@ -73,7 +74,7 @@ export default function FeatureOverrideField({ title, value, policy, onChange, h
     : undefined;
   if (triState) {
     const constraintLabel = blocked ? "Platform disabled" : unavailableReason;
-    return <SettingsItem compact title={title} help={help}
+    return <SettingsItem compact title={title} description={description} help={help}
       action={<SettingsTriStateAction
         ariaLabel={title}
         value={selection}
@@ -90,7 +91,7 @@ export default function FeatureOverrideField({ title, value, policy, onChange, h
     <option value="enabled" disabled={blocked || Boolean(unavailableReason)}>Enabled</option>
     <option value="disabled">Disabled</option>
   </SettingsSelect>;
-  return <SettingsItem compact className="settings-effective-row" title={title} help={help}
+  return <SettingsItem compact className="settings-effective-row" title={title} description={description} help={help}
     action={<SettingsEffectiveAction
       state={effectiveState}
       stateLabel={effectiveLabel}
