@@ -1380,14 +1380,14 @@ export default function S3UsersPage() {
                   <FeatureOverrideField title={adminText("Cost estimation")} value={editForm.allow_cost_estimation}
                     policy={generalSettings.manager_feature_policies.cost_estimation} disabled={editBusy}
                     triState
-                    help={adminText("Controls the Cost tab for this RGW User in Manager Usage & Metrics.")}
+                    description={adminText("Controls the Cost tab for this RGW User in Manager Usage & Metrics.")}
                     onChange={value => setEditForm(prev => ({ ...prev, allow_cost_estimation: value }))} />
                 </SettingsSection>
                 <SettingsSection presentation="compact" title={adminText("Access-key extensions")}>
                   <FeatureOverrideField title={adminText("Access-key names and notes")} value={editForm.allow_access_key_metadata}
                     policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={editBusy}
                     triState
-                    help={adminText("Name and notes are stored in BucketReef.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_metadata: value }))} />
+                    description={adminText("Name and notes are stored in BucketReef.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_metadata: value }))} />
                   <FeatureOverrideField title={adminText("Access-key expiration")} value={editForm.allow_access_key_expiration}
                     policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={editBusy}
                     triState
@@ -1397,7 +1397,7 @@ export default function S3UsersPage() {
                   <FeatureOverrideField title={adminText("Manager activity history")} value={editForm.allow_activity_history}
                     policy={generalSettings.manager_feature_policies.activity_history} disabled={editBusy}
                     triState
-                    help={adminText("Shows RGW User Manager control and configuration actions. It does not include S3 object access logs.")}
+                    description={adminText("Shows RGW User Manager control and configuration actions. It does not include S3 object access logs.")}
                     onChange={value => setEditForm(prev => ({ ...prev, allow_activity_history: value }))} />
                 </SettingsSection>
                 <SettingsSection presentation="compact" title={adminText("Privileged Ceph operations")}>
@@ -1405,11 +1405,11 @@ export default function S3UsersPage() {
                     policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={editBusy}
                     triState
                     unavailable={!editingEndpointCanWriteBuckets ? adminText("Endpoint permission required") : undefined}
-                    help={adminText("Requires buckets=write on the endpoint Admin Ops identity.")} onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_quota_management: value }))} />
+                    description={adminText("Requires buckets=write on the endpoint Admin Ops identity.")} onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_quota_management: value }))} />
                   <FeatureOverrideField title={adminText("Ceph S3 User keys")} value={editForm.allow_access_key_management}
                     policy={generalSettings.manager_feature_policies.ceph_s3_user_keys} disabled={editBusy}
                     triState
-                    help={adminText("Manages RGW User keys in Manager; storage and endpoint permissions remain required.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_management: value }))} />
+                    description={adminText("Manages RGW User keys in Manager; storage and endpoint permissions remain required.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_management: value }))} />
                   <FeatureOverrideField title={adminText("Managed private connection provisioning")} value={editForm.allow_managed_private_connection_provisioning}
                     policy={generalSettings.manager_feature_policies.managed_private_connection_provisioning} disabled={editBusy}
                     triState

@@ -507,8 +507,10 @@ describe("S3UsersPage modal tabs", () => {
     expect(within(privilegedSection).getByRole("radiogroup", { name: "Ceph S3 User keys" })).toBeInTheDocument();
     expect(within(privilegedSection).getByRole("radiogroup", { name: "Managed private connection provisioning" })).toBeInTheDocument();
     expect(within(privilegedSection).queryByRole("radiogroup", { name: "Access-key names and notes" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Ceph S3 User keys: information" }));
-    expect(screen.getByRole("tooltip")).toHaveTextContent("storage and endpoint permissions");
+    expect(screen.getByText("Manages RGW User keys in Manager; storage and endpoint permissions remain required.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Ceph S3 User keys: information" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Managed private connection provisioning: information" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Generated secrets remain managed by BucketReef");
     expectInheritedFeatureOverride("Bucket quota management");
     expectInheritedFeatureOverride("Ceph S3 User keys");
     expectInheritedFeatureOverride("Managed private connection provisioning");
