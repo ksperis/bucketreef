@@ -633,7 +633,6 @@ export default function BrowserPage({
   const objectsListViewportRef = useRef<HTMLDivElement | null>(null);
   const bucketMenuFilterRef = useRef<HTMLInputElement | null>(null);
   const contextIdForApiRef = useRef(contextIdForApi);
-  const operationIdsRef = useRef(new Set<string>());
   const effectiveCaps =
     storageEndpointCapabilities === undefined
       ? (selectedContext?.storage_endpoint_capabilities ?? null)
@@ -726,18 +725,6 @@ export default function BrowserPage({
     insideRefs: [searchControlRef, searchOptionsMenuRef],
     onDismiss: reason => { setShowSearchOptionsMenu(false); if (reason === "escape") searchOptionsButtonRef.current?.focus(); },
   });
-
-  useEffect(() => {
-    if (operations.length === 0) return;
-    const knownIds = operationIdsRef.current;
-    const newOps = operations.filter((op) => !knownIds.has(op.id));
-    if (newOps.length === 0) return;
-    newOps.forEach((op) => knownIds.add(op.id));
-    const primaryOps = newOps.filter((op) => op.kind !== "upload");
-    if (primaryOps.length === 0) return;
-    const latest = primaryOps[0];
-    setStatusMessage(text("Queued: {label}.", { label: text(latest.label) }));
-  }, [operations, setStatusMessage, text]);
 
   useEffect(() => {
     if (isVersioningEnabled) return;

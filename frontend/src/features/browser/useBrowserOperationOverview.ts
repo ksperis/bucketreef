@@ -94,6 +94,7 @@ export function useBrowserOperationOverview({
   const [operationsPanelDismissed, setOperationsPanelDismissed] =
     useState(false);
   const operationsPanelVisibleRef = useRef(false);
+  const knownOperationIdsRef = useRef(new Set<string>());
   const [showOperationsDetailsModal, setShowOperationsDetailsModal] =
     useState(false);
 
@@ -192,6 +193,23 @@ export function useBrowserOperationOverview({
   useEffect(() => {
     operationsPanelVisibleRef.current = showOperationsPanel;
   }, [showOperationsPanel]);
+  useEffect(() => {
+    if (operations.length === 0) return;
+    const knownIds = knownOperationIdsRef.current;
+    const newOperations = operations.filter(
+      (operation) => !knownIds.has(operation.id),
+    );
+    if (newOperations.length === 0) return;
+    newOperations.forEach((operation) => knownIds.add(operation.id));
+    const primaryOperations = newOperations.filter(
+      (operation) => operation.kind !== "upload",
+    );
+    if (primaryOperations.length === 0) return;
+    const latest = primaryOperations[0];
+    setStatusMessage(
+      text("Queued: {label}.", { label: text(latest.label) }),
+    );
+  }, [operations, setStatusMessage, text]);
   useEffect(() => {
     if (!hasOperationsPanelContent) {
       setShowOperationsDetailsModal(false);
