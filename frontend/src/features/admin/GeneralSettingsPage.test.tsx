@@ -261,11 +261,18 @@ describe("GeneralSettingsPage branding", () => {
     expect(screen.queryByLabelText("Bucket compare tool")).not.toBeInTheDocument();
   });
 
-  it("shows Experimental badge on portal feature toggle", async () => {
+  it("shows Experimental badges on portal and cost feature toggles", async () => {
     renderPage();
 
-    await screen.findByLabelText("Portal feature");
-    expect(screen.getByText("Experimental")).toBeInTheDocument();
+    const portalToggle = await screen.findByLabelText("Portal feature");
+    const costToggle = screen.getByLabelText("Cost feature");
+    const portalRow = portalToggle.closest(".settings-item-compact");
+    const costRow = costToggle.closest(".settings-item-compact");
+
+    expect(portalRow).not.toBeNull();
+    expect(costRow).not.toBeNull();
+    expect(within(portalRow as HTMLElement).getByText("Experimental")).toBeInTheDocument();
+    expect(within(costRow as HTMLElement).getByText("Experimental")).toBeInTheDocument();
   });
 
   it("sends a quota SMTP test email with current quota notification settings", async () => {
