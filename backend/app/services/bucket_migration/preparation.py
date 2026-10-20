@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from contextlib import nullcontext
-from sqlalchemy import or_
+from sqlalchemy import or_, select, update
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration
@@ -55,27 +55,26 @@ class BucketMigrationPreparationMixin:
                 BucketMigration.worker_lease_until < now,
             ),
         )
-        candidates = (
-            self.db.query(BucketMigration.id)
-            .filter(*eligible)
+        candidates = self.db.scalars(
+            select(BucketMigration.id)
+            .where(*eligible)
             .order_by(BucketMigration.preparation_requested_at)
             .limit(50)
-            .all()
-        )
-        for (migration_id,) in candidates:
-            changed = (
-                self.db.query(BucketMigration)
-                .filter(BucketMigration.id == migration_id, *eligible)
-                .update(
+        ).all()
+        for migration_id in candidates:
+            changed = self.db.execute(
+                update(BucketMigration)
+                .where(BucketMigration.id == migration_id, *eligible)
+                .values(
                     {
                         BucketMigration.worker_lease_owner: worker_id,
                         BucketMigration.worker_lease_until: now
                         + timedelta(seconds=max(15, lease_seconds)),
                         BucketMigration.updated_at: now,
-                    },
-                    synchronize_session=False,
+                    }
                 )
-            )
+                .execution_options(synchronize_session=False)
+            ).rowcount
             self._commit()
             if changed:
                 return migration_id
@@ -105,14 +104,13 @@ class BucketMigrationPreparationMixin:
 
         def checkpoint(report=None):
             self._assert_workflow_lease()
-            row = (
-                self.db.query(
+            row = self.db.execute(
+                select(
                     BucketMigration.configuration_revision,
                     BucketMigration.worker_lease_owner,
                 )
-                .filter(BucketMigration.id == migration_id)
-                .one()
-            )
+                .where(BucketMigration.id == migration_id)
+            ).one()
             if row.configuration_revision != revision or (
                 worker_id and row.worker_lease_owner != worker_id
             ):
