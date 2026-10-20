@@ -12,7 +12,7 @@ from app.core.domain_errors import (
     StorageEndpointNotFoundError,
 )
 from app.db import StorageEndpoint, StorageProvider, User
-from app.models.cost import CostSubjectDetail, CostSubjectsResponse, CostSummary
+from app.models.cost import CostAnalyticsResponse, CostSubjectDetail, CostSubjectsResponse, CostSummary
 from app.services.app_settings_service import load_app_settings
 from app.services.cost_collection_service import CostCollector
 from app.services.cost_service import CostService
@@ -52,16 +52,27 @@ class AdminCostService:
     def list_subjects(
         self,
         month: str,
-        endpoint_id: int,
+        endpoint_id: int | None,
         subject_type: str,
         page: int,
         page_size: int,
         sort_by: str,
         sort_dir: str,
+        search: str | None = None,
     ) -> CostSubjectsResponse:
         self._require_enabled()
-        self._require_ceph_endpoint(endpoint_id)
-        return self.cost.list_subjects(month, endpoint_id, subject_type, page, page_size, sort_by, sort_dir)
+        if endpoint_id is not None:
+            self._require_ceph_endpoint(endpoint_id)
+        return self.cost.list_subjects(
+            month,
+            endpoint_id,
+            subject_type,
+            page,
+            page_size,
+            sort_by,
+            sort_dir,
+            search,
+        )
 
     def subject_detail(
         self,
@@ -74,10 +85,27 @@ class AdminCostService:
         self._require_ceph_endpoint(endpoint_id)
         return self.cost.subject_detail(month, endpoint_id, subject_type, subject_id)
 
-    def export_csv(self, month: str, endpoint_id: int) -> tuple[str, str]:
+    def analytics(
+        self,
+        month: str,
+        endpoint_id: int | None,
+        subject_type: str,
+    ) -> CostAnalyticsResponse:
         self._require_enabled()
-        self._require_ceph_endpoint(endpoint_id)
-        return self.cost.export_csv(month, endpoint_id)
+        if endpoint_id is not None:
+            self._require_ceph_endpoint(endpoint_id)
+        return self.cost.analytics(month, endpoint_id, subject_type)
+
+    def export_csv(
+        self,
+        month: str,
+        endpoint_id: int | None,
+        subject_type: str = "all",
+    ) -> tuple[str, str]:
+        self._require_enabled()
+        if endpoint_id is not None:
+            self._require_ceph_endpoint(endpoint_id)
+        return self.cost.export_csv(month, endpoint_id, subject_type)
 
     def collect_daily(self, day: date, actor: User) -> dict:
         self._require_enabled()

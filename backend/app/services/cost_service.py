@@ -22,8 +22,14 @@ from app.db import (
     CostUsageDaily,
     S3Account,
     S3User,
+    StorageEndpoint,
+    StorageProvider,
 )
 from app.models.cost import (
+    CostAnalyticsConcentration,
+    CostAnalyticsEndpoint,
+    CostAnalyticsHistoryPoint,
+    CostAnalyticsResponse,
     CostBreakdown,
     CostCoverage,
     CostDailySeriesPoint,
@@ -235,13 +241,34 @@ class CostService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    @staticmethod
+    def _normalize_subject_type(subject_type: str) -> str:
+        normalized = subject_type.lower().strip()
+        if normalized not in {"all", "account", "s3_user"}:
+            raise ValueError("Invalid subject type")
+        return normalized
+
     def summary(self, month: str, endpoint_id: Optional[int]) -> CostSummary:
         period = _parse_month(month)
-        totals = self._aggregate_totals(period, endpoint_id=endpoint_id)
+        return self._summary_for_period(period, endpoint_id, "all")
+
+    def _summary_for_period(
+        self,
+        period: CostPeriod,
+        endpoint_id: Optional[int],
+        subject_type: str,
+    ) -> CostSummary:
+        subject_type = self._normalize_subject_type(subject_type)
+        aggregate_type = None if subject_type == "all" else subject_type
+        totals = self._aggregate_totals(
+            period,
+            endpoint_id=endpoint_id,
+            subject_type=aggregate_type,
+        )
         if endpoint_id is not None:
             cost = _compute_cost(_resolve_cost_model(self.db, endpoint_id), totals)
         else:
-            endpoint_ids = self._endpoint_ids_with_data(period)
+            endpoint_ids = self._endpoint_ids_with_data(period, subject_type=aggregate_type)
             if endpoint_ids:
                 costs = [
                     computed
@@ -249,7 +276,11 @@ class CostService:
                     if (
                         computed := _compute_cost(
                             _resolve_cost_model(self.db, current_endpoint_id),
-                            self._aggregate_totals(period, endpoint_id=current_endpoint_id),
+                            self._aggregate_totals(
+                                period,
+                                endpoint_id=current_endpoint_id,
+                                subject_type=aggregate_type,
+                            ),
                         )
                     )
                     is not None
@@ -269,18 +300,27 @@ class CostService:
     def list_subjects(
         self,
         month: str,
-        endpoint_id: int,
+        endpoint_id: Optional[int],
         subject_type: str,
         page: int,
         page_size: int,
         sort_by: str,
         sort_dir: str,
+        search: Optional[str] = None,
     ) -> CostSubjectsResponse:
         period = _parse_month(month)
-        subject_type = subject_type.lower().strip()
-        if subject_type not in {"account", "s3_user"}:
-            raise ValueError("Invalid subject type")
-        items = self._subject_summaries(period, endpoint_id, subject_type)
+        subject_type = self._normalize_subject_type(subject_type)
+        items = self._all_subject_summaries(period, endpoint_id, subject_type)
+
+        search_value = (search or "").strip().casefold()
+        if search_value:
+            items = [
+                entry
+                for entry in items
+                if search_value in entry.name.casefold()
+                or search_value in (entry.rgw_identifier or "").casefold()
+                or search_value in entry.storage_endpoint_name.casefold()
+            ]
 
         def sort_key(entry: CostSubjectSummary):
             if sort_by == "cost":
@@ -291,25 +331,31 @@ class CostService:
                 return entry.storage.avg_bytes or 0
             if sort_by == "requests":
                 return entry.usage.ops_total
-            return entry.name.lower()
+            if sort_by == "endpoint":
+                return entry.storage_endpoint_name.casefold()
+            return entry.name.casefold()
 
         items.sort(key=sort_key, reverse=sort_dir == "desc")
         total = len(items)
         start = max(page - 1, 0) * page_size
         end = start + page_size
-        sliced = items[start:end]
-        has_next = end < total
         return CostSubjectsResponse(
-            items=sliced,
+            items=items[start:end],
             total=total,
             page=page,
             page_size=page_size,
-            has_next=has_next,
+            has_next=end < total,
         )
 
-    def subject_detail(self, month: str, endpoint_id: int, subject_type: str, subject_id: int) -> CostSubjectDetail:
+    def subject_detail(
+        self,
+        month: str,
+        endpoint_id: int,
+        subject_type: str,
+        subject_id: int,
+    ) -> CostSubjectDetail:
         period = _parse_month(month)
-        subject_type = subject_type.lower().strip()
+        subject_type = self._normalize_subject_type(subject_type)
         if subject_type == "account":
             subject = self.db.scalar(
                 select(S3Account).where(
@@ -360,34 +406,37 @@ class CostService:
             entry.ops_total = row.ops_total
             daily_map[key] = entry
 
-        daily = sorted(daily_map.values(), key=lambda entry: entry.day)
-        cost = _compute_cost(_resolve_cost_model(self.db, endpoint_id), totals)
-
         return CostSubjectDetail(
             month=period.month,
+            storage_endpoint_id=endpoint_id,
+            storage_endpoint_name=subject.storage_endpoint.name,
             subject_type=subject_type,
             subject_id=subject_id,
             name=subject.name,
             rgw_identifier=subject.rgw_user_uid,
-            daily=daily,
+            daily=sorted(daily_map.values(), key=lambda entry: entry.day),
             usage=_usage_totals(totals),
             storage=_storage_totals(totals),
             coverage=_coverage_for_period(period, totals),
-            cost=cost,
+            cost=_compute_cost(_resolve_cost_model(self.db, endpoint_id), totals),
         )
 
-    def export_csv(self, month: str, endpoint_id: int) -> tuple[str, str]:
+    def export_csv(
+        self,
+        month: str,
+        endpoint_id: Optional[int],
+        subject_type: str = "all",
+    ) -> tuple[str, str]:
         period = _parse_month(month)
-        rows = [
-            item
-            for subject_type in ("account", "s3_user")
-            for item in self._subject_summaries(period, endpoint_id, subject_type)
-        ]
+        subject_type = self._normalize_subject_type(subject_type)
+        rows = self._all_subject_summaries(period, endpoint_id, subject_type)
 
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
             [
+                "storage_endpoint_id",
+                "storage_endpoint_name",
                 "subject_type",
                 "subject_id",
                 "name",
@@ -403,6 +452,8 @@ class CostService:
         for item in rows:
             writer.writerow(
                 [
+                    item.storage_endpoint_id,
+                    item.storage_endpoint_name,
                     item.subject_type,
                     item.subject_id,
                     item.name,
@@ -415,22 +466,140 @@ class CostService:
                     item.cost.currency if item.cost and item.cost.currency else "",
                 ]
             )
-        filename = f"cost-{period.month}-endpoint-{endpoint_id}.csv"
+        endpoint_suffix = f"endpoint-{endpoint_id}" if endpoint_id is not None else "all-endpoints"
+        filename = f"cost-{period.month}-{endpoint_suffix}.csv"
         return filename, output.getvalue()
+
+    def analytics(
+        self,
+        month: str,
+        endpoint_id: Optional[int],
+        subject_type: str,
+    ) -> CostAnalyticsResponse:
+        period = _parse_month(month)
+        subject_type = self._normalize_subject_type(subject_type)
+        summary = self._summary_for_period(period, endpoint_id, subject_type)
+        aggregate_type = None if subject_type == "all" else subject_type
+
+        by_endpoint: list[CostAnalyticsEndpoint] = []
+        for endpoint in self._ceph_endpoints(endpoint_id):
+            current_endpoint_id = int(endpoint.id)
+            totals = self._aggregate_totals(
+                period,
+                endpoint_id=current_endpoint_id,
+                subject_type=aggregate_type,
+            )
+            if totals.days_with_data == 0:
+                continue
+            by_endpoint.append(
+                CostAnalyticsEndpoint(
+                    storage_endpoint_id=current_endpoint_id,
+                    storage_endpoint_name=endpoint.name,
+                    coverage=_coverage_for_period(period, totals),
+                    cost=_compute_cost(
+                        _resolve_cost_model(self.db, current_endpoint_id),
+                        totals,
+                    ),
+                )
+            )
+        by_endpoint.sort(
+            key=lambda item: item.cost.total_cost if item.cost and item.cost.total_cost is not None else -1,
+            reverse=True,
+        )
+
+        ranked_subjects = [
+            item
+            for item in self._all_subject_summaries(period, endpoint_id, subject_type)
+            if item.cost
+            and item.cost.total_cost is not None
+            and (
+                item.storage.avg_bytes is not None
+                or item.usage.bytes_in > 0
+                or item.usage.bytes_out > 0
+                or item.usage.ops_total > 0
+            )
+        ]
+        ranked_subjects.sort(
+            key=lambda item: item.cost.total_cost if item.cost and item.cost.total_cost is not None else -1,
+            reverse=True,
+        )
+        subject_total_cost = sum(float(item.cost.total_cost or 0) for item in ranked_subjects if item.cost)
+        top_five_cost = sum(float(item.cost.total_cost or 0) for item in ranked_subjects[:5] if item.cost)
+        top_five_ratio = top_five_cost / subject_total_cost if subject_total_cost > 0 else 0
+
+        selected_month_index = period.start.year * 12 + period.start.month - 1
+        history: list[CostAnalyticsHistoryPoint] = []
+        for month_index in range(selected_month_index - 11, selected_month_index + 1):
+            year, zero_based_month = divmod(month_index, 12)
+            history_period = _parse_month(f"{year:04d}-{zero_based_month + 1:02d}")
+            history_summary = self._summary_for_period(history_period, endpoint_id, subject_type)
+            history.append(
+                CostAnalyticsHistoryPoint(
+                    month=history_period.month,
+                    coverage=history_summary.coverage,
+                    cost=history_summary.cost,
+                )
+            )
+
+        return CostAnalyticsResponse(
+            month=period.month,
+            storage_endpoint_id=endpoint_id,
+            subject_type=subject_type,
+            summary=summary,
+            by_endpoint=by_endpoint,
+            top_subjects=ranked_subjects[:10],
+            concentration=CostAnalyticsConcentration(
+                top_five_cost=top_five_cost,
+                other_cost=max(subject_total_cost - top_five_cost, 0),
+                subject_total_cost=subject_total_cost,
+                top_five_ratio=top_five_ratio,
+            ),
+            history=history,
+        )
+
+    def _ceph_endpoints(self, endpoint_id: Optional[int]) -> list[StorageEndpoint]:
+        statement = select(StorageEndpoint).where(
+            StorageEndpoint.provider == StorageProvider.CEPH.value
+        )
+        if endpoint_id is not None:
+            statement = statement.where(StorageEndpoint.id == endpoint_id)
+        return self.db.scalars(
+            statement.order_by(StorageEndpoint.name.asc(), StorageEndpoint.id.asc())
+        ).all()
+
+    def _all_subject_summaries(
+        self,
+        period: CostPeriod,
+        endpoint_id: Optional[int],
+        subject_type: str,
+    ) -> list[CostSubjectSummary]:
+        subject_types = ("account", "s3_user") if subject_type == "all" else (subject_type,)
+        return [
+            item
+            for endpoint in self._ceph_endpoints(endpoint_id)
+            for current_subject_type in subject_types
+            for item in self._subject_summaries(
+                period,
+                int(endpoint.id),
+                current_subject_type,
+                endpoint.name,
+            )
+        ]
 
     def _subject_summaries(
         self,
         period: CostPeriod,
         endpoint_id: int,
         subject_type: str,
+        endpoint_name: Optional[str] = None,
     ) -> list[CostSubjectSummary]:
         usage_totals = self._usage_totals_by_subject(period, endpoint_id, subject_type)
         storage_totals = self._storage_totals_by_subject(period, endpoint_id, subject_type)
         items: list[CostSubjectSummary] = []
         for subject in self._load_subjects(endpoint_id, subject_type):
-            subject_id = subject.id
+            subject_id = int(subject.id)
             usage = usage_totals.get(subject_id, (0, 0, 0))
-            storage = storage_totals.get(subject_id, (None, None, None))
+            storage = storage_totals.get(subject_id, (None, None, 0))
             totals = CostTotals(
                 bytes_in=usage[0],
                 bytes_out=usage[1],
@@ -443,6 +612,8 @@ class CostService:
             )
             items.append(
                 CostSubjectSummary(
+                    storage_endpoint_id=endpoint_id,
+                    storage_endpoint_name=endpoint_name or subject.storage_endpoint.name,
                     subject_type=subject_type,
                     subject_id=subject_id,
                     name=subject.name,
@@ -470,20 +641,45 @@ class CostService:
             .order_by(S3User.name.asc())
         ).all()
 
-    def _endpoint_ids_with_data(self, period: CostPeriod) -> list[int]:
-        usage_ids = self.db.scalars(
+    def _endpoint_ids_with_data(
+        self,
+        period: CostPeriod,
+        subject_type: Optional[str] = None,
+    ) -> list[int]:
+        usage_statement = (
             select(CostUsageDaily.storage_endpoint_id)
-            .where(CostUsageDaily.day >= period.start, CostUsageDaily.day < period.end)
-            .distinct()
-        ).all()
-        storage_ids = self.db.scalars(
+            .join(StorageEndpoint, StorageEndpoint.id == CostUsageDaily.storage_endpoint_id)
+            .where(
+                CostUsageDaily.day >= period.start,
+                CostUsageDaily.day < period.end,
+                StorageEndpoint.provider == StorageProvider.CEPH.value,
+            )
+        )
+        storage_statement = (
             select(CostStorageDaily.storage_endpoint_id)
-            .where(CostStorageDaily.day >= period.start, CostStorageDaily.day < period.end)
-            .distinct()
-        ).all()
+            .join(StorageEndpoint, StorageEndpoint.id == CostStorageDaily.storage_endpoint_id)
+            .where(
+                CostStorageDaily.day >= period.start,
+                CostStorageDaily.day < period.end,
+                StorageEndpoint.provider == StorageProvider.CEPH.value,
+            )
+        )
+        if subject_type == "account":
+            usage_statement = usage_statement.where(CostUsageDaily.s3_account_id.isnot(None))
+            storage_statement = storage_statement.where(CostStorageDaily.s3_account_id.isnot(None))
+        elif subject_type == "s3_user":
+            usage_statement = usage_statement.where(CostUsageDaily.s3_user_id.isnot(None))
+            storage_statement = storage_statement.where(CostStorageDaily.s3_user_id.isnot(None))
+        usage_ids = self.db.scalars(usage_statement.distinct()).all()
+        storage_ids = self.db.scalars(storage_statement.distinct()).all()
         return sorted({int(value) for value in [*usage_ids, *storage_ids]})
 
-    def _aggregate_totals(self, period: CostPeriod, endpoint_id: Optional[int]) -> CostTotals:
+    def _aggregate_totals(
+        self,
+        period: CostPeriod,
+        endpoint_id: Optional[int],
+        subject_type: Optional[str] = None,
+    ) -> CostTotals:
         usage_statement = select(
             func.sum(CostUsageDaily.bytes_in),
             func.sum(CostUsageDaily.bytes_out),
@@ -497,6 +693,15 @@ class CostService:
             usage_statement = usage_statement.where(
                 CostUsageDaily.storage_endpoint_id == endpoint_id
             )
+        else:
+            usage_statement = usage_statement.join(
+                StorageEndpoint,
+                StorageEndpoint.id == CostUsageDaily.storage_endpoint_id,
+            ).where(StorageEndpoint.provider == StorageProvider.CEPH.value)
+        if subject_type == "account":
+            usage_statement = usage_statement.where(CostUsageDaily.s3_account_id.isnot(None))
+        elif subject_type == "s3_user":
+            usage_statement = usage_statement.where(CostUsageDaily.s3_user_id.isnot(None))
         usage_row = self.db.execute(usage_statement).one()
         bytes_in = int(usage_row[0] or 0)
         bytes_out = int(usage_row[1] or 0)
@@ -515,6 +720,15 @@ class CostService:
             storage_statement = storage_statement.where(
                 CostStorageDaily.storage_endpoint_id == endpoint_id
             )
+        else:
+            storage_statement = storage_statement.join(
+                StorageEndpoint,
+                StorageEndpoint.id == CostStorageDaily.storage_endpoint_id,
+            ).where(StorageEndpoint.provider == StorageProvider.CEPH.value)
+        if subject_type == "account":
+            storage_statement = storage_statement.where(CostStorageDaily.s3_account_id.isnot(None))
+        elif subject_type == "s3_user":
+            storage_statement = storage_statement.where(CostStorageDaily.s3_user_id.isnot(None))
         storage_row = self.db.execute(storage_statement).one()
         total_bytes = storage_row[0] or 0
         total_objects = storage_row[1]
@@ -556,7 +770,11 @@ class CostService:
             )
             .group_by(column)
         ).all()
-        return {row[0]: (int(row[1] or 0), int(row[2] or 0), int(row[3] or 0)) for row in rows if row[0] is not None}
+        return {
+            int(row[0]): (int(row[1] or 0), int(row[2] or 0), int(row[3] or 0))
+            for row in rows
+            if row[0] is not None
+        }
 
     def _storage_totals_by_subject(
         self,
@@ -589,7 +807,7 @@ class CostService:
             total_objects = row[2]
             days = int(row[3] or 0)
             avg_bytes = int(total_bytes / days) if (total_bytes is not None and days) else None
-            results[subject_id] = (
+            results[int(subject_id)] = (
                 avg_bytes,
                 int(total_objects) if total_objects is not None else None,
                 days,

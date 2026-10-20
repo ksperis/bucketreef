@@ -450,7 +450,7 @@ const costSummaryRule: MockRule = {
   path: /^\/admin\/cost\/summary$/,
   body: {
     month: "2026-03",
-    storage_endpoint_id: 11,
+    storage_endpoint_id: null,
     usage: {
       bytes_in: 912_000_000,
       bytes_out: 3_420_000_000,
@@ -486,6 +486,8 @@ const costSubjectsRule: MockRule = {
   body: {
     items: [
       {
+        storage_endpoint_id: 11,
+        storage_endpoint_name: "Primary",
         subject_type: "account",
         subject_id: 101,
         name: "Helios Retail",
@@ -528,6 +530,8 @@ const costSubjectDetailRule: MockRule = {
     const detailById = {
       101: {
         month: "2026-03",
+        storage_endpoint_id: 11,
+        storage_endpoint_name: "Primary",
         subject_type: "account",
         subject_id: 101,
         name: "Helios Retail",
@@ -848,9 +852,9 @@ export const scenarios: DocScreenshotScenario[] = [
     storage: { ...baseStorage(), selectedWorkspace: "admin" },
     actions: [
       { type: "wait", selector: "text=Estimated cost" },
+      { type: "wait", selector: "input[placeholder*='Search subjects']" },
       { type: "wait", selector: "tr:has-text('Helios Retail')" },
-      { type: "click", selector: "tr:has-text('Helios Retail') button:has-text('View')" },
-      { type: "wait", selector: "text=87% (27/31 days)" },
+      { type: "wait", selector: "tr:has-text('Helios Retail') a:has-text('View')" },
     ],
     mockRules: withBaseRules(
       costEnabledGeneralSettingsRule,

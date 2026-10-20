@@ -50,6 +50,7 @@ const ProductionReadinessPage = lazy(() => import("./features/admin/ProductionRe
 const AdminMetricsPage = lazy(() => import("./features/admin/AdminMetricsPage"));
 const AdminPortalRequestsPage = lazy(() => import("./features/admin/AdminPortalRequestsPage"));
 const CostPage = lazy(() => import("./features/admin/CostPage"));
+const CostSubjectDetailPage = lazy(() => import("./features/admin/CostSubjectDetailPage"));
 const UsageHistoryPage = lazy(() => import("./features/admin/UsageHistoryPage"));
 const S3UsersPage = lazy(() => import("./features/admin/S3UsersPage"));
 const S3UserKeysPage = lazy(() => import("./features/admin/S3UserKeysPage"));
@@ -122,14 +123,17 @@ const AdminLayout = lazy(() => import("./features/admin/AdminLayout"));
 const SUPERADMIN_ROLE = "ui_superadmin";
 const ADMIN_ROLE = "ui_admin";
 const USER_ROLE = "ui_user";
-function AdminCostRoute() {
+function AdminCostRoute({ detail = false }: { detail?: boolean }) {
   const { generalSettings } = useGeneralSettings();
-  return generalSettings.cost_enabled ? <CostPage /> : <FeatureDisabledPage feature={{
-    en: "Cost",
-    fr: "Coûts",
-    de: "Kosten",
-    zh: "成本",
-  }} />;
+  if (!generalSettings.cost_enabled) {
+    return <FeatureDisabledPage feature={{
+      en: "Cost",
+      fr: "Coûts",
+      de: "Kosten",
+      zh: "成本",
+    }} />;
+  }
+  return detail ? <CostSubjectDetailPage /> : <CostPage />;
 }
 
 function AdminUsageHistoryRoute() {
@@ -205,6 +209,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                 <Route path="metrics" element={<AdminMetricsPage />} />
                 <Route path="portal-requests" element={<AdminPortalRequestsPage />} />
                 <Route path="cost" element={<AdminCostRoute />} />
+                <Route path="cost/subject/:subjectType/:subjectId" element={<AdminCostRoute detail />} />
                 <Route path="usage-history" element={<AdminUsageHistoryRoute />} />
                 <Route element={<RequireRole roles={[SUPERADMIN_ROLE]} />}>
                   <Route path="production-readiness" element={<ProductionReadinessPage />} />

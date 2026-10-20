@@ -71,6 +71,8 @@ export type CostSummary = {
 };
 
 export type CostSubjectSummary = {
+  storage_endpoint_id: number;
+  storage_endpoint_name: string;
   subject_type: string;
   subject_id: number;
   name: string;
@@ -98,6 +100,8 @@ export type CostDailySeriesPoint = {
 
 export type CostSubjectDetail = {
   month: string;
+  storage_endpoint_id: number;
+  storage_endpoint_name: string;
   subject_type: string;
   subject_id: number;
   name: string;
@@ -107,6 +111,37 @@ export type CostSubjectDetail = {
   storage: CostStorageTotals;
   coverage: CostCoverage;
   cost?: CostBreakdown | null;
+};
+
+export type CostAnalyticsEndpoint = {
+  storage_endpoint_id: number;
+  storage_endpoint_name: string;
+  coverage: CostCoverage;
+  cost?: CostBreakdown | null;
+};
+
+export type CostAnalyticsHistoryPoint = {
+  month: string;
+  coverage: CostCoverage;
+  cost?: CostBreakdown | null;
+};
+
+export type CostAnalyticsConcentration = {
+  top_five_cost: number;
+  other_cost: number;
+  subject_total_cost: number;
+  top_five_ratio: number;
+};
+
+export type CostAnalyticsResponse = {
+  month: string;
+  storage_endpoint_id?: number | null;
+  subject_type: "all" | "account" | "s3_user";
+  summary: CostSummary;
+  by_endpoint: CostAnalyticsEndpoint[];
+  top_subjects: CostSubjectSummary[];
+  concentration: CostAnalyticsConcentration;
+  history: CostAnalyticsHistoryPoint[];
 };
 
 export async function fetchCostSettings(): Promise<CostSettings> {
@@ -130,23 +165,36 @@ export async function getCostSummary(month: string, endpointId?: number | null):
 
 export async function getCostSubjects(
   month: string,
-  endpointId: number,
-  subjectType: "account" | "s3_user",
+  endpointId: number | null,
+  subjectType: "all" | "account" | "s3_user",
   page = 1,
   pageSize = 25,
   sortBy = "name",
   sortDir: "asc" | "desc" = "asc",
+  search?: string,
 ): Promise<CostSubjectsResponse> {
   const params: Record<string, string | number> = {
     month,
-    endpoint_id: endpointId,
     type: subjectType,
     page,
     page_size: pageSize,
     sort_by: sortBy,
     sort_dir: sortDir,
   };
+  if (endpointId != null) params.endpoint_id = endpointId;
+  if (search?.trim()) params.search = search.trim();
   const { data } = await client.get<CostSubjectsResponse>("/admin/cost/subjects", { params });
+  return data;
+}
+
+export async function getCostAnalytics(
+  month: string,
+  endpointId: number | null,
+  subjectType: "all" | "account" | "s3_user",
+): Promise<CostAnalyticsResponse> {
+  const params: Record<string, string | number> = { month, type: subjectType };
+  if (endpointId != null) params.endpoint_id = endpointId;
+  const { data } = await client.get<CostAnalyticsResponse>("/admin/cost/analytics", { params });
   return data;
 }
 
@@ -163,8 +211,13 @@ export async function getCostSubjectDetail(
   return data;
 }
 
-export async function downloadCostCsv(month: string, endpointId: number): Promise<Blob> {
-  const params: Record<string, string | number> = { month, endpoint_id: endpointId };
+export async function downloadCostCsv(
+  month: string,
+  endpointId: number | null,
+  subjectType: "all" | "account" | "s3_user" = "all",
+): Promise<Blob> {
+  const params: Record<string, string | number> = { month, type: subjectType };
+  if (endpointId != null) params.endpoint_id = endpointId;
   const response = await client.get("/admin/cost/export.csv", {
     params,
     responseType: "blob",

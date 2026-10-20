@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.domain_errors import CostDisabledError
 from app.db import User
-from app.models.cost import CostSubjectDetail, CostSubjectsResponse, CostSummary
+from app.models.cost import CostAnalyticsResponse, CostSubjectDetail, CostSubjectsResponse, CostSummary
 from app.routers.cost_common import parse_cost_day
 from app.routers.dependencies import get_current_super_admin
 from app.services.admin_cost_service import AdminCostService
@@ -55,8 +55,9 @@ def cost_collect_daily(
 @router.get("/subjects", response_model=CostSubjectsResponse)
 def cost_subjects(
     month: str = Query(..., description="YYYY-MM"),
-    endpoint_id: int = Query(...),
-    subject_type: str = Query("account", alias="type"),
+    endpoint_id: int | None = Query(None),
+    subject_type: str = Query("all", alias="type"),
+    search: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     sort_by: str = Query("name"),
@@ -73,7 +74,22 @@ def cost_subjects(
             page_size,
             sort_by,
             sort_dir,
+            search,
         )
+    except ValueError as exc:
+        _raise_cost_http_error(exc)
+
+
+@router.get("/analytics", response_model=CostAnalyticsResponse)
+def cost_analytics(
+    month: str = Query(..., description="YYYY-MM"),
+    endpoint_id: int | None = Query(None),
+    subject_type: str = Query("all", alias="type"),
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> CostAnalyticsResponse:
+    try:
+        return AdminCostService(db).analytics(month, endpoint_id, subject_type)
     except ValueError as exc:
         _raise_cost_http_error(exc)
 
@@ -96,12 +112,13 @@ def cost_subject_detail(
 @router.get("/export.csv")
 def cost_export_csv(
     month: str = Query(..., description="YYYY-MM"),
-    endpoint_id: int = Query(...),
+    endpoint_id: int | None = Query(None),
+    subject_type: str = Query("all", alias="type"),
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> Response:
     try:
-        filename, payload = AdminCostService(db).export_csv(month, endpoint_id)
+        filename, payload = AdminCostService(db).export_csv(month, endpoint_id, subject_type)
     except ValueError as exc:
         _raise_cost_http_error(exc)
     headers = {"Content-Disposition": build_attachment_content_disposition(filename)}

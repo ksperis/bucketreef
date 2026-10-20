@@ -699,3 +699,230 @@ def test_cost_coverage_tracks_storage_and_usage_days_separately(db_session):
     assert detail.coverage.days_collected == 2
     assert detail.coverage.storage_days_collected == 1
     assert detail.coverage.usage_days_collected == 2
+
+
+def test_cost_subjects_merge_endpoints_and_types_with_global_search_pagination_and_csv(db_session):
+    endpoint_a = _seed_endpoint(db_session)
+    endpoint_b = StorageEndpoint(
+        name="ceph-secondary",
+        endpoint_url="http://rgw-secondary.local",
+        provider="ceph",
+        is_default=False,
+    )
+    db_session.add(endpoint_b)
+    db_session.commit()
+
+    account_a = _seed_account(db_session, endpoint_a.id)
+    user_a = _seed_s3_user(db_session, endpoint_a.id)
+    account_b = S3Account(
+        name="zeta-account",
+        rgw_account_id="RGW22222222222222222",
+        rgw_user_uid="secondary-account-admin",
+        storage_endpoint_id=endpoint_b.id,
+    )
+    user_b = S3User(
+        name="alpha-user",
+        rgw_user_uid="secondary-user",
+        rgw_access_key="SECONDARY-AK",
+        rgw_secret_key="SECONDARY-SK",
+        storage_endpoint_id=endpoint_b.id,
+        allow_cost_estimation=True,
+    )
+    db_session.add_all([account_b, user_b])
+    db_session.commit()
+
+    service = CostService(db_session)
+
+    merged = service.list_subjects("2026-01", None, "all", 1, 10, "name", "asc")
+    assert merged.total == 4
+    assert [item.name for item in merged.items] == ["acme", "alpha-user", "cost-user", "zeta-account"]
+    assert {
+        (item.storage_endpoint_id, item.storage_endpoint_name, item.subject_type)
+        for item in merged.items
+    } == {
+        (endpoint_a.id, endpoint_a.name, "account"),
+        (endpoint_a.id, endpoint_a.name, "s3_user"),
+        (endpoint_b.id, endpoint_b.name, "account"),
+        (endpoint_b.id, endpoint_b.name, "s3_user"),
+    }
+
+    second_page = service.list_subjects("2026-01", None, "all", 2, 2, "name", "asc")
+    assert second_page.total == 4
+    assert [item.name for item in second_page.items] == ["cost-user", "zeta-account"]
+    assert second_page.has_next is False
+
+    endpoint_search = service.list_subjects(
+        "2026-01",
+        None,
+        "all",
+        1,
+        10,
+        "name",
+        "asc",
+        "SECONDARY",
+    )
+    assert {item.name for item in endpoint_search.items} == {"alpha-user", "zeta-account"}
+
+    identifier_search = service.list_subjects(
+        "2026-01",
+        None,
+        "all",
+        1,
+        10,
+        "name",
+        "asc",
+        account_a.rgw_user_uid,
+    )
+    assert [item.name for item in identifier_search.items] == [account_a.name]
+
+    users_only = service.list_subjects("2026-01", None, "s3_user", 1, 10, "endpoint", "asc")
+    assert users_only.total == 2
+    assert {item.subject_id for item in users_only.items} == {user_a.id, user_b.id}
+
+    filename, payload = service.export_csv("2026-01", None, "all")
+    assert filename == "cost-2026-01-all-endpoints.csv"
+    assert "storage_endpoint_id,storage_endpoint_name,subject_type" in payload
+    assert endpoint_a.name in payload
+    assert endpoint_b.name in payload
+    assert account_b.name in payload
+    assert user_b.name in payload
+
+
+def test_cost_analytics_reconciles_endpoints_pricing_top_ten_and_history(db_session):
+    endpoint_a = _seed_endpoint(db_session)
+    endpoint_b = StorageEndpoint(
+        name="ceph-secondary",
+        endpoint_url="http://rgw-secondary.local",
+        provider="ceph",
+        is_default=False,
+    )
+    non_ceph_endpoint = StorageEndpoint(
+        name="aws-ignored",
+        endpoint_url="https://s3.example.test",
+        provider="aws",
+        is_default=False,
+    )
+    db_session.add_all([endpoint_b, non_ceph_endpoint])
+    db_session.commit()
+
+    account = _seed_account(db_session, endpoint_a.id)
+    non_ceph_user = S3User(
+        name="ignored-user",
+        rgw_user_uid="ignored-user",
+        rgw_access_key="IGNORED-AK",
+        rgw_secret_key="IGNORED-SK",
+        storage_endpoint_id=non_ceph_endpoint.id,
+        allow_cost_estimation=True,
+    )
+    db_session.add(non_ceph_user)
+    users = []
+    for index in range(1, 12):
+        user = S3User(
+            name=f"user-{index:02d}",
+            rgw_user_uid=f"secondary-user-{index:02d}",
+            rgw_access_key=f"SECONDARY-AK-{index:02d}",
+            rgw_secret_key=f"SECONDARY-SK-{index:02d}",
+            storage_endpoint_id=endpoint_b.id,
+            allow_cost_estimation=True,
+        )
+        db_session.add(user)
+        users.append(user)
+    db_session.flush()
+
+    db_session.add_all(
+        [
+            CostModel(
+                id=1,
+                currency="EUR",
+                storage_gb_month_price=0,
+                egress_gb_price=0,
+                ingress_gb_price=0,
+                requests_per_1000_price=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            ),
+            CostEndpointOverride(
+                storage_endpoint_id=endpoint_b.id,
+                storage_gb_month_price=0,
+                egress_gb_price=0,
+                ingress_gb_price=0,
+                requests_per_1000_price=2,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            ),
+            CostUsageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=endpoint_a.id,
+                s3_account_id=account.id,
+                bytes_in=0,
+                bytes_out=0,
+                ops_total=1000,
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+            CostUsageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=non_ceph_endpoint.id,
+                s3_user_id=non_ceph_user.id,
+                bytes_in=0,
+                bytes_out=0,
+                ops_total=999000,
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+        ]
+    )
+    for index, user in enumerate(users, start=1):
+        db_session.add(
+            CostUsageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=endpoint_b.id,
+                s3_user_id=user.id,
+                bytes_in=0,
+                bytes_out=0,
+                ops_total=index * 1000,
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            )
+        )
+    db_session.commit()
+
+    service = CostService(db_session)
+    result = service.analytics("2026-01", None, "all")
+
+    assert result.summary.cost is not None
+    assert result.summary.cost.total_cost == pytest.approx(133)
+    assert result.summary.cost.pricing_source == "mixed"
+    assert result.summary.coverage.days_collected == 1
+
+    assert [entry.storage_endpoint_id for entry in result.by_endpoint] == [endpoint_b.id, endpoint_a.id]
+    assert [entry.cost.total_cost for entry in result.by_endpoint if entry.cost] == pytest.approx([132, 1])
+    assert sum(entry.cost.total_cost for entry in result.by_endpoint if entry.cost) == pytest.approx(
+        result.summary.cost.total_cost
+    )
+
+    assert len(result.top_subjects) == 10
+    assert result.top_subjects[0].name == "user-11"
+    assert result.top_subjects[-1].name == "user-02"
+    assert result.concentration.subject_total_cost == pytest.approx(133)
+    assert result.concentration.top_five_cost == pytest.approx(90)
+    assert result.concentration.other_cost == pytest.approx(43)
+    assert result.concentration.top_five_ratio == pytest.approx(90 / 133)
+
+    assert len(result.history) == 12
+    assert result.history[0].month == "2025-02"
+    assert result.history[-1].month == "2026-01"
+
+    accounts_only = service.analytics("2026-01", None, "account")
+    assert accounts_only.subject_type == "account"
+    assert accounts_only.summary.usage.ops_total == 1000
+    assert accounts_only.summary.cost is not None
+    assert accounts_only.summary.cost.total_cost == pytest.approx(1)
+    assert [entry.storage_endpoint_id for entry in accounts_only.by_endpoint] == [endpoint_a.id]
+    assert [entry.name for entry in accounts_only.top_subjects] == [account.name]
+
+    no_data = service.analytics("2026-02", None, "all")
+    assert no_data.summary.coverage.days_collected == 0
+    assert no_data.by_endpoint == []
+    assert no_data.top_subjects == []
+    assert no_data.concentration.subject_total_cost == 0

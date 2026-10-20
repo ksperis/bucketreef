@@ -51,6 +51,8 @@ class CostSummary(ApiModel):
 
 
 class CostSubjectSummary(ApiModel):
+    storage_endpoint_id: int
+    storage_endpoint_name: str
     subject_type: str
     subject_id: int
     name: str
@@ -78,6 +80,8 @@ class CostDailySeriesPoint(ApiModel):
 
 class CostSubjectDetail(ApiModel):
     month: str
+    storage_endpoint_id: int
+    storage_endpoint_name: str
     subject_type: str
     subject_id: int
     name: str
@@ -87,6 +91,37 @@ class CostSubjectDetail(ApiModel):
     storage: CostStorageTotals
     coverage: CostCoverage
     cost: Optional[CostBreakdown] = None
+
+
+class CostAnalyticsEndpoint(ApiModel):
+    storage_endpoint_id: int
+    storage_endpoint_name: str
+    coverage: CostCoverage
+    cost: Optional[CostBreakdown] = None
+
+
+class CostAnalyticsHistoryPoint(ApiModel):
+    month: str
+    coverage: CostCoverage
+    cost: Optional[CostBreakdown] = None
+
+
+class CostAnalyticsConcentration(ApiModel):
+    top_five_cost: float = 0
+    other_cost: float = 0
+    subject_total_cost: float = 0
+    top_five_ratio: float = Field(default=0, ge=0, le=1)
+
+
+class CostAnalyticsResponse(ApiModel):
+    month: str
+    storage_endpoint_id: Optional[int] = None
+    subject_type: str
+    summary: CostSummary
+    by_endpoint: list[CostAnalyticsEndpoint] = Field(default_factory=list)
+    top_subjects: list[CostSubjectSummary] = Field(default_factory=list)
+    concentration: CostAnalyticsConcentration
+    history: list[CostAnalyticsHistoryPoint] = Field(default_factory=list)
 
 
 class CostRateValues(ApiModel):
