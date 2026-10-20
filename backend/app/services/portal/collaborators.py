@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+from sqlalchemy import func, select
+
 from app.db import (
     PortalAccountRole,
     PortalExternalAccessCredential,
@@ -61,19 +63,24 @@ class PortalCollaboratorsMixin:
             users_by_id.update(
                 {
                     target.id: target
-                    for target in self.db.query(User).filter(User.id.in_(missing_owner_ids)).all()
+                    for target in self.db.scalars(
+                        select(User).where(User.id.in_(missing_owner_ids))
+                    ).all()
                 }
             )
 
         metadata_ids = [metadata.id for metadata in metadata_rows if metadata.id is not None]
         grants_by_metadata_id: dict[int, list[tuple[User, PortalStorageSpaceGrantRole]]] = {}
         if metadata_ids:
-            grant_rows = (
-                self.db.query(PortalStorageSpaceGrant.storage_space_metadata_id, PortalStorageSpaceGrant.role, User)
+            grant_rows = self.db.execute(
+                select(
+                    PortalStorageSpaceGrant.storage_space_metadata_id,
+                    PortalStorageSpaceGrant.role,
+                    User,
+                )
                 .join(User, User.id == PortalStorageSpaceGrant.user_id)
-                .filter(PortalStorageSpaceGrant.storage_space_metadata_id.in_(metadata_ids))
-                .all()
-            )
+                .where(PortalStorageSpaceGrant.storage_space_metadata_id.in_(metadata_ids))
+            ).all()
             for metadata_id, role, target in grant_rows:
                 if role not in {"Viewer", "Editor"}:
                     continue
@@ -137,28 +144,25 @@ class PortalCollaboratorsMixin:
         if not user_ids:
             return dates_by_user
 
-        direct_rows = (
-            self.db.query(UserS3Account.user_id, UserS3Account.created_at)
-            .filter(
+        direct_rows = self.db.execute(
+            select(UserS3Account.user_id, UserS3Account.created_at).where(
                 UserS3Account.account_id == account.id,
                 UserS3Account.user_id.in_(user_ids),
             )
-            .all()
-        )
+        ).all()
         for user_id, created_at in direct_rows:
             if created_at is not None:
                 dates_by_user.setdefault(user_id, {})["direct"] = created_at
 
-        group_rows = (
-            self.db.query(User.id, UserUiGroup.created_at, UiGroupS3Account.created_at)
+        group_rows = self.db.execute(
+            select(User.id, UserUiGroup.created_at, UiGroupS3Account.created_at)
             .join(UserUiGroup, UserUiGroup.user_id == User.id)
             .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
-            .filter(
+            .where(
                 User.id.in_(user_ids),
                 UiGroupS3Account.account_id == account.id,
             )
-            .all()
-        )
+        ).all()
         for user_id, group_member_at, group_account_at in group_rows:
             source_dates = [value for value in (group_member_at, group_account_at) if value is not None]
             if not source_dates:
@@ -209,16 +213,16 @@ class PortalCollaboratorsMixin:
         }
         if not visible_bucket_names:
             return 0
-        return (
-            self.db.query(PortalExternalAccessCredential)
-            .filter(
+        return self.db.execute(
+            select(func.count())
+            .select_from(PortalExternalAccessCredential)
+            .where(
                 PortalExternalAccessCredential.account_id == access.account.id,
                 PortalExternalAccessCredential.bucket_name.in_(visible_bucket_names),
                 PortalExternalAccessCredential.status == "Active",
                 PortalExternalAccessCredential.revoked_at.is_(None),
             )
-            .count()
-        )
+        ).scalar_one()
 
     def _portal_collaborator(
         self,
@@ -287,19 +291,18 @@ class PortalCollaboratorsMixin:
         target_user_id: int,
         portal_role: str,
     ) -> list[PortalCollaboratorStorageSpaceAccess]:
-        rows = (
-            self.db.query(PortalStorageSpaceMetadata, PortalStorageSpaceGrant.role)
+        rows = self.db.execute(
+            select(PortalStorageSpaceMetadata, PortalStorageSpaceGrant.role)
             .outerjoin(
                 PortalStorageSpaceGrant,
                 (PortalStorageSpaceGrant.storage_space_metadata_id == PortalStorageSpaceMetadata.id)
                 & (PortalStorageSpaceGrant.user_id == target_user_id),
             )
-            .filter(
+            .where(
                 PortalStorageSpaceMetadata.account_id == access.account.id,
                 PortalStorageSpaceMetadata.archived_at.is_(None),
             )
-            .all()
-        )
+        ).all()
         space_accesses = [
             item
             for metadata, grant_role in rows
@@ -334,10 +337,12 @@ class PortalCollaboratorsMixin:
         )
         if not can_manage or target_user_id == user.id or not direct_only:
             return can_request_project_removal, False
-        direct_membership = self.db.query(UserS3Account).filter(
-            UserS3Account.user_id == target_user_id,
-            UserS3Account.account_id == access.account.id,
-        ).first()
+        direct_membership = self.db.execute(
+            select(UserS3Account).where(
+                UserS3Account.user_id == target_user_id,
+                UserS3Account.account_id == access.account.id,
+            )
+        ).scalar_one_or_none()
         can_request_role_change = bool(
             direct_membership is not None
             and direct_membership.portal_role in {
