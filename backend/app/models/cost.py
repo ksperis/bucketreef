@@ -93,6 +93,16 @@ class CostSubjectDetail(ApiModel):
     cost: Optional[CostBreakdown] = None
 
 
+class CostSubjectHistoryPoint(ApiModel):
+    month: str
+    coverage: CostCoverage
+    cost: Optional[CostBreakdown] = None
+
+
+class AdminCostSubjectDetail(CostSubjectDetail):
+    history: list[CostSubjectHistoryPoint] = Field(default_factory=list)
+
+
 class CostAnalyticsEndpoint(ApiModel):
     storage_endpoint_id: int
     storage_endpoint_name: str

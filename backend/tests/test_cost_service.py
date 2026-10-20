@@ -553,6 +553,78 @@ def test_cost_subject_detail_and_export(db_session):
     assert account.rgw_user_uid in payload
 
 
+def test_admin_cost_subject_detail_includes_scoped_twelve_month_history(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    other_account = S3Account(
+        name="other-account",
+        rgw_account_id="RGW99999999999999999",
+        rgw_user_uid="other-account-admin",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(other_account)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CostModel(
+                id=1,
+                currency="EUR",
+                storage_gb_month_price=0,
+                egress_gb_price=0,
+                ingress_gb_price=0,
+                requests_per_1000_price=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            ),
+            CostUsageDaily(
+                day=date(2026, 6, 10),
+                storage_endpoint_id=endpoint.id,
+                s3_account_id=account.id,
+                bytes_in=0,
+                bytes_out=0,
+                ops_total=1000,
+                ops_breakdown='{"get":700,"put":300}',
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+            CostUsageDaily(
+                day=date(2026, 7, 10),
+                storage_endpoint_id=endpoint.id,
+                s3_account_id=account.id,
+                bytes_in=0,
+                bytes_out=0,
+                ops_total=2000,
+                ops_breakdown='{"get":1500,"put":500}',
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+            CostUsageDaily(
+                day=date(2026, 7, 10),
+                storage_endpoint_id=endpoint.id,
+                s3_account_id=other_account.id,
+                bytes_in=0,
+                bytes_out=0,
+                ops_total=999000,
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+        ]
+    )
+    db_session.commit()
+    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_cost_settings)
+
+    detail = AdminCostService(db_session).subject_detail("2026-07", endpoint.id, "account", account.id)
+
+    assert len(detail.history) == 12
+    assert detail.history[0].month == "2025-08"
+    assert detail.history[-1].month == "2026-07"
+    assert detail.history[-2].cost is not None
+    assert detail.history[-2].cost.total_cost == pytest.approx(1)
+    assert detail.history[-1].cost is not None
+    assert detail.history[-1].cost.total_cost == pytest.approx(2)
+    assert detail.usage.ops_breakdown == {"get": 1500, "put": 500}
+
+
 def test_cost_subject_detail_types_missing_subject_separately_from_invalid_input(db_session):
     endpoint = _seed_endpoint(db_session)
     service = CostService(db_session)
@@ -729,6 +801,31 @@ def test_cost_subjects_merge_endpoints_and_types_with_global_search_pagination_a
         allow_cost_estimation=True,
     )
     db_session.add_all([account_b, user_b])
+    db_session.flush()
+    db_session.add_all(
+        [
+            CostUsageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=endpoint_b.id,
+                s3_account_id=account_b.id,
+                bytes_in=200,
+                bytes_out=0,
+                ops_total=0,
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+            CostUsageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=endpoint_b.id,
+                s3_user_id=user_b.id,
+                bytes_in=300,
+                bytes_out=0,
+                ops_total=0,
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+        ]
+    )
     db_session.commit()
 
     service = CostService(db_session)
@@ -778,6 +875,9 @@ def test_cost_subjects_merge_endpoints_and_types_with_global_search_pagination_a
     users_only = service.list_subjects("2026-01", None, "s3_user", 1, 10, "endpoint", "asc")
     assert users_only.total == 2
     assert {item.subject_id for item in users_only.items} == {user_a.id, user_b.id}
+
+    ingress_desc = service.list_subjects("2026-01", None, "all", 1, 10, "ingress", "desc")
+    assert [item.name for item in ingress_desc.items[:2]] == [user_b.name, account_b.name]
 
     filename, payload = service.export_csv("2026-01", None, "all")
     assert filename == "cost-2026-01-all-endpoints.csv"

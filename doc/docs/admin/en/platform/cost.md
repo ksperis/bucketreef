@@ -26,10 +26,10 @@ Coverage is shown with the results. Treat estimates for incomplete months or mis
 
 1. Open `/admin/cost`. The page starts with **All endpoints** and **All subjects**.
 2. Use **Search** to find a subject by display name, RGW identifier, or endpoint name.
-3. Sort the global list by name, endpoint, cost, egress, storage, or requests.
+3. Sort the global list by name, endpoint, cost, egress, ingress, storage, or requests.
 4. Use pagination to move through the filtered result set. Sorting and pagination apply after subjects from the selected endpoints and types are combined.
 5. Select **View** for a subject to open its dedicated detail page.
-6. Review daily storage, traffic, requests, coverage, and estimated cost. **Back to Cost** restores the list filters, search, sort, page, and active tab.
+6. Review the subject detail page. It shows the estimated-cost breakdown, change from the previous month when comparable data exists, a 12-month cost trend, RGW request categories, and separate daily ingress/egress alongside storage and request activity. **Back to Cost** restores the list filters, search, sort, page, and active tab.
 7. Use **Export CSV** to export the selected month, endpoint scope, and subject type. Export also supports **All endpoints** and **All subjects**.
 
 The search box affects only the Subjects list. It does not change Analytics.

@@ -35,6 +35,7 @@ from app.models.cost import (
     CostDailySeriesPoint,
     CostStorageTotals,
     CostSubjectDetail,
+    CostSubjectHistoryPoint,
     CostSubjectSummary,
     CostSubjectsResponse,
     CostSummary,
@@ -327,6 +328,8 @@ class CostService:
                 return entry.cost.total_cost if entry.cost and entry.cost.total_cost is not None else -1
             if sort_by == "egress":
                 return entry.usage.bytes_out
+            if sort_by == "ingress":
+                return entry.usage.bytes_in
             if sort_by == "storage":
                 return entry.storage.avg_bytes or 0
             if sort_by == "requests":
@@ -377,22 +380,7 @@ class CostService:
 
         usage_rows = self._usage_rows_for_subject(period, endpoint_id, subject_type, subject_id)
         storage_rows = self._storage_rows_for_subject(period, endpoint_id, subject_type, subject_id)
-        total_storage_bytes = sum(row.total_bytes for row in storage_rows)
-        days_with_storage = len(storage_rows)
-        avg_storage_bytes = int(total_storage_bytes / days_with_storage) if days_with_storage else None
-        usage_days = len({row.day for row in usage_rows})
-        totals = CostTotals(
-            bytes_in=sum(row.bytes_in for row in usage_rows),
-            bytes_out=sum(row.bytes_out for row in usage_rows),
-            ops_total=sum(row.ops_total for row in usage_rows),
-            ops_breakdown=_merge_ops_breakdown(usage_rows) if usage_rows else None,
-            avg_storage_bytes=avg_storage_bytes,
-            avg_storage_gb_month=_bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
-            total_objects=(sum(row.total_objects for row in storage_rows) if storage_rows else None),
-            days_with_data=max(days_with_storage, usage_days),
-            storage_days_with_data=days_with_storage,
-            usage_days_with_data=usage_days,
-        )
+        totals = self._subject_totals_from_rows(usage_rows, storage_rows)
 
         daily_map: dict[str, CostDailySeriesPoint] = {}
         for row in storage_rows:
@@ -419,6 +407,73 @@ class CostService:
             storage=_storage_totals(totals),
             coverage=_coverage_for_period(period, totals),
             cost=_compute_cost(_resolve_cost_model(self.db, endpoint_id), totals),
+        )
+
+    def subject_history(
+        self,
+        month: str,
+        endpoint_id: int,
+        subject_type: str,
+        subject_id: int,
+        months: int = 12,
+    ) -> list[CostSubjectHistoryPoint]:
+        period = _parse_month(month)
+        subject_type = self._normalize_subject_type(subject_type)
+        if subject_type == "all":
+            raise ValueError("Invalid subject type")
+        if months < 1:
+            return []
+
+        model = _resolve_cost_model(self.db, endpoint_id)
+        selected_month_index = period.start.year * 12 + period.start.month - 1
+        history: list[CostSubjectHistoryPoint] = []
+        for month_index in range(selected_month_index - months + 1, selected_month_index + 1):
+            year, zero_based_month = divmod(month_index, 12)
+            history_period = _parse_month(f"{year:04d}-{zero_based_month + 1:02d}")
+            usage_rows = self._usage_rows_for_subject(
+                history_period,
+                endpoint_id,
+                subject_type,
+                subject_id,
+            )
+            storage_rows = self._storage_rows_for_subject(
+                history_period,
+                endpoint_id,
+                subject_type,
+                subject_id,
+            )
+            totals = self._subject_totals_from_rows(usage_rows, storage_rows)
+            history.append(
+                CostSubjectHistoryPoint(
+                    month=history_period.month,
+                    coverage=_coverage_for_period(history_period, totals),
+                    cost=_compute_cost(model, totals),
+                )
+            )
+        return history
+
+    @staticmethod
+    def _subject_totals_from_rows(
+        usage_rows: Iterable[CostUsageDaily],
+        storage_rows: Iterable[CostStorageDaily],
+    ) -> CostTotals:
+        usage_rows = list(usage_rows)
+        storage_rows = list(storage_rows)
+        total_storage_bytes = sum(row.total_bytes for row in storage_rows)
+        days_with_storage = len(storage_rows)
+        avg_storage_bytes = int(total_storage_bytes / days_with_storage) if days_with_storage else None
+        usage_days = len({row.day for row in usage_rows})
+        return CostTotals(
+            bytes_in=sum(row.bytes_in for row in usage_rows),
+            bytes_out=sum(row.bytes_out for row in usage_rows),
+            ops_total=sum(row.ops_total for row in usage_rows),
+            ops_breakdown=_merge_ops_breakdown(usage_rows) if usage_rows else None,
+            avg_storage_bytes=avg_storage_bytes,
+            avg_storage_gb_month=_bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
+            total_objects=(sum(row.total_objects for row in storage_rows) if storage_rows else None),
+            days_with_data=max(days_with_storage, usage_days),
+            storage_days_with_data=days_with_storage,
+            usage_days_with_data=usage_days,
         )
 
     def export_csv(

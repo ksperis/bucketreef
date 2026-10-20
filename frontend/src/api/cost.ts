@@ -113,6 +113,16 @@ export type CostSubjectDetail = {
   cost?: CostBreakdown | null;
 };
 
+export type CostSubjectHistoryPoint = {
+  month: string;
+  coverage: CostCoverage;
+  cost?: CostBreakdown | null;
+};
+
+export type AdminCostSubjectDetail = CostSubjectDetail & {
+  history: CostSubjectHistoryPoint[];
+};
+
 export type CostAnalyticsEndpoint = {
   storage_endpoint_id: number;
   storage_endpoint_name: string;
@@ -203,9 +213,9 @@ export async function getCostSubjectDetail(
   endpointId: number,
   subjectType: "account" | "s3_user",
   subjectId: number,
-): Promise<CostSubjectDetail> {
+): Promise<AdminCostSubjectDetail> {
   const params: Record<string, string | number> = { month, endpoint_id: endpointId };
-  const { data } = await client.get<CostSubjectDetail>(`/admin/cost/subject/${subjectType}/${subjectId}`, {
+  const { data } = await client.get<AdminCostSubjectDetail>(`/admin/cost/subject/${subjectType}/${subjectId}`, {
     params,
   });
   return data;

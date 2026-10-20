@@ -639,7 +639,60 @@ const costSubjectDetailRule: MockRule = {
         },
       },
     } as const;
-    return detailById[subjectId as keyof typeof detailById] ?? detailById[101];
+    const detail = detailById[subjectId as keyof typeof detailById] ?? detailById[101];
+    const totalCost = detail.cost.total_cost;
+    const history = Array.from({ length: 12 }, (_, index) => {
+      const month = index + 4;
+      const year = month > 12 ? 2026 : 2025;
+      const resolvedMonth = month > 12 ? month - 12 : month;
+      const factor = 0.72 + index * 0.025;
+      return {
+        month: `${year}-${String(resolvedMonth).padStart(2, "0")}`,
+        coverage: {
+          days_collected: 28,
+          days_in_month: 30,
+          coverage_ratio: 28 / 30,
+          storage_days_collected: 28,
+          usage_days_collected: 28,
+        },
+        cost: {
+          currency: "EUR",
+          storage_cost: totalCost * factor * 0.55,
+          egress_cost: totalCost * factor * 0.27,
+          ingress_cost: totalCost * factor * 0.03,
+          requests_cost: totalCost * factor * 0.15,
+          total_cost: totalCost * factor,
+          pricing_source: "global",
+        },
+      };
+    });
+    history[history.length - 1] = {
+      month: detail.month,
+      coverage: detail.coverage,
+      cost: {
+        currency: "EUR",
+        storage_cost: totalCost * 0.55,
+        egress_cost: totalCost * 0.27,
+        ingress_cost: totalCost * 0.03,
+        requests_cost: totalCost * 0.15,
+        total_cost: totalCost,
+        pricing_source: "global",
+      },
+    };
+    return {
+      ...detail,
+      usage: {
+        ...detail.usage,
+        ops_breakdown: {
+          get: Math.round(detail.usage.ops_total * 0.68),
+          put: Math.round(detail.usage.ops_total * 0.19),
+          list: Math.round(detail.usage.ops_total * 0.09),
+          delete: Math.round(detail.usage.ops_total * 0.04),
+        },
+      },
+      cost: history[history.length - 1].cost,
+      history,
+    };
   },
 };
 
