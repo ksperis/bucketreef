@@ -20,19 +20,20 @@ import { cx, type UiTone, uiMutedTextClass } from "../../components/ui/styles";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useI18n } from "../../i18n";
 import {
-  downloadPortalServerAccessRawLogs,
-  fetchPortalServerAccessLogPage,
   type PortalServerAccessLogEntry,
   type PortalServerAccessRequesterIdentity,
 } from "../../api/portalActivity";
-import { extractApiError } from "../../utils/apiError";
-import { triggerBlobDownload } from "../../utils/download";
 import { formatBytes } from "../../utils/format";
 import { resolvePortalWorkspacePageState } from "./portalUi";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalActivityPanel from "./PortalActivityPanel";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
+import {
+  shiftDateInputValue,
+  todayDateInputValue,
+  usePortalServerAccessLogs,
+} from "./usePortalServerAccessLogs";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
 import AdvancedFilterSelectField from "../shared/AdvancedFilterSelectField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
@@ -109,21 +110,6 @@ function buildServerLogAdvancedFilterPayload(advanced: ServerLogAdvancedFilterSt
   rules.push(...buildTextFieldRules("identity", advanced.identity, advanced.identityMatchMode));
   if (rules.length === 0) return undefined;
   return JSON.stringify({ match: "all", rules });
-}
-
-function todayDateInputValue(): string {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
-}
-
-function shiftDateInputValue(value: string, days: number): string {
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return todayDateInputValue();
-  const date = new Date(year, month - 1, day);
-  date.setDate(date.getDate() + days);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
 }
 
 function formatServerLogTimestamp(value: string, locale: string): string {
@@ -258,24 +244,9 @@ export default function PortalHistoryPage() {
   const { t, locale } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedHistoryTab = historyTabFromSearch(searchParams.get("view"));
-  const [serverLogDate, setServerLogDate] = useState(todayDateInputValue);
-  const [serverLogSpaceId, setServerLogSpaceId] = useState("");
   const [showServerLogAdvancedFilter, setShowServerLogAdvancedFilter] = useState(false);
   const [serverLogAdvancedDraft, setServerLogAdvancedDraft] = useState<ServerLogAdvancedFilterState>(defaultServerLogAdvancedFilter);
   const [serverLogAdvancedApplied, setServerLogAdvancedApplied] = useState<ServerLogAdvancedFilterState | null>(null);
-  const [serverLogs, setServerLogs] = useState<PortalServerAccessLogEntry[]>([]);
-  const [serverLogsTotal, setServerLogsTotal] = useState(0);
-  const [serverLogsLoading, setServerLogsLoading] = useState(false);
-  const [serverLogsLoaded, setServerLogsLoaded] = useState(false);
-  const [serverLogsError, setServerLogsError] = useState<string | null>(null);
-  const [serverLogPage, setServerLogPage] = useState(1);
-  const [serverLogPageSize, setServerLogPageSize] = useState(25);
-  const [rawLogsModalOpen, setRawLogsModalOpen] = useState(false);
-  const [rawLogsDateFrom, setRawLogsDateFrom] = useState(todayDateInputValue);
-  const [rawLogsDateTo, setRawLogsDateTo] = useState(todayDateInputValue);
-  const [rawLogsSpaceId, setRawLogsSpaceId] = useState("");
-  const [rawLogsLoading, setRawLogsLoading] = useState(false);
-  const [rawLogsError, setRawLogsError] = useState<string | null>(null);
   const {
     workspace,
     state,
@@ -327,6 +298,41 @@ export default function PortalHistoryPage() {
     () => buildServerLogAdvancedFilterPayload(serverLogAdvancedApplied),
     [serverLogAdvancedApplied]
   );
+  const {
+    date: serverLogDate,
+    spaceId: serverLogSpaceId,
+    entries: serverLogs,
+    total: serverLogsTotal,
+    loading: serverLogsLoading,
+    loaded: serverLogsLoaded,
+    error: serverLogsError,
+    page: serverLogPage,
+    pageSize: serverLogPageSize,
+    setPage: setServerLogPage,
+    setPageSizeAndReset: setServerLogPageSize,
+    setDateAndReset: setServerDateAndReset,
+    setSpaceIdAndReset: setServerLogSpaceId,
+    resetResults: resetServerLogResults,
+    rawLogsModalOpen,
+    rawLogsDateFrom,
+    rawLogsDateTo,
+    rawLogsSpaceId,
+    rawLogsLoading,
+    rawLogsError,
+    setRawLogsDateFrom,
+    setRawLogsDateTo,
+    setRawLogsSpaceId,
+    openRawLogsModal,
+    closeRawLogsModal,
+    downloadRawLogs: handleDownloadRawLogs,
+  } = usePortalServerAccessLogs({
+    accountId: accountIdForApi,
+    shouldLoad:
+      activeHistoryTab === "access" &&
+      serverAccessLoggingEnabled &&
+      canViewServerAccessLogs,
+    advancedFilter: serverLogAdvancedFilterParam,
+  });
   const serverLogAdvancedDraftPayload = useMemo(
     () => buildServerLogAdvancedFilterPayload(serverLogAdvancedDraft),
     [serverLogAdvancedDraft]
@@ -343,19 +349,6 @@ export default function PortalHistoryPage() {
     onClose: () => setShowServerLogAdvancedFilter(false),
     zIndexClass: "z-[70]",
   });
-
-  const resetServerLogResults = useCallback(() => {
-    setServerLogs([]);
-    setServerLogsTotal(0);
-    setServerLogsLoaded(false);
-    setServerLogsError(null);
-    setServerLogPage(1);
-  }, []);
-
-  const setServerDateAndReset = useCallback((value: string) => {
-    setServerLogDate(value);
-    resetServerLogResults();
-  }, [resetServerLogResults]);
 
   const serverLogActionOptions = useMemo(
     () => [
@@ -528,99 +521,6 @@ export default function PortalHistoryPage() {
     selectHistoryTab,
     serverAccessLoggingEnabled,
   ]);
-
-  useEffect(() => {
-    if (activeHistoryTab !== "access" || !serverAccessLoggingEnabled || !canViewServerAccessLogs || !accountIdForApi || !serverLogDate) return;
-    let cancelled = false;
-    setServerLogsLoading(true);
-    setServerLogsError(null);
-    setServerLogsLoaded(false);
-      void fetchPortalServerAccessLogPage(accountIdForApi, {
-        date: serverLogDate,
-        spaceId: serverLogSpaceId || undefined,
-        limit: serverLogPageSize,
-        offset: (serverLogPage - 1) * serverLogPageSize,
-        timezoneOffsetMinutes: new Date().getTimezoneOffset(),
-        advancedFilter: serverLogAdvancedFilterParam,
-      })
-      .then((page) => {
-        if (cancelled) return;
-        setServerLogs(page.entries);
-        setServerLogsTotal(page.total);
-        setServerLogsLoaded(true);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error(err);
-        setServerLogs([]);
-        setServerLogsTotal(0);
-        setServerLogsLoaded(true);
-        setServerLogsError(
-          extractApiError(
-            err,
-            t({
-              en: "Unable to retrieve access history.",
-              fr: "Impossible de récupérer l'historique d'accès.",
-              de: "Zugriffsverlauf kann nicht abgerufen werden.",
-              zh: "无法获取访问历史。",
-            })
-          )
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setServerLogsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accountIdForApi, activeHistoryTab, canViewServerAccessLogs, serverAccessLoggingEnabled, serverLogAdvancedFilterParam, serverLogDate, serverLogPage, serverLogPageSize, serverLogSpaceId, t]);
-
-  const openRawLogsModal = useCallback(() => {
-    setRawLogsDateFrom(serverLogDate);
-    setRawLogsDateTo(serverLogDate);
-    setRawLogsSpaceId(serverLogSpaceId);
-    setRawLogsError(null);
-    setRawLogsModalOpen(true);
-  }, [serverLogDate, serverLogSpaceId]);
-
-  const handleDownloadRawLogs = useCallback(async () => {
-    if (!accountIdForApi) return;
-    if (!rawLogsDateFrom || !rawLogsDateTo) {
-      setRawLogsError(t({ en: "Select a start and end date.", fr: "Sélectionnez une date de début et de fin.", de: "Wählen Sie ein Start- und Enddatum.", zh: "请选择开始和结束日期。" }));
-      return;
-    }
-    if (rawLogsDateTo < rawLogsDateFrom) {
-      setRawLogsError(t({ en: "The end date must be after the start date.", fr: "La date de fin doit être après la date de début.", de: "Das Enddatum muss nach dem Startdatum liegen.", zh: "结束日期必须晚于开始日期。" }));
-      return;
-    }
-    setRawLogsLoading(true);
-    setRawLogsError(null);
-    try {
-      const result = await downloadPortalServerAccessRawLogs(accountIdForApi, {
-        dateFrom: rawLogsDateFrom,
-        dateTo: rawLogsDateTo,
-        spaceId: rawLogsSpaceId || undefined,
-        timezoneOffsetMinutes: new Date().getTimezoneOffset(),
-      });
-      triggerBlobDownload(result.filename, result.blob);
-      setRawLogsModalOpen(false);
-    } catch (err) {
-      console.error(err);
-      setRawLogsError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to export raw access logs.",
-            fr: "Impossible d'exporter les logs d'accès bruts.",
-            de: "Rohe Zugriffslogs können nicht exportiert werden.",
-            zh: "无法导出原始访问日志。",
-          })
-        )
-      );
-    } finally {
-      setRawLogsLoading(false);
-    }
-  }, [accountIdForApi, rawLogsDateFrom, rawLogsDateTo, rawLogsSpaceId, t]);
 
   const serverLogRows = useMemo<ServerLogRow[]>(() => {
     return serverLogs
@@ -799,7 +699,7 @@ export default function PortalHistoryPage() {
             <UiInput label={t({ en: "Go to date", fr: "Aller à la date", de: "Zum Datum", zh: "跳转到日期" })}
               type="date" size="compact" value={serverLogDate} onChange={(event) => setServerDateAndReset(event.target.value)} />
             <UiSelect label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich", zh: "存储空间" })}
-              size="compact" value={serverLogSpaceId} onChange={(event) => { setServerLogSpaceId(event.target.value); resetServerLogResults(); }}>
+              size="compact" value={serverLogSpaceId} onChange={(event) => setServerLogSpaceId(event.target.value)}>
               <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche", zh: "所有可见空间" })}</option>
               {storageSpaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
             </UiSelect>
@@ -955,10 +855,7 @@ export default function PortalHistoryPage() {
                 pageSize: serverLogPageSize,
                 total: serverLogsTotal,
                 onPageChange: setServerLogPage,
-                onPageSizeChange: (size) => {
-                  setServerLogPageSize(size);
-                  setServerLogPage(1);
-                },
+                onPageSizeChange: setServerLogPageSize,
                 pageSizeOptions: [10, 25, 50, 100],
                 disabled: serverLogsLoading,
               }}
@@ -975,7 +872,7 @@ export default function PortalHistoryPage() {
       {rawLogsModalOpen ? (
         <SettingsFormDialog
           title={t({ en: "Export raw access logs", fr: "Exporter les logs d'accès bruts", de: "Rohe Zugriffslogs exportieren", zh: "导出原始访问日志" })}
-          onClose={() => setRawLogsModalOpen(false)}
+          onClose={closeRawLogsModal}
           draftKey={JSON.stringify([rawLogsDateFrom, rawLogsDateTo, rawLogsSpaceId])}
           busy={rawLogsLoading}
           error={rawLogsError}
