@@ -36,6 +36,10 @@ import type {
   OperationItem,
   UploadQueueItem,
 } from "./browserTypes";
+import type {
+  BrowserRecordCompletedActivity,
+  BrowserStartOperation,
+} from "./useBrowserOperationRegistry";
 import { useBrowserI18n } from "./browserI18n";
 
 type OperationSection = "queued" | "completed" | "failed";
@@ -57,6 +61,8 @@ type UseBrowserOperationOverviewOptions = {
   setCopyDetails: Dispatch<
     SetStateAction<Record<string, CopyDetailItem[]>>
   >;
+  startOperation: BrowserStartOperation;
+  recordCompletedActivity: BrowserRecordCompletedActivity;
   setStatusMessage: (message: string | null) => void;
 };
 
@@ -79,6 +85,8 @@ export function useBrowserOperationOverview({
   setDeleteDetails,
   copyDetails,
   setCopyDetails,
+  startOperation: startRegisteredOperation,
+  recordCompletedActivity: recordRegisteredActivity,
   setStatusMessage,
 }: UseBrowserOperationOverviewOptions) {
   const { text } = useBrowserI18n();
@@ -104,6 +112,21 @@ export function useBrowserOperationOverview({
     );
     setOperationsPanelDismissed(false);
   }, []);
+  const startOperation = useCallback<BrowserStartOperation>(
+    (...args) => {
+      showOperationsBar();
+      return startRegisteredOperation(...args);
+    },
+    [showOperationsBar, startRegisteredOperation],
+  );
+  const recordCompletedActivity =
+    useCallback<BrowserRecordCompletedActivity>(
+      (...args) => {
+        showOperationsBar();
+        recordRegisteredActivity(...args);
+      },
+      [recordRegisteredActivity, showOperationsBar],
+    );
   const dismissOperationsPanel = useCallback(() => {
     setOperationsPanelOpen(false);
     setOperationsPanelDismissed(true);
@@ -376,6 +399,7 @@ export function useBrowserOperationOverview({
     operationSortFallback: operationGroupSortIndexes.fallback,
     operationSortIndexById: operationGroupSortIndexes.operationById,
     queuedOperationsCount,
+    recordCompletedActivity,
     showActiveOperations,
     showCompletedOperations,
     showFailedOperations,
@@ -384,6 +408,7 @@ export function useBrowserOperationOverview({
     showOperationsDetailsModal,
     showOperationsPanel,
     showQueuedOperations,
+    startOperation,
     toggleGroupExpanded,
     toggleOperationFilter,
     toggleOperationsPanel,

@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OperationItem } from "./browserTypes";
@@ -19,6 +19,8 @@ describe("useBrowserOperationOverview", () => {
       setDownloadDetails: vi.fn(),
       setDeleteDetails: vi.fn(),
       setCopyDetails: vi.fn(),
+      startOperation: vi.fn(() => "operation-1"),
+      recordCompletedActivity: vi.fn(),
     };
     const upload: OperationItem = {
       id: "upload-1",
@@ -60,5 +62,63 @@ describe("useBrowserOperationOverview", () => {
       operations: [{ ...download, progress: 50 }, { ...upload, progress: 50 }],
     });
     expect(setStatusMessage).toHaveBeenCalledOnce();
+  });
+
+  it("owns showing the operations panel for newly registered work and activity", () => {
+    const startOperation = vi.fn(() => "operation-1");
+    const recordCompletedActivity = vi.fn();
+    const setStatusMessage = vi.fn();
+    const baseOptions = {
+      uploadQueue: [],
+      downloadDetails: {},
+      deleteDetails: {},
+      copyDetails: {},
+      setOperations: vi.fn(),
+      setDownloadDetails: vi.fn(),
+      setDeleteDetails: vi.fn(),
+      setCopyDetails: vi.fn(),
+      startOperation,
+      recordCompletedActivity,
+      setStatusMessage,
+    };
+    const operation: OperationItem = {
+      id: "operation-1",
+      label: "Download report",
+      path: "bucket/report.csv",
+      progress: 100,
+      kind: "download",
+      completedAt: "10:00:00",
+      completionStatus: "done",
+    };
+    const { result, rerender } = renderHook(
+      ({ operations }: { operations: OperationItem[] }) =>
+        useBrowserOperationOverview({ ...baseOptions, operations }),
+      { initialProps: { operations: [operation] } },
+    );
+
+    act(() => result.current.dismissOperationsPanel());
+    expect(result.current.showOperationsPanel).toBe(false);
+
+    act(() => {
+      expect(
+        result.current.startOperation(
+          "downloading",
+          "Download another report",
+          "bucket/other.csv",
+        ),
+      ).toBe("operation-1");
+    });
+    expect(startOperation).toHaveBeenCalledOnce();
+
+    rerender({ operations: [operation] });
+    expect(result.current.showOperationsPanel).toBe(true);
+
+    act(() => {
+      result.current.recordCompletedActivity("Created", "bucket/reports/");
+    });
+    expect(recordCompletedActivity).toHaveBeenCalledWith(
+      "Created",
+      "bucket/reports/",
+    );
   });
 });

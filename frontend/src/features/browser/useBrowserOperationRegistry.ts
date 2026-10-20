@@ -35,6 +35,19 @@ type StartOperationOptions = {
   sizeBytes?: number;
 };
 
+export type BrowserStartOperation = (
+  status: NonNullable<OperationItem["status"]>,
+  label: string,
+  path: string,
+  options?: StartOperationOptions,
+  progress?: number,
+) => string;
+
+export type BrowserRecordCompletedActivity = (
+  label: string,
+  path: string,
+) => void;
+
 function operationWasAborted(
   error: unknown,
   controller?: AbortController | null,
@@ -65,7 +78,7 @@ export function useBrowserOperationRegistry() {
     [],
   );
 
-  const startOperation = useCallback(
+  const startOperation = useCallback<BrowserStartOperation>(
     (
       status: NonNullable<OperationItem["status"]>,
       label: string,
@@ -96,7 +109,7 @@ export function useBrowserOperationRegistry() {
     [],
   );
 
-  const recordCompletedActivity = useCallback(
+  const recordCompletedActivity = useCallback<BrowserRecordCompletedActivity>(
     (label: string, path: string) => {
       const completedAt = new Date().toLocaleTimeString();
       setOperations((previous) =>

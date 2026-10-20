@@ -547,7 +547,7 @@ export default function BrowserPage({
     downloadDetails,
     isOperationAborted,
     operations,
-    recordCompletedActivity,
+    recordCompletedActivity: recordRegisteredActivity,
     setCopyDetails,
     setDeleteDetails,
     setDownloadDetails,
@@ -579,6 +579,7 @@ export default function BrowserPage({
     operationSortFallback,
     operationSortIndexById,
     queuedOperationsCount,
+    recordCompletedActivity,
     showActiveOperations,
     showCompletedOperations,
     showFailedOperations,
@@ -587,6 +588,7 @@ export default function BrowserPage({
     showOperationsDetailsModal,
     showOperationsPanel,
     showQueuedOperations,
+    startOperation,
     toggleGroupExpanded,
     toggleOperationFilter,
     toggleOperationsPanel,
@@ -607,15 +609,10 @@ export default function BrowserPage({
     setDeleteDetails,
     copyDetails,
     setCopyDetails,
+    startOperation: startRegisteredOperation,
+    recordCompletedActivity: recordRegisteredActivity,
     setStatusMessage,
   });
-  const startOperation = useCallback(
-    (...args: Parameters<typeof startRegisteredOperation>) => {
-      showOperationsBar();
-      return startRegisteredOperation(...args);
-    },
-    [showOperationsBar, startRegisteredOperation],
-  );
   const bucketMenuRef = useRef<HTMLDivElement | null>(null);
   const searchOptionsMenuRef = useRef<HTMLDivElement | null>(null);
   const searchControlRef = useRef<HTMLDivElement | null>(null);
@@ -1236,11 +1233,6 @@ export default function BrowserPage({
     void refreshCurrentListing();
   };
 
-  const addActivity = (action: string, path: string) => {
-    showOperationsBar();
-    recordCompletedActivity(action, path);
-  };
-
   const handleBrowserFolderCreated = async ({
     name,
     prefix: createdFolderPrefix,
@@ -1248,7 +1240,7 @@ export default function BrowserPage({
     name: string;
     prefix: string;
   }) => {
-    addActivity("Created", `${bucketName}/${createdFolderPrefix}`);
+    recordCompletedActivity("Created", `${bucketName}/${createdFolderPrefix}`);
     setStatusMessage(text("Folder {name} created", { name }));
     await loadObjects({ prefixOverride: prefix });
     loadTreeChildren(prefix);
