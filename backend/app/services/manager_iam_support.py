@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import (
@@ -30,9 +31,14 @@ def managed_iam_user_source(
         if provisioning is not None:
             return "private_access", provisioning.s3_connection_id
     if context.id is not None and (
-        db.query(AccountIAMUser)
-        .filter(AccountIAMUser.account_id == context.id, AccountIAMUser.iam_username == user_name)
-        .first()
+        db.scalar(
+            select(AccountIAMUser.id)
+            .where(
+                AccountIAMUser.account_id == context.id,
+                AccountIAMUser.iam_username == user_name,
+            )
+            .limit(1)
+        )
         is not None
     ):
         return "portal", None
