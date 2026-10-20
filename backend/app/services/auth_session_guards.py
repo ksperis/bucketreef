@@ -24,7 +24,8 @@ def current_auth_session(request: Request, db: Session) -> AuthSession:
         claims = decode_typed_token(token or "", expected_type="s3_access")
     if claims is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UI session required")
-    row = db.query(AuthSession).filter(AuthSession.id == claims.get("sid")).first()
+    session_id = claims.get("sid")
+    row = db.get(AuthSession, session_id) if session_id else None
     if not row or row.revoked_at is not None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UI session required")
     return row
