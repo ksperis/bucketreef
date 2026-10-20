@@ -63,6 +63,7 @@ function createOptions() {
     currentPath: "bucket-a/docs",
     enabled: true,
     listAllObjectsForPrefix: vi.fn().mockResolvedValue([]),
+    onOpenDeletedItemVersions: vi.fn(),
     onStatus: vi.fn(),
     onWarning: vi.fn(),
     parallelism: 2,
@@ -85,6 +86,7 @@ function createOptions() {
     },
     updateOperation: vi.fn(),
     useProxyTransfers: false,
+    versioningEnabled: true,
   };
 }
 
@@ -166,6 +168,51 @@ describe("useBrowserDownloads", () => {
       "transfer-1",
       "report.txt",
     );
+  });
+
+  it("owns item download routing and opens versions for deleted files", async () => {
+    const options = createOptions();
+    options.listAllObjectsForPrefix.mockResolvedValue([
+      { key: "docs/archive/a.txt", size: 12 },
+    ]);
+    const { result } = renderHook(() => useBrowserDownloads(options));
+
+    await act(async () => {
+      await result.current.downloadTarget(item("docs/report.txt"));
+    });
+    expect(downloadMocks.downloadBrowserTransferBlob).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      await result.current.downloadTarget(item("docs/archive/", "folder"));
+    });
+    expect(options.listAllObjectsForPrefix).toHaveBeenCalledWith(
+      "docs/archive/",
+      undefined,
+      undefined,
+      expect.any(AbortSignal),
+    );
+
+    const deleted = { ...item("docs/deleted.txt"), isDeleted: true };
+    await act(async () => {
+      await result.current.downloadTarget(deleted);
+    });
+    expect(options.onWarning).toHaveBeenLastCalledWith(
+      "This item is deleted. Open it or use versions to restore content before downloading.",
+    );
+    expect(options.onOpenDeletedItemVersions).toHaveBeenCalledWith(deleted);
+  });
+
+  it("does not open versions for a deleted file when versioning is disabled", async () => {
+    const options = { ...createOptions(), versioningEnabled: false };
+    const { result } = renderHook(() => useBrowserDownloads(options));
+    const deleted = { ...item("docs/deleted.txt"), isDeleted: true };
+
+    await act(async () => {
+      await result.current.downloadTarget(deleted);
+    });
+
+    expect(options.onOpenDeletedItemVersions).not.toHaveBeenCalled();
+    expect(downloadMocks.downloadBrowserTransferBlob).not.toHaveBeenCalled();
   });
 
   it("downloads the exact requested object version", async () => {
