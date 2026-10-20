@@ -9,7 +9,7 @@ import json
 import logging
 from typing import Any, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -207,13 +207,15 @@ class PortalRequestsService:
         *,
         status: Optional[str] = None,
     ) -> list[PortalAdminRequestOut]:
-        query = self.db.query(PortalAdminRequest).filter(
+        stmt = select(PortalAdminRequest).where(
             PortalAdminRequest.account_id == int(access.account.id),
             PortalAdminRequest.requester_user_id == int(actor.id),
         )
         if status:
-            query = query.filter(PortalAdminRequest.status == status)
-        rows = query.order_by(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc()).all()
+            stmt = stmt.where(PortalAdminRequest.status == status)
+        rows = self.db.scalars(
+            stmt.order_by(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc())
+        ).all()
         return [self.to_out(row) for row in rows]
 
     def list_for_admin(
@@ -225,29 +227,31 @@ class PortalRequestsService:
         search: Optional[str] = None,
         limit: int = 200,
     ) -> list[PortalAdminRequestOut]:
-        query = self.db.query(PortalAdminRequest)
+        stmt = select(PortalAdminRequest)
         if status:
-            query = query.filter(PortalAdminRequest.status == status)
+            stmt = stmt.where(PortalAdminRequest.status == status)
         if request_type:
-            query = query.filter(PortalAdminRequest.request_type == request_type)
+            stmt = stmt.where(PortalAdminRequest.request_type == request_type)
         if account_id is not None:
-            query = query.filter(PortalAdminRequest.account_id == int(account_id))
+            stmt = stmt.where(PortalAdminRequest.account_id == int(account_id))
         if search:
             trimmed = search.strip()
             if trimmed:
                 pattern = f"%{trimmed}%"
-                query = query.outerjoin(S3Account, PortalAdminRequest.account_id == S3Account.id).filter(
-                    or_(
-                        PortalAdminRequest.requester_email.ilike(pattern),
-                        PortalAdminRequest.payload_json.ilike(pattern),
-                        S3Account.name.ilike(pattern),
+                stmt = (
+                    stmt.outerjoin(S3Account, PortalAdminRequest.account_id == S3Account.id)
+                    .where(
+                        or_(
+                            PortalAdminRequest.requester_email.ilike(pattern),
+                            PortalAdminRequest.payload_json.ilike(pattern),
+                            S3Account.name.ilike(pattern),
+                        )
                     )
                 )
-        rows = (
-            query.order_by(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc())
+        rows = self.db.scalars(
+            stmt.order_by(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc())
             .limit(max(1, min(int(limit), 500)))
-            .all()
-        )
+        ).all()
         return [self.to_out(row) for row in rows]
 
     def add_admin_message(
@@ -583,7 +587,9 @@ class PortalRequestsService:
             raise ValueError("Requested quota cannot be lower than the space already used")
 
     def _load_request(self, request_id: int) -> PortalAdminRequest:
-        row = self.db.query(PortalAdminRequest).filter(PortalAdminRequest.id == int(request_id)).first()
+        row = self.db.scalar(
+            select(PortalAdminRequest).where(PortalAdminRequest.id == int(request_id))
+        )
         if not row:
             raise PortalRequestNotFound("Request not found")
         return row
