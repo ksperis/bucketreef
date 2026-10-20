@@ -36,7 +36,7 @@ class AdminCostService:
             raise CostDisabledError("Cost is disabled")
 
     def _require_ceph_endpoint(self, endpoint_id: int) -> StorageEndpoint:
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if endpoint is None:
             raise StorageEndpointNotFoundError("Endpoint not found")
         if endpoint.provider != StorageProvider.CEPH.value:
