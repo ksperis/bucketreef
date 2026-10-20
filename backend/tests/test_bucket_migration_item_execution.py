@@ -16,9 +16,6 @@ def _execution_plan() -> str:
         {
             "strategy": "current_only",
             "supported": True,
-            "delete_source_safe": True,
-            "rollback_safe": True,
-            "same_endpoint_copy_safe": True,
             "blocking_codes": [],
         }
     )

@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 bucket migration execution-plan safety cleanup
+
+Migration `0177_remove_bucket_migration_plan_safety` removes
+`delete_source_safe`, `rollback_safe`, and `same_endpoint_copy_safe` from
+persisted per-bucket execution plans. These values already live in the
+precheck report and the worker never reads the execution-plan copies.
+
+Deploy the migration and backend together. New execution plans contain only
+the fields needed to execute or reject an item. Downgrade reconstructs the
+retired safety fields from the canonical per-item precheck report when those
+values are available.
+
 ## 2026-10 bucket migration execution-plan cleanup
 
 Migration `0176_remove_bucket_migration_plan_blocked` removes the redundant

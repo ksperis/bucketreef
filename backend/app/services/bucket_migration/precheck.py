@@ -677,7 +677,6 @@ class BucketMigrationPrecheckPlanner:
             source_profile=source.profile,
             target_profile=target.profile,
             strategy=source_plan.strategy,
-            safety=safety,
             blocking=blocking,
             checks=checks,
         )
@@ -737,7 +736,6 @@ class BucketMigrationPrecheckPlanner:
         source_profile: dict[str, Any] | None,
         target_profile: dict[str, Any] | None,
         strategy: str,
-        safety: PrecheckItemSafety,
         blocking: bool,
         checks: list[dict[str, Any]],
     ) -> None:
@@ -746,9 +744,6 @@ class BucketMigrationPrecheckPlanner:
         execution_plan = {
             "strategy": strategy,
             "supported": not blocking,
-            "delete_source_safe": safety.delete_source_safe,
-            "rollback_safe": safety.rollback_safe,
-            "same_endpoint_copy_safe": safety.same_endpoint_copy_safe,
             "blocking_codes": [
                 entry["code"] for entry in checks if bool(entry.get("blocking"))
             ],
