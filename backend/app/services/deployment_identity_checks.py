@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Iterable, Protocol
 from urllib.parse import urlparse
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -133,13 +134,17 @@ def environment_ldap_findings(settings: Settings) -> list[DeploymentCheckFinding
 
 def persisted_provider_findings(settings: Settings, db: Session) -> list[DeploymentCheckFinding]:
     public_origins = set(settings.effective_public_origins())
-    oidc_providers = db.query(OidcProvider).filter(OidcProvider.enabled.is_(True)).all()
+    oidc_providers = db.scalars(
+        select(OidcProvider).where(OidcProvider.enabled.is_(True))
+    ).all()
     oidc_transport, oidc_integrity = _oidc_security_issues(
         ((provider.provider_id, provider) for provider in oidc_providers),
         trusted_origins=public_origins,
     )
 
-    ldap_providers = db.query(LdapProvider).filter(LdapProvider.enabled.is_(True)).all()
+    ldap_providers = db.scalars(
+        select(LdapProvider).where(LdapProvider.enabled.is_(True))
+    ).all()
     ldap_transport, ldap_legacy = _ldap_security_issues(
         (provider.provider_id, provider) for provider in ldap_providers
     )
