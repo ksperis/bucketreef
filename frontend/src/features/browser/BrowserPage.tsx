@@ -36,7 +36,6 @@ import BrowserFoldersPanel from "./BrowserFoldersPanel";
 import BrowserToolbar from "./BrowserToolbar";
 import BrowserNoticesPanel from "./BrowserNoticesPanel";
 import BrowserObjectsIssueDescription from "./BrowserObjectsIssueDescription";
-import { useBrowserBucketCors } from "./useBrowserBucketCors";
 import { useBrowserBulkAttributes } from "./useBrowserBulkAttributes";
 import { useBrowserBulkRestore } from "./useBrowserBulkRestore";
 import { useBrowserBucketPanelViewport } from "./useBrowserBucketPanelViewport";
@@ -73,15 +72,13 @@ import { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import { useBrowserPanelLayout } from "./useBrowserPanelLayout";
 import { useBrowserPathEditor } from "./useBrowserPathEditor";
 import { useBrowserPathHistory } from "./useBrowserPathHistory";
-import { useBrowserPresignRequests } from "./useBrowserPresignRequests";
 import { useBrowserPrefixVersions } from "./useBrowserPrefixVersions";
 import { useBrowserQueuedUpload } from "./useBrowserQueuedUpload";
 import { useBrowserRuntimeData } from "./useBrowserRuntimeData";
 import { useBrowserRecursiveObjectListing } from "./useBrowserRecursiveObjectListing";
 import { useBrowserSearch } from "./useBrowserSearch";
 import { useBrowserSelection } from "./useBrowserSelection";
-import { useBrowserSseCustomerKeys } from "./useBrowserSseCustomerKeys";
-import { useBrowserStsSession } from "./useBrowserStsSession";
+import { useBrowserTransferRuntime } from "./useBrowserTransferRuntime";
 import { useBrowserUploadQueue } from "./useBrowserUploadQueue";
 import { useBrowserVersionCleanup } from "./useBrowserVersionCleanup";
 import { useBrowserVersionActions } from "./useBrowserVersionActions";
@@ -128,26 +125,13 @@ import {
   MIN_FOLDERS_PANEL_WIDTH_PX,
   readStoredBrowserRootUiState,
 } from "./browserRootUiState";
-import {
-  resolveBrowserUploadMode,
-  shouldUseStsPresigner,
-} from "./sseBrowserLogic";
 import { VERSIONS_LIST_HARD_LIMIT, storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import {
   buildPrefixBreadcrumbs,
-  formatDateTime,
   getSelectionInfo,
   normalizePrefix,
 } from "./browserUtils";
-import {
-  CORS_DIRECT_TRANSFER_WARNING,
-  buildBrowserTransferWarnings,
-  resolveBrowserCorsAvailability,
-  resolveBrowserTransferAccessBadge,
-  resolveBrowserTransferParallelism,
-  resolveDirectCredentialStsTooltip,
-} from "./browserTransferPresentation";
 import {
   PANEL_LAYOUT_GAP_PX,
   PANEL_RESIZER_HITBOX_WIDTH_PX,
@@ -283,8 +267,6 @@ export default function BrowserPage({
     ? portalAccountId
     : null;
   const isCephAdminContext = executionContextKind === "ceph_admin";
-  const isS3UserContext = executionContextKind === "s3_user";
-  const isConnectionContext = executionContextKind === "connection";
   const [showBucketMenu, setShowBucketMenu] = useState(false);
   const {
     settings: browserSettings,
@@ -646,24 +628,9 @@ export default function BrowserPage({
   const bucketMenuFilterRef = useRef<HTMLInputElement | null>(null);
   const contextIdForApiRef = useRef(contextIdForApi);
   const operationIdsRef = useRef(new Set<string>());
-  const storageEndpointCaps = useMemo(() => {
-    if (selectedContext?.storage_endpoint_capabilities) {
-      return selectedContext.storage_endpoint_capabilities;
-    }
-    const raw = (selectedContext as { raw?: unknown } | null)?.raw;
-    if (!raw || typeof raw !== "object") return null;
-    if (!("storage_endpoint_capabilities" in raw)) return null;
-    return (
-      (
-        raw as {
-          storage_endpoint_capabilities?: Record<string, boolean> | null;
-        }
-      ).storage_endpoint_capabilities ?? null
-    );
-  }, [selectedContext]);
   const effectiveCaps =
     storageEndpointCapabilities === undefined
-      ? storageEndpointCaps
+      ? (selectedContext?.storage_endpoint_capabilities ?? null)
       : storageEndpointCapabilities;
   const bucketManagementEnabled =
     normalizedPath.endsWith("/browser") &&
@@ -671,130 +638,61 @@ export default function BrowserPage({
     resolvedFunctionalProfile === "advanced";
   const bucketConfigurationEnabled =
     resolvedFunctionalProfile === "advanced";
-  const directCredentialContextKind = isConnectionContext
-    ? "connection"
-    : isS3UserContext
-      ? "s3_user"
-      : null;
-  const stsEnabled =
-    Boolean(effectiveCaps?.sts) &&
-    directCredentialContextKind === null &&
-    !isPortalProfile;
   const {
-    available: stsAvailable,
-    credentials: stsCredentials,
-    credentialsError: stsCredentialsError,
-    ensureCredentials: ensureStsCredentials,
-  } = useBrowserStsSession({
-    contextIdForApi,
-    enabled: stsEnabled,
-    hasContext: hasExecutionContext,
-    requestOptions: browserRequestOptions,
-  });
-  const sseFeatureEnabled =
-    Boolean(effectiveCaps?.sse) && resolvedFunctionalProfile === "advanced";
-  const {
-    keyBase64: sseCustomerKeyBase64,
-    active: sseActive,
-    getKeyForScope: getSseCustomerKeyForScope,
-    showModal: showSseCustomerModal,
-    input: sseCustomerKeyInput,
-    visible: sseCustomerKeyVisible,
-    error: sseCustomerKeyError,
-    notice: sseCustomerKeyNotice,
-    canGenerate: canGenerateSseCustomerKey,
-    open: openSseCustomerModal,
-    updateInput: updateSseCustomerKeyInput,
-    toggleVisibility: toggleSseCustomerKeyVisibility,
-    generate: generateSseCustomerKey,
-    clear: clearSseCustomerKey,
-    activate: activateSseCustomerKey,
-    close: closeSseCustomerModal,
-    dirty: sseCustomerDraftDirty,
-  } = useBrowserSseCustomerKeys({
-    contextIdForApi,
-    bucketName,
-    enabled: sseFeatureEnabled,
-    onManualCopyRequired: openSseCustomerKeyCopyDialog,
-    setStatusMessage,
-  });
-  const showSseControls = Boolean(
-    sseFeatureEnabled && hasExecutionContext && bucketName,
-  );
-  const normalizedPrefix = useMemo(() => normalizePrefix(prefix), [prefix]);
-  const uiOrigin = useMemo(
-    () => (typeof window === "undefined" ? undefined : window.location.origin),
-    [],
-  );
-  const {
-    status: corsStatus,
-    error: corsFixError,
-    fixing: corsFixing,
-    actionAvailable: hasCorsAction,
-    popoverOpen: showCorsActionPopover,
-    triggerRef: corsActionTriggerRef,
-    popoverRef: corsActionPopoverRef,
-    togglePopover: toggleCorsActionPopover,
-    ensureCors: handleEnsureCors,
-    setStatus: setCorsStatus,
-    setError: setCorsFixError,
-  } = useBrowserBucketCors({
-    contextIdForApi,
-    allowAction: !isPortalProfile,
-    bucketName,
-    enabled:
-      !contextSwitchInFlight && Boolean(bucketName) && hasExecutionContext,
-    origin: uiOrigin,
-    requestOptions: browserRequestOptions,
-    setStatusMessage,
-  });
-  const directUploadAllowed = browserSettings?.allow_direct_uploads ?? false;
-  const stsUploadAllowed = browserSettings?.allow_sts_uploads ?? false;
-  const proxyAllowed = browserSettings?.allow_proxy_transfers ?? false;
-  const corsAvailability = resolveBrowserCorsAvailability(corsStatus);
-  const corsEnabled =
-    corsAvailability === "unknown" ? null : corsAvailability === "enabled";
-  const corsInformation =
-    corsEnabled === false ? text(CORS_DIRECT_TRANSFER_WARNING) : null;
-  const uploadMode = resolveBrowserUploadMode({
-    settingsLoaded: browserSettings !== null,
-    hasContext: hasExecutionContext,
-    hasBucket: Boolean(bucketName),
-    corsEnabled,
-    directAllowed: directUploadAllowed,
-    stsAllowed: stsUploadAllowed,
-    stsAvailable,
-    sseActive,
+    accessBadge,
+    activateSseCustomerKey,
+    canGenerateSseCustomerKey,
+    clearSseCustomerKey,
+    closeSseCustomerModal,
+    corsActionPopoverRef,
+    corsActionTriggerRef,
+    corsFixing,
+    corsInformation,
+    downloadParallelism,
+    generateSseCustomerKey,
+    getSseCustomerKeyForScope,
+    handleEnsureCors,
+    hasCorsAction,
+    openSseCustomerModal,
+    otherOperationsParallelism,
+    presignObjectRequest,
+    presignPartRequest,
     proxyAllowed,
+    setCorsFixError,
+    setCorsStatus,
+    showCorsActionPopover,
+    showSseControls,
+    showSseCustomerModal,
+    sseActive,
+    sseCustomerDraftDirty,
+    sseCustomerKeyBase64,
+    sseCustomerKeyError,
+    sseCustomerKeyInput,
+    sseCustomerKeyNotice,
+    sseCustomerKeyVisible,
+    toggleCorsActionPopover,
+    toggleSseCustomerKeyVisibility,
+    uiOrigin,
+    updateSseCustomerKeyInput,
+    uploadMode,
+    uploadParallelism,
+    useProxyTransfers,
+    warnings,
+  } = useBrowserTransferRuntime({
+    browserSettings,
+    bucketName,
+    contextIdForApi,
+    contextSwitchInFlight,
+    executionContextKind,
+    functionalProfile: resolvedFunctionalProfile,
+    hasExecutionContext,
+    onManualSseKeyCopyRequired: openSseCustomerKeyCopyDialog,
+    requestOptions: browserRequestOptions,
+    setStatusMessage,
+    storageEndpointCapabilities: effectiveCaps,
+    warningMessage,
   });
-  const useProxyTransfers = Boolean(
-    bucketName &&
-      hasExecutionContext &&
-      proxyAllowed &&
-      corsAvailability === "disabled",
-  );
-  const uploadTransferParallelism = useMemo(
-    () =>
-      resolveBrowserTransferParallelism(browserSettings, uploadMode === "proxy"),
-    [browserSettings, uploadMode],
-  );
-  const downloadTransferParallelism = useMemo(
-    () => resolveBrowserTransferParallelism(browserSettings, useProxyTransfers),
-    [browserSettings, useProxyTransfers],
-  );
-  const uploadParallelism = uploadTransferParallelism.upload;
-  const downloadParallelism = downloadTransferParallelism.download;
-  const otherOperationsParallelism = downloadTransferParallelism.otherOperations;
-  const useStsPresigner = shouldUseStsPresigner({ stsAvailable, sseActive });
-  const { presignObjectRequest, presignPartRequest } =
-    useBrowserPresignRequests({
-      contextId: contextIdForApi,
-      ensureStsCredentials,
-      requestOptions: browserRequestOptions,
-      sseCustomerKeyBase64,
-      uploadMode,
-      useStsPresigner,
-    });
+  const normalizedPrefix = useMemo(() => normalizePrefix(prefix), [prefix]);
   const { copyPath: handleCopyPath, copyUrl: handleCopyUrl } =
     useBrowserCopyActions({
       bucketName,
@@ -805,65 +703,6 @@ export default function BrowserPage({
       presignObject: presignObjectRequest,
       sseActive,
     });
-  const warnings = useMemo(
-    () =>
-      buildBrowserTransferWarnings({
-        warningMessage,
-        corsFixError,
-        stsCredentialsError,
-        corsEnabled,
-        proxyAllowed,
-        uploadUnavailable: Boolean(
-          browserSettings &&
-            bucketName &&
-            hasExecutionContext &&
-            uploadMode === "unavailable",
-        ),
-      }, text),
-    [
-      browserSettings,
-      bucketName,
-      corsFixError,
-      corsEnabled,
-      hasExecutionContext,
-      proxyAllowed,
-      stsCredentialsError,
-      uploadMode,
-      warningMessage,
-    text,
-    ],
-  );
-  const stsExpirationLabel = useMemo(() => {
-    if (!stsCredentials?.expiration) return "";
-    const formatted = formatDateTime(stsCredentials.expiration, intlLocale);
-    return formatted === "-" ? "" : formatted;
-  }, [stsCredentials?.expiration, intlLocale]);
-  const directCredentialStsTooltip = useMemo(
-    () => resolveDirectCredentialStsTooltip(directCredentialContextKind, text),
-    [directCredentialContextKind, text],
-  );
-  const accessBadge = useMemo(
-    () =>
-      resolveBrowserTransferAccessBadge({
-        hasContext: hasExecutionContext && Boolean(bucketName),
-        uploadMode,
-        sseActive,
-        hasStsCredentials: Boolean(stsCredentials),
-        stsExpirationLabel,
-        directCredentialStsTooltip,
-        text,
-      }),
-    [
-      bucketName,
-      hasExecutionContext,
-      directCredentialStsTooltip,
-      sseActive,
-      stsCredentials,
-      stsExpirationLabel,
-      text,
-      uploadMode,
-    ],
-  );
   useDismissibleLayer({
     open: showBucketMenu,
     insideRefs: [bucketMenuRef],
@@ -2478,11 +2317,7 @@ export default function BrowserPage({
               selectionOverflow: isActionBarVisible,
               sse: showSseControls
                 ? {
-                    enabled: Boolean(
-                      bucketName &&
-                        hasExecutionContext &&
-                        sseFeatureEnabled,
-                    ),
+                    enabled: true,
                     active: sseActive,
                     onOpen: openSseCustomerModal,
                   }

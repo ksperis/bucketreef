@@ -4085,6 +4085,27 @@ describe("BrowserPage interactions", () => {
     expect(within(dialog).getByRole("button", { name: "Hide" })).toHaveClass("ui-button-base");
   });
 
+  it("uses canonical execution context capabilities for transfer features", async () => {
+    const user = userEvent.setup();
+    setBrowserContext({
+      selectedContextId: "acc-1",
+      selectedContext: makeExecutionContext({
+        kind: "account",
+        id: "acc-1",
+        storage_endpoint_capabilities: { sse: true },
+      }),
+      contextIdForApi: "acc-1",
+    });
+
+    renderPage({ initialEntry: "/browser?bucket=bucket-1" });
+    await findRowByLabel("a.txt");
+
+    const moreMenu = await openContextMoreMenu(user);
+    expect(
+      within(moreMenu).getByRole("menuitem", { name: /SSE-C/i }),
+    ).toBeEnabled();
+  });
+
   it("activates an SSE-C key for the current browser scope", async () => {
     const user = userEvent.setup();
     renderPage({
