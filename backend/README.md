@@ -92,7 +92,7 @@ python -m app.scripts.seed_demo_data \
 Environment variables (or `.env` file) supported via `pydantic`:
 
 - `APP_NAME` (default: `BucketReef`)
-- `API_V1_PREFIX` (default: `/api`)
+- `API_PREFIX` (default: `/api`)
 - `JWT_KEYS` (JSON keyring; first key signs new JWTs)
 - `CREDENTIAL_KEYS` (JSON keyring; first key encrypts new secrets)
 - `ACCESS_TOKEN_EXPIRE_MINUTES` (default: `60`)

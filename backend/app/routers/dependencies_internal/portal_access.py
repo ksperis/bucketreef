@@ -61,7 +61,7 @@ def is_portal_browser_request(request: Optional[Request], surface: str) -> bool:
 
 
 def _portal_browser_relative_segments(request: Request) -> list[str]:
-    browser_prefix = f"{settings.api_v1_prefix}/browser"
+    browser_prefix = f"{settings.api_prefix}/browser"
     relative = relative_path_from_prefix(str(request.url.path), browser_prefix)
     if relative is None:
         return []

@@ -35,7 +35,7 @@ backend:
     smtpPassword: smtp-password
   env:
     APP_ENV: production
-    API_V1_PREFIX: /api
+    API_PREFIX: /api
     PUBLIC_ORIGIN: https://bucketreef.local
     PUBLIC_ORIGINS: '[]'
     CORS_ORIGINS: '["https://bucketreef.local"]'

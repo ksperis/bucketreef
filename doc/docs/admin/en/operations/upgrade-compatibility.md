@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 API prefix configuration rename
+
+The backend runtime setting formerly named `API_V1_PREFIX` has been renamed to
+`API_PREFIX`. The configured route prefix remains `/api` by default; this change
+removes the misleading version suffix from the configuration contract because
+the application API is not mounted below a `/v1` path.
+
+Update custom environment files, deployment manifests, and secret/configuration
+management to use `API_PREFIX`. The removed `API_V1_PREFIX` variable is no
+longer read by the backend and has no compatibility alias. The bundled Helm
+values now use `API_PREFIX`.
+
 ## 2026-10 bucket migration execution strategy column
 
 Migration `0179_bucket_migration_execution_strategy` replaces the generic

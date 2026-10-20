@@ -62,7 +62,7 @@ class PortalPublicLinksMixin:
 
     def _public_link_url(self, token: str) -> str:
         public_origin = settings.public_origin.rstrip("/")
-        return f"{public_origin}{settings.api_v1_prefix}/portal/public-links/{token}/download"
+        return f"{public_origin}{settings.api_prefix}/portal/public-links/{token}/download"
 
     def _public_link_card(
         self,
