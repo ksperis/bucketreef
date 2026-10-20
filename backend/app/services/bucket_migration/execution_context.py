@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy import select
+
 from app.core.config import get_settings
 from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import S3Account, S3Connection, S3User
@@ -91,7 +93,9 @@ class BucketMigrationExecutionContextMixin:
             suffix = value.split("conn-", 1)[1]
             if not suffix.isdigit():
                 raise ValueError("Invalid connection context id")
-            conn = self.db.query(S3Connection).filter(S3Connection.id == int(suffix)).first()
+            conn = self.db.scalars(
+                select(S3Connection).where(S3Connection.id == int(suffix))
+            ).first()
             if not conn:
                 raise S3ConnectionNotFoundError("S3Connection not found")
             return S3ExecutionContext.from_connection(conn)
@@ -100,14 +104,18 @@ class BucketMigrationExecutionContextMixin:
             suffix = value.split("s3u-", 1)[1]
             if not suffix.isdigit():
                 raise ValueError("Invalid S3 user context id")
-            s3_user = self.db.query(S3User).filter(S3User.id == int(suffix)).first()
+            s3_user = self.db.scalars(
+                select(S3User).where(S3User.id == int(suffix))
+            ).first()
             if not s3_user:
                 raise S3UserNotFoundError("S3 user not found")
             return S3ExecutionContext.from_s3_user(s3_user)
 
         if not value.isdigit():
             raise ValueError("Invalid account context id")
-        account = self.db.query(S3Account).filter(S3Account.id == int(value)).first()
+        account = self.db.scalars(
+            select(S3Account).where(S3Account.id == int(value))
+        ).first()
         if not account:
             raise S3AccountNotFoundError("S3 account not found")
         return account
