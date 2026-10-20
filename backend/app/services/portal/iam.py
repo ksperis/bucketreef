@@ -6,6 +6,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Optional, Tuple
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.db import (
@@ -82,14 +83,7 @@ class PortalIamMixin:
         account: S3Account,
         iam_service: RGWIAMService,
     ) -> Tuple[AccountIAMUser, Optional[IAMUser], bool]:
-        link = (
-            self.db.query(AccountIAMUser)
-            .filter(
-                AccountIAMUser.user_id == user.id,
-                AccountIAMUser.account_id == account.id,
-            )
-            .first()
-        )
+        link = self._existing_portal_link(user, account)
         created = False
         iam_user: Optional[IAMUser] = None
         created_key: Optional[ModelAccessKey] = None
@@ -127,14 +121,7 @@ class PortalIamMixin:
                 self.db.commit()
             except IntegrityError:
                 self.db.rollback()
-                link = (
-                    self.db.query(AccountIAMUser)
-                    .filter(
-                        AccountIAMUser.user_id == user.id,
-                        AccountIAMUser.account_id == account.id,
-                    )
-                    .first()
-                )
+                link = self._existing_portal_link(user, account)
                 if not link:
                     raise
                 if created_key and not link.active_access_key:
@@ -255,13 +242,11 @@ class PortalIamMixin:
             self._sync_portal_server_access_log_bucket_policy_if_present(account)
 
     def _existing_portal_link(self, user: User, account: S3Account) -> Optional[AccountIAMUser]:
-        return (
-            self.db.query(AccountIAMUser)
-            .filter(
+        return self.db.scalar(
+            select(AccountIAMUser).where(
                 AccountIAMUser.user_id == user.id,
                 AccountIAMUser.account_id == account.id,
             )
-            .first()
         )
 
     def _active_credentials(self, link: AccountIAMUser, iam_service: RGWIAMService) -> tuple[str, str]:
