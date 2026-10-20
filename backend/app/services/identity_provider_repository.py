@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Collection
 from typing import Generic, TypeVar
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -40,7 +41,11 @@ class IdentityProviderRepository(Generic[_PersistedProviderT]):
         self.provider_label = provider_label
 
     def list(self) -> list[_PersistedProviderT]:
-        return self.db.query(self.model).order_by(self.model.provider_id.asc()).all()
+        return list(
+            self.db.scalars(
+                select(self.model).order_by(self.model.provider_id.asc())
+            ).all()
+        )
 
     def create(
         self,
@@ -80,7 +85,11 @@ class IdentityProviderRepository(Generic[_PersistedProviderT]):
         self.db.commit()
 
     def _get(self, provider_id: str) -> _PersistedProviderT | None:
-        return self.db.query(self.model).filter(self.model.provider_id == provider_id).first()
+        return self.db.scalar(
+            select(self.model)
+            .where(self.model.provider_id == provider_id)
+            .limit(1)
+        )
 
     def _get_mutable(self, provider_id: str) -> _PersistedProviderT:
         self._require_environment_mutable(provider_id)
