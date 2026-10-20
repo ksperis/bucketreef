@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from sqlalchemy import select
+
 from app.db import PortalStorageSpaceMetadata, S3Account
 from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
@@ -99,13 +101,13 @@ class PortalAccountRuntimeMixin:
         normalized_bucket = (bucket_name or "").strip()
         if not normalized_bucket:
             return None
-        in_scope = (
-            self.db.query(PortalStorageSpaceMetadata.id)
-            .filter(
+        in_scope = self.db.scalar(
+            select(PortalStorageSpaceMetadata.id)
+            .where(
                 PortalStorageSpaceMetadata.account_id == account.id,
                 PortalStorageSpaceMetadata.bucket_name == normalized_bucket,
             )
-            .first()
+            .limit(1)
         )
         if in_scope is None:
             return None
