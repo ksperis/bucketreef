@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -81,11 +82,9 @@ class S3UserAssociationsService:
         desired: dict[int, bool],
         users_by_id: dict[int, User],
     ) -> None:
-        existing = (
-            self.db.query(UserS3User)
-            .filter(UserS3User.s3_user_id == s3_user.id)
-            .all()
-        )
+        existing = self.db.scalars(
+            select(UserS3User).where(UserS3User.s3_user_id == s3_user.id)
+        ).all()
         existing_by_user = {int(link.user_id): link for link in existing}
         for user_id in set(existing_by_user) - set(desired):
             self.db.delete(existing_by_user[user_id])
@@ -108,11 +107,9 @@ class S3UserAssociationsService:
         s3_user: S3User,
         desired: dict[int, bool],
     ) -> None:
-        existing = (
-            self.db.query(UiGroupS3User)
-            .filter(UiGroupS3User.s3_user_id == s3_user.id)
-            .all()
-        )
+        existing = self.db.scalars(
+            select(UiGroupS3User).where(UiGroupS3User.s3_user_id == s3_user.id)
+        ).all()
         existing_by_group = {int(link.group_id): link for link in existing}
         for group_id in set(existing_by_group) - set(desired):
             self.db.delete(existing_by_group[group_id])
@@ -144,17 +141,16 @@ class S3UserAssociationsService:
     ) -> dict[int, list[S3UserUserLink]]:
         if not s3_user_ids:
             return {}
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 UserS3User.s3_user_id,
                 User,
                 UserS3User.allow_manager_browser_data_access,
             )
             .join(User, User.id == UserS3User.user_id)
-            .filter(UserS3User.s3_user_id.in_(s3_user_ids))
+            .where(UserS3User.s3_user_id.in_(s3_user_ids))
             .order_by(UserS3User.s3_user_id.asc(), User.email.asc(), User.id.asc())
-            .all()
-        )
+        ).all()
         links_by_s3_user: dict[int, list[S3UserUserLink]] = {}
         avatar_service = UserAvatarService(self.db)
         for s3_user_id, user, allow_browser in rows:
@@ -176,21 +172,20 @@ class S3UserAssociationsService:
     ) -> dict[int, list[S3UserGroupLink]]:
         if not s3_user_ids:
             return {}
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 UiGroupS3User.s3_user_id,
                 UiGroup,
                 UiGroupS3User.allow_manager_browser_data_access,
             )
             .join(UiGroup, UiGroup.id == UiGroupS3User.group_id)
-            .filter(UiGroupS3User.s3_user_id.in_(s3_user_ids))
+            .where(UiGroupS3User.s3_user_id.in_(s3_user_ids))
             .order_by(
                 UiGroupS3User.s3_user_id.asc(),
                 UiGroup.name.asc(),
                 UiGroup.id.asc(),
             )
-            .all()
-        )
+        ).all()
         links_by_s3_user: dict[int, list[S3UserGroupLink]] = {}
         avatar_service = UiGroupAvatarService(self.db)
         for s3_user_id, group, allow_browser in rows:
