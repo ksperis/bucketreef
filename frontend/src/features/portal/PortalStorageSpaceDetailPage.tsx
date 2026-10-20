@@ -38,10 +38,6 @@ import {
 import { formatBytes } from "../../utils/format";
 import BrowserEmbed from "../browser/BrowserEmbed";
 import StorageSpaceObjectDetailsDrawer from "../shared/StorageSpaceObjectDetailsDrawer";
-import {
-  resolveStorageSpaceObjectDetailsView,
-  type StorageSpaceObjectDetailsView,
-} from "../shared/objectDetailsContract";
 import type {
   BrowserDeletedObjectTarget,
   BrowserObjectDetailsRouteTarget,
@@ -71,6 +67,11 @@ import PortalStorageSpaceLifecycleDialogs from "./PortalStorageSpaceLifecycleDia
 import PortalStorageSpaceManagementDialogs from "./PortalStorageSpaceManagementDialogs";
 import PortalStorageSpaceStartGuide from "./PortalStorageSpaceStartGuide";
 import {
+  resolvePortalStorageSpaceDetailTab,
+  usePortalStorageSpaceNavigation,
+  type PortalStorageSpaceDetailTab,
+} from "./usePortalStorageSpaceNavigation";
+import {
   portalStorageSpaceStatusTone,
   resolvePortalWorkspacePageState,
 } from "./portalUi";
@@ -89,13 +90,6 @@ import { settingsLabels } from "../../components/settings/settingsLabels";
 
 const isDemo = import.meta.env.MODE === "demo";
 
-type SpaceDetailTab =
-  | "files"
-  | "collaborators"
-  | "external-links"
-  | "statistics"
-  | "settings";
-
 export default function PortalStorageSpaceDetailPage() {
   const { selectedAccountId } = usePortalAccountContext();
   const { spaceId } = useParams();
@@ -109,8 +103,7 @@ function StorageSpaceDetail() {
   const location = useLocation();
   const { generalSettings } = useGeneralSettings();
   const [message, setMessage] = useState<string | null>(null);
-  const requested = new URLSearchParams(location.search).get("tab");
-  const activeTab: SpaceDetailTab = requested === "collaborators" || requested === "external-links" || requested === "statistics" || requested === "settings" ? requested : "files";
+  const activeTab = resolvePortalStorageSpaceDetailTab(location.search);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const draftLabels = settingsLabels(t);
   const [trashRestoreTarget, setTrashRestoreTarget] =
@@ -138,9 +131,6 @@ function StorageSpaceDetail() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [takeOwnershipDialogOpen, setTakeOwnershipDialogOpen] = useState(false);
   const [takeOwnershipBusy, setTakeOwnershipBusy] = useState(false);
-  const [loadedObjectKeys, setLoadedObjectKeys] = useState<string[]>([]);
-  const [objectCreateLinkRequestToken, setObjectCreateLinkRequestToken] =
-    useState(0);
   const [externalLinks, setExternalLinks] = useState<PortalPublicLink[]>([]);
   const [externalLinksLoading, setExternalLinksLoading] = useState(false);
   const [externalLinksError, setExternalLinksError] = useState<string | null>(null);
@@ -163,6 +153,20 @@ function StorageSpaceDetail() {
   });
   const decodedSpaceId = decodePortalRouteValue(spaceId);
   const space = workspace.spaces.find((item) => item.id === decodedSpaceId) ?? null;
+  const lockedBucketName = space?.internalName ?? space?.id ?? "";
+  const {
+    selectTab: selectSpaceDetailTab,
+    showDeletedFiles,
+    setDeletedFilesVisible,
+    objectDrawerState,
+    openObjectDetails,
+    closeObjectDrawer,
+    setObjectDrawerView,
+    previewNavigation,
+    setLoadedObjectKeys,
+    objectCreateLinkRequestToken,
+    clearObjectCreateLinkRequest,
+  } = usePortalStorageSpaceNavigation(lockedBucketName);
   const {
     busyLinkId: busyExternalLinkId,
     copyLink: copyExternalLink,
@@ -196,50 +200,6 @@ function StorageSpaceDetail() {
   );
   const onboardingState = (location.state as { portalSpaceCreated?: boolean; portalSpaceImported?: boolean } | null) ?? null;
   const showSpaceReadyBanner = Boolean(onboardingState?.portalSpaceCreated || onboardingState?.portalSpaceImported);
-  const showDeletedFiles = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    return params.get("show_deleted") === "1";
-  }, [location.search]);
-  const objectDrawerState = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    const objectKey = params.get("object")?.trim() || null;
-    const requestedView = params.get("object_view");
-    const activeView: StorageSpaceObjectDetailsView =
-      requestedView === "history" || requestedView === "sharing" || requestedView === "details"
-        ? requestedView
-        : "preview";
-    return {
-      activeView: params.get("object_deleted") === "1" && requestedView == null ? "history" as const : activeView,
-      isDeleted: params.get("object_deleted") === "1",
-      objectKey,
-    };
-  }, [location.search]);
-
-  const selectSpaceDetailTab = useCallback(
-    (tab: SpaceDetailTab) => {
-      const params = new URLSearchParams(location.search);
-      if (tab !== "files") {
-        params.delete("object");
-        params.delete("object_view");
-        params.delete("object_deleted");
-      }
-      if (tab === "files") {
-        params.delete("tab");
-      } else {
-        params.set("tab", tab);
-      }
-      const search = params.toString();
-      navigate(
-        {
-          pathname: location.pathname,
-          search: search ? `?${search}` : "",
-        },
-        { replace: true },
-      );
-    },
-    [location.pathname, location.search, navigate],
-  );
-
   useEffect(() => {
     if (!space) return;
     setAccessMode(spaceAccessMode);
@@ -560,7 +520,6 @@ function StorageSpaceDetail() {
   const hasFullAccess = space.role === "Owner" || space.role === "Manager";
   const canConfigureIcon = state?.portal_role === "portal_manager";
   const canModifyObjects = canBrowse && (hasFullAccess || space.role === "Editor");
-  const lockedBucketName = space.internalName ?? space.id;
   const canInvitePeople = !isArchived && space.role === "Manager" && space.visibility === "shared";
   const knownCollaboratorCount = Math.max(
     space.shareCount ?? 0,
@@ -640,21 +599,6 @@ function StorageSpaceDetail() {
     setHistoryCleanupDialogOpen(true);
   };
 
-  const previewIndex = loadedObjectKeys.indexOf(objectDrawerState.objectKey ?? "");
-  const navigatePreview = (index: number) => {
-    const key = loadedObjectKeys[index];
-    if (key === undefined) return;
-    const params = new URLSearchParams(location.search);
-    params.set("object", key);
-    params.set("object_view", "preview");
-    params.delete("object_deleted");
-    navigate({ pathname: location.pathname, search: "?" + params.toString() }, { replace: true, state: location.state });
-  };
-  const previewNavigation = previewIndex < 0 ? undefined : {
-    previous: previewIndex > 0 ? () => navigatePreview(previewIndex - 1) : undefined,
-    next: previewIndex + 1 < loadedObjectKeys.length ? () => navigatePreview(previewIndex + 1) : undefined,
-    position: (previewIndex + 1) + " / " + loadedObjectKeys.length,
-  };
   const filesSection = (
     <section id="space-files" className="space-y-3">
       {isArchived ? (
@@ -684,51 +628,13 @@ function StorageSpaceDetail() {
             lockedBucketName={lockedBucketName}
             lockedBucketLabel={space.name}
             storageEndpointCapabilities={selectedAccount?.storage_endpoint_capabilities ?? null}
-            onOpenObjectDetails={(target) => {
-              if (target.bucketName !== lockedBucketName) return;
-              const params = new URLSearchParams(location.search);
-              const replacingOpenDrawer = Boolean(params.get("object"));
-              params.delete("tab");
-              params.set("object", target.key);
-              params.set(
-                "object_view",
-                resolveStorageSpaceObjectDetailsView(target),
-              );
-              if (target.isDeleted) params.set("object_deleted", "1");
-              else params.delete("object_deleted");
-              navigate(
-                { pathname: location.pathname, search: `?${params.toString()}` },
-                {
-                  replace: replacingOpenDrawer,
-                  state: { ...(location.state ?? {}), objectDrawerOpenedFromList: true },
-                },
-              );
-              if (target.intent === "create-public-link") {
-                setObjectCreateLinkRequestToken((current) => current + 1);
-              }
-            }}
+            onOpenObjectDetails={openObjectDetails}
             refreshToken={browserRefreshToken}
             deletedObjectsOptions={{
               visible: showDeletedFiles,
               showToggle: true,
               canRestore: canModifyObjects,
-              onVisibilityChange: (visible) => {
-                const params = new URLSearchParams(location.search);
-                params.delete("tab");
-                if (visible) {
-                  params.set("show_deleted", "1");
-                } else {
-                  params.delete("show_deleted");
-                }
-                const search = params.toString();
-                navigate(
-                  {
-                    pathname: location.pathname,
-                    search: search ? `?${search}` : "",
-                  },
-                  { replace: true },
-                );
-              },
+              onVisibilityChange: setDeletedFilesVisible,
               onRestoreObject: canModifyObjects
                 ? setTrashRestoreTarget
                 : undefined,
@@ -824,7 +730,7 @@ function StorageSpaceDetail() {
           { id: "settings", label: t({ en: "Settings", fr: "Réglages", de: "Einstellungen", zh: "设置" }) },
         ]}
         activeTab={activeTab}
-        onChange={(tab) => selectSpaceDetailTab(tab as SpaceDetailTab)}
+        onChange={(tab) => selectSpaceDetailTab(tab as PortalStorageSpaceDetailTab)}
         ariaLabel={t({
           en: "Space sections",
           fr: "Sections de l'espace",
@@ -937,41 +843,15 @@ function StorageSpaceDetail() {
           isDeleted={objectDrawerState.isDeleted}
           objectKey={objectDrawerState.objectKey}
           space={space}
-          onClose={() => {
-            const openedFromList = Boolean(
-              (location.state as { objectDrawerOpenedFromList?: boolean } | null)?.objectDrawerOpenedFromList,
-            );
-            if (openedFromList) {
-              navigate(-1);
-              return;
-            }
-            const params = new URLSearchParams(location.search);
-            params.delete("object");
-            params.delete("object_view");
-            params.delete("object_deleted");
-            const search = params.toString();
-            navigate(
-              { pathname: location.pathname, search: search ? `?${search}` : "" },
-              { replace: true, state: location.state },
-            );
-          }}
-          onCreatePublicLinkRequestHandled={() =>
-            setObjectCreateLinkRequestToken(0)
-          }
+          onClose={closeObjectDrawer}
+          onCreatePublicLinkRequestHandled={clearObjectCreateLinkRequest}
           onMessage={setMessage}
           onPublicLinkCreated={() => void loadAccessSummary()}
           onRefreshObjects={() => {
             setBrowserRefreshToken((current) => current + 1);
             refreshWorkspaceData();
           }}
-          onViewChange={(view) => {
-            const params = new URLSearchParams(location.search);
-            params.set("object_view", view);
-            navigate(
-              { pathname: location.pathname, search: `?${params.toString()}` },
-              { replace: true, state: location.state },
-            );
-          }}
+          onViewChange={setObjectDrawerView}
         />
       ) : null}
 
