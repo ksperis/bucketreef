@@ -28,7 +28,6 @@ import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import { useBrowserContext } from "./BrowserContext";
 import { useBrowserSidebarSlot } from "./BrowserLayout";
 import BrowserBulkAttributesModal from "./BrowserBulkAttributesModal";
-import { hasOpenModal } from "../../components/ui/modalStack";
 import BrowserObjectExplorer from "./BrowserObjectExplorer";
 import BrowserObjectSearchHeader from "./BrowserObjectSearchHeader";
 import BrowserFoldersPanel from "./BrowserFoldersPanel";
@@ -56,7 +55,6 @@ import { useBrowserListingRefresh } from "./useBrowserListingRefresh";
 import { useBrowserListingVisibility } from "./useBrowserListingVisibility";
 import { useBrowserLeaveGuard } from "./useBrowserLeaveGuard";
 import { useBrowserMultipartUploads } from "./useBrowserMultipartUploads";
-import { useBrowserNavigationHistory } from "./useBrowserNavigationHistory";
 import { useBrowserNotices } from "./useBrowserNotices";
 import { useBrowserFavoritesRuntime } from "./useBrowserFavoritesRuntime";
 import { useBrowserObjectColumns } from "./useBrowserObjectColumns";
@@ -66,8 +64,7 @@ import { useBrowserObjectSort } from "./useBrowserObjectSort";
 import { useBrowserOperationOverview } from "./useBrowserOperationOverview";
 import { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import { useBrowserPanelLayout } from "./useBrowserPanelLayout";
-import { useBrowserPathEditor } from "./useBrowserPathEditor";
-import { useBrowserPathHistory } from "./useBrowserPathHistory";
+import { useBrowserPathRuntime } from "./useBrowserPathRuntime";
 import { useBrowserPrefixVersions } from "./useBrowserPrefixVersions";
 import { useBrowserQueuedUpload } from "./useBrowserQueuedUpload";
 import { useBrowserRuntimeData } from "./useBrowserRuntimeData";
@@ -119,11 +116,7 @@ import {
 } from "./browserRootUiState";
 import { VERSIONS_LIST_HARD_LIMIT, storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
-import {
-  buildPrefixBreadcrumbs,
-  getSelectionInfo,
-  normalizePrefix,
-} from "./browserUtils";
+import { getSelectionInfo, normalizePrefix } from "./browserUtils";
 import {
   PANEL_LAYOUT_GAP_PX,
   PANEL_RESIZER_HITBOX_WIDTH_PX,
@@ -627,8 +620,6 @@ export default function BrowserPage({
     },
     [showOperationsBar, startRegisteredOperation],
   );
-  const { history: pathHistory, record: recordPathHistory } =
-    useBrowserPathHistory({ bucketName });
   const {
     closeContextMenu,
     contextMenu,
@@ -821,21 +812,42 @@ export default function BrowserPage({
     scopeKey: JSON.stringify([contextIdForApi, bucketName, prefix]),
   });
 
-  const handleSelectPrefix = useCallback(
-    (nextPrefix: string) => {
-      requestDetailsDrawerTransition(() => {
-        setPrefix(nextPrefix);
-        clearActiveItem();
-        recordPathHistory(nextPrefix);
-      });
+  const {
+    breadcrumbs,
+    canGoUp,
+    currentPath,
+    editor: {
+      activeSuggestionIndex: pathSuggestionIndex,
+      applySuggestion: applyPathSuggestion,
+      commit: commitPathDraft,
+      editing: isEditingPath,
+      handleKeyDown: handlePathKeyDown,
+      inputRef: pathInputRef,
+      setActiveSuggestionIndex: setPathSuggestionIndex,
+      setValue: setPathDraft,
+      startEditing: startEditingPath,
+      suggestions: pathSuggestions,
+      suggestionsLoading: pathSuggestionsLoading,
+      value: pathDraft,
     },
-    [
-      clearActiveItem,
-      recordPathHistory,
-      requestDetailsDrawerTransition,
-      setPrefix,
-    ],
-  );
+    goUp: handleGoUp,
+    selectPrefix: handleSelectPrefix,
+  } = useBrowserPathRuntime({
+    contextId: contextIdForApi,
+    bucketName,
+    prefix,
+    localPrefixes: prefixes,
+    enabled: hasExecutionContext,
+    requestOptions: browserRequestOptions,
+    requestTransition: requestDetailsDrawerTransition,
+    setPrefix,
+    clearActiveItem,
+    selectionReady,
+    contextSwitchInFlight,
+    normalizedPath,
+    accessContextKey: bucketAccessContextKey,
+    lockedBucketName: resolvedLockedBucketName,
+  });
   const {
     createPublicLinkForItem,
     openItemDetails,
@@ -958,10 +970,6 @@ export default function BrowserPage({
     return undefined;
   }, [handleOpenWorkspaceAccount, text, workspaceAccountDestination?.workspace]);
 
-  const breadcrumbs = useMemo(() => buildPrefixBreadcrumbs(prefix), [prefix]);
-  const parentPrefix = breadcrumbs.at(-2)?.prefix ?? "";
-  const canGoUp = breadcrumbs.length > 0;
-
   const availableStorageClasses = useMemo(
     () => collectAvailableStorageClasses(items),
     [items],
@@ -1015,13 +1023,6 @@ export default function BrowserPage({
   const iconBoxClasses = compactMode ? "h-6 w-6" : "h-9 w-9";
   const nameGapClasses = compactMode ? "gap-1.5" : "gap-3";
   const primaryItemButtonHeightClasses = compactMode ? "" : "min-h-11";
-  const currentPath = useMemo(() => {
-    if (!bucketName) return "";
-    if (!prefix) return bucketName;
-    const trimmed = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
-    return `${bucketName}/${trimmed}`;
-  }, [bucketName, prefix]);
-
   const {
     refreshAfterUpload: refreshUploadedListing,
     refreshNow: refreshObjectsNow,
@@ -1131,49 +1132,6 @@ export default function BrowserPage({
     if (item.type !== "folder") return;
     handleSelectPrefix(item.key);
   };
-  const {
-    activeSuggestionIndex: pathSuggestionIndex,
-    applySuggestion: applyPathSuggestion,
-    cancel: cancelPathEdit,
-    commit: commitPathDraft,
-    editing: isEditingPath,
-    handleKeyDown: handlePathKeyDown,
-    inputRef: pathInputRef,
-    setActiveSuggestionIndex: setPathSuggestionIndex,
-    setValue: setPathDraft,
-    startEditing: startEditingPath,
-    suggestions: pathSuggestions,
-    suggestionsLoading: pathSuggestionsLoading,
-    value: pathDraft,
-  } = useBrowserPathEditor({
-    contextId: contextIdForApi,
-    bucketName,
-    enabled: hasExecutionContext,
-    history: pathHistory,
-    localPrefixes: prefixes,
-    onCommit: handleSelectPrefix,
-    prefix,
-    requestOptions: browserRequestOptions,
-  });
-  useBrowserNavigationHistory({
-    bucketName,
-    prefix,
-    lockedBucketName: resolvedLockedBucketName,
-    ready:
-      hasExecutionContext && selectionReady && !contextSwitchInFlight,
-    scopeKey: `${normalizedPath}:${bucketAccessContextKey ?? "none"}:${resolvedLockedBucketName}`,
-    onNavigate: ({ bucketName: nextBucket, prefix: nextPrefix }) => {
-      if (hasOpenModal()) return false;
-      return requestDetailsDrawerTransition(() => {
-        // Bucket changes are validated by the catalogue from the URL before
-        // they replace the current selection. Prefix-only history is local.
-        if (nextBucket === bucketName) setPrefix(nextPrefix);
-        clearActiveItem();
-        cancelPathEdit();
-      });
-    },
-  });
-
   useEffect(() => {
     contextIdForApiRef.current = contextIdForApi;
   }, [contextIdForApi]);
@@ -1409,11 +1367,6 @@ export default function BrowserPage({
     if (deletedObjectsIsTruncated) {
       void loadObjects({ append: true, loadDeletedOnly: true });
     }
-  };
-
-  const handleGoUp = () => {
-    if (!canGoUp) return;
-    handleSelectPrefix(parentPrefix);
   };
 
   const addActivity = (action: string, path: string) => {
