@@ -6,14 +6,11 @@ import {
   CLIENT_STORAGE_KEYS,
   readClientJson,
   readSessionJsonFromKey,
-  removeClientStorage,
   writeClientJson,
   writeSessionJsonToKey,
 } from "../../utils/clientStorage";
 import type { BrowserDensity } from "./browserActions";
 
-export const BROWSER_ROOT_UI_STATE_V2_STORAGE_KEY =
-  CLIENT_STORAGE_KEYS.browserRootUiStateV2;
 export const BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY =
   CLIENT_STORAGE_KEYS.browserRootUiStateV3;
 export const BROWSER_ROOT_CONTEXT_SELECTIONS_STORAGE_KEY =
@@ -136,34 +133,6 @@ const normalizeV3State = (value: unknown): BrowserRootUiState | null => {
   };
 };
 
-const normalizeV2State = (value: unknown): BrowserRootUiState | null => {
-  if (!isRecord(value)) return null;
-  const layouts = isRecord(value.layouts) ? value.layouts : {};
-  const activeLayout =
-    value.activeLayout === "workbench" ? "workbench" : "standard";
-  const selectedLayout = isRecord(layouts[activeLayout])
-    ? layouts[activeLayout]
-    : {};
-  return {
-    density: value.density === "comfortable" ? "comfortable" : "compact",
-    showFolders:
-      typeof selectedLayout.showFolders === "boolean"
-        ? selectedLayout.showFolders
-        : activeLayout === "workbench",
-    foldersPanelWidthPx: clampPanelWidth(
-      selectedLayout.foldersPanelWidthPx,
-      DEFAULT_FOLDERS_PANEL_WIDTH_PX,
-      MIN_FOLDERS_PANEL_WIDTH_PX,
-      MAX_FOLDERS_PANEL_WIDTH_PX,
-    ),
-    objectColumns: normalizeObjectColumns(selectedLayout.objectColumns),
-    objectColumnWidths: normalizeObjectColumnWidths(
-      selectedLayout.objectColumnWidths,
-    ),
-    contextSelections: readContextSelections(),
-  };
-};
-
 const serializeV3State = (state: BrowserRootUiState) => ({
   density: state.density,
   showFolders: state.showFolders,
@@ -178,17 +147,12 @@ const writeBrowserRootUiState = (state: BrowserRootUiState) => {
     BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY,
     serializeV3State(state),
   );
-  removeClientStorage(BROWSER_ROOT_UI_STATE_V2_STORAGE_KEY);
 };
 
 export const readStoredBrowserRootUiState = (): BrowserRootUiState | null => {
   if (typeof window === "undefined") return null;
-  const current = normalizeV3State(
+  return normalizeV3State(
     readClientJson<unknown>(BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY),
-  );
-  if (current) return current;
-  return normalizeV2State(
-    readClientJson<unknown>(BROWSER_ROOT_UI_STATE_V2_STORAGE_KEY),
   );
 };
 
