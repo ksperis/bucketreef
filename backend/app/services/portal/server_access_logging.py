@@ -7,6 +7,7 @@ import logging
 from typing import Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import select
 
 from app.db import (
     PortalStorageSpaceMetadata,
@@ -272,11 +273,11 @@ class PortalServerAccessLoggingMixin:
         portal_settings: Optional[PortalSettings] = None,
     ) -> dict[str, int]:
         effective = portal_settings or self.get_effective_portal_settings(account)
-        metadata_rows = (
-            self.db.query(PortalStorageSpaceMetadata)
-            .filter(PortalStorageSpaceMetadata.account_id == account.id)
-            .all()
-        )
+        metadata_rows = self.db.scalars(
+            select(PortalStorageSpaceMetadata).where(
+                PortalStorageSpaceMetadata.account_id == account.id
+            )
+        ).all()
         summary = {"enabled": 0, "disabled": 0, "skipped": 0}
         if not metadata_rows:
             return summary
@@ -301,13 +302,17 @@ class PortalServerAccessLoggingMixin:
     def reconcile_all_portal_server_access_logging(self, base_settings: PortalSettings) -> dict[str, int]:
         account_ids = [
             account_id
-            for (account_id,) in self.db.query(PortalStorageSpaceMetadata.account_id).distinct().all()
+            for account_id in self.db.scalars(
+                select(PortalStorageSpaceMetadata.account_id).distinct()
+            ).all()
             if account_id is not None
         ]
         summary = {"accounts": 0, "enabled": 0, "disabled": 0, "skipped": 0}
         if not account_ids:
             return summary
-        accounts = self.db.query(S3Account).filter(S3Account.id.in_(account_ids)).all()
+        accounts = self.db.scalars(
+            select(S3Account).where(S3Account.id.in_(account_ids))
+        ).all()
         failures: list[tuple[str, Exception]] = []
         for account in accounts:
             effective = self.get_effective_portal_settings(account, base_settings=base_settings)
