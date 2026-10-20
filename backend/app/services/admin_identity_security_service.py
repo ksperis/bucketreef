@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -87,6 +88,14 @@ class AdminIdentitySecurityService:
         ensure_actor_can_manage_user(actor, target, allow_self=allow_self)
         return target
 
+    def _users_by_id(self, user_ids: set[int]) -> dict[int, User]:
+        if not user_ids:
+            return {}
+        return {
+            row.id: row
+            for row in self.db.scalars(select(User).where(User.id.in_(user_ids))).all()
+        }
+
     def user_security(
         self,
         actor: User,
@@ -95,12 +104,14 @@ class AdminIdentitySecurityService:
         include_revoked: bool,
     ) -> AdminUserSecurity:
         target = self.managed_user(actor, user_id)
-        passkeys = self.db.query(WebAuthnCredential).filter(
+        passkeys = select(WebAuthnCredential).where(
             WebAuthnCredential.user_id == target.id
         )
         if not include_revoked:
-            passkeys = passkeys.filter(WebAuthnCredential.revoked_at.is_(None))
-        passkey_rows = passkeys.order_by(WebAuthnCredential.created_at.asc()).all()
+            passkeys = passkeys.where(WebAuthnCredential.revoked_at.is_(None))
+        passkey_rows = self.db.scalars(
+            passkeys.order_by(WebAuthnCredential.created_at.asc())
+        ).all()
         identities = self.identities.list_for_user(
             target.id,
             include_revoked=include_revoked,
@@ -133,14 +144,12 @@ class AdminIdentitySecurityService:
         identity_id: str,
     ) -> tuple[User, ExternalIdentity]:
         target = self.managed_user(actor, user_id, allow_self=False)
-        identity = (
-            self.db.query(ExternalIdentity)
-            .filter(
+        identity = self.db.execute(
+            select(ExternalIdentity).where(
                 ExternalIdentity.id == identity_id,
                 ExternalIdentity.user_id == target.id,
             )
-            .first()
-        )
+        ).scalar_one_or_none()
         if identity is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -155,14 +164,12 @@ class AdminIdentitySecurityService:
         session_id: str,
     ) -> AuthSession:
         target = self.managed_user(actor, user_id)
-        session = (
-            self.db.query(AuthSession)
-            .filter(
+        session = self.db.execute(
+            select(AuthSession).where(
                 AuthSession.id == session_id,
                 AuthSession.user_id == target.id,
             )
-            .first()
-        )
+        ).scalar_one_or_none()
         if session is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
         return session
@@ -175,14 +182,7 @@ class AdminIdentitySecurityService:
     ) -> list[ExternalIdentityLinkRequestInfo]:
         rows = self.identities.list_link_requests(include_decided=include_decided)
         user_ids = {row.user_id for row in rows}
-        users = (
-            {
-                row.id: row
-                for row in self.db.query(User).filter(User.id.in_(user_ids)).all()
-            }
-            if user_ids
-            else {}
-        )
+        users = self._users_by_id(user_ids)
         result: list[ExternalIdentityLinkRequestInfo] = []
         for row in rows:
             target = users.get(row.user_id)
@@ -214,11 +214,11 @@ class AdminIdentitySecurityService:
         actor: User,
         request_id: str,
     ) -> ExternalIdentityLinkRequest:
-        link_request = (
-            self.db.query(ExternalIdentityLinkRequest)
-            .filter(ExternalIdentityLinkRequest.id == request_id)
-            .first()
-        )
+        link_request = self.db.execute(
+            select(ExternalIdentityLinkRequest).where(
+                ExternalIdentityLinkRequest.id == request_id
+            )
+        ).scalar_one_or_none()
         if link_request is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -235,14 +235,7 @@ class AdminIdentitySecurityService:
     ) -> list[AdminSessionInfo]:
         rows = self.sessions.list_for_admin(actor, include_revoked=include_revoked)
         user_ids = {row.user_id for row in rows if row.user_id is not None}
-        users = (
-            {
-                row.id: row
-                for row in self.db.query(User).filter(User.id.in_(user_ids)).all()
-            }
-            if user_ids
-            else {}
-        )
+        users = self._users_by_id(user_ids)
         return [
             AdminSessionInfo(
                 **self.session_info(row).model_dump(),
@@ -256,7 +249,9 @@ class AdminIdentitySecurityService:
         ]
 
     def managed_global_session(self, actor: User, session_id: str) -> AuthSession:
-        row = self.db.query(AuthSession).filter(AuthSession.id == session_id).first()
+        row = self.db.execute(
+            select(AuthSession).where(AuthSession.id == session_id)
+        ).scalar_one_or_none()
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
         if row.user_id is None:
