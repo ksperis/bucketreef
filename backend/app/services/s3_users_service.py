@@ -5,7 +5,7 @@ from app.services.app_settings_service import load_app_settings_for_db_readonly
 import logging
 from typing import Any, Optional
 
-from sqlalchemy import exists, func, or_
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import (
@@ -72,7 +72,9 @@ class S3UsersService:
 
     # Helpers
     def _resolve_endpoint(self, storage_endpoint_id: int) -> StorageEndpoint:
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == storage_endpoint_id).first()
+        endpoint = self.db.execute(
+            select(StorageEndpoint).where(StorageEndpoint.id == storage_endpoint_id)
+        ).scalar_one_or_none()
         if not endpoint:
             raise StorageEndpointNotFoundError("Storage endpoint not found.")
         if endpoint.provider != StorageProvider.CEPH.value:
@@ -149,11 +151,13 @@ class S3UsersService:
         raise ValueError("RGW user could not be verified")
 
     def _existing_identity(self, uid: str, tenant: str, endpoint_id: int):
-        return self.db.query(S3UserModel).filter(
-            S3UserModel.storage_endpoint_id == endpoint_id,
-            S3UserModel.rgw_user_uid == uid,
-            S3UserModel.rgw_tenant == tenant,
-        ).first()
+        return self.db.execute(
+            select(S3UserModel).where(
+                S3UserModel.storage_endpoint_id == endpoint_id,
+                S3UserModel.rgw_user_uid == uid,
+                S3UserModel.rgw_tenant == tenant,
+            )
+        ).scalar_one_or_none()
 
     def _interface_bucket_count(self, s3_user: S3UserModel) -> Optional[int]:
         access_key = (s3_user.rgw_access_key or "").strip()
@@ -253,7 +257,9 @@ class S3UsersService:
             raise ValueError("RGW user quota update is not supported on this cluster.")
 
     def _get_s3_user(self, user_id: int) -> S3UserModel:
-        s3_user = self.db.query(S3UserModel).filter(S3UserModel.id == user_id).first()
+        s3_user = self.db.execute(
+            select(S3UserModel).where(S3UserModel.id == user_id)
+        ).scalar_one_or_none()
         if not s3_user:
             raise S3UserNotFoundError("S3 user not found")
         return s3_user
@@ -285,7 +291,9 @@ class S3UsersService:
         )
 
     def list_users(self, include_quota: bool = False) -> list[S3UserSchema]:
-        rows = self.db.query(S3UserModel).order_by(*name_order_by(S3UserModel)).all()
+        rows = self.db.scalars(
+            select(S3UserModel).order_by(*name_order_by(S3UserModel))
+        ).all()
         s3_user_ids = [row.id for row in rows]
         user_links_map, group_links_map = self.associations.load_links(s3_user_ids)
         return [
@@ -299,7 +307,9 @@ class S3UsersService:
         ]
 
     def list_users_minimal(self) -> list[S3UserSummary]:
-        rows = self.db.query(S3UserModel).order_by(*name_order_by(S3UserModel)).all()
+        rows = self.db.scalars(
+            select(S3UserModel).order_by(*name_order_by(S3UserModel))
+        ).all()
         summaries: list[S3UserSummary] = []
         for row in rows:
             endpoint = self._endpoint_for_user(row)
@@ -328,7 +338,7 @@ class S3UsersService:
             .outerjoin(User, UserS3UserModel.user_id == User.id)
             .outerjoin(UiGroupS3User, S3UserModel.id == UiGroupS3User.s3_user_id)
             .outerjoin(UiGroup, UiGroupS3User.group_id == UiGroup.id)
-            .filter(
+            .where(
                 or_(
                     S3UserModel.name.ilike(pattern),
                     S3UserModel.rgw_user_uid.ilike(pattern),
@@ -374,16 +384,16 @@ class S3UsersService:
         include_quota: bool = False,
     ) -> tuple[list[S3UserSchema], int]:
         search_value = search.strip() if isinstance(search, str) else ""
-        query = self._apply_user_search(self.db.query(S3UserModel), search_value)
-        total_query = query.with_entities(func.count(func.distinct(S3UserModel.id)))
-        total = total_query.scalar() or 0
+        query = self._apply_user_search(select(S3UserModel), search_value)
+        total = self.db.execute(
+            select(func.count()).select_from(query.order_by(None).subquery())
+        ).scalar_one()
         offset = max(page - 1, 0) * page_size
-        rows = (
+        rows = self.db.scalars(
             query.order_by(*self._user_order_columns(sort_field, sort_direction))
             .offset(offset)
             .limit(page_size)
-            .all()
-        )
+        ).all()
         s3_user_ids = [row.id for row in rows]
         user_links_map, group_links_map = self.associations.load_links(s3_user_ids)
         return [
@@ -740,13 +750,15 @@ class S3UsersService:
         self._delete_user_entry(s3_user)
 
     def _delete_user_entry(self, s3_user: S3UserModel) -> None:
-        (
-            self.db.query(UserS3UserModel)
-            .filter(UserS3UserModel.s3_user_id == s3_user.id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(UserS3UserModel)
+            .where(UserS3UserModel.s3_user_id == s3_user.id)
+            .execution_options(synchronize_session=False)
         )
-        self.db.query(UiGroupS3User).filter(UiGroupS3User.s3_user_id == s3_user.id).delete(
-            synchronize_session=False
+        self.db.execute(
+            delete(UiGroupS3User)
+            .where(UiGroupS3User.s3_user_id == s3_user.id)
+            .execution_options(synchronize_session=False)
         )
         purge = ResourceDeletionPurgeService(self.db)
         purge.purge_s3_user_derived_data(s3_user.id)
