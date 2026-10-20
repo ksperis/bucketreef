@@ -92,6 +92,14 @@ describe("buildAdminNav", () => {
     const authenticationLink = getSettingsLink("Authentication", [true, true, false, false, false, true]);
 
     expect(authenticationLink?.to).toBe("/admin/authentication-settings");
+    expect(authenticationLink?.iconName).toBe("shield");
+  });
+
+  it("uses the Manager tools icon in settings navigation", () => {
+    const managerLink = getSettingsLink("Manager", [true, true, false, false, false, true]);
+
+    expect(managerLink?.to).toBe("/admin/manager-settings");
+    expect(managerLink?.iconName).toBe("tools");
   });
 
   it("places Production readiness with the deployment settings", () => {
