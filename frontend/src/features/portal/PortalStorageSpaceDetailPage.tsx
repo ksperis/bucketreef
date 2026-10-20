@@ -7,12 +7,7 @@ import PortalAddPeopleWorkflow from "./PortalAddPeopleWorkflow";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { restorePortalStorageSpaceObject } from "../../api/portal";
-import {
-  listPortalStorageSpacePublicLinks,
-  type PortalPublicLink,
-} from "../../api/portalSharing";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
@@ -61,7 +56,7 @@ import {
 } from "./portalI18n";
 import { usePortalStorageSpaceAccess } from "./usePortalStorageSpaceAccess";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
-import { usePortalPublicLinkActions } from "./usePortalPublicLinkActions";
+import { usePortalStorageSpaceExternalLinks } from "./usePortalStorageSpaceExternalLinks";
 
 import { usePortalAccountContext } from "./PortalAccountContext";
 import PortalStorageSpaceSettings from "./PortalStorageSpaceSettings";
@@ -94,10 +89,6 @@ function StorageSpaceDetail() {
     useState<BrowserObjectDetailsRouteTarget | null>(null);
   const [historyCleanupConfirmOpen, setHistoryCleanupConfirmOpen] = useState(false);
   const [historyCleanupDialogOpen, setHistoryCleanupDialogOpen] = useState(false);
-  const [externalLinks, setExternalLinks] = useState<PortalPublicLink[]>([]);
-  const [externalLinksLoading, setExternalLinksLoading] = useState(false);
-  const [externalLinksError, setExternalLinksError] = useState<string | null>(null);
-  const [pendingExternalLinkRevoke, setPendingExternalLinkRevoke] = useState<PortalPublicLink | null>(null);
   const {
     workspace,
     state,
@@ -191,14 +182,21 @@ function StorageSpaceDetail() {
     clearObjectCreateLinkRequest,
   } = usePortalStorageSpaceNavigation(lockedBucketName);
   const {
+    links: externalLinks,
+    error: externalLinksError,
+    unavailableReason: externalLinksUnavailableReason,
+    tableStatus: externalLinksTableStatus,
     busyLinkId: busyExternalLinkId,
     copyLink: copyExternalLink,
-    revokeLink: revokeExternalLink,
-  } = usePortalPublicLinkActions({
+    pendingRevoke: pendingExternalLinkRevoke,
+    requestRevoke: requestExternalLinkRevoke,
+    cancelRevoke: cancelExternalLinkRevoke,
+    confirmRevoke: confirmExternalLinkRevoke,
+  } = usePortalStorageSpaceExternalLinks({
     accountId: accountIdForApi,
-    onLinksUpdated: (links) => setExternalLinks(links),
+    activeTab,
+    space,
     onMessage: setMessage,
-    onError: setExternalLinksError,
   });
   const startGuideStorageKey = space
     ? `portal.storage-space-detail.start-guide.dismissed.${accountIdForApi ?? "default"}.${space.id}`
@@ -206,59 +204,6 @@ function StorageSpaceDetail() {
   const [startGuideDismissed, setStartGuideDismissed] = useState(false);
   const onboardingState = (location.state as { portalSpaceCreated?: boolean; portalSpaceImported?: boolean } | null) ?? null;
   const showSpaceReadyBanner = Boolean(onboardingState?.portalSpaceCreated || onboardingState?.portalSpaceImported);
-
-  useEffect(() => {
-    let cancelled = false;
-    const canListExternalLinks = Boolean(
-      space &&
-        space.status !== "Archived" &&
-        (space.role === "Owner" || space.role === "Manager"),
-    );
-    if (
-      activeTab !== "external-links" ||
-      !space ||
-      !accountIdForApi ||
-      !canListExternalLinks
-    ) {
-      setExternalLinks([]);
-      setExternalLinksLoading(false);
-      setExternalLinksError(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-    setExternalLinksLoading(true);
-    setExternalLinksError(null);
-    listPortalStorageSpacePublicLinks(accountIdForApi, space.id, {
-      includeRevoked: true,
-    })
-      .then((links) => {
-        if (!cancelled) setExternalLinks(links);
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) {
-          setExternalLinks([]);
-          setExternalLinksError(
-            extractApiError(
-              err,
-              t({
-                en: "Unable to load external links.",
-                fr: "Impossible de charger les liens externes.",
-                de: "Externe Links können nicht geladen werden.",
-                zh: "无法加载外部链接。",
-              }),
-            ),
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setExternalLinksLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accountIdForApi, activeTab, space, t]);
 
   useEffect(() => {
     if (!startGuideStorageKey) {
@@ -348,26 +293,6 @@ function StorageSpaceDetail() {
     hasFullAccess &&
     state?.can_create_external_sharing
   );
-  const externalLinksUnavailableReason = isArchived
-    ? t({
-        en: "Restore this archived space to review links.",
-        fr: "Restaurez cet espace archivé pour voir ses liens.",
-        de: "Archivierte Bereiche zeigen keine externen Links.",
-        zh: "请恢复此已归档空间以查看链接。",
-      })
-    : !hasFullAccess
-      ? t({
-          en: "Only owners and managers can review links.",
-          fr: "Accès propriétaire ou gestionnaire requis.",
-          de: "Nur Owner und Manager sehen externe Links.",
-          zh: "只有所有者和管理员可以查看链接。",
-        })
-      : null;
-  const externalLinksTableStatus = resolveListTableStatus({
-    loading: externalLinksLoading,
-    error: externalLinksError,
-    rowCount: externalLinks.length,
-  });
   const historyCleanupEnabled = Boolean(state?.storage_space_version_cleanup_enabled);
   const canCleanHistory = Boolean(historyCleanupEnabled && !isArchived && hasFullAccess);
   const pageDescription = space.description
@@ -605,7 +530,7 @@ function StorageSpaceDetail() {
                 busyLinkId={busyExternalLinkId}
                 showCopyForInactive
                 onCopy={copyExternalLink}
-                onRevoke={setPendingExternalLinkRevoke}
+                onRevoke={requestExternalLinkRevoke}
                 errorMessage={externalLinksError ?? undefined}
                 emptyMessage={t({
                   en: "No external links for this space.",
@@ -717,12 +642,8 @@ function StorageSpaceDetail() {
         <PortalPublicLinkRevokeDialog
           link={pendingExternalLinkRevoke}
           loading={busyExternalLinkId === pendingExternalLinkRevoke.id}
-          onCancel={() => setPendingExternalLinkRevoke(null)}
-          onConfirm={() =>
-            void revokeExternalLink(pendingExternalLinkRevoke).finally(() =>
-              setPendingExternalLinkRevoke(null),
-            )
-          }
+          onCancel={cancelExternalLinkRevoke}
+          onConfirm={() => void confirmExternalLinkRevoke()}
         />
       ) : null}
 
