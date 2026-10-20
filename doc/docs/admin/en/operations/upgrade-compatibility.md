@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical bucket migration diagnostic severity
+
+Migration `0173_canonical_bucket_migration_severity` rewrites persisted bucket
+migration diagnostics to use only `severity`. Historical diagnostics that have
+only the retired `level` alias are promoted to `severity`; when both fields
+exist, `severity` remains authoritative and `level` is removed.
+
+Deploy the migration, backend, and frontend together. New precheck diagnostics
+no longer duplicate severity under `level`, and runtime readers no longer carry
+the fallback. Migration event records still use their distinct `level` field.
+Downgrade recreates diagnostic `level` from canonical severity.
+
 ## 2026-10 canonical bucket migration precheck diagnostics
 
 Migration `0172_canonical_bucket_migration_checks` rewrites persisted bucket

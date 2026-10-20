@@ -25,7 +25,6 @@ export type BucketMigrationPrecheckStatus = "pending" | "passed" | "failed";
 export type BucketMigrationPrecheckEntry = {
   code?: string;
   severity?: string;
-  level?: string;
   blocking?: boolean;
   scope?: string;
   message: string;

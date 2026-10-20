@@ -218,7 +218,7 @@ export default function ManagerMigrationDetailPage() {
   const problems = (entries: api.BucketMigrationPrecheckEntry[] = []) =>
     entries.filter(
       (entry) =>
-        entry.blocking || (entry.severity ?? entry.level) === "warning",
+        entry.blocking || entry.severity === "warning",
     );
   const otherBlockers = report?.items?.some((item) =>
     item.checks?.some(
