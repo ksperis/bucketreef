@@ -171,7 +171,10 @@ import {
   splitBucketPanelBuckets,
   type BucketAccessEntry,
 } from "./browserBucketsPanelHelpers";
-import { resolveBrowserWorkspaceContext } from "./browserPageContextModel";
+import {
+  resolveBrowserWorkspaceAccountDestination,
+  resolveBrowserWorkspaceContext,
+} from "./browserPageContextModel";
 import type {
   BrowserItem,
   ObjectDetailsTabId,
@@ -1126,42 +1129,43 @@ export default function BrowserPage({
     },
     [clearActiveItem, requestDetailsDrawerTransition, selectBucket],
   );
-  const workspaceAccountActionTarget = useMemo<"manager" | "portal" | null>(() => {
-    if (selectedContext?.kind === "portal_account" || isPortalBrowserSurface) {
-      return contextIdForApi != null ? "portal" : null;
-    }
-    if (
-      selectedContext?.manager_role === "account_administrator" ||
-      selectedContext?.kind === "s3_user"
-    ) {
-      return "manager";
-    }
-    return null;
-  }, [contextIdForApi, isPortalBrowserSurface, selectedContext]);
+  const workspaceAccountDestination = useMemo(
+    () =>
+      resolveBrowserWorkspaceAccountDestination({
+        selectedContext,
+        contextIdForApi,
+        isPortalBrowserSurface,
+      }),
+    [contextIdForApi, isPortalBrowserSurface, selectedContext],
+  );
   const handleOpenWorkspaceAccount = useCallback(() => {
-    if (!workspaceAccountActionTarget) return;
-    if (workspaceAccountActionTarget === "manager") {
-      const contextId = selectedContext?.id ?? (typeof contextIdForApi === "string" ? contextIdForApi : null);
-      if (!contextId) return;
-      writeClientStorage(CLIENT_STORAGE_KEYS.selectedManagerExecutionContext, contextId);
-      writeClientStorage(CLIENT_STORAGE_KEYS.selectedWorkspace, "manager");
-      navigate(`/manager?ctx=${encodeURIComponent(contextId)}`);
-      return;
+    if (!workspaceAccountDestination) return;
+    if (workspaceAccountDestination.workspace === "manager") {
+      writeClientStorage(
+        CLIENT_STORAGE_KEYS.selectedManagerExecutionContext,
+        workspaceAccountDestination.contextId,
+      );
+    } else {
+      writeClientStorage(
+        CLIENT_STORAGE_KEYS.selectedPortalAccount,
+        workspaceAccountDestination.contextId,
+      );
     }
-    if (contextIdForApi == null) return;
-    writeClientStorage(CLIENT_STORAGE_KEYS.selectedPortalAccount, String(contextIdForApi));
-    writeClientStorage(CLIENT_STORAGE_KEYS.selectedWorkspace, "portal");
-    navigate(`/portal?project=${encodeURIComponent(String(contextIdForApi))}`);
-  }, [contextIdForApi, navigate, selectedContext, workspaceAccountActionTarget]);
+    writeClientStorage(
+      CLIENT_STORAGE_KEYS.selectedWorkspace,
+      workspaceAccountDestination.workspace,
+    );
+    navigate(workspaceAccountDestination.path);
+  }, [navigate, workspaceAccountDestination]);
   const workspaceAccountAction = useMemo(() => {
-    if (workspaceAccountActionTarget === "manager") {
+    if (workspaceAccountDestination?.workspace === "manager") {
       return {
         label: text("Open in Manager"),
         title: text("Open this account in Manager"),
         onClick: handleOpenWorkspaceAccount,
       };
     }
-    if (workspaceAccountActionTarget === "portal") {
+    if (workspaceAccountDestination?.workspace === "portal") {
       return {
         label: text("Open in Portal"),
         title: text("Open this account in Portal"),
@@ -1169,7 +1173,7 @@ export default function BrowserPage({
       };
     }
     return undefined;
-  }, [handleOpenWorkspaceAccount, workspaceAccountActionTarget, text]);
+  }, [handleOpenWorkspaceAccount, text, workspaceAccountDestination?.workspace]);
 
   const breadcrumbs = useMemo(() => buildPrefixBreadcrumbs(prefix), [prefix]);
   const parentPrefix = breadcrumbs.at(-2)?.prefix ?? "";

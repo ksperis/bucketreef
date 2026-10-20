@@ -3,6 +3,45 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { BrowserWorkspaceSurface } from "../../api/browserWorkspace";
+import type { ExecutionContext } from "../../api/executionContexts";
+
+type BrowserWorkspaceAccountDestination = {
+  workspace: "manager" | "portal";
+  contextId: string;
+  path: string;
+};
+
+export const resolveBrowserWorkspaceAccountDestination = ({
+  selectedContext,
+  contextIdForApi,
+  isPortalBrowserSurface,
+}: {
+  selectedContext: ExecutionContext | null;
+  contextIdForApi: string | null | undefined;
+  isPortalBrowserSurface: boolean;
+}): BrowserWorkspaceAccountDestination | null => {
+  if (selectedContext?.kind === "portal_account" || isPortalBrowserSurface) {
+    if (contextIdForApi == null) return null;
+    return {
+      workspace: "portal",
+      contextId: contextIdForApi,
+      path: `/portal?project=${encodeURIComponent(contextIdForApi)}`,
+    };
+  }
+
+  if (
+    selectedContext?.manager_role === "account_administrator" ||
+    selectedContext?.kind === "s3_user"
+  ) {
+    return {
+      workspace: "manager",
+      contextId: selectedContext.id,
+      path: `/manager?ctx=${encodeURIComponent(selectedContext.id)}`,
+    };
+  }
+
+  return null;
+};
 
 export const resolveBrowserWorkspaceContext = ({
   pathname,
