@@ -181,6 +181,28 @@ describe("PortalRequestsPage", () => {
     expect(await screen.findByText("Raise to 20 GiB")).toBeInTheDocument();
   });
 
+  it("refreshes request history and its supporting project data together", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("tab", { name: "History (1)" }));
+    await waitFor(() => {
+      expect(mocks.listPortalRequests).toHaveBeenCalledTimes(1);
+      expect(mocks.fetchPortalUsage).toHaveBeenCalledTimes(1);
+      expect(mocks.fetchPortalCollaborators).toHaveBeenCalledTimes(1);
+      expect(mocks.fetchPortalProjectSettings).toHaveBeenCalledTimes(1);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      expect(mocks.listPortalRequests).toHaveBeenCalledTimes(2);
+      expect(mocks.fetchPortalUsage).toHaveBeenCalledTimes(2);
+      expect(mocks.fetchPortalCollaborators).toHaveBeenCalledTimes(2);
+      expect(mocks.fetchPortalProjectSettings).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("submits a Portal user removal request with the selected collaborator name prefilled", async () => {
     const user = userEvent.setup();
     renderPage();

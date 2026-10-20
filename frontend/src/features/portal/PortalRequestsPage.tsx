@@ -3,27 +3,15 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   createPortalRequest,
-  listPortalRequests,
-  type PortalAdminRequest,
   type PortalRequestedRole,
   type PortalQuotaDirection,
   type PortalQuotaUnit,
   type PortalSettingChangeRequestCreate,
 } from "../../api/portalRequests";
-import {
-  fetchPortalProjectSettings,
-  fetchPortalState,
-  type PortalProjectSettings,
-} from "../../api/portalAccounts";
-import {
-  fetchPortalCollaborators,
-  type PortalCollaborator,
-} from "../../api/portalCollaborators";
-import { fetchPortalUsage, type PortalUsage } from "../../api/portalUsage";
 import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import { PortalMemberRequestFields, PortalRequestReason } from "./PortalRequestFields";
 import PageBanner from "../../components/PageBanner";
@@ -46,10 +34,11 @@ import PortalSettingChangeRequestDialog from "./PortalSettingChangeRequestDialog
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import { usePortalAccountContext } from "./PortalAccountContext";
 import { portalAccountRoleLabel } from "./portalI18n";
+import { usePortalRequestsData } from "./usePortalRequestsData";
 
 const isDemo = import.meta.env.MODE === "demo";
 
-type BusyAction = "collaborator" | "quota" | "setting" | "refresh" | null;
+type BusyAction = "collaborator" | "quota" | "setting" | null;
 type CollaboratorAction = "add" | "remove";
 type RequestDialog = "collaborator" | "storage-limit" | "setting" | null;
 type RequestsTab = "request-help" | "history";
@@ -79,9 +68,6 @@ export default function PortalRequestsPage() {
     loading: accountLoading,
     error: accountError,
   } = usePortalAccountContext();
-  const [requests, setRequests] = useState<PortalAdminRequest[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
@@ -99,35 +85,32 @@ export default function PortalRequestsPage() {
   const [quotaValue, setQuotaValue] = useState("");
   const [quotaUnit, setQuotaUnit] = useState<PortalQuotaUnit>("GiB");
   const [quotaReason, setQuotaReason] = useState("");
-  const [portalUsage, setPortalUsage] = useState<PortalUsage | null>(null);
-  const [usageLoading, setUsageLoading] = useState(false);
-  const [usageError, setUsageError] = useState<string | null>(null);
-  const [collaborators, setCollaborators] = useState<PortalCollaborator[]>([]);
-  const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
-  const [collaboratorsError, setCollaboratorsError] = useState<string | null>(
-    null,
-  );
-  const [projectSettings, setProjectSettings] =
-    useState<PortalProjectSettings | null>(null);
-  const [projectSettingsLoading, setProjectSettingsLoading] = useState(false);
-  const [projectSettingsError, setProjectSettingsError] = useState<string | null>(
-    null,
-  );
-  const [requestPermission, setRequestPermission] = useState<{
-    accountId: string;
-    canManage: boolean;
-  } | null>(null);
-  const selectedAccountKey = accountIdForApi == null ? null : String(accountIdForApi);
   const summaryAllowsManagedRequests =
     selectedAccount?.portal_role === "portal_manager";
-  const stateAllowsManagedRequests =
-    requestPermission?.accountId === selectedAccountKey
-      ? requestPermission.canManage
-      : null;
-  const requestPermissionResolved =
-    summaryAllowsManagedRequests || stateAllowsManagedRequests !== null;
-  const canRequestManagedChanges =
-    stateAllowsManagedRequests ?? summaryAllowsManagedRequests;
+  const {
+    permissionResolved: requestPermissionResolved,
+    canRequestManagedChanges,
+    requests,
+    requestsLoading: loading,
+    requestsError: error,
+    usage: portalUsage,
+    usageLoading,
+    usageError,
+    collaborators,
+    collaboratorsLoading,
+    collaboratorsError,
+    projectSettings,
+    projectSettingsLoading,
+    projectSettingsError,
+    refreshing,
+    refreshAll: handleRefresh,
+    reloadRequests: loadRequests,
+    reloadCollaborators: loadCollaborators,
+  } = usePortalRequestsData({
+    accountId: accountIdForApi,
+    hasAccountContext,
+    summaryAllowsManagedRequests,
+  });
   const showRequestHelpTab =
     accountLoading || !requestPermissionResolved || canRequestManagedChanges;
   const canRequestSettingChange = Boolean(
@@ -136,107 +119,6 @@ export default function PortalRequestsPage() {
       projectSettings &&
       !projectSettings.delegated_to_portal_managers,
   );
-
-  useEffect(() => {
-    if (!hasAccountContext || !accountIdForApi || !selectedAccountKey) {
-      setRequestPermission(null);
-      return;
-    }
-    let cancelled = false;
-    void fetchPortalState(accountIdForApi)
-      .then((state) => {
-        if (cancelled) return;
-        setRequestPermission({
-          accountId: selectedAccountKey,
-          canManage:
-            state.portal_role === "portal_manager" ||
-            state.can_manage_portal_users === true,
-        });
-      })
-      .catch((err) => {
-        console.error(err);
-        if (cancelled) return;
-        setRequestPermission({
-          accountId: selectedAccountKey,
-          canManage: summaryAllowsManagedRequests,
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    accountIdForApi,
-    hasAccountContext,
-    selectedAccountKey,
-    summaryAllowsManagedRequests,
-  ]);
-
-  const loadRequests = useCallback(async () => {
-    if (!hasAccountContext || !accountIdForApi) {
-      setRequests([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      setRequests(await listPortalRequests(accountIdForApi));
-    } catch (err) {
-      console.error(err);
-      setError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to load requests.",
-            fr: "Impossible de charger les demandes.",
-            de: "Anfragen können nicht geladen werden.",
-            zh: "无法加载请求。",
-          }),
-        ),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [accountIdForApi, hasAccountContext, t]);
-
-  useEffect(() => {
-    void loadRequests();
-  }, [loadRequests]);
-
-  const loadProjectSettings = useCallback(async () => {
-    if (!hasAccountContext || !accountIdForApi || !canRequestManagedChanges) {
-      setProjectSettings(null);
-      setProjectSettingsLoading(false);
-      setProjectSettingsError(null);
-      return;
-    }
-    setProjectSettingsLoading(true);
-    setProjectSettingsError(null);
-    try {
-      setProjectSettings(await fetchPortalProjectSettings(accountIdForApi));
-    } catch (err) {
-      console.error(err);
-      setProjectSettings(null);
-      setProjectSettingsError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to load project settings. Setting-change requests are unavailable.",
-            fr: "Impossible de charger les paramètres du projet. Les demandes de modification sont indisponibles.",
-            de: "Projekteinstellungen können nicht geladen werden. Änderungsanfragen sind nicht verfügbar.",
-            zh: "无法加载项目设置。设置更改请求当前不可用。",
-          }),
-        ),
-      );
-    } finally {
-      setProjectSettingsLoading(false);
-    }
-  }, [accountIdForApi, canRequestManagedChanges, hasAccountContext, t]);
-
-  useEffect(() => {
-    void loadProjectSettings();
-  }, [loadProjectSettings]);
 
   useEffect(() => {
     if (
@@ -253,89 +135,6 @@ export default function PortalRequestsPage() {
     hasAccountContext,
     requestPermissionResolved,
   ]);
-
-  const loadUsage = useCallback(async () => {
-    if (!hasAccountContext || !accountIdForApi) {
-      setPortalUsage(null);
-      setUsageLoading(false);
-      setUsageError(null);
-      return;
-    }
-    setUsageLoading(true);
-    setUsageError(null);
-    try {
-      setPortalUsage(await fetchPortalUsage(accountIdForApi));
-    } catch (err) {
-      console.error(err);
-      setPortalUsage(null);
-      setUsageError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to load current usage.",
-            fr: "Impossible de charger l'usage actuel.",
-            de: "Aktuelle Nutzung kann nicht geladen werden.",
-            zh: "无法加载当前用量。",
-          }),
-        ),
-      );
-    } finally {
-      setUsageLoading(false);
-    }
-  }, [accountIdForApi, hasAccountContext, t]);
-
-  useEffect(() => {
-    void loadUsage();
-  }, [loadUsage]);
-
-  const loadCollaborators = useCallback(async () => {
-    if (!hasAccountContext || !accountIdForApi || !canRequestManagedChanges) {
-      setCollaborators([]);
-      setCollaboratorsLoading(false);
-      setCollaboratorsError(null);
-      return;
-    }
-    setCollaboratorsLoading(true);
-    setCollaboratorsError(null);
-    try {
-      const data = await fetchPortalCollaborators(accountIdForApi);
-      setCollaborators(data.collaborators ?? []);
-    } catch (err) {
-      console.error(err);
-      setCollaborators([]);
-      setCollaboratorsError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to load collaborators.",
-            fr: "Impossible de charger les collaborateurs.",
-            de: "Mitwirkende konnen nicht geladen werden.",
-            zh: "无法加载协作者。",
-          }),
-        ),
-      );
-    } finally {
-      setCollaboratorsLoading(false);
-    }
-  }, [accountIdForApi, canRequestManagedChanges, hasAccountContext, t]);
-
-  useEffect(() => {
-    void loadCollaborators();
-  }, [loadCollaborators]);
-
-  const handleRefresh = async () => {
-    setBusy("refresh");
-    try {
-      await Promise.all([
-        loadRequests(),
-        loadUsage(),
-        loadCollaborators(),
-        loadProjectSettings(),
-      ]);
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const handleCollaboratorRequest = async (event: FormEvent) => {
     event.preventDefault();
@@ -702,7 +501,7 @@ export default function PortalRequestsPage() {
             <ListActionButton
               variant="secondary"
               onClick={handleRefresh}
-              loading={busy === "refresh"}
+              loading={refreshing}
             >
               {t({ en: "Refresh", fr: "Actualiser", de: "Aktualisieren", zh: "刷新" })}
             </ListActionButton>
