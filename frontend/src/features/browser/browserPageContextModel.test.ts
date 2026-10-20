@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { resolveBrowserWorkspaceContext } from "./browserPageContextModel";
+import type { ExecutionContext } from "../../api/executionContexts";
+import {
+  resolveBrowserWorkspaceAccountDestination,
+  resolveBrowserWorkspaceContext,
+} from "./browserPageContextModel";
+
+const executionContext = (
+  overrides: Partial<ExecutionContext>,
+): ExecutionContext => ({
+  kind: "account",
+  id: "101",
+  display_name: "Project 101",
+  tags: [],
+  endpoint_tags: [],
+  endpoint_name: "Primary",
+  endpoint_is_default: true,
+  endpoint_url: "https://s3.example.test",
+  storage_endpoint_capabilities: {},
+  capabilities: {
+    can_manage_iam: true,
+    sts_capable: false,
+    admin_api_capable: true,
+  },
+  ...overrides,
+});
 
 describe("resolveBrowserWorkspaceContext", () => {
   it("resolves the standalone Browser vocabulary and sidebar", () => {
@@ -54,5 +78,59 @@ describe("resolveBrowserWorkspaceContext", () => {
         workspaceObjectNoun: "object",
       });
     }
+  });
+});
+
+describe("resolveBrowserWorkspaceAccountDestination", () => {
+  it("keeps Portal contexts in Portal even when Manager access is also available", () => {
+    expect(
+      resolveBrowserWorkspaceAccountDestination({
+        selectedContext: executionContext({
+          kind: "portal_account",
+          manager_role: "account_administrator",
+        }),
+        contextIdForApi: "project / 101",
+        isPortalBrowserSurface: false,
+      }),
+    ).toEqual({
+      workspace: "portal",
+      contextId: "project / 101",
+      path: "/portal?project=project%20%2F%20101",
+    });
+  });
+
+  it("opens Manager-capable execution contexts with their explicit selected context id", () => {
+    expect(
+      resolveBrowserWorkspaceAccountDestination({
+        selectedContext: executionContext({
+          kind: "s3_user",
+          id: "s3u/user 42",
+        }),
+        contextIdForApi: "different-api-context",
+        isPortalBrowserSurface: false,
+      }),
+    ).toEqual({
+      workspace: "manager",
+      contextId: "s3u/user 42",
+      path: "/manager?ctx=s3u%2Fuser%2042",
+    });
+  });
+
+  it("does not expose an account action without an eligible destination", () => {
+    expect(
+      resolveBrowserWorkspaceAccountDestination({
+        selectedContext: executionContext({ manager_role: null }),
+        contextIdForApi: "101",
+        isPortalBrowserSurface: false,
+      }),
+    ).toBeNull();
+
+    expect(
+      resolveBrowserWorkspaceAccountDestination({
+        selectedContext: null,
+        contextIdForApi: null,
+        isPortalBrowserSurface: true,
+      }),
+    ).toBeNull();
   });
 });
