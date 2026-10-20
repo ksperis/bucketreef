@@ -50,12 +50,36 @@ describe("buildAdminNav", () => {
     expect(portalLink?.disabledHint).toBe("Portal feature is disabled in General settings.");
   });
 
-  it("keeps Cost settings available so a model can be prepared before activation", () => {
+  it("disables Cost settings when the Cost feature is inactive", () => {
     const costLink = getSettingsLink("Cost", [true, true, false, false, false, true]);
 
-    expect(costLink?.disabled).not.toBe(true);
-    expect(costLink?.disabledHint).toBeUndefined();
+    expect(costLink?.disabled).toBe(true);
+    expect(costLink?.disabledHint).toBe("Cost feature is disabled in General settings.");
     expect(costLink?.to).toBe("/admin/cost-settings");
+    expect(costLink?.iconName).toBe("cost");
+  });
+
+  it("enables Cost settings when the Cost feature is active", () => {
+    const costLink = getSettingsLink("Cost", [true, true, true, false, false, true]);
+
+    expect(costLink?.disabled).toBe(false);
+    expect(costLink?.disabledHint).toBeUndefined();
+  });
+
+  it("uses the same dedicated Cost icon for reporting and Cost settings", () => {
+    const reportingLink = getAuditReportingLink("Cost", [true, true, true, false, false, true]);
+    const settingsLink = getSettingsLink("Cost", [true, true, true, false, false, true]);
+
+    expect(reportingLink?.iconName).toBe("cost");
+    expect(settingsLink?.iconName).toBe("cost");
+  });
+
+  it("uses distinct icons for Webhooks, Access audit, and Audit trail", () => {
+    const options: Parameters<typeof buildAdminNav> = [true, true, true, false, false, true];
+
+    expect(getSettingsLink("Webhooks", options)?.iconName).toBe("webhook");
+    expect(getAuditReportingLink("Access audit", options)?.iconName).toBe("access-audit");
+    expect(getAuditReportingLink("Audit trail", options)?.iconName).toBe("audit");
   });
 
   it("does not expose API Tokens in settings navigation", () => {

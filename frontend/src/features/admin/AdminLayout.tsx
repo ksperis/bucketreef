@@ -67,8 +67,16 @@ export const buildAdminNav = (
       disabled: !portalEnabled,
       disabledHint: !portalEnabled ? text("Portal feature is disabled in General settings.") : undefined,
     },
-    pageLink(ADMIN_PAGE_CONTRACTS["cost-settings"], text),
-    pageLink(ADMIN_PAGE_CONTRACTS["webhook-settings"], text),
+    {
+      ...pageLink(ADMIN_PAGE_CONTRACTS["cost-settings"], text),
+      iconName: "cost" as const,
+      disabled: !costEnabled,
+      disabledHint: !costEnabled ? text("Cost feature is disabled in General settings.") : undefined,
+    },
+    {
+      ...pageLink(ADMIN_PAGE_CONTRACTS["webhook-settings"], text),
+      iconName: "webhook" as const,
+    },
     {
       ...pageLink(ADMIN_PAGE_CONTRACTS["production-readiness"], text),
       iconName: "shield" as const,
@@ -155,10 +163,23 @@ export const buildAdminNav = (
               },
             ]
           : []),
-        ...(costEnabled ? [pageLink(ADMIN_PAGE_CONTRACTS.cost, text)] : []),
+        ...(costEnabled
+          ? [
+              {
+                ...pageLink(ADMIN_PAGE_CONTRACTS.cost, text),
+                iconName: "cost" as const,
+              },
+            ]
+          : []),
         ...(usageHistoryEnabled ? [pageLink(ADMIN_PAGE_CONTRACTS["usage-history"], text)] : []),
-        pageLink(ADMIN_PAGE_CONTRACTS["access-audit"], text),
-        pageLink(ADMIN_PAGE_CONTRACTS.audit, text),
+        {
+          ...pageLink(ADMIN_PAGE_CONTRACTS["access-audit"], text),
+          iconName: "access-audit" as const,
+        },
+        {
+          ...pageLink(ADMIN_PAGE_CONTRACTS.audit, text),
+          iconName: "audit" as const,
+        },
       ],
     },
     ...(isSuperAdmin

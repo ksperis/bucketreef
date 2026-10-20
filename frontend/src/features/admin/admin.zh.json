@@ -240,6 +240,7 @@
   "Browser access is disabled for Admin S3 connections.": "管理员 S3 连接已禁用 Browser 访问。",
   "Browser advanced features": "Browser 高级功能",
   "Browser feature is disabled in General settings.": "Browser 功能已在“常规设置”中禁用。",
+  "Cost feature is disabled in General settings.": "Cost 功能已在“常规设置”中禁用。",
   "Browser options for this UI user. Groups can also grant these options.": "此 UI 用户的 Browser 选项。用户组也可以授予这些选项。",
   "Browser options inherited by group members.": "用户组成员继承的 Browser 选项。",
   "Browser settings": "Browser 设置",

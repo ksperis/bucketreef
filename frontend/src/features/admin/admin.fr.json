@@ -233,6 +233,7 @@
   "Browser access is disabled for Admin S3 connections.": "L’accès Browser est désactivé pour les connexions S3 Admin.",
   "Browser advanced features": "Fonctions avancées Browser",
   "Browser feature is disabled in General settings.": "La fonctionnalité Browser est désactivée dans les paramètres généraux.",
+  "Cost feature is disabled in General settings.": "La fonctionnalité Cost est désactivée dans les paramètres généraux.",
   "Browser options for this UI user. Groups can also grant these options.": "Options Browser pour cet utilisateur UI. Les groupes peuvent aussi les accorder.",
   "Browser options inherited by group members.": "Options Browser héritées par les membres du groupe.",
   "Browser settings": "Paramètres Browser",
