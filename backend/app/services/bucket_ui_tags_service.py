@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterable, Iterator, Literal, Sequence
 
-from sqlalchemy import or_, tuple_
+from sqlalchemy import delete, or_, select, tuple_
 from sqlalchemy.orm import Session
 
 from app.db import BucketUiTagAssignment, TagDefinition
@@ -109,40 +109,44 @@ class BucketUiTagsService:
             visibility="shared" if definition.owner_user_id is None else "private",
         )
 
-    def _visible_definition_query(
+    def _visible_definition_select(
         self,
         *,
         domain_kind: _BucketUiTagDomain,
         actor_user_id: int,
     ):
-        query = self.db.query(TagDefinition).filter(TagDefinition.domain_kind == domain_kind)
+        statement = select(TagDefinition).where(TagDefinition.domain_kind == domain_kind)
         if domain_kind == TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN:
-            return query.filter(
+            return statement.where(
                 or_(
                     TagDefinition.owner_user_id.is_(None),
                     TagDefinition.owner_user_id == actor_user_id,
                 )
             )
-        return query.filter(TagDefinition.owner_user_id == actor_user_id)
+        return statement.where(TagDefinition.owner_user_id == actor_user_id)
 
-    def _visible_assignment_query(
+    def _visible_assignment_select(
         self,
         *,
         domain_kind: _BucketUiTagDomain,
         actor_user_id: int,
     ):
-        query = self.db.query(BucketUiTagAssignment, TagDefinition).join(
-            TagDefinition,
-            TagDefinition.id == BucketUiTagAssignment.tag_definition_id,
-        ).filter(TagDefinition.domain_kind == domain_kind)
+        statement = (
+            select(BucketUiTagAssignment, TagDefinition)
+            .join(
+                TagDefinition,
+                TagDefinition.id == BucketUiTagAssignment.tag_definition_id,
+            )
+            .where(TagDefinition.domain_kind == domain_kind)
+        )
         if domain_kind == TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN:
-            return query.filter(
+            return statement.where(
                 or_(
                     TagDefinition.owner_user_id.is_(None),
                     TagDefinition.owner_user_id == actor_user_id,
                 )
             )
-        return query.filter(TagDefinition.owner_user_id == actor_user_id)
+        return statement.where(TagDefinition.owner_user_id == actor_user_id)
 
     @staticmethod
     def _target_batches(
@@ -166,10 +170,14 @@ class BucketUiTagsService:
         actor_user_id: int,
     ) -> list[TagDefinition]:
         domain = self._validate_domain(domain_kind)
-        rows = self._visible_definition_query(
-            domain_kind=domain,
-            actor_user_id=actor_user_id,
-        ).all()
+        rows = list(
+            self.db.scalars(
+                self._visible_definition_select(
+                    domain_kind=domain,
+                    actor_user_id=actor_user_id,
+                )
+            ).all()
+        )
         rows.sort(key=tag_definition_sort_key)
         return rows
 
@@ -193,8 +201,8 @@ class BucketUiTagsService:
     ) -> dict[PhysicalBucketTarget, list[BucketUiTagAssignment]]:
         grouped = {target: [] for target in targets}
         for batch in self._target_batches(targets):
-            rows = self.db.query(BucketUiTagAssignment).filter(
-                self._target_filter(batch)
+            rows = self.db.scalars(
+                select(BucketUiTagAssignment).where(self._target_filter(batch))
             ).all()
             for row in rows:
                 target = PhysicalBucketTarget.create(
@@ -215,10 +223,12 @@ class BucketUiTagsService:
         requested = list(dict.fromkeys(int(item) for item in tag_ids))
         if not requested:
             return []
-        rows = self._visible_definition_query(
-            domain_kind=domain_kind,
-            actor_user_id=actor_user_id,
-        ).filter(TagDefinition.id.in_(requested)).all()
+        rows = self.db.scalars(
+            self._visible_definition_select(
+                domain_kind=domain_kind,
+                actor_user_id=actor_user_id,
+            ).where(TagDefinition.id.in_(requested))
+        ).all()
         by_id = {int(row.id): row for row in rows}
         if any(identifier not in by_id for identifier in requested):
             raise ValueError("One or more UI tag identifiers are not visible.")
@@ -239,10 +249,14 @@ class BucketUiTagsService:
         for label, color_key, visibility in create_tags:
             owner_user_id = None if visibility == "shared" else actor_user_id
             if domain_kind == TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN:
-                existing = self.db.query(TagDefinition).filter(
-                    TagDefinition.domain_kind == domain_kind,
-                    TagDefinition.label_key == build_tag_label_key(label),
-                ).first()
+                existing = self.db.scalar(
+                    select(TagDefinition)
+                    .where(
+                        TagDefinition.domain_kind == domain_kind,
+                        TagDefinition.label_key == build_tag_label_key(label),
+                    )
+                    .limit(1)
+                )
                 if existing is not None:
                     if existing.owner_user_id != owner_user_id:
                         raise BucketUiTagNameConflictError(
@@ -272,10 +286,14 @@ class BucketUiTagsService:
         visibility: BucketUiTagVisibility | None = None,
     ) -> BucketUiTagDefinitionUpdate:
         domain = self._validate_domain(domain_kind)
-        definition = self._visible_definition_query(
-            domain_kind=domain,
-            actor_user_id=actor_user_id,
-        ).filter(TagDefinition.id == int(tag_id)).first()
+        definition = self.db.scalar(
+            self._visible_definition_select(
+                domain_kind=domain,
+                actor_user_id=actor_user_id,
+            )
+            .where(TagDefinition.id == int(tag_id))
+            .limit(1)
+        )
         if definition is None:
             raise BucketUiTagDefinitionNotFoundError(
                 "Bucket UI tag definition was not found."
@@ -421,12 +439,16 @@ class BucketUiTagsService:
             return result
         domain = self._validate_domain(domain_kind)
         for batch in self._target_batches(unique_targets):
-            rows = self._visible_assignment_query(
-                domain_kind=domain,
-                actor_user_id=actor_user_id,
-            ).filter(self._target_filter(batch)).order_by(
-                BucketUiTagAssignment.position.asc(),
-                BucketUiTagAssignment.id.asc(),
+            rows = self.db.execute(
+                self._visible_assignment_select(
+                    domain_kind=domain,
+                    actor_user_id=actor_user_id,
+                )
+                .where(self._target_filter(batch))
+                .order_by(
+                    BucketUiTagAssignment.position.asc(),
+                    BucketUiTagAssignment.id.asc(),
+                )
             ).all()
             for assignment, definition in rows:
                 target = PhysicalBucketTarget.create(
@@ -438,21 +460,29 @@ class BucketUiTagsService:
         return result
 
     def remove_all_namespaces_for_bucket(self, target: PhysicalBucketTarget) -> None:
-        definition_ids = [
-            row[0]
-            for row in self.db.query(TagDefinition.id).filter(
-                TagDefinition.domain_kind.in_(
-                    [TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS]
+        definition_ids = list(
+            self.db.scalars(
+                select(TagDefinition.id).where(
+                    TagDefinition.domain_kind.in_(
+                        [
+                            TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
+                            TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
+                        ]
+                    )
                 )
             ).all()
-        ]
+        )
         if definition_ids:
-            self.db.query(BucketUiTagAssignment).filter(
-                BucketUiTagAssignment.storage_endpoint_id == target.endpoint_id,
-                BucketUiTagAssignment.tenant_key == target.tenant,
-                BucketUiTagAssignment.bucket_name == target.name,
-                BucketUiTagAssignment.tag_definition_id.in_(definition_ids),
-            ).delete(synchronize_session=False)
+            self.db.execute(
+                delete(BucketUiTagAssignment)
+                .where(
+                    BucketUiTagAssignment.storage_endpoint_id == target.endpoint_id,
+                    BucketUiTagAssignment.tenant_key == target.tenant,
+                    BucketUiTagAssignment.bucket_name == target.name,
+                    BucketUiTagAssignment.tag_definition_id.in_(definition_ids),
+                )
+                .execution_options(synchronize_session=False)
+            )
             self.tags.cleanup_orphan_definitions(
                 domain_kinds=[
                     TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
