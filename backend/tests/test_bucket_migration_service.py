@@ -2181,7 +2181,7 @@ def test_sync_bucket_uses_stream_copy_when_same_endpoint_copy_option_is_disabled
         target_bucket="bucket-a-dst",
         objects_copied=0,
         objects_deleted=0,
-        execution_plan_json=None,
+        execution_plan_json=_current_only_execution_plan(),
         replication_state_json=None,
         updated_at=None,
     )
@@ -2257,7 +2257,7 @@ def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session
         target_bucket="bucket-b",
         objects_copied=0,
         objects_deleted=0,
-        execution_plan_json=None,
+        execution_plan_json=_current_only_execution_plan(),
         replication_state_json=None,
         updated_at=None,
     )
@@ -3579,6 +3579,7 @@ def test_sync_bucket_updates_object_counters_incrementally(db_session):
         user,
     )
     item = migration.items[0]
+    item.execution_plan_json = _current_only_execution_plan()
 
     source_ctx = SimpleNamespace(
         context_id=str(source.id),
@@ -3665,6 +3666,7 @@ def test_sync_bucket_force_flushes_progress_when_pause_is_requested(db_session):
         user,
     )
     item = migration.items[0]
+    item.execution_plan_json = _current_only_execution_plan()
 
     source_ctx = SimpleNamespace(
         context_id=str(source.id),

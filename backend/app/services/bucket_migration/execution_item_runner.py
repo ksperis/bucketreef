@@ -29,7 +29,11 @@ class BucketMigrationItemRunnerMixin:
 
     def _item_execution_strategy(self, item: BucketMigrationItem) -> str:
         plan = self._load_item_execution_plan(item)
-        strategy = str(plan.get("strategy") or "current_only").strip() or "current_only"
+        strategy = plan.get("strategy")
+        if not isinstance(strategy, str) or not strategy:
+            raise RuntimeError(
+                "Execution plan is missing a valid strategy. Re-run precheck before starting the migration."
+            )
         return strategy
 
     def _load_item_replication_state(self, item: BucketMigrationItem) -> dict[str, Any]:
@@ -41,12 +45,12 @@ class BucketMigrationItemRunnerMixin:
 
     def _assert_item_execution_plan_supported(self, item: BucketMigrationItem) -> None:
         plan = self._load_item_execution_plan(item)
-        strategy = self._item_execution_strategy(item)
-        supported = bool(plan.get("supported")) if plan else False
         if not plan:
             raise RuntimeError(
                 "Missing execution plan for migration item. Re-run precheck before starting the migration."
             )
+        strategy = self._item_execution_strategy(item)
+        supported = bool(plan.get("supported"))
         if strategy not in {"current_only", "version_aware", "skip_existing"}:
             raise RuntimeError(
                 f"Execution strategy '{strategy}' is not implemented by the migration worker."
