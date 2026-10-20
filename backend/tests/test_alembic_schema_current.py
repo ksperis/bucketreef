@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0169_cost_model"
+_EXPECTED_ALEMBIC_HEAD = "0170_cost_estimation_policies"
 
 
 def _alembic_config() -> Config:

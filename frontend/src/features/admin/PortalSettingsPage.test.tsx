@@ -70,6 +70,14 @@ describe("PortalSettingsPage", () => {
     expect(updateAppSettingsMock.mock.calls[0][0].portal.feature_policies.browser_access).toBe("disabled");
   });
 
+  it("renders Cost estimation as targeted by default", async () => {
+    render(<PortalSettingsPage />);
+
+    const toggle = await policyGroup("Cost estimation");
+
+    expectPolicy(toggle, "Targeted activation");
+  });
+
   it("keeps Portal-user external sharing disabled by default and saves an explicit opt-in", async () => {
     render(<PortalSettingsPage />);
 

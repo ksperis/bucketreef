@@ -15,6 +15,7 @@ export type PortalConfiguration = {
 };
 
 export type PortalSettings = PortalConfiguration & {
+  cost_estimation_enabled: boolean;
   browser_access_enabled: boolean;
   allow_private_storage_space_create: boolean;
   allow_portal_named_bucket_create: boolean;
@@ -44,6 +45,7 @@ export type PortalBucketDefaultsOverride = {
 };
 
 export type PortalSettingsOverride = {
+  cost_estimation_enabled?: boolean | null;
   browser_access_enabled?: boolean | null;
   allow_private_storage_space_create?: boolean | null;
   allow_portal_named_bucket_create?: boolean | null;

@@ -41,6 +41,7 @@ class PortalBucketDefaultsOverride(ApiModel):
 
 
 class PortalSettingsOverride(ApiModel):
+    cost_estimation_enabled: Optional[bool] = None
     browser_access_enabled: Optional[bool] = None
     allow_private_storage_space_create: Optional[bool] = None
     allow_portal_named_bucket_create: Optional[bool] = None
@@ -202,6 +203,7 @@ class PortalSettings(ApiModel):
 
 
 class PortalEffectiveSettings(PortalSettings):
+    cost_estimation_enabled: bool = False
     browser_access_enabled: bool = True
     allow_private_storage_space_create: bool = True
     allow_portal_named_bucket_create: bool = False

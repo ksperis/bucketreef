@@ -61,6 +61,7 @@ class S3Account(Base):
     allow_access_key_expiration = Column(Boolean, default=None, nullable=True)
     allow_activity_history = Column(Boolean, default=None, nullable=True)
     allow_rgw_usage_metrics = Column(Boolean, default=None, nullable=True)
+    allow_cost_estimation = Column(Boolean, default=None, nullable=True)
     allow_bucket_usage_stats = Column(Boolean, default=None, nullable=True)
     allow_bucket_usage_stats_collection = Column(Boolean, default=None, nullable=True)
 

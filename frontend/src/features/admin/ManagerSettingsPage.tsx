@@ -42,6 +42,7 @@ const migrationFields = [
 ] as const;
 const paths = [
   "manager.feature_policies.rgw_usage_metrics",
+  "manager.feature_policies.cost_estimation",
   "manager.feature_policies.bucket_quota_management",
   "manager.feature_policies.activity_history",
   "manager.feature_policies.ceph_s3_user_keys",
@@ -147,6 +148,12 @@ export default function ManagerSettingsPage() {
           field="manager.feature_policies.rgw_usage_metrics"
           title={text("RGW traffic and usage metrics")}
           description={text("Available when the selected context and endpoint meet the prerequisites.")}
+        />
+        <AppSettingsPolicy
+          form={form}
+          field="manager.feature_policies.cost_estimation"
+          title={text("Cost estimation")}
+          description={text("Show estimated costs in Manager Usage & Metrics when Cost is enabled globally.")}
         />
       </SettingsSection>
       <SettingsSection

@@ -24,6 +24,7 @@ import {
 import { useAdminI18n } from "./adminI18n";
 
 const paths = [
+  "portal.feature_policies.cost_estimation",
   "portal.feature_policies.browser_access",
   "portal.feature_policies.private_storage_space_create",
   "portal.feature_policies.named_bucket_create",
@@ -108,6 +109,18 @@ export default function PortalSettingsPage() {
         )
       }
     >
+      <SettingsSection
+        presentation="compact"
+        title={text("Usage and metrics")}
+        description={text(FEATURE_POLICY_SECTION_DESCRIPTION)}
+      >
+        <AppSettingsPolicy
+          form={form}
+          field="portal.feature_policies.cost_estimation"
+          title={text("Cost estimation")}
+          description={text("Show estimated costs in Portal Usage & Metrics when Cost is enabled globally.")}
+        />
+      </SettingsSection>
       <SettingsSection
         presentation="compact"
         title={text("Access and creation")}

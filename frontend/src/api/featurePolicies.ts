@@ -5,6 +5,7 @@ export type FeaturePolicy = "disabled" | "targeted" | "default_on";
 export type FeatureState = { enabled: boolean; source: "platform" | "resource" | "direct" | "group"; blocked_reason?: string | null };
 export type ManagerFeaturePolicies = {
   rgw_usage_metrics: FeaturePolicy;
+  cost_estimation: FeaturePolicy;
   activity_history: FeaturePolicy;
   bucket_compare: FeaturePolicy;
   bucket_integrity_check: FeaturePolicy;
@@ -19,6 +20,7 @@ export type ManagerFeaturePolicies = {
 };
 export const DEFAULT_MANAGER_FEATURE_POLICIES: ManagerFeaturePolicies = {
   rgw_usage_metrics: "default_on",
+  cost_estimation: "targeted",
   activity_history: "default_on",
   bucket_compare: "targeted",
   bucket_integrity_check: "targeted",
@@ -47,6 +49,7 @@ export const DEFAULT_PROJECT_COLLECTION_POLICIES: ProjectCollectionPolicies = {
 };
 
 export type PortalFeaturePolicies = {
+  cost_estimation: FeaturePolicy;
   browser_access: FeaturePolicy;
   private_storage_space_create: FeaturePolicy;
   named_bucket_create: FeaturePolicy;
@@ -56,6 +59,7 @@ export type PortalFeaturePolicies = {
   storage_space_version_cleanup: FeaturePolicy;
 };
 export const DEFAULT_PORTAL_FEATURE_POLICIES: PortalFeaturePolicies = {
+  cost_estimation: "targeted",
   browser_access: "default_on",
   private_storage_space_create: "default_on",
   named_bucket_create: "targeted",
@@ -76,6 +80,7 @@ export function projectGeneralSettings(settings: AppSettings): GeneralSettings {
 
 export function resolvePortalSettings(configuration: PortalConfiguration, override: PortalSettingsOverride = {}): PortalSettings {
   const fields = {
+    cost_estimation_enabled: "cost_estimation",
     browser_access_enabled: "browser_access", allow_private_storage_space_create: "private_storage_space_create",
     allow_portal_named_bucket_create: "named_bucket_create", allow_portal_user_access_key_create: "user_access_key_create",
     allow_portal_user_external_sharing: "user_external_sharing", server_access_logging_enabled: "server_access_logging",

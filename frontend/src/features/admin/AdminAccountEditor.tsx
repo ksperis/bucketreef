@@ -242,6 +242,11 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                   triState
                   help={adminText("Controls traffic and usage metrics for this RGW Account. Endpoint capabilities and supervision credentials still apply.")}
                   onChange={value => update("allow_rgw_usage_metrics", value)} />
+                <FeatureOverrideField title={adminText("Cost estimation")} value={form.draft.allow_cost_estimation}
+                  policy={generalSettings.manager_feature_policies.cost_estimation} disabled={controller.locked}
+                  triState
+                  help={adminText("Controls the Cost tab for this RGW Account in Manager Usage & Metrics.")}
+                  onChange={value => update("allow_cost_estimation", value)} />
               </SettingsSection>
               <SettingsSection presentation="compact" title={adminText("Access-key extensions")}>
                 <FeatureOverrideField title={adminText("Access-key names and notes")} value={form.draft.allow_access_key_metadata}

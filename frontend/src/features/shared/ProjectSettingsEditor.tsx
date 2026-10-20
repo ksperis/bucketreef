@@ -235,6 +235,7 @@ export default function ProjectSettingsEditor({
     description?: string,
   ) => {
     const featureKeys = {
+      costEstimation: { policy: "cost_estimation", state: "cost_estimation_enabled" },
       browserAccess: { policy: "browser_access", state: "browser_access_enabled" },
       bucketCreate: { policy: "private_storage_space_create", state: "allow_private_storage_space_create" },
       namedBucketCreate: { policy: "named_bucket_create", state: "allow_portal_named_bucket_create" },
@@ -354,6 +355,7 @@ export default function ProjectSettingsEditor({
   };
   const fieldLabels: Record<string, string> = {
     browser_access_enabled: t({ en: "Browser workspace access", fr: "Accès à l’espace Browser", de: "Browser-Arbeitsbereich", zh: "对象浏览工作区访问" }),
+    cost_estimation_enabled: t({ en: "Cost estimation", fr: "Estimation du coût", de: "Kostenschätzung", zh: "成本估算" }),
     allow_private_storage_space_create: t({ en: "Private Storage Space creation", fr: "Création d’espaces privés", de: "Private Speicherbereiche erstellen", zh: "创建私有存储空间" }),
     allow_portal_named_bucket_create: t({ en: "Named bucket creation", fr: "Création de buckets nommés", de: "Benannte Buckets erstellen", zh: "创建指定名称的存储桶" }),
     allow_portal_user_access_key_create: t({ en: "Personal access keys", fr: "Clés d’accès personnelles", de: "Persönliche Zugriffsschlüssel", zh: "个人访问密钥" }),
@@ -532,6 +534,12 @@ export default function ProjectSettingsEditor({
                 zh: "允许的功能",
               })}
             >
+              {row(
+                "costEstimation",
+                t({ en: "Cost estimation", fr: "Estimation du coût", de: "Kostenschätzung", zh: "成本估算" }),
+                settings.effective.cost_estimation_enabled,
+                t({ en: "Show estimated costs in Usage & Metrics.", fr: "Afficher les coûts estimés dans Usage & Metrics.", de: "Geschätzte Kosten in Usage & Metrics anzeigen.", zh: "在 Usage & Metrics 中显示估算成本。" }),
+              )}
               {row(
                 "browserAccess",
                 t({

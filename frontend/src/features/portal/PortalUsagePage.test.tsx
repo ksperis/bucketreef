@@ -63,7 +63,7 @@ const mocks = vi.hoisted(() => {
     },
     usageLoading: false,
     usageError: null,
-    state: { quota_max_size_bytes: 1024, bucket_usage_stats_enabled: true },
+    state: { quota_max_size_bytes: 1024, bucket_usage_stats_enabled: true, cost_estimation_enabled: true },
     traffic: {
       window: "week",
       start: "2026-05-20T00:00:00Z",
@@ -332,7 +332,7 @@ describe("PortalUsagePage", () => {
       rgw_account_id: "RGW40703637082424546",
       tags: [],
     };
-    mocks.hookResult.state = { quota_max_size_bytes: 1024, bucket_usage_stats_enabled: true };
+    mocks.hookResult.state = { quota_max_size_bytes: 1024, bucket_usage_stats_enabled: true, cost_estimation_enabled: true };
     mockCost();
     mockUsageComposition();
     mockUsageHistory();
@@ -431,7 +431,7 @@ describe("PortalUsagePage", () => {
     mocks.hookResult.usage = { used_bytes: null, used_objects: null, storage_spaces: [] };
     mocks.hookResult.traffic = null;
     mocks.hookResult.trafficError = "Traffic data is unavailable.";
-    mocks.hookResult.state = { quota_max_size_bytes: null, bucket_usage_stats_enabled: true };
+    mocks.hookResult.state = { quota_max_size_bytes: null, bucket_usage_stats_enabled: true, cost_estimation_enabled: true };
     mocks.costMock.mockRejectedValue(new Error("cost disabled"));
     mocks.usageStatsMock.mockRejectedValue(new Error("usage stats disabled"));
     mocks.usageHistoryMock.mockResolvedValue({
@@ -482,6 +482,23 @@ describe("PortalUsagePage", () => {
     renderPage();
 
     expect(screen.queryByRole("button", { name: "Costs" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(mocks.usageStatsMock).toHaveBeenCalled();
+      expect(mocks.usageHistoryMock).toHaveBeenCalled();
+    });
+    expect(mocks.costMock).not.toHaveBeenCalled();
+  });
+
+  it("hides cost analytics when the Portal project has not opted in", async () => {
+    mocks.hookResult.state = {
+      quota_max_size_bytes: 1024,
+      bucket_usage_stats_enabled: true,
+      cost_estimation_enabled: false,
+    };
+
+    renderPage();
+
+    expect(screen.queryByRole("tab", { name: "Costs" })).not.toBeInTheDocument();
     await waitFor(() => {
       expect(mocks.usageStatsMock).toHaveBeenCalled();
       expect(mocks.usageHistoryMock).toHaveBeenCalled();

@@ -1608,5 +1608,18 @@
   "Disable server access logging?": "禁用服务器访问日志？",
   "Stop delivering new server access logs for this bucket.": "停止为此Bucket投递新的服务器访问日志。",
   "Disable access logging": "禁用访问日志",
-  "Existing log objects remain in the target bucket, but no new access logs will be delivered.": "现有日志对象会保留在目标Bucket中，但不会再投递新的访问日志。"
+  "Existing log objects remain in the target bucket, but no new access logs will be delivered.": "现有日志对象会保留在目标Bucket中，但不会再投递新的访问日志。",
+  "Costs": "成本",
+  "Monthly cost": "月度成本",
+  "Estimated storage, transfer, and request cost for the selected month.": "所选月份的预计存储、传输和请求成本。",
+  "Cost month": "成本月份",
+  "Estimated cost": "估算成本",
+  "Average storage": "平均存储量",
+  "Requests": "请求",
+  "Cost model not configured": "未配置成本模型",
+  "{count} objects": "{count} 个对象",
+  "{downloaded} downloaded, {uploaded} uploaded": "已下载 {downloaded}，已上传 {uploaded}",
+  "{collected}/{total} days": "{collected}/{total} 天",
+  "Unable to load cost estimate.": "无法加载成本估算。",
+  "No cost data available.": "没有可用的成本数据。"
 }

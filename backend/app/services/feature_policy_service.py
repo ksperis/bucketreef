@@ -23,6 +23,7 @@ MANAGER_RESOURCE_FIELDS = {
     "allow_access_key_management": "ceph_s3_user_keys",
     "allow_access_key_metadata": "access_key_metadata",
     "allow_access_key_expiration": "access_key_expiration",
+    "allow_cost_estimation": "cost_estimation",
     "allow_managed_private_connection_provisioning": "managed_private_connection_provisioning",
 }
 

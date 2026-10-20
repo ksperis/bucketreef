@@ -1608,5 +1608,18 @@
   "tag": "tag",
   "tags": "tags",
   "target bucket does not exist with the same name.": "bucket cible n’existe pas avec le même nom.",
-  "target buckets do not exist with the same name.": "buckets cibles n’existent pas avec le même nom."
+  "target buckets do not exist with the same name.": "buckets cibles n’existent pas avec le même nom.",
+  "Costs": "Coûts",
+  "Monthly cost": "Coût mensuel",
+  "Estimated storage, transfer, and request cost for the selected month.": "Coût estimé du stockage, des transferts et des requêtes pour le mois sélectionné.",
+  "Cost month": "Mois de coût",
+  "Estimated cost": "Coût estimé",
+  "Average storage": "Stockage moyen",
+  "Requests": "Requêtes",
+  "Cost model not configured": "Modèle de coût non configuré",
+  "{count} objects": "{count} objets",
+  "{downloaded} downloaded, {uploaded} uploaded": "{downloaded} téléchargés, {uploaded} envoyés",
+  "{collected}/{total} days": "{collected}/{total} jours",
+  "Unable to load cost estimate.": "Impossible de charger l’estimation du coût.",
+  "No cost data available.": "Aucune donnée de coût disponible."
 }

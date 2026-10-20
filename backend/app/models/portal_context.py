@@ -33,3 +33,4 @@ class PortalState(ApiModel):
     server_access_logging_enabled: bool = True
     storage_space_version_cleanup_enabled: bool = True
     bucket_usage_stats_enabled: bool = True
+    cost_estimation_enabled: bool = False

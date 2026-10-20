@@ -39,6 +39,37 @@ def test_policy_precedence(policy, override, enabled, source):
     assert state.blocked_reason == ("platform_disabled" if policy == "disabled" else "resource_disabled" if override is False else "activation_required" if policy == "targeted" and override is None else None)
 
 
+def test_cost_estimation_policies_default_to_targeted():
+    settings = AppSettings()
+
+    assert settings.manager.feature_policies.cost_estimation == FeaturePolicy.TARGETED
+    assert settings.portal.feature_policies.cost_estimation == FeaturePolicy.TARGETED
+
+
+def test_cost_estimation_targeted_overrides_resolve_for_manager_and_portal(db_session, monkeypatch):
+    settings = AppSettings()
+    account = make_s3_account(
+        db_session,
+        name="Cost opt in",
+        allow_cost_estimation=True,
+        portal_settings_override=json.dumps({"cost_estimation_enabled": True}),
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    manager_state = manager_resource_states(
+        settings.manager.feature_policies,
+        account,
+        _manager_availability(),
+    )["cost_estimation"]
+    assert manager_state.enabled is True
+    assert manager_state.source == "resource"
+
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings", lambda: settings)
+    portal_settings = PortalService(db_session).get_effective_portal_settings(account)
+    assert portal_settings.cost_estimation_enabled is True
+
+
 @pytest.mark.parametrize(
     "policy,override,enabled,source",
     [
@@ -138,16 +169,19 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
         name="Policy patch",
         allow_access_key_metadata=False,
         allow_rgw_usage_metrics=True,
+        allow_cost_estimation=False,
     )
     account_payload = S3AccountUpdate(
         allow_access_key_metadata=None,
         allow_bucket_usage_stats=False,
+        allow_cost_estimation=True,
     )
     apply_resource_feature_overrides(account_payload, account)
 
     assert account.allow_access_key_metadata is None
     assert account.allow_bucket_usage_stats is False
     assert account.allow_rgw_usage_metrics is True
+    assert account.allow_cost_estimation is True
 
     s3_user = S3User(
         name="Policy user",
@@ -155,12 +189,14 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
         storage_endpoint_id=account.storage_endpoint_id,
         allow_access_key_expiration=True,
         allow_activity_history=False,
+        allow_cost_estimation=False,
     )
-    user_payload = S3UserUpdate(allow_activity_history=None)
+    user_payload = S3UserUpdate(allow_activity_history=None, allow_cost_estimation=True)
     apply_resource_feature_overrides(user_payload, s3_user)
 
     assert s3_user.allow_activity_history is None
     assert s3_user.allow_access_key_expiration is True
+    assert s3_user.allow_cost_estimation is True
 
 
 def test_admin_portal_prohibition_returns_forbidden_before_logging_reconciliation(client, db_session, monkeypatch):
@@ -183,7 +219,8 @@ def test_account_provisioning_state_uses_ui_grant_without_inventing_resource_opt
     account = make_s3_account(db_session, name="Account workflow")
     states = manager_resource_states(settings.manager.feature_policies, account, {
         "bucket_quota_management": False, "ceph_s3_user_keys": False, "access_key_metadata": False,
-        "access_key_expiration": False, "managed_private_connection_provisioning": True,
+        "access_key_expiration": False, "cost_estimation": True,
+        "managed_private_connection_provisioning": True,
     }, provisioning_source="group")
     state = states["managed_private_connection_provisioning"]
     assert state.enabled is True
@@ -197,6 +234,7 @@ def _manager_availability() -> dict[str, bool]:
         "ceph_s3_user_keys": True,
         "access_key_metadata": True,
         "access_key_expiration": True,
+        "cost_estimation": True,
         "managed_private_connection_provisioning": True,
     }
 

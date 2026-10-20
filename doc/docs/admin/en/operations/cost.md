@@ -4,12 +4,19 @@ Cost collection is disabled by default and must be enabled explicitly.
 
 ## Enablement model
 
-Cost uses the `cost_enabled` application setting. Administrators can
-change it in general settings; deployments can force it with
-`FEATURE_COST_ENABLED=true` or `false`.
+Cost uses the `cost_enabled` application setting as its master switch.
+Administrators can change it in general settings; deployments can force it
+with `FEATURE_COST_ENABLED=true` or `false`.
 
-The Portal **Costs** tab is shown only when the effective setting is enabled.
-When it is disabled, Portal does not call the cost source endpoint.
+Manager and Portal exposure use separate feature policies and both default to
+**Targeted activation**. In Manager, enable **Cost estimation** for an eligible
+persisted RGW Account or RGW User. S3 Connection contexts do not expose cost
+estimation. In Portal, enable **Cost estimation** for the project through its
+Portal settings override.
+
+The **Costs** tab in **Usage & Metrics** is shown only when the global Cost
+switch and the effective Manager resource or Portal project setting are both
+enabled. When it is hidden, that workspace does not call its cost endpoint.
 
 Cost settings remain available at `/admin/cost-settings` even while the
 feature is disabled, so the model can be prepared before activation.
@@ -30,9 +37,9 @@ override exists, it replaces the global prices for that endpoint. Endpoints
 without an override use the global model.
 
 Endpoint overrides require a global model. Removing the global model also
-removes its endpoint overrides. Without a Cost model, Admin and Portal still
-show storage, traffic, request, and coverage data, but estimated costs are
-unavailable.
+removes its endpoint overrides. Without a Cost model, Admin, Manager and Portal
+still show storage, traffic, request, and coverage data where Cost is exposed,
+but estimated costs are unavailable.
 
 There are no subject assignments, effective-date tariffs, statements, or
 invoice-generation concepts in the Cost model.

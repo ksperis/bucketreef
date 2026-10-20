@@ -80,6 +80,7 @@ from app.routers.internal import access_key_expirations as internal_access_key_e
 from app.routers.manager import activity as manager_activity
 from app.routers.manager import buckets as manager_buckets
 from app.routers.manager import context as manager_context
+from app.routers.manager import cost as manager_cost
 from app.routers.manager import ceph_keys as manager_ceph_keys
 from app.routers.manager import private_access as manager_private_access
 from app.routers.manager import feature_rules as manager_feature_rules
@@ -338,6 +339,7 @@ if runtime_surface_enabled(settings, "manager"):
         manager_iam_policies.router,
         manager_topics.router,
         manager_stats.router,
+        manager_cost.router,
         manager_migrations.router,
         manager_integrity.router,
         manager_purge.router,

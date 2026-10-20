@@ -110,6 +110,7 @@ export default function PortalUsagePage() {
     state,
   } = usePortalWorkspaceData({ includeUsage: true, includeTraffic: true, includeHealth: true, trafficWindow });
   const bucketUsageStatsEnabled = state?.bucket_usage_stats_enabled === true;
+  const costEstimationEnabled = generalSettings.cost_enabled && state?.cost_estimation_enabled === true;
 
   const tabs = useMemo(
     () =>
@@ -119,9 +120,9 @@ export default function PortalUsagePage() {
         ...(bucketUsageStatsEnabled ? [{ id: "usage-composition" as const, label: t({ en: "File types", fr: "Types de fichiers", de: "Dateitypen", zh: "文件类型" }) }] : []),
         ...(generalSettings.usage_history_enabled ? [{ id: "usage-history" as const, label: t({ en: "Trends", fr: "Tendances", de: "Trends", zh: "趋势" }) }] : []),
         { id: "traffic" as const, label: t({ en: "Uploads & downloads", fr: "Envois et téléchargements", de: "Uploads & Downloads", zh: "上传与下载" }) },
-        ...(generalSettings.cost_enabled ? [{ id: "cost" as const, label: t({ en: "Costs", fr: "Coûts", de: "Kosten", zh: "费用" }) }] : []),
+        ...(costEstimationEnabled ? [{ id: "cost" as const, label: t({ en: "Costs", fr: "Coûts", de: "Kosten", zh: "费用" }) }] : []),
       ],
-    [bucketUsageStatsEnabled, generalSettings.cost_enabled, generalSettings.usage_history_enabled, t]
+    [bucketUsageStatsEnabled, costEstimationEnabled, generalSettings.usage_history_enabled, t]
   );
 
   useEffect(() => {
@@ -192,7 +193,7 @@ export default function PortalUsagePage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!generalSettings.cost_enabled || !hasAccountContext || !accountIdForApi || !month) {
+    if (!costEstimationEnabled || !hasAccountContext || !accountIdForApi || !month) {
       setCostDetail(null);
       setCostLoading(false);
       setCostUnavailable(false);
@@ -221,7 +222,7 @@ export default function PortalUsagePage() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, generalSettings.cost_enabled, hasAccountContext, month, t]);
+  }, [accountIdForApi, costEstimationEnabled, hasAccountContext, month, t]);
 
   const storageBySpace = useMemo(() => {
     const usageSpaces = usage?.storage_spaces ?? [];

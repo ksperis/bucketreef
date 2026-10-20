@@ -1741,5 +1741,10 @@
   "Unable to save Cost settings.": "Kosteneinstellungen konnten nicht gespeichert werden.",
   "Unit prices used to estimate storage, transfer, and request costs.": "Stückpreise zur Schätzung der Kosten für Speicher, Übertragung und Anfragen.",
   "Usage remains available, but estimated costs are unavailable until a model is configured.": "Nutzungsdaten bleiben verfügbar, geschätzte Kosten erst nach Konfiguration eines Modells.",
-  "Use global": "Globales Modell verwenden"
+  "Use global": "Globales Modell verwenden",
+  "Cost estimation": "Kostenschätzung",
+  "Show estimated costs in Portal Usage & Metrics when Cost is enabled globally.": "Geschätzte Kosten in Usage & Metrics des Portals anzeigen, wenn Cost global aktiviert ist.",
+  "Show estimated costs in Manager Usage & Metrics when Cost is enabled globally.": "Geschätzte Kosten in Usage & Metrics des Managers anzeigen, wenn Cost global aktiviert ist.",
+  "Controls the Cost tab for this RGW Account in Manager Usage & Metrics.": "Steuert den Cost-Tab für dieses RGW-Konto in Usage & Metrics des Managers.",
+  "Controls the Cost tab for this RGW User in Manager Usage & Metrics.": "Steuert den Cost-Tab für diesen RGW-Benutzer in Usage & Metrics des Managers."
 }

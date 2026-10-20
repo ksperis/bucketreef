@@ -13,14 +13,20 @@ import {
   type UsageHistoryTrendResponse,
   type UsageHistoryTrendWindow,
 } from "../../api/usageHistory";
+import { getManagerCostMe, type CostSubjectDetail } from "../../api/cost";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import { MetricsCard, MetricsEmptyState } from "../../components/MetricsCard";
+import { MetricsSnapshotCard } from "../../components/MetricsTrafficOverview";
 import PageShell from "../../components/PageShell";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
 import MetricsUnavailableCard from "../../components/MetricsUnavailableCard";
 import PageEmptyState from "../../components/PageEmptyState";
 import UsageBreakdown from "../../components/UsageBreakdown";
 import UsageHistoryTrendsSection from "../../components/UsageHistoryTrendsSection";
+import UiInput from "../../components/ui/UiInput";
 import { extractApiError, isCancelledError } from "../../utils/apiError";
+import { currentUtcMonthInputValue } from "../../utils/dateInputValues";
+import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
 import TrafficAnalytics from "./TrafficAnalytics";
 import { useS3AccountContext } from "./S3AccountContext";
@@ -28,12 +34,25 @@ import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerStats } from "./useManagerStats";
 import { useManagerI18n } from "./managerI18n";
 
-type ManagerMetricsTab = "storage" | "usage-composition" | "usage-history" | "traffic";
+type ManagerMetricsTab = "storage" | "usage-composition" | "usage-history" | "traffic" | "cost";
+
+function formatCostCurrency(value: number | null | undefined, currency: string | null | undefined, locale: string): string {
+  if (value == null || !currency) return "—";
+  try {
+    return new Intl.NumberFormat(locale, { style: "currency", currency }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${currency}`;
+  }
+}
 
 export default function ManagerMetricsPage() {
-  const { text } = useManagerI18n();
+  const { text, intlLocale } = useManagerI18n();
   const { generalSettings } = useGeneralSettings();
   const [activeTab, setActiveTab] = useState<ManagerMetricsTab>("storage");
+  const [month, setMonth] = useState(currentUtcMonthInputValue());
+  const [costDetail, setCostDetail] = useState<CostSubjectDetail | null>(null);
+  const [costLoading, setCostLoading] = useState(false);
+  const [costError, setCostError] = useState<string | null>(null);
   const {
     accounts,
     selectedS3AccountId,
@@ -58,6 +77,10 @@ export default function ManagerMetricsPage() {
     hasContext &&
     Boolean(requiresS3AccountSelection) &&
     managerFeatureStates?.bucket_usage_stats?.enabled === true;
+  const canShowCostEstimation =
+    Boolean(generalSettings.cost_enabled) &&
+    hasContext &&
+    managerFeatureStates?.cost_estimation?.enabled === true;
   const canShowUsageBreakdowns = usageFeatureEnabled && hasContext;
   const showTrafficAnalytics = metricsFeatureEnabled && hasContext;
   const showMetricsDisabledBanner = hasContext && !usageFeatureEnabled && !metricsFeatureEnabled;
@@ -92,8 +115,37 @@ export default function ManagerMetricsPage() {
     Boolean(managerMetricsMessage) &&
     !showUsageBreakdowns &&
     !showTrafficAnalytics &&
-    !canLoadUsageStatsAggregate;
-  const showFullPageMetricsDisabled = showMetricsDisabledBanner && !canLoadUsageStatsAggregate;
+    !canLoadUsageStatsAggregate &&
+    !canShowCostEstimation;
+  const showFullPageMetricsDisabled = showMetricsDisabledBanner && !canLoadUsageStatsAggregate && !canShowCostEstimation;
+
+  useEffect(() => {
+    if (!canShowCostEstimation || !month) {
+      setCostDetail(null);
+      setCostLoading(false);
+      setCostError(null);
+      return;
+    }
+    let cancelled = false;
+    setCostLoading(true);
+    setCostError(null);
+    getManagerCostMe(month, accountIdForApi)
+      .then((data) => {
+        if (!cancelled) setCostDetail(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setCostDetail(null);
+          setCostError(extractApiError(err, text("Unable to load cost estimate.")));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCostLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountIdForApi, canShowCostEstimation, month, text]);
 
   const loadUsageStatsAggregate = useCallback(async () => {
     if (!canLoadUsageStatsAggregate) {
@@ -203,8 +255,9 @@ export default function ManagerMetricsPage() {
         ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: text("Usage composition") }] : []),
         ...(showUsageHistoryTrends ? [{ id: "usage-history" as const, label: text("Usage history") }] : []),
         { id: "traffic" as const, label: text("Traffic") },
+        ...(canShowCostEstimation ? [{ id: "cost" as const, label: text("Costs") }] : []),
       ],
-    [canLoadUsageStatsAggregate, showUsageHistoryTrends, text]
+    [canLoadUsageStatsAggregate, canShowCostEstimation, showUsageHistoryTrends, text]
   );
 
   useEffect(() => {
@@ -370,6 +423,65 @@ export default function ManagerMetricsPage() {
               visible={activeTab === "traffic"}
             />
           )}
+          {activeTab === "cost" && canShowCostEstimation ? (
+            <MetricsCard
+              title={text("Monthly cost")}
+              description={text("Estimated storage, transfer, and request cost for the selected month.")}
+              actions={
+                <UiInput
+                  type="month"
+                  aria-label={text("Cost month")}
+                  value={month}
+                  onChange={(event) => setMonth(event.target.value)}
+                  className="w-40"
+                />
+              }
+            >
+              {costLoading && !costDetail ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <MetricsSnapshotCard label={text("Estimated cost")} value="—" loading />
+                  <MetricsSnapshotCard label={text("Average storage")} value="—" loading />
+                  <MetricsSnapshotCard label={text("Requests")} value="—" loading />
+                  <MetricsSnapshotCard label={text("Coverage")} value="—" loading />
+                </div>
+              ) : costDetail ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <MetricsSnapshotCard
+                    label={text("Estimated cost")}
+                    value={formatCostCurrency(costDetail.cost?.total_cost, costDetail.cost?.currency, intlLocale)}
+                    hint={costDetail.cost?.currency ?? text("Cost model not configured")}
+                    loading={costLoading}
+                  />
+                  <MetricsSnapshotCard
+                    label={text("Average storage")}
+                    value={formatBytes(costDetail.storage.avg_bytes)}
+                    hint={text("{count} objects", { count: formatCompactNumber(costDetail.storage.total_objects) })}
+                    loading={costLoading}
+                  />
+                  <MetricsSnapshotCard
+                    label={text("Requests")}
+                    value={formatCompactNumber(costDetail.usage.ops_total)}
+                    hint={text("{downloaded} downloaded, {uploaded} uploaded", {
+                      downloaded: formatBytes(costDetail.usage.bytes_out),
+                      uploaded: formatBytes(costDetail.usage.bytes_in),
+                    })}
+                    loading={costLoading}
+                  />
+                  <MetricsSnapshotCard
+                    label={text("Coverage")}
+                    value={text("{collected}/{total} days", {
+                      collected: costDetail.coverage.days_collected,
+                      total: costDetail.coverage.days_in_month,
+                    })}
+                    hint={formatPercentage(costDetail.coverage.coverage_ratio * 100)}
+                    loading={costLoading}
+                  />
+                </div>
+              ) : (
+                <MetricsEmptyState>{costError ?? text("No cost data available.")}</MetricsEmptyState>
+              )}
+            </MetricsCard>
+          ) : null}
           </PageTabPanel>
         </>
       )}
