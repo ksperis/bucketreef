@@ -41,6 +41,7 @@ describe("route snapshot", () => {
       "/admin/metrics",
       "/admin/portal-requests",
       "/admin/cost",
+      "/admin/cost/subject/:subjectType/:subjectId",
       "/admin/usage-history",
       "/admin/production-readiness",
       "/admin/general-settings",
