@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings as get_runtime_settings
@@ -59,7 +60,7 @@ class ExecutionContextCatalogService:
         else:
             account_ids = {link.account_id for link in effective.account_links}
             accounts = (
-                self.db.query(S3Account).filter(S3Account.id.in_(account_ids)).all()
+                self.db.scalars(select(S3Account).where(S3Account.id.in_(account_ids))).all()
                 if account_ids
                 else []
             )
@@ -88,7 +89,7 @@ class ExecutionContextCatalogService:
 
             s3_user_ids = set(effective.s3_user_ids)
             s3_users = (
-                self.db.query(S3User).filter(S3User.id.in_(s3_user_ids)).all()
+                self.db.scalars(select(S3User).where(S3User.id.in_(s3_user_ids))).all()
                 if s3_user_ids
                 else []
             )
