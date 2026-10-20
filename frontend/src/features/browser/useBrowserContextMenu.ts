@@ -2,9 +2,15 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
-import type { ContextMenuState } from "./browserTypes";
+import type { BrowserItem, ContextMenuState } from "./browserTypes";
 
 const CONTEXT_MENU_PADDING_PX = 8;
 const CONTEXT_MENU_FALLBACK_WIDTH_PX = 240;
@@ -16,6 +22,12 @@ type ContextMenuAnchor = {
   x: number;
   y: number;
   horizontalAlignment?: "start" | "end";
+};
+
+type UseBrowserContextMenuOptions = {
+  headerConfigurationEnabled: boolean;
+  prepareItemActionsMenu: (item: BrowserItem) => void;
+  prepareItemContextMenu: (item: BrowserItem) => ContextMenuPayload;
 };
 
 function clampContextMenuPosition(
@@ -49,7 +61,11 @@ function clampContextMenuPosition(
   };
 }
 
-export function useBrowserContextMenu() {
+export function useBrowserContextMenu({
+  headerConfigurationEnabled,
+  prepareItemActionsMenu,
+  prepareItemContextMenu,
+}: UseBrowserContextMenuOptions) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
@@ -111,10 +127,73 @@ export function useBrowserContextMenu() {
     };
   }, [contextMenu, repositionContextMenu]);
 
+  const handleItemContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLElement>, item: BrowserItem) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openContextMenu(
+        prepareItemContextMenu(item),
+        { x: event.clientX, y: event.clientY },
+      );
+    },
+    [openContextMenu, prepareItemContextMenu],
+  );
+
+  const handleItemActionsButtonClick = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>, item: BrowserItem) => {
+      event.preventDefault();
+      event.stopPropagation();
+      prepareItemActionsMenu(item);
+      const rect = event.currentTarget.getBoundingClientRect();
+      openContextMenu(
+        { kind: "item", item, items: [item] },
+        {
+          x: rect.right,
+          y: rect.bottom + 6,
+          horizontalAlignment: "end",
+        },
+      );
+    },
+    [openContextMenu, prepareItemActionsMenu],
+  );
+
+  const handlePathContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("button, a, input, textarea, select, label")) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      openContextMenu(
+        { kind: "path" },
+        { x: event.clientX, y: event.clientY },
+      );
+    },
+    [openContextMenu],
+  );
+
+  const handleHeaderContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      if (!headerConfigurationEnabled) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openContextMenu(
+        { kind: "headerConfig" },
+        { x: event.clientX, y: event.clientY },
+      );
+    },
+    [headerConfigurationEnabled, openContextMenu],
+  );
+
   return {
     closeContextMenu,
     contextMenu,
     contextMenuRef,
+    handleHeaderContextMenu,
+    handleItemActionsButtonClick,
+    handleItemContextMenu,
+    handlePathContextMenu,
     openContextMenu,
   };
 }

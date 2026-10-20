@@ -620,12 +620,6 @@ export default function BrowserPage({
     },
     [showOperationsBar, startRegisteredOperation],
   );
-  const {
-    closeContextMenu,
-    contextMenu,
-    contextMenuRef,
-    openContextMenu,
-  } = useBrowserContextMenu();
   const bucketMenuRef = useRef<HTMLDivElement | null>(null);
   const searchOptionsMenuRef = useRef<HTMLDivElement | null>(null);
   const searchControlRef = useRef<HTMLDivElement | null>(null);
@@ -797,6 +791,19 @@ export default function BrowserPage({
     items,
     listItems,
     scopeKey: JSON.stringify([contextIdForApi, bucketName, prefix]),
+  });
+  const {
+    closeContextMenu,
+    contextMenu,
+    contextMenuRef,
+    handleHeaderContextMenu,
+    handleItemActionsButtonClick,
+    handleItemContextMenu,
+    handlePathContextMenu,
+  } = useBrowserContextMenu({
+    headerConfigurationEnabled: isMainBrowserPath,
+    prepareItemActionsMenu,
+    prepareItemContextMenu,
   });
 
   const {
@@ -1138,60 +1145,6 @@ export default function BrowserPage({
   ) => {
     if (event.detail > 1) return;
     openItemPrimaryAction(item);
-  };
-
-  const handleItemContextMenu = (
-    event: ReactMouseEvent<HTMLElement>,
-    item: BrowserItem,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const menuSelection = prepareItemContextMenu(item);
-    openContextMenu(
-      menuSelection,
-      { x: event.clientX, y: event.clientY },
-    );
-  };
-
-  const handleItemActionsButtonClick = (
-    event: ReactMouseEvent<HTMLButtonElement>,
-    item: BrowserItem,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    prepareItemActionsMenu(item);
-    const rect = event.currentTarget.getBoundingClientRect();
-    openContextMenu(
-      { kind: "item", item, items: [item] },
-      {
-        x: rect.right,
-        y: rect.bottom + 6,
-        horizontalAlignment: "end",
-      },
-    );
-  };
-
-  const handlePathContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
-    const target = event.target as HTMLElement;
-    if (target.closest("button, a, input, textarea, select, label")) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    openContextMenu(
-      { kind: "path" },
-      { x: event.clientX, y: event.clientY },
-    );
-  };
-
-  const handleHeaderContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
-    if (!isMainBrowserPath) return;
-    event.preventDefault();
-    event.stopPropagation();
-    openContextMenu(
-      { kind: "headerConfig" },
-      { x: event.clientX, y: event.clientY },
-    );
   };
 
   const handleListKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {

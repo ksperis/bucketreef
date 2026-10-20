@@ -1,6 +1,7 @@
-import { act, fireEvent, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBrowserContextMenu } from "./useBrowserContextMenu";
+import type { BrowserItem } from "./browserTypes";
 
 const originalInnerWidth = window.innerWidth;
 const originalInnerHeight = window.innerHeight;
@@ -19,6 +20,16 @@ function setViewport(width: number, height: number) {
 describe("useBrowserContextMenu", () => {
   beforeEach(() => setViewport(1000, 800));
 
+  const options = () => ({
+    headerConfigurationEnabled: true,
+    prepareItemActionsMenu: vi.fn(),
+    prepareItemContextMenu: vi.fn((item: BrowserItem) => ({
+      kind: "item" as const,
+      item,
+      items: [item],
+    })),
+  });
+
   afterEach(() => {
     setViewport(originalInnerWidth, originalInnerHeight);
     document
@@ -28,7 +39,7 @@ describe("useBrowserContextMenu", () => {
 
   it("clamps point and end-aligned anchors within the viewport", () => {
     setViewport(300, 220);
-    const { result } = renderHook(() => useBrowserContextMenu());
+    const { result } = renderHook(() => useBrowserContextMenu(options()));
 
     act(() => {
       result.current.openContextMenu(
@@ -57,7 +68,7 @@ describe("useBrowserContextMenu", () => {
   });
 
   it("repositions the rendered menu and closes it on outside interactions", async () => {
-    const { result } = renderHook(() => useBrowserContextMenu());
+    const { result } = renderHook(() => useBrowserContextMenu(options()));
     const menu = document.createElement("div");
     menu.dataset.contextMenuHookTest = "true";
     const menuChild = document.createElement("button");
@@ -104,5 +115,72 @@ describe("useBrowserContextMenu", () => {
     });
     fireEvent.keyDown(document, { key: "Escape" });
     expect(result.current.contextMenu).toBeNull();
+  });
+
+  it("owns Browser menu opening semantics", () => {
+    const item: BrowserItem = {
+      id: "item-1",
+      key: "report.csv",
+      name: "report.csv",
+      type: "file",
+      size: "1 KB",
+      modified: "now",
+      owner: "owner",
+    };
+    const config = options();
+    const { result } = renderHook(() => useBrowserContextMenu(config));
+    const view = render(
+      <div>
+        <button
+          data-testid="item-actions"
+          onClick={(event) => result.current.handleItemActionsButtonClick(event, item)}
+        >
+          Actions
+        </button>
+        <div
+          data-testid="path"
+          onContextMenu={result.current.handlePathContextMenu}
+        >
+          Path
+          <button type="button">Child control</button>
+        </div>
+        <div
+          data-testid="header"
+          onContextMenu={result.current.handleHeaderContextMenu}
+        >
+          Header
+        </div>
+        <div
+          data-testid="item"
+          onContextMenu={(event) => result.current.handleItemContextMenu(event, item)}
+        >
+          Item
+        </div>
+      </div>,
+    );
+
+    Object.defineProperty(view.getByTestId("item-actions"), "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ right: 500, bottom: 200 }),
+    });
+    fireEvent.click(view.getByTestId("item-actions"));
+    expect(config.prepareItemActionsMenu).toHaveBeenCalledWith(item);
+    expect(result.current.contextMenu).toMatchObject({ kind: "item", item });
+
+    fireEvent.contextMenu(view.getByTestId("item"), { clientX: 100, clientY: 120 });
+    expect(config.prepareItemContextMenu).toHaveBeenCalledWith(item);
+    expect(result.current.contextMenu).toMatchObject({ kind: "item", x: 100, y: 120 });
+
+    fireEvent.contextMenu(view.getByRole("button", { name: "Child control" }), {
+      clientX: 140,
+      clientY: 160,
+    });
+    expect(result.current.contextMenu).toMatchObject({ kind: "item" });
+
+    fireEvent.contextMenu(view.getByTestId("path"), { clientX: 140, clientY: 160 });
+    expect(result.current.contextMenu).toMatchObject({ kind: "path", x: 140, y: 160 });
+
+    fireEvent.contextMenu(view.getByTestId("header"), { clientX: 180, clientY: 200 });
+    expect(result.current.contextMenu).toMatchObject({ kind: "headerConfig", x: 180, y: 200 });
   });
 });
