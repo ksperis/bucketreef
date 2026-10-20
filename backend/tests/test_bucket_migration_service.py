@@ -199,7 +199,6 @@ def _bucket_profile_stub(
 def _current_only_execution_plan() -> str:
     return json.dumps(
         {
-            "report_version": 2,
             "strategy": "current_only",
             "supported": True,
             "blocked": False,
@@ -219,7 +218,6 @@ def _version_aware_execution_plan(
 ) -> str:
     return json.dumps(
         {
-            "report_version": 2,
             "strategy": "version_aware",
             "supported": True,
             "blocked": False,
@@ -1652,13 +1650,15 @@ def test_run_precheck_passed_then_start_allowed(db_session):
     assert migration.items[0].source_count == 12
     report = json.loads(migration.precheck_report_json or "{}")
     assert report.get("errors") == 0
-    assert report.get("report_version") == 3
+    assert "report_version" not in report
     assert report.get("status") == "passed"
     assert isinstance(report["items"][0]["checks"], list)
     assert "messages" not in report["items"][0]
     assert "source_identity" not in report["items"][0]
     assert "target_identity" not in report["items"][0]
     assert migration.items[0].execution_plan_json is not None
+    execution_plan = json.loads(migration.items[0].execution_plan_json)
+    assert "report_version" not in execution_plan
     queued = service.start_migration(migration.id, configuration_revision=1, confirm_write_interruption=True)
     assert queued.status == "queued"
 

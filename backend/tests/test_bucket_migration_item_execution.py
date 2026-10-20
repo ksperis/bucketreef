@@ -14,7 +14,6 @@ from app.services.bucket_migration_service import BucketMigrationService
 def _execution_plan() -> str:
     return json.dumps(
         {
-            "report_version": 2,
             "strategy": "current_only",
             "supported": True,
             "blocked": False,

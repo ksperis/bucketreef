@@ -13,7 +13,6 @@ from .precheck_inspection import BucketMigrationInspector
 from .precheck_rules import BucketMigrationPrecheckRules, PrecheckItemSafety
 
 
-_PRECHECK_REPORT_VERSION = 3
 _SUPPORTED_BUCKET_SETTINGS = (
     "versioning",
     "object_lock",
@@ -485,7 +484,6 @@ class BucketMigrationPrecheckPlanner:
 
     def _new_report(self, *, checked_at: Any) -> dict[str, Any]:
         return {
-            "report_version": _PRECHECK_REPORT_VERSION,
             "status": "passed",
             "checked_at": checked_at.isoformat(),
             "contexts": {},
@@ -746,7 +744,6 @@ class BucketMigrationPrecheckPlanner:
         item.source_snapshot_json = self._service._json_dumps_safe(source_profile)
         item.target_snapshot_json = self._service._json_dumps_safe(target_profile)
         execution_plan = {
-            "report_version": _PRECHECK_REPORT_VERSION,
             "strategy": strategy,
             "supported": not blocking,
             "blocked": blocking,

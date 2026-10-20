@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 bucket migration report version cleanup
+
+Migration `0175_remove_bucket_migration_report_version` removes the unused
+`report_version` metadata from persisted bucket migration precheck reports and
+per-bucket execution plans. Runtime code never selected behavior from this value,
+so retaining it only implied a compatibility contract that did not exist.
+
+Deploy the migration, backend, and frontend together. New reports and execution
+plans omit `report_version`. Downgrade restores version `3` on valid persisted
+objects for the previous application version.
+
 ## 2026-10 canonical bucket migration item identities
 
 Migration `0174_remove_bucket_migration_item_identities` removes duplicated

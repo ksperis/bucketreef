@@ -70,7 +70,6 @@ function buildDetail() {
     cancel_requested: false,
     precheck_status: "passed",
     precheck_report: {
-      report_version: 3,
       status: "failed",
       errors: 1,
       warnings: 1,

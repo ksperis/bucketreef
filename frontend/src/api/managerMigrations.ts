@@ -58,7 +58,6 @@ type BucketMigrationPrecheckItemReport = {
 };
 
 export type BucketMigrationPrecheckReport = {
-  report_version?: number;
   status?: string;
   checked_at?: string;
   checks?: BucketMigrationPrecheckEntry[];
