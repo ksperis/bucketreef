@@ -117,7 +117,6 @@ class BucketMigrationActionAvailability(ApiModel):
 class BucketMigrationDiagnostic(ApiModel):
     code: str
     severity: Literal["info", "warning", "error"]
-    level: Literal["info", "warning", "error"]
     blocking: bool
     scope: str
     message: str

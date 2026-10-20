@@ -94,7 +94,6 @@ def _check_entry(
         **{
             "code": code,
             "severity": severity,
-            "level": severity,
             "blocking": bool(blocking),
             "scope": scope,
             "message": sanitized_error_log_detail(message),
@@ -119,9 +118,7 @@ def _check_entry(
 def _count_entries(entries: list[dict[str, Any]]) -> dict[str, int]:
     summary = {"errors": 0, "warnings": 0, "infos": 0, "blocking_errors": 0}
     for entry in entries:
-        severity = (
-            str(entry.get("severity") or entry.get("level") or "").strip().lower()
-        )
+        severity = str(entry.get("severity") or "").strip().lower()
         if severity == "error":
             summary["errors"] += 1
             if bool(entry.get("blocking")):

@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0172_canonical_bucket_migration_checks"
+_EXPECTED_ALEMBIC_HEAD = "0173_canonical_bucket_migration_severity"
 
 
 def _alembic_config() -> Config:
