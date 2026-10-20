@@ -3,6 +3,7 @@
 
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import StorageEndpointNotFoundError
@@ -54,10 +55,10 @@ class S3ConnectionEndpointPlanner:
                 raise ValueError(
                     "Custom endpoint fields cannot be combined with a managed storage endpoint"
                 )
-            endpoint = (
-                self.db.query(StorageEndpoint)
-                .filter(StorageEndpoint.id == desired_endpoint_id)
-                .first()
+            endpoint = self.db.scalar(
+                select(StorageEndpoint)
+                .where(StorageEndpoint.id == desired_endpoint_id)
+                .limit(1)
             )
             if endpoint is None:
                 raise StorageEndpointNotFoundError("Storage endpoint not found")
