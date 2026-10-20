@@ -118,11 +118,11 @@ const mocks = vi.hoisted(() => {
     },
   };
   return {
-    billingMock: vi.fn(),
+    costMock: vi.fn(),
     usageHistoryMock: vi.fn(),
     usageStatsMock: vi.fn(),
     generalSettings: {
-      billing_enabled: true,
+      cost_enabled: true,
       usage_history_enabled: true,
     },
     hookArgs: [] as unknown[],
@@ -130,8 +130,8 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("../../api/billing", () => ({
-  getPortalBillingMe: (...args: unknown[]) => mocks.billingMock(...args),
+vi.mock("../../api/cost", () => ({
+  getPortalCostMe: (...args: unknown[]) => mocks.costMock(...args),
 }));
 
 vi.mock("../../api/portalUsage", () => ({
@@ -179,8 +179,8 @@ function renderPage() {
   );
 }
 
-function mockBilling() {
-  mocks.billingMock.mockResolvedValue({
+function mockCost() {
+  mocks.costMock.mockResolvedValue({
     month: "2026-05",
     subject_type: "account",
     subject_id: 101,
@@ -192,7 +192,7 @@ function mockBilling() {
     usage: { bytes_in: 300, bytes_out: 125, ops_total: 30 },
     storage: { avg_bytes: 456, total_objects: 12 },
     coverage: { days_collected: 2, days_in_month: 31, coverage_ratio: 0.06 },
-    cost: { total_cost: 1.25, currency: "EUR", rate_card_name: "default" },
+    cost: { total_cost: 1.25, currency: "EUR", pricing_source: "global" },
   });
 }
 
@@ -272,7 +272,7 @@ describe("PortalUsagePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.hookArgs.length = 0;
-    mocks.generalSettings.billing_enabled = true;
+    mocks.generalSettings.cost_enabled = true;
     mocks.generalSettings.usage_history_enabled = true;
     mocks.hookResult.workspace = {
       accountName: "Research Project",
@@ -333,7 +333,7 @@ describe("PortalUsagePage", () => {
       tags: [],
     };
     mocks.hookResult.state = { quota_max_size_bytes: 1024, bucket_usage_stats_enabled: true };
-    mockBilling();
+    mockCost();
     mockUsageComposition();
     mockUsageHistory();
   });
@@ -406,19 +406,19 @@ describe("PortalUsagePage", () => {
     expect(screen.getByText("Monthly cost")).toBeInTheDocument();
     expect(await screen.findByText("€1.25")).toBeInTheDocument();
     expect(screen.getByText("File actions")).toBeInTheDocument();
-    expect(screen.getByText("default")).toBeInTheDocument();
+    expect(screen.getByText("Global model")).toBeInTheDocument();
     expect(screen.getByText("2/31 days")).toBeInTheDocument();
-    expect(mocks.billingMock).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}$/), 101);
+    expect(mocks.costMock).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}$/), 101);
 
     const monthInput = screen.getByLabelText("Month");
     expect(monthInput).toHaveClass("ui-control", "ui-control-compact");
     fireEvent.change(monthInput, { target: { value: "2026-04" } });
     await waitFor(() => {
-      expect(mocks.billingMock).toHaveBeenCalledWith("2026-04", 101);
+      expect(mocks.costMock).toHaveBeenCalledWith("2026-04", 101);
     });
   });
 
-  it("keeps unavailable usage, traffic and billing states inside their tabs", async () => {
+  it("keeps unavailable usage, traffic and cost states inside their tabs", async () => {
     mocks.hookResult.workspace = {
       spaces: [{ id: "empty-space", name: "Empty Space", usedBytes: null, objectCount: null, quotaBytes: null }],
       usedBytes: null,
@@ -432,7 +432,7 @@ describe("PortalUsagePage", () => {
     mocks.hookResult.traffic = null;
     mocks.hookResult.trafficError = "Traffic data is unavailable.";
     mocks.hookResult.state = { quota_max_size_bytes: null, bucket_usage_stats_enabled: true };
-    mocks.billingMock.mockRejectedValue(new Error("billing disabled"));
+    mocks.costMock.mockRejectedValue(new Error("cost disabled"));
     mocks.usageStatsMock.mockRejectedValue(new Error("usage stats disabled"));
     mocks.usageHistoryMock.mockResolvedValue({
       window: "month",
@@ -472,12 +472,12 @@ describe("PortalUsagePage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Costs" }));
     await waitFor(() => {
-      expect(screen.getByText("billing disabled")).toBeInTheDocument();
+      expect(screen.getByText("cost disabled")).toBeInTheDocument();
     });
   });
 
-  it("hides billing analytics when the billing feature is disabled", async () => {
-    mocks.generalSettings.billing_enabled = false;
+  it("hides cost analytics when the cost feature is disabled", async () => {
+    mocks.generalSettings.cost_enabled = false;
 
     renderPage();
 
@@ -486,7 +486,7 @@ describe("PortalUsagePage", () => {
       expect(mocks.usageStatsMock).toHaveBeenCalled();
       expect(mocks.usageHistoryMock).toHaveBeenCalled();
     });
-    expect(mocks.billingMock).not.toHaveBeenCalled();
+    expect(mocks.costMock).not.toHaveBeenCalled();
   });
 
   it("keeps Other usage out of Storage Space drill-downs", async () => {
@@ -506,7 +506,7 @@ describe("PortalUsagePage", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(mocks.billingMock).toHaveBeenCalled();
+      expect(mocks.costMock).toHaveBeenCalled();
       expect(mocks.usageStatsMock).toHaveBeenCalled();
       expect(mocks.usageHistoryMock).toHaveBeenCalled();
     });

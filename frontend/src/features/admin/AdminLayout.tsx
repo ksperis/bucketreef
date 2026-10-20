@@ -19,6 +19,7 @@ type AdminNavText = (message: string, values?: AdminTextValues) => string;
 
 const ADMIN_SETTINGS_PATHS = [
   "/admin/general-settings",
+  "/admin/cost-settings",
   "/admin/authentication-settings",
   "/admin/manager-settings",
   "/admin/browser-settings",
@@ -41,7 +42,7 @@ const identityText: AdminNavText = interpolateText;
 export const buildAdminNav = (
   portalEnabled: boolean,
   browserEnabled: boolean,
-  billingEnabled: boolean,
+  costEnabled: boolean,
   usageHistoryEnabled: boolean,
   endpointStatusEnabled: boolean,
   isSuperAdmin: boolean,
@@ -66,6 +67,7 @@ export const buildAdminNav = (
       disabled: !portalEnabled,
       disabledHint: !portalEnabled ? text("Portal feature is disabled in General settings.") : undefined,
     },
+    pageLink(ADMIN_PAGE_CONTRACTS["cost-settings"], text),
     pageLink(ADMIN_PAGE_CONTRACTS["webhook-settings"], text),
     {
       ...pageLink(ADMIN_PAGE_CONTRACTS["production-readiness"], text),
@@ -153,7 +155,7 @@ export const buildAdminNav = (
               },
             ]
           : []),
-        ...(billingEnabled ? [pageLink(ADMIN_PAGE_CONTRACTS.billing, text)] : []),
+        ...(costEnabled ? [pageLink(ADMIN_PAGE_CONTRACTS.cost, text)] : []),
         ...(usageHistoryEnabled ? [pageLink(ADMIN_PAGE_CONTRACTS["usage-history"], text)] : []),
         pageLink(ADMIN_PAGE_CONTRACTS["access-audit"], text),
         pageLink(ADMIN_PAGE_CONTRACTS.audit, text),
@@ -184,7 +186,7 @@ export default function AdminLayout() {
   const adminNav = buildAdminNav(
     generalSettings.portal_enabled,
     generalSettings.browser_enabled,
-    generalSettings.billing_enabled,
+    generalSettings.cost_enabled,
     generalSettings.usage_history_enabled,
     generalSettings.endpoint_status_enabled,
     canConfigureApp,

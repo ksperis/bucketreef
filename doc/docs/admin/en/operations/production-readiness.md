@@ -67,7 +67,7 @@ Do not publish the URL broadly until these gates are explicit:
 |---|---|
 | Runtime | Image tag/digest, database, secret store, ingress/TLS, and trusted UI origins. |
 | Data safety | Database backup plus a tested restore path with credential-encryption keys. |
-| Jobs | Intended owner and latest successful healthcheck/billing/quota/usage-history jobs. |
+| Jobs | Intended owner and latest successful healthcheck/cost/quota/usage-history jobs. |
 | Access | Initial roles, UI groups, account links, and enabled workspaces. |
 | Storage backend | First supported endpoint, health evidence, and expected capabilities. |
 | Authentication | Admin passkey plus real OIDC/LDAP flows when enabled. |

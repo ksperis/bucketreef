@@ -65,7 +65,7 @@ print(json.dumps(sorted(app.openapi()["paths"])))
         "/api/manager",
         "/api/portal",
         "/api/browser",
-        "/api/internal/billing",
+        "/api/internal/cost",
         "/api/internal/healthchecks",
         "/api/internal/quota-monitor",
         "/api/internal/usage-history",

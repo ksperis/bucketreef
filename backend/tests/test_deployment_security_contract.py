@@ -99,7 +99,7 @@ def test_helm_workloads_apply_least_privilege_contract():
         "backend-deployment.yaml",
         "frontend-deployment.yaml",
         "postgresql-deployment.yaml",
-        "billing-cronjob.yaml",
+        "cost-cronjob.yaml",
         "healthcheck-cronjob.yaml",
         "quota-monitor-cronjob.yaml",
         "usage-history-cronjob.yaml",

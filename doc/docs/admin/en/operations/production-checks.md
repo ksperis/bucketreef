@@ -212,7 +212,7 @@ Run the real administrator and enabled OIDC/LDAP authentication flows. Include a
 
 ### `manual-jobs-runtime`
 
-Confirm healthcheck, billing, quota-monitor, and usage-history jobs actually execute on the intended owner. In split mode, only the admin runtime should own them.
+Confirm healthcheck, cost, quota-monitor, and usage-history jobs actually execute on the intended owner. In split mode, only the admin runtime should own them.
 
 ### `manual-observability-audit`
 

@@ -8,6 +8,7 @@ const m = (en: string, zh: string) => adminMessage(en, zh);
 export const adminSettingsMessage = {
   admin: m("Admin", "管理员"),
   general: m("General", "常规"),
+  cost: m("Cost", "成本"),
   authentication: m("Authentication", "认证"),
   manager: m("Manager", "Manager"),
   browser: m("Browser", "Browser"),

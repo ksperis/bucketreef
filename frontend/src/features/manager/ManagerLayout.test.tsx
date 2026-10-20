@@ -129,7 +129,7 @@ function buildGeneralSettings(overrides?: Record<string, unknown>) {
     browser_root_enabled: true,
     browser_manager_enabled: true,
     browser_ceph_admin_enabled: true,
-    billing_enabled: false,
+    cost_enabled: false,
     endpoint_status_enabled: false,
     quota_alerts_enabled: false,
     usage_history_enabled: false,

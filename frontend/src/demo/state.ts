@@ -56,7 +56,7 @@ export const settings: AppSettings = {
     manager_enabled: true, ceph_admin_enabled: true, storage_ops_enabled: false,
     browser_enabled: true, browser_root_enabled: true, browser_manager_enabled: true,
     browser_portal_enabled: true, browser_ceph_admin_enabled: true, portal_enabled: true,
-    billing_enabled: true, endpoint_status_enabled: true, quota_alerts_enabled: true,
+    cost_enabled: true, endpoint_status_enabled: true, quota_alerts_enabled: true,
     usage_history_enabled: true,
     allow_login_access_keys: false, allow_login_endpoint_list: false, allow_login_custom_endpoint: false,
     require_passkey_for_admins: false, require_passkey_for_users: false,

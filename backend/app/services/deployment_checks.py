@@ -124,7 +124,7 @@ def _manual_findings(profile: DeploymentProfile) -> list[DeploymentCheckFinding]
         _manual(
             "manual-jobs-runtime",
             "Scheduled jobs execution",
-            "Confirm healthcheck, billing, quota, and usage-history jobs actually run where intended.",
+            "Confirm healthcheck, cost, quota, and usage-history jobs actually run where intended.",
         ),
         _manual(
             "manual-observability-audit",

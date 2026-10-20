@@ -76,7 +76,7 @@ workspace-specific visual themes when a shared product pattern fits.
 | `/portal` | End-user storage workspace for files, shares, governance activity, usage, and personal settings. | Approachable, compact, user-facing, and bounded to visible Storage Spaces. | `PageHeader`, `WorkspaceDashboardKit`, `PageTabs variant="line"`, `SettingsLayout`, locked `BrowserEmbed` with the `portal-basic` profile. | IAM jargon, ARNs, principals, policy JSON, bucket diagnostics, lifecycle, replication, versioning, `/portal/browser`, fake production data. |
 | `/browser` | Advanced object explorer and object-operation workspace. | Task-first, technical, and explicit about selected execution context. | `BrowserPage`, `BrowserEmbed`, compact embedded profiles, advanced root profile only when access allows it. | Duplicate browser implementations, hidden context switching, advanced chrome for simple embedded surfaces. |
 | `/manager` | S3 and IAM configuration console for accounts, connections, users, groups, roles, policies, buckets, and bucket features. | Dense, accurate, and native to S3/IAM semantics. | `PageHeader`, `PageTabs`, `DataTableShell`, `ListToolbar`, `BucketFeatureSection`, shared metrics and dashboard components. | Hiding native S3/IAM meaning, Portal wording, platform-governance settings that belong in Admin. |
-| `/admin` | Platform governance for UI users, endpoints, accounts, feature flags, audit, billing, health, and global settings. | Administrative, auditable, and oriented around platform state. | `PageHeader`, settings panels, `WorkflowTabs`, shared association summaries, shared metrics cards. | Generic S3 object workflows, tenant operations without explicit governance context, local-only visual patterns. |
+| `/admin` | Platform governance for UI users, endpoints, accounts, feature flags, audit, cost, health, and global settings. | Administrative, auditable, and oriented around platform state. | `PageHeader`, settings panels, `WorkflowTabs`, shared association summaries, shared metrics cards. | Generic S3 object workflows, tenant operations without explicit governance context, local-only visual patterns. |
 | `/ceph-admin` | Ceph RGW cluster administration for authorized operators. | High-signal, risk-aware, and explicit about endpoint-wide impact. | Ceph Admin shell, compact operational tables, risk acknowledgement for endpoint-wide Browser use. | Regular tenant file work, hiding owner/executor ambiguity, Portal or Manager shortcuts. |
 | `/storage-ops` | Operational bucket tooling and cross-account maintenance. | Deterministic, compact, and action-oriented. | Shared bucket workbench, advanced filter drawer, selection action bar, progress cards. | Decorative cards, hidden filters that change backend semantics, UI-only filters without backend support. |
 
@@ -196,13 +196,13 @@ Purely informational tables keep their enclosing section without invented
 search or result-count controls. Browser and its embedded components are
 excluded; shared profile presentation opts in only outside Browser.
 
-Controls that affect multiple sections remain at page level: Billing month and
+Controls that affect multiple sections remain at page level: Cost month and
 endpoint affect monthly totals and subjects; Endpoint Status filters latency,
-timelines and incidents together. Billing's subject type only filters the table.
+timelines and incidents together. Cost's subject type only filters the table.
 Admin metrics keeps its Ceph endpoint selector beside the page heading.
 
 Use `InlineSummary` for useful operational values (collection freshness, maximum
-quota usage, billing totals and coverage), without individual cards. Keep a
+quota usage, cost totals and coverage), without individual cards. Keep a
 single result count in the list toolbar, or in the tabs when they already count
 requests and sessions. Portal activity does not need a second overview.
 
@@ -214,7 +214,7 @@ filters apply only to loaded entries; label that boundary explicitly and retain
 cursor-based loading. Do not turn an existing local filter into an implied
 server-wide search.
 
-Manual billing collection uses a closed `UiDetails` by default. Its progress,
+Manual cost collection uses a closed `UiDetails` by default. Its progress,
 results, partial errors and coverage warnings stay outside the disclosure so
 closing it never hides operational feedback. Preserve feature-disabled, empty,
 permission and unavailable states, without presenting missing data as zero.
@@ -505,7 +505,7 @@ while confirmation modals can still appear above it.
 | Bucket-like end-user area | Storage Space | Bucket | Account or storage resource, depending on governance context |
 | Access level | Viewer, Editor, Owner, Manager | IAM policy, group, role, access key, bucket policy | UI user, UI group, feature access, account binding |
 | File operations | Files, folders, uploads, downloads, shares | Objects, prefixes, metadata, versions, storage class | Usually out of scope unless auditing or governance requires it |
-| Usage | Storage health, storage, transfers, billing source | Traffic, usage history, bucket usage, metrics | Usage history, billing, quota monitoring, platform health |
+| Usage | Storage health, storage, transfers, cost source | Traffic, usage history, bucket usage, metrics | Usage history, cost, quota monitoring, platform health |
 | Advanced configuration | Hidden from Portal | Lifecycle, replication, CORS, website, notification, policy, encryption | Feature flags, endpoint settings, governance and audit |
 
 When in doubt, keep Portal copy user-facing and keep Manager/Browser copy

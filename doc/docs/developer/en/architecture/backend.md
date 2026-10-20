@@ -217,7 +217,7 @@ and Portal cleanup callers retain their fail-on-error contract.
 ## Operational routes
 
 Internal cron routes are not UI routes. Keep them token-protected and documented
-in Ops pages when scheduler behavior changes. Their health, billing, and usage
+in Ops pages when scheduler behavior changes. Their health, cost, and usage
 collection runs are operational telemetry rather than application audit rows.
 
 See [Audit boundary](audit-boundary.md) before adding any audit producer.

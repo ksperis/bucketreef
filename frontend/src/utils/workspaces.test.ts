@@ -67,7 +67,7 @@ const baseSettings: GeneralSettings = {
   browser_portal_enabled: false,
   browser_ceph_admin_enabled: true,
   portal_enabled: false,
-  billing_enabled: false,
+  cost_enabled: false,
   endpoint_status_enabled: false,
   quota_alerts_enabled: false,
   usage_history_enabled: false,

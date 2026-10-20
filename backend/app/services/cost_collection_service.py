@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db import (
-    BillingStorageDaily,
-    BillingUsageDaily,
+    CostStorageDaily,
+    CostUsageDaily,
     S3Account,
     S3User,
     StorageEndpoint,
@@ -37,7 +37,7 @@ settings = get_settings()
 
 
 @dataclass(frozen=True)
-class _BillingSubject:
+class _CostSubject:
     kind: Literal["account", "s3_user"]
     id: int
     principal: S3Account | S3User
@@ -60,8 +60,8 @@ def _collection_error(
     return error
 
 
-class BillingCollector:
-    """Collect and persist daily RGW usage and storage billing inputs."""
+class CostCollector:
+    """Collect and persist daily RGW usage and storage cost inputs."""
 
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -70,8 +70,8 @@ class BillingCollector:
         from app.services.app_settings_service import load_app_settings
 
         app_settings = load_app_settings()
-        if not app_settings.general.billing_enabled:
-            raise ValueError("Billing is disabled")
+        if not app_settings.general.cost_enabled:
+            raise ValueError("Cost is disabled")
         endpoints = (
             self.db.query(StorageEndpoint)
             .filter(StorageEndpoint.provider == StorageProvider.CEPH.value)
@@ -92,7 +92,7 @@ class BillingCollector:
                 rgw_admin = get_supervision_rgw_client(endpoint)
             except Exception as exc:
                 logger.warning(
-                    "Billing collection skipped for endpoint %s: %s",
+                    "Cost collection skipped for endpoint %s: %s",
                     endpoint.id,
                     exc,
                 )
@@ -121,7 +121,7 @@ class BillingCollector:
         summary["retention"] = DataRetentionService(self.db).purge_all()
         return summary
 
-    def _load_subjects(self, endpoint: StorageEndpoint) -> list[_BillingSubject]:
+    def _load_subjects(self, endpoint: StorageEndpoint) -> list[_CostSubject]:
         accounts = (
             self.db.query(S3Account)
             .filter(S3Account.storage_endpoint_id == endpoint.id)
@@ -133,7 +133,7 @@ class BillingCollector:
             .all()
         )
         subjects = [
-            _BillingSubject(
+            _CostSubject(
                 kind="account",
                 id=int(account.id),
                 principal=account,
@@ -143,7 +143,7 @@ class BillingCollector:
             for account in accounts
         ]
         subjects.extend(
-            _BillingSubject(
+            _CostSubject(
                 kind="s3_user",
                 id=int(s3_user.id),
                 principal=s3_user,
@@ -160,7 +160,7 @@ class BillingCollector:
         *,
         stage: Literal["usage", "storage"],
         endpoint: StorageEndpoint,
-        subject: _BillingSubject,
+        subject: _CostSubject,
         exc: Exception,
     ) -> dict[str, Any]:
         subject_label = "account" if subject.kind == "account" else "s3 user"
@@ -191,7 +191,7 @@ class BillingCollector:
         *,
         stage: Literal["usage", "storage"],
         endpoint: StorageEndpoint,
-        operation: Callable[[_BillingSubject], None],
+        operation: Callable[[_CostSubject], None],
     ) -> tuple[int, list[dict[str, Any]]]:
         created = 0
         errors: list[dict[str, Any]] = []
@@ -226,7 +226,7 @@ class BillingCollector:
         day: date,
         start: datetime,
         end: datetime,
-        subject: _BillingSubject,
+        subject: _CostSubject,
     ) -> None:
         if subject.kind == "account":
             usage_uid = subject.principal.rgw_account_id
@@ -270,7 +270,7 @@ class BillingCollector:
         rgw_admin: RGWAdminClient,
         endpoint: StorageEndpoint,
         day: date,
-        subject: _BillingSubject,
+        subject: _CostSubject,
     ) -> None:
         uid = subject.principal.rgw_user_uid
         if not uid:
@@ -358,7 +358,7 @@ class BillingCollector:
                     raise ValueError("RGW bucket statistics are incomplete")
             total_bytes += used_bytes
             total_objects += object_count
-            if settings.billing_store_by_bucket:
+            if settings.cost_store_by_bucket:
                 by_bucket[str(name)] = {
                     "used_bytes": int(used_bytes),
                     "object_count": int(object_count),
@@ -366,7 +366,7 @@ class BillingCollector:
         return (
             total_bytes,
             total_objects,
-            by_bucket if settings.billing_store_by_bucket else None,
+            by_bucket if settings.cost_store_by_bucket else None,
         )
 
     def _upsert_usage(
@@ -382,13 +382,13 @@ class BillingCollector:
         ops_breakdown: Optional[dict[str, int]],
     ) -> None:
         existing = (
-            self.db.query(BillingUsageDaily)
+            self.db.query(CostUsageDaily)
             .filter(
-                BillingUsageDaily.day == day,
-                BillingUsageDaily.storage_endpoint_id == endpoint_id,
-                BillingUsageDaily.s3_account_id == s3_account_id,
-                BillingUsageDaily.s3_user_id == s3_user_id,
-                BillingUsageDaily.source == "rgw_admin_usage",
+                CostUsageDaily.day == day,
+                CostUsageDaily.storage_endpoint_id == endpoint_id,
+                CostUsageDaily.s3_account_id == s3_account_id,
+                CostUsageDaily.s3_user_id == s3_user_id,
+                CostUsageDaily.source == "rgw_admin_usage",
             )
             .first()
         )
@@ -401,7 +401,7 @@ class BillingCollector:
             existing.ops_breakdown = payload
             existing.collected_at = now
         else:
-            row = BillingUsageDaily(
+            row = CostUsageDaily(
                 day=day,
                 storage_endpoint_id=endpoint_id,
                 s3_account_id=s3_account_id,
@@ -419,13 +419,13 @@ class BillingCollector:
                     self.db.flush()
             except IntegrityError:
                 existing = (
-                    self.db.query(BillingUsageDaily)
+                    self.db.query(CostUsageDaily)
                     .filter(
-                        BillingUsageDaily.day == day,
-                        BillingUsageDaily.storage_endpoint_id == endpoint_id,
-                        BillingUsageDaily.s3_account_id == s3_account_id,
-                        BillingUsageDaily.s3_user_id == s3_user_id,
-                        BillingUsageDaily.source == "rgw_admin_usage",
+                        CostUsageDaily.day == day,
+                        CostUsageDaily.storage_endpoint_id == endpoint_id,
+                        CostUsageDaily.s3_account_id == s3_account_id,
+                        CostUsageDaily.s3_user_id == s3_user_id,
+                        CostUsageDaily.source == "rgw_admin_usage",
                     )
                     .first()
                 )
@@ -450,13 +450,13 @@ class BillingCollector:
         by_bucket: Optional[dict[str, dict[str, int]]],
     ) -> None:
         existing = (
-            self.db.query(BillingStorageDaily)
+            self.db.query(CostStorageDaily)
             .filter(
-                BillingStorageDaily.day == day,
-                BillingStorageDaily.storage_endpoint_id == endpoint_id,
-                BillingStorageDaily.s3_account_id == s3_account_id,
-                BillingStorageDaily.s3_user_id == s3_user_id,
-                BillingStorageDaily.source == "rgw_admin_bucket_stats",
+                CostStorageDaily.day == day,
+                CostStorageDaily.storage_endpoint_id == endpoint_id,
+                CostStorageDaily.s3_account_id == s3_account_id,
+                CostStorageDaily.s3_user_id == s3_user_id,
+                CostStorageDaily.source == "rgw_admin_bucket_stats",
             )
             .first()
         )
@@ -468,7 +468,7 @@ class BillingCollector:
             existing.by_bucket = payload
             existing.collected_at = now
         else:
-            row = BillingStorageDaily(
+            row = CostStorageDaily(
                 day=day,
                 storage_endpoint_id=endpoint_id,
                 s3_account_id=s3_account_id,
@@ -485,13 +485,13 @@ class BillingCollector:
                     self.db.flush()
             except IntegrityError:
                 existing = (
-                    self.db.query(BillingStorageDaily)
+                    self.db.query(CostStorageDaily)
                     .filter(
-                        BillingStorageDaily.day == day,
-                        BillingStorageDaily.storage_endpoint_id == endpoint_id,
-                        BillingStorageDaily.s3_account_id == s3_account_id,
-                        BillingStorageDaily.s3_user_id == s3_user_id,
-                        BillingStorageDaily.source == "rgw_admin_bucket_stats",
+                        CostStorageDaily.day == day,
+                        CostStorageDaily.storage_endpoint_id == endpoint_id,
+                        CostStorageDaily.s3_account_id == s3_account_id,
+                        CostStorageDaily.s3_user_id == s3_user_id,
+                        CostStorageDaily.source == "rgw_admin_bucket_stats",
                     )
                     .first()
                 )

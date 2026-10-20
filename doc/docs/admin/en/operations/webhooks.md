@@ -20,7 +20,7 @@ Each endpoint defines:
 The Admin editor exposes the current event catalogue and groups it by product
 area. It includes audited Admin, Manager, Portal, Browser configuration, Ceph
 Admin, Storage Ops, authentication, and security actions, plus dedicated
-migration, Billing-statement-finalized, endpoint-health, quota-threshold, and
+migration, Cost-statement-finalized, endpoint-health, quota-threshold, and
 webhook-test events.
 
 An endpoint imported from the former bucket-migration-specific callback field

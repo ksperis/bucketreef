@@ -8,20 +8,20 @@ describe("PageHeader", () => {
     const { container } = render(
       <MemoryRouter>
         <PageHeader
-          title="Billing"
+          title="Cost"
           description="Monthly usage and cost overview."
-          breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: "Billing" }]}
+          breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: "Cost" }]}
           actions={[{ label: "Refresh", onClick: () => undefined, variant: "ghost" }]}
         />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("heading", { name: "Billing" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cost" })).toBeInTheDocument();
     expect(screen.getByText("Monthly usage and cost overview.")).toBeInTheDocument();
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(breadcrumb).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
-    expect(within(breadcrumb).getByText("Billing")).toHaveAttribute("aria-current", "page");
+    expect(within(breadcrumb).getByText("Cost")).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh" }).parentElement).toHaveClass("sm:pt-6");
     expect(container.querySelector("header")).not.toHaveClass("ui-surface-card");

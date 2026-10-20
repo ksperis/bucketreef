@@ -126,8 +126,8 @@ DOMAINS = (
         ),
     ),
     Domain(
-        "Observability quota and billing",
-        "observability-quota-billing",
+        "Observability quota and cost",
+        "observability-quota-cost",
         (
             "endpoint_health_checks",
             "endpoint_health_latest",
@@ -136,10 +136,10 @@ DOMAINS = (
             "quota_usage_hourly",
             "quota_usage_daily",
             "quota_alert_states",
-            "billing_usage_daily",
-            "billing_storage_daily",
-            "billing_rate_cards",
-            "billing_assignments",
+            "cost_usage_daily",
+            "cost_storage_daily",
+            "cost_models",
+            "cost_endpoint_overrides",
         ),
     ),
 )

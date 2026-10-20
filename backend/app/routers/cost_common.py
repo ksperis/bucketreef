@@ -6,7 +6,7 @@ from datetime import date, datetime
 from fastapi import HTTPException, status
 
 
-def parse_billing_day(value: str) -> date:
+def parse_cost_day(value: str) -> date:
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError as exc:

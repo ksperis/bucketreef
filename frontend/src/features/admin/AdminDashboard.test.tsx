@@ -70,7 +70,7 @@ function buildGeneralSettings(overrides: Partial<GeneralSettings> = {}): General
     browser_portal_enabled: true,
     browser_ceph_admin_enabled: true,
     portal_enabled: false,
-    billing_enabled: false,
+    cost_enabled: false,
     endpoint_status_enabled: false,
     quota_alerts_enabled: false,
     usage_history_enabled: false,
@@ -327,7 +327,7 @@ describe("AdminDashboard feature summary", () => {
     mocks.generalSettings = buildGeneralSettings({
       portal_enabled: true,
       ceph_admin_enabled: true,
-      billing_enabled: true,
+      cost_enabled: true,
       usage_history_enabled: true,
     });
 
@@ -349,7 +349,7 @@ describe("AdminDashboard feature summary", () => {
 
     expect(within(extraSummary).getByRole("heading", { name: "Extra features" })).toBeInTheDocument();
     expect(within(extraSummary).getByText("2 enabled")).toBeInTheDocument();
-    expect(within(extraSummary).getByText("Billing")).toBeInTheDocument();
+    expect(within(extraSummary).getByText("Cost")).toBeInTheDocument();
     expect(within(extraSummary).getByText("Usage history")).toBeInTheDocument();
     expect(within(extraSummary).queryByText("Endpoint Status")).not.toBeInTheDocument();
     expect(within(extraSummary).queryByText("Quota alerts")).not.toBeInTheDocument();

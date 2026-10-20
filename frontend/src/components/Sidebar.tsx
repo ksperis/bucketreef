@@ -572,7 +572,7 @@ export function resolveSidebarLinkIconName(link: Pick<SidebarLink, "label" | "to
   if (key.includes("polic")) return "document";
   if (key.includes("setting") || key.includes("general")) return "cog";
   if (key.includes("topic") || key.includes("event")) return "bell";
-  if (key.includes("billing")) return "wallet";
+  if (key.includes("cost")) return "wallet";
   if (key.includes("feature") || key.includes("rule")) return "rules";
   if (key.includes("compare")) return "compare";
   if (key.includes("integrity")) return "integrity";

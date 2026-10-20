@@ -1,31 +1,31 @@
-{{- if and .Values.billingCronJob.enabled (eq (include "bucketreef.scheduledJobsEnabled" .) "true") }}
+{{- if and .Values.costCronJob.enabled (eq (include "bucketreef.scheduledJobsEnabled" .) "true") }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "bucketreef.fullname" . }}-billing
+  name: {{ include "bucketreef.fullname" . }}-cost
   labels:
     {{- include "bucketreef.labels" . | nindent 4 }}
-    app.kubernetes.io/component: billing-cron
+    app.kubernetes.io/component: cost-cron
 spec:
-  schedule: {{ .Values.billingCronJob.schedule | quote }}
+  schedule: {{ .Values.costCronJob.schedule | quote }}
   concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: {{ .Values.billingCronJob.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ .Values.billingCronJob.failedJobsHistoryLimit }}
+  successfulJobsHistoryLimit: {{ .Values.costCronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.costCronJob.failedJobsHistoryLimit }}
   jobTemplate:
     spec:
-      backoffLimit: {{ .Values.billingCronJob.backoffLimit }}
+      backoffLimit: {{ .Values.costCronJob.backoffLimit }}
       template:
         metadata:
           labels:
             {{- include "bucketreef.labels" . | nindent 12 }}
-            app.kubernetes.io/component: billing-cron
+            app.kubernetes.io/component: cost-cron
         spec:
           restartPolicy: OnFailure
           automountServiceAccountToken: false
           securityContext:
             {{- toYaml .Values.cronJobs.podSecurityContext | nindent 12 }}
           containers:
-            - name: billing-collector
+            - name: cost-collector
               image: "{{ .Values.image.backend.repository }}:{{ default .Chart.AppVersion .Values.image.backend.tag }}"
               imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
               securityContext:
@@ -36,16 +36,16 @@ spec:
                 - name: tmp
                   mountPath: /tmp
               env:
-                - name: BILLING_API_BASE
+                - name: COST_API_BASE
                   value: {{ printf "http://%s-backend:%d" (include "bucketreef.fullname" .) (.Values.service.backend.port | int) | quote }}
-                - name: BILLING_DAY_OFFSET
-                  value: {{ .Values.billingCronJob.dayOffset | quote }}
+                - name: COST_DAY_OFFSET
+                  value: {{ .Values.costCronJob.dayOffset | quote }}
                 - name: INTERNAL_CRON_TOKEN
                   valueFrom:
                     secretKeyRef:
                       name: {{ .Values.backend.existingSecret | quote }}
                       key: {{ .Values.backend.secretKeys.internalCronToken | quote }}
-                {{- range .Values.billingCronJob.extraEnv }}
+                {{- range .Values.costCronJob.extraEnv }}
                 - name: {{ .name }}
                   value: {{ .value | quote }}
                 {{- end }}
@@ -58,19 +58,19 @@ spec:
                   import sys
                   import requests
 
-                  base = os.environ.get("BILLING_API_BASE")
+                  base = os.environ.get("COST_API_BASE")
                   token = os.environ.get("INTERNAL_CRON_TOKEN")
                   if not base or not token:
-                      print("Missing BILLING_API_BASE or INTERNAL_CRON_TOKEN", file=sys.stderr)
+                      print("Missing COST_API_BASE or INTERNAL_CRON_TOKEN", file=sys.stderr)
                       sys.exit(1)
                   try:
-                      offset = int(os.environ.get("BILLING_DAY_OFFSET", "1"))
+                      offset = int(os.environ.get("COST_DAY_OFFSET", "1"))
                   except ValueError:
                       offset = 1
                   day = (datetime.datetime.utcnow() - datetime.timedelta(days=offset)).date().isoformat()
-                  url = f"{base}/api/internal/billing/collect/daily?day={day}"
+                  url = f"{base}/api/internal/cost/collect/daily?day={day}"
                   resp = requests.post(url, headers={"X-Internal-Token": token}, timeout=30)
-                  print(f"Billing collection returned HTTP {resp.status_code}")
+                  print(f"Cost collection returned HTTP {resp.status_code}")
                   resp.raise_for_status()
                   PY
           volumes:

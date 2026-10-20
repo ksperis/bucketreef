@@ -45,6 +45,7 @@ AUDIT_EVENT_TYPES = (
     'audit.admin.rotate_s3_keys',
     'audit.admin.rotate_s3_user_keys',
     'audit.admin.set_default_storage_endpoint',
+    'audit.admin.cost.settings.update',
     'audit.admin.settings.update',
     'audit.admin.endpoint_service_identity.reconcile',
     'audit.admin.endpoint_service_identity.created',

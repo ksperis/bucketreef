@@ -6,7 +6,7 @@
 | Check an endpoint incident | [Endpoint status](../platform/endpoint-status.md) | Health collection is active. |
 | Review who can access an account or workspace | [Effective access audit](../platform/access-audit.md) | The user/group and target account are known. |
 | Review platform changes | [Audit](../platform/audit.md) | Use application audit for control-plane events. |
-| Review usage, quota, or billing collection | [Usage and metrics](../platform/usage-metrics.md), [Usage history](../platform/usage-history.md), and [Billing](../platform/billing.md) | Collection jobs and endpoint capabilities are healthy. |
+| Review usage, quota, or cost collection | [Usage and metrics](../platform/usage-metrics.md), [Usage history](../platform/usage-history.md), and [Cost](../platform/cost.md) | Collection jobs and endpoint capabilities are healthy. |
 | Rotate managed endpoint credentials | [Key rotation](../platform/key-rotation.md) | Maintenance impact and rollback plan are understood. |
 | Operate Ceph RGW accounts/users/buckets | [Ceph Admin](../storage/ceph-admin/index.md) | Correct endpoint and Ceph Admin authorization are selected. |
 | Run cross-context bucket work | [Storage Ops](../storage/storage-ops/index.md) | Target contexts and filters are correct. |

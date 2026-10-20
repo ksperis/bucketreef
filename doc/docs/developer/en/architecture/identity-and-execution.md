@@ -11,7 +11,7 @@ credentials perform S3, IAM, or RGW operations.
 | UI identity | Workspace visibility, Admin settings, Manager tool access, and audit actor. | `ui_none`, `ui_user`, `ui_admin`, `ui_superadmin`, UI groups, `can_access_storage_ops`, `can_access_ceph_admin`. |
 | Execution context | Credentials and account scope used by storage actions. | RGW account, S3 connection, S3 user, session context, Ceph Admin endpoint. |
 | Portal grant model | User-facing Storage Space visibility and role. | Private Owner, team Viewer/Editor grants, project Manager, Portal account links. |
-| Backend workflow identity | Explicit technical credential used for controlled orchestration. | Portal IAM provisioning, healthchecks, billing, quota, key rotation. |
+| Backend workflow identity | Explicit technical credential used for controlled orchestration. | Portal IAM provisioning, healthchecks, cost, quota, key rotation. |
 
 UI sessions are represented by `auth_sessions` and single-use
 `refresh_tokens`. `external_identities` binds an immutable provider subject to

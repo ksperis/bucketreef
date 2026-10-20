@@ -102,12 +102,12 @@ BUCKET_THEMES: tuple[str, ...] = (
     "ml-features",
     "warehouse",
     "iot-events",
-    "billing",
+    "cost",
 )
 DEFAULT_IAM_BUCKET_POLICY = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 SERVICES: tuple[str, ...] = (
     "accounts",
-    "billing",
+    "cost",
     "cdn",
     "checkout",
     "data-pipeline",

@@ -43,11 +43,11 @@ class BucketMigrationItemNotFoundError(ResourceNotFoundError):
     pass
 
 
-class BillingSubjectNotFoundError(ResourceNotFoundError):
+class CostSubjectNotFoundError(ResourceNotFoundError):
     pass
 
 
-class BillingDisabledError(ValueError):
+class CostDisabledError(ValueError):
     pass
 
 

@@ -38,7 +38,7 @@ const baseSettings: GeneralSettings = {
   browser_portal_enabled: true,
   browser_ceph_admin_enabled: false,
   portal_enabled: true,
-  billing_enabled: false,
+  cost_enabled: false,
   endpoint_status_enabled: false,
   quota_alerts_enabled: false,
   usage_history_enabled: false,
@@ -134,7 +134,7 @@ describe("portal routes", () => {
     expect(childPaths).not.toContain("browser");
     expect(childPaths).not.toContain("buckets");
     expect(childPaths).not.toContain("manage");
-    expect(childPaths).not.toContain("billing");
+    expect(childPaths).not.toContain("cost");
   });
 
   it("does not expose Browser Manager Admin or mock administration pages inside portal", () => {

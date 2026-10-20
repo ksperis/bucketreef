@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useEffect, useMemo, useState } from "react";
-import { getPortalBillingMe, type BillingSubjectDetail } from "../../api/billing";
+import { getPortalCostMe, type CostSubjectDetail } from "../../api/cost";
 import type { BucketUsageStatsAggregate } from "../../api/bucketUsageStats";
 import type { HealthCheckStatus } from "../../api/healthchecks";
 import { fetchPortalUsageHistoryTrends, getPortalUsageStatsAggregate } from "../../api/portalUsage";
@@ -36,7 +36,7 @@ import {
 import { PortalPageState } from "./portalUi";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
-type PortalUsageTab = "storage" | "storage-spaces" | "usage-composition" | "usage-history" | "traffic" | "billing";
+type PortalUsageTab = "storage" | "storage-spaces" | "usage-composition" | "usage-history" | "traffic" | "cost";
 
 function percent(used?: number | null, quota?: number | null): number | null {
   if (used == null || quota == null || quota <= 0) return null;
@@ -79,10 +79,10 @@ export default function PortalUsagePage() {
   const [activeTab, setActiveTab] = useState<PortalUsageTab>("storage");
   const [trafficWindow, setTrafficWindow] = useState<TrafficWindow>("week");
   const [usageHistoryWindow, setUsageHistoryWindow] = useState<UsageHistoryTrendWindow>("month");
-  const [billing, setBilling] = useState<BillingSubjectDetail | null>(null);
-  const [billingLoading, setBillingLoading] = useState(false);
-  const [billingUnavailable, setBillingUnavailable] = useState(false);
-  const [billingError, setBillingError] = useState<string | null>(null);
+  const [costDetail, setCostDetail] = useState<CostSubjectDetail | null>(null);
+  const [costLoading, setCostLoading] = useState(false);
+  const [costUnavailable, setCostUnavailable] = useState(false);
+  const [costError, setCostError] = useState<string | null>(null);
   const [usageStatsAggregate, setUsageStatsAggregate] = useState<BucketUsageStatsAggregate | null>(null);
   const [usageStatsLoading, setUsageStatsLoading] = useState(false);
   const [usageStatsError, setUsageStatsError] = useState<string | null>(null);
@@ -119,9 +119,9 @@ export default function PortalUsagePage() {
         ...(bucketUsageStatsEnabled ? [{ id: "usage-composition" as const, label: t({ en: "File types", fr: "Types de fichiers", de: "Dateitypen", zh: "文件类型" }) }] : []),
         ...(generalSettings.usage_history_enabled ? [{ id: "usage-history" as const, label: t({ en: "Trends", fr: "Tendances", de: "Trends", zh: "趋势" }) }] : []),
         { id: "traffic" as const, label: t({ en: "Uploads & downloads", fr: "Envois et téléchargements", de: "Uploads & Downloads", zh: "上传与下载" }) },
-        ...(generalSettings.billing_enabled ? [{ id: "billing" as const, label: t({ en: "Costs", fr: "Coûts", de: "Kosten", zh: "费用" }) }] : []),
+        ...(generalSettings.cost_enabled ? [{ id: "cost" as const, label: t({ en: "Costs", fr: "Coûts", de: "Kosten", zh: "费用" }) }] : []),
       ],
-    [bucketUsageStatsEnabled, generalSettings.billing_enabled, generalSettings.usage_history_enabled, t]
+    [bucketUsageStatsEnabled, generalSettings.cost_enabled, generalSettings.usage_history_enabled, t]
   );
 
   useEffect(() => {
@@ -192,36 +192,36 @@ export default function PortalUsagePage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!generalSettings.billing_enabled || !hasAccountContext || !accountIdForApi || !month) {
-      setBilling(null);
-      setBillingLoading(false);
-      setBillingUnavailable(false);
-      setBillingError(null);
+    if (!generalSettings.cost_enabled || !hasAccountContext || !accountIdForApi || !month) {
+      setCostDetail(null);
+      setCostLoading(false);
+      setCostUnavailable(false);
+      setCostError(null);
       return () => {
         cancelled = true;
       };
     }
-    setBillingLoading(true);
-    setBillingUnavailable(false);
-    setBillingError(null);
-    getPortalBillingMe(month, accountIdForApi)
+    setCostLoading(true);
+    setCostUnavailable(false);
+    setCostError(null);
+    getPortalCostMe(month, accountIdForApi)
       .then((data) => {
-        if (!cancelled) setBilling(data);
+        if (!cancelled) setCostDetail(data);
       })
       .catch((err) => {
         if (!cancelled) {
-          setBilling(null);
-          setBillingUnavailable(true);
-          setBillingError(extractApiError(err, t({ en: "Unable to load billing source.", fr: "Impossible de charger la source de facturation.", de: "Abrechnungsquelle kann nicht geladen werden.", zh: "无法加载计费来源。" })));
+          setCostDetail(null);
+          setCostUnavailable(true);
+          setCostError(extractApiError(err, t({ en: "Unable to load cost source.", fr: "Impossible de charger la source de facturation.", de: "Abrechnungsquelle kann nicht geladen werden.", zh: "无法加载计费来源。" })));
         }
       })
       .finally(() => {
-        if (!cancelled) setBillingLoading(false);
+        if (!cancelled) setCostLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, generalSettings.billing_enabled, hasAccountContext, month, t]);
+  }, [accountIdForApi, generalSettings.cost_enabled, hasAccountContext, month, t]);
 
   const storageBySpace = useMemo(() => {
     const usageSpaces = usage?.storage_spaces ?? [];
@@ -281,9 +281,9 @@ export default function PortalUsagePage() {
       ? Math.max(0, quotaBytes - totalUsedBytes)
       : null;
   const storageSpaceCount = workspace.spaces.length || storageSpaces?.length || 0;
-  const billingUsage = billing?.usage ?? null;
-  const cost = billing?.cost ?? null;
-  const billingCoverage = billing?.coverage ?? null;
+  const costUsage = costDetail?.usage ?? null;
+  const cost = costDetail?.cost ?? null;
+  const costCoverage = costDetail?.coverage ?? null;
   const trafficMissing = !traffic && !trafficLoading && !trafficError;
   const backendStatus = backendStatusFromHealth(health);
   const backendIssueCount = (health?.down_count ?? 0) + (health?.degraded_count ?? 0);
@@ -302,12 +302,12 @@ export default function PortalUsagePage() {
     return rgwAccountId ? { [rgwAccountId]: workspace.accountName } : {};
   }, [selectedAccount?.rgw_account_id, workspace.accountName]);
 
-  const billingMonthLabel = t({ en: "Month", fr: "Mois", de: "Monat", zh: "月份" });
-  const billingMonthControl = (
+  const costMonthLabel = t({ en: "Month", fr: "Mois", de: "Monat", zh: "月份" });
+  const costMonthControl = (
     <div className={cx(uiCardMutedClass, "flex h-9 items-center gap-2 px-3 ui-caption font-semibold", uiMutedTextClass)}>
-      <label htmlFor="portal-billing-month">{billingMonthLabel}</label>
+      <label htmlFor="portal-cost-month">{costMonthLabel}</label>
       <UiInput
-        id="portal-billing-month"
+        id="portal-cost-month"
         type="month"
         value={month}
         onChange={(event) => setMonth(event.target.value)}
@@ -519,59 +519,63 @@ export default function PortalUsagePage() {
         />
       ) : null}
 
-      {activeTab === "billing" ? (
+      {activeTab === "cost" ? (
         <MetricsCard
           title={t({ en: "Monthly cost", fr: "Coût mensuel", de: "Monatliche Kosten", zh: "月度费用" })}
           description={t({ en: "Estimated storage and transfer cost for the selected month.", fr: "Coût estimé du stockage et des transferts pour le mois sélectionné.", de: "Geschätzte Speicher- und Transferkosten für den ausgewählten Monat.", zh: "所选月份的预计存储和传输费用。" })}
-          actions={billingMonthControl}
+          actions={costMonthControl}
         >
-          {billingLoading && !billing ? (
+          {costLoading && !costDetail ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricsSnapshotCard label={t({ en: "Estimated cost", fr: "Coût estimé", de: "Geschätzte Kosten", zh: "预计费用" })} value="-" loading />
               <MetricsSnapshotCard label={t({ en: "Average storage", fr: "Stockage moyen", de: "Durchschnittlicher Speicher", zh: "平均存储用量" })} value="-" loading />
               <MetricsSnapshotCard label={t({ en: "File actions", fr: "Actions fichier", de: "Dateiaktionen", zh: "文件操作" })} value="-" loading />
               <MetricsSnapshotCard label={t({ en: "Coverage", fr: "Couverture", de: "Abdeckung", zh: "覆盖范围" })} value="-" loading />
             </div>
-          ) : billing ? (
+          ) : costDetail ? (
             <>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <MetricsSnapshotCard
                   label={t({ en: "Estimated cost", fr: "Coût estimé", de: "Geschätzte Kosten", zh: "预计费用" })}
                   value={formatPortalCurrency(cost?.total_cost, cost?.currency, locale)}
-                  hint={cost?.currency ?? t({ en: "Billing currency", fr: "Devise de facturation", de: "Abrechnungswährung", zh: "计费币种" })}
-                  loading={billingLoading}
+                  hint={cost?.currency ?? t({ en: "Cost model not configured", fr: "Modèle de coût non configuré", de: "Kostenmodell nicht konfiguriert", zh: "成本模型未配置" })}
+                  loading={costLoading}
                 />
                 <MetricsSnapshotCard
                   label={t({ en: "Average storage", fr: "Stockage moyen", de: "Durchschnittlicher Speicher", zh: "平均存储用量" })}
-                  value={formatBytes(billing.storage.avg_bytes)}
-                  hint={t({ en: `${formatCompactNumber(billing.storage.total_objects)} files`, fr: `${formatCompactNumber(billing.storage.total_objects)} fichiers`, de: `${formatCompactNumber(billing.storage.total_objects)} Dateien`, zh: `${formatCompactNumber(billing.storage.total_objects)} 个文件` })}
-                  loading={billingLoading}
+                  value={formatBytes(costDetail.storage.avg_bytes)}
+                  hint={t({ en: `${formatCompactNumber(costDetail.storage.total_objects)} files`, fr: `${formatCompactNumber(costDetail.storage.total_objects)} fichiers`, de: `${formatCompactNumber(costDetail.storage.total_objects)} Dateien`, zh: `${formatCompactNumber(costDetail.storage.total_objects)} 个文件` })}
+                  loading={costLoading}
                 />
                 <MetricsSnapshotCard
                   label={t({ en: "File actions", fr: "Actions fichier", de: "Dateiaktionen", zh: "文件操作" })}
-                  value={formatCompactNumber(billingUsage?.ops_total)}
-                  hint={t({ en: `${formatBytes(billingUsage?.bytes_out)} downloaded, ${formatBytes(billingUsage?.bytes_in)} uploaded`, fr: `${formatBytes(billingUsage?.bytes_out)} téléchargés, ${formatBytes(billingUsage?.bytes_in)} envoyés`, de: `${formatBytes(billingUsage?.bytes_out)} heruntergeladen, ${formatBytes(billingUsage?.bytes_in)} hochgeladen`, zh: `已下载 ${formatBytes(billingUsage?.bytes_out)}，已上传 ${formatBytes(billingUsage?.bytes_in)}` })}
-                  loading={billingLoading}
+                  value={formatCompactNumber(costUsage?.ops_total)}
+                  hint={t({ en: `${formatBytes(costUsage?.bytes_out)} downloaded, ${formatBytes(costUsage?.bytes_in)} uploaded`, fr: `${formatBytes(costUsage?.bytes_out)} téléchargés, ${formatBytes(costUsage?.bytes_in)} envoyés`, de: `${formatBytes(costUsage?.bytes_out)} heruntergeladen, ${formatBytes(costUsage?.bytes_in)} hochgeladen`, zh: `已下载 ${formatBytes(costUsage?.bytes_out)}，已上传 ${formatBytes(costUsage?.bytes_in)}` })}
+                  loading={costLoading}
                 />
                 <MetricsSnapshotCard
                   label={t({ en: "Coverage", fr: "Couverture", de: "Abdeckung", zh: "覆盖范围" })}
-                  value={billingCoverage ? t({ en: `${billingCoverage.days_collected}/${billingCoverage.days_in_month} days`, fr: `${billingCoverage.days_collected}/${billingCoverage.days_in_month} jours`, de: `${billingCoverage.days_collected}/${billingCoverage.days_in_month} Tage`, zh: `${billingCoverage.days_collected}/${billingCoverage.days_in_month} 天` }) : "-"}
-                  hint={billingCoverage ? formatPercentage(billingCoverage.coverage_ratio * 100) : t({ en: "Unavailable", fr: "Indisponible", de: "Nicht verfügbar", zh: "不可用" })}
-                  loading={billingLoading}
+                  value={costCoverage ? t({ en: `${costCoverage.days_collected}/${costCoverage.days_in_month} days`, fr: `${costCoverage.days_collected}/${costCoverage.days_in_month} jours`, de: `${costCoverage.days_collected}/${costCoverage.days_in_month} Tage`, zh: `${costCoverage.days_collected}/${costCoverage.days_in_month} 天` }) : "-"}
+                  hint={costCoverage ? formatPercentage(costCoverage.coverage_ratio * 100) : t({ en: "Unavailable", fr: "Indisponible", de: "Nicht verfügbar", zh: "不可用" })}
+                  loading={costLoading}
                 />
               </div>
               <div className={cx(uiCardMutedClass, "px-4 py-3")}>
-                <p className={cx("ui-caption font-semibold", uiMutedTextClass)}>{t({ en: "Rate card", fr: "Grille tarifaire", de: "Tarifkarte", zh: "费率表" })}</p>
+                <p className={cx("ui-caption font-semibold", uiMutedTextClass)}>{t({ en: "Cost model", fr: "Modèle de coût", de: "Kostenmodell", zh: "成本模型" })}</p>
                 <p className={cx("ui-body font-semibold", uiTitleTextClass)}>
-                  {cost?.rate_card_name ? cost.rate_card_name : t({ en: "No rate card attached.", fr: "Aucune grille tarifaire associée.", de: "Keine Tarifkarte zugeordnet.", zh: "未关联费率表。" })}
+                  {cost?.pricing_source === "endpoint_override"
+                    ? t({ en: "Endpoint override", fr: "Override de l’endpoint", de: "Endpoint-Override", zh: "端点覆盖" })
+                    : cost
+                      ? t({ en: "Global model", fr: "Modèle global", de: "Globales Modell", zh: "全局模型" })
+                      : t({ en: "Not configured", fr: "Non configuré", de: "Nicht konfiguriert", zh: "未配置" })}
                 </p>
               </div>
             </>
           ) : (
             <MetricsEmptyState>
-              {billingUnavailable
-                ? billingError ?? t({ en: "Billing source is disabled or unavailable.", fr: "La source de facturation est désactivée ou indisponible.", de: "Abrechnungsquelle ist deaktiviert oder nicht verfügbar.", zh: "计费来源已禁用或不可用。" })
-                : t({ en: "No billing source data available.", fr: "Aucune donnée de source de facturation disponible.", de: "Keine Daten aus der Abrechnungsquelle verfügbar.", zh: "没有可用的计费来源数据。" })}
+              {costUnavailable
+                ? costError ?? t({ en: "Cost data is disabled or unavailable.", fr: "Les données de coût sont désactivées ou indisponibles.", de: "Kostendaten sind deaktiviert oder nicht verfügbar.", zh: "成本数据已禁用或不可用。" })
+                : t({ en: "No cost data available.", fr: "Aucune donnée de coût disponible.", de: "Keine Kostendaten verfügbar.", zh: "没有可用的成本数据。" })}
             </MetricsEmptyState>
           )}
         </MetricsCard>

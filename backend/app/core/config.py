@@ -396,17 +396,17 @@ class Settings(BaseSettings):
         None,
         description="Force Storage Ops feature on/off (FEATURE_STORAGE_OPS_ENABLED)",
     )
-    feature_billing_enabled: Optional[bool] = Field(
+    feature_cost_enabled: Optional[bool] = Field(
         None,
-        description="Force Billing feature on/off (FEATURE_BILLING_ENABLED)",
+        description="Force Cost feature on/off (FEATURE_COST_ENABLED)",
     )
     feature_endpoint_status_enabled: Optional[bool] = Field(
         None,
         description="Force Endpoint Status feature on/off (FEATURE_ENDPOINT_STATUS_ENABLED)",
     )
-    billing_store_by_bucket: bool = Field(
+    cost_store_by_bucket: bool = Field(
         False,
-        description="Store per-bucket breakdown in billing snapshots",
+        description="Store per-bucket breakdown in cost snapshots",
     )
     internal_cron_token: Optional[str] = Field(
         None,
@@ -422,19 +422,15 @@ class Settings(BaseSettings):
         ge=15,
         description="Default backend operation lease TTL in seconds (OPERATION_LEASE_TTL_SECONDS)",
     )
-    billing_operation_lease_ttl_seconds: int = Field(
+    cost_operation_lease_ttl_seconds: int = Field(
         7200,
         ge=60,
-        description="Billing collection operation lease TTL in seconds (BILLING_OPERATION_LEASE_TTL_SECONDS)",
+        description="Cost collection operation lease TTL in seconds (COST_OPERATION_LEASE_TTL_SECONDS)",
     )
-    billing_default_rate_card_name: Optional[str] = Field(
-        None,
-        description="Default billing rate card name when no explicit assignment exists",
-    )
-    billing_daily_retention_days: int = Field(
+    cost_daily_retention_days: int = Field(
         365,
         ge=0,
-        description="Retention in days for billing daily tables; 0 disables purge (BILLING_DAILY_RETENTION_DAYS)",
+        description="Retention in days for cost daily tables; 0 disables purge (COST_DAILY_RETENTION_DAYS)",
     )
     quota_history_hourly_retention_days: int = Field(
         30,

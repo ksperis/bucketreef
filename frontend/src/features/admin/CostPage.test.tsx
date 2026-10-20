@@ -3,23 +3,23 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import BillingPage from "./BillingPage";
+import CostPage from "./CostPage";
 
 const mocks = vi.hoisted(() => ({
-  collectBillingDaily: vi.fn(),
-  downloadBillingCsv: vi.fn(),
-  getBillingSubjectDetail: vi.fn(),
-  getBillingSubjects: vi.fn(),
-  getBillingSummary: vi.fn(),
+  collectCostDaily: vi.fn(),
+  downloadCostCsv: vi.fn(),
+  getCostSubjectDetail: vi.fn(),
+  getCostSubjects: vi.fn(),
+  getCostSummary: vi.fn(),
   listStorageEndpoints: vi.fn(),
 }));
 
-vi.mock("../../api/billing", () => ({
-  collectBillingDaily: (...args: unknown[]) => mocks.collectBillingDaily(...args),
-  downloadBillingCsv: (...args: unknown[]) => mocks.downloadBillingCsv(...args),
-  getBillingSubjectDetail: (...args: unknown[]) => mocks.getBillingSubjectDetail(...args),
-  getBillingSubjects: (...args: unknown[]) => mocks.getBillingSubjects(...args),
-  getBillingSummary: (...args: unknown[]) => mocks.getBillingSummary(...args),
+vi.mock("../../api/cost", () => ({
+  collectCostDaily: (...args: unknown[]) => mocks.collectCostDaily(...args),
+  downloadCostCsv: (...args: unknown[]) => mocks.downloadCostCsv(...args),
+  getCostSubjectDetail: (...args: unknown[]) => mocks.getCostSubjectDetail(...args),
+  getCostSubjects: (...args: unknown[]) => mocks.getCostSubjects(...args),
+  getCostSummary: (...args: unknown[]) => mocks.getCostSummary(...args),
 }));
 
 vi.mock("../../api/storageEndpoints", () => ({
@@ -27,7 +27,7 @@ vi.mock("../../api/storageEndpoints", () => ({
 }));
 
 vi.mock("recharts", () => {
-  const Chart = () => <div data-testid="billing-chart" />;
+  const Chart = () => <div data-testid="cost-chart" />;
   const Passthrough = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   return {
     Area: () => null,
@@ -45,7 +45,7 @@ vi.mock("recharts", () => {
 function renderPage() {
   render(
     <MemoryRouter>
-      <BillingPage />
+      <CostPage />
     </MemoryRouter>
   );
 }
@@ -63,7 +63,7 @@ function summary(overrides = {}) {
       storage_days_collected: 24,
       usage_days_collected: 24,
     },
-    cost: { total_cost: 12.5, currency: "EUR", rate_card_name: "default" },
+    cost: { total_cost: 12.5, currency: "EUR", pricing_source: "global" },
     ...overrides,
   };
 }
@@ -76,7 +76,7 @@ function subject(id: number, name: string) {
     rgw_identifier: `rgw-${id}`,
     storage: { avg_bytes: 2048, avg_gb_month: 0.0000019, total_objects: 4 },
     usage: { bytes_in: 512, bytes_out: 1024, ops_total: 250 },
-    cost: { total_cost: 3.75, currency: "EUR", rate_card_name: "default" },
+    cost: { total_cost: 3.75, currency: "EUR", pricing_source: "global" },
   };
 }
 
@@ -97,11 +97,11 @@ function detail(id: number, name: string) {
       storage_days_collected: 1,
       usage_days_collected: 2,
     },
-    cost: { total_cost: 3.75, currency: "EUR", rate_card_name: "default" },
+    cost: { total_cost: 3.75, currency: "EUR", pricing_source: "global" },
   };
 }
 
-describe("BillingPage", () => {
+describe("CostPage", () => {
   beforeEach(() => {
     vi.setSystemTime(new Date("2026-07-15T12:00:00Z"));
     vi.restoreAllMocks();
@@ -114,42 +114,42 @@ describe("BillingPage", () => {
       configurable: true,
       value: vi.fn(),
     });
-    vi.spyOn(window.URL, "createObjectURL").mockReturnValue("blob:billing");
+    vi.spyOn(window.URL, "createObjectURL").mockReturnValue("blob:cost");
     vi.spyOn(window.URL, "revokeObjectURL").mockImplementation(() => undefined);
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     mocks.listStorageEndpoints.mockResolvedValue([
       { id: 7, name: "Ceph main", provider: "ceph", endpoint_url: "https://rgw.example.test", is_default: true },
       { id: 8, name: "MinIO lab", provider: "minio", endpoint_url: "https://minio.example.test", is_default: false },
     ]);
-    mocks.getBillingSummary.mockResolvedValue(summary());
-    mocks.getBillingSubjects.mockImplementation((_month, _endpointId, _subjectType, page) => {
+    mocks.getCostSummary.mockResolvedValue(summary());
+    mocks.getCostSubjects.mockImplementation((_month, _endpointId, _subjectType, page) => {
       const item = page === 2 ? subject(43, "Tenant B") : subject(42, "Tenant A");
       return Promise.resolve({ items: [item], total: 30, page, page_size: 25, has_next: page === 1 });
     });
-    mocks.getBillingSubjectDetail.mockImplementation((_month, _endpointId, _type, subjectId) =>
+    mocks.getCostSubjectDetail.mockImplementation((_month, _endpointId, _type, subjectId) =>
       Promise.resolve(detail(Number(subjectId), Number(subjectId) === 43 ? "Tenant B" : "Tenant A"))
     );
-    mocks.collectBillingDaily.mockResolvedValue({
+    mocks.collectCostDaily.mockResolvedValue({
       day: "2026-06-30",
       endpoints: 1,
       storage_records: 1,
       usage_records: 0,
       errors: [{ stage: "usage", endpoint_id: 7, subject: "account", subject_id: 42 }],
     });
-    mocks.downloadBillingCsv.mockResolvedValue(new Blob(["subject_type\n"], { type: "text/csv" }));
+    mocks.downloadCostCsv.mockResolvedValue(new Blob(["subject_type\n"], { type: "text/csv" }));
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("renders billing data, paginates subjects, selects a subject, and exports CSV", async () => {
+  it("renders cost data, paginates subjects, selects a subject, and exports CSV", async () => {
     renderPage();
 
-    expect(screen.getByRole("heading", { name: "Billing" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cost" })).toBeInTheDocument();
     expect(await screen.findByText("Tenant A")).toBeInTheDocument();
     expect(screen.getByText("12.50 EUR")).toBeInTheDocument();
-    expect(mocks.getBillingSubjects).toHaveBeenCalledWith("2026-07", 7, "account", 1, 25, "name", "asc");
+    expect(mocks.getCostSubjects).toHaveBeenCalledWith("2026-07", 7, "account", 1, 25, "name", "asc");
     expect(screen.getByLabelText("Month")).toHaveValue("2026-07");
     expect(screen.getByLabelText("Month")).toHaveAttribute("type", "month");
     expect(screen.getByRole("combobox", { name: "Endpoint" })).toHaveValue("7");
@@ -164,7 +164,7 @@ describe("BillingPage", () => {
       "data-mobile-primary",
       "true"
     );
-    expect(within(table).queryByRole("button", { name: "View billing detail for Tenant A" })).not.toBeInTheDocument();
+    expect(within(table).queryByRole("button", { name: "View cost detail for Tenant A" })).not.toBeInTheDocument();
     expect(within(table).getByRole("button", { name: "View" }).closest("td")).toHaveAttribute(
       "data-mobile-actions",
       "true",
@@ -174,16 +174,16 @@ describe("BillingPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Tenant B")).toBeInTheDocument();
-    await waitFor(() => expect(mocks.getBillingSubjects).toHaveBeenLastCalledWith("2026-07", 7, "account", 2, 25, "name", "asc"));
+    await waitFor(() => expect(mocks.getCostSubjects).toHaveBeenLastCalledWith("2026-07", 7, "account", 2, 25, "name", "asc"));
 
     fireEvent.click(screen.getByRole("button", { name: "View" }));
-    await waitFor(() => expect(mocks.getBillingSubjectDetail).toHaveBeenCalledWith("2026-07", 7, "account", 43));
+    await waitFor(() => expect(mocks.getCostSubjectDetail).toHaveBeenCalledWith("2026-07", 7, "account", 43));
     expect(await screen.findByText("This subject has partial source coverage: Storage 1d · Usage 2d.")).toBeInTheDocument();
 
     const exportButton = screen.getByRole("button", { name: "Export CSV" });
     expect(exportButton).toBeEnabled();
     fireEvent.click(exportButton);
-    await waitFor(() => expect(mocks.downloadBillingCsv).toHaveBeenCalledWith("2026-07", 7));
+    await waitFor(() => expect(mocks.downloadCostCsv).toHaveBeenCalledWith("2026-07", 7));
   });
 
   it("sorts subjects from the shared table headers", async () => {
@@ -192,11 +192,11 @@ describe("BillingPage", () => {
     await screen.findByText("Tenant A");
     fireEvent.click(screen.getByRole("button", { name: /^Cost$/ }));
 
-    await waitFor(() => expect(mocks.getBillingSubjects).toHaveBeenLastCalledWith("2026-07", 7, "account", 1, 25, "cost", "desc"));
+    await waitFor(() => expect(mocks.getCostSubjects).toHaveBeenLastCalledWith("2026-07", 7, "account", 1, 25, "cost", "desc"));
 
     fireEvent.click(screen.getByRole("button", { name: /Cost/ }));
 
-    await waitFor(() => expect(mocks.getBillingSubjects).toHaveBeenLastCalledWith("2026-07", 7, "account", 1, 25, "cost", "asc"));
+    await waitFor(() => expect(mocks.getCostSubjects).toHaveBeenLastCalledWith("2026-07", 7, "account", 1, 25, "cost", "asc"));
   });
 
   it("selects a subject with keyboard activation", async () => {
@@ -207,7 +207,7 @@ describe("BillingPage", () => {
     subjectButton.focus();
     await user.keyboard("{Enter}");
 
-    await waitFor(() => expect(mocks.getBillingSubjectDetail).toHaveBeenCalledWith("2026-07", 7, "account", 42));
+    await waitFor(() => expect(mocks.getCostSubjectDetail).toHaveBeenCalledWith("2026-07", 7, "account", 42));
   });
 
   it("shows manual collection details with partial errors", async () => {
@@ -222,7 +222,7 @@ describe("BillingPage", () => {
 
     expect(await screen.findByText(/Collection finished with issues for/)).toBeInTheDocument();
     expect(screen.getByText("Usage: account #42 · endpoint #7")).toBeInTheDocument();
-    await waitFor(() => expect(mocks.getBillingSummary).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mocks.getCostSummary).toHaveBeenCalledTimes(2));
     await user.click(disclosure);
     expect(disclosure.closest("details")).not.toHaveAttribute("open");
     expect(screen.getByText("Usage: account #42 · endpoint #7")).toBeVisible();
@@ -235,26 +235,26 @@ describe("BillingPage", () => {
     expect(screen.getByLabelText("Month").closest("header")).not.toBeNull();
     expect(within(screen.getByRole("region", { name: "Subjects" })).getByLabelText("Subject")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "s3_user" } });
-    await waitFor(() => expect(mocks.getBillingSubjects).toHaveBeenLastCalledWith("2026-07", 7, "s3_user", 1, 25, "name", "asc"));
-    expect(mocks.getBillingSummary).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mocks.getCostSubjects).toHaveBeenLastCalledWith("2026-07", 7, "s3_user", 1, 25, "name", "asc"));
+    expect(mocks.getCostSummary).toHaveBeenCalledTimes(1);
     expect(screen.getByText("12.50 EUR")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Month"), { target: { value: "2026-06" } });
-    await waitFor(() => expect(mocks.getBillingSummary).toHaveBeenLastCalledWith("2026-06", 7));
+    await waitFor(() => expect(mocks.getCostSummary).toHaveBeenLastCalledWith("2026-06", 7));
     expect(screen.getByText(/Monthly totals.*2026-06/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "cost" } });
     fireEvent.change(screen.getByLabelText("Direction"), { target: { value: "desc" } });
-    await waitFor(() => expect(mocks.getBillingSubjects).toHaveBeenLastCalledWith("2026-06", 7, "s3_user", 1, 25, "cost", "desc"));
-    expect(mocks.getBillingSummary).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(mocks.getCostSubjects).toHaveBeenLastCalledWith("2026-06", 7, "s3_user", 1, 25, "cost", "desc"));
+    expect(mocks.getCostSummary).toHaveBeenCalledTimes(2);
   });
 
-  it("disables export and explains empty billing data", async () => {
-    mocks.getBillingSummary.mockResolvedValue(summary({
+  it("disables export and explains empty cost data", async () => {
+    mocks.getCostSummary.mockResolvedValue(summary({
       usage: { bytes_in: 0, bytes_out: 0, ops_total: 0 },
       storage: { avg_bytes: null, avg_gb_month: null, total_objects: null },
       coverage: { days_collected: 0, days_in_month: 30, coverage_ratio: 0, storage_days_collected: 0, usage_days_collected: 0 },
       cost: null,
     }));
-    mocks.getBillingSubjects.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 25, has_next: false });
+    mocks.getCostSubjects.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 25, has_next: false });
 
     renderPage();
 
@@ -263,7 +263,7 @@ describe("BillingPage", () => {
   });
 
   it("keeps table errors inside the subjects section", async () => {
-    mocks.getBillingSubjects.mockRejectedValue(new Error("subject query failed"));
+    mocks.getCostSubjects.mockRejectedValue(new Error("subject query failed"));
 
     renderPage();
 

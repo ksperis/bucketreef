@@ -86,7 +86,7 @@ Current budget calibration (2026-08-02):
   - Bucket detail: onglets Overview / Objects (split view mock), Properties / Permissions / Metrics / Advanced (placeholders structurés).
   - IAM: Users/Groups/Roles/Policies pages exist, to be progressively refondus dans le nouveau shell.
 - Portal area (`/portal/*`, role `ui_user` or `ui_admin` with explicit `portal_user`/`portal_manager` account link):
-  - Dashboard: self-service buckets, access keys, usage, traffic, billing status, and endpoint health for an RGW IAM account.
+  - Dashboard: self-service buckets, access keys, usage, traffic, cost status, and endpoint health for an RGW IAM account.
   - Browser: object operations from Portal when `browser_portal_enabled` is enabled.
 
 ## Default login redirect

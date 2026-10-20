@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import date
 
 from app.db import (
-    BillingStorageDaily,
-    BillingUsageDaily,
+    CostStorageDaily,
+    CostUsageDaily,
     EndpointHealthLatest,
     EndpointHealthRollup,
     HealthCheckStatus,
@@ -14,7 +14,7 @@ from app.db import (
     QuotaUsageHourly,
     UserNotification,
 )
-from app.services.billing_collection_service import BillingCollector
+from app.services.cost_collection_service import CostCollector
 from app.services.healthcheck_common import (
     DEFAULT_ROLLUP_RESOLUTION_SECONDS,
     HealthCheckResult,
@@ -95,8 +95,8 @@ def test_user_quota_notifications_are_idempotent_per_event_key(db_session):
     assert db_session.query(UserNotification).count() == 1
 
 
-def test_billing_daily_upserts_keep_one_row(db_session):
-    collector = BillingCollector(db_session)
+def test_cost_daily_upserts_keep_one_row(db_session):
+    collector = CostCollector(db_session)
     day = date(2026, 7, 3)
 
     collector._upsert_usage(
@@ -138,8 +138,8 @@ def test_billing_daily_upserts_keep_one_row(db_session):
         by_bucket=None,
     )
 
-    usage = db_session.query(BillingUsageDaily).one()
-    storage = db_session.query(BillingStorageDaily).one()
+    usage = db_session.query(CostUsageDaily).one()
+    storage = db_session.query(CostStorageDaily).one()
     assert usage.bytes_in == 10
     assert usage.ops_total == 30
     assert storage.total_bytes == 200

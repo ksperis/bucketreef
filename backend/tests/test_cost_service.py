@@ -5,14 +5,14 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from app.core.domain_errors import BillingSubjectNotFoundError
-from app.db import BillingRateCard, BillingStorageDaily, BillingUsageDaily, S3Account, StorageEndpoint
+from app.core.domain_errors import CostSubjectNotFoundError
+from app.db import CostEndpointOverride, CostModel, CostStorageDaily, CostUsageDaily, S3Account, StorageEndpoint
 from app.models.app_settings import AppSettings
-from app.services import admin_billing_service
-from app.services.admin_billing_service import AdminBillingService
-from app.services.billing_collection_service import BillingCollector
-from app.services.billing_service import (
-    BillingService,
+from app.services import admin_cost_service
+from app.services.admin_cost_service import AdminCostService
+from app.services.cost_collection_service import CostCollector
+from app.services.cost_service import (
+    CostService,
     _parse_month,
     _parse_ops_breakdown,
 )
@@ -42,9 +42,9 @@ def _seed_account(db_session, endpoint_id: int) -> S3Account:
     return account
 
 
-def _enabled_billing_settings() -> AppSettings:
+def _enabled_cost_settings() -> AppSettings:
     settings = AppSettings()
-    settings.general.billing_enabled = True
+    settings.general.cost_enabled = True
     return settings
 
 
@@ -55,10 +55,10 @@ def test_parse_month():
     assert period.days_in_month == 31
 
 
-def test_billing_collection_returns_structured_errors_without_exception_detail(db_session, monkeypatch):
+def test_cost_collection_returns_structured_errors_without_exception_detail(db_session, monkeypatch):
     endpoint = StorageEndpoint(
-        name="billing-error-endpoint",
-        endpoint_url="https://billing-error.example.test",
+        name="cost-error-endpoint",
+        endpoint_url="https://cost-error.example.test",
         provider="ceph",
         features_config="features:\n  admin:\n    enabled: true\n",
         is_default=False,
@@ -68,31 +68,31 @@ def test_billing_collection_returns_structured_errors_without_exception_detail(d
     db_session.refresh(endpoint)
 
     class GeneralSettings:
-        billing_enabled = True
+        cost_enabled = True
 
     class AppSettings:
         general = GeneralSettings()
 
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: AppSettings())
     monkeypatch.setattr(
-        "app.services.billing_collection_service.get_supervision_rgw_client",
+        "app.services.cost_collection_service.get_supervision_rgw_client",
         lambda _endpoint: (_ for _ in ()).throw(RuntimeError("secret upstream detail")),
     )
     monkeypatch.setattr(
-        "app.services.billing_collection_service.DataRetentionService.purge_all",
+        "app.services.cost_collection_service.DataRetentionService.purge_all",
         lambda _self: {},
     )
 
-    result = BillingCollector(db_session).collect_daily(date(2026, 9, 25))
+    result = CostCollector(db_session).collect_daily(date(2026, 9, 25))
 
     assert result["errors"] == [{"stage": "endpoint", "endpoint_id": endpoint.id}]
     assert "secret upstream detail" not in repr(result)
 
 
-def test_billing_usage_collection_uses_half_open_daily_window(db_session, monkeypatch):
+def test_cost_usage_collection_uses_half_open_daily_window(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint.id)
-    collector = BillingCollector(db_session)
+    collector = CostCollector(db_session)
     subject = collector._load_subjects(endpoint)[0]
     start = datetime(2026, 1, 1)
     end = start + timedelta(days=1)
@@ -108,7 +108,7 @@ def test_billing_usage_collection_uses_half_open_daily_window(db_session, monkey
         return {"totals": {}, "category_breakdown": []}
 
     monkeypatch.setattr(
-        "app.services.billing_collection_service.aggregate_usage",
+        "app.services.cost_collection_service.aggregate_usage",
         fake_aggregate,
     )
     monkeypatch.setattr(collector, "_upsert_usage", lambda **_kwargs: None)
@@ -123,8 +123,8 @@ def test_billing_usage_collection_uses_half_open_daily_window(db_session, monkey
     }
 
 
-def test_billing_bucket_stats_accept_explicit_empty_usage_map(db_session):
-    collector = BillingCollector(db_session)
+def test_cost_bucket_stats_accept_explicit_empty_usage_map(db_session):
+    collector = CostCollector(db_session)
 
     class FakeRgwAdmin:
         def get_all_buckets(self, **_kwargs):
@@ -138,15 +138,15 @@ def test_billing_bucket_stats_accept_explicit_empty_usage_map(db_session):
     assert total_objects == 0
 
 
-def test_billing_bucket_stats_reject_incomplete_measurement(db_session, monkeypatch):
-    collector = BillingCollector(db_session)
+def test_cost_bucket_stats_reject_incomplete_measurement(db_session, monkeypatch):
+    collector = CostCollector(db_session)
 
     class FakeRgwAdmin:
         def get_all_buckets(self, **_kwargs):
             return [{"bucket": "partial", "usage": {"rgw.main": {"size": 42}}}]
 
     monkeypatch.setattr(
-        "app.services.billing_collection_service.extract_usage_stats",
+        "app.services.cost_collection_service.extract_usage_stats",
         lambda _usage: (42, None),
     )
 
@@ -154,7 +154,7 @@ def test_billing_bucket_stats_reject_incomplete_measurement(db_session, monkeypa
         collector._collect_bucket_stats(FakeRgwAdmin(), "partial-user")
 
 
-def test_billing_ops_breakdown_requires_integer_values():
+def test_cost_ops_breakdown_requires_integer_values():
     assert _parse_ops_breakdown('{"get":12,"put":3}') == {
         "get": 12,
         "put": 3,
@@ -164,7 +164,7 @@ def test_billing_ops_breakdown_requires_integer_values():
             _parse_ops_breakdown(raw)
 
 
-def test_billing_summary_and_cost(db_session):
+def test_cost_summary_and_cost(db_session):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint.id)
 
@@ -173,7 +173,7 @@ def test_billing_summary_and_cost(db_session):
 
     db_session.add_all(
         [
-            BillingUsageDaily(
+            CostUsageDaily(
                 day=day_one,
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=account.id,
@@ -183,7 +183,7 @@ def test_billing_summary_and_cost(db_session):
                 source="rgw_admin_usage",
                 collected_at=utcnow(),
             ),
-            BillingUsageDaily(
+            CostUsageDaily(
                 day=day_two,
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=account.id,
@@ -193,7 +193,7 @@ def test_billing_summary_and_cost(db_session):
                 source="rgw_admin_usage",
                 collected_at=utcnow(),
             ),
-            BillingStorageDaily(
+            CostStorageDaily(
                 day=day_one,
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=account.id,
@@ -202,7 +202,7 @@ def test_billing_summary_and_cost(db_session):
                 source="rgw_admin_bucket_stats",
                 collected_at=utcnow(),
             ),
-            BillingStorageDaily(
+            CostStorageDaily(
                 day=day_two,
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=account.id,
@@ -214,22 +214,20 @@ def test_billing_summary_and_cost(db_session):
         ]
     )
 
-    rate_card = BillingRateCard(
-        name="default",
+    model = CostModel(
+        id=1,
         currency="EUR",
         storage_gb_month_price=1.0,
         egress_gb_price=2.0,
         ingress_gb_price=0.5,
         requests_per_1000_price=3.0,
-        effective_from=date(2025, 1, 1),
-        storage_endpoint_id=endpoint.id,
         created_at=utcnow(),
         updated_at=utcnow(),
     )
-    db_session.add(rate_card)
+    db_session.add(model)
     db_session.commit()
 
-    service = BillingService(db_session)
+    service = CostService(db_session)
     summary = service.summary("2026-01", endpoint.id)
 
     assert summary.usage.bytes_in == 3072
@@ -242,16 +240,100 @@ def test_billing_summary_and_cost(db_session):
 
     assert summary.cost is not None
     assert summary.cost.currency == "EUR"
+    assert summary.cost.pricing_source == "global"
     assert summary.cost.total_cost is not None
     assert summary.cost.total_cost > 0
 
 
-def test_billing_subject_detail_and_export(db_session):
+def test_cost_endpoint_override_completely_replaces_global_rates(db_session):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    db_session.add_all(
+        [
+            CostModel(
+                id=1,
+                currency="EUR",
+                storage_gb_month_price=1,
+                egress_gb_price=1,
+                ingress_gb_price=1,
+                requests_per_1000_price=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            ),
+            CostEndpointOverride(
+                storage_endpoint_id=endpoint.id,
+                storage_gb_month_price=0,
+                egress_gb_price=0,
+                ingress_gb_price=0,
+                requests_per_1000_price=7,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            ),
+            CostUsageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=endpoint.id,
+                s3_account_id=account.id,
+                bytes_in=1024**3,
+                bytes_out=1024**3,
+                ops_total=2000,
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+            CostStorageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=endpoint.id,
+                s3_account_id=account.id,
+                total_bytes=1024**3,
+                total_objects=1,
+                source="rgw_admin_bucket_stats",
+                collected_at=utcnow(),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    cost = CostService(db_session).summary("2026-01", endpoint.id).cost
+
+    assert cost is not None
+    assert cost.pricing_source == "endpoint_override"
+    assert cost.storage_cost == 0
+    assert cost.ingress_cost == 0
+    assert cost.egress_cost == 0
+    assert cost.requests_cost == 14
+    assert cost.total_cost == 14
+
+
+def test_cost_usage_remains_available_without_configured_model(db_session):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    db_session.add(
+        CostUsageDaily(
+            day=date(2026, 1, 5),
+            storage_endpoint_id=endpoint.id,
+            s3_account_id=account.id,
+            bytes_in=10,
+            bytes_out=20,
+            ops_total=30,
+            source="rgw_admin_usage",
+            collected_at=utcnow(),
+        )
+    )
+    db_session.commit()
+
+    summary = CostService(db_session).summary("2026-01", endpoint.id)
+
+    assert summary.usage.bytes_in == 10
+    assert summary.usage.bytes_out == 20
+    assert summary.usage.ops_total == 30
+    assert summary.cost is None
+
+
+def test_cost_subject_detail_and_export(db_session):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint.id)
 
     db_session.add(
-        BillingUsageDaily(
+        CostUsageDaily(
             day=date(2026, 1, 5),
             storage_endpoint_id=endpoint.id,
             s3_account_id=account.id,
@@ -263,7 +345,7 @@ def test_billing_subject_detail_and_export(db_session):
         )
     )
     db_session.add(
-        BillingStorageDaily(
+        CostStorageDaily(
             day=date(2026, 1, 5),
             storage_endpoint_id=endpoint.id,
             s3_account_id=account.id,
@@ -275,7 +357,7 @@ def test_billing_subject_detail_and_export(db_session):
     )
     db_session.commit()
 
-    service = BillingService(db_session)
+    service = CostService(db_session)
     subjects = service.list_subjects("2026-01", endpoint.id, "account", 1, 50, "name", "asc")
     detail = service.subject_detail("2026-01", endpoint.id, "account", account.id)
 
@@ -290,17 +372,17 @@ def test_billing_subject_detail_and_export(db_session):
     assert len(detail.daily) == 1
 
     filename, payload = service.export_csv("2026-01", endpoint.id)
-    assert filename.startswith("billing-2026-01")
+    assert filename.startswith("cost-2026-01")
     assert "subject_type" in payload
     assert str(account.id) in payload
     assert account.rgw_user_uid in payload
 
 
-def test_billing_subject_detail_types_missing_subject_separately_from_invalid_input(db_session):
+def test_cost_subject_detail_types_missing_subject_separately_from_invalid_input(db_session):
     endpoint = _seed_endpoint(db_session)
-    service = BillingService(db_session)
+    service = CostService(db_session)
 
-    with pytest.raises(BillingSubjectNotFoundError, match="Subject not found"):
+    with pytest.raises(CostSubjectNotFoundError, match="Subject not found"):
         service.subject_detail("2026-01", endpoint.id, "account", 999)
 
     with pytest.raises(ValueError, match="Invalid subject type"):
@@ -318,7 +400,7 @@ def test_billing_subject_detail_types_missing_subject_separately_from_invalid_in
         ("account", 999, "invalid", 400),
     ],
 )
-def test_admin_billing_subject_detail_distinguishes_missing_from_invalid_input(
+def test_admin_cost_subject_detail_distinguishes_missing_from_invalid_input(
     client,
     db_session,
     monkeypatch,
@@ -328,19 +410,19 @@ def test_admin_billing_subject_detail_distinguishes_missing_from_invalid_input(
     expected_status,
 ):
     endpoint = _seed_endpoint(db_session)
-    monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_billing_settings)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_cost_settings)
 
     response = client.get(
-        f"/api/admin/billing/subject/{subject_type}/{subject_id}",
+        f"/api/admin/cost/subject/{subject_type}/{subject_id}",
         params={"month": month, "endpoint_id": endpoint.id},
     )
 
     assert response.status_code == expected_status, response.text
 
 
-def test_admin_billing_service_rejects_missing_and_non_ceph_endpoints(db_session, monkeypatch):
-    monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_billing_settings)
-    service = AdminBillingService(db_session)
+def test_admin_cost_service_rejects_missing_and_non_ceph_endpoints(db_session, monkeypatch):
+    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_cost_settings)
+    service = AdminCostService(db_session)
 
     with pytest.raises(ValueError, match="Endpoint not found"):
         service.summary("2026-01", 999)
@@ -358,25 +440,25 @@ def test_admin_billing_service_rejects_missing_and_non_ceph_endpoints(db_session
         service.summary("2026-01", endpoint.id)
 
 
-def test_admin_billing_routes_preserve_feature_and_endpoint_status_codes(client, db_session, monkeypatch):
+def test_admin_cost_routes_preserve_feature_and_endpoint_status_codes(client, db_session, monkeypatch):
     disabled = AppSettings()
-    disabled.general.billing_enabled = False
-    monkeypatch.setattr(admin_billing_service, "load_app_settings", lambda: disabled)
+    disabled.general.cost_enabled = False
+    monkeypatch.setattr(admin_cost_service, "load_app_settings", lambda: disabled)
 
-    response = client.get("/api/admin/billing/summary", params={"month": "2026-01"})
+    response = client.get("/api/admin/cost/summary", params={"month": "2026-01"})
     assert response.status_code == 403, response.text
-    assert response.json()["detail"] == "Billing is disabled"
+    assert response.json()["detail"] == "Cost is disabled"
 
-    monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_billing_settings)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_cost_settings)
     response = client.get(
-        "/api/admin/billing/summary",
+        "/api/admin/cost/summary",
         params={"month": "2026-01", "endpoint_id": 999},
     )
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "Endpoint not found"
 
     endpoint = StorageEndpoint(
-        name="aws-billing",
+        name="aws-cost",
         endpoint_url="https://s3.amazonaws.com",
         provider="aws",
         is_default=False,
@@ -385,20 +467,20 @@ def test_admin_billing_routes_preserve_feature_and_endpoint_status_codes(client,
     db_session.commit()
 
     response = client.get(
-        "/api/admin/billing/summary",
+        "/api/admin/cost/summary",
         params={"month": "2026-01", "endpoint_id": endpoint.id},
     )
     assert response.status_code == 400, response.text
     assert response.json()["detail"] == "This endpoint is not a Ceph endpoint"
 
 
-def test_billing_coverage_tracks_storage_and_usage_days_separately(db_session):
+def test_cost_coverage_tracks_storage_and_usage_days_separately(db_session):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint.id)
 
     db_session.add_all(
         [
-            BillingUsageDaily(
+            CostUsageDaily(
                 day=date(2026, 1, 5),
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=account.id,
@@ -408,7 +490,7 @@ def test_billing_coverage_tracks_storage_and_usage_days_separately(db_session):
                 source="rgw_admin_usage",
                 collected_at=utcnow(),
             ),
-            BillingUsageDaily(
+            CostUsageDaily(
                 day=date(2026, 1, 6),
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=account.id,
@@ -418,7 +500,7 @@ def test_billing_coverage_tracks_storage_and_usage_days_separately(db_session):
                 source="rgw_admin_usage",
                 collected_at=utcnow(),
             ),
-            BillingStorageDaily(
+            CostStorageDaily(
                 day=date(2026, 1, 5),
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=account.id,
@@ -431,7 +513,7 @@ def test_billing_coverage_tracks_storage_and_usage_days_separately(db_session):
     )
     db_session.commit()
 
-    service = BillingService(db_session)
+    service = CostService(db_session)
 
     summary = service.summary("2026-01", endpoint.id)
     assert summary.coverage.days_collected == 2

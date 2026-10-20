@@ -44,7 +44,7 @@ const featureFields = [
   "portal_enabled",
   "ceph_admin_enabled",
   "storage_ops_enabled",
-  "billing_enabled",
+  "cost_enabled",
   "endpoint_status_enabled",
 ] as const;
 const smtpFields = [
@@ -509,11 +509,11 @@ export default function GeneralSettingsPage() {
           description={adminText("Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled.")}
         />
         {feature(
-          "billing_enabled",
-          "Billing",
-          form.draft["general.billing_enabled"]
-            ? "Billing dashboards. Enable the billing collection cron job separately."
-            : "Billing dashboards.",
+          "cost_enabled",
+          "Cost",
+          form.draft["general.cost_enabled"]
+            ? "Cost dashboards. Enable the cost collection cron job separately."
+            : "Cost dashboards.",
         )}
         {feature(
           "endpoint_status_enabled",

@@ -8,7 +8,7 @@ import pytest
 from app.db import AccountIAMUser, PortalStorageSpaceMetadata, S3Account, S3User, User
 from app.models.bucket import BucketQuotaUpdate
 from app.services.admin_metrics_service import AdminMetricsService
-from app.services.billing_collection_service import BillingCollector
+from app.services.cost_collection_service import CostCollector
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.buckets_service import BucketsService
 from app.services.portal_service import PortalService
@@ -175,7 +175,7 @@ def test_metrics_do_not_merge_same_uid_across_tenants(monkeypatch):
     ], {"customer01$analyst"}) == [{"user": "customer01$analyst"}]
 
 
-def test_billing_and_quota_collectors_preserve_tenants(db_session):
+def test_cost_and_quota_collectors_preserve_tenants(db_session):
     account = make_s3_account(db_session, name="Tenant collector", rgw_tenant="customer01")
     db_session.add(account)
     db_session.flush()
@@ -189,7 +189,7 @@ def test_billing_and_quota_collectors_preserve_tenants(db_session):
         get_all_buckets=lambda **kwargs: calls.append(("storage", kwargs["uid"])) or {"buckets": []},
         get_user_quota=lambda uid: calls.append(("quota", uid)) or (10, 2),
     )
-    collector = BillingCollector(db_session)
+    collector = CostCollector(db_session)
     assert collector._collect_usage_for_endpoint(admin, account.storage_endpoint, date(2026, 10, 14)) == (2, [])
     assert collector._collect_storage_for_endpoint(admin, account.storage_endpoint, date(2026, 10, 14)) == (2, [])
     assert ("usage", "customer02$analyst") in calls

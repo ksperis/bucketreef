@@ -195,7 +195,7 @@ const GENERAL_SETTINGS = {
   browser_portal_enabled: true,
   browser_ceph_admin_enabled: true,
   portal_enabled: true,
-  billing_enabled: false,
+  cost_enabled: false,
   endpoint_status_enabled: true,
   bucket_migration_enabled: true,
   bucket_compare_enabled: true,
@@ -550,8 +550,8 @@ const TOPICS = [
     configuration: { "verify-ssl": "true" },
   },
   {
-    name: "billing-alerts",
-    arn: "arn:aws:sns:us-east-1:111111111111:billing-alerts",
+    name: "cost-alerts",
+    arn: "arn:aws:sns:us-east-1:111111111111:cost-alerts",
     owner: "111111111111",
     configuration: { "delivery-policy": "default" },
   },
@@ -1100,7 +1100,7 @@ const PORTAL_OBJECTS_BY_SPACE: Record<string, { prefixes: string[]; objects: Arr
   },
 };
 
-const PORTAL_BILLING_ME = {
+const PORTAL_COST_ME = {
   month: "2026-05",
   subject_type: "account",
   subject_id: 101,
@@ -1136,7 +1136,7 @@ const PORTAL_BILLING_ME = {
     ingress_cost: 0,
     requests_cost: 8.72,
     total_cost: 235.22,
-    rate_card_name: "Docs QA baseline",
+    pricing_source: "global",
   },
 };
 
@@ -2364,11 +2364,11 @@ export function buildBaseRules(): MockRule[] {
       body: PORTAL_ALERTS,
     },
     {
-      id: "portal-billing-me",
-      path: /^\/portal\/billing\/me$/,
+      id: "portal-cost-me",
+      path: /^\/portal\/cost\/me$/,
       body: ({ url }) => ({
-        ...PORTAL_BILLING_ME,
-        month: url.searchParams.get("month") ?? PORTAL_BILLING_ME.month,
+        ...PORTAL_COST_ME,
+        month: url.searchParams.get("month") ?? PORTAL_COST_ME.month,
       }),
     },
     {

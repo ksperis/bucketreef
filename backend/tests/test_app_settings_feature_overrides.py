@@ -25,7 +25,7 @@ def _runtime_settings(**overrides):
         "feature_portal_enabled": None,
         "feature_ceph_admin_enabled": None,
         "feature_storage_ops_enabled": None,
-        "feature_billing_enabled": None,
+        "feature_cost_enabled": None,
         "feature_endpoint_status_enabled": None,
     }
     defaults.update(overrides)
@@ -149,7 +149,7 @@ def test_save_app_settings_keeps_persisted_value_for_locked_features(monkeypatch
     settings_path = tmp_path / "app_settings.json"
     persisted = AppSettings()
     persisted.general.manager_enabled = False
-    persisted.general.billing_enabled = True
+    persisted.general.cost_enabled = True
     settings_path.write_text(persisted.model_dump_json(indent=2), encoding="utf-8")
 
     monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
@@ -157,21 +157,21 @@ def test_save_app_settings_keeps_persisted_value_for_locked_features(monkeypatch
     monkeypatch.setattr(
         app_settings_service,
         "get_settings",
-        lambda: _runtime_settings(feature_manager_enabled=True, feature_billing_enabled=False),
+        lambda: _runtime_settings(feature_manager_enabled=True, feature_cost_enabled=False),
     )
 
     payload = AppSettings()
     payload.general.manager_enabled = True
-    payload.general.billing_enabled = False
+    payload.general.cost_enabled = False
     saved_effective = app_settings_service.save_app_settings(payload)
 
     raw = _raw_db_settings(db_session)
     # Locked fields keep persisted values in storage.
     assert raw["general"]["manager_enabled"] is False
-    assert raw["general"]["billing_enabled"] is True
+    assert raw["general"]["cost_enabled"] is True
     # Returned settings expose effective forced values.
     assert saved_effective.general.manager_enabled is True
-    assert saved_effective.general.billing_enabled is False
+    assert saved_effective.general.cost_enabled is False
 
 
 def test_app_settings_json_bootstrap_imports_once_to_db(monkeypatch, tmp_path, db_session):
@@ -282,7 +282,7 @@ def test_general_feature_locks_only_use_dedicated_feature_sources(monkeypatch):
         lambda: _runtime_settings(
             feature_manager_enabled=False,
             feature_portal_enabled=True,
-            feature_billing_enabled=None,
+            feature_cost_enabled=None,
             feature_endpoint_status_enabled=None,
         ),
     )
@@ -296,9 +296,9 @@ def test_general_feature_locks_only_use_dedicated_feature_sources(monkeypatch):
     assert locks.portal_enabled.value is True
     assert locks.portal_enabled.source == "FEATURE_PORTAL_ENABLED"
 
-    assert locks.billing_enabled.forced is False
-    assert locks.billing_enabled.value is None
-    assert locks.billing_enabled.source is None
+    assert locks.cost_enabled.forced is False
+    assert locks.cost_enabled.value is None
+    assert locks.cost_enabled.source is None
 
     assert locks.endpoint_status_enabled.forced is False
     assert locks.endpoint_status_enabled.value is None

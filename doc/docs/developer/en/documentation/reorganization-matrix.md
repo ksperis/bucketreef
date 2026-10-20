@@ -51,7 +51,7 @@ unscoped `developer/` public URLs. Links use the new canonical paths directly.
 | `user/common-tasks-storage-user.md` | `portal/en/getting-started/common-tasks.md`<br>`browser/en/getting-started/common-tasks.md`<br>`manager/en/getting-started/common-tasks.md` | **Split** | Replace workspace selection guidance with task maps inside each relevant guide. |
 | `user/feature-admin-metrics.md` | `admin/en/platform/usage-metrics.md` | **Move** | Admin usage and metrics surface. |
 | `user/feature-availability.md` | `admin/en/help/feature-availability.md`<br>`manager/en/help/feature-availability.md`<br>`portal/en/help/feature-availability.md`<br>`browser/en/help/feature-availability.md` | **Split** | Each guide explains only the flags, capabilities and permissions visible to its audience. |
-| `user/feature-billing-admin.md` | `admin/en/platform/billing.md` | **Move** | Admin billing surface. |
+| `user/feature-cost-admin.md` | `admin/en/platform/cost.md` | **Move** | Admin cost surface. |
 | `user/feature-bucket-compare.md` | `manager/en/tools/bucket-compare.md` | **Move** | Manager account-level tool. |
 | `user/feature-bucket-integrity-check.md` | `manager/en/tools/bucket-integrity.md` | **Move** | Manager account-level tool. |
 | `user/feature-bucket-migration.md` | `manager/en/tools/bucket-migration.md` | **Move** | Manager account-level migration workflow. |
@@ -110,7 +110,7 @@ unscoped `developer/` public URLs. Links use the new canonical paths directly.
 | `ops/deployment-architecture.md` | `admin/en/install/production-architecture.md` | **Move** | Production deployment architecture. |
 | `ops/index.md` | `admin/en/index.md` | **Rewrite** | Merge the Ops landing page with the new Administration guide home. |
 | `ops/operations-api-tokens.md` | `admin/en/security/api-tokens.md` | **Move** | Administrative automation tokens and operational security. |
-| `ops/operations-billing.md` | `admin/en/operations/billing.md` | **Move** | Billing operations and collection. |
+| `ops/operations-cost.md` | `admin/en/operations/cost.md` | **Move** | Cost operations and collection. |
 | `ops/operations-healthchecks.md` | `admin/en/operations/healthchecks.md` | **Move** | Endpoint health operations. |
 | `ops/operations-observability.md` | `admin/en/operations/observability.md` | **Move** | Operator troubleshooting and observability. |
 | `ops/operations-quota-monitoring.md` | `admin/en/operations/quota-monitoring.md` | **Move** | Quota collection and monitoring operations. |

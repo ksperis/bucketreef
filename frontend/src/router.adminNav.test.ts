@@ -50,20 +50,12 @@ describe("buildAdminNav", () => {
     expect(portalLink?.disabledHint).toBe("Portal feature is disabled in General settings.");
   });
 
-  it("disables Billing settings when Billing is globally disabled", () => {
-    const billingLink = getSettingsLink("Billing", [true, true, false, false, false, true]);
+  it("keeps Cost settings available so a model can be prepared before activation", () => {
+    const costLink = getSettingsLink("Cost", [true, true, false, false, false, true]);
 
-    expect(billingLink?.disabled).toBe(true);
-    expect(billingLink?.disabledHint).toBe(
-      "Billing is disabled. Enable it in General settings to use this page.",
-    );
-  });
-
-  it("keeps Billing settings enabled when Billing is globally enabled", () => {
-    const billingLink = getSettingsLink("Billing", [true, true, true, false, false, true]);
-
-    expect(billingLink?.disabled).toBe(false);
-    expect(billingLink?.disabledHint).toBeUndefined();
+    expect(costLink?.disabled).not.toBe(true);
+    expect(costLink?.disabledHint).toBeUndefined();
+    expect(costLink?.to).toBe("/admin/cost-settings");
   });
 
   it("does not expose API Tokens in settings navigation", () => {
@@ -89,7 +81,7 @@ describe("buildAdminNav", () => {
       "Manager",
       "Browser",
       "Portal",
-      "Billing",
+      "Cost",
       "Webhooks",
       "Production readiness",
       "Key Rotation",
@@ -204,7 +196,7 @@ describe("buildAdminNav", () => {
     expect(disabledLink).toBeUndefined();
   });
 
-  it("groups metrics after managed tenant links and billing with audit reporting", () => {
+  it("groups metrics after managed tenant links and cost with audit reporting", () => {
     const adminNav = buildAdminNav(true, true, true, true, false, true);
     const dashboard = adminNav[0];
     const setup = adminNav.find((section) => section.label === "Setup");
@@ -221,7 +213,7 @@ describe("buildAdminNav", () => {
     ]);
     expect(auditReporting?.links.map((link) => link.label)).toEqual([
       "Portal Requests",
-      "Billing",
+      "Cost",
       "Usage History",
       "Access audit",
       "Audit trail",

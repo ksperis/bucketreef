@@ -49,12 +49,13 @@ const OnboardingPage = lazy(() => import("./features/admin/OnboardingPage"));
 const ProductionReadinessPage = lazy(() => import("./features/admin/ProductionReadinessPage"));
 const AdminMetricsPage = lazy(() => import("./features/admin/AdminMetricsPage"));
 const AdminPortalRequestsPage = lazy(() => import("./features/admin/AdminPortalRequestsPage"));
-const BillingPage = lazy(() => import("./features/admin/BillingPage"));
+const CostPage = lazy(() => import("./features/admin/CostPage"));
 const UsageHistoryPage = lazy(() => import("./features/admin/UsageHistoryPage"));
 const S3UsersPage = lazy(() => import("./features/admin/S3UsersPage"));
 const S3UserKeysPage = lazy(() => import("./features/admin/S3UserKeysPage"));
 const S3ConnectionsPage = lazy(() => import("./features/admin/S3ConnectionsPage"));
 const GeneralSettingsPage = lazy(() => import("./features/admin/GeneralSettingsPage"));
+const CostSettingsPage = lazy(() => import("./features/admin/CostSettingsPage"));
 const AuthenticationSettingsPage = lazy(() => import("./features/admin/AuthenticationSettingsPage"));
 const ManagerSettingsPage = lazy(() => import("./features/admin/ManagerSettingsPage"));
 const AdminPortalSettingsPage = lazy(() => import("./features/admin/PortalSettingsPage"));
@@ -121,13 +122,13 @@ const AdminLayout = lazy(() => import("./features/admin/AdminLayout"));
 const SUPERADMIN_ROLE = "ui_superadmin";
 const ADMIN_ROLE = "ui_admin";
 const USER_ROLE = "ui_user";
-function AdminBillingRoute() {
+function AdminCostRoute() {
   const { generalSettings } = useGeneralSettings();
-  return generalSettings.billing_enabled ? <BillingPage /> : <FeatureDisabledPage feature={{
-    en: "Billing",
-    fr: "Facturation",
-    de: "Abrechnung",
-    zh: "计费",
+  return generalSettings.cost_enabled ? <CostPage /> : <FeatureDisabledPage feature={{
+    en: "Cost",
+    fr: "Coûts",
+    de: "Kosten",
+    zh: "成本",
   }} />;
 }
 
@@ -203,11 +204,12 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                 <Route path="audit" element={<AuditLogsPage />} />
                 <Route path="metrics" element={<AdminMetricsPage />} />
                 <Route path="portal-requests" element={<AdminPortalRequestsPage />} />
-                <Route path="billing" element={<AdminBillingRoute />} />
+                <Route path="cost" element={<AdminCostRoute />} />
                 <Route path="usage-history" element={<AdminUsageHistoryRoute />} />
                 <Route element={<RequireRole roles={[SUPERADMIN_ROLE]} />}>
                   <Route path="production-readiness" element={<ProductionReadinessPage />} />
                   <Route path="general-settings" element={<GeneralSettingsPage />} />
+                  <Route path="cost-settings" element={<CostSettingsPage />} />
                   <Route path="authentication-settings" element={<AuthenticationSettingsPage />} />
                   <Route path="authentication-settings/oidc/new" element={<AuthProviderPage kind="oidc" />} />
                   <Route path="authentication-settings/oidc/providers/:providerId" element={<AuthProviderPage kind="oidc" />} />

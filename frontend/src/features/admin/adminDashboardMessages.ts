@@ -94,7 +94,7 @@ const messages = {
   portal: m("Portal", "Portal"),
   cephAdmin: m("Ceph Admin", "Ceph Admin"),
   storageOps: m("Storage Ops", "Storage Ops"),
-  billing: m("Billing", "计费"),
+  cost: m("Cost", "计费"),
   endpointStatus: m("Endpoint Status", "端点状态"),
   quotaAlerts: m("Quota alerts", "配额告警"),
   usageHistory: m("Usage history", "用量历史"),

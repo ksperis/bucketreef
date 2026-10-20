@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0168_remove_retired_billing_settings"
+_EXPECTED_ALEMBIC_HEAD = "0169_cost_model"
 
 
 def _alembic_config() -> Config:
@@ -261,35 +261,28 @@ def test_billing_0216_restore_preserves_history_and_resets_v2_configuration(
 
             usage = connection.execute(
                 sa.text(
-                    "SELECT bytes_in, bytes_out, ops_total FROM billing_usage_daily WHERE id = 92"
+                    "SELECT bytes_in, bytes_out, ops_total FROM cost_usage_daily WHERE id = 92"
                 )
             ).mappings().one()
             assert usage == {"bytes_in": 123, "bytes_out": 456, "ops_total": 7}
             storage = connection.execute(
                 sa.text(
-                    "SELECT total_bytes, total_objects FROM billing_storage_daily WHERE id = 93"
+                    "SELECT total_bytes, total_objects FROM cost_storage_daily WHERE id = 93"
                 )
             ).mappings().one()
             assert storage == {"total_bytes": 789, "total_objects": 8}
             storage_columns = {
-                column["name"] for column in inspector.get_columns("billing_storage_daily")
+                column["name"] for column in inspector.get_columns("cost_storage_daily")
             }
             assert "quota_size_bytes" not in storage_columns
             assert "quota_state" not in storage_columns
 
-            assert connection.scalar(sa.text("SELECT COUNT(*) FROM billing_rate_cards")) == 0
-            assert connection.scalar(sa.text("SELECT COUNT(*) FROM billing_assignments")) == 0
-            rate_card_columns = {
-                column["name"] for column in inspector.get_columns("billing_rate_cards")
-            }
-            assignment_columns = {
-                column["name"] for column in inspector.get_columns("billing_assignments")
-            }
-            assert {"name", "storage_endpoint_id"}.issubset(rate_card_columns)
-            assert "rate_plan_id" not in rate_card_columns
-            assert "storage_charge_basis" not in rate_card_columns
-            assert "rate_card_id" in assignment_columns
-            assert "rate_plan_id" not in assignment_columns
+            assert "billing_usage_daily" not in table_names
+            assert "billing_storage_daily" not in table_names
+            assert "billing_rate_cards" not in table_names
+            assert "billing_assignments" not in table_names
+            assert connection.scalar(sa.text("SELECT COUNT(*) FROM cost_models")) == 0
+            assert connection.scalar(sa.text("SELECT COUNT(*) FROM cost_endpoint_overrides")) == 0
             app_settings = json.loads(
                 connection.scalar(
                     sa.text(
@@ -297,7 +290,7 @@ def test_billing_0216_restore_preserves_history_and_resets_v2_configuration(
                     )
                 )
             )
-            assert app_settings == {"general": {"billing_enabled": True}}
+            assert app_settings == {"general": {"cost_enabled": True}}
 
         command.downgrade(config, "0166_billing_statement_estimation")
         with engine.connect() as connection:
@@ -360,7 +353,7 @@ def test_billing_0216_followup_removes_retired_settings_from_existing_0167_datab
                     )
                 )
             )
-            assert payload == {"general": {"billing_enabled": True}}
+            assert payload == {"general": {"cost_enabled": True}}
             assert connection.scalar(
                 sa.text("SELECT version_num FROM alembic_version")
             ) == _EXPECTED_ALEMBIC_HEAD

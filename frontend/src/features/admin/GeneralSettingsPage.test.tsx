@@ -59,7 +59,7 @@ function unlockedFeatureLocks(): GeneralFeatureLocks {
     storage_ops_enabled: { forced: false, value: null, source: null },
     browser_enabled: { forced: false, value: null, source: null },
     portal_enabled: { forced: false, value: null, source: null },
-    billing_enabled: { forced: false, value: null, source: null },
+    cost_enabled: { forced: false, value: null, source: null },
     endpoint_status_enabled: { forced: false, value: null, source: null },
   };
 }

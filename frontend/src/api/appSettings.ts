@@ -75,7 +75,7 @@ export type GeneralConfiguration = {
   browser_portal_enabled: boolean;
   browser_ceph_admin_enabled: boolean;
   portal_enabled: boolean;
-  billing_enabled: boolean;
+  cost_enabled: boolean;
   endpoint_status_enabled: boolean;
   quota_alerts_enabled: boolean;
   usage_history_enabled: boolean;
@@ -122,7 +122,7 @@ export type GeneralFeatureLocks = {
   storage_ops_enabled: GeneralFeatureLock;
   browser_enabled: GeneralFeatureLock;
   portal_enabled: GeneralFeatureLock;
-  billing_enabled: GeneralFeatureLock;
+  cost_enabled: GeneralFeatureLock;
   endpoint_status_enabled: GeneralFeatureLock;
 };
 

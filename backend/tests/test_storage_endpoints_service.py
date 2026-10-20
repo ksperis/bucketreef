@@ -10,10 +10,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import (
-    BillingAssignment,
-    BillingRateCard,
-    BillingStorageDaily,
-    BillingUsageDaily,
+    CostEndpointOverride,
+    CostStorageDaily,
+    CostUsageDaily,
     BucketUsageStatsSnapshot,
     EndpointHealthCheck,
     EndpointHealthLatest,
@@ -1443,30 +1442,28 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
     )
     db_session.add(history_account)
     db_session.flush()
-    rate_card = BillingRateCard(
-        name="endpoint-delete-rate",
+    cost_override = CostEndpointOverride(
         storage_endpoint_id=endpoint.id,
-        currency="EUR",
-        effective_from=date(2026, 1, 1),
+        storage_gb_month_price=1,
+        egress_gb_price=1,
+        ingress_gb_price=1,
+        requests_per_1000_price=1,
+        created_at=utcnow(),
+        updated_at=utcnow(),
     )
-    db_session.add(rate_card)
+    db_session.add(cost_override)
     db_session.flush()
-    rate_card_id = rate_card.id
+    cost_override_id = cost_override.id
     now = utcnow()
     db_session.add_all(
         [
-            BillingAssignment(
-                storage_endpoint_id=endpoint.id,
-                s3_account_id=history_account.id,
-                rate_card_id=rate_card.id,
-            ),
-            BillingUsageDaily(
+            CostUsageDaily(
                 day=date(2026, 1, 1),
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=history_account.id,
                 source="rgw_admin_usage",
             ),
-            BillingStorageDaily(
+            CostStorageDaily(
                 day=date(2026, 1, 1),
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=history_account.id,
@@ -1553,15 +1550,15 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
     service.delete_endpoint(endpoint.id)
 
     assert db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).count() == 0
-    assert db_session.query(BillingAssignment).filter(BillingAssignment.storage_endpoint_id == endpoint.id).count() == 0
-    assert db_session.query(BillingUsageDaily).filter(BillingUsageDaily.storage_endpoint_id == endpoint.id).count() == 0
+    assert db_session.query(CostEndpointOverride).filter(CostEndpointOverride.storage_endpoint_id == endpoint.id).count() == 0
+    assert db_session.query(CostUsageDaily).filter(CostUsageDaily.storage_endpoint_id == endpoint.id).count() == 0
     assert (
-        db_session.query(BillingStorageDaily)
-        .filter(BillingStorageDaily.storage_endpoint_id == endpoint.id)
+        db_session.query(CostStorageDaily)
+        .filter(CostStorageDaily.storage_endpoint_id == endpoint.id)
         .count()
         == 0
     )
-    assert db_session.get(BillingRateCard, rate_card_id) is None
+    assert db_session.get(CostEndpointOverride, cost_override_id) is None
     assert db_session.query(QuotaUsageHourly).filter(QuotaUsageHourly.storage_endpoint_id == endpoint.id).count() == 0
     assert db_session.query(QuotaUsageDaily).filter(QuotaUsageDaily.storage_endpoint_id == endpoint.id).count() == 0
     assert db_session.query(QuotaAlertState).filter(QuotaAlertState.storage_endpoint_id == endpoint.id).count() == 0

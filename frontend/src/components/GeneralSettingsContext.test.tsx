@@ -82,7 +82,7 @@ describe("GeneralSettingsProvider fallbacks", () => {
       browser_manager_enabled: true,
       browser_ceph_admin_enabled: true,
       portal_enabled: true,
-      billing_enabled: true,
+      cost_enabled: true,
       quota_alerts_enabled: true,
       allow_login_access_keys: true,
       allow_login_endpoint_list: true,

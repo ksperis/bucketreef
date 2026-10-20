@@ -47,7 +47,10 @@ def test_migration_purges_only_excluded_audit_actions(monkeypatch) -> None:
         "update_bucket_versioning",
         "start_bucket_migration",
     ]
-    all_actions = sorted(NON_PERSISTED_AUDIT_ACTIONS) + retained_actions
+    historical_non_persisted_actions = (
+        set(NON_PERSISTED_AUDIT_ACTIONS) - {"cost.collect_daily"}
+    ) | {"billing.collect_daily"}
+    all_actions = sorted(historical_non_persisted_actions) + retained_actions
 
     with engine.begin() as connection:
         connection.execute(
@@ -61,7 +64,7 @@ def test_migration_purges_only_excluded_audit_actions(monkeypatch) -> None:
             Operations(MigrationContext.configure(connection)),
         )
 
-        assert set(migration.PURGED_ACTIONS) == NON_PERSISTED_AUDIT_ACTIONS
+        assert set(migration.PURGED_ACTIONS) == historical_non_persisted_actions
         migration.upgrade()
 
         remaining = connection.execute(

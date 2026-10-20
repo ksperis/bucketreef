@@ -13,7 +13,7 @@ BucketReef.
 
 Object uploads, downloads, deletes, copies, metadata, tags, ACLs, retention,
 multipart operations, and individual restores do not appear. Healthchecks,
-usage/billing collection, and other operational telemetry are also excluded.
+usage/cost collection, and other operational telemetry are also excluded.
 
 ## Investigating object access
 

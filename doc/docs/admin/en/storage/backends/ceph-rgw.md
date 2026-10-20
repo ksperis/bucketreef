@@ -7,7 +7,7 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
 - S3 APIs for buckets/objects/configuration.
 - IAM APIs for principals and policies.
 - RGW Admin Ops for account and operational controls.
-- Usage logs and metrics for quota, billing, and capacity views when enabled.
+- Usage logs and metrics for quota, cost, and capacity views when enabled.
 - RGW SNS topic APIs when event workflows are available on the endpoint.
 
 ## Operational considerations
@@ -254,7 +254,7 @@ for the durable phases and recovery rules.
 5. Run Browser upload/download on a small object.
 6. If S3 User key lifecycle is delegated to Manager, create a disposable key,
    verify it once with an external S3 client, then disable or delete it.
-7. Confirm usage-history or metrics collection if the deployment exposes quota, billing, or Portal usage.
+7. Confirm usage-history or metrics collection if the deployment exposes quota, cost, or Portal usage.
 
 ## Related pages
 

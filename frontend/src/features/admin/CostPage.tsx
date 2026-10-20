@@ -44,15 +44,15 @@ import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
 import { DownloadIcon, RefreshIcon } from "../browser/browserIcons";
 import {
-  BillingSubjectDetail,
-  BillingSubjectSummary,
-  BillingSummary,
-  getBillingSubjectDetail,
-  getBillingSubjects,
-  getBillingSummary,
-  downloadBillingCsv,
-  collectBillingDaily,
-} from "../../api/billing";
+  CostSubjectDetail,
+  CostSubjectSummary,
+  CostSummary,
+  getCostSubjectDetail,
+  getCostSubjects,
+  getCostSummary,
+  downloadCostCsv,
+  collectCostDaily,
+} from "../../api/cost";
 import { useAdminI18n } from "./adminI18n";
 
 // QA checklist:
@@ -73,7 +73,7 @@ const SORT_OPTIONS = [
   { value: "storage", label: "Storage" },
   { value: "requests", label: "Requests" },
 ] as const;
-type BillingSortBy = (typeof SORT_OPTIONS)[number]["value"];
+type CostSortBy = (typeof SORT_OPTIONS)[number]["value"];
 
 function defaultCollectDay(): string {
   const now = new Date();
@@ -89,7 +89,7 @@ function formatCurrency(value: number | null | undefined, currency: string | nul
 }
 
 function formatCoverage(
-  coverage: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null | undefined,
+  coverage: CostSummary["coverage"] | CostSubjectDetail["coverage"] | null | undefined,
   text: ReturnType<typeof useAdminI18n>["text"],
 ): string {
   if (!coverage) return "-";
@@ -101,7 +101,7 @@ function formatCoverage(
 }
 
 function formatCoverageBreakdown(
-  coverage: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null | undefined,
+  coverage: CostSummary["coverage"] | CostSubjectDetail["coverage"] | null | undefined,
   text: ReturnType<typeof useAdminI18n>["text"],
 ): string {
   if (!coverage) return text("Coverage unavailable");
@@ -110,14 +110,14 @@ function formatCoverageBreakdown(
   return text("Storage {storage}d · Usage {usage}d", { storage: storageDays, usage: usageDays });
 }
 
-function hasPartialBillingSources(coverage?: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null): boolean {
+function hasPartialCostSources(coverage?: CostSummary["coverage"] | CostSubjectDetail["coverage"] | null): boolean {
   if (!coverage) return false;
   const storageDays = coverage.storage_days_collected ?? coverage.days_collected;
   const usageDays = coverage.usage_days_collected ?? coverage.days_collected;
   return storageDays !== usageDays;
 }
 
-function isLowCoverage(coverage?: BillingSummary["coverage"] | BillingSubjectDetail["coverage"] | null): boolean {
+function isLowCoverage(coverage?: CostSummary["coverage"] | CostSubjectDetail["coverage"] | null): boolean {
   return Boolean(coverage && coverage.days_collected > 0 && coverage.coverage_ratio < 0.8);
 }
 
@@ -147,11 +147,11 @@ function formatCollectionResult(result: Record<string, unknown> | null, day: str
   return `${prefix} for ${day}: ${endpoints} endpoint${endpoints === 1 ? "" : "s"}, ${storageRecords} storage record${storageRecords === 1 ? "" : "s"}, ${usageRecords} usage record${usageRecords === 1 ? "" : "s"}, ${errors} error${errors === 1 ? "" : "s"}.`;
 }
 
-function isBillingDisabledMessage(message: string): boolean {
-  return message.toLowerCase().includes("billing is disabled");
+function isCostDisabledMessage(message: string): boolean {
+  return message.toLowerCase().includes("cost is disabled");
 }
 
-export default function BillingPage() {
+export default function CostPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const [month, setMonth] = useState<string>(currentUtcMonthInputValue());
@@ -159,27 +159,27 @@ export default function BillingPage() {
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(null);
   const [subjectType, setSubjectType] = useState<"account" | "s3_user">("account");
-  const [sortBy, setSortBy] = useState<BillingSortBy>("name");
+  const [sortBy, setSortBy] = useState<CostSortBy>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   const [reloadToken, setReloadToken] = useState(0);
 
-  const [summary, setSummary] = useState<BillingSummary | null>(null);
+  const [summary, setSummary] = useState<CostSummary | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
 
-  const [subjects, setSubjects] = useState<BillingSubjectSummary[]>([]);
+  const [subjects, setSubjects] = useState<CostSubjectSummary[]>([]);
   const [subjectsTotal, setSubjectsTotal] = useState<number>(0);
   const [subjectsError, setSubjectsError] = useState<string | null>(null);
   const [subjectsLoading, setSubjectsLoading] = useState<boolean>(false);
 
-  const [detail, setDetail] = useState<BillingSubjectDetail | null>(null);
+  const [detail, setDetail] = useState<CostSubjectDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
 
   const [pageError, setPageError] = useState<string | null>(null);
-  const [billingDisabled, setBillingDisabled] = useState<boolean>(false);
+  const [costDisabled, setCostDisabled] = useState<boolean>(false);
   const [collectLoading, setCollectLoading] = useState<boolean>(false);
   const [collectMessage, setCollectMessage] = useState<string | null>(null);
   const [collectError, setCollectError] = useState<string | null>(null);
@@ -195,7 +195,7 @@ export default function BillingPage() {
         setEndpoints(cephEndpoints);
         if (cephEndpoints.length === 0) {
           setSelectedEndpointId(null);
-          setPageError(adminText("No Ceph endpoint available for billing"));
+          setPageError(adminText("No Ceph endpoint available for cost"));
         } else {
           const preferred = cephEndpoints.find((ep) => ep.is_default) || cephEndpoints[0];
           setSelectedEndpointId((current) => current ?? preferred.id);
@@ -224,18 +224,18 @@ export default function BillingPage() {
       }
       setSummaryLoading(true);
       setSummaryError(null);
-      setBillingDisabled(false);
+      setCostDisabled(false);
       try {
-        const data = await getBillingSummary(month, selectedEndpointId);
+        const data = await getCostSummary(month, selectedEndpointId);
         if (!cancelled) {
           setSummary(data);
         }
       } catch (err) {
         if (!cancelled) {
-          const message = extractApiError(err, adminText("Unable to load billing summary."));
+          const message = extractApiError(err, adminText("Unable to load cost summary."));
           setSummary(null);
           setSummaryError(message);
-          setBillingDisabled(isBillingDisabledMessage(message));
+          setCostDisabled(isCostDisabledMessage(message));
         }
       } finally {
         if (!cancelled) {
@@ -266,7 +266,7 @@ export default function BillingPage() {
       setSubjectsLoading(true);
       setSubjectsError(null);
       try {
-        const data = await getBillingSubjects(month, selectedEndpointId, subjectType, page, pageSize, sortBy, sortDir);
+        const data = await getCostSubjects(month, selectedEndpointId, subjectType, page, pageSize, sortBy, sortDir);
         if (!cancelled) {
           setSubjects(data.items);
           setSubjectsTotal(data.total);
@@ -275,7 +275,7 @@ export default function BillingPage() {
         if (!cancelled) {
           setSubjects([]);
           setSubjectsTotal(0);
-          setSubjectsError(extractApiError(err, adminText("Unable to load billing subjects.")));
+          setSubjectsError(extractApiError(err, adminText("Unable to load cost subjects.")));
         }
       } finally {
         if (!cancelled) {
@@ -310,7 +310,7 @@ export default function BillingPage() {
       setDetailLoading(true);
       setDetailError(null);
       try {
-        const data = await getBillingSubjectDetail(
+        const data = await getCostSubjectDetail(
           month,
           endpointId,
           subjectType,
@@ -321,7 +321,7 @@ export default function BillingPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setDetailError(extractApiError(err, adminText("Unable to load billing detail.")));
+          setDetailError(extractApiError(err, adminText("Unable to load cost detail.")));
         }
       } finally {
         if (!cancelled) {
@@ -366,9 +366,13 @@ export default function BillingPage() {
       {
         label: adminText("Estimated cost"),
         value: summary?.cost?.total_cost != null ? formatCurrency(summary.cost.total_cost, summary.cost.currency, intlLocale) : "-",
-        hint: summary?.cost?.rate_card_name
-          ? adminText("Rate card: {name}", { name: summary.cost.rate_card_name })
-          : adminText("No rate card"),
+        hint: summary?.cost?.pricing_source === "endpoint_override"
+          ? adminText("Endpoint override")
+          : summary?.cost?.pricing_source === "mixed"
+            ? adminText("Mixed endpoint pricing")
+            : summary?.cost
+              ? adminText("Global cost model")
+              : adminText("Cost model not configured"),
       },
     ];
   }, [adminText, intlLocale, summary]);
@@ -377,30 +381,30 @@ export default function BillingPage() {
     () => endpoints.find((endpoint) => endpoint.id === selectedEndpointId) ?? null,
     [endpoints, selectedEndpointId]
   );
-  const hasBillingData = Boolean(summary && (summary.coverage.days_collected > 0 || subjectsTotal > 0));
-  const canExport = Boolean(selectedEndpointId && hasBillingData && !summaryLoading && !subjectsLoading && !billingDisabled);
-  const canCollect = Boolean(collectDay && !collectLoading && !billingDisabled);
+  const hasCostData = Boolean(summary && (summary.coverage.days_collected > 0 || subjectsTotal > 0));
+  const canExport = Boolean(selectedEndpointId && hasCostData && !summaryLoading && !subjectsLoading && !costDisabled);
+  const canCollect = Boolean(collectDay && !collectLoading && !costDisabled);
   const collectionErrors = extractCollectionErrors(collectResult);
-  const noRateCard = Boolean(summary && summary.coverage.days_collected > 0 && !summary.cost);
+  const noCostModel = Boolean(summary && summary.coverage.days_collected > 0 && !summary.cost);
   const lowCoverage = isLowCoverage(summary?.coverage);
-  const partialSources = hasPartialBillingSources(summary?.coverage);
+  const partialSources = hasPartialCostSources(summary?.coverage);
 
-  async function handleRowClick(subject: BillingSubjectSummary) {
+  async function handleRowClick(subject: CostSubjectSummary) {
     if (!selectedEndpointId) return;
     setDetailLoading(true);
     setDetailError(null);
     try {
-      const data = await getBillingSubjectDetail(month, selectedEndpointId, subject.subject_type as "account" | "s3_user", subject.subject_id);
+      const data = await getCostSubjectDetail(month, selectedEndpointId, subject.subject_type as "account" | "s3_user", subject.subject_id);
       setDetail(data);
     } catch (err) {
       setDetail(null);
-      setDetailError(extractApiError(err, adminText("Unable to load billing detail.")));
+      setDetailError(extractApiError(err, adminText("Unable to load cost detail.")));
     } finally {
       setDetailLoading(false);
     }
   }
 
-  function handleTableSort(field: BillingSortBy) {
+  function handleTableSort(field: CostSortBy) {
     if (field === sortBy) {
       setSortDir((current) => (current === "asc" ? "desc" : "asc"));
       return;
@@ -413,9 +417,9 @@ export default function BillingPage() {
     if (!selectedEndpointId || !canExport) return;
     setPageError(null);
     try {
-      const blob = await downloadBillingCsv(month, selectedEndpointId);
+      const blob = await downloadCostCsv(month, selectedEndpointId);
       triggerBlobDownload(
-        `billing-${month}-endpoint-${selectedEndpointId}.csv`,
+        `cost-${month}-endpoint-${selectedEndpointId}.csv`,
         blob,
       );
     } catch (err) {
@@ -430,12 +434,12 @@ export default function BillingPage() {
     setCollectError(null);
     setCollectResult(null);
     try {
-      const result = await collectBillingDaily(collectDay);
+      const result = await collectCostDaily(collectDay);
       setCollectResult(result);
       setCollectMessage(formatCollectionResult(result, collectDay));
       setReloadToken((prev) => prev + 1);
     } catch (err) {
-      setCollectError(extractApiError(err, adminText("Unable to trigger billing collection.")));
+      setCollectError(extractApiError(err, adminText("Unable to trigger cost collection.")));
     } finally {
       setCollectLoading(false);
     }
@@ -453,7 +457,7 @@ export default function BillingPage() {
     error: subjectsError,
     rowCount: subjects.length,
   });
-  const subjectTableColumns: Array<DataTableColumn<BillingSubjectSummary, BillingSortBy>> = [
+  const subjectTableColumns: Array<DataTableColumn<CostSubjectSummary, CostSortBy>> = [
     {
       id: "name",
       label: "Name",
@@ -513,9 +517,9 @@ export default function BillingPage() {
 
   return (
     <PageShell actionPresentation="listing"
-      title={adminText("Billing")}
+      title={adminText("Cost")}
       description={adminText("Monthly usage and cost overview.")}
-      breadcrumbs={adminBreadcrumbs("billing")}
+      breadcrumbs={adminBreadcrumbs("cost")}
       rightContent={
         <>
           <UiInput
@@ -544,7 +548,7 @@ export default function BillingPage() {
             variant="secondary"
             onClick={() => void handleExport()}
             disabled={!canExport}
-            title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with billing data before exporting"}
+            title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with cost data before exporting"}
           >
             <DownloadIcon aria-hidden="true" className="h-3.5 w-3.5" />
             {adminText("Export CSV")}</ListActionButton>
@@ -552,14 +556,14 @@ export default function BillingPage() {
       }
     >
       {pageError && selectedEndpointId != null ? <PageBanner tone="error">{pageError}</PageBanner> : null}
-      {billingDisabled ? (
+      {costDisabled ? (
         <PageBanner tone="warning">
-          {adminText("Billing is disabled. Enable it in General settings to use this page.")}</PageBanner>
+          {adminText("Cost is disabled. Enable it in General settings to use this page.")}</PageBanner>
       ) : null}
       {!selectedEndpointId ? (
         <PageEmptyState
-          title={adminText("No Ceph endpoint available for billing")}
-          description={pageError || "Add or enable a Ceph endpoint before loading billing analytics."}
+          title={adminText("No Ceph endpoint available for cost")}
+          description={pageError || "Add or enable a Ceph endpoint before loading cost analytics."}
           primaryAction={{ label: "Open endpoints", to: "/admin/endpoints" }}
           tone="warning"
         />
@@ -568,7 +572,7 @@ export default function BillingPage() {
           <UiDetails className="text-xs">
             <summary className="ui-list-control w-fit cursor-pointer rounded-md py-2 font-medium text-[var(--ui-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-focus-ring)]">
               {adminText("Manual daily collection")}</summary>
-            <p className="mb-2 text-[var(--ui-text-muted)]">{adminText("Run the billing collector for one UTC day when scheduler data is missing or stale.")}</p>
+            <p className="mb-2 text-[var(--ui-text-muted)]">{adminText("Run the cost collector for one UTC day when scheduler data is missing or stale.")}</p>
             <div className="ui-list-toolbar flex flex-wrap items-end gap-2 pb-2">
               <UiInput label={adminText("Collect day")} type="date" value={collectDay} onChange={(event) => setCollectDay(event.target.value)} size="compact" />
               <ListActionButton variant="primary" onClick={() => void handleCollectDaily()} loading={collectLoading} disabled={!canCollect}>
@@ -577,7 +581,7 @@ export default function BillingPage() {
               </ListActionButton>
             </div>
           </UiDetails>
-          {collectLoading ? <PageBanner tone="info">{adminText("Collecting daily billing usage...")}</PageBanner> : null}
+          {collectLoading ? <PageBanner tone="info">{adminText("Collecting daily cost usage...")}</PageBanner> : null}
           {collectMessage ? <PageBanner tone={collectionErrors.length > 0 ? "warning" : "success"}>{collectMessage}</PageBanner> : null}
           {collectError ? <PageBanner tone="error">{collectError}</PageBanner> : null}
           {collectionErrors.length > 0 ? (
@@ -591,19 +595,19 @@ export default function BillingPage() {
             </div>
           ) : null}
 
-          {summaryError ? <PageBanner tone={billingDisabled ? "warning" : "error"}>{summaryError}</PageBanner> : null}
+          {summaryError ? <PageBanner tone={costDisabled ? "warning" : "error"}>{summaryError}</PageBanner> : null}
           {lowCoverage ? (
             <PageBanner tone="warning">
-              {adminText("Billing coverage is partial for this month:")}{formatCoverage(summary?.coverage, adminText)}{adminText(". Treat estimated cost as provisional.")}</PageBanner>
+              {adminText("Cost coverage is partial for this month:")}{formatCoverage(summary?.coverage, adminText)}{adminText(". Treat estimated cost as provisional.")}</PageBanner>
           ) : null}
           {partialSources ? (
             <PageBanner tone="warning">
               {adminText("Storage and usage sources do not cover the same number of days (")}{formatCoverageBreakdown(summary?.coverage, adminText)}).
             </PageBanner>
           ) : null}
-          {noRateCard ? (
+          {noCostModel ? (
             <PageBanner tone="warning">
-              {adminText("No matching rate card is attached for this scope. Usage totals are available, but estimated cost stays unavailable.")}</PageBanner>
+              {adminText("No cost model is configured. Usage totals are available, but estimated cost stays unavailable.")}</PageBanner>
           ) : null}
           {summaryLoading ? <PageBanner tone="info">{adminText("Loading summary...")}</PageBanner> : <InlineSummary label={`Monthly totals · ${selectedEndpoint?.name ?? ""} · ${month}`} items={stats} />}
 
@@ -681,7 +685,7 @@ export default function BillingPage() {
             {!detailLoading && !detail ? <PageBanner tone="info" className="mt-3">{adminText("Select a subject to view charts.")}</PageBanner> : null}
             {!detailLoading && detail ? (
               <div className="mt-4 space-y-4">
-                {hasPartialBillingSources(detail.coverage) ? (
+                {hasPartialCostSources(detail.coverage) ? (
                   <PageBanner tone="warning">
                     {adminText(
                       "This subject has partial source coverage: {coverage}.",
@@ -690,7 +694,7 @@ export default function BillingPage() {
                   </PageBanner>
                 ) : null}
                 {!detail.cost ? (
-                  <PageBanner tone="warning">{adminText("No rate card matched this subject, so cost is unavailable.")}</PageBanner>
+                  <PageBanner tone="warning">{adminText("No cost model is configured, so estimated cost is unavailable.")}</PageBanner>
                 ) : null}
                 <div className="grid gap-4 lg:grid-cols-3">
                   {dailySeries.length > 0 ? (
@@ -746,7 +750,7 @@ export default function BillingPage() {
                     </>
                   ) : (
                     <div className="lg:col-span-3">
-                      <PageBanner tone="info">{adminText("No daily billing points are available for this subject and month.")}</PageBanner>
+                      <PageBanner tone="info">{adminText("No daily cost points are available for this subject and month.")}</PageBanner>
                     </div>
                   )}
                   <div className={cx(uiCardMutedClass, "p-3 lg:col-span-3")}>

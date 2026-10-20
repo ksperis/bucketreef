@@ -10,7 +10,7 @@ It also covers the administrative workspaces **Admin**, **Ceph Admin**, and
 |---|---|
 | Install or take over BucketReef | [Sysadmin onboarding](getting-started/sysadmin-onboarding.md) |
 | Prepare a storage service for users | [Storage admin runbook](getting-started/storage-admin-runbook.md) |
-| Configure platform users, endpoints, settings, audit, or billing | [Admin workspace](platform/index.md) |
+| Configure platform users, endpoints, settings, audit, or cost | [Admin workspace](platform/index.md) |
 | Operate Ceph RGW resources | [Ceph Admin](storage/ceph-admin/index.md) |
 | Run cross-context storage operations | [Storage Ops](storage/storage-ops/index.md) |
 | Diagnose a production issue | [Observability](operations/observability.md) and [troubleshooting](help/troubleshooting.md) |
@@ -18,7 +18,7 @@ It also covers the administrative workspaces **Admin**, **Ceph Admin**, and
 ## Administration boundaries
 
 - **Admin** governs the BucketReef platform: UI users, endpoints, S3 accounts,
-  S3 connections, settings, audit, billing, and platform-wide features.
+  S3 connections, settings, audit, cost, and platform-wide features.
 - **Ceph Admin** provides Ceph RGW cluster-level workflows to authorized
   administrators.
 - **Storage Ops** provides operational workflows across authorized storage

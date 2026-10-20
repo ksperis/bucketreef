@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.app_settings import AppSettings, GeneralFeatureLocks, QuotaNotificationSettings
+from app.models.cost import CostSettings
 from app.models.ldap import LDAP_PROVIDER_CONFIG_FIELDS, LDAPProviderAdminItem, LDAPProviderAdminPayload
 from app.models.oidc import OIDC_PROVIDER_CONFIG_FIELDS, OIDCProviderAdminItem, OIDCProviderAdminPayload
 from app.routers.dependencies import get_audit_service, get_current_ui_superadmin
@@ -15,6 +16,7 @@ from app.utils.http_errors import (
     raise_http_error_from_value_error,
 )
 from app.services.audit_service import AuditService
+from app.services.cost_settings_service import CostSettingsService
 from app.services.app_settings_service import (
     get_general_feature_locks,
     load_app_settings,
@@ -84,6 +86,40 @@ def get_default_settings(_: User = Depends(get_current_ui_superadmin)) -> AppSet
 @router.get("/general-feature-locks", response_model=GeneralFeatureLocks)
 def get_general_feature_locks_route(_: User = Depends(get_current_ui_superadmin)) -> GeneralFeatureLocks:
     return get_general_feature_locks()
+
+
+@router.get("/cost", response_model=CostSettings)
+def get_cost_settings(
+    _: User = Depends(get_current_ui_superadmin),
+    db: Session = Depends(get_db),
+) -> CostSettings:
+    return CostSettingsService(db).get_settings()
+
+
+@router.put("/cost", response_model=CostSettings)
+def update_cost_settings(
+    payload: CostSettings,
+    current_user: User = Depends(get_current_ui_superadmin),
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> CostSettings:
+    try:
+        saved = CostSettingsService(db).save_settings(payload)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action="cost.settings.update",
+        entity_type="cost_settings",
+        entity_id="global",
+        metadata={
+            "configured": saved.model is not None,
+            "currency": saved.model.currency if saved.model is not None else None,
+            "endpoint_override_ids": [item.storage_endpoint_id for item in saved.endpoint_overrides],
+        },
+    )
+    return saved
 
 
 @router.put("", response_model=AppSettings)

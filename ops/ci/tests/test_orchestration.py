@@ -46,7 +46,7 @@ def test_public_validation_uses_full_history_and_runtimes_only_when_needed():
     assert revision_check['if'] == "${{ inputs.task != 'secret-scan' }}"
 
 
-@pytest.mark.parametrize('paths', [['README.md'], ['ops/cron/run-billing.sh'], ['backend/app/main.py'], ['ops/release/prepare.py'], None])
+@pytest.mark.parametrize('paths', [['README.md'], ['ops/cron/run-cost.sh'], ['backend/app/main.py'], ['ops/release/prepare.py'], None])
 def test_selected_graph_has_no_dangling_or_optional_needs(paths):
     plan = {**select('integration', paths), 'sha': 'a'*40, 'parent_id': 10}
     config = render(plan)

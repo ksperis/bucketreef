@@ -93,4 +93,4 @@ execution errors are not converted into successful skipped runs.
 - [Feature: Endpoint Status in Admin](../platform/endpoint-status.md)
 - [Configuration](../configuration/index.md)
 - [Operations: observability](observability.md)
-- [Operations: billing](billing.md)
+- [Operations: cost](cost.md)

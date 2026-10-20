@@ -22,7 +22,7 @@ _GENERAL_FEATURE_FIELDS = (
     "storage_ops_enabled",
     "browser_enabled",
     "portal_enabled",
-    "billing_enabled",
+    "cost_enabled",
     "endpoint_status_enabled",
 )
 
@@ -106,7 +106,7 @@ def get_general_feature_locks() -> GeneralFeatureLocks:
         "storage_ops_enabled": ("feature_storage_ops_enabled", "FEATURE_STORAGE_OPS_ENABLED"),
         "browser_enabled": ("feature_browser_enabled", "FEATURE_BROWSER_ENABLED"),
         "portal_enabled": ("feature_portal_enabled", "FEATURE_PORTAL_ENABLED"),
-        "billing_enabled": ("feature_billing_enabled", "FEATURE_BILLING_ENABLED"),
+        "cost_enabled": ("feature_cost_enabled", "FEATURE_COST_ENABLED"),
         "endpoint_status_enabled": ("feature_endpoint_status_enabled", "FEATURE_ENDPOINT_STATUS_ENABLED"),
     }
     for field_name, (settings_attr, env_name) in dedicated_sources.items():
