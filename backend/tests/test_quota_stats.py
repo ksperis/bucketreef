@@ -3,7 +3,7 @@
 
 import pytest
 
-from app.utils.quota_stats import extract_positive_limit, extract_quota_snapshot, parse_positive_limit
+from app.utils.quota_stats import extract_positive_limit, parse_positive_limit
 
 
 @pytest.mark.parametrize(
@@ -38,28 +38,3 @@ def test_parse_positive_limit(value, expected):
 )
 def test_extract_positive_limit(payload, expected):
     assert extract_positive_limit(payload, "max_buckets") == expected
-
-
-@pytest.mark.parametrize(
-    ("quota", "expected_state", "expected_bytes"),
-    [
-        ({"enabled": True, "max_size": 1024}, "valid", 1024),
-        ({"enabled": False, "max_size": 1024}, "disabled", None),
-        ({"enabled": True, "max_size": -1}, "unlimited", None),
-        ({"enabled": True, "max_size": 0}, "unlimited", None),
-        ({"enabled": True, "max_size": "invalid"}, "invalid", None),
-        ({"enabled": True}, "unlimited", None),
-    ],
-)
-def test_extract_quota_snapshot_preserves_billing_state(quota, expected_state, expected_bytes):
-    snapshot = extract_quota_snapshot({"quota": quota})
-
-    assert snapshot.size_state == expected_state
-    assert snapshot.max_size_bytes == expected_bytes
-
-
-def test_extract_quota_snapshot_distinguishes_missing_quota_payload():
-    snapshot = extract_quota_snapshot({})
-
-    assert snapshot.size_state == "missing"
-    assert snapshot.max_size_bytes is None

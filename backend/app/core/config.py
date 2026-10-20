@@ -425,7 +425,7 @@ class Settings(BaseSettings):
     billing_operation_lease_ttl_seconds: int = Field(
         7200,
         ge=60,
-        description="Billing collection and monthly statement operation lease TTL in seconds (BILLING_OPERATION_LEASE_TTL_SECONDS)",
+        description="Billing collection operation lease TTL in seconds (BILLING_OPERATION_LEASE_TTL_SECONDS)",
     )
     billing_default_rate_card_name: Optional[str] = Field(
         None,

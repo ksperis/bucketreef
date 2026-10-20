@@ -25,10 +25,8 @@ from app.services.audit_policy import should_persist_audit_action
 from app.services.audit_service import AuditService
 from app.services.operation_lease_service import OperationLeaseService
 from app.services.webhook_catalog import (
-    BILLING_STATEMENT_FINALIZED_EVENT_TYPE,
     KNOWN_WEBHOOK_EVENT_TYPES,
     MIGRATION_EVENT_TYPE,
-    get_webhook_event_definitions,
 )
 from app.services.webhook_service import (
     WebhookEventPublisher,
@@ -208,17 +206,6 @@ def test_literal_persisted_audit_actions_are_present_in_webhook_catalog():
                     missing.append(f"{event_type} ({path.relative_to(app_root.parent)}:{node.lineno})")
 
     assert missing == []
-
-
-def test_billing_statement_finalized_event_is_exposed_in_webhook_catalog():
-    definition = next(
-        item
-        for item in get_webhook_event_definitions()
-        if item.type == BILLING_STATEMENT_FINALIZED_EVENT_TYPE
-    )
-    assert definition.category == "Billing"
-    assert definition.label == "Billing statement finalized"
-    assert "Billing Integration API v1" in definition.description
 
 
 def test_transactional_webhook_failure_rolls_back_only_webhook_savepoint(db_session, monkeypatch):
