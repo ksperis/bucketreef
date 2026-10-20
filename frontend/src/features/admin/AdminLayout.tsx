@@ -55,8 +55,14 @@ export const buildAdminNav = (
   const portalRequestCount = pendingRequestCounts?.portal_requests ?? 0;
   const settingsLinks = [
     pageLink(ADMIN_PAGE_CONTRACTS["general-settings"], text),
-    pageLink(ADMIN_PAGE_CONTRACTS["authentication-settings"], text),
-    pageLink(ADMIN_PAGE_CONTRACTS["manager-settings"], text),
+    {
+      ...pageLink(ADMIN_PAGE_CONTRACTS["authentication-settings"], text),
+      iconName: "shield" as const,
+    },
+    {
+      ...pageLink(ADMIN_PAGE_CONTRACTS["manager-settings"], text),
+      iconName: "tools" as const,
+    },
     {
       ...pageLink(ADMIN_PAGE_CONTRACTS["browser-settings"], text),
       disabled: !browserEnabled,
