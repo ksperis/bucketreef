@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Optional, TypeVar
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import EndpointServiceIdentity, S3Account, S3User, StorageEndpoint, User
@@ -45,12 +46,11 @@ class KeyRotationService:
 
     def rotate_keys(self, payload: KeyRotationRequest) -> KeyRotationResponse:
         payload.validate_retirement_mode()
-        endpoints = (
-            self.db.query(StorageEndpoint)
-            .filter(StorageEndpoint.id.in_(payload.endpoint_ids))
+        endpoints = self.db.scalars(
+            select(StorageEndpoint)
+            .where(StorageEndpoint.id.in_(payload.endpoint_ids))
             .order_by(StorageEndpoint.id.asc())
-            .all()
-        )
+        ).all()
         by_id = {endpoint.id: endpoint for endpoint in endpoints}
         missing_ids = [endpoint_id for endpoint_id in payload.endpoint_ids if endpoint_id not in by_id]
         if missing_ids:
@@ -192,12 +192,11 @@ class KeyRotationService:
         model: type[EndpointResource],
         endpoint: StorageEndpoint,
     ) -> list[EndpointResource]:
-        return (
-            self.db.query(model)
-            .filter(model.storage_endpoint_id == endpoint.id)
+        return self.db.scalars(
+            select(model)
+            .where(model.storage_endpoint_id == endpoint.id)
             .order_by(model.id.asc())
-            .all()
-        )
+        ).all()
 
 def get_key_rotation_service(
     db: Session,
