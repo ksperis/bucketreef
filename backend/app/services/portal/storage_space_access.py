@@ -5,6 +5,8 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING, cast, Optional, TypeGuard
 
+from sqlalchemy import select
+
 from app.db import (
     AccountIAMUser,
     PortalAccountRole,
@@ -97,22 +99,20 @@ class PortalStorageSpaceAccessMixin:
             sources.add(source)
             rows_by_user[user.id] = (user, effective_portal_role, sources)
 
-        direct_rows = (
-            self.db.query(User, UserS3Account.portal_role)
+        direct_rows = self.db.execute(
+            select(User, UserS3Account.portal_role)
             .join(UserS3Account, UserS3Account.user_id == User.id)
-            .filter(UserS3Account.account_id == account.id)
-            .all()
-        )
+            .where(UserS3Account.account_id == account.id)
+        ).all()
         for user, portal_role in direct_rows:
             merge(user, portal_role, "direct")
 
-        group_rows = (
-            self.db.query(User, UiGroupS3Account.portal_role)
+        group_rows = self.db.execute(
+            select(User, UiGroupS3Account.portal_role)
             .join(UserUiGroup, UserUiGroup.user_id == User.id)
             .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
-            .filter(UiGroupS3Account.account_id == account.id)
-            .all()
-        )
+            .where(UiGroupS3Account.account_id == account.id)
+        ).all()
         for user, portal_role in group_rows:
             merge(user, portal_role, "group")
 
@@ -151,16 +151,15 @@ class PortalStorageSpaceAccessMixin:
     ) -> dict[str, PortalStorageSpaceRole]:
         if portal_role not in {PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value}:
             return {}
-        rows = (
-            self.db.query(PortalStorageSpaceMetadata, PortalStorageSpaceGrant.role)
+        rows = self.db.execute(
+            select(PortalStorageSpaceMetadata, PortalStorageSpaceGrant.role)
             .outerjoin(
                 PortalStorageSpaceGrant,
                 (PortalStorageSpaceGrant.storage_space_metadata_id == PortalStorageSpaceMetadata.id)
                 & (PortalStorageSpaceGrant.user_id == target.id),
             )
-            .filter(PortalStorageSpaceMetadata.account_id == account.id)
-            .all()
-        )
+            .where(PortalStorageSpaceMetadata.account_id == account.id)
+        ).all()
         access_by_bucket: dict[str, PortalStorageSpaceRole] = {}
         for metadata, grant_role in rows:
             if metadata.archived_at and not include_archived:
@@ -186,7 +185,9 @@ class PortalStorageSpaceAccessMixin:
         user_id: int,
         account_id: int,
     ) -> Optional[str]:
-        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
+        account = self.db.execute(
+            select(S3Account).where(S3Account.id == account_id)
+        ).scalar_one_or_none()
         if account is None:
             return None
         row = self._portal_account_member_map(account).get(user_id)
@@ -296,21 +297,24 @@ class PortalStorageSpaceAccessMixin:
         user_ids: set[int] = set()
         if metadata.owner_user_id is not None:
             user_ids.add(metadata.owner_user_id)
-        grant_rows = (
-            self.db.query(PortalStorageSpaceGrant.user_id)
-            .filter(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
-            .all()
-        )
-        user_ids.update(user_id for (user_id,) in grant_rows if user_id is not None)
-        account = self.db.query(S3Account).filter(S3Account.id == metadata.account_id).first()
+        grant_user_ids = self.db.scalars(
+            select(PortalStorageSpaceGrant.user_id).where(
+                PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id
+            )
+        ).all()
+        user_ids.update(user_id for user_id in grant_user_ids if user_id is not None)
+        account = self.db.execute(
+            select(S3Account).where(S3Account.id == metadata.account_id)
+        ).scalar_one_or_none()
         if account is not None:
+            member_map = self._portal_account_member_map(account)
             user_ids.update(
                 user_id
-                for user_id, (_target, role, _sources) in self._portal_account_member_map(account).items()
+                for user_id, (_target, role, _sources) in member_map.items()
                 if role == PortalAccountRole.PORTAL_MANAGER.value
             )
-        if self._metadata_account_member_role(metadata) and account is not None:
-            user_ids.update(self._portal_account_member_map(account))
+            if self._metadata_account_member_role(metadata):
+                user_ids.update(member_map)
         return user_ids
 
     def _sync_storage_space_participant_projections(
@@ -332,15 +336,14 @@ class PortalStorageSpaceAccessMixin:
     ) -> None:
         if not user_ids:
             return
-        rows = (
-            self.db.query(User, AccountIAMUser.iam_username)
+        rows = self.db.execute(
+            select(User, AccountIAMUser.iam_username)
             .outerjoin(
                 AccountIAMUser,
                 (AccountIAMUser.user_id == User.id) & (AccountIAMUser.account_id == account.id),
             )
-            .filter(User.id.in_(user_ids))
-            .all()
-        )
+            .where(User.id.in_(user_ids))
+        ).all()
         member_roles = {user_id: row[1] for user_id, row in self._portal_account_member_map(account).items()}
         rows = [(target, member_roles.get(target.id), iam_username) for target, iam_username in rows if iam_username]
         if not rows:
