@@ -11,8 +11,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import BucketMigrationItem
 from app.services.managed_resource_naming import migration_lock_probe_object_key
+from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.utils.rgw_identifiers import resolve_admin_uid
 
 from ._shared import (
     _MIGRATION_USER_AGENT_MARKER,
@@ -36,7 +36,7 @@ class BucketMigrationPolicyGrantsMixin:
         execution_context = target_ctx.execution_context
         account_id = (execution_context.rgw_account_id or "").strip()
         explicit_uid = (execution_context.rgw_user_uid or "").strip()
-        resolved_uid = (resolve_admin_uid(account_id or None, explicit_uid or None) or "").strip()
+        resolved_uid = (resolve_target_admin_uid(execution_context) or "").strip()
 
         candidates: list[str] = []
         seen: set[str] = set()
