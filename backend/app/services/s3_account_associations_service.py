@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -35,8 +36,8 @@ class S3AccountAssociationsService:
     ) -> dict[int, list[AccountUserLink]]:
         if not account_ids:
             return {}
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 UserS3Account.account_id,
                 User,
                 UserS3Account.manager_role,
@@ -44,14 +45,13 @@ class S3AccountAssociationsService:
                 UserS3Account.allow_manager_browser_data_access,
             )
             .join(User, User.id == UserS3Account.user_id)
-            .filter(UserS3Account.account_id.in_(account_ids))
+            .where(UserS3Account.account_id.in_(account_ids))
             .order_by(
                 UserS3Account.account_id.asc(),
                 User.email.asc(),
                 User.id.asc(),
             )
-            .all()
-        )
+        ).all()
         links_by_account: dict[int, list[AccountUserLink]] = {}
         avatars = UserAvatarService(self.db)
         for account_id, user, manager_role, portal_role, browser_access in rows:
@@ -74,8 +74,8 @@ class S3AccountAssociationsService:
     ) -> dict[int, list[AccountGroupLink]]:
         if not account_ids:
             return {}
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 UiGroupS3Account.account_id,
                 UiGroup,
                 UiGroupS3Account.manager_role,
@@ -83,14 +83,13 @@ class S3AccountAssociationsService:
                 UiGroupS3Account.allow_manager_browser_data_access,
             )
             .join(UiGroup, UiGroup.id == UiGroupS3Account.group_id)
-            .filter(UiGroupS3Account.account_id.in_(account_ids))
+            .where(UiGroupS3Account.account_id.in_(account_ids))
             .order_by(
                 UiGroupS3Account.account_id.asc(),
                 UiGroup.name.asc(),
                 UiGroup.id.asc(),
             )
-            .all()
-        )
+        ).all()
         links_by_account: dict[int, list[AccountGroupLink]] = {}
         avatars = UiGroupAvatarService(self.db)
         for account_id, group, manager_role, portal_role, browser_access in rows:
@@ -115,30 +114,30 @@ class S3AccountAssociationsService:
         if payload.user_links is not None:
             user_ids.update(
                 int(user_id)
-                for (user_id,) in (
-                    self.db.query(UserS3Account.user_id)
-                    .filter(UserS3Account.account_id == account.id)
-                    .all()
+                for user_id in self.db.scalars(
+                    select(UserS3Account.user_id).where(
+                        UserS3Account.account_id == account.id
+                    )
                 )
             )
             user_ids.update(int(link.user_id) for link in payload.user_links)
         if payload.group_links is not None:
             group_ids = {
                 int(group_id)
-                for (group_id,) in (
-                    self.db.query(UiGroupS3Account.group_id)
-                    .filter(UiGroupS3Account.account_id == account.id)
-                    .all()
+                for group_id in self.db.scalars(
+                    select(UiGroupS3Account.group_id).where(
+                        UiGroupS3Account.account_id == account.id
+                    )
                 )
             }
             group_ids.update(int(link.group_id) for link in payload.group_links)
             if group_ids:
                 user_ids.update(
                     int(user_id)
-                    for (user_id,) in (
-                        self.db.query(UserUiGroup.user_id)
-                        .filter(UserUiGroup.group_id.in_(group_ids))
-                        .all()
+                    for user_id in self.db.scalars(
+                        select(UserUiGroup.user_id).where(
+                            UserUiGroup.group_id.in_(group_ids)
+                        )
                     )
                 )
         return user_ids
@@ -156,11 +155,9 @@ class S3AccountAssociationsService:
             entity_label="User",
         )
 
-        existing = (
-            self.db.query(UserS3Account)
-            .filter(UserS3Account.account_id == account.id)
-            .all()
-        )
+        existing = self.db.scalars(
+            select(UserS3Account).where(UserS3Account.account_id == account.id)
+        ).all()
         existing_by_user = {int(link.user_id): link for link in existing}
         desired_ids = set(cleaned)
         for user_id in set(existing_by_user) - desired_ids:
@@ -204,11 +201,9 @@ class S3AccountAssociationsService:
             entity_label="UI groups",
         )
 
-        existing = (
-            self.db.query(UiGroupS3Account)
-            .filter(UiGroupS3Account.account_id == account.id)
-            .all()
-        )
+        existing = self.db.scalars(
+            select(UiGroupS3Account).where(UiGroupS3Account.account_id == account.id)
+        ).all()
         existing_by_group = {int(link.group_id): link for link in existing}
         desired_ids = set(cleaned)
         for group_id in set(existing_by_group) - desired_ids:
