@@ -78,6 +78,7 @@ import { useBrowserRuntimeData } from "./useBrowserRuntimeData";
 import { useBrowserRecursiveObjectListing } from "./useBrowserRecursiveObjectListing";
 import { useBrowserSearch } from "./useBrowserSearch";
 import { useBrowserSelection } from "./useBrowserSelection";
+import { useBrowserObjectNavigation } from "./useBrowserObjectNavigation";
 import { useBrowserTransferRuntime } from "./useBrowserTransferRuntime";
 import { useBrowserUploadQueue } from "./useBrowserUploadQueue";
 import { useBrowserVersionCleanup } from "./useBrowserVersionCleanup";
@@ -92,7 +93,6 @@ import {
   type BrowserCapabilityFacts,
   type BrowserFunctionalProfile,
   runBrowserAction,
-  resolveItemPrimaryAction,
 } from "./browserActions";
 import { useBrowserActionStates } from "./useBrowserActionStates";
 import {
@@ -107,10 +107,6 @@ import {
 } from "./BrowserBucketDialogModals";
 import BrowserContextMenu from "./BrowserContextMenu";
 import BrowserObjectDetailsDrawer from "./BrowserObjectDetailsDrawer";
-import {
-  resolveBrowserObjectDetailsTab,
-  resolveRoutedObjectDetailsTab,
-} from "./browserObjectDetailsModel";
 import { resolveStorageSpaceObjectDetailsView } from "../shared/objectDetailsContract";
 import BrowserPathDetailsDrawer from "./BrowserPathDetailsDrawer";
 import BrowserStorageSpaceObjectDetailsDrawer from "./BrowserStorageSpaceObjectDetailsDrawer";
@@ -161,7 +157,6 @@ import {
 } from "./browserPageContextModel";
 import type {
   BrowserItem,
-  ObjectDetailsTabId,
   UploadQueueItem,
 } from "./browserTypes";
 import { useBrowserI18n } from "./browserI18n";
@@ -796,16 +791,6 @@ export default function BrowserPage({
         : items.filter((item) => item.type !== "folder"),
     [items, showFolderItems],
   );
-  const previewFiles = useMemo(() => listItems.filter(item => item.type === "file" && !item.isDeleted), [listItems]);
-  useEffect(() => {
-    onLoadedFilesChange?.(previewFiles.map(item => item.key));
-  }, [previewFiles, onLoadedFilesChange]);
-  const previewIndex = previewFiles.findIndex(item => item.key === objectDetailsTarget?.item.key);
-  const previewNavigation = previewIndex < 0 ? undefined : {
-    previous: previewIndex > 0 ? () => requestDetailsDrawerTransition(() => openObjectDetailsTarget(previewFiles[previewIndex - 1], "preview")) : undefined,
-    next: previewIndex + 1 < previewFiles.length ? () => requestDetailsDrawerTransition(() => openObjectDetailsTarget(previewFiles[previewIndex + 1], "preview")) : undefined,
-    position: (previewIndex + 1) + " / " + previewFiles.length,
-  };
   const {
     activateItem,
     allSelected,
@@ -827,6 +812,45 @@ export default function BrowserPage({
     items,
     listItems,
     scopeKey: JSON.stringify([contextIdForApi, bucketName, prefix]),
+  });
+
+  const handleSelectPrefix = useCallback(
+    (nextPrefix: string) => {
+      requestDetailsDrawerTransition(() => {
+        setPrefix(nextPrefix);
+        clearActiveItem();
+        recordPathHistory(nextPrefix);
+      });
+    },
+    [
+      clearActiveItem,
+      recordPathHistory,
+      requestDetailsDrawerTransition,
+      setPrefix,
+    ],
+  );
+  const {
+    createPublicLinkForItem,
+    openItemDetails,
+    openItemPrimaryAction,
+    openObjectDetails,
+    openPropertiesForItem,
+    previewItem: handlePreviewItem,
+    previewNavigation,
+  } = useBrowserObjectNavigation({
+    bucketName,
+    functionalProfile: resolvedFunctionalProfile,
+    isStorageSpaceContext,
+    listItems,
+    objectDetailsTarget,
+    onActivateItem: activateItem,
+    onLoadedFilesChange,
+    onOpenFolder: handleSelectPrefix,
+    onOpenObjectDetails,
+    openObjectDetailsTarget,
+    requestDetailsDrawerTransition,
+    setWarningMessage,
+    versioningEnabled: isVersioningEnabled,
   });
 
   useLayoutEffect(() => {
@@ -1171,61 +1195,6 @@ export default function BrowserPage({
       isPortalProfile && deletedObjectsOptions?.showToggle,
     ),
   });
-  const openObjectDetails = (
-    item: BrowserItem,
-    requestedTab: ObjectDetailsTabId,
-    intent?: "create-public-link",
-  ) => {
-    if (item.type !== "file") return;
-    if (onOpenObjectDetails) {
-      onOpenObjectDetails({
-        bucketName,
-        key: item.key,
-        name: item.name || item.key,
-        initialTab: resolveRoutedObjectDetailsTab({
-          isDeleted: Boolean(item.isDeleted),
-          requestedTab,
-        }),
-        isDeleted: Boolean(item.isDeleted),
-        intent,
-      });
-      return;
-    }
-    const resolution = resolveBrowserObjectDetailsTab({
-      isDeleted: Boolean(item.isDeleted),
-      isStorageSpace: isStorageSpaceContext,
-      profile:
-        resolvedFunctionalProfile === "advanced" ? "advanced" : "standard",
-      requestedTab,
-      versioningEnabled: isVersioningEnabled,
-    });
-    if (resolution.warning) setWarningMessage(text(resolution.warning));
-    if (!resolution.initialTab) return;
-    const initialTab = resolution.initialTab;
-    requestDetailsDrawerTransition(() => {
-      activateItem(item);
-      openObjectDetailsTarget(item, initialTab, intent);
-    });
-  };
-
-  const openItemPrimaryAction = (item: BrowserItem) => {
-    const primaryAction = resolveItemPrimaryAction(item, {
-      versioningEnabled: isVersioningEnabled,
-    });
-    if (primaryAction.kind === "open-folder") {
-      handleOpenItem(item);
-    } else if (primaryAction.kind === "open-versions") {
-      openObjectDetails(item, "versions");
-    } else if (primaryAction.kind === "open-file") {
-      openObjectDetails(item, primaryAction.initialTab);
-    }
-  };
-
-  const createPublicLinkForItem = (item: BrowserItem) => {
-    if (item.type !== "file" || item.isDeleted) return;
-    openObjectDetails(item, "details", "create-public-link");
-  };
-
   const restoreDeletedItem = (item: BrowserItem) => {
     if (!item.isDeleted || !deletedObjectsOptions?.onRestoreObject) return;
     deletedObjectsOptions.onRestoreObject({
@@ -1238,57 +1207,10 @@ export default function BrowserPage({
     });
   };
 
-  const openItemDetails = (item: BrowserItem) => {
-    if (item.type === "folder") {
-      if (resolvedFunctionalProfile !== "advanced") return;
-      requestDetailsDrawerTransition(() => {
-        activateItem(item);
-        openObjectDetailsTarget(item, "details");
-      });
-      return;
-    }
-    openObjectDetails(
-      item,
-      item.isDeleted
-        ? "versions"
-        : resolvedFunctionalProfile === "advanced"
-          ? "properties"
-          : "details",
-    );
-  };
-
-  const openAdvancedForItem = (item: BrowserItem) => {
-    openObjectDetails(item, "properties");
-  };
-
-  const openPropertiesForItem = (item: BrowserItem) => {
-    openObjectDetails(item, "properties");
-  };
-
-  const handlePreviewItem = (item: BrowserItem) => {
-    openObjectDetails(item, "preview");
-  };
-
   const handleOpenItem = (item: BrowserItem) => {
     if (item.type !== "folder") return;
     handleSelectPrefix(item.key);
   };
-
-  const handleSelectPrefix = useCallback(
-    (nextPrefix: string) => {
-      requestDetailsDrawerTransition(() => {
-        setPrefix(nextPrefix);
-        clearActiveItem();
-        recordPathHistory(nextPrefix);
-      });
-    },
-    [
-      clearActiveItem,
-      recordPathHistory,
-      requestDetailsDrawerTransition,
-      setPrefix,
-    ],
-  );
   const {
     activeSuggestionIndex: pathSuggestionIndex,
     applySuggestion: applyPathSuggestion,
@@ -2050,7 +1972,7 @@ export default function BrowserPage({
       bulkAttributes: () => openBulkAttributesModal(selectionItems),
       advanced: () => {
         if (selectionPrimary) {
-          openAdvancedForItem(selectionPrimary);
+          openPropertiesForItem(selectionPrimary);
         }
       },
       restoreToDate: () => openBulkRestoreModal(selectionItems),
@@ -2075,7 +1997,7 @@ export default function BrowserPage({
       cut: () => handleCutItems([item]),
       bulkAttributes: () => openBulkAttributesModal([item]),
       restoreToDate: () => openBulkRestoreModal([item]),
-      advanced: () => openAdvancedForItem(item),
+      advanced: () => openPropertiesForItem(item),
       delete: () => handleDeleteItems([item]),
     });
     if (!result.executed) {
@@ -2552,7 +2474,7 @@ export default function BrowserPage({
         onCutItems={handleCutItems}
         onOpenBulkAttributes={openBulkAttributesModal}
         onOpenBulkRestore={openBulkRestoreModal}
-        onOpenAdvanced={openAdvancedForItem}
+        onOpenAdvanced={openPropertiesForItem}
         onDeleteItems={handleDeleteItems}
         onDownloadFolder={handleDownloadFolder}
         onDownloadItems={handleDownloadItems}
