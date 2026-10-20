@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -237,9 +238,11 @@ def admin_s3_connection_update_requires_step_up(
     if payload.group_ids is not None:
         persisted_group_ids = {
             int(group_id)
-            for (group_id,) in db.query(UiGroupS3Connection.group_id)
-            .filter(UiGroupS3Connection.s3_connection_id == connection.id)
-            .all()
+            for group_id in db.scalars(
+                select(UiGroupS3Connection.group_id).where(
+                    UiGroupS3Connection.s3_connection_id == connection.id
+                )
+            ).all()
         }
         if persisted_group_ids != {int(group_id) for group_id in payload.group_ids}:
             return True
