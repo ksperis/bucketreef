@@ -75,6 +75,23 @@ export type BrowserObjectColumnWidths = Partial<
   Record<BrowserResizableColumnId, number>
 >;
 
+type BrowserObjectTableLayoutOptions = {
+  visibleColumns: ReadonlySet<BrowserColumnId>;
+  columnWidths: BrowserObjectColumnWidths;
+  compactMode: boolean;
+  directItemActionCount: number;
+};
+
+type BrowserObjectTableLayout = {
+  actionsColumnWidthPx: number;
+  columnWidthsPx: Readonly<Record<BrowserColumnId, number>>;
+  lazyMetadataColumnsVisible: boolean;
+  lazyTagsColumnsVisible: boolean;
+  minWidthPx: number;
+  nameColumnWidthPx: number;
+  visibleColumnDefinitions: readonly ColumnDefinition[];
+};
+
 export type LazyFieldStatus = "idle" | "loading" | "ready" | "error";
 
 export type LazyColumnCacheEntry = {
@@ -97,11 +114,11 @@ const NAME_COLUMN_DEFINITION: ResizableColumnDefinition = {
 };
 
 export const SELECTION_COLUMN_WIDTH_PX = 36;
-export const MIN_ACTIONS_COLUMN_WIDTH_PX = 108;
-export const COMFORTABLE_ROW_ACTION_TARGET_SIZE_PX = 44;
-export const COMPACT_ROW_ACTION_TARGET_SIZE_PX = 24;
-export const ROW_ACTION_GAP_PX = 4;
-export const ROW_ACTION_CELL_HORIZONTAL_PADDING_PX = 16;
+const MIN_ACTIONS_COLUMN_WIDTH_PX = 108;
+const COMFORTABLE_ROW_ACTION_TARGET_SIZE_PX = 44;
+const COMPACT_ROW_ACTION_TARGET_SIZE_PX = 24;
+const ROW_ACTION_GAP_PX = 4;
+const ROW_ACTION_CELL_HORIZONTAL_PADDING_PX = 16;
 export const DIRECT_ITEM_ACTION_IDS: readonly BrowserActionId[] = [
   "download",
   "delete",
@@ -291,6 +308,58 @@ export const resolveColumnWidthPx = (
 ) =>
   widths[columnId] ??
   RESIZABLE_COLUMN_DEFINITIONS_BY_ID[columnId].defaultWidthPx;
+
+export const buildBrowserObjectTableLayout = ({
+  visibleColumns,
+  columnWidths,
+  compactMode,
+  directItemActionCount,
+}: BrowserObjectTableLayoutOptions): BrowserObjectTableLayout => {
+  const rowActionTargetSizePx = compactMode
+    ? COMPACT_ROW_ACTION_TARGET_SIZE_PX
+    : COMFORTABLE_ROW_ACTION_TARGET_SIZE_PX;
+  const actionsColumnButtonCount = 1 + directItemActionCount;
+  const actionsColumnWidthPx = Math.max(
+    MIN_ACTIONS_COLUMN_WIDTH_PX,
+    ROW_ACTION_CELL_HORIZONTAL_PADDING_PX +
+      actionsColumnButtonCount * rowActionTargetSizePx +
+      (actionsColumnButtonCount - 1) * ROW_ACTION_GAP_PX,
+  );
+  const visibleColumnDefinitions = COLUMN_DEFINITIONS.filter((definition) =>
+    visibleColumns.has(definition.id),
+  );
+  const columnWidthsPx = COLUMN_DEFINITIONS.reduce<
+    Record<BrowserColumnId, number>
+  >((acc, definition) => {
+    acc[definition.id] = resolveColumnWidthPx(definition.id, columnWidths);
+    return acc;
+  }, {} as Record<BrowserColumnId, number>);
+  const nameColumnWidthPx = resolveColumnWidthPx("name", columnWidths);
+  const minWidthPx = Math.max(
+    720,
+    SELECTION_COLUMN_WIDTH_PX +
+      nameColumnWidthPx +
+      actionsColumnWidthPx +
+      visibleColumnDefinitions.reduce(
+        (sum, definition) => sum + columnWidthsPx[definition.id],
+        0,
+      ),
+  );
+
+  return {
+    actionsColumnWidthPx,
+    columnWidthsPx,
+    lazyMetadataColumnsVisible: visibleColumnDefinitions.some(
+      ({ lazySource }) => lazySource === "metadata",
+    ),
+    lazyTagsColumnsVisible: visibleColumnDefinitions.some(
+      ({ lazySource }) => lazySource === "tags",
+    ),
+    minWidthPx,
+    nameColumnWidthPx,
+    visibleColumnDefinitions,
+  };
+};
 
 export const loadVisibleColumnsForSurface = (
   isMainBrowserPath: boolean,

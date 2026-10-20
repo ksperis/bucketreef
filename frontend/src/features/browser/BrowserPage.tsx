@@ -130,16 +130,11 @@ import {
 } from "./browserPanelLayout";
 import {
   COLUMN_DEFINITIONS,
-  COMFORTABLE_ROW_ACTION_TARGET_SIZE_PX,
-  COMPACT_ROW_ACTION_TARGET_SIZE_PX,
   DEFAULT_VISIBLE_COLUMN_IDS,
-  MIN_ACTIONS_COLUMN_WIDTH_PX,
-  ROW_ACTION_CELL_HORIZONTAL_PADDING_PX,
-  ROW_ACTION_GAP_PX,
   SELECTION_COLUMN_WIDTH_PX,
+  buildBrowserObjectTableLayout,
   buildBrowserItems,
   collectAvailableStorageClasses,
-  resolveColumnWidthPx,
   type BrowserColumnId,
 } from "./browserObjectTableModel";
 import {
@@ -415,9 +410,6 @@ export default function BrowserPage({
   });
   const canConfigureRootBrowserColumns =
     isMainBrowserPath && resolvedFunctionalProfile === "advanced";
-  const rowActionTargetSizePx = compactMode
-    ? COMPACT_ROW_ACTION_TARGET_SIZE_PX
-    : COMFORTABLE_ROW_ACTION_TARGET_SIZE_PX;
   const maximumDirectItemActionCount =
     1 +
     Number(resolvedCapabilityFacts.canDeleteObjects) +
@@ -426,13 +418,6 @@ export default function BrowserPage({
         resolvedCapabilityFacts.canCreatePublicLinks &&
         canOpenExternalObjectDetails,
     );
-  const actionsColumnButtonCount = 1 + maximumDirectItemActionCount;
-  const actionsColumnWidthPx = Math.max(
-    MIN_ACTIONS_COLUMN_WIDTH_PX,
-    ROW_ACTION_CELL_HORIZONTAL_PADDING_PX +
-      actionsColumnButtonCount * rowActionTargetSizePx +
-      (actionsColumnButtonCount - 1) * ROW_ACTION_GAP_PX,
-  );
   const {
     setStatusMessage,
     setWarningMessage,
@@ -880,63 +865,31 @@ export default function BrowserPage({
     clearActiveItem();
   }, [contextSwitchInFlight, clearActiveItem]);
 
-  const visibleColumnDefinitions = useMemo(
+  const tableLayout = useMemo(
     () =>
-      COLUMN_DEFINITIONS.filter((definition) =>
-        visibleColumnSet.has(definition.id),
-      ),
-    [visibleColumnSet],
-  );
-  const nameColumnWidthPx = useMemo(
-    () => resolveColumnWidthPx("name", columnWidths),
-    [columnWidths],
-  );
-  const visibleColumnWidthsPx = useMemo(
-    () =>
-      visibleColumnDefinitions.reduce<
-        Record<BrowserColumnId, number>
-      >((acc, definition) => {
-        acc[definition.id] = resolveColumnWidthPx(definition.id, columnWidths);
-        return acc;
-      }, {} as Record<BrowserColumnId, number>),
-    [columnWidths, visibleColumnDefinitions],
-  );
-  const objectTableMinWidthPx = useMemo(
-    () =>
-      Math.max(
-        720,
-        SELECTION_COLUMN_WIDTH_PX +
-          nameColumnWidthPx +
-          actionsColumnWidthPx +
-          visibleColumnDefinitions.reduce(
-            (sum, definition) => sum + visibleColumnWidthsPx[definition.id],
-            0,
-          ),
-      ),
+      buildBrowserObjectTableLayout({
+        visibleColumns: visibleColumnSet,
+        columnWidths,
+        compactMode,
+        directItemActionCount: maximumDirectItemActionCount,
+      }),
     [
-      actionsColumnWidthPx,
-      nameColumnWidthPx,
-      visibleColumnDefinitions,
-      visibleColumnWidthsPx,
+      columnWidths,
+      compactMode,
+      maximumDirectItemActionCount,
+      visibleColumnSet,
     ],
   );
-  const lazyMetadataColumnsVisible =
-    visibleColumnSet.has("contentType") ||
-    visibleColumnSet.has("metadataCount") ||
-    visibleColumnSet.has("cacheControl") ||
-    visibleColumnSet.has("expires") ||
-    visibleColumnSet.has("restoreStatus");
-  const lazyTagsColumnsVisible = visibleColumnSet.has("tagsCount");
   const lazyColumnCache = useBrowserLazyColumns({
     contextId: contextIdForApi,
     bucketName,
     enabled: hasExecutionContext,
     items: listItems,
-    metadataColumnsVisible: lazyMetadataColumnsVisible,
+    metadataColumnsVisible: tableLayout.lazyMetadataColumnsVisible,
     prefix,
     requestOptions: browserRequestOptions,
     sseCustomerKeyBase64,
-    tagsColumnVisible: lazyTagsColumnsVisible,
+    tagsColumnVisible: tableLayout.lazyTagsColumnsVisible,
     viewportRef: objectsListViewportRef,
   });
   const {
@@ -2236,12 +2189,12 @@ export default function BrowserPage({
                 isPortalProfile={isPortalProfile}
                 table={{
                   scaffold: {
-                    minWidthPx: objectTableMinWidthPx,
+                    minWidthPx: tableLayout.minWidthPx,
                     selectionColumnWidthPx: SELECTION_COLUMN_WIDTH_PX,
-                    nameColumnWidthPx,
-                    actionsColumnWidthPx,
-                    columns: visibleColumnDefinitions,
-                    columnWidthsPx: visibleColumnWidthsPx,
+                    nameColumnWidthPx: tableLayout.nameColumnWidthPx,
+                    actionsColumnWidthPx: tableLayout.actionsColumnWidthPx,
+                    columns: tableLayout.visibleColumnDefinitions,
+                    columnWidthsPx: tableLayout.columnWidthsPx,
                     headerPaddingClasses: headerPadding,
                     allSelected,
                     selectionDisabled: selectableListItems.length === 0,

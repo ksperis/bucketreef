@@ -3,6 +3,7 @@ import { BROWSER_EMBEDDED_COLUMN_WIDTHS_STORAGE_KEY } from "./browserEmbeddedCol
 import {
   COLUMN_DEFINITIONS,
   DEFAULT_VISIBLE_COLUMN_IDS,
+  buildBrowserObjectTableLayout,
   buildBrowserItems,
   buildBrowserPathStats,
   collectAvailableStorageClasses,
@@ -60,6 +61,50 @@ describe("browserObjectTableModel", () => {
           minWidthPx <= defaultWidthPx && defaultWidthPx <= maxWidthPx,
       ),
     ).toBe(true);
+  });
+
+  it("derives table widths and lazy loading needs from the column schema", () => {
+    const layout = buildBrowserObjectTableLayout({
+      visibleColumns: new Set(["size", "tagsCount", "cacheControl"]),
+      columnWidths: {
+        name: 300,
+        size: 100,
+        tagsCount: 90,
+        cacheControl: 220,
+      },
+      compactMode: false,
+      directItemActionCount: 2,
+    });
+
+    expect(layout.visibleColumnDefinitions.map(({ id }) => id)).toEqual([
+      "size",
+      "tagsCount",
+      "cacheControl",
+    ]);
+    expect(layout.nameColumnWidthPx).toBe(300);
+    expect(layout.actionsColumnWidthPx).toBe(156);
+    expect(layout.columnWidthsPx).toMatchObject({
+      size: 100,
+      tagsCount: 90,
+      cacheControl: 220,
+    });
+    expect(layout.minWidthPx).toBe(902);
+    expect(layout.lazyMetadataColumnsVisible).toBe(true);
+    expect(layout.lazyTagsColumnsVisible).toBe(true);
+  });
+
+  it("keeps compact action columns and narrow tables at their minimum widths", () => {
+    const layout = buildBrowserObjectTableLayout({
+      visibleColumns: new Set(["size"]),
+      columnWidths: {},
+      compactMode: true,
+      directItemActionCount: 1,
+    });
+
+    expect(layout.actionsColumnWidthPx).toBe(108);
+    expect(layout.minWidthPx).toBe(720);
+    expect(layout.lazyMetadataColumnsVisible).toBe(false);
+    expect(layout.lazyTagsColumnsVisible).toBe(false);
   });
 
   it("creates independent empty lazy-field cache entries", () => {
