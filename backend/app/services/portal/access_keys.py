@@ -8,6 +8,8 @@ import re
 import secrets
 from typing import Optional, TYPE_CHECKING
 
+from sqlalchemy import select
+
 from app.db import PortalAccountRole, PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
 from app.models.app_settings import PortalEffectiveSettings
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
@@ -48,14 +50,12 @@ class PortalAccessKeysMixin:
         account: S3Account,
         metadata: PortalStorageSpaceMetadata,
     ) -> int:
-        credentials = (
-            self.db.query(PortalExternalAccessCredential)
-            .filter(
+        credentials = self.db.scalars(
+            select(PortalExternalAccessCredential).where(
                 PortalExternalAccessCredential.account_id == account.id,
                 PortalExternalAccessCredential.storage_space_metadata_id == metadata.id,
             )
-            .all()
-        )
+        ).all()
         if not credentials:
             return 0
         iam_service = self._get_iam_service(account)
@@ -116,16 +116,15 @@ class PortalAccessKeysMixin:
         user: User,
         account: S3Account,
     ) -> list[PortalExternalAccessCredential]:
-        return (
-            self.db.query(PortalExternalAccessCredential)
-            .filter(
+        return self.db.scalars(
+            select(PortalExternalAccessCredential)
+            .where(
                 PortalExternalAccessCredential.account_id == account.id,
                 PortalExternalAccessCredential.created_by_user_id == user.id,
                 PortalExternalAccessCredential.revoked_at.is_(None),
             )
             .order_by(PortalExternalAccessCredential.created_at.desc(), PortalExternalAccessCredential.id.desc())
-            .all()
-        )
+        ).all()
 
     def _list_external_access_keys(self, user: User, account: S3Account) -> list[PortalAccessKey]:
         keys: list[PortalAccessKey] = []
@@ -145,15 +144,13 @@ class PortalAccessKeysMixin:
         account: S3Account,
         access_key_id: str,
     ) -> Optional[PortalExternalAccessCredential]:
-        return (
-            self.db.query(PortalExternalAccessCredential)
-            .filter(
+        return self.db.scalar(
+            select(PortalExternalAccessCredential).where(
                 PortalExternalAccessCredential.account_id == account.id,
                 PortalExternalAccessCredential.created_by_user_id == user.id,
                 PortalExternalAccessCredential.access_key_id == access_key_id,
                 PortalExternalAccessCredential.revoked_at.is_(None),
             )
-            .first()
         )
 
     def _ensure_access_key_management_allowed(self, access: "AccountAccess") -> PortalEffectiveSettings:
