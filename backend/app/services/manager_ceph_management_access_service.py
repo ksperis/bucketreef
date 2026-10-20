@@ -9,6 +9,7 @@ from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
 from dataclasses import dataclass
 from typing import Literal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import S3Account, S3User, StorageEndpoint, StorageProvider, User
@@ -103,7 +104,9 @@ class ManagerCephManagementAccessService:
             link = effective.account_link_for(account_id)
             if link is None or not EffectiveAccessService.manager_account_allowed(link):
                 return self._deny("Not authorized for this Manager context")
-            resource = self.db.query(S3Account).filter(S3Account.id == account_id).first()
+            resource = self.db.scalar(
+                select(S3Account).where(S3Account.id == account_id)
+            )
             if resource is None or not resolve_feature_policy(policies.bucket_quota_management, resource.allow_bucket_quota_management).enabled:
                 return self._deny("Bucket quota management is not enabled for this resource")
         elif context_kind == "s3_user":
@@ -114,7 +117,9 @@ class ManagerCephManagementAccessService:
                 return self._deny(f"{label} is not available for this context")
             if not effective.has_s3_user(s3_user_id):
                 return self._deny("Not authorized for this Manager context")
-            resource = self.db.query(S3User).filter(S3User.id == s3_user_id).first()
+            resource = self.db.scalar(
+                select(S3User).where(S3User.id == s3_user_id)
+            )
             if resource is None:
                 return self._deny(f"{label} is not available for this context")
             if operation == "bucket_quota" and not resolve_feature_policy(policies.bucket_quota_management, resource.allow_bucket_quota_management).enabled:
@@ -126,7 +131,9 @@ class ManagerCephManagementAccessService:
 
         endpoint_id = resource.storage_endpoint_id
         endpoint = (
-            self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+            self.db.scalar(
+                select(StorageEndpoint).where(StorageEndpoint.id == endpoint_id)
+            )
             if isinstance(endpoint_id, int)
             else None
         )
