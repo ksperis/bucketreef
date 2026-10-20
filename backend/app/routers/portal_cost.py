@@ -13,6 +13,7 @@ from app.models.cost import CostSubjectDetail
 from app.routers.dependencies import get_portal_account_access
 from app.services.app_settings_service import load_app_settings
 from app.services.cost_service import CostService
+from app.services.portal_service import PortalService
 from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter()
@@ -31,6 +32,8 @@ def portal_cost_me(
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     account = access.account
+    if not PortalService(db).get_effective_portal_settings(account).cost_estimation_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cost estimation is disabled for this Portal project")
     service = CostService(db)
     try:
         return service.subject_detail(month, account.storage_endpoint_id, "account", account.id)

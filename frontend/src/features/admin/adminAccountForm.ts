@@ -15,6 +15,7 @@ export function adminAccountForm(account: S3Account) {
     allow_access_key_expiration: account.allow_access_key_expiration ?? null,
     allow_activity_history: account.allow_activity_history ?? null,
     allow_rgw_usage_metrics: account.allow_rgw_usage_metrics ?? null,
+    allow_cost_estimation: account.allow_cost_estimation ?? null,
     allow_bucket_usage_stats: account.allow_bucket_usage_stats ?? null,
     allow_bucket_usage_stats_collection: account.allow_bucket_usage_stats_collection ?? null,
     user_links: account.user_links.map<AccountUserLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
@@ -44,6 +45,7 @@ export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAcco
       allow_access_key_expiration: draft.allow_access_key_expiration,
       allow_activity_history: draft.allow_activity_history,
       allow_rgw_usage_metrics: draft.allow_rgw_usage_metrics,
+      allow_cost_estimation: draft.allow_cost_estimation,
     } : {}),
     ...(allowQuotaUpdates && accountQuotaChanged(draft, baseline) ? {
       quota_max_size_gb: draft.quota_max_size_gb !== "" ? Number(draft.quota_max_size_gb) : null,

@@ -11,8 +11,11 @@ const useManagerStatsMock = vi.fn();
 const fetchManagerUsageHistoryTrendsMock = vi.fn();
 const getManagerUsageStatsAggregateMock = vi.fn();
 const streamManagerUsageStatsAggregateMock = vi.fn();
+const getManagerCostMeMock = vi.fn();
 let usageHistoryEnabled = false;
 let bucketUsageStatsEnabled = false;
+let costEnabled = false;
+let costEstimationEnabled = false;
 
 vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => useS3AccountContextMock(),
@@ -31,10 +34,15 @@ vi.mock("../../api/bucketUsageStats", () => ({
   streamManagerUsageStatsAggregate: (...args: unknown[]) => streamManagerUsageStatsAggregateMock(...args),
 }));
 
+vi.mock("../../api/cost", () => ({
+  getManagerCostMe: (...args: unknown[]) => getManagerCostMeMock(...args),
+}));
+
 vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     generalSettings: {
       usage_history_enabled: usageHistoryEnabled,
+      cost_enabled: costEnabled,
     },
   }),
 }));
@@ -94,6 +102,7 @@ function buildContext({
     managerStatsMessage,
     managerFeatureStates: {
       bucket_usage_stats: { enabled: bucketUsageStatsEnabled, source: "platform" },
+      cost_estimation: { enabled: costEstimationEnabled, source: "resource" },
     },
   };
 }
@@ -212,11 +221,25 @@ describe("ManagerMetricsPage", () => {
     fetchManagerUsageHistoryTrendsMock.mockReset();
     getManagerUsageStatsAggregateMock.mockReset();
     streamManagerUsageStatsAggregateMock.mockReset();
+    getManagerCostMeMock.mockReset();
     fetchManagerUsageHistoryTrendsMock.mockResolvedValue(buildUsageHistoryTrends());
     getManagerUsageStatsAggregateMock.mockResolvedValue({ aggregate: buildUsageStatsAggregate() });
     streamManagerUsageStatsAggregateMock.mockResolvedValue({ status: "completed" });
     usageHistoryEnabled = false;
     bucketUsageStatsEnabled = false;
+    costEnabled = false;
+    costEstimationEnabled = false;
+    getManagerCostMeMock.mockResolvedValue({
+      month: "2026-06",
+      subject_type: "account",
+      subject_id: 1,
+      name: "Research",
+      daily: [],
+      usage: { bytes_in: 1024, bytes_out: 2048, ops_total: 30 },
+      storage: { avg_bytes: 4096, total_objects: 8 },
+      coverage: { days_collected: 2, days_in_month: 30, coverage_ratio: 2 / 30 },
+      cost: { total_cost: 1.25, currency: "EUR", pricing_source: "global" },
+    });
     localStorage.clear();
   });
 
@@ -406,6 +429,41 @@ describe("ManagerMetricsPage", () => {
     expect(screen.queryByText("Usage history")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Usage history" })).not.toBeInTheDocument();
     expect(fetchManagerUsageHistoryTrendsMock).not.toHaveBeenCalled();
+  });
+
+  it("shows Cost for an opted-in account context", async () => {
+    costEnabled = true;
+    costEstimationEnabled = true;
+    useS3AccountContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
+    useManagerStatsMock.mockReturnValue(buildStatsResult());
+
+    render(
+      <MemoryRouter>
+        <ManagerMetricsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Costs" }));
+
+    expect(await screen.findByText("Monthly cost")).toBeInTheDocument();
+    expect(await screen.findByText("€1.25")).toBeInTheDocument();
+    expect(getManagerCostMeMock).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}$/), "1");
+  });
+
+  it("hides Cost until the selected Manager context opts in", () => {
+    costEnabled = true;
+    costEstimationEnabled = false;
+    useS3AccountContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
+    useManagerStatsMock.mockReturnValue(buildStatsResult());
+
+    render(
+      <MemoryRouter>
+        <ManagerMetricsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole("tab", { name: "Costs" })).not.toBeInTheDocument();
+    expect(getManagerCostMeMock).not.toHaveBeenCalled();
   });
 
   it("renders account usage composition and recalculates all account buckets when usage stats are enabled", async () => {

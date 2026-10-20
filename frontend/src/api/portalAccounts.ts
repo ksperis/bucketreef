@@ -32,6 +32,7 @@ export type PortalState = {
   server_access_logging_enabled?: boolean;
   storage_space_version_cleanup_enabled?: boolean;
   bucket_usage_stats_enabled?: boolean;
+  cost_estimation_enabled?: boolean;
 };
 
 export type PortalAccountSettings = {

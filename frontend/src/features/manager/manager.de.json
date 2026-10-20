@@ -1608,5 +1608,18 @@
   "Disable server access logging?": "Server-Zugriffsprotokollierung deaktivieren?",
   "Stop delivering new server access logs for this bucket.": "Beenden Sie die Zustellung neuer Server-Zugriffslogs für diesen Bucket.",
   "Disable access logging": "Zugriffsprotokollierung deaktivieren",
-  "Existing log objects remain in the target bucket, but no new access logs will be delivered.": "Vorhandene Log-Objekte bleiben im Ziel-Bucket, aber es werden keine neuen Zugriffslogs zugestellt."
+  "Existing log objects remain in the target bucket, but no new access logs will be delivered.": "Vorhandene Log-Objekte bleiben im Ziel-Bucket, aber es werden keine neuen Zugriffslogs zugestellt.",
+  "Costs": "Kosten",
+  "Monthly cost": "Monatliche Kosten",
+  "Estimated storage, transfer, and request cost for the selected month.": "Geschätzte Speicher-, Übertragungs- und Anfragekosten für den ausgewählten Monat.",
+  "Cost month": "Kostenmonat",
+  "Estimated cost": "Geschätzte Kosten",
+  "Average storage": "Durchschnittlicher Speicher",
+  "Requests": "Anfragen",
+  "Cost model not configured": "Kostenmodell nicht konfiguriert",
+  "{count} objects": "{count} Objekte",
+  "{downloaded} downloaded, {uploaded} uploaded": "{downloaded} heruntergeladen, {uploaded} hochgeladen",
+  "{collected}/{total} days": "{collected}/{total} Tage",
+  "Unable to load cost estimate.": "Kostenschätzung konnte nicht geladen werden.",
+  "No cost data available.": "Keine Kostendaten verfügbar."
 }

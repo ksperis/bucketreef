@@ -333,6 +333,7 @@ def get_manager_context(
         app_settings.manager.feature_policies, resource,
         {"bucket_quota_management": manager_bucket_quota_enabled, "ceph_s3_user_keys": manager_ceph_keys_enabled,
          "access_key_metadata": manager_access_key_metadata_enabled, "access_key_expiration": manager_access_key_expiration_enabled,
+         "cost_estimation": app_settings.general.cost_enabled,
          "managed_private_connection_provisioning": manager_private_access_enabled},
         provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
         activity_resource=manager_activity_resource(db, context),

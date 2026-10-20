@@ -1745,5 +1745,10 @@
   "Unable to save Cost settings.": "无法保存成本设置。",
   "Unit prices used to estimate storage, transfer, and request costs.": "用于估算存储、传输和请求成本的单价。",
   "Usage remains available, but estimated costs are unavailable until a model is configured.": "使用量仍可查看，但只有配置成本模型后才能提供估算成本。",
-  "Use global": "使用全局模型"
+  "Use global": "使用全局模型",
+  "Cost estimation": "成本估算",
+  "Show estimated costs in Portal Usage & Metrics when Cost is enabled globally.": "全局启用 Cost 后，在 Portal 的 Usage & Metrics 中显示估算成本。",
+  "Show estimated costs in Manager Usage & Metrics when Cost is enabled globally.": "全局启用 Cost 后，在 Manager 的 Usage & Metrics 中显示估算成本。",
+  "Controls the Cost tab for this RGW Account in Manager Usage & Metrics.": "控制此 RGW Account 在 Manager Usage & Metrics 中的 Cost 标签页。",
+  "Controls the Cost tab for this RGW User in Manager Usage & Metrics.": "控制此 RGW User 在 Manager Usage & Metrics 中的 Cost 标签页。"
 }

@@ -66,6 +66,14 @@ describe("ManagerSettingsPage", () => {
     expectPolicy(toggle, "Enabled by default");
   });
 
+  it("renders Cost estimation as targeted by default", async () => {
+    render(<ManagerSettingsPage />);
+
+    const toggle = await policyGroup("Cost estimation");
+
+    expectPolicy(toggle, "Targeted activation");
+  });
+
   it("saves managed private connection provisioning from an experimental default-off toggle", async () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
@@ -283,6 +291,6 @@ describe("ManagerSettingsPage", () => {
     expect(screen.getAllByRole("radiogroup").map(group => group.getAttribute("aria-label"))).toEqual(
       expect.arrayContaining(["RGW traffic and usage metrics"]),
     );
-    expect(screen.getAllByRole("radiogroup")).toHaveLength(12);
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(13);
   });
 });

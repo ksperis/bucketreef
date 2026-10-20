@@ -7,7 +7,8 @@ cost.
 ## Before you start
 
 - Select the right project.
-- Usage, quota, transfer-activity, or cost collection must be enabled by the platform for the matching tab to appear.
+- Usage, quota, or transfer-activity collection must be enabled by the platform for the matching tab to appear.
+- The **Costs** tab additionally requires global Cost enablement and Cost estimation enabled for the selected Portal project.
 - Some metrics may be unavailable even when file access works.
 
 ## What Portal can show

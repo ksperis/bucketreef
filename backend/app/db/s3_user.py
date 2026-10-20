@@ -36,6 +36,7 @@ class S3User(Base):
     allow_access_key_metadata = Column(Boolean, default=None, nullable=True)
     allow_access_key_expiration = Column(Boolean, default=None, nullable=True)
     allow_activity_history = Column(Boolean, default=None, nullable=True)
+    allow_cost_estimation = Column(Boolean, default=None, nullable=True)
     allow_managed_private_connection_provisioning = Column(
         Boolean,
         default=None,

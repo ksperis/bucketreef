@@ -19,6 +19,7 @@ class FeaturePolicies(ApiModel):
 
 class ManagerFeaturePolicies(FeaturePolicies):
     rgw_usage_metrics: FeaturePolicy = FeaturePolicy.DEFAULT_ON
+    cost_estimation: FeaturePolicy = FeaturePolicy.TARGETED
     activity_history: FeaturePolicy = FeaturePolicy.DEFAULT_ON
     bucket_compare: FeaturePolicy = FeaturePolicy.TARGETED
     bucket_integrity_check: FeaturePolicy = FeaturePolicy.TARGETED
@@ -41,6 +42,7 @@ class ProjectCollectionPolicies(FeaturePolicies):
 
 
 class PortalFeaturePolicies(FeaturePolicies):
+    cost_estimation: FeaturePolicy = FeaturePolicy.TARGETED
     browser_access: FeaturePolicy = FeaturePolicy.DEFAULT_ON
     private_storage_space_create: FeaturePolicy = FeaturePolicy.DEFAULT_ON
     named_bucket_create: FeaturePolicy = FeaturePolicy.TARGETED
@@ -68,6 +70,7 @@ def resolve_feature_policy(policy: FeaturePolicy, override: bool | None = None) 
 
 
 PORTAL_FEATURE_FIELDS = {
+    "cost_estimation_enabled": "cost_estimation",
     "browser_access_enabled": "browser_access",
     "allow_private_storage_space_create": "private_storage_space_create",
     "allow_portal_named_bucket_create": "named_bucket_create",

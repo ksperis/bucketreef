@@ -18,7 +18,7 @@ missing feature.
 | Access-key management | The selected context and feature settings allow key management for that principal type. |
 | Topics | The endpoint exposes SNS support and the execution identity is authorized. |
 | Embedded Browser | Data access is enabled for the active Manager context and the context is eligible for Manager Browser. |
-| Usage and metrics | The relevant collection or usage feature is enabled for the selected endpoint/context. |
+| Usage and metrics | The relevant collection or usage feature is enabled for the selected endpoint/context. Cost estimation additionally requires global Cost enablement and an effective opt-in for the selected persisted RGW Account or RGW User. |
 | Compare, integrity, purge, migration | The tool is enabled globally and your direct or inherited Manager access includes that tool. |
 
 ## What to do

@@ -8,6 +8,7 @@ export type ProjectSettingsForm = {
   collaboratorRoleManagementDelegated: boolean;
   collaboratorAdditionDelegated: boolean;
   browserAccess: TriState;
+  costEstimation: TriState;
   bucketCreate: TriState;
   namedBucketCreate: TriState;
   accessKeyCreate: TriState;
@@ -28,6 +29,7 @@ export const emptyForm: ProjectSettingsForm = {
   collaboratorRoleManagementDelegated: false,
   collaboratorAdditionDelegated: false,
   browserAccess: "inherit",
+  costEstimation: "inherit",
   bucketCreate: "inherit",
   namedBucketCreate: "inherit",
   accessKeyCreate: "inherit",
@@ -69,6 +71,7 @@ export function formFromSettings(
     collaboratorAdditionDelegated:
       settings.portal_collaborator_addition_delegated,
     browserAccess: resolveTriState(override.browser_access_enabled),
+    costEstimation: resolveTriState(override.cost_estimation_enabled),
     bucketCreate: resolveTriState(override.allow_private_storage_space_create),
     namedBucketCreate: resolveTriState(
       override.allow_portal_named_bucket_create,
@@ -104,6 +107,7 @@ export function formFromSettings(
 function buildOverride(form: ProjectSettingsForm): PortalSettingsOverride {
   const payload: PortalSettingsOverride = {};
   const directValues: Array<[keyof PortalSettingsOverride, TriState]> = [
+    ["cost_estimation_enabled", form.costEstimation],
     ["browser_access_enabled", form.browserAccess],
     ["allow_private_storage_space_create", form.bucketCreate],
     ["allow_portal_named_bucket_create", form.namedBucketCreate],

@@ -3,7 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import {
+  S3AccountSelector,
+  S3ExecutionContextSelector,
+  withS3AccountParam,
+  withS3ContextParam,
+} from "./accountParams";
 
 export type CostCoverage = {
   days_collected: number;
@@ -178,6 +183,16 @@ export async function getPortalCostMe(month: string, accountId?: S3AccountSelect
   const params: Record<string, string> = { month };
   const { data } = await client.get<CostSubjectDetail>("/portal/cost/me", {
     params: withS3AccountParam(params, accountId),
+  });
+  return data;
+}
+
+export async function getManagerCostMe(
+  month: string,
+  contextId?: S3ExecutionContextSelector,
+): Promise<CostSubjectDetail> {
+  const { data } = await client.get<CostSubjectDetail>("/manager/cost/me", {
+    params: withS3ContextParam({ month }, contextId),
   });
   return data;
 }

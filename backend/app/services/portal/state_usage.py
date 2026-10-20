@@ -103,6 +103,7 @@ class PortalStateUsageMixin:
             allow_named_bucket_create=portal_settings.allow_portal_named_bucket_create,
             server_access_logging_enabled=portal_settings.server_access_logging_enabled,
             storage_space_version_cleanup_enabled=portal_settings.storage_space_version_cleanup_enabled,
+            cost_estimation_enabled=portal_settings.cost_estimation_enabled,
             bucket_usage_stats_enabled=bucket_usage_stats_state(
                 load_app_settings_for_db_readonly(self.db).general.project_feature_policies,
                 account,

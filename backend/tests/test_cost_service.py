@@ -1,13 +1,21 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from types import SimpleNamespace
+
+from fastapi import HTTPException
+
 from app.utils.time import utcnow
 from datetime import date, datetime, timedelta
 
 import pytest
 
 from app.core.domain_errors import CostSubjectNotFoundError
-from app.db import CostEndpointOverride, CostModel, CostStorageDaily, CostUsageDaily, S3Account, StorageEndpoint
+from app.db import CostEndpointOverride, CostModel, CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint, User
+from app.models.access_context import AccountAccess
+from app.models.account_capabilities import AccountCapabilities
 from app.models.app_settings import AppSettings
+from app.routers.manager.cost import manager_cost_me
+from app.routers.portal_cost import portal_cost_me
 from app.services import admin_cost_service
 from app.services.admin_cost_service import AdminCostService
 from app.services.cost_collection_service import CostCollector
@@ -16,6 +24,7 @@ from app.services.cost_service import (
     _parse_month,
     _parse_ops_breakdown,
 )
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 def _seed_endpoint(db_session) -> StorageEndpoint:
@@ -42,10 +51,176 @@ def _seed_account(db_session, endpoint_id: int) -> S3Account:
     return account
 
 
+def _seed_s3_user(db_session, endpoint_id: int) -> S3User:
+    user = S3User(
+        name="cost-user",
+        rgw_user_uid="cost-user",
+        rgw_access_key="COST-AK",
+        rgw_secret_key="COST-SK",
+        storage_endpoint_id=endpoint_id,
+        allow_cost_estimation=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    return user
+
+
 def _enabled_cost_settings() -> AppSettings:
     settings = AppSettings()
     settings.general.cost_enabled = True
     return settings
+
+
+def test_manager_cost_requires_targeted_subject_opt_in(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    settings = _enabled_cost_settings()
+    monkeypatch.setattr(
+        "app.routers.manager.cost.load_app_settings_for_db_readonly",
+        lambda _db: settings,
+    )
+    context = S3ExecutionContext.from_account(account)
+
+    with pytest.raises(HTTPException) as exc_info:
+        manager_cost_me(month="2026-01", context=context, db=db_session)
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Cost estimation is disabled for this Manager context"
+
+
+def test_manager_cost_returns_estimate_after_targeted_opt_in(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    account.allow_cost_estimation = True
+    db_session.commit()
+    settings = _enabled_cost_settings()
+    monkeypatch.setattr(
+        "app.routers.manager.cost.load_app_settings_for_db_readonly",
+        lambda _db: settings,
+    )
+    captured = {}
+    monkeypatch.setattr(
+        "app.routers.manager.cost.CostService.subject_detail",
+        lambda _self, month, endpoint_id, subject_type, subject_id: captured.update(
+            month=month,
+            endpoint_id=endpoint_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+        ) or SimpleNamespace(subject_id=subject_id),
+    )
+
+    result = manager_cost_me(
+        month="2026-01",
+        context=S3ExecutionContext.from_account(account),
+        db=db_session,
+    )
+
+    assert result.subject_id == account.id
+    assert captured == {
+        "month": "2026-01",
+        "endpoint_id": endpoint.id,
+        "subject_type": "account",
+        "subject_id": account.id,
+    }
+
+
+def test_manager_cost_returns_estimate_for_opted_in_s3_user(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    user = _seed_s3_user(db_session, endpoint.id)
+    monkeypatch.setattr(
+        "app.routers.manager.cost.load_app_settings_for_db_readonly",
+        lambda _db: _enabled_cost_settings(),
+    )
+    captured = {}
+    monkeypatch.setattr(
+        "app.routers.manager.cost.CostService.subject_detail",
+        lambda _self, month, endpoint_id, subject_type, subject_id: captured.update(
+            month=month,
+            endpoint_id=endpoint_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+        ) or SimpleNamespace(subject_id=subject_id),
+    )
+
+    result = manager_cost_me(
+        month="2026-01",
+        context=S3ExecutionContext.from_s3_user(user),
+        db=db_session,
+    )
+
+    assert result.subject_id == user.id
+    assert captured == {
+        "month": "2026-01",
+        "endpoint_id": endpoint.id,
+        "subject_type": "s3_user",
+        "subject_id": user.id,
+    }
+
+
+def test_portal_cost_requires_project_opt_in(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    user = User(email="cost-portal@example.test", hashed_password="x", role="ui_user")
+    db_session.add(user)
+    db_session.commit()
+    access = AccountAccess(
+        account=account,
+        actor=user,
+        membership=None,
+        capabilities=AccountCapabilities(),
+        portal_role="portal_user",
+    )
+    monkeypatch.setattr("app.routers.portal_cost.load_app_settings", _enabled_cost_settings)
+    monkeypatch.setattr(
+        "app.routers.portal_cost.PortalService.get_effective_portal_settings",
+        lambda _self, _account: SimpleNamespace(cost_estimation_enabled=False),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        portal_cost_me(month="2026-01", access=access, db=db_session)
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Cost estimation is disabled for this Portal project"
+
+
+def test_portal_cost_returns_estimate_after_project_opt_in(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    user = User(email="cost-portal-opt-in@example.test", hashed_password="x", role="ui_user")
+    db_session.add(user)
+    db_session.commit()
+    access = AccountAccess(
+        account=account,
+        actor=user,
+        membership=None,
+        capabilities=AccountCapabilities(),
+        portal_role="portal_user",
+    )
+    monkeypatch.setattr("app.routers.portal_cost.load_app_settings", _enabled_cost_settings)
+    monkeypatch.setattr(
+        "app.routers.portal_cost.PortalService.get_effective_portal_settings",
+        lambda _self, _account: SimpleNamespace(cost_estimation_enabled=True),
+    )
+    captured = {}
+    monkeypatch.setattr(
+        "app.routers.portal_cost.CostService.subject_detail",
+        lambda _self, month, endpoint_id, subject_type, subject_id: captured.update(
+            month=month,
+            endpoint_id=endpoint_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+        ) or SimpleNamespace(subject_id=subject_id),
+    )
+
+    result = portal_cost_me(month="2026-01", access=access, db=db_session)
+
+    assert result.subject_id == account.id
+    assert captured == {
+        "month": "2026-01",
+        "endpoint_id": endpoint.id,
+        "subject_type": "account",
+        "subject_id": account.id,
+    }
 
 
 def test_parse_month():

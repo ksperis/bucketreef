@@ -161,6 +161,7 @@ export default function S3UsersPage() {
     allow_access_key_metadata: null as boolean | null,
     allow_access_key_expiration: null as boolean | null,
     allow_activity_history: null as boolean | null,
+    allow_cost_estimation: null as boolean | null,
     allow_managed_private_connection_provisioning: null as boolean | null,
   });
   const [editInitialSignature, setEditInitialSignature] = useState("");
@@ -519,6 +520,7 @@ export default function S3UsersPage() {
       allow_access_key_metadata: user.allow_access_key_metadata ?? null,
       allow_access_key_expiration: user.allow_access_key_expiration ?? null,
       allow_activity_history: user.allow_activity_history ?? null,
+      allow_cost_estimation: user.allow_cost_estimation ?? null,
       allow_managed_private_connection_provisioning: user.allow_managed_private_connection_provisioning ?? null,
     };
     setEditingUser(user);
@@ -556,6 +558,7 @@ export default function S3UsersPage() {
         payload.allow_access_key_metadata = editForm.allow_access_key_metadata;
         payload.allow_access_key_expiration = editForm.allow_access_key_expiration;
         payload.allow_activity_history = editForm.allow_activity_history;
+        payload.allow_cost_estimation = editForm.allow_cost_estimation;
         payload.allow_managed_private_connection_provisioning =
           editForm.allow_managed_private_connection_provisioning;
       }
@@ -587,6 +590,7 @@ export default function S3UsersPage() {
         allow_access_key_metadata: updatedUser.allow_access_key_metadata ?? editForm.allow_access_key_metadata,
         allow_access_key_expiration: updatedUser.allow_access_key_expiration ?? editForm.allow_access_key_expiration,
         allow_activity_history: updatedUser.allow_activity_history ?? editForm.allow_activity_history,
+        allow_cost_estimation: updatedUser.allow_cost_estimation ?? editForm.allow_cost_estimation,
         allow_managed_private_connection_provisioning: updatedUser.allow_managed_private_connection_provisioning ?? editForm.allow_managed_private_connection_provisioning,
       };
       setEditingUser(updatedUser);
@@ -1372,6 +1376,13 @@ export default function S3UsersPage() {
 
             {showEditManagerTab && (
               <div className="settings-stack">
+                <SettingsSection presentation="compact" title={adminText("Usage and metrics")}>
+                  <FeatureOverrideField title={adminText("Cost estimation")} value={editForm.allow_cost_estimation}
+                    policy={generalSettings.manager_feature_policies.cost_estimation} disabled={editBusy}
+                    triState
+                    help={adminText("Controls the Cost tab for this RGW User in Manager Usage & Metrics.")}
+                    onChange={value => setEditForm(prev => ({ ...prev, allow_cost_estimation: value }))} />
+                </SettingsSection>
                 <SettingsSection presentation="compact" title={adminText("Access-key extensions")}>
                   <FeatureOverrideField title={adminText("Access-key names and notes")} value={editForm.allow_access_key_metadata}
                     policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={editBusy}
