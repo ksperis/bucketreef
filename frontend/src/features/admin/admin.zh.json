@@ -345,6 +345,7 @@
   "Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled.": "控制此账户的计划刷新。还必须启用 Bucket 组成统计。",
   "Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled.": "控制计划刷新。定向启用需要 RGW 账户明确选择加入，并且还必须启用统计功能。",
   "Controls traffic and usage metrics for this RGW Account. Endpoint capabilities and supervision credentials still apply.": "控制此 RGW 账户的流量和使用量指标。端点能力和监督凭据仍然适用。",
+  "Controls traffic and usage metrics for this RGW User. Endpoint capabilities and supervision credentials still apply.": "控制此 RGW 用户的流量和使用量指标。端点能力和监督凭据仍然适用。",
   "Controls whether Manager and Portal can read snapshots and request manual recalculation.": "控制 Manager 和 Portal 是否可以读取快照并请求手动重新计算。",
   "Copy Ansible": "复制 Ansible",
   "Copy auth header": "复制认证标头",

@@ -498,8 +498,10 @@ describe("S3UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
+    const usageSection = screen.getByRole("region", { name: "Usage and metrics" });
     const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
     const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
+    expect(within(usageSection).getByRole("radiogroup", { name: "RGW traffic and usage metrics" })).toBeInTheDocument();
     expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key names and notes" })).toBeInTheDocument();
     expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key expiration" })).toBeInTheDocument();
     expect(within(extensionsSection).queryByRole("radiogroup", { name: "Bucket quota management" })).not.toBeInTheDocument();
@@ -511,9 +513,11 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.queryByRole("button", { name: "Ceph S3 User keys: information" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Managed private connection provisioning: information" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("Generated secrets remain managed by BucketReef");
+    expectInheritedFeatureOverride("RGW traffic and usage metrics");
     expectInheritedFeatureOverride("Bucket quota management");
     expectInheritedFeatureOverride("Ceph S3 User keys");
     expectInheritedFeatureOverride("Managed private connection provisioning");
+    selectFeatureOverride("RGW traffic and usage metrics", "Enabled");
     selectFeatureOverride("Bucket quota management", "Enabled");
     selectFeatureOverride("Ceph S3 User keys", "Enabled");
     selectFeatureOverride("Managed private connection provisioning", "Enabled");
@@ -526,6 +530,7 @@ describe("S3UsersPage modal tabs", () => {
     const lastCall = updateS3UserMock.mock.calls.at(-1);
     expect(lastCall?.[1]).toEqual(
       expect.objectContaining({
+        allow_rgw_usage_metrics: true,
         allow_bucket_quota_management: true,
         allow_access_key_management: true,
         allow_managed_private_connection_provisioning: true,
@@ -538,7 +543,7 @@ describe("S3UsersPage modal tabs", () => {
     await screen.findByText("rgw-user-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
-    for (const name of ["Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning"])
+    for (const name of ["RGW traffic and usage metrics", "Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning"])
       expectInheritedFeatureOverride(name);
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Display name", exact: true }), { target: { value: "renamed-user" } });
@@ -546,7 +551,7 @@ describe("S3UsersPage modal tabs", () => {
     await waitFor(() => expect(updateS3UserMock).toHaveBeenCalled());
     expect(updateS3UserMock.mock.calls.at(-1)?.[1]).toEqual(expect.objectContaining({
       allow_bucket_quota_management: null, allow_access_key_management: null, allow_access_key_metadata: null,
-      allow_access_key_expiration: null, allow_managed_private_connection_provisioning: null,
+      allow_access_key_expiration: null, allow_rgw_usage_metrics: null, allow_managed_private_connection_provisioning: null,
     }));
   });
 

@@ -20,6 +20,7 @@ from app.services.effective_access_service import EffectiveAccessService, Resolv
 from app.services.feature_policy_service import (
     bucket_usage_stats_state,
     manager_rgw_usage_metrics_state,
+    manager_usage_metrics_resource,
     project_account_resource,
 )
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES
@@ -59,7 +60,7 @@ def _require_supervision_access(
     settings = app_settings_service.load_app_settings_for_db_readonly(db)
     metrics_state = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
-        project_account_resource(db, context),
+        manager_usage_metrics_resource(db, context),
     )
     if not metrics_state.enabled:
         raise HTTPException(

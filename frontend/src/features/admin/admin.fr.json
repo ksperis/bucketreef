@@ -335,6 +335,7 @@
   "Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled.": "Contrôle les actualisations planifiées pour ce compte. Les statistiques de composition des buckets doivent également être activées.",
   "Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled.": "Contrôle les rafraîchissements planifiés. L’activation ciblée exige l’opt-in explicite du compte RGW et les statistiques activées.",
   "Controls traffic and usage metrics for this RGW Account. Endpoint capabilities and supervision credentials still apply.": "Contrôle les métriques de trafic et d’utilisation pour ce compte RGW. Les capacités de l’endpoint et les identifiants de supervision restent applicables.",
+  "Controls traffic and usage metrics for this RGW User. Endpoint capabilities and supervision credentials still apply.": "Contrôle les métriques de trafic et d’utilisation pour cet utilisateur RGW. Les capacités de l’endpoint et les identifiants de supervision restent applicables.",
   "Controls whether Manager and Portal can read snapshots and request manual recalculation.": "Contrôle si Manager et Portal peuvent lire les snapshots et demander un recalcul manuel.",
   "Copy Ansible": "Copier Ansible",
   "Copy auth header": "Copier l'en-tête auth",

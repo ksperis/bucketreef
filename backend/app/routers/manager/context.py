@@ -5,6 +5,7 @@ from app.services.feature_policy_service import (
     manager_activity_resource,
     manager_resource_states,
     manager_rgw_usage_metrics_state,
+    manager_usage_metrics_resource,
     project_account_resource,
 )
 from app.services.app_settings_service import load_app_settings_for_db_readonly
@@ -67,7 +68,7 @@ def _manager_stats_state(
     settings = load_app_settings_for_db_readonly(db)
     rgw_usage_metrics_enabled = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
-        project_account_resource(db, context),
+        manager_usage_metrics_resource(db, context),
     ).enabled
     if context.context_kind == "connection":
         if not context.manager_capabilities.can_manage_buckets:
@@ -341,7 +342,7 @@ def get_manager_context(
     project_resource = project_account_resource(db, context)
     feature_states["rgw_usage_metrics"] = manager_rgw_usage_metrics_state(
         app_settings.manager.feature_policies,
-        project_resource,
+        manager_usage_metrics_resource(db, context),
     )
     feature_states["bucket_usage_stats"] = bucket_usage_stats_state(
         app_settings.general.project_feature_policies,
