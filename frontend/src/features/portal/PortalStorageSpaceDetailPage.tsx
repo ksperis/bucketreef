@@ -5,13 +5,8 @@
 import ErrorState from "../../components/errors/ErrorState";
 import PortalAddPeopleWorkflow from "./PortalAddPeopleWorkflow";
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import {
-  deletePortalStorageSpace,
-  restorePortalStorageSpaceObject,
-  takePortalStorageSpaceOwnership,
-  updatePortalStorageSpace,
-} from "../../api/portal";
+import { useLocation, useParams } from "react-router-dom";
+import { restorePortalStorageSpaceObject } from "../../api/portal";
 import {
   listPortalStorageSpacePublicLinks,
   type PortalPublicLink,
@@ -56,6 +51,7 @@ import {
   usePortalStorageSpaceNavigation,
   type PortalStorageSpaceDetailTab,
 } from "./usePortalStorageSpaceNavigation";
+import { usePortalStorageSpaceManagement } from "./usePortalStorageSpaceManagement";
 import {
   portalStorageSpaceStatusTone,
   resolvePortalWorkspacePageState,
@@ -84,7 +80,6 @@ export default function PortalStorageSpaceDetailPage() {
 function StorageSpaceDetail() {
   const { t } = useI18n();
   const { spaceId } = useParams();
-  const navigate = useNavigate();
   const location = useLocation();
   const { generalSettings } = useGeneralSettings();
   const [message, setMessage] = useState<string | null>(null);
@@ -97,15 +92,8 @@ function StorageSpaceDetail() {
   const [browserRefreshToken, setBrowserRefreshToken] = useState(0);
   const [deletedPrefixRestoreTarget, setDeletedPrefixRestoreTarget] =
     useState<BrowserObjectDetailsRouteTarget | null>(null);
-  const [metadataBusy, setMetadataBusy] = useState(false);
   const [historyCleanupConfirmOpen, setHistoryCleanupConfirmOpen] = useState(false);
   const [historyCleanupDialogOpen, setHistoryCleanupDialogOpen] = useState(false);
-  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [takeOwnershipDialogOpen, setTakeOwnershipDialogOpen] = useState(false);
-  const [takeOwnershipBusy, setTakeOwnershipBusy] = useState(false);
   const [externalLinks, setExternalLinks] = useState<PortalPublicLink[]>([]);
   const [externalLinksLoading, setExternalLinksLoading] = useState(false);
   const [externalLinksError, setExternalLinksError] = useState<string | null>(null);
@@ -161,6 +149,31 @@ function StorageSpaceDetail() {
     browserPortalEnabled: Boolean(generalSettings.browser_portal_enabled),
     space,
     refreshWorkspaceData,
+    onMessage: setMessage,
+  });
+  const {
+    metadataBusy,
+    archiveDialogOpen,
+    openArchiveDialog: handleArchive,
+    closeArchiveDialog,
+    confirmArchive,
+    restoreSpace: handleRestore,
+    deleteDialogOpen,
+    deleteBusy,
+    deleteError,
+    openDeleteDialog,
+    closeDeleteDialog,
+    confirmDelete,
+    takeOwnershipDialogOpen,
+    takeOwnershipBusy,
+    openTakeOwnershipDialog,
+    closeTakeOwnershipDialog,
+    confirmTakeOwnership,
+  } = usePortalStorageSpaceManagement({
+    accountId: accountIdForApi,
+    space,
+    refreshWorkspaceData,
+    refreshAccessSummary: loadAccessSummary,
     onMessage: setMessage,
   });
   const lockedBucketName = space?.internalName ?? space?.id ?? "";
@@ -254,88 +267,6 @@ function StorageSpaceDetail() {
     }
     setStartGuideDismissed(readClientStorageKey(startGuideStorageKey) === "true");
   }, [startGuideStorageKey]);
-
-  const handleArchive = () => {
-    if (!space || !accountIdForApi) return;
-    setArchiveDialogOpen(true);
-  };
-
-  const confirmArchive = async () => {
-    if (!space || !accountIdForApi) return;
-    setMetadataBusy(true);
-    setMessage(null);
-    try {
-      await updatePortalStorageSpace(accountIdForApi, space.id, { archived: true });
-      setArchiveDialogOpen(false);
-      navigate("/portal/storage-spaces");
-    } catch (err) {
-      console.error(err);
-      setMessage(extractApiError(err, t({ en: "Unable to archive this space.", fr: "Impossible d'archiver cet espace.", de: "Dieser Bereich kann nicht archiviert werden.", zh: "无法归档此空间。" })));
-      setMetadataBusy(false);
-    }
-  };
-
-  const handleRestore = async () => {
-    if (!space || !accountIdForApi) return;
-    setMetadataBusy(true);
-    setMessage(null);
-    try {
-      await updatePortalStorageSpace(accountIdForApi, space.id, { archived: false });
-      refreshWorkspaceData();
-      setMessage(t({ en: "Space restored.", fr: "Espace restauré.", de: "Bereich wiederhergestellt.", zh: "空间已恢复。" }));
-    } catch (err) {
-      console.error(err);
-      setMessage(extractApiError(err, t({ en: "Unable to restore this space.", fr: "Impossible de restaurer cet espace.", de: "Dieser Bereich kann nicht wiederhergestellt werden.", zh: "无法恢复此空间。" })));
-    } finally {
-      setMetadataBusy(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!space || !accountIdForApi || !space.canDelete) return;
-    setDeleteBusy(true);
-    setDeleteError(null);
-    setMessage(null);
-    try {
-      await deletePortalStorageSpace(accountIdForApi, space.id);
-      setDeleteDialogOpen(false);
-      refreshWorkspaceData();
-      navigate("/portal/storage-spaces", { replace: true });
-    } catch (err) {
-      console.error(err);
-      setDeleteError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to delete this space.",
-            fr: "Impossible de supprimer cet espace.",
-            de: "Dieser Bereich kann nicht gelöscht werden.",
-            zh: "无法删除此空间。",
-          })
-        )
-      );
-    } finally {
-      setDeleteBusy(false);
-    }
-  };
-
-  const confirmTakeOwnership = async () => {
-    if (!space || !accountIdForApi || !space.canTakeOwnership) return;
-    setTakeOwnershipBusy(true);
-    setMessage(null);
-    try {
-      await takePortalStorageSpaceOwnership(accountIdForApi, space.id);
-      setTakeOwnershipDialogOpen(false);
-      refreshWorkspaceData();
-      await loadAccessSummary();
-      setMessage(t({ en: "You now own this private space.", fr: "Vous êtes désormais propriétaire de cet espace privé.", de: "Sie besitzen nun diesen privaten Bereich.", zh: "你现在拥有此私有空间。" }));
-    } catch (err) {
-      console.error(err);
-      setMessage(extractApiError(err, t({ en: "Unable to take ownership.", fr: "Impossible de reprendre la propriété.", de: "Eigentümerschaft kann nicht übernommen werden.", zh: "无法接管所有权。" })));
-    } finally {
-      setTakeOwnershipBusy(false);
-    }
-  };
 
   const confirmTrashRestore = async (item: BrowserDeletedObjectTarget) => {
     if (!space || !accountIdForApi || restoringTrashKey) return;
@@ -696,13 +627,13 @@ function StorageSpaceDetail() {
             historyCleanupEnabled={historyCleanupEnabled} onDirtyChange={setSettingsDirty} onRefresh={refreshWorkspaceData}
             managementActions={(historyDirty) => <div className="flex flex-wrap justify-end gap-2">
               {space.canTakeOwnership && <SettingsButton variant="secondary" disabled={historyDirty || takeOwnershipBusy}
-                onClick={() => setTakeOwnershipDialogOpen(true)}>{t({ en: "Take ownership", fr: "Reprendre la propriété", de: "Eigentümerschaft übernehmen", zh: "接管所有权" })}</SettingsButton>}
+                onClick={openTakeOwnershipDialog}>{t({ en: "Take ownership", fr: "Reprendre la propriété", de: "Eigentümerschaft übernehmen", zh: "接管所有权" })}</SettingsButton>}
               <SettingsButton variant={isArchived ? "secondary" : "warning"} disabled={historyDirty || metadataBusy}
                 onClick={isArchived ? handleRestore : handleArchive}>{isArchived ? t({ en: "Restore", fr: "Restaurer", de: "Wiederherstellen", zh: "恢复" }) : t({ en: "Archive", fr: "Archiver", de: "Archivieren", zh: "归档" })}</SettingsButton>
               <SettingsButton variant="danger" disabled={historyDirty || !canCleanHistory} onClick={openHistoryCleanupDialog}>
                 {t({ en: "Clean up history", fr: "Nettoyer l’historique", de: "Historie bereinigen", zh: "清理历史记录" })}</SettingsButton>
               {space.canDelete && <SettingsButton variant="danger" disabled={historyDirty || metadataBusy || deleteBusy}
-                onClick={() => { setDeleteError(null); setDeleteDialogOpen(true); }}>{t({ en: "Delete space", fr: "Supprimer l’espace", de: "Bereich löschen", zh: "删除空间" })}</SettingsButton>}
+                onClick={openDeleteDialog}>{t({ en: "Delete space", fr: "Supprimer l’espace", de: "Bereich löschen", zh: "删除空间" })}</SettingsButton>}
             </div>} />
         </PortalTabPanel>
       ) : null}
@@ -831,20 +762,16 @@ function StorageSpaceDetail() {
         isArchived={isArchived}
         takeOwnershipOpen={takeOwnershipDialogOpen}
         takeOwnershipBusy={takeOwnershipBusy}
-        onTakeOwnershipCancel={() => setTakeOwnershipDialogOpen(false)}
+        onTakeOwnershipCancel={closeTakeOwnershipDialog}
         onTakeOwnershipConfirm={confirmTakeOwnership}
         archiveOpen={archiveDialogOpen}
         archiveBusy={metadataBusy}
-        onArchiveCancel={() => setArchiveDialogOpen(false)}
+        onArchiveCancel={closeArchiveDialog}
         onArchiveConfirm={confirmArchive}
         deleteOpen={deleteDialogOpen}
         deleteBusy={deleteBusy}
         deleteError={deleteError}
-        onDeleteCancel={() => {
-          if (deleteBusy) return;
-          setDeleteDialogOpen(false);
-          setDeleteError(null);
-        }}
+        onDeleteCancel={closeDeleteDialog}
         onDeleteConfirm={confirmDelete}
       />
     </div>
