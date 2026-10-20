@@ -4,6 +4,7 @@ import logging
 from dataclasses import replace
 from typing import Optional
 
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -113,17 +114,17 @@ class StorageEndpointsService:
         return load_app_settings_for_db_readonly(self.db).general.ceph_admin_enabled
 
     def _ensure_unique_name(self, name: str, exclude_id: Optional[int] = None) -> None:
-        query = self.db.query(StorageEndpoint).filter(StorageEndpoint.name == name)
+        statement = select(StorageEndpoint.id).where(StorageEndpoint.name == name)
         if exclude_id:
-            query = query.filter(StorageEndpoint.id != exclude_id)
-        if query.first():
+            statement = statement.where(StorageEndpoint.id != exclude_id)
+        if self.db.scalar(statement.limit(1)) is not None:
             raise ValueError("An endpoint with this name already exists.")
 
     def _ensure_unique_endpoint(self, endpoint_url: str, exclude_id: Optional[int] = None) -> None:
-        query = self.db.query(StorageEndpoint).filter(StorageEndpoint.endpoint_url == endpoint_url)
+        statement = select(StorageEndpoint.id).where(StorageEndpoint.endpoint_url == endpoint_url)
         if exclude_id:
-            query = query.filter(StorageEndpoint.id != exclude_id)
-        if query.first():
+            statement = statement.where(StorageEndpoint.id != exclude_id)
+        if self.db.scalar(statement.limit(1)) is not None:
             raise ValueError("An endpoint with this URL already exists.")
 
     def detect_features(
@@ -308,10 +309,8 @@ class StorageEndpointsService:
         return endpoint
 
     def _clear_other_default_endpoints(self, default_url: str) -> None:
-        endpoints = (
-            self.db.query(StorageEndpoint)
-            .filter(StorageEndpoint.endpoint_url != default_url)
-            .all()
+        endpoints = self.db.scalars(
+            select(StorageEndpoint).where(StorageEndpoint.endpoint_url != default_url)
         )
         for endpoint in endpoints:
             if endpoint.is_default:
@@ -324,10 +323,10 @@ class StorageEndpointsService:
     ) -> list[StorageEndpointSchema]:
         synced: list[StorageEndpointSchema] = []
         for config in configs:
-            endpoint = (
-                self.db.query(StorageEndpoint)
-                .filter(StorageEndpoint.endpoint_url == config.endpoint_url)
-                .first()
+            endpoint = self.db.scalar(
+                select(StorageEndpoint)
+                .where(StorageEndpoint.endpoint_url == config.endpoint_url)
+                .limit(1)
             )
             if endpoint is not None:
                 synced.append(
@@ -342,11 +341,9 @@ class StorageEndpointsService:
             parse_env_storage_endpoints(settings.env_storage_endpoints)
         )
         if not configs:
-            env_locked_endpoints = (
-                self.db.query(StorageEndpoint)
-                .filter(StorageEndpoint.is_editable.is_(False))
-                .all()
-            )
+            env_locked_endpoints = self.db.scalars(
+                select(StorageEndpoint).where(StorageEndpoint.is_editable.is_(False))
+            ).all()
             for endpoint in env_locked_endpoints:
                 endpoint.is_editable = True
                 self.db.add(endpoint)
@@ -371,7 +368,7 @@ class StorageEndpointsService:
     ) -> list[StorageEndpointSchema]:
         existing_by_url = {
             endpoint.endpoint_url: endpoint
-            for endpoint in self.db.query(StorageEndpoint).all()
+            for endpoint in self.db.scalars(select(StorageEndpoint)).all()
         }
 
         try:
@@ -394,7 +391,9 @@ class StorageEndpointsService:
         if not endpoint_identity_management_enabled(settings):
             return
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
-        for endpoint in self.db.query(StorageEndpoint).filter_by(provider="ceph").all():
+        for endpoint in self.db.scalars(
+            select(StorageEndpoint).where(StorageEndpoint.provider == "ceph")
+        ).all():
             if not identities.needs_startup_reconciliation(endpoint):
                 continue
             try:
@@ -404,40 +403,38 @@ class StorageEndpointsService:
                 logger.info("Endpoint %s identity reconciliation deferred; retry from endpoint settings.", endpoint.id)
 
     def list_endpoints(self, *, include_admin_ops_permissions: bool = False) -> list[StorageEndpointSchema]:
-        endpoints = (
-            self.db.query(StorageEndpoint)
-            .order_by(*name_order_by(StorageEndpoint))
-            .all()
+        endpoints = self.db.scalars(
+            select(StorageEndpoint).order_by(*name_order_by(StorageEndpoint))
         )
         return [self._serialize(ep, include_admin_ops_permissions=include_admin_ops_permissions) for ep in endpoints]
 
     def get_default_endpoint_url(self) -> Optional[str]:
-        endpoint = (
-            self.db.query(StorageEndpoint)
+        endpoint = self.db.scalar(
+            select(StorageEndpoint)
             .order_by(StorageEndpoint.is_default.desc(), StorageEndpoint.name.asc())
-            .first()
+            .limit(1)
         )
         if endpoint:
             return endpoint.endpoint_url
         return configured_s3_endpoint()
 
     def get_default_endpoint_record(self) -> Optional[StorageEndpoint]:
-        return (
-            self.db.query(StorageEndpoint)
-            .filter(StorageEndpoint.is_default.is_(True))
+        return self.db.scalar(
+            select(StorageEndpoint)
+            .where(StorageEndpoint.is_default.is_(True))
             .order_by(StorageEndpoint.id.asc())
-            .first()
+            .limit(1)
         )
 
     def find_endpoint_record_by_url(self, endpoint_url: str) -> Optional[StorageEndpoint]:
-        return (
-            self.db.query(StorageEndpoint)
-            .filter(StorageEndpoint.endpoint_url == endpoint_url)
-            .first()
+        return self.db.scalar(
+            select(StorageEndpoint)
+            .where(StorageEndpoint.endpoint_url == endpoint_url)
+            .limit(1)
         )
 
     def get_endpoint_record(self, endpoint_id: int) -> StorageEndpoint:
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         return endpoint
@@ -483,7 +480,7 @@ class StorageEndpointsService:
 
     def update_endpoint(self, endpoint_id: int, payload: StorageEndpointUpdate) -> StorageEndpointSchema:
         self._ensure_env_editable()
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         if not endpoint.is_editable:
@@ -530,7 +527,7 @@ class StorageEndpointsService:
 
     def delete_endpoint(self, endpoint_id: int) -> None:
         self._ensure_env_editable()
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         if not endpoint.is_editable:
@@ -542,9 +539,15 @@ class StorageEndpointsService:
             # _lease refreshes the target; all checks and the deletion commit stay locked.
             if not endpoint.is_editable:
                 raise ValueError("This endpoint is protected and cannot be deleted.")
-            linked_accounts = self.db.query(S3Account).filter_by(storage_endpoint_id=endpoint.id).count()
-            linked_users = self.db.query(S3User).filter_by(storage_endpoint_id=endpoint.id).count()
-            linked_connections = self.db.query(S3Connection).filter_by(storage_endpoint_id=endpoint.id).count()
+            linked_accounts = self.db.scalar(
+                select(func.count()).select_from(S3Account).where(S3Account.storage_endpoint_id == endpoint.id)
+            )
+            linked_users = self.db.scalar(
+                select(func.count()).select_from(S3User).where(S3User.storage_endpoint_id == endpoint.id)
+            )
+            linked_connections = self.db.scalar(
+                select(func.count()).select_from(S3Connection).where(S3Connection.storage_endpoint_id == endpoint.id)
+            )
             if any((linked_accounts, linked_users, linked_connections)):
                 raise ValueError(f"Unable to delete this endpoint: accounts={linked_accounts}, users={linked_users}, connections={linked_connections}.")
             if any(intent.key_type not in ("endpoint_runtime", "endpoint_supervision", "ceph_admin") for intent in endpoint.key_rotation_intents):
@@ -565,15 +568,16 @@ class StorageEndpointsService:
 
     def set_default_endpoint(self, endpoint_id: int) -> StorageEndpointSchema:
         self._ensure_env_editable()
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         if endpoint.is_default:
             return self._serialize(endpoint)
-        (
-            self.db.query(StorageEndpoint)
-            .filter(StorageEndpoint.is_default.is_(True), StorageEndpoint.id != endpoint.id)
-            .update({StorageEndpoint.is_default: False}, synchronize_session=False)
+        self.db.execute(
+            update(StorageEndpoint)
+            .where(StorageEndpoint.is_default.is_(True), StorageEndpoint.id != endpoint.id)
+            .values(is_default=False)
+            .execution_options(synchronize_session=False)
         )
         endpoint.is_default = True
         self.db.add(endpoint)
@@ -583,9 +587,11 @@ class StorageEndpointsService:
 
     def _env_endpoint_name(self) -> str:
         candidate = "Default"
-        if not self.db.query(StorageEndpoint).filter(StorageEndpoint.name == candidate).first():
+        if self.db.scalar(
+            select(StorageEndpoint.id).where(StorageEndpoint.name == candidate).limit(1)
+        ) is None:
             return candidate
-        suffix = self.db.query(StorageEndpoint).count() + 1
+        suffix = self.db.scalar(select(func.count()).select_from(StorageEndpoint)) + 1
         return f"{candidate}-{suffix}"
 
     def ensure_default_endpoint(self) -> Optional[StorageEndpointSchema]:
@@ -595,7 +601,7 @@ class StorageEndpointsService:
         endpoint_url = configured_s3_endpoint()
         if not endpoint_url:
             return None
-        if self.db.query(StorageEndpoint).count() > 0:
+        if self.db.scalar(select(func.count()).select_from(StorageEndpoint)) > 0:
             return None
         admin_access = settings.seed_rgw_admin_access_key or settings.seed_s3_access_key
         admin_secret = settings.seed_rgw_admin_secret_key or settings.seed_s3_secret_key
