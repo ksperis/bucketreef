@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Literal, Optional
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -72,10 +73,10 @@ class CostCollector:
         app_settings = load_app_settings()
         if not app_settings.general.cost_enabled:
             raise ValueError("Cost is disabled")
-        endpoints = (
-            self.db.query(StorageEndpoint)
-            .filter(StorageEndpoint.provider == StorageProvider.CEPH.value)
-            .all()
+        endpoints = self.db.scalars(
+            select(StorageEndpoint).where(
+                StorageEndpoint.provider == StorageProvider.CEPH.value
+            )
         )
         summary: dict[str, Any] = {
             "day": day.isoformat(),
@@ -122,16 +123,12 @@ class CostCollector:
         return summary
 
     def _load_subjects(self, endpoint: StorageEndpoint) -> list[_CostSubject]:
-        accounts = (
-            self.db.query(S3Account)
-            .filter(S3Account.storage_endpoint_id == endpoint.id)
-            .all()
-        )
-        s3_users = (
-            self.db.query(S3User)
-            .filter(S3User.storage_endpoint_id == endpoint.id)
-            .all()
-        )
+        accounts = self.db.scalars(
+            select(S3Account).where(S3Account.storage_endpoint_id == endpoint.id)
+        ).all()
+        s3_users = self.db.scalars(
+            select(S3User).where(S3User.storage_endpoint_id == endpoint.id)
+        ).all()
         subjects = [
             _CostSubject(
                 kind="account",
@@ -381,16 +378,11 @@ class CostCollector:
         ops_total: int,
         ops_breakdown: Optional[dict[str, int]],
     ) -> None:
-        existing = (
-            self.db.query(CostUsageDaily)
-            .filter(
-                CostUsageDaily.day == day,
-                CostUsageDaily.storage_endpoint_id == endpoint_id,
-                CostUsageDaily.s3_account_id == s3_account_id,
-                CostUsageDaily.s3_user_id == s3_user_id,
-                CostUsageDaily.source == "rgw_admin_usage",
-            )
-            .first()
+        existing = self._find_usage_row(
+            day=day,
+            endpoint_id=endpoint_id,
+            s3_account_id=s3_account_id,
+            s3_user_id=s3_user_id,
         )
         payload = json.dumps(ops_breakdown) if ops_breakdown else None
         now = utcnow()
@@ -418,16 +410,11 @@ class CostCollector:
                     self.db.add(row)
                     self.db.flush()
             except IntegrityError:
-                existing = (
-                    self.db.query(CostUsageDaily)
-                    .filter(
-                        CostUsageDaily.day == day,
-                        CostUsageDaily.storage_endpoint_id == endpoint_id,
-                        CostUsageDaily.s3_account_id == s3_account_id,
-                        CostUsageDaily.s3_user_id == s3_user_id,
-                        CostUsageDaily.source == "rgw_admin_usage",
-                    )
-                    .first()
+                existing = self._find_usage_row(
+                    day=day,
+                    endpoint_id=endpoint_id,
+                    s3_account_id=s3_account_id,
+                    s3_user_id=s3_user_id,
                 )
                 if existing is None:
                     raise
@@ -449,16 +436,11 @@ class CostCollector:
         total_objects: int,
         by_bucket: Optional[dict[str, dict[str, int]]],
     ) -> None:
-        existing = (
-            self.db.query(CostStorageDaily)
-            .filter(
-                CostStorageDaily.day == day,
-                CostStorageDaily.storage_endpoint_id == endpoint_id,
-                CostStorageDaily.s3_account_id == s3_account_id,
-                CostStorageDaily.s3_user_id == s3_user_id,
-                CostStorageDaily.source == "rgw_admin_bucket_stats",
-            )
-            .first()
+        existing = self._find_storage_row(
+            day=day,
+            endpoint_id=endpoint_id,
+            s3_account_id=s3_account_id,
+            s3_user_id=s3_user_id,
         )
         payload = json.dumps(by_bucket) if by_bucket else None
         now = utcnow()
@@ -484,16 +466,11 @@ class CostCollector:
                     self.db.add(row)
                     self.db.flush()
             except IntegrityError:
-                existing = (
-                    self.db.query(CostStorageDaily)
-                    .filter(
-                        CostStorageDaily.day == day,
-                        CostStorageDaily.storage_endpoint_id == endpoint_id,
-                        CostStorageDaily.s3_account_id == s3_account_id,
-                        CostStorageDaily.s3_user_id == s3_user_id,
-                        CostStorageDaily.source == "rgw_admin_bucket_stats",
-                    )
-                    .first()
+                existing = self._find_storage_row(
+                    day=day,
+                    endpoint_id=endpoint_id,
+                    s3_account_id=s3_account_id,
+                    s3_user_id=s3_user_id,
                 )
                 if existing is None:
                     raise
@@ -502,3 +479,43 @@ class CostCollector:
                 existing.by_bucket = payload
                 existing.collected_at = now
         self.db.commit()
+
+    def _find_usage_row(
+        self,
+        *,
+        day: date,
+        endpoint_id: int,
+        s3_account_id: Optional[int],
+        s3_user_id: Optional[int],
+    ) -> CostUsageDaily | None:
+        return self.db.scalar(
+            select(CostUsageDaily)
+            .where(
+                CostUsageDaily.day == day,
+                CostUsageDaily.storage_endpoint_id == endpoint_id,
+                CostUsageDaily.s3_account_id == s3_account_id,
+                CostUsageDaily.s3_user_id == s3_user_id,
+                CostUsageDaily.source == "rgw_admin_usage",
+            )
+            .limit(1)
+        )
+
+    def _find_storage_row(
+        self,
+        *,
+        day: date,
+        endpoint_id: int,
+        s3_account_id: Optional[int],
+        s3_user_id: Optional[int],
+    ) -> CostStorageDaily | None:
+        return self.db.scalar(
+            select(CostStorageDaily)
+            .where(
+                CostStorageDaily.day == day,
+                CostStorageDaily.storage_endpoint_id == endpoint_id,
+                CostStorageDaily.s3_account_id == s3_account_id,
+                CostStorageDaily.s3_user_id == s3_user_id,
+                CostStorageDaily.source == "rgw_admin_bucket_stats",
+            )
+            .limit(1)
+        )
