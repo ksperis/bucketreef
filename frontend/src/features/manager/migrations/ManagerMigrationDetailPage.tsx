@@ -585,10 +585,7 @@ export default function ManagerMigrationDetailPage() {
                 <Diagnostics
                   entries={
                     draft
-                      ? problems(
-                          reports.get(item.id)?.checks ??
-                            reports.get(item.id)?.messages,
-                        )
+                      ? problems(reports.get(item.id)?.checks)
                       : []
                   }
                 />

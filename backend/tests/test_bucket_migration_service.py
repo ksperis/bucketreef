@@ -1654,6 +1654,8 @@ def test_run_precheck_passed_then_start_allowed(db_session):
     assert report.get("errors") == 0
     assert report.get("report_version") == 3
     assert report.get("status") == "passed"
+    assert isinstance(report["items"][0]["checks"], list)
+    assert "messages" not in report["items"][0]
     assert migration.items[0].execution_plan_json is not None
     queued = service.start_migration(migration.id, configuration_revision=1, confirm_write_interruption=True)
     assert queued.status == "queued"
@@ -1738,10 +1740,10 @@ def test_run_precheck_skips_same_endpoint_copy_source_access_when_option_disable
     migration = service.run_precheck(migration.id, active_checks=True)
     assert migration.precheck_status == "passed"
     report = json.loads(migration.precheck_report_json or "{}")
-    item_messages = report.get("items", [])[0].get("messages", [])
+    item_checks = report.get("items", [])[0].get("checks", [])
     assert not any(
         "x-amz-copy-source" in str(message.get("message", ""))
-        for message in item_messages
+        for message in item_checks
         if isinstance(message, dict)
     )
 
@@ -1777,10 +1779,10 @@ def test_run_precheck_fails_when_same_endpoint_copy_source_access_is_missing(db_
     migration = service.run_precheck(migration.id, active_checks=True)
     assert migration.precheck_status == "failed"
     report = json.loads(migration.precheck_report_json or "{}")
-    item_messages = report.get("items", [])[0].get("messages", [])
+    item_checks = report.get("items", [])[0].get("checks", [])
     assert any(
         "Same-endpoint x-amz-copy-source precheck failed" in str(message.get("message", ""))
-        for message in item_messages
+        for message in item_checks
         if isinstance(message, dict)
     )
 
@@ -1829,16 +1831,16 @@ def test_run_precheck_skips_disabled_endpoint_website_probe_when_copy_bucket_set
     assert checked.precheck_status == "passed"
     assert website_calls["count"] == 0
     report = json.loads(checked.precheck_report_json or "{}")
-    messages = report.get("items", [])[0].get("messages", [])
+    checks = report.get("items", [])[0].get("checks", [])
     assert not any(
         str(message.get("code", "")) == "source_profile_inspection_failed"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
     assert any(
         str(message.get("code", "")) == "source_feature_disabled_on_endpoint"
         and str((message.get("details") or {}).get("feature", "")) == "website"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
 
@@ -1897,17 +1899,17 @@ def test_run_precheck_skips_non_required_bucket_setting_probes_when_copy_bucket_
     assert website_calls["count"] == 0
     assert policy_calls["count"] == 0
     report = json.loads(checked.precheck_report_json or "{}")
-    messages = report.get("items", [])[0].get("messages", [])
+    checks = report.get("items", [])[0].get("checks", [])
     assert any(
         str(message.get("code", "")) == "source_feature_skipped_not_required"
         and str((message.get("details") or {}).get("feature", "")) == "website"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
     assert any(
         str(message.get("code", "")) == "source_feature_skipped_not_required"
         and str((message.get("details") or {}).get("feature", "")) == "bucket_policy"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
 
@@ -1964,16 +1966,16 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
     assert checked.precheck_status == "failed"
     assert website_calls["count"] == 1
     report = json.loads(checked.precheck_report_json or "{}")
-    messages = report.get("items", [])[0].get("messages", [])
+    checks = report.get("items", [])[0].get("checks", [])
     assert not any(
         str(message.get("code", "")) == "source_profile_inspection_failed"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
     assert any(
         str(message.get("code", "")) == "source_feature_probe_unavailable"
         and str((message.get("details") or {}).get("feature", "")) == "website"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
 
@@ -2053,7 +2055,7 @@ def test_run_precheck_passes_when_source_bucket_requires_version_aware_strategy(
     assert "version_aware" in list(capabilities.get("supported_strategies") or [])
     assert any(
         str(message.get("code", "")) == "version_aware_supported"
-        for message in item_report.get("messages", [])
+        for message in item_report.get("checks", [])
         if isinstance(message, dict)
     )
 
@@ -2105,10 +2107,10 @@ def test_run_precheck_fails_when_source_bucket_uses_unsupported_default_encrypti
 
     assert checked.precheck_status == "failed"
     report = json.loads(checked.precheck_report_json or "{}")
-    messages = report.get("items", [])[0].get("messages", [])
+    checks = report.get("items", [])[0].get("checks", [])
     assert any(
         str(message.get("code", "")) == "unsupported_default_encryption"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
 
@@ -2154,10 +2156,10 @@ def test_run_precheck_fails_when_copy_bucket_settings_hits_unsupported_source_se
 
     assert checked.precheck_status == "failed"
     report = json.loads(checked.precheck_report_json or "{}")
-    messages = report.get("items", [])[0].get("messages", [])
+    checks = report.get("items", [])[0].get("checks", [])
     assert any(
         str(message.get("code", "")) == "unsupported_bucket_settings_configured"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
 
@@ -3803,10 +3805,10 @@ def test_run_precheck_fails_when_target_lock_probe_fails_in_fail_closed_mode(db_
     assert checked.precheck_status == "failed"
     report = json.loads(checked.precheck_report_json or "{}")
     assert int(report.get("errors") or 0) >= 1
-    messages = report.get("items", [])[0].get("messages", [])
+    checks = report.get("items", [])[0].get("checks", [])
     assert any(
         str(message.get("code", "")) == "target_write_failed"
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
 
@@ -3844,10 +3846,10 @@ def test_run_precheck_fails_when_target_lock_probe_cleanup_fails_in_fail_closed_
     assert checked.precheck_status == "failed"
     report = json.loads(checked.precheck_report_json or "{}")
     assert int(report.get("errors") or 0) >= 1
-    messages = report.get("items", [])[0].get("messages", [])
+    checks = report.get("items", [])[0].get("checks", [])
     assert any(
         "cleanup failed" in str(message.get("message", "")).lower()
-        for message in messages
+        for message in checks
         if isinstance(message, dict)
     )
 

@@ -722,7 +722,6 @@ class BucketMigrationPrecheckPlanner:
                 "source_profile": source.profile,
                 "target_profile": target.profile,
                 "checks": checks,
-                "messages": checks,
                 "errors": counts["errors"],
                 "warnings": counts["warnings"],
             },

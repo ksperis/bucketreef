@@ -70,7 +70,7 @@ function buildDetail() {
     cancel_requested: false,
     precheck_status: "passed",
     precheck_report: {
-      report_version: 2,
+      report_version: 3,
       status: "failed",
       errors: 1,
       warnings: 1,
@@ -89,7 +89,7 @@ function buildDetail() {
           delete_source_safe: true,
           rollback_safe: true,
           same_endpoint_copy_safe: true,
-          messages: [
+          checks: [
             {
               code: "target_exists",
               level: "warning",

@@ -56,7 +56,6 @@ type BucketMigrationPrecheckItemReport = {
   source_profile?: Record<string, unknown> | null;
   target_profile?: Record<string, unknown> | null;
   checks?: BucketMigrationPrecheckEntry[];
-  messages?: BucketMigrationPrecheckEntry[];
   errors?: number;
   warnings?: number;
 };
