@@ -612,6 +612,49 @@ class S3AccountsService:
             )
         return account
 
+    def _validate_managed_account_creation_policy(self, payload: S3AccountCreate) -> None:
+        app_settings = load_app_settings_for_db_readonly(self.db)
+        validate_manager_overrides(payload, app_settings.manager.feature_policies)
+        if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
+            raise ValueError("Managed RGW tenant creation is disabled")
+
+    def _prepare_managed_account_creation(
+        self,
+        payload: S3AccountCreate,
+    ) -> tuple[StorageEndpoint, RGWAdminClient]:
+        self._ensure_account_name_available(
+            storage_endpoint_id=payload.storage_endpoint_id,
+            rgw_tenant=payload.rgw_tenant,
+            name=payload.name,
+        )
+        endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
+        if not self._endpoint_capabilities(endpoint).get("account", False):
+            raise ValueError("Selected endpoint does not support RGW account API (/admin/account).")
+        admin = self._admin_for_endpoint(endpoint, allow_missing=False)
+        if admin is None:
+            raise ValueError("RGW administrative credentials are required")
+        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
+
+        require_endpoint_permissions(endpoint, "users_write", "accounts_write", client=admin)
+        return endpoint, admin
+
+    def _create_remote_account(
+        self,
+        admin: RGWAdminClient,
+        payload: S3AccountCreate,
+        rgw_account_id: str,
+    ) -> None:
+        try:
+            create_result = admin.create_account(
+                account_id=rgw_account_id,
+                account_name=payload.name,
+                tenant=payload.rgw_tenant or None,
+            )
+        except RGWAdminError as exc:
+            raise ValueError(f"RGW account creation failed: {exc}") from exc
+        self._ensure_account_creation_succeeded(create_result, rgw_account_id)
+        logger.debug("Created RGW account %s (%s)", rgw_account_id, payload.name)
+
     def ensure_provisioned_account(self, payload: S3AccountCreate, rgw_account_id: str) -> S3AccountSchema:
         """Resume a minimal account provisioning operation with a durable RGW ID.
 
@@ -619,10 +662,7 @@ class S3AccountsService:
         Account and root creation stay on the same RGW client/session. A retry
         reconciles whichever remote resources were already created.
         """
-        app_settings = load_app_settings_for_db_readonly(self.db)
-        validate_manager_overrides(payload, app_settings.manager.feature_policies)
-        if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
-            raise ValueError("Managed RGW tenant creation is disabled")
+        self._validate_managed_account_creation_policy(payload)
         existing = self.db.execute(
             select(S3Account).where(S3Account.rgw_account_id == rgw_account_id)
         ).scalar_one_or_none()
@@ -634,31 +674,11 @@ class S3AccountsService:
             ):
                 raise ValueError("Provisioned account scope changed")
             return self.get_account_detail(existing.id, include_usage=False)
-        self._ensure_account_name_available(
-            storage_endpoint_id=payload.storage_endpoint_id,
-            rgw_tenant=payload.rgw_tenant,
-            name=payload.name,
-        )
-        endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
-        if not self._endpoint_capabilities(endpoint).get("account", False):
-            raise ValueError("Selected endpoint does not support RGW accounts")
-        admin = self._admin_for_endpoint(endpoint, allow_missing=False)
-        if admin is None:
-            raise ValueError("RGW administrative credentials are required")
-        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
-        require_endpoint_permissions(endpoint, "users_write", "accounts_write", client=admin)
+        endpoint, admin = self._prepare_managed_account_creation(payload)
         remote = admin.get_account(rgw_account_id, allow_not_found=True)
         resume = bool(remote and not remote.get("not_found"))
         if not remote or remote.get("not_found"):
-            try:
-                create_result = admin.create_account(
-                    account_id=rgw_account_id,
-                    account_name=payload.name,
-                    tenant=payload.rgw_tenant or None,
-                )
-            except RGWAdminError as exc:
-                raise ValueError(f"RGW account creation failed: {exc}") from exc
-            self._ensure_account_creation_succeeded(create_result, rgw_account_id)
+            self._create_remote_account(admin, payload, rgw_account_id)
         else:
             nested_account = remote.get("account")
             remote_ids = extract_rgw_account_ids(remote, nested_account)
@@ -693,38 +713,10 @@ class S3AccountsService:
         return self.get_account_detail(account.id, include_usage=False)
 
     def create_account_with_manager(self, payload: S3AccountCreate) -> S3AccountSchema:
-        app_settings = load_app_settings_for_db_readonly(self.db)
-        validate_manager_overrides(payload, app_settings.manager.feature_policies)
-        if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
-            raise ValueError("Managed RGW tenant creation is disabled")
-        self._ensure_account_name_available(
-            storage_endpoint_id=payload.storage_endpoint_id,
-            rgw_tenant=payload.rgw_tenant,
-            name=payload.name,
-        )
-
-        endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
-        endpoint_capabilities = self._endpoint_capabilities(endpoint)
-        if not endpoint_capabilities.get("account", False):
-            raise ValueError("Selected endpoint does not support RGW account API (/admin/account).")
-        admin = self._admin_for_endpoint(endpoint)
-        if not admin:
-            raise ValueError("Unable to create account: RGW credentials are missing for the selected endpoint.")
-        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
-        require_endpoint_permissions(endpoint, "users_write", "accounts_write", client=admin)
-
+        self._validate_managed_account_creation_policy(payload)
+        endpoint, admin = self._prepare_managed_account_creation(payload)
         rgw_account_id = self._generate_account_id()
-        # Create account in RGW
-        try:
-            create_result = admin.create_account(
-                account_id=rgw_account_id,
-                account_name=payload.name,
-                tenant=payload.rgw_tenant or None,
-            )
-            self._ensure_account_creation_succeeded(create_result, rgw_account_id)
-            logger.debug("Created RGW account %s (%s)", rgw_account_id, payload.name)
-        except RGWAdminError as exc:
-            raise ValueError(f"RGW account creation failed: {exc}") from exc
+        self._create_remote_account(admin, payload, rgw_account_id)
 
         root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
             admin,
