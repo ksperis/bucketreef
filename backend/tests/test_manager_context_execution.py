@@ -59,6 +59,21 @@ def test_manager_mode_uses_explicit_execution_kind(db_session, actor, kind, expe
         assert payload.manager_private_access_enabled is False
 
 
+def test_account_iam_identity_uses_canonical_stored_root_uid(db_session, actor):
+    payload = context_router.get_manager_context(
+        context=_context(
+            "account",
+            rgw_account_id="RGW00000000000000001",
+            rgw_user_uid="custom-root-identity",
+        ),
+        actor=actor,
+        db=db_session,
+        include_limits=False,
+    )
+
+    assert payload.iam_identity == "custom-root-identity"
+
+
 @pytest.mark.parametrize(
     ("kind", "message"),
     [

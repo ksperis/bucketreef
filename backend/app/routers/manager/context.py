@@ -38,7 +38,6 @@ from app.services.effective_access_service import EffectiveAccessService, Resolv
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.rgw_supervision import has_supervision_credentials
 from app.services.s3_execution_context import S3ExecutionContext
-from app.utils.rgw_identifiers import resolve_admin_uid
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 router = APIRouter(prefix="/manager", tags=["manager-context"])
@@ -175,7 +174,7 @@ def _manager_iam_identity(
     connection_iam_identity: Optional[str],
 ) -> Optional[str]:
     if access_mode == "admin":
-        return resolve_admin_uid(context.rgw_account_id, context.rgw_user_uid)
+        return context.rgw_user_uid
     if access_mode == "session" and isinstance(actor, ManagerSessionPrincipal):
         return actor.user_uid or actor.account_id or actor.account_name
     if access_mode == "s3_user":
