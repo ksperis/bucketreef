@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 bucket migration execution-plan cleanup
+
+Migration `0176_remove_bucket_migration_plan_blocked` removes the redundant
+`blocked` flag from persisted per-bucket execution plans. The worker already
+uses the canonical `supported` field to decide whether an item may run, so
+persisting both booleans allowed contradictory state without adding behavior.
+
+Deploy the migration and backend together. New execution plans omit `blocked`.
+Downgrade reconstructs it as the inverse of `supported` for the previous
+application version.
+
 ## 2026-10 bucket migration report version cleanup
 
 Migration `0175_remove_bucket_migration_report_version` removes the unused

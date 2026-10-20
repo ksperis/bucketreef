@@ -746,7 +746,6 @@ class BucketMigrationPrecheckPlanner:
         execution_plan = {
             "strategy": strategy,
             "supported": not blocking,
-            "blocked": blocking,
             "delete_source_safe": safety.delete_source_safe,
             "rollback_safe": safety.rollback_safe,
             "same_endpoint_copy_safe": safety.same_endpoint_copy_safe,

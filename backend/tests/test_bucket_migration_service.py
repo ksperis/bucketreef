@@ -201,7 +201,6 @@ def _current_only_execution_plan() -> str:
         {
             "strategy": "current_only",
             "supported": True,
-            "blocked": False,
             "delete_source_safe": True,
             "rollback_safe": True,
             "same_endpoint_copy_safe": True,
@@ -220,7 +219,6 @@ def _version_aware_execution_plan(
         {
             "strategy": "version_aware",
             "supported": True,
-            "blocked": False,
             "delete_source_safe": delete_source_safe,
             "rollback_safe": rollback_safe,
             "same_endpoint_copy_safe": same_endpoint_copy_safe,
@@ -1659,6 +1657,7 @@ def test_run_precheck_passed_then_start_allowed(db_session):
     assert migration.items[0].execution_plan_json is not None
     execution_plan = json.loads(migration.items[0].execution_plan_json)
     assert "report_version" not in execution_plan
+    assert "blocked" not in execution_plan
     queued = service.start_migration(migration.id, configuration_revision=1, confirm_write_interruption=True)
     assert queued.status == "queued"
 
