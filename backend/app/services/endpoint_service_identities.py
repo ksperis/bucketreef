@@ -9,6 +9,7 @@ from collections.abc import Callable
 from typing import Literal
 from uuid import uuid4
 
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -145,7 +146,12 @@ class EndpointServiceIdentityService:
         handle = lease.acquire(f"endpoint-identities:{endpoint_id}", ttl_seconds=1800)
         if handle is None:
             raise ValueError("Service identity configuration is already running for this endpoint.")
-        current = self.db.query(StorageEndpoint).populate_existing().filter_by(id=endpoint_id).first()
+        current = self.db.scalars(
+            select(StorageEndpoint)
+            .where(StorageEndpoint.id == endpoint_id)
+            .execution_options(populate_existing=True)
+            .limit(1)
+        ).first()
         if current is None:
             lease.release(handle)
             raise ValueError("Endpoint no longer exists.")
@@ -392,7 +398,15 @@ class EndpointServiceIdentityService:
             identity.access_key = identity.secret_key = None
             from app.db import KeyRotationIntent
             key_type = f"endpoint_{kind}"
-            self.db.query(KeyRotationIntent).filter_by(endpoint_id=endpoint.id, key_type=key_type, target_id=identity.id).delete(synchronize_session=False)
+            self.db.execute(
+                delete(KeyRotationIntent)
+                .where(
+                    KeyRotationIntent.endpoint_id == endpoint.id,
+                    KeyRotationIntent.key_type == key_type,
+                    KeyRotationIntent.target_id == identity.id,
+                )
+                .execution_options(synchronize_session=False)
+            )
             identity.last_error = None
             identity.last_reconciled_at = utcnow()
             self.db.commit()
