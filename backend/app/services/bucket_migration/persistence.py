@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from sqlalchemy import select
+
 from app.db import BucketMigration, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
@@ -21,8 +23,11 @@ class BucketMigrationPersistenceMixin:
         if not worker_id:
             return
         # Read scalar columns: the ORM identity map may still contain a former lease.
-        row = self.db.query(BucketMigration.worker_lease_owner, BucketMigration.worker_lease_until).filter(
-            BucketMigration.id == self._workflow_migration_id,
+        row = self.db.execute(
+            select(
+                BucketMigration.worker_lease_owner,
+                BucketMigration.worker_lease_until,
+            ).where(BucketMigration.id == self._workflow_migration_id)
         ).one()
         if row.worker_lease_owner != worker_id or not row.worker_lease_until or row.worker_lease_until < utcnow():
             raise _WorkerLeaseLostError("Migration worker lease lost")
@@ -52,9 +57,11 @@ class BucketMigrationPersistenceMixin:
         return self._actor_allowed_context_ids(user_id)
 
     def _actor_allowed_context_ids(self, user_id: int | None) -> set[str]:
-        user = self.db.query(User).filter(
-            User.id == user_id,
-            User.is_active.is_(True),
+        user = self.db.scalars(
+            select(User).where(
+                User.id == user_id,
+                User.is_active.is_(True),
+            )
         ).first()
         if user is None:
             return set()
