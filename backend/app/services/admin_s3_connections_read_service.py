@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlalchemy import exists, func
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session, aliased
 
 from app.db import (
@@ -48,17 +48,16 @@ class AdminS3ConnectionsReadService:
     ) -> dict[int, list[UserAssociationDetail]]:
         if not connection_ids:
             return {}
-        rows = (
-            self.db.query(UserS3Connection.s3_connection_id, User)
+        rows = self.db.execute(
+            select(UserS3Connection.s3_connection_id, User)
             .join(User, User.id == UserS3Connection.user_id)
-            .filter(UserS3Connection.s3_connection_id.in_(connection_ids))
+            .where(UserS3Connection.s3_connection_id.in_(connection_ids))
             .order_by(
                 UserS3Connection.s3_connection_id.asc(),
                 User.email.asc(),
                 User.id.asc(),
             )
-            .all()
-        )
+        ).all()
         details: dict[int, list[UserAssociationDetail]] = {}
         for connection_id, user in rows:
             details.setdefault(int(connection_id), []).append(
@@ -77,17 +76,16 @@ class AdminS3ConnectionsReadService:
     ) -> dict[int, list[S3ConnectionGroupDetail]]:
         if not connection_ids:
             return {}
-        rows = (
-            self.db.query(UiGroupS3Connection.s3_connection_id, UiGroup)
+        rows = self.db.execute(
+            select(UiGroupS3Connection.s3_connection_id, UiGroup)
             .join(UiGroup, UiGroup.id == UiGroupS3Connection.group_id)
-            .filter(UiGroupS3Connection.s3_connection_id.in_(connection_ids))
+            .where(UiGroupS3Connection.s3_connection_id.in_(connection_ids))
             .order_by(
                 UiGroupS3Connection.s3_connection_id.asc(),
                 UiGroup.name.asc(),
                 UiGroup.id.asc(),
             )
-            .all()
-        )
+        ).all()
         details: dict[int, list[S3ConnectionGroupDetail]] = {}
         for connection_id, group in rows:
             details.setdefault(int(connection_id), []).append(
@@ -145,10 +143,10 @@ class AdminS3ConnectionsReadService:
             capabilities=capabilities,
         )
 
-    def _query(self, *, search: Optional[str]):
+    def _select(self, *, search: Optional[str]):
         linked_user = aliased(User)
-        query = (
-            self.db.query(
+        statement = (
+            select(
                 S3Connection,
                 func.count(UserS3Connection.id).label("user_count"),
                 func.max(User.email).label("created_by_email"),
@@ -157,11 +155,11 @@ class AdminS3ConnectionsReadService:
             .outerjoin(StorageEndpoint, StorageEndpoint.id == S3Connection.storage_endpoint_id)
             .outerjoin(UserS3Connection, UserS3Connection.s3_connection_id == S3Connection.id)
             .outerjoin(linked_user, linked_user.id == UserS3Connection.user_id)
-            .filter(*S3ConnectionsService.admin_shared_predicates())
+            .where(*S3ConnectionsService.admin_shared_predicates())
             .group_by(S3Connection.id)
         )
         if not search:
-            return query
+            return statement
 
         term = f"%{search.strip()}%"
         tag_match = (
@@ -176,7 +174,7 @@ class AdminS3ConnectionsReadService:
             .where(UiGroup.id == UiGroupS3Connection.group_id)
             .where(UiGroup.name.ilike(term))
         )
-        return query.filter(
+        return statement.where(
             (S3Connection.name.ilike(term))
             | (StorageEndpoint.endpoint_url.ilike(term))
             | (S3Connection.custom_endpoint_config.ilike(term))
@@ -218,7 +216,9 @@ class AdminS3ConnectionsReadService:
         creators_by_id = (
             {
                 int(creator.id): creator
-                for creator in self.db.query(User).filter(User.id.in_(creator_ids)).all()
+                for creator in self.db.scalars(
+                    select(User).where(User.id.in_(creator_ids))
+                ).all()
             }
             if creator_ids
             else {}
@@ -246,13 +246,20 @@ class AdminS3ConnectionsReadService:
         sort_by: str,
         sort_dir: str,
     ) -> PaginatedS3ConnectionsResponse:
-        query = self._order(
-            self._query(search=search),
+        statement = self._order(
+            self._select(search=search),
             sort_by=sort_by,
             sort_dir=sort_dir,
         )
-        total = query.count()
-        rows = query.offset((page - 1) * page_size).limit(page_size).all()
+        total = int(
+            self.db.scalar(
+                select(func.count()).select_from(statement.order_by(None).subquery())
+            )
+            or 0
+        )
+        rows = self.db.execute(
+            statement.offset((page - 1) * page_size).limit(page_size)
+        ).all()
         return PaginatedS3ConnectionsResponse(
             items=self._items(rows),
             total=total,
@@ -262,18 +269,17 @@ class AdminS3ConnectionsReadService:
         )
 
     def list_minimal(self) -> list[S3ConnectionSummary]:
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 S3Connection.id,
                 S3Connection.name,
                 S3Connection.created_by_user_id,
                 S3Connection.is_active,
                 S3Connection.remediation_required,
             )
-            .filter(*S3ConnectionsService.admin_shared_predicates())
+            .where(*S3ConnectionsService.admin_shared_predicates())
             .order_by(*name_order_by(S3Connection))
-            .all()
-        )
+        ).all()
         return [
             S3ConnectionSummary(
                 id=row[0],
@@ -294,10 +300,10 @@ class AdminS3ConnectionsReadService:
     ) -> S3ConnectionAdminItem:
         creator = created_by_user
         if creator is None:
-            creator = (
-                self.db.query(User)
-                .filter(User.id == conn.created_by_user_id)
-                .first()
+            creator = self.db.scalar(
+                select(User)
+                .where(User.id == conn.created_by_user_id)
+                .limit(1)
             )
         if include_links:
             user_details = self._linked_user_details_by_connection([conn.id]).get(conn.id, [])
