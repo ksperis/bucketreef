@@ -2,32 +2,22 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActions, ListBadge, ListActionButton, ListActionLink, ListSelectionCheckbox } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ListActionButton } from "../../components/list/ListControls";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
 } from "../../auth/useRecentWebAuthnStepUp";
-import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
-import DataTableShell, {
-  dataTableDefaultActionProps,
-  type DataTableColumn,
-} from "../../components/list/DataTableShell";
-import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import ToolbarSearchInput from "../../components/ToolbarSearchInput";
-import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 
 import { useTagCatalog } from "../../hooks/useTagCatalog";
-import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
-import UserAvatar from "../../components/UserAvatar";
 import {
   S3ConnectionAdminItem,
   createAdminS3Connection,
@@ -39,10 +29,9 @@ import {
 import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { listMinimalUsers, type UserSummary } from "../../api/users";
 import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
-import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import { extractApiError } from "../../utils/apiError";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
-import { buildUiTagItems, extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
+import { extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
@@ -68,8 +57,8 @@ import {
   type S3ConnectionEndpointMode,
 } from "../shared/s3ConnectionFormModel";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
-import { buildAccessAuditHref } from "./accessAuditLink";
 import { useAdminI18n } from "./adminI18n";
+import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
 
 type EditTab = "general" | "users" | "groups";
 
@@ -157,7 +146,6 @@ export default function S3ConnectionsPage() {
   const [selectAllFilteredBusy, setSelectAllFilteredBusy] = useState(false);
   const [allFilteredSelectableIds, setAllFilteredSelectableIds] = useState<number[] | null>(null);
   const [allFilteredSelectableIdsKey, setAllFilteredSelectableIdsKey] = useState<string | null>(null);
-  const selectionHeaderRef = useRef<HTMLInputElement | null>(null);
 
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const showEditGeneralTab = editTab === "general";
@@ -345,11 +333,6 @@ export default function S3ConnectionsPage() {
   });
 
   const defaultEndpoint = storageEndpoints.find((ep) => ep.is_default);
-  const endpointNameById = useMemo(() => {
-    const map = new Map<number, string>();
-    storageEndpoints.forEach((ep) => map.set(ep.id, ep.name));
-    return map;
-  }, [storageEndpoints]);
   const portalUserLabelById = useMemo(() => {
     const map = new Map<number, string>();
     portalUsers.forEach((user) => map.set(user.id, user.email));
@@ -360,24 +343,6 @@ export default function S3ConnectionsPage() {
     uiGroups.forEach((group) => map.set(group.id, group.name));
     return map;
   }, [uiGroups]);
-  const renderConnectionAssociations = (connection: S3ConnectionAdminItem) => {
-    const userItems: AssociationPrincipalItem[] = (connection.user_details ?? []).map((user) => {
-      return {
-        id: user.id,
-        kind: "user",
-        label: user.full_name || user.email || `User #${user.id}`,
-        email: user.email,
-        avatar: user.avatar,
-      };
-    });
-    const groupItems: AssociationPrincipalItem[] = (connection.group_details ?? []).map((group) => ({
-      id: group.id,
-      kind: "group" as const,
-      label: group.name,
-      avatar: group.avatar,
-    }));
-    return <AssociationPrincipalStack items={[...userItems, ...groupItems]} />;
-  };
   const linkedEditUsers = useMemo(
     () =>
       editLinkedUserIds.map((id) => ({
@@ -449,12 +414,6 @@ export default function S3ConnectionsPage() {
     form: editForm, linkedGroupIds: editLinkedGroupIds, linkedUserIds: editLinkedUserIds,
   });
   const editFormValidation = useS3ConnectionFormValidation(editPrepared, editEndpointMode === "custom" ? editForm.endpoint_url : undefined);
-  const tableStatus = resolveListTableStatus({
-    loading,
-    error,
-    rowCount: items.length,
-  });
-  const quickFilterActive = filter.trim().length > 0;
   const selectionQueryKey = useMemo(
     () =>
       JSON.stringify({
@@ -463,34 +422,6 @@ export default function S3ConnectionsPage() {
       }),
     [filter, quickFilterMode]
   );
-  const selectableOnPageIds = useMemo(
-    () => items.map((item) => item.id),
-    [items]
-  );
-  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const selectedOnPageIds = useMemo(
-    () => selectableOnPageIds.filter((connectionId) => selectedIdSet.has(connectionId)),
-    [selectableOnPageIds, selectedIdSet]
-  );
-  const allSelectedOnPage = selectableOnPageIds.length > 0 && selectedOnPageIds.length === selectableOnPageIds.length;
-  const hasResolvedFilteredSelectableIds =
-    allFilteredSelectableIdsKey === selectionQueryKey && Array.isArray(allFilteredSelectableIds);
-  const selectedOnFilteredCount = hasResolvedFilteredSelectableIds
-    ? allFilteredSelectableIds.reduce((count, connectionId) => count + (selectedIdSet.has(connectionId) ? 1 : 0), 0)
-    : selectedOnPageIds.length;
-  const allSelectedOnFiltered =
-    hasResolvedFilteredSelectableIds && allFilteredSelectableIds.length > 0 && selectedOnFilteredCount === allFilteredSelectableIds.length;
-  const hiddenSelectedCount = Math.max(selectedIds.length - selectedOnPageIds.length, 0);
-  const headerChecked = hasResolvedFilteredSelectableIds ? allSelectedOnFiltered : allSelectedOnPage;
-  const headerIndeterminate = hasResolvedFilteredSelectableIds
-    ? selectedOnFilteredCount > 0 && !allSelectedOnFiltered
-    : selectedOnPageIds.length > 0 && !allSelectedOnPage;
-
-  useEffect(() => {
-    if (!selectionHeaderRef.current) return;
-    selectionHeaderRef.current.indeterminate = headerIndeterminate;
-  }, [headerIndeterminate]);
-
   useEffect(() => {
     setAllFilteredSelectableIds(null);
     setAllFilteredSelectableIdsKey(null);
@@ -501,22 +432,6 @@ export default function S3ConnectionsPage() {
   }, [page, pageSize]);
 
 
-  const handleFilterChange = (value: string) => {
-    setFilter(value);
-    setSelectedIds([]);
-    setPage(1);
-  };
-  const toggleQuickFilterMode = () => {
-    setQuickFilterMode((prev) => (prev === "contains" ? "exact" : "contains"));
-    setSelectedIds([]);
-    setPage(1);
-  };
-  const clearAllFilters = () => {
-    setFilter("");
-    setQuickFilterMode("contains");
-    setSelectedIds([]);
-    setPage(1);
-  };
   const handlePageChange = (nextPage: number) => {
     if (nextPage === page) return;
     setPage(Math.max(1, nextPage));
@@ -524,9 +439,6 @@ export default function S3ConnectionsPage() {
   const handlePageSizeChange = (size: number) => {
     setPageSize(size);
     setPage(1);
-  };
-  const toggleRowSelection = (connectionId: number) => {
-    setSelectedIds((prev) => (prev.includes(connectionId) ? prev.filter((id) => id !== connectionId) : [...prev, connectionId]));
   };
   const toggleEditUserSelection = (userId: number) => {
     setEditUserSelections((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
@@ -823,153 +735,6 @@ export default function S3ConnectionsPage() {
     setBulkDeleteBusy(false);
   };
 
-  const connectionTableColumns: Array<DataTableColumn<S3ConnectionAdminItem>> = [
-    {
-      id: "select",
-      label: "Select",
-      headerClassName: "w-10 px-3",
-      cellClassName: "w-10 px-3 py-4",
-      header: (
-        <ListSelectionCheckbox
-          ref={selectionHeaderRef}
-          aria-label={adminText("Select all filtered connections")}
-          checked={headerChecked}
-          onChange={(e) => {
-            void setSelectionForFilteredResults(e.target.checked);
-          }}
-          disabled={loading || selectAllFilteredBusy || total === 0 || bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy}
-        />
-      ),
-      render: (connection) => (
-        <ListSelectionCheckbox
-          aria-label={`Select connection ${connection.name}`}
-          checked={selectedIdSet.has(connection.id)}
-          onChange={() => toggleRowSelection(connection.id)}
-          disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
-        />
-      ),
-    },
-    {
-      id: "name",
-      label: "Name",
-      primary: true,
-      cellClassName: "min-w-[240px]",
-      render: (connection) => {
-        const tagItems = buildUiTagItems(connection.tags);
-        return (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="min-w-0 flex-1 truncate">{connection.name}</p>
-            {tagItems.length > 0 && (
-              <UiTagBadgeList
-                items={tagItems}
-                variant="listing-compact"
-                layout="inline-compact"
-                className="ml-auto max-w-full"
-                maxVisible={4}
-              />
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "endpoint",
-      label: "Endpoint",
-      cellClassName: "min-w-[220px]",
-      render: (connection) =>
-        connection.storage_endpoint_id != null ? (
-          <span>{endpointNameById.get(connection.storage_endpoint_id) || `Endpoint #${connection.storage_endpoint_id}`}</span>
-        ) : (
-          <span className="ui-mono">{connection.endpoint_url || "-"}</span>
-        ),
-    },
-    {
-      id: "status",
-      label: "Status",
-      render: (connection) => {
-        const remediationRequired = connection.execution_status === "remediation_required";
-        const isActive = connection.is_active !== false && !remediationRequired;
-        return (
-          <ListBadge
-            tone={remediationRequired ? "warning" : isActive ? "success" : "neutral"}
-          >
-            {remediationRequired ? "Remediation required" : isActive ? "Active" : "Inactive"}
-          </ListBadge>
-        );
-      },
-    },
-    {
-      id: "created-by",
-      label: "Created by",
-      render: (connection) => (
-        <UserAvatar
-          avatar={connection.created_by_avatar}
-          name={connection.created_by_full_name || connection.created_by_email || `User #${connection.created_by_user_id}`}
-          email={connection.created_by_email}
-          size="sm"
-          title={[connection.created_by_full_name, connection.created_by_email].filter(Boolean).join(" · ") || `User #${connection.created_by_user_id}`}
-        />
-      ),
-    },
-    {
-      id: "associations",
-      label: "UI Users / Groups",
-      cellClassName: "min-w-[180px] max-w-[240px] align-middle",
-      render: renderConnectionAssociations,
-    },
-    {
-      id: "actions",
-      label: "Actions",
-      align: "right",
-      mobileRole: "actions",
-      cellClassName: "min-w-[344px]",
-      render: (connection) => {
-        const remediationRequired = connection.execution_status === "remediation_required";
-        const isActive = connection.is_active !== false;
-        return (
-          <ListActions>
-            <ListActionButton
-              type="button"
-              onClick={() => void submitToggleConnectionStatus(connection)}
-              disabled={
-                statusBusyId === connection.id ||
-                bulkActivateBusy ||
-                bulkDisableBusy ||
-                bulkDeleteBusy ||
-                selectAllFilteredBusy
-              }
-            >
-              {statusBusyId === connection.id
-                ? "Saving..."
-                : remediationRequired
-                  ? "Activate in Manager"
-                  : isActive
-                    ? "Deactivate"
-                    : "Activate"}
-            </ListActionButton>
-            <ListActionButton
-              type="button"
-              onClick={() => openEdit(connection)}
-              {...dataTableDefaultActionProps}
-            >
-              {adminText("Edit")}</ListActionButton>
-            <ListActionLink to={buildAccessAuditHref({
-              scope: "s3_connection",
-              targetId: connection.id,
-            })}>
-              {adminText("Review access")}</ListActionLink>
-            <ListActionButton
-              type="button"
-               variant="danger"
-              onClick={() => setDeleteTarget(connection)}
-            >
-              {adminText("Delete")}</ListActionButton>
-          </ListActions>
-        );
-      },
-    },
-  ];
-
   return (
     <div className={workflowPageHostClass(showCreateModal || Boolean(editing))}>
       <PageHeader actionPresentation="listing"
@@ -982,86 +747,52 @@ export default function S3ConnectionsPage() {
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{error}</PageBanner>}
 
-      <ListPageSection variant="page"
-          title={adminText("S3 Connections")}
-          countLabel={`${total} entr${total === 1 ? "y" : "ies"}`}
-          search={
-            <ToolbarSearchInput
-              value={filter}
-              onChange={handleFilterChange}
-              placeholder={adminText("Search name, endpoint, created by, group, or tag...")}
-              className="w-full sm:w-64"
-              active={quickFilterActive}
-              matchMode={quickFilterMode}
-              onToggleMatchMode={toggleQuickFilterMode}
-            />
-          }
-          secondaryContent={
-            quickFilterActive ? (
-              <ActiveFiltersBar
-                label={adminText("Active filters summary")}
-                items={[
-                  {
-                    id: "search",
-                    label: `Search ${quickFilterMode === "exact" ? "exact" : "contains"}: ${filter.trim()}`,
-                  },
-                ]}
-                onClearAll={clearAllFilters}
-              />
-            ) : null
-          }
-      >
-        {selectedIds.length > 0 && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50">
-            <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-              {selectedIds.length} {adminText("selected")}{hiddenSelectedCount > 0 ? ` (${hiddenSelectedCount} not visible)` : ""}
-            </span>
-            <ListActions>
-              <ListActionButton
-                type="button"
-                onClick={() => void submitBulkActivate()}
-                disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
-              >
-                {bulkActivateBusy ? "Activating..." : "Activate selected"}
-              </ListActionButton>
-              <ListActionButton
-                type="button"
-                onClick={() => void submitBulkDisable()}
-                disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
-              >
-                {bulkDisableBusy ? "Disabling..." : "Disable selected"}
-              </ListActionButton>
-              <ListActionButton
-                type="button"
-                 variant="danger"
-                onClick={() => setBulkDeleteOpen(true)}
-                disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
-              >
-                {adminText("Delete selected")}</ListActionButton>
-            </ListActions>
-          </div>
-        )}
-        <DataTableShell
-          columns={connectionTableColumns}
-          rows={items}
-          rowKey={(connection) => connection.id}
-          status={tableStatus}
-          loadingMessage={adminText("Loading connections...")}
-          errorMessage={adminText("Unable to load connections.")}
-          emptyMessage={adminText("No connections.")}
-          primaryColumnId="name"
-          responsiveCards
-          tableClassName="ui-data-table"
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: handlePageChange,
-            onPageSizeChange: handlePageSizeChange,
-            disabled: loading,
-          }}
-        />
-      </ListPageSection>
+      <AdminS3ConnectionsList
+        items={items}
+        storageEndpoints={storageEndpoints}
+        loading={loading}
+        error={error}
+        total={total}
+        filter={filter}
+        quickFilterMode={quickFilterMode}
+        page={page}
+        pageSize={pageSize}
+        selectedIds={selectedIds}
+        resolvedFilteredSelectableIds={
+          allFilteredSelectableIdsKey === selectionQueryKey ? allFilteredSelectableIds : null
+        }
+        statusBusyId={statusBusyId}
+        selectAllFilteredBusy={selectAllFilteredBusy}
+        bulkActivateBusy={bulkActivateBusy}
+        bulkDisableBusy={bulkDisableBusy}
+        bulkDeleteBusy={bulkDeleteBusy}
+        onFilterChange={(value) => {
+          setFilter(value);
+          setSelectedIds([]);
+          setPage(1);
+        }}
+        onQuickFilterModeChange={(mode) => {
+          setQuickFilterMode(mode);
+          setSelectedIds([]);
+          setPage(1);
+        }}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        onToggleRowSelection={(connectionId) =>
+          setSelectedIds((current) =>
+            current.includes(connectionId)
+              ? current.filter((id) => id !== connectionId)
+              : [...current, connectionId],
+          )
+        }
+        onSelectAllFiltered={setSelectionForFilteredResults}
+        onToggleStatus={submitToggleConnectionStatus}
+        onEdit={openEdit}
+        onDelete={setDeleteTarget}
+        onBulkActivate={submitBulkActivate}
+        onBulkDisable={submitBulkDisable}
+        onBulkDelete={() => setBulkDeleteOpen(true)}
+      />
 
       {/* Create modal */}
       {showCreateModal && (
