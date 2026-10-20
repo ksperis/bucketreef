@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
@@ -36,6 +37,14 @@ class PortalCollaboratorRequestsService:
         self.db = db
         self.users_service = users_service
 
+    def _direct_portal_link(self, user_id: int, account_id: int) -> UserS3Account | None:
+        return self.db.execute(
+            select(UserS3Account).where(
+                UserS3Account.user_id == user_id,
+                UserS3Account.account_id == account_id,
+            )
+        ).scalar_one_or_none()
+
     def normalize_user_access_request(
         self,
         actor: User,
@@ -53,16 +62,14 @@ class PortalCollaboratorRequestsService:
             raise ValueError("Target user is required")
         if int(actor.id) == int(payload.target_user_id):
             raise ValueError("Portal managers cannot change their own project role")
-        target = self.db.query(User).filter(User.id == int(payload.target_user_id)).first()
+        target = self.db.execute(
+            select(User).where(User.id == int(payload.target_user_id))
+        ).scalar_one_or_none()
         if not target or not target.is_active:
             raise ValueError("Target user was not found or is inactive")
-        link = (
-            self.db.query(UserS3Account)
-            .filter(
-                UserS3Account.user_id == target.id,
-                UserS3Account.account_id == access.account.id,
-            )
-            .first()
+        link = self._direct_portal_link(
+            int(target.id),
+            int(access.account.id),
         )
         if not link or link.portal_role not in {
             PortalAccountRole.PORTAL_USER.value,
@@ -141,10 +148,9 @@ class PortalCollaboratorRequestsService:
             self.db.refresh(target)
             created_user = True
 
-        existing_link = (
-            self.db.query(UserS3Account)
-            .filter(UserS3Account.user_id == target.id, UserS3Account.account_id == row.account_id)
-            .first()
+        existing_link = self._direct_portal_link(
+            int(target.id),
+            int(row.account_id),
         )
         next_portal_role = requested_portal_role
         if (
@@ -180,10 +186,9 @@ class PortalCollaboratorRequestsService:
         if not target:
             raise ValueError("Target user was not found")
 
-        link = (
-            self.db.query(UserS3Account)
-            .filter(UserS3Account.user_id == target.id, UserS3Account.account_id == row.account_id)
-            .first()
+        link = self._direct_portal_link(
+            int(target.id),
+            int(row.account_id),
         )
         if not link:
             raise ValueError("Target user is not linked to this Portal project")
@@ -222,16 +227,14 @@ class PortalCollaboratorRequestsService:
         if requested_role == expected_role:
             raise ValueError("Requested Portal role is unchanged")
 
-        target = self.db.query(User).filter(User.id == target_user_id).first()
+        target = self.db.execute(
+            select(User).where(User.id == target_user_id)
+        ).scalar_one_or_none()
         if not target or not target.is_active:
             raise ValueError("Target user was not found or is inactive")
-        link = (
-            self.db.query(UserS3Account)
-            .filter(
-                UserS3Account.user_id == target_user_id,
-                UserS3Account.account_id == row.account_id,
-            )
-            .first()
+        link = self._direct_portal_link(
+            target_user_id,
+            int(row.account_id),
         )
         if not link or link.portal_role is None:
             raise ValueError("Target user has no direct Portal membership in this project")
@@ -254,14 +257,13 @@ class PortalCollaboratorRequestsService:
         }
 
     def _has_group_portal_membership(self, user_id: int, account_id: int) -> bool:
-        return (
-            self.db.query(UserUiGroup.id)
+        return self.db.execute(
+            select(UserUiGroup.id)
             .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
-            .filter(
+            .where(
                 UserUiGroup.user_id == user_id,
                 UiGroupS3Account.account_id == account_id,
                 UiGroupS3Account.portal_role.is_not(None),
             )
-            .first()
-            is not None
-        )
+            .limit(1)
+        ).scalar_one_or_none() is not None
