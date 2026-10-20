@@ -89,14 +89,3 @@ def resolve_account_scope(identifier: str | None) -> tuple[str | None, str | Non
     if is_rgw_account_id(value):
         return value, None
     return None, value
-
-
-def resolve_admin_uid(account_id: str | None, user_uid: str | None) -> str | None:
-    if user_uid:
-        normalized = user_uid.strip()
-        return normalized or None
-    if account_id:
-        normalized = normalize_rgw_identifier(account_id)
-        if normalized:
-            return f"{normalized}-admin"
-    return None

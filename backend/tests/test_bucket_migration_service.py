@@ -40,6 +40,7 @@ from app.services.bucket_migration._shared import (
     _BucketVersionEntry,
     _DB_ERROR_MESSAGE_MAX_CHARS,
     _DB_EVENT_MESSAGE_MAX_CHARS,
+    _ResolvedContext,
     _VersionedObjectDetails,
 )
 from app.services.bucket_migration.worker import BucketMigrationWorker
@@ -1114,6 +1115,32 @@ def test_build_source_copy_grant_policy_uses_target_principal(db_session):
     actions = statement.get("Action", [])
     assert "s3:GetObject" in actions
     assert "s3:GetObjectVersion" in actions
+
+
+def test_source_copy_grant_candidates_use_canonical_account_root_uid(db_session):
+    target = _create_account(
+        db_session,
+        name="target-custom-root",
+        endpoint_url="https://target.example.test",
+        account_id="RGW002",
+    )
+    target.rgw_user_uid = "custom-target-root"
+    service = BucketMigrationService(db_session)
+    target_ctx = _ResolvedContext(
+        context_id=str(target.id),
+        execution_context=target,
+        endpoint="https://target.example.test",
+        region="us-east-1",
+        force_path_style=False,
+        verify_tls=True,
+    )
+
+    candidates = service._source_copy_grant_principal_candidates(target_ctx)
+
+    assert "custom-target-root" in candidates
+    assert "arn:aws:iam:::user/custom-target-root" in candidates
+    assert "arn:aws:iam::RGW002:user/custom-target-root" in candidates
+    assert "RGW002-admin" not in candidates
 
 
 def test_precheck_same_endpoint_copy_source_access_can_use_temporary_auto_grant(db_session):
