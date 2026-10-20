@@ -12,7 +12,7 @@ import {
   sanitizeBucketAccessEntries,
   UNKNOWN_BUCKET_ACCESS,
   type BucketAccessEntry,
-} from "./browserBucketsPanelHelpers";
+} from "./browserBucketModel";
 import { isAbortError } from "./browserUtils";
 
 const BUCKET_ACCESS_PROBE_CONCURRENCY = 4;

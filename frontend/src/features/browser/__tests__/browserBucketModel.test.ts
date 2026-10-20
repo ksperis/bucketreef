@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../../api/client";
 import {
+  buildBrowserBucketPresentation,
   extractBucketListError,
   normalizeBrowserListingIssue,
   resolveBucketAccessEntry,
   sanitizeBucketAccessEntries,
   splitBucketPanelBuckets,
-} from "../browserBucketsPanelHelpers";
+} from "../browserBucketModel";
 
-describe("browserBucketsPanelHelpers", () => {
+const text = (message: string, values?: Record<string, string | number>) =>
+  message.replace(/\{(\w+)\}/g, (_match, key: string) =>
+    String(values?.[key] ?? `{${key}}`),
+  );
+
+describe("browserBucketModel", () => {
   it("pins the active bucket even when it is missing from the loaded page", () => {
     const result = splitBucketPanelBuckets("bucket-9", [{ name: "bucket-1" }, { name: "bucket-2" }]);
 
@@ -33,6 +39,68 @@ describe("browserBucketsPanelHelpers", () => {
       status: "unknown",
       detail: null,
     });
+  });
+
+  it("projects bucket catalogue state into selector and sidebar presentation", () => {
+    const result = buildBrowserBucketPresentation({
+      accessByName: {
+        alpha: { status: "available", detail: null },
+        beta: { status: "unavailable", detail: "Forbidden" },
+      },
+      activeBucketName: "beta",
+      bucketItems: [
+        { name: "alpha", display_name: "Alpha data" },
+        { name: "beta", display_name: "Beta data" },
+      ],
+      bucketTotalCount: 2,
+      hasExecutionContext: true,
+      loadingBuckets: false,
+      lockedBucketName: "",
+      selectorWorkspaceNoun: "bucket",
+      selectorWorkspaceNounPlural: "buckets",
+      text,
+      usePortalWorkspaceLabels: false,
+    });
+
+    expect(result.buttonLabel).toBe("Beta data");
+    expect(result.buttonActionLabel).toBe("Select bucket");
+    expect(result.currentBucket?.name).toBe("beta");
+    expect(result.currentBucketAccess.status).toBe("unavailable");
+    expect(result.currentBucketUnavailable).toBe(true);
+    expect(result.selectorNeedsAttention).toBe(false);
+    expect(result.sidebarRows.map(({ bucket, access }) => [bucket.name, access.status])).toEqual([
+      ["alpha", "available"],
+      ["beta", "unavailable"],
+    ]);
+  });
+
+  it("prefers the locked label over storage-space metadata", () => {
+    const result = buildBrowserBucketPresentation({
+      accessByName: {},
+      activeBucketName: "technical-name",
+      bucketItems: [
+        {
+          name: "technical-name",
+          display_name: "Research Data",
+          workspace_label: "Storage Space",
+        },
+      ],
+      bucketTotalCount: 1,
+      hasExecutionContext: true,
+      loadingBuckets: false,
+      lockedBucketLabel: "Locked Research Data",
+      lockedBucketName: "technical-name",
+      selectorWorkspaceNoun: "storage space",
+      selectorWorkspaceNounPlural: "storage spaces",
+      text,
+      usePortalWorkspaceLabels: true,
+    });
+
+    expect(result.displayNameByName.get("technical-name")).toBe(
+      "Locked Research Data",
+    );
+    expect(result.buttonLabel).toBe("Locked Research Data");
+    expect(result.buttonActionLabel).toBe("Selected storage space");
   });
 
   it("normalizes access denied listing errors", () => {

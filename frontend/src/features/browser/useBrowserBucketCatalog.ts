@@ -17,7 +17,7 @@ import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { searchBrowserBuckets } from "../../api/browserBuckets";
 import type { BrowserBucket } from "../../api/browserContracts";
 import { BUCKET_MENU_LIMIT } from "./browserConstants";
-import { extractBucketListError } from "./browserBucketsPanelHelpers";
+import { extractBucketListError } from "./browserBucketModel";
 import {
   readBrowserRootContextSelection,
   writeBrowserRootContextSelection,

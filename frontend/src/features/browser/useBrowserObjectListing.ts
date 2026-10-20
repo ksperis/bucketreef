@@ -34,7 +34,7 @@ import {
   UNKNOWN_BUCKET_ACCESS,
   type BucketAccessEntry,
   type BrowserListingIssue,
-} from "./browserBucketsPanelHelpers";
+} from "./browserBucketModel";
 import {
   mergeDeletedObjectsWithLimit,
   mergeUniqueStringsWithLimit,
