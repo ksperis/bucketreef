@@ -8,6 +8,7 @@ from datetime import timedelta
 from typing import Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import select
 
 from app.core.security import decrypt_secret, encrypt_secret
 from app.core.config import get_settings
@@ -109,7 +110,9 @@ class SessionService:
     # helpers
     def _cleanup_existing_sessions(self, access_key: str) -> None:
         hashed = self._hash_key(access_key)
-        existing = self.db.query(S3Session).filter(S3Session.access_key_hash == hashed).all()
+        existing = self.db.scalars(
+            select(S3Session).where(S3Session.access_key_hash == hashed)
+        ).all()
         for row in existing:
             self.db.delete(row)
         if existing:
