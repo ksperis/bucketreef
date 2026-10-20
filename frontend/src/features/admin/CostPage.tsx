@@ -75,6 +75,7 @@ const SORT_OPTIONS = [
   { value: "endpoint", label: "Endpoint" },
   { value: "cost", label: "Cost" },
   { value: "egress", label: "Egress" },
+  { value: "ingress", label: "Ingress" },
   { value: "storage", label: "Storage" },
   { value: "requests", label: "Requests" },
 ] as const;
@@ -521,6 +522,7 @@ export default function CostPage() {
     {
       id: "ingress",
       label: "Ingress",
+      field: "ingress",
       render: (subject) => formatBytes(subject.usage.bytes_in),
     },
     {
@@ -765,7 +767,7 @@ export default function CostPage() {
           {activeTab === "subjects" ? (
             <PageTabPanel idPrefix="admin-cost" tabId="subjects" className="mt-4">
               <ListPageSection
-                variant="section"
+                variant="page"
                 title={adminText("Subjects")}
                 mobileSort={
                   <MobileTableSort

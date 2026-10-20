@@ -296,6 +296,26 @@ describe("CostPage", () => {
     expect(mocks.getCostSummary).toHaveBeenLastCalledWith("2026-07", 9);
   });
 
+  it("sorts the Ingress column through the global subject query", async () => {
+    renderPage();
+    await screen.findByText("Tenant A");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Ingress$/ }));
+
+    await waitFor(() =>
+      expect(mocks.getCostSubjects).toHaveBeenLastCalledWith(
+        "2026-07",
+        null,
+        "all",
+        1,
+        25,
+        "ingress",
+        "desc",
+        "",
+      ),
+    );
+  });
+
   it("loads analytics lazily and drills down from endpoint and subject charts", async () => {
     const user = userEvent.setup();
     renderPage();

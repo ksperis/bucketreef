@@ -21,6 +21,10 @@ vi.mock("recharts", () => {
     Bar: () => null,
     BarChart: Chart,
     CartesianGrid: () => null,
+    Cell: () => null,
+    Legend: () => null,
+    Pie: Passthrough,
+    PieChart: Chart,
     ResponsiveContainer: Passthrough,
     Tooltip: () => null,
     XAxis: () => null,
@@ -58,7 +62,7 @@ describe("CostSubjectDetailPage", () => {
           ops_total: 250,
         },
       ],
-      usage: { bytes_in: 512, bytes_out: 1024, ops_total: 250 },
+      usage: { bytes_in: 512, bytes_out: 1024, ops_total: 250, ops_breakdown: { get: 180, put: 70 } },
       storage: { avg_bytes: 2048, avg_gb_month: 0.0000019, total_objects: 4 },
       coverage: {
         days_collected: 2,
@@ -76,6 +80,34 @@ describe("CostSubjectDetailPage", () => {
         currency: "EUR",
         pricing_source: "global",
       },
+      history: [
+        {
+          month: "2026-06",
+          coverage: { days_collected: 30, days_in_month: 30, coverage_ratio: 1 },
+          cost: {
+            storage_cost: 1.5,
+            egress_cost: 0.75,
+            ingress_cost: 0,
+            requests_cost: 0.75,
+            total_cost: 3,
+            currency: "EUR",
+            pricing_source: "global",
+          },
+        },
+        {
+          month: "2026-07",
+          coverage: { days_collected: 2, days_in_month: 31, coverage_ratio: 2 / 31 },
+          cost: {
+            storage_cost: 2,
+            egress_cost: 1,
+            ingress_cost: 0,
+            requests_cost: 0.75,
+            total_cost: 3.75,
+            currency: "EUR",
+            pricing_source: "global",
+          },
+        },
+      ],
     });
   });
 
@@ -91,7 +123,12 @@ describe("CostSubjectDetailPage", () => {
     expect(screen.getByText("RGW identifier: rgw-42")).toBeInTheDocument();
     expect(screen.getByText(/Cost coverage is partial for this subject/)).toBeInTheDocument();
     expect(screen.getByText("This subject has partial source coverage: Storage 1d · Usage 2d.")).toBeInTheDocument();
-    expect(screen.getAllByTestId("detail-chart")).toHaveLength(3);
+    expect(screen.getByRole("heading", { name: "Cost breakdown" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Request activity" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "12-month cost trend" })).toBeInTheDocument();
+    expect(screen.getByText("+25.0%")).toBeInTheDocument();
+    expect(screen.getByText("+0.75 EUR vs 2026-06")).toBeInTheDocument();
+    expect(screen.getAllByTestId("detail-chart")).toHaveLength(6);
     expect(screen.getByRole("link", { name: "Back to Cost" })).toHaveAttribute("href", returnTo);
   });
 

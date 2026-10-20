@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.domain_errors import CostDisabledError
 from app.db import User
-from app.models.cost import CostAnalyticsResponse, CostSubjectDetail, CostSubjectsResponse, CostSummary
+from app.models.cost import AdminCostSubjectDetail, CostAnalyticsResponse, CostSubjectsResponse, CostSummary
 from app.routers.cost_common import parse_cost_day
 from app.routers.dependencies import get_current_super_admin
 from app.services.admin_cost_service import AdminCostService
@@ -94,7 +94,7 @@ def cost_analytics(
         _raise_cost_http_error(exc)
 
 
-@router.get("/subject/{subject_type}/{subject_id}", response_model=CostSubjectDetail)
+@router.get("/subject/{subject_type}/{subject_id}", response_model=AdminCostSubjectDetail)
 def cost_subject_detail(
     subject_type: str,
     subject_id: int,
@@ -102,7 +102,7 @@ def cost_subject_detail(
     endpoint_id: int = Query(...),
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-) -> CostSubjectDetail:
+) -> AdminCostSubjectDetail:
     try:
         return AdminCostService(db).subject_detail(month, endpoint_id, subject_type, subject_id)
     except ValueError as exc:

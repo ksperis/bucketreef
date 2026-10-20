@@ -12,7 +12,7 @@ from app.core.domain_errors import (
     StorageEndpointNotFoundError,
 )
 from app.db import StorageEndpoint, StorageProvider, User
-from app.models.cost import CostAnalyticsResponse, CostSubjectDetail, CostSubjectsResponse, CostSummary
+from app.models.cost import AdminCostSubjectDetail, CostAnalyticsResponse, CostSubjectsResponse, CostSummary
 from app.services.app_settings_service import load_app_settings
 from app.services.cost_collection_service import CostCollector
 from app.services.cost_service import CostService
@@ -80,10 +80,14 @@ class AdminCostService:
         endpoint_id: int,
         subject_type: str,
         subject_id: int,
-    ) -> CostSubjectDetail:
+    ) -> AdminCostSubjectDetail:
         self._require_enabled()
         self._require_ceph_endpoint(endpoint_id)
-        return self.cost.subject_detail(month, endpoint_id, subject_type, subject_id)
+        detail = self.cost.subject_detail(month, endpoint_id, subject_type, subject_id)
+        return AdminCostSubjectDetail(
+            **detail.model_dump(),
+            history=self.cost.subject_history(month, endpoint_id, subject_type, subject_id),
+        )
 
     def analytics(
         self,
