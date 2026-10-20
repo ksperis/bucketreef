@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
 
+from sqlalchemy import select
+
 from app.db import AccountIAMUser, PortalAccountRole, S3Account, User
 from app.models.app_settings import PortalEffectiveSettings
 from app.models.bucket import Bucket
@@ -166,13 +168,11 @@ class PortalBucketsUsersMixin:
             self._ensure_active_key(link, iam_service)
             self._sync_account_storage_space_bucket_policies(account)
             return
-        link = (
-            self.db.query(AccountIAMUser)
-            .filter(
+        link = self.db.scalar(
+            select(AccountIAMUser).where(
                 AccountIAMUser.user_id == target.id,
                 AccountIAMUser.account_id == account.id,
             )
-            .first()
         )
         if not link:
             return
@@ -197,13 +197,11 @@ class PortalBucketsUsersMixin:
         their database transaction is committed, while first-time identities
         remain a lazy Portal bootstrap concern.
         """
-        link = (
-            self.db.query(AccountIAMUser)
-            .filter(
+        link = self.db.scalar(
+            select(AccountIAMUser).where(
                 AccountIAMUser.user_id == target.id,
                 AccountIAMUser.account_id == account.id,
             )
-            .first()
         )
         if not link:
             return
@@ -257,13 +255,11 @@ class PortalBucketsUsersMixin:
             user_id=target.id,
             account_id=account.id,
         )
-        link = (
-            self.db.query(AccountIAMUser)
-            .filter(
+        link = self.db.scalar(
+            select(AccountIAMUser).where(
                 AccountIAMUser.user_id == target.id,
                 AccountIAMUser.account_id == account.id,
             )
-            .first()
         )
         if not link:
             return
