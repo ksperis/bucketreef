@@ -15,7 +15,6 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.utils.numbers import int_or_zero
 from app.services.rgw_principal_scope import resolve_target_tenant
-from app.utils.rgw_identifiers import resolve_admin_uid
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 logger = logging.getLogger(__name__)
@@ -393,11 +392,9 @@ class TrafficService:
     def __init__(
         self,
         execution_context: S3ExecutionTarget,
-        rgw_client: Optional[RGWAdminClient] = None,
         admin_client: Optional[RGWAdminClient] = None,
     ) -> None:
         self.execution_context = execution_context
-        _ = rgw_client
         self.admin_client = admin_client or self._admin_for_execution_context(execution_context)
 
     def _admin_for_execution_context(self, execution_context: S3ExecutionTarget) -> RGWAdminClient:
@@ -450,14 +447,11 @@ class TrafficService:
         end: datetime,
         bucket: Optional[str],
     ) -> Dict[str, Any]:
-        account_uid = None
-        if self.execution_context.rgw_account_id:
-            account_uid = self.execution_context.rgw_account_id.strip()
-        else:
-            account_uid = resolve_admin_uid(
-                self.execution_context.rgw_account_id,
-                self.execution_context.rgw_user_uid,
-            )
+        account_uid = (
+            self.execution_context.rgw_account_id
+            or self.execution_context.rgw_user_uid
+            or ""
+        ).strip()
         if not account_uid:
             return {}
         tenant = resolve_target_tenant(self.execution_context)
