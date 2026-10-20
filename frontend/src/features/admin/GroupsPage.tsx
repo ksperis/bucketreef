@@ -2,8 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import TableSortControls from "../../components/list/TableSortControls";
-import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
+import { ListActionButton } from "../../components/list/ListControls";
 import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
@@ -46,22 +45,11 @@ import {
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
 import GroupAvatar from "../../components/GroupAvatar";
-import ListPageSection from "../../components/list/ListPageSection";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
 import PageHeader, { type PageBreadcrumb } from "../../components/PageHeader";
-import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
-import {
-  AssociationPrincipalStack,
-  CompactAssociationSummary,
-  accountAssociationRoleLabels,
-  uiPrincipalRoleLabel,
-  type AssociationAccountItem,
-  type AssociationPrincipalItem,
-  type CompactAssociationCategory,
-} from "./AssociationSummary";
 import {
   AdminAccessToggleSection,
   BrowserAccessSection,
@@ -83,11 +71,6 @@ import SettingsNavigationGuard from "../../components/settings/SettingsNavigatio
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
 import { stableSignature } from "../../utils/stableSignature";
-import DataTableShell, {
-  dataTableDefaultActionProps,
-  type DataTableColumn,
-} from "../../components/list/DataTableShell";
-import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import { extractApiError } from "../../utils/apiError";
@@ -96,8 +79,8 @@ import {
   clearAdminPrincipalEditRequest,
   readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
-import { buildAccessAuditHref } from "./accessAuditLink";
 import { useGroupsI18n, type GroupsMessageKey } from "./groupsMessage";
+import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 type AssociationTab = "accounts" | "s3_users" | "connections";
@@ -161,8 +144,6 @@ function groupFormFromGroup(group: UiGroup): UiGroupPayload {
 }
 
 export default function GroupsPage() {
-  type SortField = "name" | "created_at" | "updated_at";
-
   const { locale, text } = useGroupsI18n();
   const errorTextRef = useRef(text);
   errorTextRef.current = text;
@@ -200,7 +181,7 @@ export default function GroupsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [filter, setFilter] = useState(principalEditRequest?.search ?? "");
-  const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>({
+  const [sort, setSort] = useState<{ field: GroupSortField; direction: "asc" | "desc" }>({
     field: "name",
     direction: "asc",
   });
@@ -338,13 +319,7 @@ export default function GroupsPage() {
     fetchGroups();
   }, [fetchGroups]);
 
-  const tableStatus = resolveListTableStatus({
-    loading,
-    error,
-    rowCount: groups.length,
-  });
-
-  const toggleSort = (field: SortField) => {
+  const toggleSort = (field: GroupSortField) => {
     setSort((current) => nextSortState(current, field, "desc"));
     setPage(1);
   };
@@ -1025,170 +1000,6 @@ export default function GroupsPage() {
     />
   );
 
-  const renderGroupAssociations = (group: UiGroup) => {
-    const accountDetailsById = new Map((group.account_details ?? []).map((account) => [account.id, account]));
-    const s3UserDetailsById = new Map((group.s3_user_details ?? []).map((user) => [Number(user.id), user]));
-    const accountItems: AssociationAccountItem[] = (group.account_links ?? []).map((link) => {
-      const accountId = Number(link.account_id);
-      return {
-        id: accountId,
-        label:
-          accountDetailsById.get(accountId)?.name ??
-          accountOptionsById.get(accountId)?.name ??
-          text("accountNumber", { id: link.account_id }),
-        manager_role: link.manager_role,
-        portal_role: link.portal_role,
-      };
-    });
-    const s3UserItems = (group.s3_user_links ?? []).map((link) => {
-      const s3UserId = Number(link.s3_user_id);
-      return {
-        id: s3UserId,
-        label: s3UserDetailsById.get(s3UserId)?.name ?? s3UserLabelById.get(s3UserId) ?? text("s3UserNumber", { id: s3UserId }),
-      };
-    });
-    const connectionItems = (group.s3_connection_details ?? []).map((details) => {
-      const connectionId = Number(details.id);
-      return {
-        id: connectionId,
-        label:
-          details.name ??
-          connectionLabelById.get(connectionId) ??
-          text("connectionNumber", { id: connectionId }),
-      };
-    });
-    const categories: CompactAssociationCategory[] = [
-      {
-        id: "accounts",
-        label: text("accounts"),
-        itemLabel: text("rgwAccount"),
-        items: accountItems.map((account) => ({
-          id: account.id,
-          label: account.label,
-          role_labels: accountAssociationRoleLabels(account),
-        })),
-      },
-      { id: "s3_users", label: text("rgwUsers"), itemLabel: text("rgwUser"), items: s3UserItems },
-      { id: "connections", label: text("s3Connections"), itemLabel: text("s3Connection"), items: connectionItems },
-    ];
-    return <CompactAssociationSummary categories={categories} />;
-  };
-
-  const renderGroupMembers = (group: UiGroup) => {
-    const memberItems: AssociationPrincipalItem[] = (group.user_details ?? []).map((user) => {
-      const id = Number(user.id);
-      return {
-        id,
-        kind: "user",
-        label: user.full_name || user.email || text("userNumber", { id }),
-        email: user.email,
-        avatar: user.avatar,
-        role_labels: [uiPrincipalRoleLabel(user.role)],
-      };
-    });
-    return <AssociationPrincipalStack items={memberItems} maxVisible={5} />;
-  };
-  const groupTableColumns: Array<DataTableColumn<UiGroup, SortField>> = [
-    {
-      id: "name",
-      label: text("name"),
-      field: "name",
-      primary: true,
-      cellClassName: "min-w-[14rem]",
-      render: (group) => (
-        <div className="flex w-full items-center gap-2">
-          <GroupAvatar avatar={group.avatar} name={group.name} size="md" decorative />
-          <span className="min-w-0">
-            <span className="block truncate">{group.name}</span>
-            {group.description && (
-              <span className="mt-0.5 block truncate ui-caption font-normal text-slate-500 dark:text-slate-400">{group.description}</span>
-            )}
-          </span>
-        </div>
-      ),
-    },
-    {
-      id: "rights",
-      label: text("rights"),
-      cellClassName: "min-w-[12rem]",
-      render: (group) => {
-        const access = normalizeManagerToolAccess(group.manager_tool_access);
-        const toolCount =
-          Object.values(access).filter(Boolean).length +
-          Number(Boolean(group.can_provision_managed_private_connections));
-        return (
-          <div className="flex flex-wrap gap-2">
-            {group.can_access_ceph_admin && (
-              <ListBadge tone="warning">
-                {text("cephAdmin")}
-              </ListBadge>
-            )}
-            {group.can_access_storage_ops && (
-              <ListBadge tone="info">
-                {text("storageOps")}
-              </ListBadge>
-            )}
-            {group.can_create_manual_private_connections && (
-              <ListBadge tone="success">
-                {text("connections")}
-              </ListBadge>
-            )}
-            {toolCount > 0 && (
-              <ListBadge tone="neutral">
-                {text("managerPermissionsCount", { count: toolCount })}
-              </ListBadge>
-            )}
-            {!group.can_access_ceph_admin && !group.can_access_storage_ops && !group.can_create_manual_private_connections && toolCount === 0 && (
-              <span className="ui-caption text-slate-500 dark:text-slate-400">{text("noWorkspaceToolRights")}</span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "members",
-      label: text("members"),
-      cellClassName: "min-w-[10rem]",
-      render: (group) => renderGroupMembers(group),
-    },
-    {
-      id: "associations",
-      label: text("storageAssociations"),
-      cellClassName: "min-w-[18rem]",
-      render: (group) => renderGroupAssociations(group),
-    },
-    {
-      id: "actions",
-      label: text("actions"),
-      align: "right",
-      mobileRole: "actions",
-      cellClassName: "min-w-[220px]",
-      render: (group) => (
-        <ListActions>
-          <ListActionButton
-            type="button"
-            onClick={() => openEditModal(group)}
-
-            {...dataTableDefaultActionProps}
-          >
-            {text("edit")}
-          </ListActionButton>
-          <ListActionLink to={buildAccessAuditHref({ groupId: group.id })}>
-            {text("reviewAccess")}
-          </ListActionLink>
-          <ListActionButton
-            type="button"
-            onClick={() => setPendingDeleteGroup(group)}
-            disabled={busyId === group.id}
-             variant="danger"
-          >
-            {busyId === group.id ? text("deleting") : text("delete")}
-          </ListActionButton>
-        </ListActions>
-      ),
-    },
-  ];
-
   return (
     <div className={workflowPageHostClass(showModal)}>
       <SettingsNavigationGuard dirty={hasUnsavedChanges} onDiscard={closeModal}
@@ -1204,50 +1015,32 @@ export default function GroupsPage() {
       {actionError && <PageBanner tone="error">{actionError}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
-      <ListPageSection
-        variant="page"
-        mobileSort={<TableSortControls columns={groupTableColumns}
-          labels={{ sortBy: text("sortBy"), direction: text("direction"), ascending: text("ascending"), descending: text("descending") }}
-          sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
-          title={text("groups")}
-          countLabel={text(totalGroups === 1 ? "entryCount" : "entriesCount", { count: totalGroups })}
-          search={
-            <ToolbarSearchInput
-              value={filter}
-              onChange={(value) => {
-                setFilter(value);
-                setPage(1);
-              }}
-              placeholder={text("searchPlaceholder")}
-              className="w-full sm:w-64 md:w-80"
-            />
-          }
-      >
-        <DataTableShell
-          columns={groupTableColumns}
-          rows={groups}
-          rowKey={(group) => group.id}
-          status={tableStatus}
-          loadingMessage={text("loadingGroups")}
-          errorMessage={text("loadGroupsError")}
-          emptyMessage={text("noGroups")}
-          sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
-          pagination={{
-            page,
-            pageSize,
-            total: totalGroups,
-            onPageChange: (nextPage) => setPage(Math.max(1, nextPage)),
-            onPageSizeChange: (nextSize) => {
-              setPageSize(nextSize);
-              setPage(1);
-            },
-            disabled: loading,
-          }}
-          primaryColumnId="name"
-          responsiveCards
-          tableClassName="ui-data-table"
-        />
-      </ListPageSection>
+      <AdminGroupsList
+        groups={groups}
+        loading={loading}
+        error={error}
+        filter={filter}
+        sort={sort}
+        page={page}
+        pageSize={pageSize}
+        total={totalGroups}
+        busyId={busyId}
+        accountOptionsById={accountOptionsById}
+        s3UserLabelById={s3UserLabelById}
+        connectionLabelById={connectionLabelById}
+        onFilterChange={(value) => {
+          setFilter(value);
+          setPage(1);
+        }}
+        onSort={toggleSort}
+        onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+        onPageSizeChange={(nextSize) => {
+          setPageSize(nextSize);
+          setPage(1);
+        }}
+        onEdit={openEditModal}
+        onDelete={setPendingDeleteGroup}
+      />
 
       {showModal && (
         <WorkflowPage
