@@ -10,12 +10,9 @@ from app.services.ceph_admin_user_access import serialize_access_keys
 from app.services.ceph_admin_user_key_service import CephAdminUserKeyService
 
 
-class _FakeQuery:
+class _FakeScalarResult:
     def __init__(self, rows):
         self.rows = rows
-
-    def filter(self, *args):
-        return self
 
     def all(self):
         return self.rows
@@ -25,8 +22,8 @@ class _FakeSession:
     def __init__(self, rows):
         self.rows = rows
 
-    def query(self, _model):
-        return _FakeQuery(self.rows)
+    def scalars(self, _statement):
+        return _FakeScalarResult(self.rows)
 
 
 class _FakeRgwAdmin:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import S3User
@@ -207,14 +208,12 @@ class CephAdminUserKeyService:
         remote_uids = {uid}
         if tenant:
             remote_uids.add(f"{tenant}${uid}")
-        sources = (
-            self.db.query(S3User)
-            .filter(
+        sources = self.db.scalars(
+            select(S3User).where(
                 S3User.storage_endpoint_id == self.ctx.endpoint.id,
                 S3User.rgw_user_uid.in_(remote_uids),
             )
-            .all()
-        )
+        ).all()
         managed = ManagedPrivateAccessService(self.db)
         for source in sources:
             provisioning = managed.managed_key("s3_user", source.id, access_key)
