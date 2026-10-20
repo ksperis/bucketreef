@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select, update
 
 from .workflow import require_action
 
@@ -54,9 +54,9 @@ class BucketMigrationPlanningMixin:
             if allowed_statuses
             else BucketMigration.status == migration.status
         )
-        changed = (
-            self.db.query(BucketMigration)
-            .filter(
+        changed = self.db.execute(
+            update(BucketMigration)
+            .where(
                 BucketMigration.id == migration.id,
                 status_filter,
                 BucketMigration.configuration_revision
@@ -64,8 +64,9 @@ class BucketMigrationPlanningMixin:
                 BucketMigration.preparation_status == migration.preparation_status,
                 BucketMigration.maintenance_status == migration.maintenance_status,
             )
-            .update(values, synchronize_session=False)
-        )
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        ).rowcount
         if changed != 1:
             self.db.rollback()
             raise ValueError("This migration changed. Reload it before trying again.")
@@ -416,9 +417,9 @@ class BucketMigrationPlanningMixin:
             and not self._authorized_context_ids
         ):
             return []
-        query = self.db.query(BucketMigration)
+        statement = select(BucketMigration)
         if self._authorized_context_ids is not None:
-            query = query.filter(
+            statement = statement.where(
                 BucketMigration.source_context_id.in_(self._authorized_context_ids),
                 BucketMigration.target_context_id.in_(self._authorized_context_ids),
             )
@@ -429,57 +430,53 @@ class BucketMigrationPlanningMixin:
                 and normalized_context_id not in self._authorized_context_ids
             ):
                 return []
-            query = query.filter(
+            statement = statement.where(
                 or_(
                     BucketMigration.source_context_id == normalized_context_id,
                     BucketMigration.target_context_id == normalized_context_id,
                 )
             )
-        return (
-            query.order_by(BucketMigration.created_at.desc())
-            .limit(max(1, min(int(limit), 500)))
-            .all()
-        )
+        return self.db.scalars(
+            statement.order_by(BucketMigration.created_at.desc()).limit(
+                max(1, min(int(limit), 500))
+            )
+        ).all()
 
     def get_migration(self, migration_id: int) -> BucketMigration:
-        query = self.db.query(BucketMigration).filter(
-            BucketMigration.id == migration_id
-        )
+        statement = select(BucketMigration).where(BucketMigration.id == migration_id)
         if self._authorized_context_ids is not None:
             if not self._authorized_context_ids:
                 raise BucketMigrationNotFoundError("Migration not found")
-            query = query.filter(
+            statement = statement.where(
                 BucketMigration.source_context_id.in_(self._authorized_context_ids),
                 BucketMigration.target_context_id.in_(self._authorized_context_ids),
             )
-        migration = query.first()
+        migration = self.db.scalars(statement).first()
         if not migration:
             raise BucketMigrationNotFoundError("Migration not found")
         return migration
 
     def list_migration_items(self, migration_id: int) -> list[BucketMigrationItem]:
         migration = self.get_migration(migration_id)
-        return (
-            self.db.query(BucketMigrationItem)
-            .filter(BucketMigrationItem.migration_id == migration.id)
+        return self.db.scalars(
+            select(BucketMigrationItem)
+            .where(BucketMigrationItem.migration_id == migration.id)
             .order_by(BucketMigrationItem.id.asc())
-            .all()
-        )
+        ).all()
 
     def list_recent_migration_events(
         self, migration_id: int, *, limit: int
     ) -> list[BucketMigrationEvent]:
         migration = self.get_migration(migration_id)
         safe_limit = max(1, min(int(limit), 1000))
-        return (
-            self.db.query(BucketMigrationEvent)
-            .filter(BucketMigrationEvent.migration_id == migration.id)
+        return self.db.scalars(
+            select(BucketMigrationEvent)
+            .where(BucketMigrationEvent.migration_id == migration.id)
             .order_by(
                 BucketMigrationEvent.created_at.desc(), BucketMigrationEvent.id.desc()
             )
             .limit(safe_limit)
-            .all()
-        )
+        ).all()
 
     def delete_migration(self, migration_id: int) -> None:
         migration = self.get_migration(migration_id)
@@ -662,29 +659,25 @@ class BucketMigrationPlanningMixin:
         max_active_per_endpoint = max(1, int(limits.max_active_per_endpoint))
         endpoint_usage = self._active_endpoint_usage(now=now)
         endpoint_cache: dict[str, str] = {}
-        candidate_rows = [
-            row
-            for row in (
-                self.db.query(
-                    BucketMigration.id,
-                    BucketMigration.source_context_id,
-                    BucketMigration.target_context_id,
-                )
-                .filter(
-                    or_(
-                        BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
-                        BucketMigration.maintenance_status.in_({"queued", "running"}),
-                    ),
-                    or_(
-                        BucketMigration.worker_lease_until.is_(None),
-                        BucketMigration.worker_lease_until < now,
-                    ),
-                )
-                .order_by(BucketMigration.created_at.asc())
-                .limit(50)
-                .all()
+        candidate_rows = self.db.execute(
+            select(
+                BucketMigration.id,
+                BucketMigration.source_context_id,
+                BucketMigration.target_context_id,
             )
-        ]
+            .where(
+                or_(
+                    BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                    BucketMigration.maintenance_status.in_({"queued", "running"}),
+                ),
+                or_(
+                    BucketMigration.worker_lease_until.is_(None),
+                    BucketMigration.worker_lease_until < now,
+                ),
+            )
+            .order_by(BucketMigration.created_at.asc())
+            .limit(50)
+        ).all()
         for row in candidate_rows:
             migration_id = int(row.id)
             endpoint_keys = self._endpoint_keys_for_contexts(
@@ -697,9 +690,9 @@ class BucketMigrationPlanningMixin:
                 for key in endpoint_keys
             ):
                 continue
-            updated = (
-                self.db.query(BucketMigration)
-                .filter(
+            updated = self.db.execute(
+                update(BucketMigration)
+                .where(
                     BucketMigration.id == migration_id,
                     or_(
                         BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
@@ -710,15 +703,15 @@ class BucketMigrationPlanningMixin:
                         BucketMigration.worker_lease_until < now,
                     ),
                 )
-                .update(
+                .values(
                     {
                         BucketMigration.worker_lease_owner: worker_id,
                         BucketMigration.worker_lease_until: lease_until,
                         BucketMigration.updated_at: now,
-                    },
-                    synchronize_session=False,
+                    }
                 )
-            )
+                .execution_options(synchronize_session=False)
+            ).rowcount
             if updated == 1:
                 self._commit()
                 if self._claimed_migration_within_endpoint_limit(
