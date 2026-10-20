@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical bucket migration execution strategy
+
+Migration `0178_canonical_bucket_migration_plan_strategy` makes the execution
+strategy explicit in current workflow-v2 item plans. Missing or blank strategy
+values that previously meant `current_only` at runtime are rewritten once in
+the database; surrounding whitespace is removed. Historical workflow-v1 rows
+remain untouched because they cannot be replayed.
+
+Deploy the migration and backend together. The worker no longer supplies a
+default strategy for persisted plans and rejects malformed plans instead.
+Downgrade keeps the explicit strategy because it is already accepted by the
+previous application version.
+
 ## 2026-10 bucket migration execution-plan safety cleanup
 
 Migration `0177_remove_bucket_migration_plan_safety` removes

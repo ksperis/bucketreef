@@ -156,6 +156,28 @@ def test_run_item_rejects_unknown_step(db_session):
         )
 
 
+@pytest.mark.parametrize(
+    "strategy",
+    [None, "", 42],
+)
+def test_execution_plan_requires_explicit_string_strategy(db_session, strategy):
+    service = BucketMigrationService(db_session)
+    item = _item(step="sync")
+    plan = {
+        "supported": True,
+        "blocking_codes": [],
+    }
+    if strategy is not None:
+        plan["strategy"] = strategy
+    item.execution_plan_json = json.dumps(plan)
+
+    with pytest.raises(
+        RuntimeError,
+        match="^Execution plan is missing a valid strategy",
+    ):
+        service._assert_item_execution_plan_supported(item)
+
+
 def test_verify_step_fails_non_clean_diff(db_session):
     service = BucketMigrationService(db_session)
     migration = _migration()
