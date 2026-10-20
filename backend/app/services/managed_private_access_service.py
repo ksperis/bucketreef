@@ -7,6 +7,7 @@ from app.models.feature_policy import FeaturePolicy
 
 import json
 from typing import Callable
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -244,11 +245,7 @@ class ManagedPrivateAccessService:
     ) -> None:
         safe_error = str(sanitize_error_detail(str(exc)))
         self.db.rollback()
-        failed = (
-            self.db.query(ManagedPrivateAccess)
-            .filter(ManagedPrivateAccess.id == provisioning_id)
-            .first()
-        )
+        failed = self.db.get(ManagedPrivateAccess, provisioning_id)
         if failed is not None:
             self._record(
                 user,
@@ -258,11 +255,7 @@ class ManagedPrivateAccessService:
                 message=safe_error,
             )
         compensate(safe_error)
-        pending = (
-            self.db.query(ManagedPrivateAccess)
-            .filter(ManagedPrivateAccess.id == provisioning_id)
-            .first()
-        )
+        pending = self.db.get(ManagedPrivateAccess, provisioning_id)
         if pending is not None and pending.state == "cleanup_pending":
             raise ManagedPrivateAccessCleanupPending(
                 pending.id,
@@ -270,13 +263,13 @@ class ManagedPrivateAccessService:
             ) from exc
 
     def delete_owned_connection(self, *, user: User, connection_id: int) -> bool:
-        provisioning = (
-            self.db.query(ManagedPrivateAccess)
-            .filter(
+        provisioning = self.db.scalar(
+            select(ManagedPrivateAccess)
+            .where(
                 ManagedPrivateAccess.owner_user_id == user.id,
                 ManagedPrivateAccess.s3_connection_id == connection_id,
             )
-            .first()
+            .limit(1)
         )
         if provisioning is None:
             return False
@@ -322,14 +315,14 @@ class ManagedPrivateAccessService:
         return True
 
     def retry_cleanup(self, *, user: User, connection_id: int) -> None:
-        provisioning = (
-            self.db.query(ManagedPrivateAccess)
-            .filter(
+        provisioning = self.db.scalar(
+            select(ManagedPrivateAccess)
+            .where(
                 ManagedPrivateAccess.owner_user_id == user.id,
                 ManagedPrivateAccess.s3_connection_id == connection_id,
                 ManagedPrivateAccess.state == "cleanup_pending",
             )
-            .first()
+            .limit(1)
         )
         if provisioning is None:
             raise ManagedPrivateAccessNotFound("Managed private access cleanup not found")
@@ -337,15 +330,15 @@ class ManagedPrivateAccessService:
 
     def retry_provisioning_cleanup(self, *, user: User, provisioning_id: int) -> None:
         """Retry compensation when provisioning failed before a connection existed."""
-        provisioning = (
-            self.db.query(ManagedPrivateAccess)
-            .filter(
+        provisioning = self.db.scalar(
+            select(ManagedPrivateAccess)
+            .where(
                 ManagedPrivateAccess.id == provisioning_id,
                 ManagedPrivateAccess.owner_user_id == user.id,
                 ManagedPrivateAccess.s3_connection_id.is_(None),
                 ManagedPrivateAccess.state == "cleanup_pending",
             )
-            .first()
+            .limit(1)
         )
         if provisioning is None:
             raise ManagedPrivateAccessNotFound("Managed private access provisioning cleanup not found")
@@ -370,27 +363,27 @@ class ManagedPrivateAccessService:
         )
 
     def managed_iam_user(self, source_kind: str, source_id: int, username: str) -> ManagedPrivateAccess | None:
-        return (
-            self.db.query(ManagedPrivateAccess)
-            .filter(
+        return self.db.scalar(
+            select(ManagedPrivateAccess)
+            .where(
                 ManagedPrivateAccess.source_context_type == source_kind,
                 ManagedPrivateAccess.source_context_id == source_id,
                 ManagedPrivateAccess.iam_username == username,
                 ManagedPrivateAccess.state.in_(ACTIVE_STATES),
             )
-            .first()
+            .limit(1)
         )
 
     def managed_key(self, source_kind: str, source_id: int, access_key_id: str) -> ManagedPrivateAccess | None:
-        return (
-            self.db.query(ManagedPrivateAccess)
-            .filter(
+        return self.db.scalar(
+            select(ManagedPrivateAccess)
+            .where(
                 ManagedPrivateAccess.source_context_type == source_kind,
                 ManagedPrivateAccess.source_context_id == source_id,
                 ManagedPrivateAccess.access_key_id == access_key_id,
                 ManagedPrivateAccess.state.in_(ACTIVE_STATES),
             )
-            .first()
+            .limit(1)
         )
 
     def managed_resources_for_source(
@@ -398,14 +391,14 @@ class ManagedPrivateAccessService:
         source_kind: str,
         source_id: int,
     ) -> list[ManagedPrivateAccess]:
-        return (
-            self.db.query(ManagedPrivateAccess)
-            .filter(
-                ManagedPrivateAccess.source_context_type == source_kind,
-                ManagedPrivateAccess.source_context_id == source_id,
-                ManagedPrivateAccess.state.in_(ACTIVE_STATES),
-            )
-            .all()
+        return list(
+            self.db.scalars(
+                select(ManagedPrivateAccess).where(
+                    ManagedPrivateAccess.source_context_type == source_kind,
+                    ManagedPrivateAccess.source_context_id == source_id,
+                    ManagedPrivateAccess.state.in_(ACTIVE_STATES),
+                )
+            ).all()
         )
 
     def managed_provisioning_allowed(
@@ -478,15 +471,15 @@ class ManagedPrivateAccessService:
         user_id: int,
         source: ManagedPrivateAccessSource,
     ) -> ManagedPrivateAccess | None:
-        return (
-            self.db.query(ManagedPrivateAccess)
-            .filter(
+        return self.db.scalar(
+            select(ManagedPrivateAccess)
+            .where(
                 ManagedPrivateAccess.owner_user_id == user_id,
                 ManagedPrivateAccess.source_context_type == source.kind,
                 ManagedPrivateAccess.source_context_id == source.identifier,
                 ManagedPrivateAccess.state.in_(ACTIVE_STATES),
             )
-            .first()
+            .limit(1)
         )
 
     def _resolve_idempotent_existing(self, provisioning, payload) -> ManagedPrivateAccessResult:
@@ -595,18 +588,10 @@ class ManagedPrivateAccessService:
         account_id = None
         if provisioning.remote_principal_type == "iam_user":
             if provisioning.source_context_type == "account":
-                source_account = (
-                    self.db.query(S3Account)
-                    .filter(S3Account.id == provisioning.source_context_id)
-                    .first()
-                )
+                source_account = self.db.get(S3Account, provisioning.source_context_id)
                 account_id = source_account.rgw_account_id if source_account is not None else None
             elif provisioning.source_context_type == "connection":
-                source_connection = (
-                    self.db.query(S3Connection)
-                    .filter(S3Connection.id == provisioning.source_context_id)
-                    .first()
-                )
+                source_connection = self.db.get(S3Connection, provisioning.source_context_id)
                 account_id = source_connection.rgw_account_id if source_connection is not None else None
         elif provisioning.remote_principal_type == "rgw_user":
             user_uid, tenant = extract_rgw_user_identity(
@@ -634,13 +619,13 @@ class ManagedPrivateAccessService:
             link = self.access.resolve_user(user).account_link_for(provisioning.source_context_id)
             if link is None or not self.access.manager_account_allowed(link):
                 raise ManagedPrivateAccessForbidden("Account access was revoked")
-            account = self.db.query(S3Account).filter(S3Account.id == provisioning.source_context_id).first()
+            account = self.db.get(S3Account, provisioning.source_context_id)
             if account is None:
                 raise ManagedPrivateAccessError("Source account not found")
             return self._iam_service_for_context(account)
         if provisioning.source_context_type != "connection":
             raise ManagedPrivateAccessError("Invalid IAM source context")
-        connection = self.db.query(S3Connection).filter(S3Connection.id == provisioning.source_context_id).first()
+        connection = self.db.get(S3Connection, provisioning.source_context_id)
         if connection is None or not self.access.connection_is_allowed(user, connection, workspace="manager"):
             raise ManagedPrivateAccessForbidden("Source connection access was revoked")
         details = resolve_connection_details(connection)
@@ -755,7 +740,7 @@ class ManagedPrivateAccessService:
         failure: str,
         user: User,
     ) -> None:
-        provisioning = self.db.query(ManagedPrivateAccess).filter(ManagedPrivateAccess.id == provisioning_id).first()
+        provisioning = self.db.get(ManagedPrivateAccess, provisioning_id)
         if provisioning is None:
             return
         try:
