@@ -6,7 +6,7 @@ from datetime import datetime
 import json
 from typing import Any, Iterable, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -58,13 +58,13 @@ class UserNotificationsService:
             return 0
 
         existing_user_ids = {
-            int(row[0])
-            for row in self.db.query(UserNotification.user_id)
-            .filter(
-                UserNotification.user_id.in_(clean_user_ids),
-                UserNotification.event_key == event_key,
-            )
-            .all()
+            int(user_id)
+            for user_id in self.db.scalars(
+                select(UserNotification.user_id).where(
+                    UserNotification.user_id.in_(clean_user_ids),
+                    UserNotification.event_key == event_key,
+                )
+            ).all()
         }
         payload_json = json.dumps(payload, ensure_ascii=True, sort_keys=True)
         for user_id in clean_user_ids:
@@ -123,13 +123,20 @@ class UserNotificationsService:
         )
 
     def list_for_user(self, user: User, *, limit: int = 20) -> UserNotificationsResponse:
-        visible = self._visible_notifications_query(user)
-        items = (
-            visible.order_by(UserNotification.created_at.desc(), UserNotification.id.desc())
-            .limit(max(1, min(int(limit), 100)))
-            .all()
+        visible = self._visible_notifications_statement(user)
+        items = self.db.scalars(
+            visible.order_by(
+                UserNotification.created_at.desc(), UserNotification.id.desc()
+            ).limit(max(1, min(int(limit), 100)))
+        ).all()
+        unread_count = int(
+            self.db.scalar(
+                select(func.count()).select_from(
+                    visible.where(UserNotification.read_at.is_(None)).subquery()
+                )
+            )
+            or 0
         )
-        unread_count = int(visible.filter(UserNotification.read_at.is_(None)).count())
         return UserNotificationsResponse(
             items=[self._to_out(item) for item in items],
             unread_count=unread_count,
@@ -142,15 +149,17 @@ class UserNotificationsService:
         notification_ids: Optional[list[int]] = None,
         mark_all: bool = False,
     ) -> int:
-        visible = self._visible_notifications_query(user).filter(UserNotification.read_at.is_(None))
+        visible = self._visible_notifications_statement(user).where(
+            UserNotification.read_at.is_(None)
+        )
         if not mark_all:
             ids = [int(item) for item in notification_ids or [] if int(item) > 0]
             if not ids:
                 return 0
-            visible = visible.filter(UserNotification.id.in_(ids))
+            visible = visible.where(UserNotification.id.in_(ids))
 
         now = utcnow()
-        rows = visible.all()
+        rows = self.db.scalars(visible).all()
         for row in rows:
             row.read_at = now
         self.db.commit()
@@ -158,9 +167,14 @@ class UserNotificationsService:
 
     def unread_count_for_user(self, user: User) -> int:
         return int(
-            self._visible_notifications_query(user)
-            .filter(UserNotification.read_at.is_(None))
-            .count()
+            self.db.scalar(
+                select(func.count()).select_from(
+                    self._visible_notifications_statement(user)
+                    .where(UserNotification.read_at.is_(None))
+                    .subquery()
+                )
+            )
+            or 0
         )
 
     def delete_for_user(
@@ -170,26 +184,26 @@ class UserNotificationsService:
         notification_id: Optional[int] = None,
         read_only: bool = False,
     ) -> int:
-        visible = self._visible_notifications_query(user)
+        visible = self._visible_notifications_statement(user)
         if notification_id is not None:
-            visible = visible.filter(UserNotification.id == int(notification_id))
+            visible = visible.where(UserNotification.id == int(notification_id))
         elif read_only:
-            visible = visible.filter(UserNotification.read_at.isnot(None))
+            visible = visible.where(UserNotification.read_at.isnot(None))
         else:
             return 0
 
-        visible_ids = visible.with_entities(UserNotification.id)
-        deleted = (
-            self.db.query(UserNotification)
-            .filter(UserNotification.id.in_(visible_ids))
-            .delete(synchronize_session=False)
-        )
+        visible_ids = visible.with_only_columns(UserNotification.id)
+        deleted = self.db.execute(
+            delete(UserNotification)
+            .where(UserNotification.id.in_(visible_ids))
+            .execution_options(synchronize_session=False)
+        ).rowcount
         if deleted:
             self.db.commit()
-        return int(deleted)
+        return int(deleted or 0)
 
-    def _visible_notifications_query(self, user: User):
-        query = self.db.query(UserNotification).filter(UserNotification.user_id == user.id)
+    def _visible_notifications_statement(self, user: User):
+        statement = select(UserNotification).where(UserNotification.user_id == user.id)
         access = EffectiveAccessService(self.db).resolve_user(user)
         alert_account_ids = {
             int(link.account_id)
@@ -229,7 +243,7 @@ class UserNotificationsService:
                     & UserNotification.s3_user_id.in_(alert_s3_user_ids)
                 )
 
-        return query.filter(or_(*visibility_filters))
+        return statement.where(or_(*visibility_filters))
 
     def _to_out(self, row: UserNotification) -> UserNotificationOut:
         return UserNotificationOut(
