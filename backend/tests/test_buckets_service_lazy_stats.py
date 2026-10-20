@@ -14,6 +14,7 @@ def _build_account() -> S3Account:
         name="account-lazy-stats",
         rgw_tenant="",
         rgw_account_id="RGW00000000000000001",
+        rgw_user_uid="custom-root-01",
         rgw_access_key="AKIA_TEST",
         rgw_secret_key="SECRET_TEST",
     )
@@ -102,24 +103,24 @@ def test_list_buckets_fetches_admin_stats_when_enabled(monkeypatch):
     account = _build_account()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
 
-    calls = {"admin": 0}
+    calls: list[dict] = []
 
-    def fake_admin_bucket_list(*args, **kwargs):
-        calls["admin"] += 1
-        assert kwargs.get("with_stats") is True
-        return [
-            {
-                "bucket": "bucket-a",
-                "usage": {"rgw.main": {"size_actual": 2048, "num_objects": 5}},
-                "bucket_quota": {"max_size": 4096, "max_objects": 10},
-            }
-        ]
+    class FakeAdmin:
+        def get_all_buckets(self, **kwargs):  # noqa: ANN001
+            calls.append(kwargs)
+            return [
+                {
+                    "bucket": "bucket-a",
+                    "usage": {"rgw.main": {"size_actual": 2048, "num_objects": 5}},
+                    "bucket_quota": {"max_size": 4096, "max_objects": 10},
+                }
+            ]
 
-    monkeypatch.setattr(service, "_admin_bucket_list", fake_admin_bucket_list)
+    monkeypatch.setattr(service, "_rgw_runtime_for_context", lambda *_args: FakeAdmin())
 
     buckets = service.list_buckets(account, with_stats=True)
 
-    assert calls["admin"] == 1
+    assert calls == [{"uid": "custom-root-01", "with_stats": True}]
     assert len(buckets) == 1
     assert buckets[0].name == "bucket-a"
     assert buckets[0].used_bytes == 2048
@@ -166,7 +167,7 @@ def test_get_bucket_stats_uses_single_scoped_admin_lookup(monkeypatch):
         (
             "bucket-a",
             {
-                "uid": "RGW00000000000000001-admin",
+                "uid": "custom-root-01",
                 "allow_not_found": True,
             },
         )
@@ -355,8 +356,8 @@ def test_set_bucket_quota_calls_single_scope_without_user_lookup(monkeypatch):
     service = BucketConfigurationService()
     account = S3Account(
         name="quota-owner",
-        rgw_account_id=None,
-        rgw_user_uid="RGW00000000000000001$tests3user",
+        rgw_account_id="RGW00000000000000001",
+        rgw_user_uid="quota-root-01",
     )
 
     captured: dict = {}
@@ -379,7 +380,7 @@ def test_set_bucket_quota_calls_single_scope_without_user_lookup(monkeypatch):
 
     assert captured["bucket"] == "bucket-a"
     assert captured["tenant"] is None
-    assert captured["uid"] == "RGW00000000000000001$tests3user"
+    assert captured["uid"] == "quota-root-01"
     assert captured["max_size_bytes"] == 10 * 1024 * 1024 * 1024
     assert captured["max_objects"] == 1000
     assert captured["enabled"] is True
@@ -391,7 +392,7 @@ def test_set_bucket_quota_uses_injected_rgw_admin_client(monkeypatch):
     account = S3Account(
         name="quota-owner-account",
         rgw_account_id="RGW00000000000000009",
-        rgw_user_uid=None,
+        rgw_user_uid="quota-root-09",
     )
     captured: dict = {}
 
@@ -414,7 +415,7 @@ def test_set_bucket_quota_uses_injected_rgw_admin_client(monkeypatch):
     )
 
     assert captured["bucket"] == "bucket-b"
-    assert captured["uid"] == "RGW00000000000000009-admin"
+    assert captured["uid"] == "quota-root-09"
     assert captured["tenant"] is None
 
 
@@ -423,7 +424,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
     account = S3Account(
         name="quota-owner-account",
         rgw_account_id="RGW00000000000000009",
-        rgw_user_uid=None,
+        rgw_user_uid="quota-root-09",
     )
     account.storage_endpoint = StorageEndpoint(
         name="Ceph endpoint",
@@ -463,7 +464,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
     assert captured["client"]["secret_key"] == "endpoint-admin-sk"
     assert captured["client"]["access_key"] != "ceph-admin-ak"
     assert captured["quota"]["bucket"] == "bucket-b"
-    assert captured["quota"]["uid"] == "RGW00000000000000009-admin"
+    assert captured["quota"]["uid"] == "quota-root-09"
 
 
 def test_set_bucket_quota_raises_when_rgw_reports_not_found(monkeypatch):
@@ -471,7 +472,7 @@ def test_set_bucket_quota_raises_when_rgw_reports_not_found(monkeypatch):
     account = S3Account(
         name="quota-owner-account",
         rgw_account_id="RGW00000000000000009",
-        rgw_user_uid=None,
+        rgw_user_uid="quota-root-09",
     )
 
     class FakeRGWAdmin:

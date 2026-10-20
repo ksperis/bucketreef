@@ -12,11 +12,10 @@ from app.services import (
     s3_client,
     s3_deletion,
 )
-from app.services.rgw_principal_scope import resolve_target_tenant
+from app.services.rgw_principal_scope import resolve_target_admin_uid, resolve_target_tenant
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.models.bucket import Bucket
-from app.utils.rgw_identifiers import resolve_admin_uid
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.usage_stats import extract_usage_stats
 
@@ -41,7 +40,7 @@ class BucketsService:
             ) from exc
 
     def _admin_bucket_list(self, execution_context: S3ExecutionTarget, with_stats: bool = True) -> list[dict]:
-        uid = resolve_admin_uid(execution_context.rgw_account_id, execution_context.rgw_user_uid)
+        uid = resolve_target_admin_uid(execution_context)
         if not uid:
             return []
         rgw_admin = self._rgw_runtime_for_context(execution_context)
@@ -88,9 +87,8 @@ class BucketsService:
         with_stats: bool = True,
     ) -> List[Bucket]:
         buckets = s3_client.list_buckets(**self._client_kwargs(execution_context))
-        account_uid = resolve_admin_uid(execution_context.rgw_account_id, execution_context.rgw_user_uid)
         admin_by_name: dict[str, dict] = {}
-        if account_uid and with_stats:
+        if with_stats:
             try:
                 admin_list = self._admin_bucket_list(execution_context, with_stats=True)
                 logger.debug(
@@ -109,7 +107,7 @@ class BucketsService:
                     execution_context.rgw_account_id or execution_context.id,
                     exc,
                 )
-        elif account_uid and not with_stats:
+        else:
             logger.debug(
                 "S3 execution context %s skipped RGW admin stats enrichment",
                 execution_context.rgw_account_id or execution_context.id,
@@ -183,10 +181,7 @@ class BucketsService:
         quota_objects: Optional[int] = None
 
         if with_stats and bucket_in_scope:
-            account_uid = resolve_admin_uid(
-                execution_context.rgw_account_id,
-                execution_context.rgw_user_uid,
-            )
+            account_uid = resolve_target_admin_uid(execution_context)
             if account_uid:
                 try:
                     rgw_admin = self._rgw_runtime_for_context(execution_context)
