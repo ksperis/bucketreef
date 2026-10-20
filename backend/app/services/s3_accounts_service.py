@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import logging
 from typing import Any, Optional
 
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFoundError
@@ -95,7 +96,9 @@ class S3AccountsService:
         self.associations = S3AccountAssociationsService(db)
 
     def _get_account(self, account_id: int) -> S3Account:
-        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
+        account = self.db.execute(
+            select(S3Account).where(S3Account.id == account_id)
+        ).scalar_one_or_none()
         if not account:
             raise S3AccountNotFoundError("S3Account not found")
         return account
@@ -104,11 +107,9 @@ class S3AccountsService:
         return self._get_account(account_id)
 
     def find_account_by_rgw_id(self, rgw_account_id: str) -> Optional[S3Account]:
-        return (
-            self.db.query(S3Account)
-            .filter(S3Account.rgw_account_id == rgw_account_id)
-            .first()
-        )
+        return self.db.execute(
+            select(S3Account).where(S3Account.rgw_account_id == rgw_account_id)
+        ).scalar_one_or_none()
 
     def _ensure_account_name_available(
         self,
@@ -119,14 +120,14 @@ class S3AccountsService:
         exclude_account_id: Optional[int] = None,
         error_message: str = "S3Account already exists",
     ) -> None:
-        query = self.db.query(S3Account.id).filter(
+        query = select(S3Account.id).where(
             S3Account.storage_endpoint_id == storage_endpoint_id,
             S3Account.rgw_tenant == rgw_tenant,
             S3Account.name == name,
         )
         if exclude_account_id is not None:
-            query = query.filter(S3Account.id != exclude_account_id)
-        if query.first():
+            query = query.where(S3Account.id != exclude_account_id)
+        if self.db.execute(query.limit(1)).scalar_one_or_none() is not None:
             raise ValueError(error_message)
 
     def _endpoint_capabilities(self, endpoint: StorageEndpoint) -> dict[str, bool]:
@@ -134,7 +135,9 @@ class S3AccountsService:
         return features_to_capabilities(features)
 
     def _resolve_storage_endpoint(self, storage_endpoint_id: int, require_ceph: bool = False) -> StorageEndpoint:
-        endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == storage_endpoint_id).first()
+        endpoint = self.db.execute(
+            select(StorageEndpoint).where(StorageEndpoint.id == storage_endpoint_id)
+        ).scalar_one_or_none()
         if not endpoint:
             raise StorageEndpointNotFoundError("Storage endpoint not found.")
         if require_ceph and endpoint.provider != StorageProvider.CEPH.value:
@@ -335,7 +338,9 @@ class S3AccountsService:
         include_quota: bool = True,
         include_rgw_details: bool = True,
     ) -> list[S3AccountSchema]:
-        db_accounts = self.db.query(S3Account).order_by(*name_order_by(S3Account)).all()
+        db_accounts = self.db.scalars(
+            select(S3Account).order_by(*name_order_by(S3Account))
+        ).all()
         account_ids = [account.id for account in db_accounts]
         user_links_by_account = self.associations.load_user_links(account_ids)
         group_links_by_account = self.associations.load_group_links(account_ids)
@@ -396,7 +401,9 @@ class S3AccountsService:
         return results
 
     def list_accounts_minimal(self) -> list[S3AccountSummary]:
-        db_accounts = self.db.query(S3Account).order_by(*name_order_by(S3Account)).all()
+        db_accounts = self.db.scalars(
+            select(S3Account).order_by(*name_order_by(S3Account))
+        ).all()
         account_ids = [account.id for account in db_accounts]
         user_links_by_account = self.associations.load_user_links(account_ids)
         group_links_by_account = self.associations.load_group_links(account_ids)
@@ -466,10 +473,12 @@ class S3AccountsService:
         app_settings = load_app_settings_for_db_readonly(self.db)
         requested_ids = {item.rgw_account_id for item in imports}
         existing_ids = {
-            str(row[0])
-            for row in self.db.query(S3Account.rgw_account_id)
-            .filter(S3Account.rgw_account_id.in_(requested_ids))
-            .all()
+            str(rgw_account_id)
+            for rgw_account_id in self.db.scalars(
+                select(S3Account.rgw_account_id).where(
+                    S3Account.rgw_account_id.in_(requested_ids)
+                )
+            ).all()
         }
         seen_ids = set(existing_ids)
         prepared: list[_PreparedAccountImport] = []
@@ -614,7 +623,9 @@ class S3AccountsService:
         validate_manager_overrides(payload, app_settings.manager.feature_policies)
         if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
             raise ValueError("Managed RGW tenant creation is disabled")
-        existing = self.db.query(S3Account).filter(S3Account.rgw_account_id == rgw_account_id).first()
+        existing = self.db.execute(
+            select(S3Account).where(S3Account.rgw_account_id == rgw_account_id)
+        ).scalar_one_or_none()
         if existing:
             if (
                 existing.storage_endpoint_id != payload.storage_endpoint_id
@@ -1004,10 +1015,16 @@ class S3AccountsService:
         )
 
     def _remove_account_entry(self, account: S3Account) -> None:
-        self.db.query(AccountIAMUser).filter(AccountIAMUser.account_id == account.id).delete()
-        self.db.query(UserS3Account).filter(UserS3Account.account_id == account.id).delete()
-        self.db.query(UiGroupS3Account).filter(UiGroupS3Account.account_id == account.id).delete(
-            synchronize_session=False
+        self.db.execute(
+            delete(AccountIAMUser).where(AccountIAMUser.account_id == account.id)
+        )
+        self.db.execute(
+            delete(UserS3Account).where(UserS3Account.account_id == account.id)
+        )
+        self.db.execute(
+            delete(UiGroupS3Account)
+            .where(UiGroupS3Account.account_id == account.id)
+            .execution_options(synchronize_session=False)
         )
         purge = ResourceDeletionPurgeService(self.db)
         purge.purge_account_derived_data(account.id)
