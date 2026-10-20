@@ -13,7 +13,7 @@ import {
   treeToggleButtonClasses,
 } from "./browserConstants";
 import type { TreeNode } from "./browserTypes";
-import type { BucketAccessEntry } from "./browserBucketsPanelHelpers";
+import type { BucketAccessEntry } from "./browserBucketModel";
 import { useBrowserI18n, type BrowserTextFn } from "./browserI18n";
 
 type BrowserFoldersPanelProps = {

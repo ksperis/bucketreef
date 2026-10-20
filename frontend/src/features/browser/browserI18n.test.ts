@@ -217,7 +217,7 @@ function collectBrowserTranslationKeys(): string[] {
       // These models intentionally retain canonical English labels. The view
       // translates them, so include their labels and reasons in catalog coverage.
       if (
-        /(?:browserActions|browserObjectTableModel|browserObjectDetailsModel|browserBucketsPanelHelpers|BrowserObjectPropertiesTab|BrowserOperationCards)\.tsx?$/.test(path) &&
+        /(?:browserActions|browserObjectTableModel|browserObjectDetailsModel|browserBucketModel|BrowserObjectPropertiesTab|BrowserOperationCards)\.tsx?$/.test(path) &&
         ts.isPropertyAssignment(node) &&
         ["label", "disabledReason", "title", "description", "activeLabel", "emptyCompletedLabel", "emptyPendingLabel", "stopLabel"].includes(node.name.getText(source))
       ) {

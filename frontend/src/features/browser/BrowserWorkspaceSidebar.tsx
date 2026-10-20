@@ -20,7 +20,7 @@ import {
   RefreshIcon,
   SearchIcon,
 } from "./browserIcons";
-import type { BucketAccessEntry, BucketAccessStatus } from "./browserBucketsPanelHelpers";
+import type { BucketAccessEntry, BucketAccessStatus } from "./browserBucketModel";
 
 type BrowserWorkspaceSidebarBucketRow = {
   bucket: BrowserBucket;

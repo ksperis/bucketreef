@@ -5,6 +5,7 @@
 import { isApiError } from "../../api/client";
 import type { BrowserBucket } from "../../api/browserContracts";
 import { extractApiError } from "../../utils/apiError";
+import type { BrowserTextFn } from "./browserI18n";
 
 export type BucketAccessStatus = "unknown" | "checking" | "available" | "unavailable";
 
@@ -96,6 +97,101 @@ export function resolveBucketAccessEntry(
   accessByBucket: Record<string, BucketAccessEntry>
 ): BucketAccessEntry {
   return accessByBucket[bucketName] ?? UNKNOWN_BUCKET_ACCESS;
+}
+
+export function buildBrowserBucketPresentation({
+  accessByName,
+  activeBucketName,
+  bucketItems,
+  bucketTotalCount,
+  hasExecutionContext,
+  loadingBuckets,
+  lockedBucketLabel,
+  lockedBucketName,
+  selectorWorkspaceNoun,
+  selectorWorkspaceNounPlural,
+  text,
+  usePortalWorkspaceLabels,
+}: {
+  accessByName: Record<string, BucketAccessEntry>;
+  activeBucketName: string;
+  bucketItems: BrowserBucket[];
+  bucketTotalCount: number;
+  hasExecutionContext: boolean;
+  loadingBuckets: boolean;
+  lockedBucketLabel?: string | null;
+  lockedBucketName: string;
+  selectorWorkspaceNoun: string;
+  selectorWorkspaceNounPlural: string;
+  text: BrowserTextFn;
+  usePortalWorkspaceLabels: boolean;
+}) {
+  const displayNameByName = new Map<string, string>();
+  bucketItems.forEach((bucket) => {
+    const displayName = usePortalWorkspaceLabels
+      ? bucket.display_name?.trim() ||
+        bucket.workspace_label?.trim() ||
+        bucket.name
+      : bucket.display_name?.trim() || bucket.name;
+    displayNameByName.set(bucket.name, displayName);
+  });
+  if (lockedBucketName && lockedBucketLabel?.trim()) {
+    displayNameByName.set(lockedBucketName, lockedBucketLabel.trim());
+  }
+
+  const detailsByName = new Map(
+    bucketItems.map((bucket) => [bucket.name, bucket] as const),
+  );
+  const currentBucketAccess = activeBucketName
+    ? resolveBucketAccessEntry(activeBucketName, accessByName)
+    : UNKNOWN_BUCKET_ACCESS;
+  const { currentBucket } = splitBucketPanelBuckets(
+    activeBucketName,
+    bucketItems,
+  );
+  const sidebarRows = bucketItems.map((bucket) => ({
+    bucket,
+    access: resolveBucketAccessEntry(bucket.name, accessByName),
+  }));
+
+  let buttonLabel: string;
+  if (lockedBucketName) {
+    buttonLabel = lockedBucketLabel?.trim() || lockedBucketName;
+  } else if (activeBucketName) {
+    buttonLabel = displayNameByName.get(activeBucketName) ?? activeBucketName;
+  } else if (loadingBuckets) {
+    buttonLabel = text("Loading {workspace}...", {
+      workspace: text(selectorWorkspaceNounPlural),
+    });
+  } else if (bucketTotalCount === 0) {
+    buttonLabel = text("No {workspace}", {
+      workspace: text(selectorWorkspaceNounPlural),
+    });
+  } else {
+    buttonLabel = text("Select {workspace}", {
+      workspace: text(selectorWorkspaceNoun),
+    });
+  }
+
+  return {
+    buttonActionLabel: lockedBucketName
+      ? text("Selected {workspace}", {
+          workspace: text(selectorWorkspaceNoun),
+        })
+      : text("Select {workspace}", {
+          workspace: text(selectorWorkspaceNoun),
+        }),
+    buttonLabel,
+    currentBucket,
+    currentBucketAccess,
+    currentBucketUnavailable:
+      Boolean(activeBucketName) && currentBucketAccess.status === "unavailable",
+    detailsByName,
+    displayNameByName,
+    selectorNeedsAttention:
+      hasExecutionContext && !activeBucketName && bucketTotalCount > 0,
+    sidebarRows,
+  };
 }
 
 export function sanitizeBucketAccessEntries(

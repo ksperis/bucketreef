@@ -147,10 +147,8 @@ import {
   type BrowserColumnId,
 } from "./browserObjectTableModel";
 import {
-  resolveBucketAccessEntry,
-  splitBucketPanelBuckets,
-  type BucketAccessEntry,
-} from "./browserBucketsPanelHelpers";
+  buildBrowserBucketPresentation,
+} from "./browserBucketModel";
 import {
   resolveBrowserWorkspaceAccountDestination,
   resolveBrowserWorkspaceContext,
@@ -321,6 +319,47 @@ export default function BrowserPage({
     searchActive: showBucketMenu || showWorkspaceSidebar,
     usePortalWorkspaceLabels,
   });
+  const {
+    buttonActionLabel: bucketButtonActionLabel,
+    buttonLabel: bucketButtonLabel,
+    currentBucket: currentBucketPanelItem,
+    currentBucketAccess,
+    currentBucketUnavailable,
+    detailsByName: bucketDetailsByName,
+    displayNameByName: bucketDisplayNameByName,
+    selectorNeedsAttention: bucketSelectorNeedsAttention,
+    sidebarRows: workspaceSidebarRows,
+  } = useMemo(
+    () =>
+      buildBrowserBucketPresentation({
+        accessByName: bucketAccessByName,
+        activeBucketName: bucketName,
+        bucketItems: bucketMenuItems,
+        bucketTotalCount,
+        hasExecutionContext,
+        loadingBuckets,
+        lockedBucketLabel,
+        lockedBucketName: resolvedLockedBucketName,
+        selectorWorkspaceNoun,
+        selectorWorkspaceNounPlural,
+        text,
+        usePortalWorkspaceLabels,
+      }),
+    [
+      bucketAccessByName,
+      bucketMenuItems,
+      bucketName,
+      bucketTotalCount,
+      hasExecutionContext,
+      loadingBuckets,
+      lockedBucketLabel,
+      resolvedLockedBucketName,
+      selectorWorkspaceNoun,
+      selectorWorkspaceNounPlural,
+      text,
+      usePortalWorkspaceLabels,
+    ],
+  );
   const {
     adjustFoldersPanelWidth,
     canUseFoldersPanel,
@@ -733,19 +772,6 @@ export default function BrowserPage({
     hideDeletedObjects();
   }, [bucketName, hideDeletedObjects, isVersioningEnabled]);
 
-  const currentBucketAccess = useMemo<BucketAccessEntry>(
-    () =>
-      bucketName
-        ? resolveBucketAccessEntry(bucketName, bucketAccessByName)
-        : {
-            status: "unknown",
-            detail: null,
-          },
-    [bucketAccessByName, bucketName],
-  );
-  const currentBucketUnavailable = bucketName
-    ? currentBucketAccess.status === "unavailable"
-    : false;
   const {
     loadTreeChildren,
     toggleTreeNode: handleToggleTreeNode,
@@ -917,68 +943,13 @@ export default function BrowserPage({
     tagsColumnVisible: lazyTagsColumnsVisible,
     viewportRef: objectsListViewportRef,
   });
-  const bucketDisplayNameByName = useMemo(() => {
-    const next = new Map<string, string>();
-    bucketMenuItems.forEach((bucket) => {
-      const displayName =
-        usePortalWorkspaceLabels
-          ? bucket.display_name?.trim() || bucket.workspace_label?.trim() || bucket.name
-          : bucket.display_name?.trim() || bucket.name;
-      next.set(bucket.name, displayName);
-    });
-    if (resolvedLockedBucketName && lockedBucketLabel?.trim()) {
-      next.set(resolvedLockedBucketName, lockedBucketLabel.trim());
-    }
-    return next;
-  }, [bucketMenuItems, lockedBucketLabel, resolvedLockedBucketName, usePortalWorkspaceLabels]);
-  const bucketDetailsByName = useMemo(
-    () => new Map(bucketMenuItems.map((bucket) => [bucket.name, bucket] as const)),
-    [bucketMenuItems],
-  );
-  const bucketButtonLabel = useMemo(() => {
-    if (resolvedLockedBucketName) {
-      return lockedBucketLabel?.trim() || resolvedLockedBucketName;
-    }
-    if (bucketName) return bucketDisplayNameByName.get(bucketName) ?? bucketName;
-    if (loadingBuckets) return text("Loading {workspace}...", { workspace: text(selectorWorkspaceNounPlural) });
-    if (bucketTotalCount === 0) return text("No {workspace}", { workspace: text(selectorWorkspaceNounPlural) });
-    return text("Select {workspace}", { workspace: text(selectorWorkspaceNoun) });
-  }, [
-    bucketDisplayNameByName,
-    bucketName,
-    bucketTotalCount,
-    loadingBuckets,
-    lockedBucketLabel,
-    resolvedLockedBucketName,
-    selectorWorkspaceNoun,
-    selectorWorkspaceNounPlural,
-    text,
-  ]);
-  const bucketSelectorNeedsAttention =
-    hasExecutionContext && !bucketName && bucketTotalCount > 0;
-  const bucketButtonActionLabel = resolvedLockedBucketName
-    ? text("Selected {workspace}", { workspace: text(selectorWorkspaceNoun) })
-    : text("Select {workspace}", { workspace: text(selectorWorkspaceNoun) });
-  const useBucketsPanel = showWorkspaceSidebar;
-  const { currentBucket: currentBucketPanelItem } = useMemo(
-    () => splitBucketPanelBuckets(bucketName, bucketMenuItems),
-    [bucketMenuItems, bucketName],
-  );
-  const workspaceSidebarRows = useMemo(
-    () =>
-      bucketMenuItems.map((bucket) => ({
-        bucket,
-        access: resolveBucketAccessEntry(bucket.name, bucketAccessByName),
-      })),
-    [bucketAccessByName, bucketMenuItems],
-  );
   const {
     loadMoreSentinelRef: bucketPanelLoadMoreSentinelRef,
     panelViewportRef: bucketPanelViewportRef,
   } = useBrowserBucketPanelViewport({
     activeBucketName: bucketName,
     canLoadMore: canLoadMoreBucketResults,
-    enabled: useBucketsPanel,
+    enabled: showWorkspaceSidebar,
     onLoadMore: handleBucketMenuLoadMore,
     rows: workspaceSidebarRows,
     scheduleAccessProbe: scheduleBucketAccessProbe,
