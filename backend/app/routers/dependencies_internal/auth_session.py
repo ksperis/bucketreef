@@ -33,7 +33,6 @@ def _required_api_scope(request: Request) -> Optional[str]:
         return None
     access = "read" if request.method in {"GET", "HEAD", "OPTIONS"} else "write"
     mappings = (
-        (f"{settings.api_v1_prefix}/integrations/billing/v1", "billing"),
         (f"{settings.api_v1_prefix}/admin/", "admin"),
         (f"{settings.api_v1_prefix}/manager/", "manager"),
         (f"{settings.api_v1_prefix}/browser", "browser"),

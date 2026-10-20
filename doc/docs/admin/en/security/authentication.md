@@ -79,7 +79,7 @@ The canonical administration routes are `/api/admin/identity/link-requests`, `/a
 
 ## API-token scopes
 
-Every token contains and persists one or more exact scopes. The UI/storage domains support `read` and `write`: `profile`, `admin`, `manager`, `browser`, `portal`, `ceph-admin`, and `storage-ops`. The external Billing integration exposes only `billing:read`. A read scope never authorizes a mutation. Routes without an explicit mapping reject API tokens by default.
+Every token contains and persists one or more exact scopes. The UI/storage domains support `read` and `write`: `profile`, `admin`, `manager`, `browser`, `portal`, `ceph-admin`, and `storage-ops`. A read scope never authorizes a mutation. Routes without an explicit mapping reject API tokens by default.
 
 Changing a user's password, email, role, activation, MFA, or external identity increments `users.auth_version` and immediately invalidates sessions and API tokens. Logout, global logout, refresh replay, explicit session revocation, and expiry are also database-enforced.
 

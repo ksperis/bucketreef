@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from alembic import command
@@ -17,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0166_billing_statement_estimation"
+_EXPECTED_ALEMBIC_HEAD = "0167_restore_billing_0216_model"
 
 
 def _alembic_config() -> Config:
@@ -94,7 +95,7 @@ def test_billing_rate_plan_migration_backfills_existing_cards_and_assignments(
                 )
             )
 
-        command.upgrade(config, "head")
+        command.upgrade(config, "0159_billing_rate_card_versions")
 
         with engine.connect() as connection:
             plan = connection.execute(
@@ -145,6 +146,179 @@ def test_billing_rate_plan_migration_backfills_existing_cards_and_assignments(
         get_settings.cache_clear()
 
 
+def test_billing_0216_restore_preserves_history_and_resets_v2_configuration(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "billing-0216-restore.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0166_billing_statement_estimation")
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO storage_endpoints "
+                    "(id, name, endpoint_url, provider, is_default, is_editable, created_at, updated_at, "
+                    "verify_tls, force_path_style, identity_namespace, ceph_admin_allowed) "
+                    "VALUES (91, 'Billing restore endpoint', 'https://restore.example.test', 'ceph', 0, 1, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 0, 'billing-restore', 0)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_usage_daily "
+                    "(id, day, storage_endpoint_id, bytes_in, bytes_out, ops_total, source, collected_at) "
+                    "VALUES (92, '2026-10-01', 91, 123, 456, 7, 'rgw_admin_usage', CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_storage_daily "
+                    "(id, day, storage_endpoint_id, total_bytes, total_objects, source, collected_at, "
+                    "quota_size_bytes, quota_state) "
+                    "VALUES (93, '2026-10-01', 91, 789, 8, 'rgw_admin_bucket_stats', CURRENT_TIMESTAMP, "
+                    "4096, 'valid')"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_rate_plans "
+                    "(id, name, storage_endpoint_id, created_at, updated_at) "
+                    "VALUES (94, 'v2-plan', 91, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_rate_cards "
+                    "(id, currency, storage_gb_month_price, effective_from, rate_plan_id, "
+                    "storage_charge_basis, created_at, updated_at) "
+                    "VALUES (95, 'EUR', 0.020000, '2026-10-01', 94, 'allocated_quota', "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_assignments "
+                    "(id, storage_endpoint_id, rate_plan_id, effective_from, created_at, updated_at) "
+                    "VALUES (96, 91, 94, '2026-10-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_entities "
+                    "(id, name, subject_type, active, created_at, updated_at) "
+                    "VALUES (97, 'V2 entity', 'account', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO billing_statements "
+                    "(id, public_id, billing_entity_id, billing_entity_name, subject_type, period_start, "
+                    "period_end, currency, status, member_count, coverage_json, blockers_json, "
+                    "storage_charge_bases_json, subtotal, total, source_fingerprint, revision, generated_at, "
+                    "created_at, updated_at, estimation_mode) "
+                    "VALUES (98, '00000000-0000-0000-0000-000000000098', 97, 'V2 entity', 'account', "
+                    "'2026-10-01', '2026-10-31', 'EUR', 'draft', 0, '{}', '[]', '[]', 0, 0, "
+                    "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'strict')"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO app_settings (key, payload_json, created_at, updated_at) "
+                    "VALUES ('default', :payload_json, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                ),
+                {
+                    "payload_json": json.dumps(
+                        {
+                            "general": {"billing_enabled": True},
+                            "billing_automation": {"mode": "automatic_draft"},
+                            "billing_statement_pdf": {"organization_name": "BucketReef"},
+                        }
+                    )
+                },
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            inspector = sa.inspect(connection)
+            table_names = set(inspector.get_table_names())
+            assert {
+                "billing_rate_plans",
+                "billing_entities",
+                "billing_entity_groups",
+                "billing_statements",
+                "billing_statement_lines",
+                "billing_automation_runs",
+            }.isdisjoint(table_names)
+
+            usage = connection.execute(
+                sa.text(
+                    "SELECT bytes_in, bytes_out, ops_total FROM billing_usage_daily WHERE id = 92"
+                )
+            ).mappings().one()
+            assert usage == {"bytes_in": 123, "bytes_out": 456, "ops_total": 7}
+            storage = connection.execute(
+                sa.text(
+                    "SELECT total_bytes, total_objects FROM billing_storage_daily WHERE id = 93"
+                )
+            ).mappings().one()
+            assert storage == {"total_bytes": 789, "total_objects": 8}
+            storage_columns = {
+                column["name"] for column in inspector.get_columns("billing_storage_daily")
+            }
+            assert "quota_size_bytes" not in storage_columns
+            assert "quota_state" not in storage_columns
+
+            assert connection.scalar(sa.text("SELECT COUNT(*) FROM billing_rate_cards")) == 0
+            assert connection.scalar(sa.text("SELECT COUNT(*) FROM billing_assignments")) == 0
+            rate_card_columns = {
+                column["name"] for column in inspector.get_columns("billing_rate_cards")
+            }
+            assignment_columns = {
+                column["name"] for column in inspector.get_columns("billing_assignments")
+            }
+            assert {"name", "storage_endpoint_id"}.issubset(rate_card_columns)
+            assert "rate_plan_id" not in rate_card_columns
+            assert "storage_charge_basis" not in rate_card_columns
+            assert "rate_card_id" in assignment_columns
+            assert "rate_plan_id" not in assignment_columns
+            app_settings = json.loads(
+                connection.scalar(
+                    sa.text(
+                        "SELECT payload_json FROM app_settings WHERE key = 'default'"
+                    )
+                )
+            )
+            assert app_settings == {"general": {"billing_enabled": True}}
+
+        command.downgrade(config, "0166_billing_statement_estimation")
+        with engine.connect() as connection:
+            inspector = sa.inspect(connection)
+            table_names = set(inspector.get_table_names())
+            assert "billing_rate_plans" in table_names
+            assert "billing_entities" in table_names
+            assert "billing_statements" in table_names
+            assert "billing_automation_runs" in table_names
+            assert connection.scalar(sa.text("SELECT COUNT(*) FROM billing_rate_plans")) == 0
+            assert connection.scalar(sa.text("SELECT COUNT(*) FROM billing_rate_cards")) == 0
+            assert connection.scalar(sa.text("SELECT COUNT(*) FROM billing_assignments")) == 0
+            storage_columns = {
+                column["name"] for column in inspector.get_columns("billing_storage_daily")
+            }
+            assert {"quota_size_bytes", "quota_state"}.issubset(storage_columns)
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
+
+
 def test_billing_quota_history_migration_marks_existing_storage_rows_missing(
     tmp_path,
     monkeypatch,
@@ -177,7 +351,7 @@ def test_billing_quota_history_migration_marks_existing_storage_rows_missing(
                 )
             )
 
-        command.upgrade(config, "head")
+        command.upgrade(config, "0160_billing_storage_quota_history")
 
         with engine.connect() as connection:
             row = connection.execute(

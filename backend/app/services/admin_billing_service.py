@@ -12,9 +12,8 @@ from app.core.domain_errors import (
     StorageEndpointNotFoundError,
 )
 from app.db import StorageEndpoint, StorageProvider, User
-from app.models.billing import BillingAnalysisPreview, BillingSubjectDetail, BillingSubjectsResponse, BillingSummary
+from app.models.billing import BillingSubjectDetail, BillingSubjectsResponse, BillingSummary
 from app.services.app_settings_service import load_app_settings
-from app.services.billing_analysis_service import BillingAnalysisService
 from app.services.billing_collection_service import BillingCollector
 from app.services.billing_service import BillingService
 from app.services.operation_lease_service import (
@@ -49,10 +48,6 @@ class AdminBillingService:
         if endpoint_id is not None:
             self._require_ceph_endpoint(endpoint_id)
         return self.billing.summary(month, endpoint_id)
-
-    def analysis(self, month: str) -> BillingAnalysisPreview:
-        self._require_enabled()
-        return BillingAnalysisService(self.db).preview(month)
 
     def list_subjects(
         self,
