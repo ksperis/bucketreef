@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, TYPE_CHECKING
 
+from sqlalchemy import select
+
 from app.db import AuditLog, PortalAccountRole, PortalPublicLink as DBPortalPublicLink, User
 from app.models.portal_monitoring import PortalActivityItem, PortalAlert
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
@@ -94,9 +96,9 @@ class PortalActivityMixin:
         if space_id and selected_space is None:
             raise PortalNotFoundError("Storage space not found or not allowed.")
         query_limit = min(max(limit, 1), 200)
-        logs = (
-            self.db.query(AuditLog)
-            .filter(
+        logs = self.db.scalars(
+            select(AuditLog)
+            .where(
                 AuditLog.scope == "portal",
                 AuditLog.context_kind == "portal_account",
                 AuditLog.context_id == str(access.account.id),
@@ -104,8 +106,7 @@ class PortalActivityMixin:
             )
             .order_by(AuditLog.id.desc())
             .limit(min(query_limit * 5, 500))
-            .all()
-        )
+        ).all()
         items: list[PortalActivityItem] = []
         for log in logs:
             metadata = self._audit_metadata(log)
@@ -219,17 +220,16 @@ class PortalActivityMixin:
         *,
         now: datetime,
     ) -> PortalAlert | None:
-        active_public_links = (
-            self.db.query(DBPortalPublicLink)
-            .filter(
+        active_public_links = self.db.scalars(
+            select(DBPortalPublicLink)
+            .where(
                 DBPortalPublicLink.account_id == access.account.id,
                 DBPortalPublicLink.revoked_at.is_(None),
                 (DBPortalPublicLink.expires_at.is_(None) | (DBPortalPublicLink.expires_at >= now)),
             )
             .order_by(DBPortalPublicLink.created_at.desc(), DBPortalPublicLink.id.desc())
             .limit(20)
-            .all()
-        )
+        ).all()
         for link in active_public_links:
             storage_space = visible_spaces.get(link.bucket_name)
             if storage_space is None:
@@ -253,9 +253,9 @@ class PortalActivityMixin:
         now: datetime,
         link_cutoff: datetime,
     ) -> PortalAlert | None:
-        public_links = (
-            self.db.query(DBPortalPublicLink)
-            .filter(
+        public_links = self.db.scalars(
+            select(DBPortalPublicLink)
+            .where(
                 DBPortalPublicLink.account_id == access.account.id,
                 DBPortalPublicLink.revoked_at.is_(None),
                 DBPortalPublicLink.expires_at.isnot(None),
@@ -264,8 +264,7 @@ class PortalActivityMixin:
             )
             .order_by(DBPortalPublicLink.expires_at.asc(), DBPortalPublicLink.id.asc())
             .limit(20)
-            .all()
-        )
+        ).all()
         for link in public_links:
             storage_space = visible_spaces.get(link.bucket_name)
             if storage_space is None:
