@@ -24,6 +24,7 @@ type UseBrowserListingRefreshOptions = {
   loadObjects: LoadObjects;
   loadTreeChildren: LoadTreeChildren;
   prefix: string;
+  refreshVisibleVersions: () => Promise<void>;
   refreshToken?: number;
 };
 
@@ -36,6 +37,7 @@ export function useBrowserListingRefresh({
   loadObjects,
   loadTreeChildren,
   prefix,
+  refreshVisibleVersions,
   refreshToken,
 }: UseBrowserListingRefreshOptions) {
   const refreshTimeoutRef = useRef<number | null>(null);
@@ -119,6 +121,21 @@ export function useBrowserListingRefresh({
     [loadObjects, loadTreeChildren],
   );
 
+  const refreshCurrentListing = useCallback(async () => {
+    if (!enabled || !bucketName) return;
+    await loadObjects({
+      prefixOverride: prefix,
+      forceRefresh: true,
+    });
+    await refreshVisibleVersions();
+  }, [
+    bucketName,
+    enabled,
+    loadObjects,
+    prefix,
+    refreshVisibleVersions,
+  ]);
+
   useEffect(() => {
     if (
       refreshToken === undefined ||
@@ -136,6 +153,7 @@ export function useBrowserListingRefresh({
 
   return {
     refreshAfterUpload,
+    refreshCurrentListing,
     refreshNow,
     reload,
     requestRefresh,
