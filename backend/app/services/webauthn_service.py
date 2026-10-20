@@ -8,7 +8,7 @@ import uuid
 from datetime import timedelta
 from typing import Any, Optional
 
-from sqlalchemy import update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 from webauthn import (
     generate_authentication_options,
@@ -47,21 +47,24 @@ class WebAuthnService:
         self.settings = settings or get_settings()
 
     def has_credentials(self, user_id: int) -> bool:
-        return self.db.query(WebAuthnCredential.id).filter(
-            WebAuthnCredential.user_id == user_id,
-            WebAuthnCredential.revoked_at.is_(None),
-        ).first() is not None
+        return self.db.execute(
+            select(WebAuthnCredential.id)
+            .where(
+                WebAuthnCredential.user_id == user_id,
+                WebAuthnCredential.revoked_at.is_(None),
+            )
+            .limit(1)
+        ).scalar_one_or_none() is not None
 
     def list_credentials(self, user_id: int) -> list[WebAuthnCredential]:
-        return (
-            self.db.query(WebAuthnCredential)
-            .filter(
+        return self.db.scalars(
+            select(WebAuthnCredential)
+            .where(
                 WebAuthnCredential.user_id == user_id,
                 WebAuthnCredential.revoked_at.is_(None),
             )
             .order_by(WebAuthnCredential.created_at.asc())
-            .all()
-        )
+        ).all()
 
     def begin_registration(self, user: User, *, binding_sid: Optional[str] = None) -> dict[str, Any]:
         challenge = secrets.token_bytes(32)
@@ -162,11 +165,13 @@ class WebAuthnService:
             binding_sid=binding_sid,
         )
         credential_id = str(credential.get("id") or "")
-        row = self.db.query(WebAuthnCredential).filter(
-            WebAuthnCredential.user_id == user.id,
-            WebAuthnCredential.credential_id == credential_id,
-            WebAuthnCredential.revoked_at.is_(None),
-        ).first()
+        row = self.db.execute(
+            select(WebAuthnCredential).where(
+                WebAuthnCredential.user_id == user.id,
+                WebAuthnCredential.credential_id == credential_id,
+                WebAuthnCredential.revoked_at.is_(None),
+            )
+        ).scalar_one_or_none()
         if not row:
             raise WebAuthnSecurityError("Passkey is not registered")
         try:
@@ -191,7 +196,11 @@ class WebAuthnService:
         return row
 
     def issue_recovery_codes(self, user: User) -> list[str]:
-        self.db.query(RecoveryCode).filter(RecoveryCode.user_id == user.id).delete(synchronize_session=False)
+        self.db.execute(
+            delete(RecoveryCode)
+            .where(RecoveryCode.user_id == user.id)
+            .execution_options(synchronize_session=False)
+        )
         codes = [f"{secrets.token_hex(4)}-{secrets.token_hex(4)}" for _ in range(10)]
         now = utcnow()
         self.db.add_all(
@@ -223,18 +232,24 @@ class WebAuthnService:
         return result.rowcount == 1
 
     def revoke_credential(self, user: User, credential_id: str) -> None:
-        row = self.db.query(WebAuthnCredential).filter(
-            WebAuthnCredential.id == credential_id,
-            WebAuthnCredential.user_id == user.id,
-            WebAuthnCredential.revoked_at.is_(None),
-        ).first()
+        row = self.db.execute(
+            select(WebAuthnCredential).where(
+                WebAuthnCredential.id == credential_id,
+                WebAuthnCredential.user_id == user.id,
+                WebAuthnCredential.revoked_at.is_(None),
+            )
+        ).scalar_one_or_none()
         if not row:
             raise WebAuthnSecurityError("Passkey not found")
-        remaining = self.db.query(WebAuthnCredential.id).filter(
-            WebAuthnCredential.user_id == user.id,
-            WebAuthnCredential.revoked_at.is_(None),
-            WebAuthnCredential.id != row.id,
-        ).first()
+        remaining = self.db.execute(
+            select(WebAuthnCredential.id)
+            .where(
+                WebAuthnCredential.user_id == user.id,
+                WebAuthnCredential.revoked_at.is_(None),
+                WebAuthnCredential.id != row.id,
+            )
+            .limit(1)
+        ).scalar_one_or_none()
         if remaining is None:
             from app.services.identity_security_policy import passkey_required_for_role
 
@@ -261,11 +276,16 @@ class WebAuthnService:
         binding_sid: Optional[str] = None,
     ) -> None:
         now = utcnow()
-        self.db.query(AuthChallenge).filter(
-            AuthChallenge.user_id == user_id,
-            AuthChallenge.purpose == purpose,
-            AuthChallenge.consumed_at.is_(None),
-        ).update({AuthChallenge.consumed_at: now}, synchronize_session=False)
+        self.db.execute(
+            update(AuthChallenge)
+            .where(
+                AuthChallenge.user_id == user_id,
+                AuthChallenge.purpose == purpose,
+                AuthChallenge.consumed_at.is_(None),
+            )
+            .values(consumed_at=now)
+            .execution_options(synchronize_session=False)
+        )
         encoded = bytes_to_base64url(challenge)
         self.db.add(
             AuthChallenge(
@@ -289,14 +309,18 @@ class WebAuthnService:
         binding_sid: Optional[str] = None,
     ) -> bytes:
         now = utcnow()
-        query = self.db.query(AuthChallenge).filter(
-            AuthChallenge.user_id == user_id,
-            AuthChallenge.purpose == purpose,
-            AuthChallenge.consumed_at.is_(None),
-            AuthChallenge.expires_at > now,
-        )
-        query = query.filter(AuthChallenge.binding_sid == binding_sid)
-        row = query.order_by(AuthChallenge.created_at.desc()).first()
+        row = self.db.execute(
+            select(AuthChallenge)
+            .where(
+                AuthChallenge.user_id == user_id,
+                AuthChallenge.purpose == purpose,
+                AuthChallenge.consumed_at.is_(None),
+                AuthChallenge.expires_at > now,
+                AuthChallenge.binding_sid == binding_sid,
+            )
+            .order_by(AuthChallenge.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
         if not row:
             raise WebAuthnSecurityError("WebAuthn challenge is unavailable")
         claimed = self.db.execute(
