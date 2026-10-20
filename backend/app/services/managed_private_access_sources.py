@@ -5,16 +5,16 @@
 
 from __future__ import annotations
 
-from app.models.feature_policy import resolve_feature_policy
-from app.services.app_settings_service import load_app_settings_for_db_readonly
-
 from dataclasses import dataclass
 from typing import Literal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account, S3Connection, S3User, StorageProvider, User
+from app.models.feature_policy import resolve_feature_policy
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.managed_resource_naming import managed_private_iam_username
 from app.services.managed_private_access_errors import (
@@ -81,11 +81,9 @@ class ManagedPrivateAccessSourceResolver:
         effective = self.access.resolve_user(user)
         connection_id, s3_user_id, account_id = _source_ids(context)
         if isinstance(connection_id, int):
-            connection = (
-                self.db.query(S3Connection)
-                .filter(S3Connection.id == connection_id)
-                .first()
-            )
+            connection = self.db.execute(
+                select(S3Connection).where(S3Connection.id == connection_id)
+            ).scalar_one_or_none()
             if (
                 connection is None
                 or not self.access.connection_is_allowed(
@@ -126,9 +124,9 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "Account administrator access is required"
             )
-        source_account = (
-            self.db.query(S3Account).filter(S3Account.id == account_id).first()
-        )
+        source_account = self.db.execute(
+            select(S3Account).where(S3Account.id == account_id)
+        ).scalar_one_or_none()
         if source_account is None or source_account.storage_endpoint is None:
             raise ManagedPrivateAccessError(
                 "The account has no usable storage endpoint"
@@ -161,7 +159,9 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "The RGW User is not assigned to this user"
             )
-        s3_user = self.db.query(S3User).filter(S3User.id == s3_user_id).first()
+        s3_user = self.db.execute(
+            select(S3User).where(S3User.id == s3_user_id)
+        ).scalar_one_or_none()
         if s3_user is None:
             raise ManagedPrivateAccessError("RGW User not found")
         endpoint = s3_user.storage_endpoint
@@ -196,11 +196,9 @@ class ManagedPrivateAccessSourceResolver:
         source: ManagedPrivateAccessSource,
     ) -> ManagedPrivateAccessDestination:
         if source.kind == "account":
-            row = (
-                self.db.query(S3Account)
-                .filter(S3Account.id == source.identifier)
-                .first()
-            )
+            row = self.db.execute(
+                select(S3Account).where(S3Account.id == source.identifier)
+            ).scalar_one_or_none()
             endpoint_id = row.storage_endpoint_id if row is not None else None
             if endpoint_id is None or row is None or row.storage_endpoint is None:
                 raise ManagedPrivateAccessError(
@@ -208,11 +206,9 @@ class ManagedPrivateAccessSourceResolver:
                 )
             return ManagedPrivateAccessDestination(endpoint_id, None)
         if source.kind == "s3_user":
-            row = (
-                self.db.query(S3User)
-                .filter(S3User.id == source.identifier)
-                .first()
-            )
+            row = self.db.execute(
+                select(S3User).where(S3User.id == source.identifier)
+            ).scalar_one_or_none()
             endpoint_id = row.storage_endpoint_id if row is not None else None
             if endpoint_id is None or row is None or row.storage_endpoint is None:
                 raise ManagedPrivateAccessError(
@@ -220,11 +216,9 @@ class ManagedPrivateAccessSourceResolver:
                 )
             return ManagedPrivateAccessDestination(endpoint_id, None)
 
-        connection = (
-            self.db.query(S3Connection)
-            .filter(S3Connection.id == source.identifier)
-            .first()
-        )
+        connection = self.db.execute(
+            select(S3Connection).where(S3Connection.id == source.identifier)
+        ).scalar_one_or_none()
         if connection is None:
             raise ManagedPrivateAccessError("Source connection not found")
         if connection.storage_endpoint_id is not None:
