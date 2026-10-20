@@ -1553,6 +1553,7 @@ export default function BrowserPage({
     downloadFolder: handleDownloadFolder,
     downloadArchive,
     downloadItems: handleDownloadItems,
+    downloadTarget: handleDownloadTarget,
     downloadVersion: handleDownloadVersion,
     savePreparedArchive,
   } = useBrowserDownloads({
@@ -1565,6 +1566,7 @@ export default function BrowserPage({
     currentPath,
     enabled: hasExecutionContext,
     listAllObjectsForPrefix,
+    onOpenDeletedItemVersions: (item) => openObjectDetails(item, "versions"),
     onStatus: setStatusMessage,
     onWarning: setWarningMessage,
     parallelism: downloadParallelism,
@@ -1581,24 +1583,8 @@ export default function BrowserPage({
     transferReporter,
     updateOperation,
     useProxyTransfers,
+    versioningEnabled: isVersioningEnabled,
   });
-
-  const handleDownloadTarget = (item: BrowserItem) => {
-    if (item.isDeleted) {
-      setWarningMessage(
-        text("This item is deleted. Open it or use versions to restore content before downloading."),
-      );
-      if (item.type === "file" && isVersioningEnabled) {
-        openObjectDetails(item, "versions");
-      }
-      return;
-    }
-    if (item.type === "folder") {
-      void handleDownloadFolder(item);
-      return;
-    }
-    void handleDownloadItems([item]);
-  };
 
   const keyboardShortcutsBlocked =
     Boolean(objectDetailsTarget) ||

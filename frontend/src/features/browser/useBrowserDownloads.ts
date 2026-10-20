@@ -74,6 +74,7 @@ type UseBrowserDownloadsOptions = {
   currentPath: string;
   enabled: boolean;
   listAllObjectsForPrefix: ListAllBrowserObjectsForPrefix;
+  onOpenDeletedItemVersions: (item: BrowserItem) => void;
   onStatus: (message: string) => void;
   onWarning: (message: string | null) => void;
   parallelism: number;
@@ -91,6 +92,7 @@ type UseBrowserDownloadsOptions = {
   transferReporter?: BrowserTransferReporter;
   updateOperation: OperationRegistry["updateOperation"];
   useProxyTransfers: boolean;
+  versioningEnabled: boolean;
 };
 
 export function useBrowserDownloads({
@@ -103,6 +105,7 @@ export function useBrowserDownloads({
   currentPath,
   enabled,
   listAllObjectsForPrefix,
+  onOpenDeletedItemVersions,
   onStatus,
   onWarning,
   parallelism,
@@ -117,6 +120,7 @@ export function useBrowserDownloads({
   transferReporter,
   updateOperation,
   useProxyTransfers,
+  versioningEnabled,
 }: UseBrowserDownloadsOptions) {
   const { text } = useBrowserI18n();
   const [archivePreparation, setArchivePreparation] =
@@ -758,6 +762,34 @@ export function useBrowserDownloads({
     ],
   );
 
+  const downloadTarget = useCallback(
+    async (item: BrowserItem) => {
+      if (item.isDeleted) {
+        onWarning(
+          text(
+            "This item is deleted. Open it or use versions to restore content before downloading.",
+          ),
+        );
+        if (item.type === "file" && versioningEnabled) {
+          onOpenDeletedItemVersions(item);
+        }
+        return;
+      }
+      if (item.type === "folder") {
+        return downloadFolder(item);
+      }
+      return downloadItems([item]);
+    },
+    [
+      downloadFolder,
+      downloadItems,
+      onOpenDeletedItemVersions,
+      onWarning,
+      text,
+      versioningEnabled,
+    ],
+  );
+
   const downloadVersion = useCallback(
     async (version: BrowserObjectVersion) => {
       if (
@@ -822,6 +854,7 @@ export function useBrowserDownloads({
     downloadArchive,
     downloadFolder,
     downloadItems,
+    downloadTarget,
     downloadVersion,
     savePreparedArchive,
   };
