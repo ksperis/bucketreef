@@ -67,6 +67,25 @@ def test_settings_ignore_removed_singular_key_variables(monkeypatch):
     assert not hasattr(settings, "credential_key")
 
 
+def test_settings_use_canonical_api_prefix_variable(monkeypatch):
+    monkeypatch.setenv("API_PREFIX", "/custom-api")
+    monkeypatch.setenv("API_V1_PREFIX", "/legacy-api")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.api_prefix == "/custom-api"
+    assert not hasattr(settings, "api_v1_prefix")
+
+
+def test_settings_ignore_removed_api_v1_prefix_variable(monkeypatch):
+    monkeypatch.delenv("API_PREFIX", raising=False)
+    monkeypatch.setenv("API_V1_PREFIX", "/legacy-api")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.api_prefix == "/api"
+
+
 def test_settings_load_json_keyrings(monkeypatch):
     monkeypatch.setenv("JWT_KEYS", '["jwt-primary", "jwt-previous"]')
     monkeypatch.setenv("CREDENTIAL_KEYS", '["credential-primary", "credential-previous"]')

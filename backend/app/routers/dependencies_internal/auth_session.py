@@ -29,19 +29,19 @@ _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 def _required_api_scope(request: Request) -> Optional[str]:
     path = request.url.path
-    if path == f"{settings.api_v1_prefix}/browser/sts/credentials":
+    if path == f"{settings.api_prefix}/browser/sts/credentials":
         return None
     access = "read" if request.method in {"GET", "HEAD", "OPTIONS"} else "write"
     mappings = (
-        (f"{settings.api_v1_prefix}/admin/", "admin"),
-        (f"{settings.api_v1_prefix}/manager/", "manager"),
-        (f"{settings.api_v1_prefix}/browser", "browser"),
-        (f"{settings.api_v1_prefix}/portal", "portal"),
-        (f"{settings.api_v1_prefix}/ceph-admin/", "ceph-admin"),
-        (f"{settings.api_v1_prefix}/storage-ops", "storage-ops"),
-        (f"{settings.api_v1_prefix}/users/me", "profile"),
-        (f"{settings.api_v1_prefix}/me", "profile"),
-        (f"{settings.api_v1_prefix}/connections", "browser"),
+        (f"{settings.api_prefix}/admin/", "admin"),
+        (f"{settings.api_prefix}/manager/", "manager"),
+        (f"{settings.api_prefix}/browser", "browser"),
+        (f"{settings.api_prefix}/portal", "portal"),
+        (f"{settings.api_prefix}/ceph-admin/", "ceph-admin"),
+        (f"{settings.api_prefix}/storage-ops", "storage-ops"),
+        (f"{settings.api_prefix}/users/me", "profile"),
+        (f"{settings.api_prefix}/me", "profile"),
+        (f"{settings.api_prefix}/connections", "browser"),
     )
     for prefix, domain in mappings:
         if path_matches_prefix(path, prefix):

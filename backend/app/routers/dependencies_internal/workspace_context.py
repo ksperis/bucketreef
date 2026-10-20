@@ -29,7 +29,7 @@ def resolve_workspace_surface(request: Optional[Request]) -> str:
     if not request:
         return "manager"
     path = str(request.url.path)
-    browser_prefix = f"{settings.api_v1_prefix}/browser"
+    browser_prefix = f"{settings.api_prefix}/browser"
     if path_matches_prefix(path, browser_prefix):
         if browser_workspace_header(request) == "manager-browser":
             return "manager-browser"

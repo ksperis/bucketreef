@@ -230,7 +230,7 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     if settings.app_env == "production":
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-    if request.url.path.startswith(f"{settings.api_v1_prefix}/auth") or request.url.path == f"{settings.api_v1_prefix}/browser/direct-transfer-policy":
+    if request.url.path.startswith(f"{settings.api_prefix}/auth") or request.url.path == f"{settings.api_prefix}/browser/direct-transfer-policy":
         response.headers["Cache-Control"] = "no-store"
         response.headers["Pragma"] = "no-cache"
     return response
@@ -242,87 +242,87 @@ def health_check():
 
 
 # API routers
-app.include_router(auth.router, prefix=settings.api_v1_prefix)
-app.include_router(users.router, prefix=settings.api_v1_prefix)
-app.include_router(public_settings.router, prefix=settings.api_v1_prefix)
+app.include_router(auth.router, prefix=settings.api_prefix)
+app.include_router(users.router, prefix=settings.api_prefix)
+app.include_router(public_settings.router, prefix=settings.api_prefix)
 if runtime_surface_enabled(settings, "admin"):
-    app.include_router(auth_api_tokens.router, prefix=f"{settings.api_v1_prefix}/auth", tags=["auth"])
+    app.include_router(auth_api_tokens.router, prefix=f"{settings.api_prefix}/auth", tags=["auth"])
 if runtime_surface_enabled(settings, "admin") or ceph_admin_only_runtime(settings):
-    app.include_router(auth_local.bootstrap_router, prefix=f"{settings.api_v1_prefix}/auth", tags=["auth"])
+    app.include_router(auth_local.bootstrap_router, prefix=f"{settings.api_prefix}/auth", tags=["auth"])
 if any(
     runtime_surface_enabled(settings, surface)
     for surface in ("manager", "portal", "browser")
 ):
-    app.include_router(execution_contexts.router, prefix=settings.api_v1_prefix)
-    app.include_router(user_connections.router, prefix=settings.api_v1_prefix)
+    app.include_router(execution_contexts.router, prefix=settings.api_prefix)
+    app.include_router(user_connections.router, prefix=settings.api_prefix)
 if runtime_surface_enabled(settings, "admin"):
-    app.include_router(admin_access_audit.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_s3_accounts.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_s3_users.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_s3_connections.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_tag_definitions.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_audit.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_stats.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_cost.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_usage_history.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_usage_stats.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_users.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_groups.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_storage_endpoints.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_settings.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_key_rotation.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_onboarding.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_healthchecks.router, prefix=settings.api_v1_prefix)
+    app.include_router(admin_access_audit.router, prefix=settings.api_prefix)
+    app.include_router(admin_s3_accounts.router, prefix=settings.api_prefix)
+    app.include_router(admin_s3_users.router, prefix=settings.api_prefix)
+    app.include_router(admin_s3_connections.router, prefix=settings.api_prefix)
+    app.include_router(admin_tag_definitions.router, prefix=settings.api_prefix)
+    app.include_router(admin_audit.router, prefix=settings.api_prefix)
+    app.include_router(admin_stats.router, prefix=settings.api_prefix)
+    app.include_router(admin_cost.router, prefix=settings.api_prefix)
+    app.include_router(admin_usage_history.router, prefix=settings.api_prefix)
+    app.include_router(admin_usage_stats.router, prefix=settings.api_prefix)
+    app.include_router(admin_users.router, prefix=settings.api_prefix)
+    app.include_router(admin_groups.router, prefix=settings.api_prefix)
+    app.include_router(admin_storage_endpoints.router, prefix=settings.api_prefix)
+    app.include_router(admin_settings.router, prefix=settings.api_prefix)
+    app.include_router(admin_key_rotation.router, prefix=settings.api_prefix)
+    app.include_router(admin_onboarding.router, prefix=settings.api_prefix)
+    app.include_router(admin_healthchecks.router, prefix=settings.api_prefix)
     app.include_router(
         admin_portal_requests.router,
-        prefix=settings.api_v1_prefix,
+        prefix=settings.api_prefix,
         dependencies=[Depends(require_portal_enabled)],
     )
-    app.include_router(admin_identity_security.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_navigation.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_production_readiness.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_webhooks.router, prefix=settings.api_v1_prefix)
+    app.include_router(admin_identity_security.router, prefix=settings.api_prefix)
+    app.include_router(admin_navigation.router, prefix=settings.api_prefix)
+    app.include_router(admin_production_readiness.router, prefix=settings.api_prefix)
+    app.include_router(admin_webhooks.router, prefix=settings.api_prefix)
 if runtime_surface_enabled(settings, "ceph_admin"):
-    app.include_router(ceph_admin_endpoints.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
-    app.include_router(ceph_admin_accounts.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_endpoints.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_accounts.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
     app.include_router(
         ceph_admin_account_profiles.router,
-        prefix=settings.api_v1_prefix,
+        prefix=settings.api_prefix,
         dependencies=[Depends(require_ceph_admin_enabled)],
     )
-    app.include_router(ceph_admin_users.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_users.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
     app.include_router(
         ceph_admin_user_profiles.router,
-        prefix=settings.api_v1_prefix,
+        prefix=settings.api_prefix,
         dependencies=[Depends(require_ceph_admin_enabled)],
     )
-    app.include_router(ceph_admin_buckets.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
-    app.include_router(ceph_admin_bucket_ui_tags.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
-    app.include_router(ceph_admin_integrity.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
-    app.include_router(ceph_admin_purge.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
-    app.include_router(ceph_admin_usage_stats.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
-    app.include_router(ceph_admin_metrics.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
-    app.include_router(ceph_admin_admin_ops.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_buckets.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_bucket_ui_tags.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_integrity.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_purge.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_usage_stats.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_metrics.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
+    app.include_router(ceph_admin_admin_ops.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
 
 if runtime_surface_enabled(settings, "storage_ops"):
-    app.include_router(storage_ops_summary.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
-    app.include_router(storage_ops_buckets.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
-    app.include_router(storage_ops_bucket_ui_tags.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
-    app.include_router(storage_ops_integrity.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
-    app.include_router(storage_ops_purge.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
-    app.include_router(storage_ops_usage_stats.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
+    app.include_router(storage_ops_summary.router, prefix=settings.api_prefix, dependencies=[Depends(require_storage_ops_enabled)])
+    app.include_router(storage_ops_buckets.router, prefix=settings.api_prefix, dependencies=[Depends(require_storage_ops_enabled)])
+    app.include_router(storage_ops_bucket_ui_tags.router, prefix=settings.api_prefix, dependencies=[Depends(require_storage_ops_enabled)])
+    app.include_router(storage_ops_integrity.router, prefix=settings.api_prefix, dependencies=[Depends(require_storage_ops_enabled)])
+    app.include_router(storage_ops_purge.router, prefix=settings.api_prefix, dependencies=[Depends(require_storage_ops_enabled)])
+    app.include_router(storage_ops_usage_stats.router, prefix=settings.api_prefix, dependencies=[Depends(require_storage_ops_enabled)])
 if settings.scheduled_jobs_enabled:
-    app.include_router(internal_access_key_expirations.router, prefix=settings.api_v1_prefix)
-    app.include_router(internal_cost.router, prefix=settings.api_v1_prefix)
-    app.include_router(internal_bucket_usage_stats.router, prefix=settings.api_v1_prefix)
-    app.include_router(internal_healthchecks.router, prefix=settings.api_v1_prefix)
-    app.include_router(internal_quota_monitor.router, prefix=settings.api_v1_prefix)
-    app.include_router(internal_usage_history.router, prefix=settings.api_v1_prefix)
-    app.include_router(internal_user_notifications.router, prefix=settings.api_v1_prefix)
+    app.include_router(internal_access_key_expirations.router, prefix=settings.api_prefix)
+    app.include_router(internal_cost.router, prefix=settings.api_prefix)
+    app.include_router(internal_bucket_usage_stats.router, prefix=settings.api_prefix)
+    app.include_router(internal_healthchecks.router, prefix=settings.api_prefix)
+    app.include_router(internal_quota_monitor.router, prefix=settings.api_prefix)
+    app.include_router(internal_usage_history.router, prefix=settings.api_prefix)
+    app.include_router(internal_user_notifications.router, prefix=settings.api_prefix)
 if runtime_surface_enabled(settings, "manager"):
     app.include_router(
         manager_context.router,
-        prefix=settings.api_v1_prefix,
+        prefix=settings.api_prefix,
         dependencies=[Depends(require_manager_context_enabled)],
     )
     for manager_router in (
@@ -347,26 +347,26 @@ if runtime_surface_enabled(settings, "manager"):
     ):
         app.include_router(
             manager_router,
-            prefix=settings.api_v1_prefix,
+            prefix=settings.api_prefix,
             dependencies=[Depends(require_manager_enabled)],
         )
 
 if runtime_surface_enabled(settings, "browser"):
     app.include_router(
         user_browser.router,
-        prefix=settings.api_v1_prefix,
+        prefix=settings.api_prefix,
         dependencies=[Depends(require_browser_enabled)],
     )
 
 if runtime_surface_enabled(settings, "portal"):
     app.include_router(
         portal.router,
-        prefix=settings.api_v1_prefix,
+        prefix=settings.api_prefix,
         dependencies=[Depends(require_portal_enabled)],
     )
     app.include_router(
         portal_requests.router,
-        prefix=settings.api_v1_prefix,
+        prefix=settings.api_prefix,
         dependencies=[Depends(require_portal_enabled)],
     )
 

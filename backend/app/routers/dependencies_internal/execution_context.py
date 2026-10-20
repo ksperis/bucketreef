@@ -325,7 +325,7 @@ def resolve_s3_execution_context(
         requested_endpoint = None
     is_storage_ops_surface = bool(
         request
-        and path_matches_prefix(str(request.url.path), f"{settings.api_v1_prefix}/storage-ops")
+        and path_matches_prefix(str(request.url.path), f"{settings.api_prefix}/storage-ops")
     )
     if isinstance(actor, User):
         if ceph_admin_endpoint_id is not None:

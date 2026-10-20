@@ -188,7 +188,7 @@ class Settings(BaseSettings):
     onboarding_source: Literal["standard", "quickstart"] = Field(
         "standard", description="Informational onboarding hint; never changes security or feature defaults"
     )
-    api_v1_prefix: str = "/api"
+    api_prefix: str = "/api"
     jwt_keys: list[str] = Field(
         default_factory=lambda: ["change-me"],
         description="JWT key ring (JSON list)",
