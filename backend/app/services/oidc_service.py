@@ -16,6 +16,7 @@ from urllib.parse import urlencode, urlparse
 
 import requests
 from jose import JWTError, jwt
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -132,7 +133,9 @@ class OidcService:
         request_origin: Optional[str] = None,
     ):
         provider_key, provider = self._get_provider(provider_id)
-        login_state = self.db.query(OidcLoginState).filter(OidcLoginState.state == state).first()
+        login_state = self.db.scalar(
+            select(OidcLoginState).where(OidcLoginState.state == state)
+        )
         if not login_state or login_state.provider != provider_key:
             raise OIDCStateError("Invalid OIDC state")
         ttl = timedelta(seconds=self.settings.oidc_state_ttl_seconds)
@@ -150,10 +153,14 @@ class OidcService:
         redirect_path = login_state.redirect_path
         # Claim the state before any network call. A concurrent callback can no
         # longer exchange the same authorization response.
-        deleted = self.db.query(OidcLoginState).filter(
-            OidcLoginState.state == state,
-            OidcLoginState.provider == provider_key,
-        ).delete(synchronize_session=False)
+        deleted = self.db.execute(
+            delete(OidcLoginState)
+            .where(
+                OidcLoginState.state == state,
+                OidcLoginState.provider == provider_key,
+            )
+            .execution_options(synchronize_session=False)
+        ).rowcount
         self.db.commit()
         if deleted != 1:
             raise OIDCStateError("OIDC state has already been consumed")
@@ -404,14 +411,26 @@ class OidcService:
 
     def _purge_expired_states(self) -> None:
         cutoff = utcnow() - timedelta(seconds=self.settings.oidc_state_ttl_seconds)
-        self.db.query(OidcLoginState).filter(OidcLoginState.created_at < cutoff).delete()
-        self.db.query(OidcAuthorizationCode).filter(OidcAuthorizationCode.expires_at <= utcnow()).delete()
+        self.db.execute(
+            delete(OidcLoginState)
+            .where(OidcLoginState.created_at < cutoff)
+            .execution_options(synchronize_session="auto")
+        )
+        self.db.execute(
+            delete(OidcAuthorizationCode)
+            .where(OidcAuthorizationCode.expires_at <= utcnow())
+            .execution_options(synchronize_session="auto")
+        )
         self.db.commit()
 
     def _claim_authorization_code(self, provider_key: str, code: str) -> None:
         now = utcnow()
         digest = hashlib.sha256(f"{provider_key}\x00{code}".encode()).hexdigest()
-        self.db.query(OidcAuthorizationCode).filter(OidcAuthorizationCode.expires_at <= now).delete()
+        self.db.execute(
+            delete(OidcAuthorizationCode)
+            .where(OidcAuthorizationCode.expires_at <= now)
+            .execution_options(synchronize_session="auto")
+        )
         self.db.add(
             OidcAuthorizationCode(
                 id=str(uuid.uuid4()),
