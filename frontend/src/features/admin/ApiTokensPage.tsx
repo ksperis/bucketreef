@@ -46,7 +46,7 @@ const DEFAULT_EXPIRY_DAYS = 30;
 const API_SCOPES = [
   "profile:read", "profile:write", "admin:read", "admin:write", "manager:read", "manager:write",
   "browser:read", "browser:write", "portal:read", "portal:write", "ceph-admin:read", "ceph-admin:write",
-  "storage-ops:read", "storage-ops:write", "billing:read",
+  "storage-ops:read", "storage-ops:write",
 ];
 
 function formatDate(value: string | null | undefined, intlLocale: string): string {

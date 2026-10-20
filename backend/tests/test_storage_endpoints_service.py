@@ -12,7 +12,6 @@ from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import (
     BillingAssignment,
     BillingRateCard,
-    BillingRatePlan,
     BillingStorageDaily,
     BillingUsageDaily,
     BucketUsageStatsSnapshot,
@@ -1444,27 +1443,22 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
     )
     db_session.add(history_account)
     db_session.flush()
-    rate_plan = BillingRatePlan(
+    rate_card = BillingRateCard(
         name="endpoint-delete-rate",
         storage_endpoint_id=endpoint.id,
-    )
-    rate_card = BillingRateCard(
-        rate_plan=rate_plan,
         currency="EUR",
         effective_from=date(2026, 1, 1),
     )
     db_session.add(rate_card)
     db_session.flush()
     rate_card_id = rate_card.id
-    rate_plan_id = rate_plan.id
     now = utcnow()
     db_session.add_all(
         [
             BillingAssignment(
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=history_account.id,
-                rate_plan_id=rate_plan.id,
-                effective_from=date(2026, 1, 1),
+                rate_card_id=rate_card.id,
             ),
             BillingUsageDaily(
                 day=date(2026, 1, 1),
@@ -1568,7 +1562,6 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
         == 0
     )
     assert db_session.get(BillingRateCard, rate_card_id) is None
-    assert db_session.get(BillingRatePlan, rate_plan_id) is None
     assert db_session.query(QuotaUsageHourly).filter(QuotaUsageHourly.storage_endpoint_id == endpoint.id).count() == 0
     assert db_session.query(QuotaUsageDaily).filter(QuotaUsageDaily.storage_endpoint_id == endpoint.id).count() == 0
     assert db_session.query(QuotaAlertState).filter(QuotaAlertState.storage_endpoint_id == endpoint.id).count() == 0

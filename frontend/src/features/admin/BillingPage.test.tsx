@@ -11,15 +11,6 @@ const mocks = vi.hoisted(() => ({
   getBillingSubjectDetail: vi.fn(),
   getBillingSubjects: vi.fn(),
   getBillingSummary: vi.fn(),
-  getBillingAnalysis: vi.fn(),
-  listBillingStatements: vi.fn(),
-  generateBillingStatements: vi.fn(),
-  finalizeBillingStatement: vi.fn(),
-  downloadBillingStatementSnapshot: vi.fn(),
-  getBillingFinalizedPeriod: vi.fn(),
-  getBillingStatement: vi.fn(),
-  listBillingEntities: vi.fn(),
-  listBillingEntityGroups: vi.fn(),
   listStorageEndpoints: vi.fn(),
 }));
 
@@ -29,15 +20,6 @@ vi.mock("../../api/billing", () => ({
   getBillingSubjectDetail: (...args: unknown[]) => mocks.getBillingSubjectDetail(...args),
   getBillingSubjects: (...args: unknown[]) => mocks.getBillingSubjects(...args),
   getBillingSummary: (...args: unknown[]) => mocks.getBillingSummary(...args),
-  getBillingAnalysis: (...args: unknown[]) => mocks.getBillingAnalysis(...args),
-  listBillingStatements: (...args: unknown[]) => mocks.listBillingStatements(...args),
-  generateBillingStatements: (...args: unknown[]) => mocks.generateBillingStatements(...args),
-  finalizeBillingStatement: (...args: unknown[]) => mocks.finalizeBillingStatement(...args),
-  downloadBillingStatementSnapshot: (...args: unknown[]) => mocks.downloadBillingStatementSnapshot(...args),
-  getBillingFinalizedPeriod: (...args: unknown[]) => mocks.getBillingFinalizedPeriod(...args),
-  getBillingStatement: (...args: unknown[]) => mocks.getBillingStatement(...args),
-  listBillingEntities: (...args: unknown[]) => mocks.listBillingEntities(...args),
-  listBillingEntityGroups: (...args: unknown[]) => mocks.listBillingEntityGroups(...args),
 }));
 
 vi.mock("../../api/storageEndpoints", () => ({
@@ -68,27 +50,6 @@ function renderPage() {
   );
 }
 
-function rateResolution(overrides = {}) {
-  return {
-    status: "resolved",
-    layer: "endpoint",
-    rate_plan_id: 4,
-    rate_plan_name: "default",
-    rate_card_id: 9,
-    rate_card_effective_from: "2026-01-01",
-    rate_card_effective_to: null,
-    source_assignment_id: null,
-    billing_entity_id: null,
-    billing_entity_name: null,
-    conflicting_billing_entity_ids: [],
-    conflicting_billing_entity_names: [],
-    currency: "EUR",
-    storage_charge_basis: "actual_usage",
-    issues: [],
-    ...overrides,
-  };
-}
-
 function summary(overrides = {}) {
   return {
     month: "2026-06",
@@ -103,7 +64,6 @@ function summary(overrides = {}) {
       usage_days_collected: 24,
     },
     cost: { total_cost: 12.5, currency: "EUR", rate_card_name: "default" },
-    rate_resolution: rateResolution(),
     ...overrides,
   };
 }
@@ -117,7 +77,6 @@ function subject(id: number, name: string) {
     storage: { avg_bytes: 2048, avg_gb_month: 0.0000019, total_objects: 4 },
     usage: { bytes_in: 512, bytes_out: 1024, ops_total: 250 },
     cost: { total_cost: 3.75, currency: "EUR", rate_card_name: "default" },
-    rate_resolution: rateResolution(),
   };
 }
 
@@ -139,173 +98,6 @@ function detail(id: number, name: string) {
       usage_days_collected: 2,
     },
     cost: { total_cost: 3.75, currency: "EUR", rate_card_name: "default" },
-    rate_resolution: rateResolution(),
-  };
-}
-
-function analysis() {
-  const commonCoverage = {
-    member_count: 1,
-    expected_daily_observations: 31,
-    storage_observations: 31,
-    usage_observations: 31,
-    storage_coverage_ratio: "1.000000",
-    usage_coverage_ratio: "1.000000",
-    quota_observations_collected: 31,
-    quota_observations_expected: 31,
-    quota_coverage_ratio: "1.000000",
-  };
-  const quotaLine = {
-    billing_entity_id: 10,
-    billing_entity_name: "Research",
-    subject_type: "account",
-    subject_id: 42,
-    subject_name: "Lab A",
-    rgw_identifier: "RGW-LAB-A",
-    storage_endpoint_id: 7,
-    storage_endpoint_name: "Ceph main",
-    membership_reasons: [{ kind: "tag", tag_definition_id: 3, label: "research" }],
-    membership_conflict: false,
-    included_in_total: true,
-    usage: { bytes_in: 1024, bytes_out: 2048, ops_total: 200 },
-    storage: { avg_bytes: 1073741824, avg_gb_month: "1.000000000000", total_objects: 12 },
-    coverage: {
-      days_collected: 31,
-      days_in_month: 31,
-      coverage_ratio: 1,
-      storage_days_collected: 31,
-      usage_days_collected: 31,
-    },
-    cost: {
-      currency: "EUR",
-      total_cost: "2.000000",
-      complete: true,
-      storage_quantity: {
-        basis: "allocated_quota",
-        quantity_gib_month: "2.000000000000",
-        observations_collected: 31,
-        observations_expected: 31,
-        calendar_days: 31,
-        coverage_ratio: "1.000000",
-        status: "complete",
-        issues: [],
-      },
-    },
-    rate_resolution: rateResolution({
-      layer: "billing_entity",
-      billing_entity_id: 10,
-      billing_entity_name: "Research",
-      rate_plan_name: "reserved-capacity",
-      storage_charge_basis: "allocated_quota",
-    }),
-    complete: true,
-    issues: [],
-  };
-  const usageLine = {
-    ...quotaLine,
-    billing_entity_id: 11,
-    billing_entity_name: "Platform",
-    subject_id: 43,
-    subject_name: "Platform A",
-    rgw_identifier: "RGW-PLATFORM-A",
-    storage_endpoint_id: 9,
-    storage_endpoint_name: "Ceph secondary",
-    membership_reasons: [{ kind: "explicit_include" }],
-    cost: {
-      currency: "USD",
-      total_cost: "1.500000",
-      complete: true,
-      storage_quantity: {
-        basis: "actual_usage",
-        quantity_gib_month: "1.000000000000",
-        observations_collected: 31,
-        observations_expected: 31,
-        calendar_days: 31,
-        coverage_ratio: "1.000000",
-        status: "complete",
-        issues: [],
-      },
-    },
-    rate_resolution: rateResolution({
-      layer: "endpoint",
-      rate_plan_name: "platform-usage",
-      currency: "USD",
-      storage_charge_basis: "actual_usage",
-    }),
-  };
-  return {
-    month: "2026-07",
-    days_in_month: 31,
-    entities: [
-      {
-        billing_entity_id: 10,
-        billing_entity_name: "Research",
-        billing_entity_code: "RES",
-        subject_type: "account",
-        member_count: 1,
-        conflict_count: 0,
-        currency_totals: [{ currency: "EUR", total_cost: "2.000000", complete: true }],
-        storage_charge_bases: ["allocated_quota"],
-        coverage: commonCoverage,
-        complete: true,
-        issues: [],
-        lines: [quotaLine],
-      },
-      {
-        billing_entity_id: 11,
-        billing_entity_name: "Platform",
-        billing_entity_code: "PLAT",
-        subject_type: "account",
-        member_count: 1,
-        conflict_count: 0,
-        currency_totals: [{ currency: "USD", total_cost: "1.500000", complete: true }],
-        storage_charge_bases: ["actual_usage"],
-        coverage: { ...commonCoverage, quota_observations_collected: 0, quota_observations_expected: 0, quota_coverage_ratio: null },
-        complete: true,
-        issues: [],
-        lines: [usageLine],
-      },
-    ],
-    groups: [
-      {
-        billing_entity_group_id: 20,
-        billing_entity_group_name: "DSI",
-        billing_entity_group_code: "DSI",
-        active: true,
-        member_entity_ids: [10, 11],
-        currency_totals: [
-          { currency: "EUR", total_cost: "2.000000", billing_entity_ids: [10], complete: true },
-          { currency: "USD", total_cost: "1.500000", billing_entity_ids: [11], complete: true },
-        ],
-        missing_entity_ids: [],
-        conflict_count: 0,
-        storage_charge_bases: ["actual_usage", "allocated_quota"],
-        coverage: {
-          member_count: 2,
-          expected_daily_observations: 62,
-          storage_observations: 62,
-          usage_observations: 62,
-          storage_coverage_ratio: "1.000000",
-          usage_coverage_ratio: "1.000000",
-          quota_observations_collected: 31,
-          quota_observations_expected: 31,
-          quota_coverage_ratio: "1.000000",
-        },
-        complete: true,
-        issues: [],
-      },
-    ],
-    unassigned: [
-      {
-        subject_type: "account",
-        subject_id: 99,
-        name: "Unassigned",
-        rgw_identifier: "RGW-UNASSIGNED",
-        storage_endpoint_id: 7,
-        storage_endpoint_name: "Ceph main",
-      },
-    ],
-    conflicts: [],
   };
 }
 
@@ -345,11 +137,6 @@ describe("BillingPage", () => {
       errors: [{ stage: "usage", endpoint_id: 7, subject: "account", subject_id: 42 }],
     });
     mocks.downloadBillingCsv.mockResolvedValue(new Blob(["subject_type\n"], { type: "text/csv" }));
-    mocks.getBillingAnalysis.mockResolvedValue(analysis());
-    mocks.listBillingStatements.mockResolvedValue([]);
-    mocks.listBillingEntities.mockResolvedValue([]);
-    mocks.listBillingEntityGroups.mockResolvedValue([]);
-    mocks.getBillingFinalizedPeriod.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -362,7 +149,6 @@ describe("BillingPage", () => {
     expect(screen.getByRole("heading", { name: "Billing" })).toBeInTheDocument();
     expect(await screen.findByText("Tenant A")).toBeInTheDocument();
     expect(screen.getByText("12.50 EUR")).toBeInTheDocument();
-    expect(screen.getByText(/Endpoint Rate Plan.*Rate Plan: default.*Effective 2026-01-01/)).toBeInTheDocument();
     expect(mocks.getBillingSubjects).toHaveBeenCalledWith("2026-07", 7, "account", 1, 25, "name", "asc");
     expect(screen.getByLabelText("Month")).toHaveValue("2026-07");
     expect(screen.getByLabelText("Month")).toHaveAttribute("type", "month");
@@ -393,7 +179,6 @@ describe("BillingPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "View" }));
     await waitFor(() => expect(mocks.getBillingSubjectDetail).toHaveBeenCalledWith("2026-07", 7, "account", 43));
     expect(await screen.findByText("This subject has partial source coverage: Storage 1d · Usage 2d.")).toBeInTheDocument();
-    expect(screen.getAllByText(/Endpoint Rate Plan.*Rate Plan: default.*Effective 2026-01-01/).length).toBeGreaterThan(0);
 
     const exportButton = screen.getByRole("button", { name: "Export CSV" });
     expect(exportButton).toBeEnabled();
@@ -477,99 +262,6 @@ describe("BillingPage", () => {
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
   });
 
-  it("shows allocated quota provenance and incomplete pricing coverage", async () => {
-    mocks.getBillingSummary.mockResolvedValue(
-      summary({
-        cost: {
-          total_cost: "9.677419",
-          currency: "EUR",
-          rate_card_name: "quota-plan",
-          complete: false,
-          storage_quantity: {
-            basis: "allocated_quota",
-            quantity_gib_month: "96.774193548387",
-            observations_collected: 30,
-            observations_expected: 31,
-            calendar_days: 31,
-            coverage_ratio: "0.967742",
-            status: "blocked",
-            issues: ["missing_quota_observation"],
-          },
-        },
-      }),
-    );
-
-    renderPage();
-
-    expect(await screen.findByText(/Allocated quota.*97% pricing coverage/)).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Storage pricing is incomplete for this month. Review the storage pricing coverage before using this estimate.",
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("shows an explicit Billing Entity conflict instead of a generic missing rate", async () => {
-    mocks.getBillingSubjectDetail.mockResolvedValue(
-      {
-        ...detail(42, "Tenant A"),
-        cost: null,
-        rate_resolution: rateResolution({
-          status: "conflict",
-          layer: "billing_entity",
-          rate_plan_id: null,
-          rate_plan_name: null,
-          rate_card_id: null,
-          rate_card_effective_from: null,
-          currency: null,
-          storage_charge_basis: null,
-          conflicting_billing_entity_ids: [10, 11],
-          conflicting_billing_entity_names: ["Research", "DSI"],
-          issues: ["billing_entity_membership_conflict"],
-        }),
-      },
-    );
-
-    renderPage();
-    await screen.findByText("Tenant A");
-    fireEvent.click(screen.getByRole("button", { name: "View" }));
-
-    expect(
-      await screen.findByText(
-        "Rate resolution conflict. This subject matches multiple Billing Entities: Research, DSI. Resolve the membership conflict before using this cost.",
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("explains a Rate Plan assignment with no effective version", async () => {
-    mocks.getBillingSubjectDetail.mockResolvedValue(
-      {
-        ...detail(42, "Tenant A"),
-        cost: null,
-        rate_resolution: rateResolution({
-          status: "missing",
-          layer: "direct",
-          rate_plan_name: "reserved-capacity",
-          rate_card_id: null,
-          rate_card_effective_from: null,
-          currency: null,
-          storage_charge_basis: null,
-          issues: ["assigned_rate_plan_has_no_effective_version"],
-        }),
-      },
-    );
-
-    renderPage();
-    await screen.findByText("Tenant A");
-    fireEvent.click(screen.getByRole("button", { name: "View" }));
-
-    expect(
-      await screen.findByText(
-        "Rate Plan reserved-capacity has no effective version for the selected month. Cost is unavailable.",
-      ),
-    ).toBeInTheDocument();
-  });
-
   it("keeps table errors inside the subjects section", async () => {
     mocks.getBillingSubjects.mockRejectedValue(new Error("subject query failed"));
 
@@ -577,52 +269,5 @@ describe("BillingPage", () => {
 
     expect(await screen.findByText("Unable to load subjects.")).toBeInTheDocument();
     expect(screen.getByText("subject query failed")).toBeInTheDocument();
-  });
-
-  it("shows consolidated Billing Entities across endpoints and explains quota-based storage pricing", async () => {
-    renderPage();
-    await screen.findByText("Tenant A");
-
-    fireEvent.click(screen.getByRole("tab", { name: "Billing Entities" }));
-
-    await waitFor(() => expect(mocks.getBillingAnalysis).toHaveBeenCalledWith("2026-07"));
-    expect(screen.queryByRole("combobox", { name: "Endpoint" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
-    expect(screen.getByText("1 billing subject(s) are not assigned to any Billing Entity.")).toBeInTheDocument();
-    expect(screen.getByText("Research")).toBeInTheDocument();
-    expect(screen.getByText("Platform")).toBeInTheDocument();
-    expect(screen.getByText("Allocated quota")).toBeInTheDocument();
-    expect(screen.getByText("Actual usage")).toBeInTheDocument();
-
-    const researchRow = screen.getByText("Research").closest("tr");
-    expect(researchRow).not.toBeNull();
-    fireEvent.click(within(researchRow as HTMLElement).getByRole("button", { name: "View" }));
-
-    const detailRegion = await screen.findByTestId("billing-entity-detail");
-    expect(within(detailRegion).getByText("Ceph main")).toBeInTheDocument();
-    expect(within(detailRegion).getByText("Measured: 1 GiB-month")).toBeInTheDocument();
-    expect(within(detailRegion).getByText("Billed quota: 2 GiB-month")).toBeInTheDocument();
-    expect(within(detailRegion).getByText("Billing Entity · reserved-capacity")).toBeInTheDocument();
-  });
-
-  it("keeps group currencies separate and drills into month-effective Billing Entities", async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await screen.findByText("Tenant A");
-
-    fireEvent.click(screen.getByRole("tab", { name: "Billing Groups" }));
-    const groupTable = await screen.findByRole("table");
-    expect(within(groupTable).getAllByText("DSI").length).toBeGreaterThan(0);
-
-    expect(screen.getByText("2.00 EUR")).toBeInTheDocument();
-    expect(screen.getByText("1.50 USD")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "View" }));
-
-    const detailRegion = await screen.findByTestId("billing-group-detail");
-    expect(within(detailRegion).getByText(/Membership effective for 2026-07/)).toBeInTheDocument();
-    const researchDisclosure = within(detailRegion).getByText(/Research · 2.00 EUR/);
-    await user.click(researchDisclosure);
-    expect(within(detailRegion).getByText("RGW-LAB-A")).toBeInTheDocument();
-    expect(within(detailRegion).getByText("Ceph main")).toBeInTheDocument();
   });
 });

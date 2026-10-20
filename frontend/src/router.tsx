@@ -59,7 +59,6 @@ const AuthenticationSettingsPage = lazy(() => import("./features/admin/Authentic
 const ManagerSettingsPage = lazy(() => import("./features/admin/ManagerSettingsPage"));
 const AdminPortalSettingsPage = lazy(() => import("./features/admin/PortalSettingsPage"));
 const BrowserSettingsPage = lazy(() => import("./features/admin/BrowserSettingsPage"));
-const BillingSettingsPage = lazy(() => import("./features/admin/BillingSettingsPage"));
 const WebhookSettingsPage = lazy(() => import("./features/admin/WebhookSettingsPage"));
 const WebhookEndpointPage = lazy(() => import("./features/admin/WebhookEndpointPage"));
 const AuthProviderPage = lazy(() => import("./features/admin/settings/AuthProviderPage"));
@@ -217,7 +216,6 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route path="manager-settings" element={<ManagerSettingsPage />} />
                   <Route path="portal-settings" element={<AdminPortalSettingsRoute />} />
                   <Route path="browser-settings" element={<BrowserSettingsPage />} />
-                  <Route path="billing-settings" element={<BillingSettingsPage />} />
                   <Route path="webhook-settings" element={<WebhookSettingsPage />} />
                   <Route path="webhook-settings/new" element={<WebhookEndpointPage />} />
                   <Route path="webhook-settings/:endpointId" element={<WebhookEndpointPage />} />

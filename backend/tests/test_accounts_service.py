@@ -13,7 +13,6 @@ from app.services.s3_accounts_service import S3AccountsService
 from app.db import (
     BillingAssignment,
     BillingRateCard,
-    BillingRatePlan,
     BillingStorageDaily,
     BillingUsageDaily,
     BrowserFavorite,
@@ -1158,12 +1157,9 @@ class FakeRGWDeleteAdmin:
 
 
 def _seed_account_derived_rows(db_session, *, endpoint: StorageEndpoint, account: S3Account) -> None:
-    rate_plan = BillingRatePlan(
+    rate_card = BillingRateCard(
         name=f"account-delete-rate-{account.id}",
         storage_endpoint_id=endpoint.id,
-    )
-    rate_card = BillingRateCard(
-        rate_plan=rate_plan,
         currency="EUR",
         effective_from=date(2026, 1, 1),
     )
@@ -1174,8 +1170,7 @@ def _seed_account_derived_rows(db_session, *, endpoint: StorageEndpoint, account
             BillingAssignment(
                 storage_endpoint_id=endpoint.id,
                 s3_account_id=account.id,
-                rate_plan_id=rate_plan.id,
-                effective_from=date(2026, 1, 1),
+                rate_card_id=rate_card.id,
             ),
             BillingUsageDaily(
                 day=date(2026, 1, 1),

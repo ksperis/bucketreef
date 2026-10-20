@@ -76,7 +76,6 @@ from app.routers.internal import healthchecks as internal_healthchecks
 from app.routers.internal import quota_monitor as internal_quota_monitor
 from app.routers.internal import usage_history as internal_usage_history
 from app.routers.internal import user_notifications as internal_user_notifications
-from app.routers.integrations import billing_v1 as billing_integration_v1
 from app.routers.internal import access_key_expirations as internal_access_key_expirations
 from app.routers.manager import activity as manager_activity
 from app.routers.manager import buckets as manager_buckets
@@ -256,7 +255,6 @@ if any(
     app.include_router(execution_contexts.router, prefix=settings.api_v1_prefix)
     app.include_router(user_connections.router, prefix=settings.api_v1_prefix)
 if runtime_surface_enabled(settings, "admin"):
-    app.include_router(billing_integration_v1.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_access_audit.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_s3_accounts.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_s3_users.router, prefix=settings.api_v1_prefix)

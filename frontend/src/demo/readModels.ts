@@ -8,7 +8,6 @@ import { accountView } from "./governance";
 import { accountGrant, json, page, required, scopedAccount, type DemoRequest } from "./http";
 import { demoUserView } from "./userProjection";
 import { buildDemoAccessAuditRows, listDemoS3Users } from "./accessAudit";
-import { billingReadModels } from "./billing";
 import snapshots from "./snapshots.json";
 
 export type DemoStorageTrendBaseline = ManagerUsageTrendBaseline & {
@@ -53,8 +52,6 @@ function datedSnapshot(value: unknown, initializedAt: string): unknown {
 }
 export function readModels(c: DemoRequest): Response | undefined {
   if (c.method !== "GET") return undefined;
-  const billing = billingReadModels(c);
-  if (billing) return billing;
   const { path, state, user, persona } = c;
   const currentUser = demoUserView(state, user);
   const admin = persona === "admin"; const ceph = persona === "ceph-admin";
@@ -149,28 +146,11 @@ export function readModels(c: DemoRequest): Response | undefined {
     return json({ ...base, total: incidents.length, incidents: datedSnapshot(path.endsWith("incidents-global") ? incidents : incidents.filter(i => i.endpoint_id === endpointId), state.initializedAt) });
   }
   if (/^\/admin\/billing\/(summary|subjects|subject\/account\/\d+|export\.csv)$/.test(path) || path === "/portal/billing/me") {
-    const rateResolution = {
-      status: "resolved",
-      layer: "endpoint",
-      billing_entity_id: null,
-      billing_entity_name: null,
-      conflicting_billing_entity_ids: [],
-      conflicting_billing_entity_names: [],
-      rate_plan_id: 1,
-      rate_plan_name: "Demo Ceph internal rates",
-      rate_card_id: 1,
-      rate_card_effective_from: `${c.url.searchParams.get("month") ?? state.initializedAt.slice(0, 7)}-01`,
-      currency: "EUR",
-      storage_charge_basis: "actual_usage",
-      issues: [],
-    };
     const summary = { month: c.url.searchParams.get("month") ?? state.initializedAt.slice(0, 7), storage_endpoint_id: Number(c.url.searchParams.get("endpoint_id")) || 11,
       usage: { bytes_in: 180 * GiB, bytes_out: 310 * GiB, ops_total: 2450890, ops_breakdown: { get: 1900000, put: 550890 } },
       storage: { avg_bytes: 820 * GiB, avg_gb_month: 820, total_objects: 384920 },
       coverage: { days_collected: 27, days_in_month: 30, coverage_ratio: .9, storage_days_collected: 27, usage_days_collected: 27 },
-      cost: { currency: "EUR", storage_cost: 16.4, egress_cost: 6.2, ingress_cost: 0, requests_cost: 2.45, total_cost: 25.05, rate_card_name: "Demo Ceph internal rates", complete: true,
-        storage_quantity: { basis: "actual_usage", quantity_gib_month: 820, observations_collected: 27, observations_expected: 30, calendar_days: 30, coverage_ratio: .9, status: "partial", issues: [] } },
-      rate_resolution: rateResolution };
+      cost: { currency: "EUR", storage_cost: 16.4, egress_cost: 6.2, ingress_cost: 0, requests_cost: 2.45, total_cost: 25.05, rate_card_name: "Demo Ceph internal rates" } };
     if (path.endsWith("summary")) return json(summary);
     if (path.endsWith("subjects")) return json(page(state.accounts.map((a, i) => ({ ...summary, subject_type: "account", subject_id: a.id, name: a.name, rgw_identifier: a.rgw_account_id, cost: { ...summary.cost, total_cost: 25.05 + i * 7 } })), c.url));
     if (path.endsWith(".csv")) return new Response("Account,Amount,Currency\n" + state.accounts.map(a => `${a.name},25.05,EUR`).join("\n"), { headers: { "Content-Type": "text/csv" } });

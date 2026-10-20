@@ -1,14 +1,10 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import base64
-import binascii
 import re
-from io import BytesIO
-from typing import Literal, Optional
+from typing import Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
-from reportlab.lib.utils import ImageReader
 
 from app.core.config import get_settings
 from app.models.base import ApiModel
@@ -288,90 +284,11 @@ class OnboardingSettings(ApiModel):
     dismissed: bool = False
 
 
-class BillingAutomationSettings(ApiModel):
-    mode: Literal["manual", "automatic_draft", "automatic_finalize"] = "manual"
-    schedule_day: int = Field(default=5, ge=1, le=28)
-    require_all_subjects_assigned: bool = True
-
-
-class BillingStatementPdfSettings(ApiModel):
-    organization_name: str = Field(default="BucketReef", min_length=1, max_length=160)
-    organization_details: Optional[str] = Field(default=None, max_length=600)
-    accent_color: str = "#0569f8"
-    logo_data_url: Optional[str] = Field(default=None, max_length=750_000)
-    statement_note: Optional[str] = Field(default=None, max_length=1200)
-    footer_text: Optional[str] = Field(default=None, max_length=500)
-
-    @field_validator("organization_name", mode="before")
-    @classmethod
-    def normalize_pdf_organization_name(cls, value: str) -> str:
-        if not isinstance(value, str):
-            raise ValueError("organization_name must be a string")
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("organization_name is required")
-        return normalized
-
-    @field_validator("organization_details", "statement_note", "footer_text", mode="before")
-    @classmethod
-    def normalize_pdf_optional_text(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            raise ValueError("PDF text settings must be strings")
-        normalized = value.strip()
-        return normalized or None
-
-    @field_validator("accent_color", mode="before")
-    @classmethod
-    def normalize_pdf_accent_color(cls, value: str) -> str:
-        if not isinstance(value, str):
-            raise ValueError("accent_color must be a string")
-        normalized = value.strip().lower()
-        if not re.fullmatch(r"#[0-9a-f]{6}", normalized):
-            raise ValueError("accent_color must be a hex color in #rrggbb format")
-        return normalized
-
-    @field_validator("logo_data_url", mode="before")
-    @classmethod
-    def normalize_pdf_logo(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            raise ValueError("logo_data_url must be a string")
-        normalized = value.strip()
-        if not normalized:
-            return None
-        match = re.fullmatch(r"data:image/(png|jpeg);base64,([A-Za-z0-9+/=]+)", normalized)
-        if match is None:
-            raise ValueError("logo_data_url must contain an embedded PNG or JPEG image")
-        try:
-            decoded = base64.b64decode(match.group(2), validate=True)
-        except (binascii.Error, ValueError) as exc:
-            raise ValueError("logo_data_url contains invalid base64 image data") from exc
-        if len(decoded) > 512 * 1024:
-            raise ValueError("PDF logo must not exceed 512 KiB")
-        image_kind = match.group(1)
-        if image_kind == "png" and not decoded.startswith(b"\x89PNG\r\n\x1a\n"):
-            raise ValueError("logo_data_url does not contain a valid PNG signature")
-        if image_kind == "jpeg" and not decoded.startswith(b"\xff\xd8"):
-            raise ValueError("logo_data_url does not contain a valid JPEG signature")
-        try:
-            width, height = ImageReader(BytesIO(decoded)).getSize()
-        except Exception as exc:
-            raise ValueError("logo_data_url does not contain a readable image") from exc
-        if width <= 0 or height <= 0 or width > 4096 or height > 4096:
-            raise ValueError("PDF logo dimensions must be between 1 and 4096 pixels")
-        return normalized
-
-
 class AppSettings(ApiModel):
     general: GeneralSettings = Field(default_factory=GeneralSettings)
     portal: PortalSettings = Field(default_factory=PortalSettings)
     manager: ManagerSettings = Field(default_factory=ManagerSettings)
     quota_notifications: QuotaNotificationSettings = Field(default_factory=QuotaNotificationSettings)
     browser: BrowserSettings = Field(default_factory=BrowserSettings)
-    billing_automation: BillingAutomationSettings = Field(default_factory=BillingAutomationSettings)
-    billing_statement_pdf: BillingStatementPdfSettings = Field(default_factory=BillingStatementPdfSettings)
     onboarding: OnboardingSettings = Field(default_factory=OnboardingSettings)
     branding: BrandingSettings = Field(default_factory=BrandingSettings)

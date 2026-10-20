@@ -216,26 +216,6 @@ def test_api_token_scope_matching_does_not_accept_sibling_route_prefixes():
     assert auth_session._required_api_scope(request) is None
 
 
-def test_api_token_billing_integration_scope_is_read_only_and_explicit():
-    read_request = SimpleNamespace(
-        url=SimpleNamespace(path="/api/integrations/billing/v1/statements"),
-        method="GET",
-    )
-    write_request = SimpleNamespace(
-        url=SimpleNamespace(path="/api/integrations/billing/v1/statements"),
-        method="POST",
-    )
-
-    assert auth_session._required_api_scope(read_request) == "billing:read"
-    assert auth_session._required_api_scope(write_request) == "billing:write"
-
-    from app.models.api_token import ApiTokenCreateRequest
-
-    assert ApiTokenCreateRequest(name="billing", scopes=["billing:read"]).scopes == ["billing:read"]
-    with pytest.raises(ValueError, match="billing:write"):
-        ApiTokenCreateRequest(name="billing", scopes=["billing:write"])
-
-
 @pytest.mark.parametrize("scope", ["browser:read", "browser:write"])
 def test_api_tokens_cannot_export_browser_sts_credentials(auth_client, db_session, scope):
     admin = _create_user(

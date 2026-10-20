@@ -29,13 +29,3 @@ curl \
   "${BACKEND_API_BASE}/internal/billing/collect/daily?day=${target_day}" \
   -H "X-Internal-Token: ${INTERNAL_CRON_TOKEN}"
 echo
-
-curl \
-  --fail \
-  --silent \
-  --show-error \
-  --max-time "${BILLING_STATEMENT_CRON_HTTP_TIMEOUT_SECONDS:-1800}" \
-  -X POST \
-  "${BACKEND_API_BASE}/internal/billing/statements/monthly" \
-  -H "X-Internal-Token: ${INTERNAL_CRON_TOKEN}"
-echo

@@ -12,7 +12,6 @@ const cases = [
   { route: "/admin/audit", source: "workspace-admin" },
   { route: "/admin/metrics", source: "workspace-admin" },
   { route: "/admin/billing", source: "feature-billing-admin" },
-  { route: "/admin/billing-settings", source: "feature-billing-settings-admin" },
   { route: "/admin/endpoint-status", source: "feature-endpoint-status-admin" },
   { route: "/admin/identity-security", source: "workspace-admin" },
   { route: "/portal/history", source: "workspace-portal" },
@@ -77,13 +76,6 @@ for (const entry of cases) for (const mode of [
       await page.clock.setFixedTime(new Date("2026-03-08T12:00:00Z"));
       await page.goto(entry.route);
       await expect(page.locator("h1")).toBeVisible();
-      if (entry.route === "/admin/billing-settings") {
-        const settingsTabs = page.getByRole("tab");
-        await expect(settingsTabs).toHaveCount(4);
-        await settingsTabs.nth(3).click();
-        await expect(page.getByText("Monthly statement automation", { exact: true })).toBeVisible();
-        await expect(page.getByText("2026-02", { exact: true })).toBeVisible();
-      }
       if (entry.route.includes("view=access")) {
         // Exercise tab switching after the separately fetched project settings arrive.
         await expect(page.getByRole("tab")).toHaveCount(2);
@@ -147,25 +139,6 @@ for (const entry of cases) for (const mode of [
         await expect(collectButton).toBeVisible();
         await disclosureSummary.click();
         await expect(collectButton).toBeHidden();
-
-        const billingTabs = page.getByRole("tab");
-        await expect(billingTabs).toHaveCount(4);
-        await billingTabs.nth(1).click();
-        await expect(page.getByText("Research Labs", { exact: true }).first()).toBeVisible();
-        await expect(page.getByLabel(/Endpoint/)).toHaveCount(0);
-        await billingTabs.nth(2).click();
-        await expect(page.getByText("DSI", { exact: true }).first()).toBeVisible();
-        await billingTabs.nth(3).click();
-        await expect(page.getByText("Monthly Billing Statements", { exact: true })).toBeVisible();
-        await expect(page.getByText("Finalized snapshot", { exact: true })).toBeVisible();
-        await expect(page.getByText("Finalized period analysis", { exact: true })).toBeVisible();
-        await expect(page.getByText("Helios Retail", { exact: true })).toBeVisible();
-      }
-      if (entry.route === "/admin/billing-settings") {
-        await expect(page.getByLabel("Workflow")).toHaveValue("automatic_finalize");
-        await expect(page.getByLabel("Run on day of month")).toHaveValue("5");
-        await expect(page.getByText(/complete storage and usage coverage/)).toBeVisible();
-        await expect(page.getByText("partial", { exact: true })).toBeVisible();
       }
       if (entry.route.includes("view=access")) {
         const tools = page.locator(".ui-list-toolbar-tools");

@@ -8,8 +8,6 @@ from types import SimpleNamespace
 from app.utils.time import utcnow
 
 from app.db import (
-    BillingEntity,
-    BillingStatement,
     BillingStorageDaily,
     BillingUsageDaily,
     QuotaUsageDaily,
@@ -144,50 +142,6 @@ def test_purge_all_removes_old_quota_and_billing_rows(db_session):
     )
     db_session.commit()
 
-    entity = BillingEntity(
-        name="Retention statement entity",
-        code="RET-STMT",
-        external_id="retention-statement",
-        subject_type="account",
-        active=False,
-        created_at=now,
-        updated_at=now,
-    )
-    db_session.add(entity)
-    db_session.flush()
-    finalized_statement = BillingStatement(
-        public_id="00000000-0000-0000-0000-000000000001",
-        billing_entity_id=entity.id,
-        billing_entity_name=entity.name,
-        billing_entity_code=entity.code,
-        billing_entity_external_id=entity.external_id,
-        subject_type="account",
-        period_start=now.date() - timedelta(days=400),
-        period_end=now.date() - timedelta(days=370),
-        currency="EUR",
-        status="finalized",
-        member_count=1,
-        coverage_json=(
-            '{"member_count":1,"expected_daily_observations":31,"storage_observations":31,'
-            '"usage_observations":31,"storage_coverage_ratio":"1.000000",'
-            '"usage_coverage_ratio":"1.000000","quota_observations_collected":0,'
-            '"quota_observations_expected":0,"quota_coverage_ratio":null}'
-        ),
-        blockers_json="[]",
-        storage_charge_bases_json='["actual_usage"]',
-        subtotal=1,
-        total=1,
-        source_fingerprint="a" * 64,
-        revision=1,
-        generated_at=now - timedelta(days=370),
-        finalized_at=now - timedelta(days=369),
-        finalized_by_user_email="admin@example.test",
-        created_at=now - timedelta(days=370),
-        updated_at=now - timedelta(days=369),
-    )
-    db_session.add(finalized_statement)
-    db_session.commit()
-
     service = DataRetentionService(db_session)
     service.settings = SimpleNamespace(
         quota_history_hourly_retention_days=30,
@@ -205,8 +159,6 @@ def test_purge_all_removes_old_quota_and_billing_rows(db_session):
     assert db_session.query(QuotaUsageDaily).count() == 1
     assert db_session.query(BillingUsageDaily).count() == 1
     assert db_session.query(BillingStorageDaily).count() == 1
-    assert db_session.query(BillingStatement).count() == 1
-    assert db_session.query(BillingStatement).one().status == "finalized"
 
     second = service.purge_all()
     assert second["quota_history"]["deleted_hourly"] == 0

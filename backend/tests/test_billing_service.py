@@ -2,22 +2,11 @@
 # Licensed under the Apache License, Version 2.0
 from app.utils.time import utcnow
 from datetime import date, datetime, timedelta
-from decimal import Decimal
-import json
-from types import SimpleNamespace
 
 import pytest
 
 from app.core.domain_errors import BillingSubjectNotFoundError
-from app.db import (
-    BillingAssignment,
-    BillingRateCard,
-    BillingRatePlan,
-    BillingStorageDaily,
-    BillingUsageDaily,
-    S3Account,
-    StorageEndpoint,
-)
+from app.db import BillingRateCard, BillingStorageDaily, BillingUsageDaily, S3Account, StorageEndpoint
 from app.models.app_settings import AppSettings
 from app.services import admin_billing_service
 from app.services.admin_billing_service import AdminBillingService
@@ -26,9 +15,7 @@ from app.services.billing_service import (
     BillingService,
     _parse_month,
     _parse_ops_breakdown,
-    _resolve_rate_card,
 )
-from app.utils.quota_stats import QuotaSnapshot
 
 
 def _seed_endpoint(db_session) -> StorageEndpoint:
@@ -102,6 +89,71 @@ def test_billing_collection_returns_structured_errors_without_exception_detail(d
     assert "secret upstream detail" not in repr(result)
 
 
+def test_billing_usage_collection_uses_half_open_daily_window(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    collector = BillingCollector(db_session)
+    subject = collector._load_subjects(endpoint)[0]
+    start = datetime(2026, 1, 1)
+    end = start + timedelta(days=1)
+    captured: dict[str, datetime] = {}
+
+    class FakeRgwAdmin:
+        def get_usage(self, **_kwargs):
+            return []
+
+    def fake_aggregate(_entries, *, start, end):
+        captured["start"] = start
+        captured["end"] = end
+        return {"totals": {}, "category_breakdown": []}
+
+    monkeypatch.setattr(
+        "app.services.billing_collection_service.aggregate_usage",
+        fake_aggregate,
+    )
+    monkeypatch.setattr(collector, "_upsert_usage", lambda **_kwargs: None)
+
+    collector._collect_usage_subject(
+        FakeRgwAdmin(), endpoint, date(2026, 1, 1), start, end, subject
+    )
+
+    assert captured == {
+        "start": start,
+        "end": end - timedelta(microseconds=1),
+    }
+
+
+def test_billing_bucket_stats_accept_explicit_empty_usage_map(db_session):
+    collector = BillingCollector(db_session)
+
+    class FakeRgwAdmin:
+        def get_all_buckets(self, **_kwargs):
+            return [{"bucket": "empty", "usage": {}}]
+
+    total_bytes, total_objects, _by_bucket = collector._collect_bucket_stats(
+        FakeRgwAdmin(), "empty-user"
+    )
+
+    assert total_bytes == 0
+    assert total_objects == 0
+
+
+def test_billing_bucket_stats_reject_incomplete_measurement(db_session, monkeypatch):
+    collector = BillingCollector(db_session)
+
+    class FakeRgwAdmin:
+        def get_all_buckets(self, **_kwargs):
+            return [{"bucket": "partial", "usage": {"rgw.main": {"size": 42}}}]
+
+    monkeypatch.setattr(
+        "app.services.billing_collection_service.extract_usage_stats",
+        lambda _usage: (42, None),
+    )
+
+    with pytest.raises(ValueError, match="RGW bucket statistics are incomplete"):
+        collector._collect_bucket_stats(FakeRgwAdmin(), "partial-user")
+
+
 def test_billing_ops_breakdown_requires_integer_values():
     assert _parse_ops_breakdown('{"get":12,"put":3}') == {
         "get": 12,
@@ -162,18 +214,15 @@ def test_billing_summary_and_cost(db_session):
         ]
     )
 
-    rate_plan = BillingRatePlan(
-        name="default",
-        storage_endpoint_id=endpoint.id,
-    )
     rate_card = BillingRateCard(
-        rate_plan=rate_plan,
+        name="default",
         currency="EUR",
         storage_gb_month_price=1.0,
         egress_gb_price=2.0,
         ingress_gb_price=0.5,
         requests_per_1000_price=3.0,
         effective_from=date(2025, 1, 1),
+        storage_endpoint_id=endpoint.id,
         created_at=utcnow(),
         updated_at=utcnow(),
     )
@@ -195,312 +244,6 @@ def test_billing_summary_and_cost(db_session):
     assert summary.cost.currency == "EUR"
     assert summary.cost.total_cost is not None
     assert summary.cost.total_cost > 0
-    assert summary.rate_resolution.status == "resolved"
-    assert summary.rate_resolution.layer == "endpoint"
-    assert summary.rate_resolution.rate_plan_id == rate_plan.id
-    assert summary.rate_resolution.rate_card_id == rate_card.id
-    assert summary.rate_resolution.currency == "EUR"
-    assert summary.rate_resolution.storage_charge_basis == "actual_usage"
-
-
-def test_allocated_quota_billing_uses_historical_daily_quota_and_serializes_decimals(db_session):
-    endpoint = _seed_endpoint(db_session)
-    account = _seed_account(db_session, endpoint.id)
-    gib = 1024**3
-    start = date(2026, 1, 1)
-    for offset in range(31):
-        quota_gib = 100 if offset < 15 else 200
-        db_session.add(
-            BillingStorageDaily(
-                day=start + timedelta(days=offset),
-                storage_endpoint_id=endpoint.id,
-                s3_account_id=account.id,
-                total_bytes=0,
-                total_objects=0,
-                quota_size_bytes=quota_gib * gib,
-                quota_state="valid",
-                source="rgw_admin_bucket_stats",
-                collected_at=utcnow(),
-            )
-        )
-    plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
-    db_session.add(
-        BillingRateCard(
-            rate_plan=plan,
-            currency="EUR",
-            storage_charge_basis="allocated_quota",
-            storage_gb_month_price=Decimal("0.020000"),
-            effective_from=start,
-        )
-    )
-    db_session.commit()
-
-    summary = BillingService(db_session).summary("2026-01", endpoint.id)
-
-    assert summary.cost is not None
-    assert summary.cost.complete is True
-    assert summary.cost.storage_cost == Decimal("3.032258")
-    assert summary.cost.total_cost == Decimal("3.032258")
-    assert summary.cost.storage_quantity is not None
-    assert summary.cost.storage_quantity.basis == "allocated_quota"
-    assert summary.cost.storage_quantity.quantity_gib_month == Decimal("151.612903225806")
-    assert summary.cost.storage_quantity.coverage_ratio == Decimal("1.000000")
-    assert summary.cost.storage_quantity.status == "complete"
-
-    serialized = json.loads(summary.model_dump_json())
-    assert serialized["cost"]["storage_cost"] == "3.032258"
-    assert serialized["cost"]["total_cost"] == "3.032258"
-    assert serialized["cost"]["storage_quantity"]["quantity_gib_month"] == "151.612903225806"
-
-
-def test_allocated_quota_missing_or_unlimited_history_is_explicitly_blocking(db_session):
-    endpoint = _seed_endpoint(db_session)
-    account = _seed_account(db_session, endpoint.id)
-    gib = 1024**3
-    start = date(2026, 1, 1)
-    for offset in range(30):
-        db_session.add(
-            BillingStorageDaily(
-                day=start + timedelta(days=offset),
-                storage_endpoint_id=endpoint.id,
-                s3_account_id=account.id,
-                total_bytes=0,
-                total_objects=0,
-                quota_size_bytes=100 * gib,
-                quota_state="valid",
-                source="rgw_admin_bucket_stats",
-                collected_at=utcnow(),
-            )
-        )
-    db_session.add(
-        BillingStorageDaily(
-            day=start + timedelta(days=30),
-            storage_endpoint_id=endpoint.id,
-            s3_account_id=account.id,
-            total_bytes=0,
-            total_objects=0,
-            quota_size_bytes=None,
-            quota_state="unlimited",
-            source="rgw_admin_bucket_stats",
-            collected_at=utcnow(),
-        )
-    )
-    plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
-    db_session.add(
-        BillingRateCard(
-            rate_plan=plan,
-            currency="EUR",
-            storage_charge_basis="allocated_quota",
-            storage_gb_month_price=Decimal("1.000000"),
-            effective_from=start,
-        )
-    )
-    db_session.commit()
-
-    summary = BillingService(db_session).summary("2026-01", endpoint.id)
-
-    assert summary.cost is not None
-    assert summary.cost.complete is False
-    assert summary.cost.storage_quantity is not None
-    assert summary.cost.storage_quantity.status == "blocked"
-    assert summary.cost.storage_quantity.observations_collected == 30
-    assert summary.cost.storage_quantity.observations_expected == 31
-    assert summary.cost.storage_quantity.coverage_ratio == Decimal("0.967742")
-    assert summary.cost.storage_quantity.issues == ["unlimited_quota"]
-    assert summary.cost.storage_cost == Decimal("96.774194")
-
-
-def test_billing_storage_collection_persists_quota_snapshot_with_storage_stats(db_session):
-    endpoint = _seed_endpoint(db_session)
-    account = _seed_account(db_session, endpoint.id)
-    gib = 1024**3
-    storage_client = SimpleNamespace(
-        get_all_buckets=lambda **_kwargs: {
-            "buckets": [
-                {"bucket": "data", "usage": {"total_bytes": 42, "total_objects": 2}}
-            ]
-        }
-    )
-    quota_client = SimpleNamespace(
-        get_account_quota_snapshot=lambda _account_id: QuotaSnapshot(200 * gib, None, "valid"),
-        get_user_quota_snapshot=lambda _uid, tenant=None: QuotaSnapshot(100 * gib, None, "valid"),
-    )
-
-    created, errors = BillingCollector(db_session)._collect_storage_for_endpoint(
-        storage_client,
-        endpoint,
-        date(2026, 1, 15),
-        quota_admin=quota_client,
-    )
-
-    assert created == 1
-    assert errors == []
-    row = db_session.query(BillingStorageDaily).filter_by(s3_account_id=account.id).one()
-    assert row.total_bytes == 42
-    assert row.quota_size_bytes == 200 * gib
-    assert row.quota_state == "valid"
-
-
-def test_daily_billing_collects_quota_without_quota_monitoring_enablement(db_session, monkeypatch):
-    endpoint = StorageEndpoint(
-        name="billing-quota-independent",
-        endpoint_url="https://billing-quota-independent.example.test",
-        provider="ceph",
-        features_config="features:\n  admin:\n    enabled: true\n",
-        is_default=False,
-    )
-    db_session.add(endpoint)
-    db_session.commit()
-    account = _seed_account(db_session, endpoint.id)
-    gib = 1024**3
-
-    class GeneralSettings:
-        billing_enabled = True
-
-    class AppSettings:
-        general = GeneralSettings()
-
-    supervision = SimpleNamespace(
-        get_usage=lambda **_kwargs: {},
-        get_all_buckets=lambda **_kwargs: {"buckets": []},
-    )
-    runtime = SimpleNamespace(
-        get_account_quota_snapshot=lambda _account_id: QuotaSnapshot(250 * gib, None, "valid"),
-        get_user_quota_snapshot=lambda _uid, tenant=None: QuotaSnapshot(None, None, "missing"),
-    )
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: AppSettings())
-    monkeypatch.setattr(
-        "app.services.billing_collection_service.get_supervision_rgw_client",
-        lambda _endpoint: supervision,
-    )
-    monkeypatch.setattr(
-        "app.services.billing_collection_service.get_endpoint_runtime_rgw_client",
-        lambda _endpoint: runtime,
-    )
-    monkeypatch.setattr(
-        "app.services.billing_collection_service.DataRetentionService.purge_all",
-        lambda _self: {},
-    )
-
-    result = BillingCollector(db_session).collect_daily(date(2026, 1, 16))
-
-    assert result["errors"] == []
-    row = db_session.query(BillingStorageDaily).filter_by(s3_account_id=account.id).one()
-    assert row.quota_size_bytes == 250 * gib
-    assert row.quota_state == "valid"
-
-
-def test_rate_resolution_uses_assignment_windows_and_effective_plan_versions(db_session):
-    endpoint = _seed_endpoint(db_session)
-    account = _seed_account(db_session, endpoint.id)
-    other = S3Account(
-        name="other",
-        rgw_account_id="RGW22345678901234567",
-        rgw_user_uid="rgw22345678901234567-admin",
-        storage_endpoint_id=endpoint.id,
-    )
-    db_session.add(other)
-
-    direct_plan = BillingRatePlan(name="direct", storage_endpoint_id=endpoint.id)
-    endpoint_plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
-    global_plan = BillingRatePlan(name="default", storage_endpoint_id=None)
-    db_session.add_all([direct_plan, endpoint_plan, global_plan])
-    db_session.flush()
-
-    direct_jan = BillingRateCard(
-        rate_plan_id=direct_plan.id,
-        currency="EUR",
-        storage_charge_basis="actual_usage",
-        storage_gb_month_price=1,
-        effective_from=date(2026, 1, 1),
-        effective_to=date(2026, 1, 31),
-    )
-    direct_feb = BillingRateCard(
-        rate_plan_id=direct_plan.id,
-        currency="EUR",
-        storage_charge_basis="allocated_quota",
-        storage_gb_month_price=2,
-        effective_from=date(2026, 2, 1),
-    )
-    endpoint_jan = BillingRateCard(
-        rate_plan_id=endpoint_plan.id,
-        currency="EUR",
-        storage_gb_month_price=3,
-        effective_from=date(2026, 1, 1),
-    )
-    global_jan = BillingRateCard(
-        rate_plan_id=global_plan.id,
-        currency="EUR",
-        storage_gb_month_price=4,
-        effective_from=date(2026, 1, 1),
-    )
-    db_session.add_all([direct_jan, direct_feb, endpoint_jan, global_jan])
-    db_session.flush()
-    db_session.add(
-        BillingAssignment(
-            storage_endpoint_id=endpoint.id,
-            s3_account_id=account.id,
-            rate_plan_id=direct_plan.id,
-            effective_from=date(2026, 1, 1),
-            effective_to=date(2026, 2, 28),
-        )
-    )
-    db_session.commit()
-
-    january = _resolve_rate_card(
-        db_session,
-        endpoint.id,
-        _parse_month("2026-01"),
-        "account",
-        account.id,
-    )
-    february = _resolve_rate_card(
-        db_session,
-        endpoint.id,
-        _parse_month("2026-02"),
-        "account",
-        account.id,
-    )
-    fallback = _resolve_rate_card(
-        db_session,
-        endpoint.id,
-        _parse_month("2026-01"),
-        "account",
-        other.id,
-    )
-
-    assert january is not None and january.id == direct_jan.id
-    assert january.storage_charge_basis == "actual_usage"
-    assert february is not None and february.id == direct_feb.id
-    assert february.storage_charge_basis == "allocated_quota"
-    assert fallback is not None and fallback.id == endpoint_jan.id
-
-
-def test_rate_resolution_does_not_use_next_month_version_for_current_month(db_session):
-    endpoint = _seed_endpoint(db_session)
-    plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
-    db_session.add(plan)
-    db_session.flush()
-    january = BillingRateCard(
-        rate_plan_id=plan.id,
-        currency="EUR",
-        storage_gb_month_price=1,
-        effective_from=date(2026, 1, 1),
-        effective_to=date(2026, 1, 31),
-    )
-    february = BillingRateCard(
-        rate_plan_id=plan.id,
-        currency="EUR",
-        storage_gb_month_price=9,
-        effective_from=date(2026, 2, 1),
-    )
-    db_session.add_all([january, february])
-    db_session.commit()
-
-    resolved = _resolve_rate_card(db_session, endpoint.id, _parse_month("2026-01"))
-
-    assert resolved is not None
-    assert resolved.id == january.id
 
 
 def test_billing_subject_detail_and_export(db_session):
@@ -545,68 +288,12 @@ def test_billing_subject_detail_and_export(db_session):
     assert detail.coverage.storage_days_collected == 1
     assert detail.coverage.usage_days_collected == 1
     assert len(detail.daily) == 1
-    assert detail.rate_resolution.status == "missing"
-    assert detail.rate_resolution.issues == ["no_effective_rate_plan"]
 
     filename, payload = service.export_csv("2026-01", endpoint.id)
     assert filename.startswith("billing-2026-01")
     assert "subject_type" in payload
-    assert "rate_resolution_status" in payload
-    assert "rate_source_layer" in payload
-    assert "rate_card_effective_from" in payload
-    assert "missing" in payload
     assert str(account.id) in payload
     assert account.rgw_user_uid in payload
-
-
-def test_billing_surfaces_expose_canonical_direct_rate_resolution(db_session):
-    endpoint = _seed_endpoint(db_session)
-    account = _seed_account(db_session, endpoint.id)
-    endpoint_plan = BillingRatePlan(name="default", storage_endpoint_id=endpoint.id)
-    direct_plan = BillingRatePlan(name="reserved", storage_endpoint_id=endpoint.id)
-    endpoint_card = BillingRateCard(
-        rate_plan=endpoint_plan,
-        currency="EUR",
-        storage_charge_basis="actual_usage",
-        storage_gb_month_price=Decimal("1.000000"),
-        effective_from=date(2026, 1, 1),
-    )
-    direct_card = BillingRateCard(
-        rate_plan=direct_plan,
-        currency="EUR",
-        storage_charge_basis="allocated_quota",
-        storage_gb_month_price=Decimal("2.000000"),
-        effective_from=date(2026, 1, 1),
-    )
-    assignment = BillingAssignment(
-        storage_endpoint_id=endpoint.id,
-        s3_account_id=account.id,
-        rate_plan=direct_plan,
-        effective_from=date(2026, 1, 1),
-    )
-    db_session.add_all([endpoint_card, direct_card, assignment])
-    db_session.commit()
-
-    service = BillingService(db_session)
-    summary = service.summary("2026-01", endpoint.id)
-    subjects = service.list_subjects("2026-01", endpoint.id, "account", 1, 50, "name", "asc")
-    detail = service.subject_detail("2026-01", endpoint.id, "account", account.id)
-    _filename, payload = service.export_csv("2026-01", endpoint.id)
-
-    assert summary.rate_resolution.status == "resolved"
-    assert summary.rate_resolution.layer == "endpoint"
-    assert summary.rate_resolution.rate_card_id == endpoint_card.id
-
-    subject = subjects.items[0]
-    assert subject.rate_resolution.status == "resolved"
-    assert subject.rate_resolution.layer == "direct"
-    assert subject.rate_resolution.rate_plan_id == direct_plan.id
-    assert subject.rate_resolution.rate_card_id == direct_card.id
-    assert subject.rate_resolution.source_assignment_id == assignment.id
-    assert subject.rate_resolution.storage_charge_basis == "allocated_quota"
-
-    assert detail.rate_resolution == subject.rate_resolution
-    assert f",direct,{direct_plan.id},reserved,{direct_card.id},2026-01-01," in payload
 
 
 def test_billing_subject_detail_types_missing_subject_separately_from_invalid_input(db_session):
@@ -680,22 +367,7 @@ def test_admin_billing_routes_preserve_feature_and_endpoint_status_codes(client,
     assert response.status_code == 403, response.text
     assert response.json()["detail"] == "Billing is disabled"
 
-    response = client.get("/api/admin/billing/analysis", params={"month": "2026-01"})
-    assert response.status_code == 403, response.text
-    assert response.json()["detail"] == "Billing is disabled"
-
     monkeypatch.setattr(admin_billing_service, "load_app_settings", _enabled_billing_settings)
-    response = client.get("/api/admin/billing/analysis", params={"month": "2026-01"})
-    assert response.status_code == 200, response.text
-    assert response.json() == {
-        "month": "2026-01",
-        "days_in_month": 31,
-        "entities": [],
-        "groups": [],
-        "unassigned": [],
-        "conflicts": [],
-    }
-
     response = client.get(
         "/api/admin/billing/summary",
         params={"month": "2026-01", "endpoint_id": 999},

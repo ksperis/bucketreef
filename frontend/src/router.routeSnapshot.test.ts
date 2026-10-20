@@ -52,7 +52,6 @@ describe("route snapshot", () => {
       "/admin/manager-settings",
       "/admin/portal-settings",
       "/admin/browser-settings",
-      "/admin/billing-settings",
       "/admin/webhook-settings",
       "/admin/webhook-settings/new",
       "/admin/webhook-settings/:endpointId",
