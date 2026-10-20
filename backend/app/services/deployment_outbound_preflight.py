@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import urlparse
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -27,16 +28,14 @@ def _hostname(url: str) -> str:
 
 def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[UncoveredTarget]:
     uncovered: set[UncoveredTarget] = set()
-    connections = (
-        db.query(S3Connection)
-        .filter(
+    connections = db.scalars(
+        select(S3Connection).where(
             S3Connection.is_shared.is_(False),
             S3Connection.server_managed.is_(False),
             S3Connection.storage_endpoint_id.is_(None),
             S3Connection.custom_endpoint_config.is_not(None),
         )
-        .all()
-    )
+    ).all()
     for connection in connections:
         try:
             hostname = _hostname(parse_custom_endpoint_config(connection.custom_endpoint_config).endpoint_url or "")
@@ -47,7 +46,7 @@ def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[Unc
 
     if webhook_dispatcher_enabled(settings):
         webhook_hosts = webhook_runtime_config(settings).allowed_hosts
-        for (webhook_url,) in db.query(WebhookEndpoint.url).all():
+        for webhook_url in db.scalars(select(WebhookEndpoint.url)).all():
             hostname = _hostname(webhook_url or "") or "<invalid>"
             if not host_matches_allowlist(hostname, webhook_hosts):
                 uncovered.add(UncoveredTarget("webhook", hostname))
