@@ -8,6 +8,8 @@ import argparse
 import json
 import logging
 
+from sqlalchemy import select
+
 from app.core.database import SessionLocal
 from app.core.logging_security import configure_secure_logging
 from app.db import AccountIAMUser, S3Account, User
@@ -21,11 +23,11 @@ def reconcile_portal_iam(*, dry_run: bool = True, account_id: int | None = None)
     db = SessionLocal()
     summaries: list[dict[str, object]] = []
     try:
-        query = db.query(S3Account).order_by(S3Account.id.asc())
+        statement = select(S3Account).order_by(S3Account.id.asc())
         if account_id is not None:
-            query = query.filter(S3Account.id == account_id)
-        accounts = query.all()
-        all_users = db.query(User).order_by(User.id.asc()).all()
+            statement = statement.where(S3Account.id == account_id)
+        accounts = db.scalars(statement).all()
+        all_users = db.scalars(select(User).order_by(User.id.asc())).all()
         users = [user for user in all_users if user.is_active]
         users_by_id = {int(user.id): user for user in all_users}
         service = EffectiveAccessService(db)
@@ -53,7 +55,9 @@ def reconcile_portal_iam(*, dry_run: bool = True, account_id: int | None = None)
                     desired[int(user.id)] = link.portal_role
             existing_user_ids = {
                 int(value)
-                for (value,) in db.query(AccountIAMUser.user_id).filter(AccountIAMUser.account_id == account.id).all()
+                for value in db.scalars(
+                    select(AccountIAMUser.user_id).where(AccountIAMUser.account_id == account.id)
+                ).all()
             }
             target_ids = sorted(set(desired) | existing_user_ids)
             summary["planned"] = len(target_ids)

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from sqlalchemy import select
+
 from app.core.config import get_settings
 from app.core.logging_security import configure_secure_logging
 from app.core.database import SessionLocal, engine
@@ -405,7 +407,7 @@ def ensure_account(
     storage_endpoint_id: int,
 ) -> S3Account:
     db = accounts_service.db
-    existing = db.query(S3Account).filter(S3Account.name == name).first()
+    existing = db.scalar(select(S3Account).where(S3Account.name == name).limit(1))
     if existing:
         if quota_gb is not None:
             try:
@@ -427,9 +429,9 @@ def ensure_account(
         storage_endpoint_id=storage_endpoint_id,
     )
     created = accounts_service.create_account_with_manager(payload)
-    account = db.query(S3Account).filter(S3Account.id == created.id).first()
+    account = db.get(S3Account, created.id)
     if account is None:
-        account = db.query(S3Account).filter(S3Account.name == name).first()
+        account = db.scalar(select(S3Account).where(S3Account.name == name).limit(1))
     if account is None:
         raise RuntimeError(f"Failed to create or load account {name}")
     return account
@@ -679,14 +681,14 @@ def main() -> None:
     init_db(engine, SessionLocal)
     db = SessionLocal()
     try:
-        storage_endpoint = (
-            db.query(StorageEndpoint)
-            .filter(
+        storage_endpoint = db.scalar(
+            select(StorageEndpoint)
+            .where(
                 StorageEndpoint.is_default.is_(True),
                 StorageEndpoint.provider == StorageProvider.CEPH.value,
             )
             .order_by(StorageEndpoint.id.asc())
-            .first()
+            .limit(1)
         )
         if storage_endpoint is None:
             raise SystemExit("A default Ceph storage endpoint is required to seed demo data.")
