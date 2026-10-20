@@ -33,7 +33,7 @@ nav:
       - Effective access audit: platform/access-audit.md
       - Audit: platform/audit.md
       - Endpoint status: platform/endpoint-status.md
-      - Billing: platform/billing.md
+      - Cost: platform/cost.md
       - Usage and metrics: platform/usage-metrics.md
       - Usage history: platform/usage-history.md
       - Key rotation: platform/key-rotation.md
@@ -57,7 +57,7 @@ nav:
       - Safe operations: storage/safe-operations.md
   - Operations:
       - Healthchecks: operations/healthchecks.md
-      - Billing: operations/billing.md
+      - Cost: operations/cost.md
       - Quota monitoring: operations/quota-monitoring.md
       - Webhooks: operations/webhooks.md
       - Observability: operations/observability.md

@@ -14,7 +14,7 @@ Use route-level schemas and examples in code as the canonical API contract.
 | Prefix | Audience | Notes |
 |---|---|---|
 | `/api/auth` | login/session | Local, OIDC, LDAP, cookie refresh, `/session`, session revocation, WebAuthn, recovery codes, external-identity approval, plus Admin-runtime-only scoped API-token management. |
-| `/api/admin` | platform admins | Users, groups, endpoints, app settings, billing, audit, metrics, and key rotation. |
+| `/api/admin` | platform admins | Users, groups, endpoints, app settings, cost, audit, metrics, and key rotation. |
 | `/api/manager` | account/context admins | Buckets, IAM, topics, usage stats, migrations, and Manager tools. |
 | `/api/portal` | Portal users/managers | Storage Spaces, files, shares, access keys, usage, governance activity, provider access logs, and settings. |
 | `/api/browser` | object operators | Bucket/object browsing for the selected execution context. |

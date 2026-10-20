@@ -993,7 +993,7 @@ Legend: {
   }
 }
 
-"Observability quota and billing": {
+"Observability quota and cost": {
   style.fill: "#f8fafc"
   style.stroke: "#cbd5e1"
   "endpoint_health_checks": {
@@ -1111,9 +1111,9 @@ Legend: {
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
   }
-  "billing_usage_daily": {
+  "cost_usage_daily": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_usage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_billing_usage_daily_day(day) [index]; ix_billing_usage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_usage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_usage_daily_id(id) [index]; ix_billing_usage_daily_s3_account_id(s3_account_id) [index]; ix_billing_usage_daily_s3_user_id(s3_user_id) [index]; ix_billing_usage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_usage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_usage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
+    tooltip: "PK: id\\nUnique: uq_cost_usage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_cost_usage_daily_day(day) [index]; ix_cost_usage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_cost_usage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_cost_usage_daily_id(id) [index]; ix_cost_usage_daily_s3_account_id(s3_account_id) [index]; ix_cost_usage_daily_s3_user_id(s3_user_id) [index]; ix_cost_usage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_cost_usage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_cost_usage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
     "id": "INTEGER [PK, NN]"
     "day": "DATE [NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
@@ -1126,9 +1126,9 @@ Legend: {
     "source": "VARCHAR [NN]"
     "collected_at": "DATETIME [NN]"
   }
-  "billing_storage_daily": {
+  "cost_storage_daily": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_billing_storage_daily_day(day) [index]; ix_billing_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_billing_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_billing_storage_daily_id(id) [index]; ix_billing_storage_daily_s3_account_id(s3_account_id) [index]; ix_billing_storage_daily_s3_user_id(s3_user_id) [index]; ix_billing_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_billing_storage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_billing_storage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
+    tooltip: "PK: id\\nUnique: uq_cost_storage_daily(day, storage_endpoint_id, s3_account_id, s3_user_id, source)\\nIndexes: ix_cost_storage_daily_day(day) [index]; ix_cost_storage_daily_endpoint_day_account(storage_endpoint_id, day, s3_account_id) [index]; ix_cost_storage_daily_endpoint_day_user(storage_endpoint_id, day, s3_user_id) [index]; ix_cost_storage_daily_id(id) [index]; ix_cost_storage_daily_s3_account_id(s3_account_id) [index]; ix_cost_storage_daily_s3_user_id(s3_user_id) [index]; ix_cost_storage_daily_storage_endpoint_id(storage_endpoint_id) [index]; uq_cost_storage_daily_account(day, storage_endpoint_id, s3_account_id, source) [unique]; uq_cost_storage_daily_user(day, storage_endpoint_id, s3_user_id, source) [unique]"
     "id": "INTEGER [PK, NN]"
     "day": "DATE [NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
@@ -1140,31 +1140,29 @@ Legend: {
     "source": "VARCHAR [NN]"
     "collected_at": "DATETIME [NN]"
   }
-  "billing_rate_cards": {
+  "cost_models": {
     class: table
-    tooltip: "PK: id\\nUnique: uq_billing_rate_cards_name(name)\\nIndexes: ix_billing_rate_cards_endpoint_effective_window(storage_endpoint_id, effective_from, effective_to) [index]; ix_billing_rate_cards_id(id) [index]; ix_billing_rate_cards_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nCheck: ck_cost_models_egress_price_nonnegative: egress_gb_price >= 0; ck_cost_models_ingress_price_nonnegative: ingress_gb_price >= 0; ck_cost_models_requests_price_nonnegative: requests_per_1000_price >= 0; ck_cost_models_singleton: id = 1; ck_cost_models_storage_price_nonnegative: storage_gb_month_price >= 0"
     "id": "INTEGER [PK, NN]"
-    "name": "VARCHAR [NN]"
     "currency": "VARCHAR [NN]"
-    "storage_gb_month_price": "NUMERIC(12, 6)"
-    "egress_gb_price": "NUMERIC(12, 6)"
-    "ingress_gb_price": "NUMERIC(12, 6)"
-    "requests_per_1000_price": "NUMERIC(12, 6)"
-    "effective_from": "DATE [NN]"
-    "effective_to": "DATE"
-    "storage_endpoint_id": "INTEGER [FK]"
+    "storage_gb_month_price": "NUMERIC(12, 6) [NN]"
+    "egress_gb_price": "NUMERIC(12, 6) [NN]"
+    "ingress_gb_price": "NUMERIC(12, 6) [NN]"
+    "requests_per_1000_price": "NUMERIC(12, 6) [NN]"
     "created_at": "DATETIME [NN]"
     "updated_at": "DATETIME [NN]"
   }
-  "billing_assignments": {
+  "cost_endpoint_overrides": {
     class: table
-    tooltip: "PK: id\\nIndexes: ix_billing_assignments_endpoint_account_created(storage_endpoint_id, s3_account_id, created_at) [index]; ix_billing_assignments_endpoint_user_created(storage_endpoint_id, s3_user_id, created_at) [index]; ix_billing_assignments_id(id) [index]; ix_billing_assignments_rate_card_id(rate_card_id) [index]; ix_billing_assignments_s3_account_id(s3_account_id) [index]; ix_billing_assignments_s3_user_id(s3_user_id) [index]; ix_billing_assignments_storage_endpoint_id(storage_endpoint_id) [index]"
+    tooltip: "PK: id\\nUnique: uq_cost_endpoint_overrides_endpoint(storage_endpoint_id)\\nCheck: ck_cost_endpoint_overrides_egress_price_nonnegative: egress_gb_price >= 0; ck_cost_endpoint_overrides_ingress_price_nonnegative: ingress_gb_price >= 0; ck_cost_endpoint_overrides_requests_price_nonnegative: requests_per_1000_price >= 0; ck_cost_endpoint_overrides_storage_price_nonnegative: storage_gb_month_price >= 0\\nIndexes: ix_cost_endpoint_overrides_id(id) [index]; ix_cost_endpoint_overrides_storage_endpoint_id(storage_endpoint_id) [index]"
     "id": "INTEGER [PK, NN]"
     "storage_endpoint_id": "INTEGER [FK, NN]"
-    "s3_account_id": "INTEGER [FK]"
-    "s3_user_id": "INTEGER [FK]"
-    "rate_card_id": "INTEGER [FK, NN]"
+    "storage_gb_month_price": "NUMERIC(12, 6) [NN]"
+    "egress_gb_price": "NUMERIC(12, 6) [NN]"
+    "ingress_gb_price": "NUMERIC(12, 6) [NN]"
+    "requests_per_1000_price": "NUMERIC(12, 6) [NN]"
     "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
   }
 }
 
@@ -1261,14 +1259,10 @@ Legend: {
 "quota_alert_states"."storage_endpoint_id" -> "storage_endpoints"."id"
 "quota_alert_states"."s3_account_id" -> "s3_accounts"."id"
 "quota_alert_states"."s3_user_id" -> "s3_users"."id"
-"billing_usage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
-"billing_usage_daily"."s3_account_id" -> "s3_accounts"."id"
-"billing_usage_daily"."s3_user_id" -> "s3_users"."id"
-"billing_storage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
-"billing_storage_daily"."s3_account_id" -> "s3_accounts"."id"
-"billing_storage_daily"."s3_user_id" -> "s3_users"."id"
-"billing_rate_cards"."storage_endpoint_id" -> "storage_endpoints"."id"
-"billing_assignments"."storage_endpoint_id" -> "storage_endpoints"."id"
-"billing_assignments"."s3_account_id" -> "s3_accounts"."id"
-"billing_assignments"."s3_user_id" -> "s3_users"."id"
-"billing_assignments"."rate_card_id" -> "billing_rate_cards"."id"
+"cost_usage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
+"cost_usage_daily"."s3_account_id" -> "s3_accounts"."id"
+"cost_usage_daily"."s3_user_id" -> "s3_users"."id"
+"cost_storage_daily"."storage_endpoint_id" -> "storage_endpoints"."id"
+"cost_storage_daily"."s3_account_id" -> "s3_accounts"."id"
+"cost_storage_daily"."s3_user_id" -> "s3_users"."id"
+"cost_endpoint_overrides"."storage_endpoint_id" -> "storage_endpoints"."id": "ondelete=CASCADE"

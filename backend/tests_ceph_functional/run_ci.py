@@ -263,7 +263,7 @@ def _build_app_settings_payload() -> str:
             "browser_ceph_admin_enabled": True,
             "browser_portal_enabled": True,
             "portal_enabled": True,
-            "billing_enabled": False,
+            "cost_enabled": False,
             "endpoint_status_enabled": True,
             "quota_alerts_enabled": False,
             "usage_history_enabled": False,

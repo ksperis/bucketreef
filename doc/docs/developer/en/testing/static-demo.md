@@ -82,7 +82,7 @@ resources and responses.
 | Manager | Bucket creation/deletion, configuration documents, versioning, lifecycle, CORS, policies, quotas, IAM entities, group membership, policy attachments, inline policies and fictitious keys | Nonempty buckets cannot be removed. Lifecycle, IAM evaluation, replication and encryption do not execute. Compare returns a predefined example with no remediation. |
 | Portal | Private/team spaces, project collaborators, internal shares, Viewer/Editor access, requests, files and individual version restoration | Project settings stay locked. Archives and Viewer grants prevent writes. Public links are examples only. Removing nonempty spaces is rejected. |
 | Browser | Bucket/folder navigation, search, upload, preview, download, deletion, metadata and tags | Technical settings and version history are read-only. Imported data remains local. Seeded datasets download sample payloads. |
-| Ceph admin | Common bucket/account/RGW-user inventory, account and user quotas, current bucket configuration and fictitious keys | Health, traffic, billing, audit and operational history are snapshots. No Ceph operation is executed. |
+| Ceph admin | Common bucket/account/RGW-user inventory, account and user quotas, current bucket configuration and fictitious keys | Health, traffic, cost, audit and operational history are snapshots. No Ceph operation is executed. |
 
 Migrations, purge, integrity/index operations, managed private provisioning,
 multipart/resumable/cross-context transfers, bulk and point-in-time restoration,
@@ -124,7 +124,7 @@ No Cloudflare Worker or Pages Function is deployed.
 GitLab uses protected, masked/hidden `CLOUDFLARE_API_TOKEN` and protected
 `CLOUDFLARE_ACCOUNT_ID` variables scoped to `demo-production`. Grant the token
 Cloudflare Pages Edit on the intended account, without unrelated zone, DNS,
-Workers, identity or billing permissions. Cloudflare's Pages API permission is
+Workers, identity or cost permissions. Cloudflare's Pages API permission is
 account-scoped; the deployment script fixes the destination project name.
 
 1. Configure the protected `demo-production` variables above.

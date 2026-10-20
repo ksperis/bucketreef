@@ -128,13 +128,13 @@ When overriding backend/frontend images from an internal registry, also set
 The scheduler triggers:
 
 - endpoint healthchecks (default every 5 minutes)
-- billing daily collection (default `02:00 UTC`, day offset `1`)
+- cost daily collection (default `02:00 UTC`, day offset `1`)
 - quota monitoring for alerts (default every hour)
 - usage history collection for managed accounts and S3 users (default `03:00 UTC`)
 - user notification retention (default `03:15 UTC`)
 
 Feature-dependent jobs skip their work when disabled in effective app settings.
-In particular, disabled healthchecks and billing return `skipped / feature_disabled`
+In particular, disabled healthchecks and cost return `skipped / feature_disabled`
 to the scheduler rather than failing. Genuine execution errors remain visible in logs.
 
 Persist the same strong shared token in `.env` or your secret manager:
@@ -146,18 +146,18 @@ INTERNAL_CRON_TOKEN=change-me-strong
 Main scheduler knobs:
 
 - `HEALTHCHECK_CRON_SCHEDULE`
-- `BILLING_CRON_SCHEDULE`
+- `COST_CRON_SCHEDULE`
 - `QUOTA_MONITOR_CRON_SCHEDULE`
 - `USAGE_HISTORY_CRON_SCHEDULE`
 - `BUCKET_USAGE_STATS_CRON_SCHEDULE` (default `17 * * * *`)
 - `BUCKET_USAGE_STATS_CRON_HTTP_TIMEOUT_SECONDS` (default `86400` for long-running scans)
 - `NOTIFICATION_RETENTION_CRON_SCHEDULE`
 - `ACCESS_KEY_EXPIRATION_CRON_SCHEDULE` (default `* * * * *`)
-- `BILLING_DAY_OFFSET`
+- `COST_DAY_OFFSET`
 
 History retention / SMTP knobs:
 
-- `BILLING_DAILY_RETENTION_DAYS`
+- `COST_DAILY_RETENTION_DAYS`
 - `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`
 - `QUOTA_HISTORY_DAILY_RETENTION_DAYS`
 - `USER_NOTIFICATIONS_RETENTION_DAYS` (default `90`; `0` disables purge)
@@ -268,6 +268,6 @@ initial setup.
 - [Production readiness](../operations/production-readiness.md)
 - [Backup and restore](../operations/backup-restore.md)
 - [Operations: healthchecks](../operations/healthchecks.md)
-- [Operations: billing](../operations/billing.md)
+- [Operations: cost](../operations/cost.md)
 - [Operations: quota monitoring and history](../operations/quota-monitoring.md)
 - [Operations: security](../security/index.md)

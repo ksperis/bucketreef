@@ -16,10 +16,10 @@ from app.models.app_settings import AppSettings
 from app.routers import dependencies
 from app.routers.admin import settings as admin_settings
 from app.routers.admin import storage_endpoints as admin_endpoints
-from app.routers.internal import billing_collect, healthchecks
+from app.routers.internal import cost_collect, healthchecks
 from app.services import healthcheck_background_service as background
 from app.services import healthcheck_service
-from app.services.billing_collection_service import BillingCollector
+from app.services.cost_collection_service import CostCollector
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import HEALTHCHECK_RUN_OPERATION, OperationLeaseService
 from tests.auth_test_utils import authenticate_ui_client
@@ -30,7 +30,7 @@ def scheduled_settings(db_session, test_engine, monkeypatch):
     settings = AppSettings()
     factory = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(background, "SessionLocal", factory)
-    for module in (background, healthcheck_service, healthchecks, billing_collect):
+    for module in (background, healthcheck_service, healthchecks, cost_collect):
         monkeypatch.setattr(module, "load_app_settings", lambda: settings)
     monkeypatch.setattr(dependencies.settings, "internal_cron_token", "expected-token")
     return settings
@@ -68,7 +68,7 @@ def _allow_superadmin(client, db_session):
     "path,feature,operation,service,method",
     [
         ("/api/internal/healthchecks/run", "endpoint_status_enabled", HEALTHCHECK_RUN_OPERATION, HealthCheckService, "run_checks"),
-        ("/api/internal/billing/collect/daily?day=2026-09-21", "billing_enabled", "billing:daily:2026-09-21", BillingCollector, "collect_daily"),
+        ("/api/internal/cost/collect/daily?day=2026-09-21", "cost_enabled", "cost:daily:2026-09-21", CostCollector, "collect_daily"),
     ],
 )
 def test_disabled_scheduled_features_skip_without_work(

@@ -6,7 +6,7 @@ Use this page to define the minimum backup contract for BucketReef deployments.
 
 | Data | Why it matters |
 |---|---|
-| Application database | UI users, account links, app settings, Portal metadata, grants, audit, usage, billing, and operational history. |
+| Application database | UI users, account links, app settings, Portal metadata, grants, audit, usage, cost, and operational history. |
 | Provider S3 access logs | Required for exhaustive object-level audit; they are not stored in the application database. |
 | Credential encryption key | Required to decrypt stored credentials after restore. |
 | Runtime secrets | JWT/refresh secrets, scheduler token, SMTP, OIDC/LDAP, and deployment-specific credentials. |

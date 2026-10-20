@@ -217,7 +217,7 @@ def test_execution_contexts_selector_hides_administrative_tags(client: TestClien
         account,
         [
             {"label": "finance", "color_key": "emerald", "scope": "standard"},
-            {"label": "billing", "color_key": "amber", "scope": "administrative"},
+            {"label": "cost", "color_key": "amber", "scope": "administrative"},
         ],
     )
     db_session.commit()

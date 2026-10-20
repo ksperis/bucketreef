@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from app.routers import dependencies
 from app.models.app_settings import AppSettings
-from app.routers.internal import billing_collect
-from app.services.billing_collection_service import BillingCollector
+from app.routers.internal import cost_collect
+from app.services.cost_collection_service import CostCollector
 from app.services.bucket_usage_stats_collection_service import BucketUsageStatsCollectionService
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import (
@@ -15,7 +15,7 @@ from app.services.operation_lease_service import (
     USAGE_HISTORY_COLLECT_OPERATION,
     USER_NOTIFICATIONS_PURGE_OPERATION,
     OperationLeaseService,
-    billing_daily_operation_name,
+    cost_daily_operation_name,
 )
 from app.services.quota_monitoring_service import QuotaMonitoringService
 
@@ -24,20 +24,20 @@ def _set_token(monkeypatch) -> None:
     monkeypatch.setattr(dependencies.settings, "internal_cron_token", "expected-token")
 
 
-def test_internal_billing_collect_skips_when_lease_is_active(client, db_session, monkeypatch):
+def test_internal_cost_collect_skips_when_lease_is_active(client, db_session, monkeypatch):
     _set_token(monkeypatch)
     enabled_settings = AppSettings()
-    enabled_settings.general.billing_enabled = True
-    monkeypatch.setattr(billing_collect, "load_app_settings", lambda: enabled_settings)
+    enabled_settings.general.cost_enabled = True
+    monkeypatch.setattr(cost_collect, "load_app_settings", lambda: enabled_settings)
     OperationLeaseService(db_session).acquire(
-        billing_daily_operation_name("2026-07-03"),
+        cost_daily_operation_name("2026-07-03"),
         ttl_seconds=600,
         owner="other-backend",
     )
-    monkeypatch.setattr(BillingCollector, "collect_daily", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError()))
+    monkeypatch.setattr(CostCollector, "collect_daily", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError()))
 
     response = client.post(
-        "/api/internal/billing/collect/daily?day=2026-07-03",
+        "/api/internal/cost/collect/daily?day=2026-07-03",
         headers={"X-Internal-Token": "expected-token"},
     )
 
@@ -45,15 +45,15 @@ def test_internal_billing_collect_skips_when_lease_is_active(client, db_session,
     assert response.json() == {
         "status": "skipped",
         "reason": "already_running",
-        "operation": "billing:daily:2026-07-03",
+        "operation": "cost:daily:2026-07-03",
     }
 
 
-def test_internal_billing_collect_rejects_invalid_day(client, monkeypatch):
+def test_internal_cost_collect_rejects_invalid_day(client, monkeypatch):
     _set_token(monkeypatch)
 
     response = client.post(
-        "/api/internal/billing/collect/daily?day=2026-02-30",
+        "/api/internal/cost/collect/daily?day=2026-02-30",
         headers={"X-Internal-Token": "expected-token"},
     )
 

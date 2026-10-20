@@ -362,8 +362,8 @@ class FakeUsersAdmin:
         self.get_account_calls = 0
         self.account_tenants: dict[str, str] = {}
         self.existing_users: dict[tuple[str, str | None], str | None] = {
-            ("billing-user", None): "RGW99999999999999999",
-            ("billing-user", "tenant-a"): None,
+            ("cost-user", None): "RGW99999999999999999",
+            ("cost-user", "tenant-a"): None,
         }
 
     def extract_keys(self, raw):
@@ -478,10 +478,10 @@ def test_create_rgw_user_with_account_scope_returns_generated_key():
     fake_rgw.existing_users.clear()
     ctx = _ctx(902, fake_rgw)
     payload = CephAdminRgwUserCreate(
-        uid="billing-user",
+        uid="cost-user",
         account_id="RGW99999999999999999",
-        display_name="Billing user",
-        email="billing@example.test",
+        display_name="Cost user",
+        email="cost@example.test",
         account_root=True,
         system=False,
         suspended=False,
@@ -495,7 +495,7 @@ def test_create_rgw_user_with_account_scope_returns_generated_key():
 
     response = user_profiles_router.create_rgw_user(payload=payload, ctx=ctx)
 
-    assert response.detail.uid == "billing-user"
+    assert response.detail.uid == "cost-user"
     assert response.detail.account_id == "RGW99999999999999999"
     assert response.detail.account_name == "Account-RGW99999999999999999"
     assert response.generated_key is not None
@@ -506,10 +506,10 @@ def test_create_rgw_user_with_account_scope_returns_generated_key():
     assert fake_rgw.create_user_with_account_id_calls[0]["account_root"] is True
     assert len(fake_rgw.update_user_calls) == 1
     assert fake_rgw.update_user_calls[0] == {
-        "uid": "billing-user",
+        "uid": "cost-user",
         "tenant": None,
-        "display_name": "Billing user",
-        "email": "billing@example.test",
+        "display_name": "Cost user",
+        "email": "cost@example.test",
         "suspended": False,
         "max_buckets": 15,
         "op_mask": None,
@@ -528,9 +528,9 @@ def test_create_rgw_user_inherits_selected_account_tenant():
 
     response = user_profiles_router.create_rgw_user(
         payload=CephAdminRgwUserCreate(
-            uid="billing-user",
+            uid="cost-user",
             account_id="RGW99999999999999999",
-            display_name="Billing user",
+            display_name="Cost user",
             generate_key=True,
         ),
         ctx=_ctx(902, fake_rgw),
@@ -549,7 +549,7 @@ def test_create_rgw_user_rejects_tenant_conflicting_with_selected_account():
     with pytest.raises(HTTPException) as raised:
         user_profiles_router.create_rgw_user(
             payload=CephAdminRgwUserCreate(
-                uid="billing-user",
+                uid="cost-user",
                 account_id="RGW99999999999999999",
                 tenant="team_b",
             ),
@@ -563,13 +563,13 @@ def test_create_rgw_user_rejects_tenant_conflicting_with_selected_account():
 @pytest.mark.parametrize("existing_account", ["RGW88888888888888888", "RGW99999999999999999"])
 def test_create_rgw_user_rejects_existing_uid_without_touching_any_account(existing_account):
     admin = FakeUsersAdmin()
-    admin.existing_users[("billing-user", None)] = existing_account
+    admin.existing_users[("cost-user", None)] = existing_account
     ctx = _ctx(902, admin)
 
     with pytest.raises(HTTPException) as raised:
         user_profiles_router.create_rgw_user(
             CephAdminRgwUserCreate(
-                uid="billing-user", account_id="RGW99999999999999999",
+                uid="cost-user", account_id="RGW99999999999999999",
                 generate_key=True, caps=CephAdminRgwUserCapsUpdate(values=["users=*"], mode="add"),
                 quota_enabled=True, quota_max_objects=100,
             ),
@@ -593,7 +593,7 @@ def test_create_rgw_user_rejects_rgw_conflict_even_if_user_appears_afterwards():
     admin.existing_users.clear()
     with pytest.raises(HTTPException) as raised:
         user_profiles_router.create_rgw_user(
-            CephAdminRgwUserCreate(uid="billing-user", account_id="RGW99999999999999999", generate_key=True),
+            CephAdminRgwUserCreate(uid="cost-user", account_id="RGW99999999999999999", generate_key=True),
             ctx=_ctx(902, admin),
         )
 
@@ -615,7 +615,7 @@ def test_create_rgw_user_rejects_foreign_identity_even_after_apparent_create_suc
     with pytest.raises(HTTPException) as raised:
         user_profiles_router.create_rgw_user(
             CephAdminRgwUserCreate(
-                uid="billing-user", account_id="RGW99999999999999999", display_name="Modified",
+                uid="cost-user", account_id="RGW99999999999999999", display_name="Modified",
                 caps=CephAdminRgwUserCapsUpdate(values=["users=*"], mode="add"),
                 quota_enabled=True, quota_max_objects=100,
             ),
@@ -633,7 +633,7 @@ def test_user_configuration_rejects_missing_or_wrong_account_scope(expected_acco
     admin = FakeUsersAdmin()
     with pytest.raises(HTTPException) as raised:
         user_profiles_router.update_rgw_user_config(
-            "billing-user",
+            "cost-user",
             CephAdminRgwUserConfigUpdate(
                 display_name="Foreign edit", quota_max_objects=12,
                 caps=CephAdminRgwUserCapsUpdate(mode="add", values=["users=*"]),
@@ -655,7 +655,7 @@ def test_detail_read_checks_account_before_fetching_keys():
 
     with pytest.raises(HTTPException) as raised:
         user_profiles_router.get_rgw_user_detail(
-            "billing-user", expected_account_id="RGW88888888888888888",
+            "cost-user", expected_account_id="RGW88888888888888888",
             ctx=_ctx(902, GuardedAdmin()),
         )
     assert raised.value.status_code == 409
@@ -668,7 +668,7 @@ def test_key_creation_checks_account_before_mutating_rgw(db_session):
 
     with pytest.raises(HTTPException) as raised:
         user_keys_router.create_rgw_user_key(
-            "billing-user", expected_account_id="RGW88888888888888888",
+            "cost-user", expected_account_id="RGW88888888888888888",
             ctx=_ctx(902, GuardedAdmin()), db=db_session,
         )
     assert raised.value.status_code == 409
@@ -689,7 +689,7 @@ def test_update_rgw_user_quota_omits_unset_object_limit():
     ctx = _ctx(902, fake_rgw)
 
     user_profiles_router.update_rgw_user_config(
-        "billing-user",
+        "cost-user",
         CephAdminRgwUserConfigUpdate(
             quota_enabled=True,
             quota_max_size_bytes=2048,
@@ -699,7 +699,7 @@ def test_update_rgw_user_quota_omits_unset_object_limit():
     )
 
     assert fake_rgw.set_user_quota_calls[-1] == {
-        "uid": "billing-user",
+        "uid": "cost-user",
         "tenant": None,
         "max_size_bytes": 2048,
         "max_objects": None,
@@ -712,7 +712,7 @@ def test_update_rgw_user_config_preserves_null_clearing_semantics():
     ctx = _ctx(902, fake_rgw)
 
     user_profiles_router.update_rgw_user_config(
-        "billing-user",
+        "cost-user",
         CephAdminRgwUserConfigUpdate(
             display_name=None,
             email=None,
@@ -724,7 +724,7 @@ def test_update_rgw_user_config_preserves_null_clearing_semantics():
     )
 
     assert fake_rgw.update_user_calls[-1] == {
-        "uid": "billing-user",
+        "uid": "cost-user",
         "tenant": "tenant-a",
         "display_name": "",
         "email": "",
@@ -751,14 +751,14 @@ def test_update_rgw_user_quota_clears_object_limit_with_explicit_null():
     ctx = _ctx(902, fake_rgw)
 
     user_profiles_router.update_rgw_user_config(
-        "billing-user",
+        "cost-user",
         CephAdminRgwUserConfigUpdate(quota_max_objects=None),
         expected_account_id="RGW99999999999999999",
         ctx=ctx,
     )
 
     assert fake_rgw.set_user_quota_calls[-1] == {
-        "uid": "billing-user",
+        "uid": "cost-user",
         "tenant": None,
         "max_size_bytes": None,
         "max_objects": 0,

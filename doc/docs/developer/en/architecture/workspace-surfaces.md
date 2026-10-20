@@ -18,7 +18,7 @@ execution identity.
   and identity configuration, bucket properties, policies, users, groups, roles,
   lifecycle, replication, notifications, and topics.
 - `/admin` is the platform administration workspace. It owns UI users,
-  endpoints, accounts, global quotas, billing administration, feature flags,
+  endpoints, accounts, global quotas, cost administration, feature flags,
   audit, health, Portal request validation, and governance.
 
 ## Browser Disablement Matrix
@@ -190,7 +190,7 @@ The Admin counterpart for storage-admin triage is `/admin/portal-requests`.
 ## Portal Backend Cleanup Notes
 
 Portal uses Storage Space, file, share, governance activity, access-log, usage, alert,
-billing-source, health, request, and delegated settings endpoints only. Legacy
+cost-source, health, request, and delegated settings endpoints only. Legacy
 backend routes that exposed bucket-centric or advanced identity concepts have
 been removed from the Portal router and API client:
 
@@ -241,7 +241,7 @@ Use these replacement surfaces instead:
   frontend navigation routes.
 - Collaboration: `/portal/storage-spaces/{spaceId}/shares*`.
 - Public links: `/portal/storage-spaces/{spaceId}/public-links*`.
-- Usage, governance activity, alerts, traffic, health, and billing source:
+- Usage, governance activity, alerts, traffic, health, and cost source:
   the remaining Portal read endpoints.
 - Manager-only provider S3 access logs:
   `/portal/access-logs/page` and `/portal/access-logs/raw`. The removed
@@ -352,7 +352,7 @@ Playwright setup:
 - authenticated user: `storage.user@example.com`;
 - selected Portal account: `Helios Retail` (`selectedPortalAccountId=101`);
 - fixture Storage Spaces: `genomics-2026`, `photos`, and `datasets`;
-- fixture shares, activity, alerts, traffic, usage, billing source,
+- fixture shares, activity, alerts, traffic, usage, cost source,
   and locked Browser object listing data;
 - no live storage credentials or backend state are required.
 

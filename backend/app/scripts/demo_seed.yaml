@@ -51,7 +51,7 @@ accounts:
     email: "storage@summit-finance.example.com"
     quota_gb: 1
     buckets:
-      - name: "summit-billing-archive"
+      - name: "summit-cost-archive"
         object_count: 11
       - name: "summit-reports"
         object_count: 10

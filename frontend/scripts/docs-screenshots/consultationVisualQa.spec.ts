@@ -11,7 +11,7 @@ const cases = [
   { route: "/admin/usage-history", source: "workspace-admin" },
   { route: "/admin/audit", source: "workspace-admin" },
   { route: "/admin/metrics", source: "workspace-admin" },
-  { route: "/admin/billing", source: "feature-billing-admin" },
+  { route: "/admin/cost", source: "feature-cost-admin" },
   { route: "/admin/endpoint-status", source: "feature-endpoint-status-admin" },
   { route: "/admin/identity-security", source: "workspace-admin" },
   { route: "/portal/history", source: "workspace-portal" },
@@ -116,11 +116,11 @@ for (const entry of cases) for (const mode of [
           if (await control.isVisible()) expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         }
       }
-      if (["/admin/usage-history", "/admin/billing"].includes(entry.route)) {
+      if (["/admin/usage-history", "/admin/cost"].includes(entry.route)) {
         const sort = page.getByLabel("Sort by", { exact: true });
         if (mode.width < 768) {
           await expect(sort).toBeVisible();
-          const field = entry.route === "/admin/billing" ? "cost" : "ratio";
+          const field = entry.route === "/admin/cost" ? "cost" : "ratio";
           const request = page.waitForRequest((req) => req.url().includes("sort_by=" + field));
           await sort.selectOption(field);
           await request;
@@ -130,7 +130,7 @@ for (const entry of cases) for (const mode of [
           await expect(page.getByRole("columnheader").first()).toBeVisible();
         }
       }
-      if (entry.route === "/admin/billing") {
+      if (entry.route === "/admin/cost") {
         const disclosure = page.locator("details");
         const disclosureSummary = disclosure.locator("summary");
         const collectButton = disclosure.getByRole("button");

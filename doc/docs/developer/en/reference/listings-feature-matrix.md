@@ -22,7 +22,7 @@ the functional capabilities recorded below.
 - `Selection Persistence (Browser storage FE)` is FE-only. It is `Yes` only when selection is serialized into browser storage such as `localStorage`, `sessionStorage`, or URL state and restored on reload or revisit. `useState` alone does not count.
 - `Multi-select BE` follows a strict rule: `Yes` only when one backend request accepts multiple selected items at once. FE fan-out over many single-item requests is `No`. Mixed cases are marked `Partial`.
 - Out of scope under this method:
-  - `/admin/billing`, `/admin/endpoint-status`, and metrics pages because they are not backed by `list*`, `search*`, or `stream*` FE APIs.
+  - `/admin/cost`, `/admin/endpoint-status`, and metrics pages because they are not backed by `list*`, `search*`, or `stream*` FE APIs.
 
 ## Admin
 

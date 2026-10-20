@@ -28,7 +28,7 @@ menus, association popovers, expansion and Browser column resizing.
 | `features/admin/AdminPortalRequestsPage.tsx` | /admin/portal-requests | DataTableShell × 1 | `AdminPortalRequestsPage.test.tsx` |
 | `features/admin/ApiTokensPage.tsx` | /admin/profile?tab=api-tokens | DataTableShell × 1 | `ApiTokensPage.listState.test.tsx` |
 | `features/admin/AuditLogsPage.tsx` | /admin/audit | DataTableShell × 1 | `AuditLogsPage.test.tsx` |
-| `features/admin/BillingPage.tsx` | /admin/billing | DataTableShell × 1 subjects plus subject detail | `BillingPage.test.tsx`; consultation visual QA |
+| `features/admin/CostPage.tsx` | /admin/cost | DataTableShell × 1 subjects plus subject detail | `CostPage.test.tsx`; consultation visual QA |
 | `features/admin/EndpointStatusDetailPage.tsx` | /admin/endpoint-status/:endpointId; timeline and recent checks | DataTableShell × 2 | `EndpointStatusDetailPage.test.tsx` |
 | `features/admin/EndpointStatusPage.tsx` | /admin/endpoint-status | DataTableShell × 1 | `EndpointStatusPage.test.tsx` |
 | `features/admin/GroupsPage.tsx` | /admin/groups | DataTableShell × 1 | `GroupsPage.test.tsx` |
@@ -88,7 +88,7 @@ secondary and dialog uses.
 | --- | --- |
 | Admin accounts, users, groups, RGW users, shared connections, endpoints, RGW user keys, audit, usage history and Portal request queue | `page`; main creation in the page header |
 | Admin identity-link requests and sessions | `page`; tab counts and security guidance remain visible |
-| Billing subjects, Endpoint Status incidents, key-rotation execution results | `section`; page context continues to affect its original sections |
+| Cost subjects, Endpoint Status incidents, key-rotation execution results | `section`; page context continues to affect its original sections |
 | Admin association lists and add-association pickers | `section`; Add in `headingActions`, search in the common row; editable row fields and dialog confirmation remain unchanged |
 | Manager users, groups, roles, policies, buckets, topics, user/RGW keys, feature rules and migration runs | `page`; table/tab identifies the list |
 | Manager group members and attached managed policies | `section`; distinct from membership/attachment forms and inline policy blocks |
@@ -106,8 +106,8 @@ Existing column sorts share their transitions with mobile controls, without
 changing initial sorting or pagination. Bucket workbench headers remain visible
 in their scrollable table on mobile, so no second sort control is added there.
 Audit Action/Status are explicitly limited to loaded entries. Server search,
-advanced filter semantics, endpoint context and Billing global totals retain
-their existing scope. Billing CSV exports the whole selected month/endpoint,
+advanced filter semantics, endpoint context and Cost global totals retain
+their existing scope. Cost CSV exports the whole selected month/endpoint,
 so it stays beside that page context. Endpoint Status refreshes all metrics and
 incidents; Manager member/policy refresh reloads both form choices and listed
 bindings. These page-wide refresh actions stay in the page header. API-token

@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db import (
-    BillingStorageDaily,
-    BillingUsageDaily,
+    CostStorageDaily,
+    CostUsageDaily,
     QuotaUsageDaily,
     QuotaUsageHourly,
     UserNotification,
@@ -74,27 +74,27 @@ class DataRetentionService:
             }
         }
 
-    def purge_billing_daily(self) -> dict[str, Any]:
+    def purge_cost_daily(self) -> dict[str, Any]:
         deleted_usage = 0
         deleted_storage = 0
 
-        daily_cutoff = self._daily_cutoff(int(self.settings.billing_daily_retention_days or 0))
+        daily_cutoff = self._daily_cutoff(int(self.settings.cost_daily_retention_days or 0))
         if daily_cutoff is not None:
             deleted_usage = self._delete_rows(
-                BillingUsageDaily,
-                BillingUsageDaily.day < daily_cutoff,
+                CostUsageDaily,
+                CostUsageDaily.day < daily_cutoff,
             )
             deleted_storage = self._delete_rows(
-                BillingStorageDaily,
-                BillingStorageDaily.day < daily_cutoff,
+                CostStorageDaily,
+                CostStorageDaily.day < daily_cutoff,
             )
 
         if deleted_usage or deleted_storage:
             self.db.commit()
 
         return {
-            "billing_history": {
-                "daily_retention_days": int(self.settings.billing_daily_retention_days or 0),
+            "cost_history": {
+                "daily_retention_days": int(self.settings.cost_daily_retention_days or 0),
                 "deleted_usage_daily": int(deleted_usage),
                 "deleted_storage_daily": int(deleted_storage),
             }
@@ -128,5 +128,5 @@ class DataRetentionService:
     def purge_all(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
         result.update(self.purge_quota_history())
-        result.update(self.purge_billing_daily())
+        result.update(self.purge_cost_daily())
         return result

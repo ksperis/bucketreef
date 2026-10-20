@@ -64,7 +64,7 @@ export function readModels(c: DemoRequest): Response | undefined {
   if (path === "/settings/branding") return json(settings.branding);
   if (path === "/settings/runtime-surfaces") return json({ admin: true, manager: true, browser: true, portal: true, ceph_admin: true, storage_ops: false });
   if (path === "/admin/settings" || path === "/admin/settings/defaults") return json(settings);
-  if (path === "/admin/settings/general-feature-locks") return json(Object.fromEntries(["manager_enabled", "ceph_admin_enabled", "storage_ops_enabled", "browser_enabled", "portal_enabled", "billing_enabled", "endpoint_status_enabled"].map(k => [k, { forced: true, source: "Static demo" }])));
+  if (path === "/admin/settings/general-feature-locks") return json(Object.fromEntries(["manager_enabled", "ceph_admin_enabled", "storage_ops_enabled", "browser_enabled", "portal_enabled", "cost_enabled", "endpoint_status_enabled"].map(k => [k, { forced: true, source: "Static demo" }])));
   if (/^\/admin\/accounts\/\d+\/portal-settings$/.test(path)) return json({ effective: resolvePortalSettings(settings.portal), admin_override: {}, delegated_to_portal_managers: false, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false });
   if (path === "/settings/login") return json({ ...settings.general, endpoints: state.endpoints, login_logo_url: null });
   if (path === "/browser/settings") return json(settings.browser);
@@ -145,16 +145,16 @@ export function readModels(c: DemoRequest): Response | undefined {
     const incidents = snapshots["health-workspace-admin"].incidents;
     return json({ ...base, total: incidents.length, incidents: datedSnapshot(path.endsWith("incidents-global") ? incidents : incidents.filter(i => i.endpoint_id === endpointId), state.initializedAt) });
   }
-  if (/^\/admin\/billing\/(summary|subjects|subject\/account\/\d+|export\.csv)$/.test(path) || path === "/portal/billing/me") {
+  if (/^\/admin\/cost\/(summary|subjects|subject\/account\/\d+|export\.csv)$/.test(path) || path === "/portal/cost/me") {
     const summary = { month: c.url.searchParams.get("month") ?? state.initializedAt.slice(0, 7), storage_endpoint_id: Number(c.url.searchParams.get("endpoint_id")) || 11,
       usage: { bytes_in: 180 * GiB, bytes_out: 310 * GiB, ops_total: 2450890, ops_breakdown: { get: 1900000, put: 550890 } },
       storage: { avg_bytes: 820 * GiB, avg_gb_month: 820, total_objects: 384920 },
       coverage: { days_collected: 27, days_in_month: 30, coverage_ratio: .9, storage_days_collected: 27, usage_days_collected: 27 },
-      cost: { currency: "EUR", storage_cost: 16.4, egress_cost: 6.2, ingress_cost: 0, requests_cost: 2.45, total_cost: 25.05, rate_card_name: "Demo Ceph internal rates" } };
+      cost: { currency: "EUR", storage_cost: 16.4, egress_cost: 6.2, ingress_cost: 0, requests_cost: 2.45, total_cost: 25.05, pricing_source: "global" } };
     if (path.endsWith("summary")) return json(summary);
     if (path.endsWith("subjects")) return json(page(state.accounts.map((a, i) => ({ ...summary, subject_type: "account", subject_id: a.id, name: a.name, rgw_identifier: a.rgw_account_id, cost: { ...summary.cost, total_cost: 25.05 + i * 7 } })), c.url));
     if (path.endsWith(".csv")) return new Response("Account,Amount,Currency\n" + state.accounts.map(a => `${a.name},25.05,EUR`).join("\n"), { headers: { "Content-Type": "text/csv" } });
-    const account = path === "/portal/billing/me" ? scopedAccount(c) : required(state.accounts.find(a => a.id === Number(path.split("/").at(-1))));
+    const account = path === "/portal/cost/me" ? scopedAccount(c) : required(state.accounts.find(a => a.id === Number(path.split("/").at(-1))));
     return json({ ...summary, subject_type: "account", subject_id: account.id, name: account.name, daily: state.history.slice(-30).map(p => ({ day: p.timestamp.slice(0, 10), storage_bytes: 820 * GiB, bytes_in: p.bytes_in, bytes_out: p.bytes_out, ops_total: p.ops })) });
   }
 

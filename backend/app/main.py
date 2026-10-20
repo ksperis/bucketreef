@@ -34,7 +34,7 @@ from app.routers.admin import s3_accounts as admin_s3_accounts
 from app.routers.admin import audit as admin_audit
 from app.routers.admin import access_audit as admin_access_audit
 from app.routers.admin import stats as admin_stats
-from app.routers.admin import billing as admin_billing
+from app.routers.admin import cost as admin_cost
 from app.routers.admin import usage_history as admin_usage_history
 from app.routers.admin import usage_stats as admin_usage_stats
 from app.routers.admin import users as admin_users
@@ -70,7 +70,7 @@ from app.routers.storage_ops import bucket_ui_tags as storage_ops_bucket_ui_tags
 from app.routers.storage_ops import integrity as storage_ops_integrity
 from app.routers.storage_ops import purge as storage_ops_purge
 from app.routers.storage_ops import usage_stats as storage_ops_usage_stats
-from app.routers.internal import billing_collect as internal_billing
+from app.routers.internal import cost_collect as internal_cost
 from app.routers.internal import bucket_usage_stats as internal_bucket_usage_stats
 from app.routers.internal import healthchecks as internal_healthchecks
 from app.routers.internal import quota_monitor as internal_quota_monitor
@@ -262,7 +262,7 @@ if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_tag_definitions.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_audit.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_stats.router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_billing.router, prefix=settings.api_v1_prefix)
+    app.include_router(admin_cost.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_usage_history.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_usage_stats.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_users.router, prefix=settings.api_v1_prefix)
@@ -312,7 +312,7 @@ if runtime_surface_enabled(settings, "storage_ops"):
     app.include_router(storage_ops_usage_stats.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
 if settings.scheduled_jobs_enabled:
     app.include_router(internal_access_key_expirations.router, prefix=settings.api_v1_prefix)
-    app.include_router(internal_billing.router, prefix=settings.api_v1_prefix)
+    app.include_router(internal_cost.router, prefix=settings.api_v1_prefix)
     app.include_router(internal_bucket_usage_stats.router, prefix=settings.api_v1_prefix)
     app.include_router(internal_healthchecks.router, prefix=settings.api_v1_prefix)
     app.include_router(internal_quota_monitor.router, prefix=settings.api_v1_prefix)

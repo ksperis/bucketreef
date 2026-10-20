@@ -179,7 +179,7 @@ Keep route and task coverage in the guide that owns the experience.
 | Admin workspace | `admin/en/platform/index.md` |
 | Effective access | `admin/en/platform/access-audit.md` |
 | Endpoint health | `admin/en/platform/endpoint-status.md` |
-| Usage / billing operations | `admin/en/platform/usage-metrics.md`, `admin/en/operations/` |
+| Usage / cost operations | `admin/en/platform/usage-metrics.md`, `admin/en/operations/` |
 | Ceph Admin | `admin/en/storage/ceph-admin/` |
 | Storage Ops | `admin/en/storage/storage-ops/` |
 | Deployment / production operations | `admin/en/install/`, `admin/en/operations/`, `admin/en/security/` |

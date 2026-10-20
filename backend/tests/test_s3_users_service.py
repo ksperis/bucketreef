@@ -11,10 +11,8 @@ import pytest
 from tests.feature_policy_fixtures import enable_manager_features
 from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
 from app.db import (
-    BillingAssignment,
-    BillingRateCard,
-    BillingStorageDaily,
-    BillingUsageDaily,
+    CostStorageDaily,
+    CostUsageDaily,
     BrowserFavorite,
     BucketMigration,
     BucketUsageStatsSnapshot,
@@ -366,28 +364,15 @@ def test_get_user_uses_typed_not_found_error(db_session):
 
 
 def _seed_s3_user_derived_rows(db_session, *, endpoint: StorageEndpoint, s3_user: S3User) -> None:
-    rate_card = BillingRateCard(
-        name=f"s3-user-delete-rate-{s3_user.id}",
-        storage_endpoint_id=endpoint.id,
-        currency="EUR",
-        effective_from=date(2026, 1, 1),
-    )
-    db_session.add(rate_card)
-    db_session.flush()
     db_session.add_all(
         [
-            BillingAssignment(
-                storage_endpoint_id=endpoint.id,
-                s3_user_id=s3_user.id,
-                rate_card_id=rate_card.id,
-            ),
-            BillingUsageDaily(
+            CostUsageDaily(
                 day=date(2026, 1, 1),
                 storage_endpoint_id=endpoint.id,
                 s3_user_id=s3_user.id,
                 source="rgw_admin_usage",
             ),
-            BillingStorageDaily(
+            CostStorageDaily(
                 day=date(2026, 1, 1),
                 storage_endpoint_id=endpoint.id,
                 s3_user_id=s3_user.id,
@@ -1065,9 +1050,8 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [])
     service.delete_user(created.id, delete_rgw=True)
 
-    assert db_session.query(BillingAssignment).filter(BillingAssignment.s3_user_id == created.id).count() == 0
-    assert db_session.query(BillingUsageDaily).filter(BillingUsageDaily.s3_user_id == created.id).count() == 0
-    assert db_session.query(BillingStorageDaily).filter(BillingStorageDaily.s3_user_id == created.id).count() == 0
+    assert db_session.query(CostUsageDaily).filter(CostUsageDaily.s3_user_id == created.id).count() == 0
+    assert db_session.query(CostStorageDaily).filter(CostStorageDaily.s3_user_id == created.id).count() == 0
     assert db_session.query(QuotaUsageHourly).filter(QuotaUsageHourly.s3_user_id == created.id).count() == 0
     assert db_session.query(QuotaUsageDaily).filter(QuotaUsageDaily.s3_user_id == created.id).count() == 0
     assert db_session.query(QuotaAlertState).filter(QuotaAlertState.s3_user_id == created.id).count() == 0

@@ -80,7 +80,7 @@ class GeneralSettings(ApiModel):
     browser_portal_enabled: bool = True
     browser_ceph_admin_enabled: bool = False
     portal_enabled: bool = False
-    billing_enabled: bool = False
+    cost_enabled: bool = False
     endpoint_status_enabled: bool = True
     quota_alerts_enabled: bool = False
     usage_history_enabled: bool = True
@@ -143,7 +143,7 @@ class GeneralFeatureLocks(ApiModel):
     storage_ops_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     browser_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     portal_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
-    billing_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
+    cost_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     endpoint_status_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
 
 

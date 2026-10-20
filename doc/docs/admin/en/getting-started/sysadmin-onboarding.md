@@ -141,7 +141,7 @@ or removed after an error.
 | Deploy on Kubernetes | [Deploy with Helm](../install/helm.md) | [Backup and restore](../operations/backup-restore.md), [Security](../security/index.md) |
 | Make the deployment safe for real users | [Production readiness](../operations/production-readiness.md) | [Security](../security/index.md), [Observability](../operations/observability.md) |
 | Know which environment variable or setting controls a behavior | [Configuration](../configuration/index.md) | [Feature availability](../help/feature-availability.md) |
-| Debug missing menus, stale metrics, or failed jobs | [Observability](../operations/observability.md) | [Healthchecks](../operations/healthchecks.md), [Quota monitoring](../operations/quota-monitoring.md), [Billing](../operations/billing.md) |
+| Debug missing menus, stale metrics, or failed jobs | [Observability](../operations/observability.md) | [Healthchecks](../operations/healthchecks.md), [Quota monitoring](../operations/quota-monitoring.md), [Cost](../operations/cost.md) |
 | Restore after a host, pod, or database issue | [Backup and restore](../operations/backup-restore.md) | [Production readiness](../operations/production-readiness.md) |
 | Prepare an upgrade | [Upgrade and compatibility](../operations/upgrade-compatibility.md) | [Backup and restore](../operations/backup-restore.md), [Production readiness](../operations/production-readiness.md) |
 | Check whether a backend supports a feature | [Backends compatibility matrix](../storage/backends/compatibility.md) | [Ceph RGW](../storage/backends/ceph-rgw.md), [Other S3 implementations](../storage/backends/other-s3.md) |
@@ -152,7 +152,7 @@ or removed after an error.
 |---|---|---|
 | A workspace, menu, or action is missing | Feature flag, role, account link, Manager tool access, endpoint capability. | User email, workspace, intended account/context, screenshot. |
 | `AccessDenied` appears during an S3 action | Storage-side IAM/S3 policy and selected execution identity. | Bucket/key, context selector, route, upstream error id if present. |
-| Health, quota, billing, or usage data is stale | Scheduler/CronJob status, `INTERNAL_CRON_TOKEN`, latest collection logs. | Job schedule, last successful run, backend log excerpt. |
+| Health, quota, cost, or usage data is stale | Scheduler/CronJob status, `INTERNAL_CRON_TOKEN`, latest collection logs. | Job schedule, last successful run, backend log excerpt. |
 | Portal or Browser cannot open files | Browser sub-flags, Portal account link, Storage Space grants, endpoint capability. | Workspace, Storage Space or bucket, role/grant, exact action. |
 | An object or bulk data operation failed | Provider S3 access logs, backend route logs, upstream S3/RGW response. | Personal executor identity, bucket/key, operation id, target prefix. |
 | A purge, migration, global restore, or history cleanup failed | Application audit and backend route logs. | Actor, account/context, workflow id, target scope. |
@@ -163,7 +163,7 @@ or removed after an error.
 - Database location, backup schedule, and last restore-test result.
 - Credential encryption key owner and recovery location.
 - Secret manager paths for JWT, refresh, scheduler, SMTP, LDAP/OIDC, and storage credentials.
-- Feature-flag decisions for Admin, Manager, Portal, Browser, Ceph Admin, Storage Ops, billing, endpoint status, quota, and usage history.
+- Feature-flag decisions for Admin, Manager, Portal, Browser, Ceph Admin, Storage Ops, cost, endpoint status, quota, and usage history.
 - First storage endpoint capability notes and healthcheck mode.
 - Support handover links: [Storage admin runbook](storage-admin-runbook.md), [User troubleshooting](../help/troubleshooting.md), and [Observability](../operations/observability.md).
 

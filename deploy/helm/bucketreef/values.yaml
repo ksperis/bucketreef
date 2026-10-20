@@ -51,7 +51,7 @@ backend:
     # No implicit storage seed is created in production. Configure endpoints
     # administratively after startup or provide an explicit HTTPS seed.
     APP_SETTINGS_PATH: /data/app_settings.json
-    BILLING_DAILY_RETENTION_DAYS: "365"
+    COST_DAILY_RETENTION_DAYS: "365"
     QUOTA_HISTORY_HOURLY_RETENTION_DAYS: "30"
     QUOTA_HISTORY_DAILY_RETENTION_DAYS: "365"
     USER_NOTIFICATIONS_RETENTION_DAYS: "90"
@@ -198,7 +198,7 @@ ingress:
       hosts:
         - bucketreef.local
 
-billingCronJob:
+costCronJob:
   enabled: false
   schedule: "0 2 * * *"
   dayOffset: 1

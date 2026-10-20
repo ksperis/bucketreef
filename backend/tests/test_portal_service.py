@@ -6748,11 +6748,11 @@ def test_portal_cross_cutting_routes_are_owned_by_domain_routers():
     route_modules = {
         route.path: route.endpoint.__module__
         for route in effective_routes(portal_router.router)
-        if route.path in {"/portal/billing/me", "/portal/traffic"}
+        if route.path in {"/portal/cost/me", "/portal/traffic"}
     }
 
     assert route_modules == {
-        "/portal/billing/me": "app.routers.portal_billing",
+        "/portal/cost/me": "app.routers.portal_cost",
         "/portal/traffic": "app.routers.portal_traffic",
     }
 

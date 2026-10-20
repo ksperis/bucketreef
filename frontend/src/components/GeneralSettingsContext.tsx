@@ -30,7 +30,7 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   browser_portal_enabled: true,
   browser_ceph_admin_enabled: false,
   portal_enabled: false,
-  billing_enabled: false,
+  cost_enabled: false,
   endpoint_status_enabled: true,
   quota_alerts_enabled: false,
   usage_history_enabled: true,

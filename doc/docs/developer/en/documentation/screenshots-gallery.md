@@ -41,12 +41,12 @@ Each carousel uses synthetic documentation data and focuses on the screens that 
     </div>
     <figcaption><strong>Endpoint Status.</strong> Global healthcheck views combine current latency, timeline trends, and incident history across storage backends.</figcaption>
   </figure>
-  <figure data-thumb-label="Billing">
+  <figure data-thumb-label="Cost">
     <div class="docs-themed-shot" data-docs-themed-shot>
-      <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/admin-billing.light.png" alt="Admin Billing page with scope controls, manual collection, monthly summary, and subject totals" loading="lazy">
-      <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/admin-billing.dark.png" alt="Admin Billing page with scope controls, manual collection, monthly summary, and subject totals" loading="lazy">
+      <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/admin-cost.light.png" alt="Admin Cost page with scope controls, manual collection, monthly summary, and subject totals" loading="lazy">
+      <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/admin-cost.dark.png" alt="Admin Cost page with scope controls, manual collection, monthly summary, and subject totals" loading="lazy">
     </div>
-    <figcaption><strong>Billing.</strong> Billing analytics summarize monthly usage and estimated cost per account or user on billing-enabled Ceph endpoints.</figcaption>
+    <figcaption><strong>Cost.</strong> Cost analytics summarize monthly usage and estimated cost per account or user on cost-enabled Ceph endpoints.</figcaption>
   </figure>
 </div>
 

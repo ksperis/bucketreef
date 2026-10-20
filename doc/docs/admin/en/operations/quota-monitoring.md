@@ -90,13 +90,13 @@ History model:
 - `quota_usage_hourly` stores the timestamped detail for each usage collection run and subject
 - `quota_usage_daily` stores the daily rollup for long-term trends
 
-Shared retention service (`DataRetentionService`) is used by quota and billing jobs.
+Shared retention service (`DataRetentionService`) is used by quota and cost jobs.
 
 Retention env vars:
 
 - `QUOTA_HISTORY_HOURLY_RETENTION_DAYS` (default `30`)
 - `QUOTA_HISTORY_DAILY_RETENTION_DAYS` (default `365`)
-- `BILLING_DAILY_RETENTION_DAYS` (default `365`)
+- `COST_DAILY_RETENTION_DAYS` (default `365`)
 
 Set retention to `0` to disable purge for the corresponding dataset.
 
@@ -119,5 +119,5 @@ lease-protected and reports the number of deleted rows.
 ## Related pages
 
 - [Configuration](../configuration/index.md)
-- [Operations: billing](billing.md)
+- [Operations: cost](cost.md)
 - [Operations: observability](observability.md)

@@ -254,7 +254,7 @@ const storageOpsEnabledGeneralSettingsRule: MockRule = {
     browser_portal_enabled: true,
     browser_ceph_admin_enabled: true,
     portal_enabled: true,
-    billing_enabled: false,
+    cost_enabled: false,
     endpoint_status_enabled: true,
     bucket_migration_enabled: true,
     bucket_compare_enabled: true,
@@ -267,8 +267,8 @@ const storageOpsEnabledGeneralSettingsRule: MockRule = {
   },
 };
 
-const billingEnabledGeneralSettingsRule: MockRule = {
-  id: "settings-general-billing-enabled",
+const costEnabledGeneralSettingsRule: MockRule = {
+  id: "settings-general-cost-enabled",
   path: /^\/settings\/general$/,
   body: {
     manager_enabled: true,
@@ -279,7 +279,7 @@ const billingEnabledGeneralSettingsRule: MockRule = {
     browser_portal_enabled: true,
     browser_ceph_admin_enabled: true,
     portal_enabled: true,
-    billing_enabled: true,
+    cost_enabled: true,
     endpoint_status_enabled: true,
     bucket_migration_enabled: true,
     bucket_compare_enabled: true,
@@ -303,7 +303,7 @@ const bucketPurgeEnabledGeneralSettingsRule: MockRule = {
     browser_portal_enabled: true,
     browser_ceph_admin_enabled: true,
     portal_enabled: true,
-    billing_enabled: false,
+    cost_enabled: false,
     endpoint_status_enabled: true,
     bucket_migration_enabled: true,
     bucket_compare_enabled: true,
@@ -445,9 +445,9 @@ const endpointStatusGlobalIncidentsRule: MockRule = {
   }),
 };
 
-const billingSummaryRule: MockRule = {
-  id: "admin-billing-summary",
-  path: /^\/admin\/billing\/summary$/,
+const costSummaryRule: MockRule = {
+  id: "admin-cost-summary",
+  path: /^\/admin\/cost\/summary$/,
   body: {
     month: "2026-03",
     storage_endpoint_id: 11,
@@ -475,14 +475,14 @@ const billingSummaryRule: MockRule = {
       ingress_cost: 5.3,
       requests_cost: 18.6,
       total_cost: 157.6,
-      rate_card_name: "Ops rate card",
+      pricing_source: "global",
     },
   },
 };
 
-const billingSubjectsRule: MockRule = {
-  id: "admin-billing-subjects",
-  path: /^\/admin\/billing\/subjects$/,
+const costSubjectsRule: MockRule = {
+  id: "admin-cost-subjects",
+  path: /^\/admin\/cost\/subjects$/,
   body: {
     items: [
       {
@@ -520,9 +520,9 @@ const billingSubjectsRule: MockRule = {
   },
 };
 
-const billingSubjectDetailRule: MockRule = {
-  id: "admin-billing-subject-detail",
-  path: /^\/admin\/billing\/subject\/account\/\d+$/,
+const costSubjectDetailRule: MockRule = {
+  id: "admin-cost-subject-detail",
+  path: /^\/admin\/cost\/subject\/account\/\d+$/,
   body: ({ url }) => {
     const subjectId = Number(url.pathname.split("/").at(-1) ?? "101");
     const detailById = {
@@ -561,7 +561,7 @@ const billingSubjectDetailRule: MockRule = {
         cost: {
           currency: "EUR",
           total_cost: 96.4,
-          rate_card_name: "Ops rate card",
+          pricing_source: "global",
         },
       },
       102: {
@@ -596,7 +596,7 @@ const billingSubjectDetailRule: MockRule = {
         cost: {
           currency: "EUR",
           total_cost: 31.8,
-          rate_card_name: "Ops rate card",
+          pricing_source: "global",
         },
       },
       103: {
@@ -631,7 +631,7 @@ const billingSubjectDetailRule: MockRule = {
         cost: {
           currency: "EUR",
           total_cost: 22.5,
-          rate_card_name: "Ops rate card",
+          pricing_source: "global",
         },
       },
     } as const;
@@ -639,9 +639,9 @@ const billingSubjectDetailRule: MockRule = {
   },
 };
 
-const portalBillingMeRule: MockRule = {
-  id: "portal-billing-me",
-  path: /^\/portal\/billing\/me$/,
+const portalCostMeRule: MockRule = {
+  id: "portal-cost-me",
+  path: /^\/portal\/cost\/me$/,
   body: {
     month: "2026-03",
     subject_type: "account",
@@ -672,7 +672,7 @@ const portalBillingMeRule: MockRule = {
     cost: {
       currency: "EUR",
       total_cost: 96.4,
-      rate_card_name: "Ops rate card",
+      pricing_source: "global",
     },
   },
 };
@@ -839,11 +839,11 @@ export const scenarios: DocScreenshotScenario[] = [
     ),
   },
   {
-    id: "feature-billing-admin",
-    docPage: "user/feature-billing-admin.md",
-    route: "/admin/billing",
-    outputBasename: "admin-billing",
-    waitFor: "h1:has-text('Billing')",
+    id: "feature-cost-admin",
+    docPage: "user/feature-cost-admin.md",
+    route: "/admin/cost",
+    outputBasename: "admin-cost",
+    waitFor: "h1:has-text('Cost')",
     user: superAdminUser,
     storage: { ...baseStorage(), selectedWorkspace: "admin" },
     actions: [
@@ -853,10 +853,10 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "wait", selector: "text=87% (27/31 days)" },
     ],
     mockRules: withBaseRules(
-      billingEnabledGeneralSettingsRule,
-      billingSummaryRule,
-      billingSubjectsRule,
-      billingSubjectDetailRule,
+      costEnabledGeneralSettingsRule,
+      costSummaryRule,
+      costSubjectsRule,
+      costSubjectDetailRule,
     ),
   },
   {
@@ -973,8 +973,8 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "wait", selector: "text=Spaces by files" },
     ],
     mockRules: withBaseRules(
-      billingEnabledGeneralSettingsRule,
-      portalBillingMeRule,
+      costEnabledGeneralSettingsRule,
+      portalCostMeRule,
     ),
   },
   {

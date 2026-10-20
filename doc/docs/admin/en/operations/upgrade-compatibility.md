@@ -613,14 +613,14 @@ Deploy the migration and backend together. Audit and Portal readers now share a
 strict object contract instead of hiding malformed storage independently. The
 data cleanup is not reversed on downgrade.
 
-## 2026-08 canonical billing operation breakdowns
+## 2026-08 canonical cost operation breakdowns
 
-Migration `0086_canonical_billing_ops_breakdown` rewrites each available daily
+Migration `0086_canonical_cost_ops_breakdown` rewrites each available daily
 operation breakdown as a JSON object mapping operation names to integer counts.
 Malformed, non-object, and empty payloads become `NULL`, which remains the
 canonical representation when detailed operation data was not collected.
 
-Deploy the migration and backend together. Billing aggregation now rejects any
+Deploy the migration and backend together. Cost aggregation now rejects any
 remaining non-canonical breakdown instead of skipping it or coercing values at
 runtime. The data cleanup is not reversed on downgrade.
 
@@ -1090,8 +1090,8 @@ Current behavior after cleanup:
   preferences, with `ctx` as the authoritative URL parameter in each tab.
 - Legacy shared local storage keys (`selectedExecutionContextId`,
   `selectedS3AccountId`, and `selectedBrowserContextId`) are ignored.
-- Removed runtime env flags `BILLING_ENABLED` and `HEALTHCHECK_ENABLED` are no
-  longer accepted; use the explicit `FEATURE_BILLING_ENABLED` and
+- Removed runtime env flags `COST_ENABLED` and `HEALTHCHECK_ENABLED` are no
+  longer accepted; use the explicit `FEATURE_COST_ENABLED` and
   `FEATURE_ENDPOINT_STATUS_ENABLED` force-locks.
 
 ## Operator guidance

@@ -7,33 +7,33 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import (
-    BillingDisabledError,
+    CostDisabledError,
     ResourceConflictError,
     StorageEndpointNotFoundError,
 )
 from app.db import StorageEndpoint, StorageProvider, User
-from app.models.billing import BillingSubjectDetail, BillingSubjectsResponse, BillingSummary
+from app.models.cost import CostSubjectDetail, CostSubjectsResponse, CostSummary
 from app.services.app_settings_service import load_app_settings
-from app.services.billing_collection_service import BillingCollector
-from app.services.billing_service import BillingService
+from app.services.cost_collection_service import CostCollector
+from app.services.cost_service import CostService
 from app.services.operation_lease_service import (
     OperationLeaseService,
-    billing_daily_operation_name,
-    billing_operation_lease_ttl_seconds,
+    cost_daily_operation_name,
+    cost_operation_lease_ttl_seconds,
 )
 
 
-class AdminBillingService:
-    """Orchestrate Admin billing reads and on-demand daily collection."""
+class AdminCostService:
+    """Orchestrate Admin cost reads and on-demand daily collection."""
 
     def __init__(self, db: Session) -> None:
         self.db = db
-        self.billing = BillingService(db)
+        self.cost = CostService(db)
 
     @staticmethod
     def _require_enabled() -> None:
-        if not load_app_settings().general.billing_enabled:
-            raise BillingDisabledError("Billing is disabled")
+        if not load_app_settings().general.cost_enabled:
+            raise CostDisabledError("Cost is disabled")
 
     def _require_ceph_endpoint(self, endpoint_id: int) -> StorageEndpoint:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
@@ -43,11 +43,11 @@ class AdminBillingService:
             raise ValueError("This endpoint is not a Ceph endpoint")
         return endpoint
 
-    def summary(self, month: str, endpoint_id: int | None) -> BillingSummary:
+    def summary(self, month: str, endpoint_id: int | None) -> CostSummary:
         self._require_enabled()
         if endpoint_id is not None:
             self._require_ceph_endpoint(endpoint_id)
-        return self.billing.summary(month, endpoint_id)
+        return self.cost.summary(month, endpoint_id)
 
     def list_subjects(
         self,
@@ -58,10 +58,10 @@ class AdminBillingService:
         page_size: int,
         sort_by: str,
         sort_dir: str,
-    ) -> BillingSubjectsResponse:
+    ) -> CostSubjectsResponse:
         self._require_enabled()
         self._require_ceph_endpoint(endpoint_id)
-        return self.billing.list_subjects(month, endpoint_id, subject_type, page, page_size, sort_by, sort_dir)
+        return self.cost.list_subjects(month, endpoint_id, subject_type, page, page_size, sort_by, sort_dir)
 
     def subject_detail(
         self,
@@ -69,24 +69,24 @@ class AdminBillingService:
         endpoint_id: int,
         subject_type: str,
         subject_id: int,
-    ) -> BillingSubjectDetail:
+    ) -> CostSubjectDetail:
         self._require_enabled()
         self._require_ceph_endpoint(endpoint_id)
-        return self.billing.subject_detail(month, endpoint_id, subject_type, subject_id)
+        return self.cost.subject_detail(month, endpoint_id, subject_type, subject_id)
 
     def export_csv(self, month: str, endpoint_id: int) -> tuple[str, str]:
         self._require_enabled()
         self._require_ceph_endpoint(endpoint_id)
-        return self.billing.export_csv(month, endpoint_id)
+        return self.cost.export_csv(month, endpoint_id)
 
     def collect_daily(self, day: date, actor: User) -> dict:
         self._require_enabled()
-        operation_name = billing_daily_operation_name(day.isoformat())
+        operation_name = cost_daily_operation_name(day.isoformat())
         with OperationLeaseService(self.db).hold(
             operation_name,
-            ttl_seconds=billing_operation_lease_ttl_seconds(),
+            ttl_seconds=cost_operation_lease_ttl_seconds(),
             lease_context={"source": "admin", "day": day.isoformat(), "user_id": actor.id},
         ) as lease:
             if lease is None:
-                raise ResourceConflictError("A billing collection is already running for this day.")
-            return BillingCollector(self.db).collect_daily(day)
+                raise ResourceConflictError("A cost collection is already running for this day.")
+            return CostCollector(self.db).collect_daily(day)

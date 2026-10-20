@@ -52,7 +52,7 @@ scheduler exposes no host port. QuickStart does not start a storage simulator or
 configure an S3/Ceph endpoint. Images use the bundle's `VERSION`, never `latest`.
 For builds of your working tree, see [Local development](/developer/en/contributing/local-development/).
 
-The scheduler also runs billing collection, quota monitoring, usage history and
+The scheduler also runs cost collection, quota monitoring, usage history and
 notification retention with the [standard schedules](docker-compose.md#scheduler-service).
 It reuses the generated `INTERNAL_CRON_TOKEN`; no host crontab is needed.
 Feature-dependent jobs skip their work when the corresponding feature is disabled.

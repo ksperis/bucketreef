@@ -11,7 +11,7 @@ umask 077
   echo 'SHELL=/bin/sh'
   echo 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
   echo "$HEALTHCHECK_CRON_SCHEDULE /bin/sh /opt/cron/run-healthcheck.sh"
-  echo "$BILLING_CRON_SCHEDULE /bin/sh /opt/cron/run-billing.sh"
+  echo "$COST_CRON_SCHEDULE /bin/sh /opt/cron/run-cost.sh"
   echo "$QUOTA_MONITOR_CRON_SCHEDULE /bin/sh /opt/cron/run-quota-monitor.sh"
   echo "$USAGE_HISTORY_CRON_SCHEDULE /bin/sh /opt/cron/run-usage-history.sh"
   echo "${BUCKET_USAGE_STATS_CRON_SCHEDULE:-17 * * * *} /bin/sh /opt/cron/run-bucket-usage-stats.sh"

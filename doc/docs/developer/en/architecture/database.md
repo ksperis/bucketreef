@@ -11,7 +11,7 @@
 - storage endpoints
 - S3 accounts/users/connections
 - audit and operational data
-- bucket migration and health/billing data
+- bucket migration and health/cost data
 
 ## Schema diagrams
 
@@ -70,9 +70,9 @@ cannot silently disappear from these diagrams.
 </details>
 
 <details>
-  <summary>Observability, quota, and billing</summary>
-  <a href="/assets/diagrams/database-schema/observability-quota-billing.svg">
-    <img src="/assets/diagrams/database-schema/observability-quota-billing.svg" alt="Observability quota and billing database schema" loading="lazy">
+  <summary>Observability, quota, and cost</summary>
+  <a href="/assets/diagrams/database-schema/observability-quota-cost.svg">
+    <img src="/assets/diagrams/database-schema/observability-quota-cost.svg" alt="Observability quota and cost database schema" loading="lazy">
   </a>
 </details>
 

@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from app.routers import (
     portal_access_keys,
     portal_access_logs,
-    portal_billing,
+    portal_cost,
     portal_collaboration,
     portal_context,
     portal_monitoring,
@@ -22,7 +22,7 @@ from app.routers import (
 router = APIRouter(prefix="/portal", tags=["portal"])
 router.include_router(portal_access_keys.router)
 router.include_router(portal_access_logs.router)
-router.include_router(portal_billing.router)
+router.include_router(portal_cost.router)
 router.include_router(portal_collaboration.router)
 router.include_router(portal_context.router)
 router.include_router(portal_monitoring.router)

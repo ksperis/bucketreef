@@ -27,20 +27,20 @@ remain in `deploy/helm/bucketreef` for chart development and CI validation.
 
 - Backend and frontend Deployments + Services.
 - Optional Ingress.
-- Built-in CronJobs for billing, healthchecks, quota monitoring, usage history collection, bucket composition collection, and user notification retention.
+- Built-in CronJobs for cost, healthchecks, quota monitoring, usage history collection, bucket composition collection, and user notification retention.
 - Optional bundled PostgreSQL in values (evaluate for your environment policies).
 - CronJobs render with `concurrencyPolicy: Forbid`; the backend also uses database leases so a manual trigger and a CronJob cannot run the same collection at the same time.
 
 Cron values blocks:
 
-- `billingCronJob`
+- `costCronJob`
 - `healthcheckCronJob`
 - `quotaMonitorCronJob`
 - `usageHistoryCronJob`
 - `bucketUsageStatsCronJob`
 - `notificationRetentionCronJob`
 
-Backend env defaults include billing/quota and user-notification retention knobs.
+Backend env defaults include cost/quota and user-notification retention knobs.
 Provide `SMTP_PASSWORD` via your secret injection policy.
 LDAP providers can be injected through `backend.extraEnv` with
 `LDAP_PROVIDERS__<key>__...` variables. Store bind passwords in Kubernetes
@@ -171,7 +171,7 @@ For `backend.replicas > 1`:
   legacy imports or files that are explicitly shared.
 - If backend persistence is enabled, use `ReadWriteMany`. The chart rejects
   `ReadWriteOnce` with multiple backend replicas.
-- Enable each billing, healthcheck, quota-monitor, usage-history, and notification-retention CronJob
+- Enable each cost, healthcheck, quota-monitor, usage-history, and notification-retention CronJob
   once per release. The chart-level `concurrencyPolicy: Forbid` and backend DB
   leases protect against overlapping runs.
 
@@ -298,7 +298,7 @@ browser E2E suite.
 5. Optionally configure the first storage endpoint.
 6. Optionally create or import the first account or connection.
 7. Verify the healthcheck CronJob runs and endpoint status updates when storage is configured.
-8. Verify billing, quota monitoring, usage-history, and notification-retention CronJobs are enabled or intentionally disabled.
+8. Verify cost, quota monitoring, usage-history, and notification-retention CronJobs are enabled or intentionally disabled.
 9. Check Browser and Portal feature flags before giving access to users.
 10. Review [Operations: security](../security/index.md) and [Operations: observability](../operations/observability.md) before publishing the URL broadly.
 
@@ -308,5 +308,5 @@ browser E2E suite.
 - [Production readiness](../operations/production-readiness.md)
 - [Backup and restore](../operations/backup-restore.md)
 - [Operations: healthchecks](../operations/healthchecks.md)
-- [Operations: billing](../operations/billing.md)
+- [Operations: cost](../operations/cost.md)
 - [Operations: quota monitoring and history](../operations/quota-monitoring.md)

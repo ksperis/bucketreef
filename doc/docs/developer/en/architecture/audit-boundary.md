@@ -8,7 +8,7 @@ BucketReef deliberately separates application audit from storage access logs.
 |---|---|---|
 | Application `audit_logs` | Control, security, configuration, and workflow-control evidence. | Authentication outcomes, IAM and key changes, shares and public links, bucket/project/application settings, migration or purge commands and state changes. |
 | S3 provider access logs | Object data-plane evidence. | Upload, download, delete, copy, folder marker, object metadata/tags/ACL/retention, multipart, version cleanup, and individual restore requests. |
-| Operational stores and backend logs | Metrics, health, billing, usage collection, and troubleshooting. | Healthchecks, usage snapshots, billing collection, request errors, and scheduler execution. |
+| Operational stores and backend logs | Metrics, health, cost, usage collection, and troubleshooting. | Healthchecks, usage snapshots, cost collection, request errors, and scheduler execution. |
 
 The application audit service enforces this boundary centrally. Callers cannot
 persist an excluded action by changing the surface or status. Global workflows

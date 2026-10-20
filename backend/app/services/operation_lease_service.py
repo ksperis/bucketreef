@@ -41,16 +41,16 @@ def bucket_usage_stats_bucket_operation_name(scope: str, bucket_name: str) -> st
     return f"bucket-usage-stats:bucket:{normalized_scope}:{normalized_bucket}"
 
 
-def billing_daily_operation_name(day_iso: str) -> str:
-    return f"billing:daily:{day_iso}"
+def cost_daily_operation_name(day_iso: str) -> str:
+    return f"cost:daily:{day_iso}"
 
 
 def default_operation_lease_ttl_seconds() -> int:
     return max(15, int(get_settings().operation_lease_ttl_seconds))
 
 
-def billing_operation_lease_ttl_seconds() -> int:
-    return max(60, int(get_settings().billing_operation_lease_ttl_seconds))
+def cost_operation_lease_ttl_seconds() -> int:
+    return max(60, int(get_settings().cost_operation_lease_ttl_seconds))
 
 
 def generate_operation_owner(prefix: str = "backend") -> str:

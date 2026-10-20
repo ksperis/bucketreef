@@ -113,7 +113,7 @@ backend:
     SCHEDULED_JOBS_ENABLED: "false"
     WEBHOOK_WORKER_ENABLED: "false"
     BUCKET_MIGRATION_WORKER_ENABLED: "false"
-billingCronJob:
+costCronJob:
   enabled: false
 healthcheckCronJob:
   enabled: false

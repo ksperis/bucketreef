@@ -62,7 +62,7 @@ def _build_app_settings_payload() -> str:
             "browser_root_enabled": True,
             "browser_manager_enabled": False,
             "browser_ceph_admin_enabled": False,
-            "billing_enabled": False,
+            "cost_enabled": False,
             "endpoint_status_enabled": False,
             "quota_alerts_enabled": False,
             "usage_history_enabled": False,

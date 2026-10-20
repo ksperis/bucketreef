@@ -40,7 +40,7 @@ NON_AUDIT_OPERATION_ACTIONS = frozenset(
     {
         "calculate_bucket_usage_stats",
         "collect_usage_history",
-        "billing.collect_daily",
+        "cost.collect_daily",
         "healthchecks.run",
         "ceph_admin.bucket.index_check",
         "refresh_access_token",

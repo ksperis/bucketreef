@@ -656,13 +656,13 @@ export default function AdminDashboard() {
 
   const extraFeatures = useMemo<WorkspaceDashboardFeature[]>(
     () => [
-      { id: "billing", label: text("billing"), enabled: generalSettings.billing_enabled },
+      { id: "cost", label: text("cost"), enabled: generalSettings.cost_enabled },
       { id: "endpoint_status", label: text("endpointStatus"), enabled: generalSettings.endpoint_status_enabled },
       { id: "quota_alerts", label: text("quotaAlerts"), enabled: generalSettings.quota_alerts_enabled },
       { id: "usage_history", label: text("usageHistory"), enabled: generalSettings.usage_history_enabled },
     ],
     [
-      generalSettings.billing_enabled,
+      generalSettings.cost_enabled,
       generalSettings.endpoint_status_enabled,
       generalSettings.quota_alerts_enabled,
       generalSettings.usage_history_enabled,

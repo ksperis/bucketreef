@@ -31,7 +31,7 @@ security, configuration, and workflow-control events.
 
 - `AccessDenied`: storage policy/permission denial.
 - Missing menu/page: feature flag or capability mismatch.
-- Stale metrics/billing/quota history: scheduler or token misconfiguration.
+- Stale metrics/cost/quota history: scheduler or token misconfiguration.
 - Missing quota alert emails: SMTP configuration/user opt-in/global watch mismatch.
 
 ## From user report to operator check
@@ -49,7 +49,7 @@ security, configuration, and workflow-control events.
 ## Related pages
 
 - [Operations: healthchecks](healthchecks.md)
-- [Operations: billing](billing.md)
+- [Operations: cost](cost.md)
 - [Operations: quota monitoring and history](quota-monitoring.md)
 - [Production readiness](production-readiness.md)
 - [User troubleshooting](../help/troubleshooting.md)

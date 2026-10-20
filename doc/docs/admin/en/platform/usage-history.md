@@ -4,7 +4,7 @@ Use this page when you need to verify stored usage snapshots from Admin.
 
 ## When to use
 
-Use **Admin > Usage History** when users report stale quota, missing Portal usage, unexpected billing inputs, or inconsistent capacity charts.
+Use **Admin > Usage History** when users report stale quota, missing Portal usage, unexpected cost inputs, or inconsistent capacity charts.
 
 ## Prerequisites
 

@@ -90,6 +90,21 @@ def test_migration_covers_every_utc_datetime_column_present_at_revision() -> Non
         if table_name != "refresh_sessions"
     }
     expected_current_columns.update(POST_MIGRATION_UTC_COLUMNS)
+    for retired_billing_table in (
+        "billing_usage_daily",
+        "billing_storage_daily",
+        "billing_rate_cards",
+        "billing_assignments",
+    ):
+        expected_current_columns.pop(retired_billing_table, None)
+    expected_current_columns.update(
+        {
+            "cost_usage_daily": ("collected_at",),
+            "cost_storage_daily": ("collected_at",),
+            "cost_models": ("created_at", "updated_at"),
+            "cost_endpoint_overrides": ("created_at", "updated_at"),
+        }
+    )
     expected_current_columns["s3_sessions"] = (
         *expected_current_columns["s3_sessions"],
         "idle_expires_at",

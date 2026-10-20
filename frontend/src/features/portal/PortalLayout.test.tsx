@@ -53,7 +53,7 @@ const mocks = vi.hoisted(() => ({
     browser_portal_enabled: true,
     browser_ceph_admin_enabled: false,
     portal_enabled: true,
-    billing_enabled: false,
+    cost_enabled: false,
     endpoint_status_enabled: false,
     quota_alerts_enabled: false,
     usage_history_enabled: false,
@@ -197,7 +197,7 @@ describe("PortalLayout", () => {
     expect(nav).not.toHaveTextContent("Administration");
     expect(nav).not.toHaveTextContent("Browser");
     expect(nav).not.toHaveTextContent("Buckets");
-    expect(nav).not.toHaveTextContent("Billing");
+    expect(nav).not.toHaveTextContent("Cost");
     expect(nav).not.toHaveTextContent("Workspace");
 
     const desktopSidebar = container.querySelector(

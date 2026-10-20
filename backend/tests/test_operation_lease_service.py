@@ -43,7 +43,7 @@ def test_operation_lease_same_owner_renews(db_session):
 
 def test_operation_lease_expired_row_can_be_taken(db_session):
     expired = BackendOperationLease(
-        operation_name="billing:daily:2026-07-03",
+        operation_name="cost:daily:2026-07-03",
         lease_owner="backend-a",
         lease_until=utcnow() - timedelta(seconds=1),
         acquired_at=utcnow() - timedelta(minutes=10),
@@ -53,10 +53,10 @@ def test_operation_lease_expired_row_can_be_taken(db_session):
     db_session.commit()
 
     service = OperationLeaseService(db_session)
-    acquired = service.acquire("billing:daily:2026-07-03", ttl_seconds=60, owner="backend-b")
+    acquired = service.acquire("cost:daily:2026-07-03", ttl_seconds=60, owner="backend-b")
 
     assert acquired is not None
-    assert service.current_owner("billing:daily:2026-07-03") == "backend-b"
+    assert service.current_owner("cost:daily:2026-07-03") == "backend-b"
 
 
 def test_operation_lease_hold_releases_after_success(db_session):

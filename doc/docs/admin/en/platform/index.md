@@ -16,7 +16,7 @@ Use **Admin** for platform governance and global configuration.
 4. Use **Connections** for S3 connections.
 5. Use **Storage Backends** for endpoints and endpoint status.
 6. Use **Usage & Metrics** to review endpoint-scoped storage, usage composition, usage history, and traffic from tabbed categories.
-7. Use **Audit & Reporting** for the effective-access inventory, billing,
+7. Use **Audit & Reporting** for the effective-access inventory, cost,
    stored usage-history snapshots, and the control-plane/security audit trail.
    Object operations are investigated in S3 provider access logs, not Admin
    Audit.
@@ -287,7 +287,7 @@ image up to 1 MiB. Group images never use Gravatar or an OIDC profile image.
 ## Limits / feature flags
 
 !!! note
-    Billing, Endpoint Status, Portal, and some browser settings are visible only when corresponding features are enabled.
+    Cost, Endpoint Status, Portal, and some browser settings are visible only when corresponding features are enabled.
 
 !!! note
     UI User role and entitlement rules:
@@ -309,7 +309,7 @@ image up to 1 MiB. Group images never use Gravatar or an OIDC profile image.
 ## Related pages
 
 - [Feature: Endpoint Status in Admin](endpoint-status.md)
-- [Feature: Billing in Admin](billing.md)
+- [Feature: Cost in Admin](cost.md)
 - [Feature: Admin Usage and Metrics](usage-metrics.md)
 - [Feature: Usage History in Admin](usage-history.md)
 - [Feature: Key Rotation in Admin](key-rotation.md)

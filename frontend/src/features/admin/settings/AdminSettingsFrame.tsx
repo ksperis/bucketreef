@@ -17,6 +17,7 @@ import type { useAppSettingsDraft } from "./useAppSettingsDraft";
 const isDemo = import.meta.env.MODE === "demo";
 const breadcrumbMessageKeys: Partial<Record<Parameters<typeof adminPageBreadcrumbs>[0], AdminSettingsMessageKey>> = {
   "general-settings": "general",
+  "cost-settings": "cost",
   "authentication-settings": "authentication",
   "manager-settings": "manager",
   "browser-settings": "browser",
