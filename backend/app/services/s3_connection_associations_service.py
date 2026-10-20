@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from sqlalchemy import delete, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db.s3_connection import UserS3Connection
@@ -42,15 +43,15 @@ class S3ConnectionAssociationsService:
             self._replace_user_links(connection_id, user_ids)
 
     def delete_links(self, connection_id: int) -> None:
-        (
-            self.db.query(UserS3Connection)
-            .filter(UserS3Connection.s3_connection_id == connection_id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(UserS3Connection)
+            .where(UserS3Connection.s3_connection_id == connection_id)
+            .execution_options(synchronize_session=False)
         )
-        (
-            self.db.query(UiGroupS3Connection)
-            .filter(UiGroupS3Connection.s3_connection_id == connection_id)
-            .delete(synchronize_session=False)
+        self.db.execute(
+            delete(UiGroupS3Connection)
+            .where(UiGroupS3Connection.s3_connection_id == connection_id)
+            .execution_options(synchronize_session=False)
         )
 
     def _validated_ids(
@@ -78,22 +79,22 @@ class S3ConnectionAssociationsService:
         connection_id: int,
         group_ids: list[int],
     ) -> None:
-        existing = (
-            self.db.query(UiGroupS3Connection)
-            .filter(UiGroupS3Connection.s3_connection_id == connection_id)
-            .all()
-        )
+        existing = self.db.scalars(
+            select(UiGroupS3Connection).where(
+                UiGroupS3Connection.s3_connection_id == connection_id
+            )
+        ).all()
         existing_ids = {int(link.group_id) for link in existing}
         desired_ids = set(group_ids)
         removed_ids = existing_ids - desired_ids
         if removed_ids:
-            (
-                self.db.query(UiGroupS3Connection)
-                .filter(
+            self.db.execute(
+                delete(UiGroupS3Connection)
+                .where(
                     UiGroupS3Connection.s3_connection_id == connection_id,
                     UiGroupS3Connection.group_id.in_(removed_ids),
                 )
-                .delete(synchronize_session=False)
+                .execution_options(synchronize_session=False)
             )
         for group_id in sorted(desired_ids - existing_ids):
             self.db.add(
@@ -108,22 +109,22 @@ class S3ConnectionAssociationsService:
         connection_id: int,
         user_ids: list[int],
     ) -> None:
-        existing = (
-            self.db.query(UserS3Connection)
-            .filter(UserS3Connection.s3_connection_id == connection_id)
-            .all()
-        )
+        existing = self.db.scalars(
+            select(UserS3Connection).where(
+                UserS3Connection.s3_connection_id == connection_id
+            )
+        ).all()
         existing_ids = {int(link.user_id) for link in existing}
         desired_ids = set(user_ids)
         removed_ids = existing_ids - desired_ids
         if removed_ids:
-            (
-                self.db.query(UserS3Connection)
-                .filter(
+            self.db.execute(
+                delete(UserS3Connection)
+                .where(
                     UserS3Connection.s3_connection_id == connection_id,
                     UserS3Connection.user_id.in_(removed_ids),
                 )
-                .delete(synchronize_session=False)
+                .execution_options(synchronize_session=False)
             )
         for user_id in sorted(desired_ids - existing_ids):
             self.db.add(
