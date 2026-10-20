@@ -189,14 +189,46 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
         storage_endpoint_id=account.storage_endpoint_id,
         allow_access_key_expiration=True,
         allow_activity_history=False,
+        allow_rgw_usage_metrics=False,
         allow_cost_estimation=False,
     )
-    user_payload = S3UserUpdate(allow_activity_history=None, allow_cost_estimation=True)
+    user_payload = S3UserUpdate(
+        allow_activity_history=None,
+        allow_rgw_usage_metrics=True,
+        allow_cost_estimation=True,
+    )
     apply_resource_feature_overrides(user_payload, s3_user)
 
     assert s3_user.allow_activity_history is None
     assert s3_user.allow_access_key_expiration is True
+    assert s3_user.allow_rgw_usage_metrics is True
     assert s3_user.allow_cost_estimation is True
+
+
+@pytest.mark.parametrize(
+    "policy,override,enabled,source",
+    [
+        (FeaturePolicy.DEFAULT_ON, None, True, "platform"),
+        (FeaturePolicy.DEFAULT_ON, False, False, "resource"),
+        (FeaturePolicy.TARGETED, None, False, "platform"),
+        (FeaturePolicy.TARGETED, True, True, "resource"),
+        (FeaturePolicy.DISABLED, True, False, "platform"),
+    ],
+)
+def test_rgw_usage_metrics_policy_supports_s3_user_overrides(policy, override, enabled, source):
+    settings = AppSettings()
+    settings.manager.feature_policies.rgw_usage_metrics = policy
+    s3_user = S3User(
+        name="Metrics policy user",
+        rgw_user_uid="metrics-policy-user",
+        storage_endpoint_id=1,
+        allow_rgw_usage_metrics=override,
+    )
+
+    state = manager_rgw_usage_metrics_state(settings.manager.feature_policies, s3_user)
+
+    assert state.enabled is enabled
+    assert state.source == source
 
 
 def test_admin_portal_prohibition_returns_forbidden_before_logging_reconciliation(client, db_session, monkeypatch):

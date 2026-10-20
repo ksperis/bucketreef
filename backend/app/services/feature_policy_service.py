@@ -31,7 +31,7 @@ MANAGER_ACTIVITY_RESOURCE_FIELDS = {
     "allow_activity_history": "activity_history",
 }
 
-MANAGER_ACCOUNT_POLICY_FIELDS = {
+MANAGER_USAGE_METRICS_RESOURCE_FIELDS = {
     "allow_rgw_usage_metrics": "rgw_usage_metrics",
 }
 
@@ -46,7 +46,7 @@ PROJECT_COLLECTION_RESOURCE_FIELDS = {
 MANAGER_OVERRIDE_FEATURES = {
     **MANAGER_RESOURCE_FIELDS,
     **MANAGER_ACTIVITY_RESOURCE_FIELDS,
-    **MANAGER_ACCOUNT_POLICY_FIELDS,
+    **MANAGER_USAGE_METRICS_RESOURCE_FIELDS,
 }
 
 RESOURCE_FEATURE_OVERRIDE_FIELDS = {
@@ -56,6 +56,7 @@ RESOURCE_FEATURE_OVERRIDE_FIELDS = {
 }
 
 ManagerActivityResource = S3Account | S3User | S3Connection
+ManagerUsageMetricsResource = S3Account | S3User
 
 
 def _override_values(
@@ -154,9 +155,18 @@ def project_account_resource(db: Session, context: S3ExecutionContext) -> S3Acco
     return None
 
 
+def manager_usage_metrics_resource(
+    db: Session,
+    context: S3ExecutionContext,
+) -> ManagerUsageMetricsResource | None:
+    if context.context_kind == "s3_user" and context.s3_user_id is not None:
+        return db.get(S3User, context.s3_user_id)
+    return project_account_resource(db, context)
+
+
 def manager_rgw_usage_metrics_state(
     policies: ManagerFeaturePolicies,
-    resource: S3Account | None,
+    resource: ManagerUsageMetricsResource | None,
 ) -> FeatureState:
     return resolve_feature_policy(
         policies.rgw_usage_metrics,

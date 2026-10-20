@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0170_cost_estimation_policies"
+_EXPECTED_ALEMBIC_HEAD = "0171_s3_user_rgw_usage_metrics"
 
 
 def _alembic_config() -> Config:

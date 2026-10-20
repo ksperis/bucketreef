@@ -11,6 +11,7 @@ from fastapi import HTTPException
 
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3Connection, S3User, StorageEndpoint, User, UserRole
 from app.main import app
+from app.models.account_capabilities import AccountCapabilities
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy
 from app.models.session import ManagerSessionPrincipal, SessionCapabilities
@@ -112,6 +113,51 @@ def test_manager_rgw_metrics_kill_switch_blocks_every_actor(monkeypatch, db_sess
 
     assert exc.value.status_code == 403
     assert str(exc.value.detail) == "RGW traffic and usage metrics are disabled"
+
+
+@pytest.mark.parametrize(
+    "dependency",
+    [
+        dependencies.require_storage_metrics_capable_manager,
+        dependencies.require_usage_logs_capable_manager,
+    ],
+)
+def test_manager_rgw_metrics_honor_s3_user_override(monkeypatch, db_session, dependency):
+    settings = AppSettings()
+    settings.manager.feature_policies.rgw_usage_metrics = FeaturePolicy.TARGETED
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(feature_gates, "has_supervision_credentials", lambda _context: True)
+    endpoint = _ceph_endpoint("s3-user-metrics-policy")
+    s3_user = S3User(
+        name="Metrics policy user",
+        rgw_user_uid="metrics-policy-user",
+        rgw_access_key="AK-S3U-METRICS",
+        rgw_secret_key="SK-S3U-METRICS",
+        storage_endpoint=endpoint,
+        allow_rgw_usage_metrics=False,
+    )
+    actor = User(
+        email="s3-user-metrics-policy@example.com",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_ADMIN.value,
+    )
+    db_session.add_all([endpoint, s3_user, actor])
+    db_session.commit()
+    context = S3ExecutionContext.from_s3_user(
+        s3_user,
+        manager_capabilities=AccountCapabilities(can_manage_buckets=True),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        dependency(context=context, actor=actor, db=db_session)
+    assert exc.value.status_code == 403
+    assert str(exc.value.detail) == "RGW traffic and usage metrics are disabled"
+
+    s3_user.allow_rgw_usage_metrics = True
+    db_session.commit()
+
+    assert dependency(context=context, actor=actor, db=db_session) is actor
 
 
 @pytest.mark.parametrize(

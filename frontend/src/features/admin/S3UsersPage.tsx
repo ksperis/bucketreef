@@ -161,6 +161,7 @@ export default function S3UsersPage() {
     allow_access_key_metadata: null as boolean | null,
     allow_access_key_expiration: null as boolean | null,
     allow_activity_history: null as boolean | null,
+    allow_rgw_usage_metrics: null as boolean | null,
     allow_cost_estimation: null as boolean | null,
     allow_managed_private_connection_provisioning: null as boolean | null,
   });
@@ -520,6 +521,7 @@ export default function S3UsersPage() {
       allow_access_key_metadata: user.allow_access_key_metadata ?? null,
       allow_access_key_expiration: user.allow_access_key_expiration ?? null,
       allow_activity_history: user.allow_activity_history ?? null,
+      allow_rgw_usage_metrics: user.allow_rgw_usage_metrics ?? null,
       allow_cost_estimation: user.allow_cost_estimation ?? null,
       allow_managed_private_connection_provisioning: user.allow_managed_private_connection_provisioning ?? null,
     };
@@ -558,6 +560,7 @@ export default function S3UsersPage() {
         payload.allow_access_key_metadata = editForm.allow_access_key_metadata;
         payload.allow_access_key_expiration = editForm.allow_access_key_expiration;
         payload.allow_activity_history = editForm.allow_activity_history;
+        payload.allow_rgw_usage_metrics = editForm.allow_rgw_usage_metrics;
         payload.allow_cost_estimation = editForm.allow_cost_estimation;
         payload.allow_managed_private_connection_provisioning =
           editForm.allow_managed_private_connection_provisioning;
@@ -590,6 +593,7 @@ export default function S3UsersPage() {
         allow_access_key_metadata: updatedUser.allow_access_key_metadata ?? editForm.allow_access_key_metadata,
         allow_access_key_expiration: updatedUser.allow_access_key_expiration ?? editForm.allow_access_key_expiration,
         allow_activity_history: updatedUser.allow_activity_history ?? editForm.allow_activity_history,
+        allow_rgw_usage_metrics: updatedUser.allow_rgw_usage_metrics ?? editForm.allow_rgw_usage_metrics,
         allow_cost_estimation: updatedUser.allow_cost_estimation ?? editForm.allow_cost_estimation,
         allow_managed_private_connection_provisioning: updatedUser.allow_managed_private_connection_provisioning ?? editForm.allow_managed_private_connection_provisioning,
       };
@@ -1377,6 +1381,11 @@ export default function S3UsersPage() {
             {showEditManagerTab && (
               <div className="settings-stack">
                 <SettingsSection presentation="compact" title={adminText("Usage and metrics")}>
+                  <FeatureOverrideField title={adminText("RGW traffic and usage metrics")} value={editForm.allow_rgw_usage_metrics}
+                    policy={generalSettings.manager_feature_policies.rgw_usage_metrics} disabled={editBusy}
+                    triState
+                    description={adminText("Controls traffic and usage metrics for this RGW User. Endpoint capabilities and supervision credentials still apply.")}
+                    onChange={value => setEditForm(prev => ({ ...prev, allow_rgw_usage_metrics: value }))} />
                   <FeatureOverrideField title={adminText("Cost estimation")} value={editForm.allow_cost_estimation}
                     policy={generalSettings.manager_feature_policies.cost_estimation} disabled={editBusy}
                     triState
