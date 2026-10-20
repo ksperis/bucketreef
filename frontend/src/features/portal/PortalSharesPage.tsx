@@ -4,19 +4,12 @@
  */
 import { ListActionLink } from "../../components/list/ListControls";
 import {
-  type FormEvent,
-  useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { PortalCollaborator } from "../../api/portalCollaborators";
-import {
-  listPortalStorageSpacePublicLinks,
-  type PortalPublicLink,
-} from "../../api/portalSharing";
-import { createPortalRequest, type PortalRequestedRole } from "../../api/portalRequests";
+import type { PortalRequestedRole } from "../../api/portalRequests";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
@@ -39,7 +32,6 @@ import {
   uiPanelMutedClass,
 } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
-import { extractApiError } from "../../utils/apiError";
 import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalPublicLinkRevokeDialog from "./PortalPublicLinkRevokeDialog";
 import PortalPublicLinksTable from "./PortalPublicLinksTable";
@@ -53,11 +45,11 @@ import {
   portalAccountRoleLabel,
   portalDateLabel,
 } from "./portalI18n";
+import { usePortalExternalLinksOverview } from "./usePortalExternalLinksOverview";
+import { usePortalMemberRequest } from "./usePortalMemberRequest";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
-import { usePortalPublicLinkActions } from "./usePortalPublicLinkActions";
 
 type CollaboratorsViewTab = "members" | "links";
-type PendingShareAction = { type: "revoke-public-link"; link: PortalPublicLink };
 
 function CollaboratorsInventory({
   collaborators,
@@ -275,22 +267,9 @@ export default function PortalSharesPage() {
   const [activeViewTab, setActiveViewTab] = useState<CollaboratorsViewTab>(
     searchParams.get("view") === "links" ? "links" : "members",
   );
-  const [publicLinks, setPublicLinks] = useState<PortalPublicLink[]>([]);
   const [sharesError, setSharesError] = useState<string | null>(null);
-  const [selectedLinkSpaceId, setSelectedLinkSpaceId] = useState("");
   const [collaboratorQuery, setCollaboratorQuery] = useState("");
   const [sharesMessage, setSharesMessage] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<PendingShareAction | null>(
-    null,
-  );
-  const [memberRequestOpen, setMemberRequestOpen] = useState(false);
-  const [memberRequestName, setMemberRequestName] = useState("");
-  const [memberRequestEmail, setMemberRequestEmail] = useState("");
-  const [memberRequestRole, setMemberRequestRole] =
-    useState<PortalRequestedRole>("portal_user");
-  const [memberRequestReason, setMemberRequestReason] = useState("");
-  const [memberRequestError, setMemberRequestError] = useState<string | null>(null);
-  const [memberRequestBusy, setMemberRequestBusy] = useState(false);
   const {
     workspace,
     state,
@@ -311,169 +290,49 @@ export default function PortalSharesPage() {
       state?.portal_role === "portal_manager" ||
       state?.can_manage_portal_users,
   );
-  const activeCollaboratorSpaces = useMemo(
-    () => workspace.spaces.filter((space) => space.status !== "Archived"),
-    [workspace.spaces],
-  );
-  const activeManagedTeamSpaces = useMemo(
-    () => activeCollaboratorSpaces.filter((space) => space.role === "Manager" && space.visibility === "shared"),
-    [activeCollaboratorSpaces],
-  );
-
-  const selectedPublicLinkSpace =
-    activeManagedTeamSpaces.find((space) => space.id === selectedLinkSpaceId) ??
-    null;
-  const updateLinksAfterRevoke = useCallback(
-    (updated: PortalPublicLink[], link: PortalPublicLink) =>
-      setPublicLinks((current) => [
-        ...current.filter(
-          (item) => item.storage_space_id !== link.storage_space_id,
-        ),
-        ...updated,
-      ]),
-    [],
-  );
   const {
+    activeManagedTeamSpaces,
+    selectedSpaceId: selectedLinkSpaceId,
+    setSelectedSpaceId: setSelectedLinkSpaceId,
+    selectedSpace: selectedPublicLinkSpace,
+    visibleLinks: publicLinkRows,
+    activeLinkCount: activePublicLinkCount,
+    tableStatus: publicLinksTableStatus,
     busyLinkId: busyPublicLinkId,
     copyLink: copyPublicLink,
-    revokeLink: revokePublicLink,
-  } = usePortalPublicLinkActions({
+    pendingRevoke,
+    requestRevoke: handleRevokePublicLink,
+    cancelRevoke,
+    confirmRevoke,
+  } = usePortalExternalLinksOverview({
     accountId: accountIdForApi,
-    onLinksUpdated: updateLinksAfterRevoke,
+    spaces: workspace.spaces,
+    requestedSpaceId: searchParams.get("space_id"),
     onMessage: setSharesMessage,
     onError: setSharesError,
   });
-
-  useEffect(() => {
-    const requestedSpaceId = searchParams.get("space_id");
-    if (requestedSpaceId && workspace.spaces.some((space) => space.id === requestedSpaceId)) {
-      setSelectedLinkSpaceId(requestedSpaceId);
-    }
-  }, [searchParams, workspace.spaces]);
-
-  useEffect(() => {
-    if (selectedLinkSpaceId && !activeManagedTeamSpaces.some((space) => space.id === selectedLinkSpaceId)) {
-      setSelectedLinkSpaceId("");
-    }
-  }, [activeManagedTeamSpaces, selectedLinkSpaceId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!accountIdForApi || activeManagedTeamSpaces.length === 0) {
-      setPublicLinks([]);
-      return () => {
-        cancelled = true;
-      };
-    }
-    Promise.all(
-      activeManagedTeamSpaces.map((space) =>
-        listPortalStorageSpacePublicLinks(accountIdForApi, space.id, {
-          includeRevoked: true,
-        }),
-      ),
-    )
-      .then((results) => {
-        if (!cancelled) setPublicLinks(results.flat());
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) setPublicLinks([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accountIdForApi, activeManagedTeamSpaces]);
-
-  const handleRevokePublicLink = useCallback(
-    (link: PortalPublicLink) => {
-      if (!accountIdForApi) return;
-      setPendingAction({ type: "revoke-public-link", link });
-    },
-    [accountIdForApi],
-  );
-
-  const closeMemberRequest = () => {
-    if (memberRequestBusy) return;
-    setMemberRequestOpen(false);
-    setMemberRequestName("");
-    setMemberRequestEmail("");
-    setMemberRequestRole("portal_user");
-    setMemberRequestReason("");
-    setMemberRequestError(null);
-  };
-
-  const handleMemberRequest = async (event: FormEvent) => {
-    event.preventDefault();
-    const targetName = memberRequestName.trim();
-    const targetEmail = memberRequestEmail.trim();
-    if (!accountIdForApi || !canRequestMemberChanges || !targetName || !targetEmail) return;
-    setMemberRequestBusy(true);
-    setMemberRequestError(null);
-    setSharesError(null);
-    setSharesMessage(null);
-    try {
-      const request = await createPortalRequest(accountIdForApi, {
-        request_type: "portal_user_access",
-        intent: "add",
-        target_name: targetName,
-        target_email: targetEmail,
-        portal_role: memberRequestRole,
-        reason: memberRequestReason.trim() || null,
-      });
-      setMemberRequestOpen(false);
-      setMemberRequestName("");
-      setMemberRequestEmail("");
-      setMemberRequestRole("portal_user");
-      setMemberRequestReason("");
-      if (request.status === "approved") {
-        refreshWorkspaceData();
-      }
-      setSharesMessage(request.status === "approved"
-        ? t({
-            en: "Member added to the project immediately.",
-            fr: "Le membre a été ajouté immédiatement au projet.",
-            de: "Das Mitglied wurde sofort zum Projekt hinzugefügt.",
-            zh: "成员已立即添加到项目。",
-          })
-        : t({
-            en: "Member request sent. Track it in Help requests.",
-            fr: "Demande d'ajout envoyée. Suivez-la dans la page Demandes.",
-            de: "Mitgliedsanfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen.",
-            zh: "成员请求已发送。可在“帮助请求”中查看进度。",
-          }));
-    } catch (err) {
-      console.error(err);
-      setMemberRequestError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to send the member request.",
-            fr: "Impossible d'envoyer la demande d'ajout.",
-            de: "Mitgliedsanfrage kann nicht gesendet werden.",
-            zh: "无法发送成员请求。",
-          }),
-        ),
-      );
-    } finally {
-      setMemberRequestBusy(false);
-    }
-  };
-
-  const publicLinkRows = useMemo(
-    () =>
-      publicLinks
-        .filter(
-          (link) =>
-            !selectedLinkSpaceId ||
-            link.storage_space_id === selectedLinkSpaceId,
-        ),
-    [publicLinks, selectedLinkSpaceId],
-  );
-  const activePublicLinkCount = publicLinkRows.filter(
-    (link) => link.status === "Active",
-  ).length;
-  const publicLinksTableStatus =
-    publicLinkRows.length === 0 ? "empty" : "ready";
+  const {
+    open: memberRequestOpen,
+    name: memberRequestName,
+    email: memberRequestEmail,
+    role: memberRequestRole,
+    reason: memberRequestReason,
+    error: memberRequestError,
+    busy: memberRequestBusy,
+    setName: setMemberRequestName,
+    setEmail: setMemberRequestEmail,
+    setRole: setMemberRequestRole,
+    setReason: setMemberRequestReason,
+    openDialog: openMemberRequest,
+    closeDialog: closeMemberRequest,
+    submit: handleMemberRequest,
+  } = usePortalMemberRequest({
+    accountId: accountIdForApi,
+    canRequestMemberChanges,
+    onMembersChanged: refreshWorkspaceData,
+    onMessage: setSharesMessage,
+    onPageError: setSharesError,
+  });
   const pageState = resolvePortalWorkspacePageState({
     accountLoading,
     loading,
@@ -528,8 +387,7 @@ export default function PortalSharesPage() {
                     zh: "申请添加成员",
                   }),
                   onClick: () => {
-                    setMemberRequestError(null);
-                    setMemberRequestOpen(true);
+                    openMemberRequest();
                   },
                   variant: "primary" as const,
                   disabled: memberRequestBusy,
@@ -731,16 +589,12 @@ export default function PortalSharesPage() {
         </SettingsFormDialog>
       ) : null}
 
-      {pendingAction?.type === "revoke-public-link" ? (
+      {pendingRevoke ? (
         <PortalPublicLinkRevokeDialog
-          link={pendingAction.link}
-          loading={busyPublicLinkId === pendingAction.link.id}
-          onCancel={() => setPendingAction(null)}
-          onConfirm={() =>
-            void revokePublicLink(pendingAction.link).finally(() =>
-              setPendingAction(null),
-            )
-          }
+          link={pendingRevoke}
+          loading={busyPublicLinkId === pendingRevoke.id}
+          onCancel={cancelRevoke}
+          onConfirm={() => void confirmRevoke()}
         />
       ) : null}
     </PageShell>
