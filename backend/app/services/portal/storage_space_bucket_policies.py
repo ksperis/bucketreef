@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from sqlalchemy import select
+
 from app.db import (
     AccountIAMUser,
     PortalAccountRole,
@@ -52,15 +54,13 @@ class PortalStorageSpaceBucketPoliciesMixin:
     ) -> list[str]:
         if not allowed_user_ids:
             return []
-        rows = (
-            self.db.query(AccountIAMUser.iam_username, AccountIAMUser.iam_user_id)
-            .filter(
+        rows = self.db.execute(
+            select(AccountIAMUser.iam_username, AccountIAMUser.iam_user_id).where(
                 AccountIAMUser.account_id == account.id,
                 AccountIAMUser.user_id.in_(allowed_user_ids),
                 AccountIAMUser.iam_username.isnot(None),
             )
-            .all()
-        )
+        ).all()
         principals: set[str] = set()
         for iam_username, iam_user_id in rows:
             principals.update(self._portal_iam_principal_arns(account, iam_username, iam_user_id))
@@ -73,19 +73,18 @@ class PortalStorageSpaceBucketPoliciesMixin:
     ) -> list[str]:
         if metadata.id is None:
             return []
-        rows = (
-            self.db.query(
+        rows = self.db.execute(
+            select(
                 PortalExternalAccessCredential.iam_username,
                 PortalExternalAccessCredential.iam_user_id,
             )
-            .filter(
+            .where(
                 PortalExternalAccessCredential.account_id == account.id,
                 PortalExternalAccessCredential.storage_space_metadata_id == metadata.id,
                 PortalExternalAccessCredential.revoked_at.is_(None),
                 PortalExternalAccessCredential.status == "Active",
             )
-            .all()
-        )
+        ).all()
         principals: set[str] = set()
         for iam_username, iam_user_id in rows:
             principals.update(self._portal_iam_principal_arns(account, iam_username, iam_user_id))
@@ -120,12 +119,12 @@ class PortalStorageSpaceBucketPoliciesMixin:
             return allowed_user_ids
         if metadata.id is None:
             return allowed_user_ids
-        grant_rows = (
-            self.db.query(PortalStorageSpaceGrant.user_id)
-            .filter(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
-            .all()
+        grant_user_ids = self.db.scalars(
+            select(PortalStorageSpaceGrant.user_id).where(
+                PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id
+            )
         )
-        allowed_user_ids.update(user_id for (user_id,) in grant_rows if user_id is not None)
+        allowed_user_ids.update(user_id for user_id in grant_user_ids if user_id is not None)
         return allowed_user_ids
 
     def _portal_storage_space_technical_principal_arns(self, account: S3Account) -> list[str]:
@@ -180,10 +179,10 @@ class PortalStorageSpaceBucketPoliciesMixin:
         )
 
     def _sync_account_storage_space_bucket_policies(self, account: S3Account) -> None:
-        metadata_rows = (
-            self.db.query(PortalStorageSpaceMetadata)
-            .filter(PortalStorageSpaceMetadata.account_id == account.id)
-            .all()
+        metadata_rows = self.db.scalars(
+            select(PortalStorageSpaceMetadata).where(
+                PortalStorageSpaceMetadata.account_id == account.id
+            )
         )
         for metadata in metadata_rows:
             self._sync_storage_space_access_projection(account, metadata, sync_participants=False)
