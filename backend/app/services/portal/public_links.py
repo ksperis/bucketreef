@@ -7,9 +7,17 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from app.core.config import get_settings
-from app.db import PortalAccountRole, PortalPublicLink as DBPortalPublicLink, S3Account, User
+from app.db import (
+    PortalAccountRole,
+    PortalPublicLink as DBPortalPublicLink,
+    PortalStorageSpaceMetadata,
+    S3Account,
+    User,
+)
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.models.portal_sharing import PortalPublicLink
 from app.services.portal.exceptions import (
@@ -31,15 +39,23 @@ settings = get_settings()
 
 
 class PortalPublicLinksMixin:
-    def _public_link_status(self, link: DBPortalPublicLink, now: datetime | None = None) -> str:
+    def _public_link_status(
+        self,
+        link: DBPortalPublicLink,
+        now: datetime | None = None,
+        *,
+        account: S3Account | None = None,
+        metadata: PortalStorageSpaceMetadata | None = None,
+    ) -> str:
         now = now or utcnow()
         expires_at = self._normalize_storage_space_datetime(link.expires_at)
         if link.revoked_at is not None:
             return "Revoked"
         if expires_at is not None and expires_at <= now:
             return "Expired"
-        account = self.db.query(S3Account).filter(S3Account.id == link.account_id).first()
-        metadata = self._storage_space_metadata(account, link.bucket_name) if account is not None else None
+        account = account or link.account
+        if metadata is None and account is not None:
+            metadata = self._storage_space_metadata(account, link.bucket_name)
         if metadata and metadata.archived_at:
             return "Archived"
         return "Active"
@@ -52,6 +68,9 @@ class PortalPublicLinksMixin:
         self,
         link: DBPortalPublicLink,
         storage_space: PortalStorageSpaceSummary,
+        *,
+        account: S3Account,
+        metadata: PortalStorageSpaceMetadata | None,
     ) -> PortalPublicLink:
         return PortalPublicLink(
             id=link.id,
@@ -65,7 +84,7 @@ class PortalPublicLinksMixin:
             created_at=link.created_at,
             expires_at=link.expires_at,
             revoked_at=link.revoked_at,
-            status=self._public_link_status(link),
+            status=self._public_link_status(link, account=account, metadata=metadata),
         )
 
     def list_storage_space_public_links(
@@ -81,7 +100,7 @@ class PortalPublicLinksMixin:
             raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
-        self._require_storage_space_active(access.account, bucket_name)
+        metadata = self._require_storage_space_active(access.account, bucket_name)
         storage_space = next(
             (
                 item
@@ -92,16 +111,26 @@ class PortalPublicLinksMixin:
         )
         if storage_space is None:
             raise PortalNotFoundError("Storage space not found or not allowed.")
-        query = self.db.query(DBPortalPublicLink).filter(
+        stmt = select(DBPortalPublicLink).where(
             DBPortalPublicLink.account_id == access.account.id,
             DBPortalPublicLink.bucket_name == bucket_name,
         )
         if object_key:
-            query = query.filter(DBPortalPublicLink.object_key == object_key)
+            stmt = stmt.where(DBPortalPublicLink.object_key == object_key)
         if not include_revoked:
-            query = query.filter(DBPortalPublicLink.revoked_at.is_(None))
-        links = query.order_by(DBPortalPublicLink.created_at.desc(), DBPortalPublicLink.id.desc()).all()
-        return [self._public_link_card(link, storage_space) for link in links]
+            stmt = stmt.where(DBPortalPublicLink.revoked_at.is_(None))
+        links = self.db.scalars(
+            stmt.order_by(DBPortalPublicLink.created_at.desc(), DBPortalPublicLink.id.desc())
+        ).all()
+        return [
+            self._public_link_card(
+                link,
+                storage_space,
+                account=access.account,
+                metadata=metadata,
+            )
+            for link in links
+        ]
 
     def create_storage_space_public_link(
         self,
@@ -120,9 +149,10 @@ class PortalPublicLinksMixin:
             raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
-        self._require_storage_space_active(access.account, bucket_name)
+        metadata = self._require_storage_space_active(access.account, bucket_name)
         if access.portal_role == PortalAccountRole.PORTAL_MANAGER.value:
-            self._require_storage_space_shared(access.account, bucket_name)
+            if self._metadata_visibility(metadata) == "private":
+                raise PortalForbiddenError("Private storage spaces cannot be shared.")
         elif not self._portal_user_can_create_external_sharing(user, access, bucket_name):
             raise PortalForbiddenError("External sharing is disabled for this Portal user.")
         storage_space = next(
@@ -154,7 +184,12 @@ class PortalPublicLinksMixin:
         self.db.add(link)
         self.db.commit()
         self.db.refresh(link)
-        return self._public_link_card(link, storage_space)
+        return self._public_link_card(
+            link,
+            storage_space,
+            account=access.account,
+            metadata=metadata,
+        )
 
     def revoke_storage_space_public_link(
         self,
@@ -169,14 +204,12 @@ class PortalPublicLinksMixin:
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
         self._require_storage_space_active(access.account, bucket_name)
-        link = (
-            self.db.query(DBPortalPublicLink)
-            .filter(
+        link = self.db.scalar(
+            select(DBPortalPublicLink).where(
                 DBPortalPublicLink.id == link_id,
                 DBPortalPublicLink.account_id == access.account.id,
                 DBPortalPublicLink.bucket_name == bucket_name,
             )
-            .first()
         )
         if link is None:
             raise PortalNotFoundError("Public link not found.")
@@ -186,18 +219,19 @@ class PortalPublicLinksMixin:
         return self.list_storage_space_public_links(user, access, space_id, include_revoked=True)
 
     def download_public_link(self, token: str) -> S3ObjectDownload:
-        link = self.db.query(DBPortalPublicLink).filter(DBPortalPublicLink.token == token).first()
+        link = self.db.scalar(
+            select(DBPortalPublicLink)
+            .options(joinedload(DBPortalPublicLink.account))
+            .where(DBPortalPublicLink.token == token)
+        )
         if link is None:
             raise PortalNotFoundError("Public link not found.")
-        link_status = self._public_link_status(link)
-        if link_status != "Active":
-            raise PortalGoneError(f"Public link is {link_status.lower()}.")
-        account = self.db.query(S3Account).filter(S3Account.id == link.account_id).first()
+        account = link.account
         if account is None:
             raise PortalNotFoundError("Public link account not found.")
-        metadata = self._storage_space_metadata(account, link.bucket_name)
-        if metadata and metadata.archived_at:
-            raise PortalGoneError("Public link is archived.")
+        link_status = self._public_link_status(link, account=account)
+        if link_status != "Active":
+            raise PortalGoneError(f"Public link is {link_status.lower()}.")
         access_key, secret_key = self._account_credentials(account)
         endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(account)
         client = get_s3_client(
