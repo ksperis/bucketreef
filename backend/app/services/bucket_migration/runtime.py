@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -33,15 +33,15 @@ def migration_stream_signature(
     *,
     migration: BucketMigration | None = None,
 ) -> tuple[str, str, int]:
-    max_item_updated_at = (
-        db.query(func.max(BucketMigrationItem.updated_at))
-        .filter(BucketMigrationItem.migration_id == migration_id)
-        .scalar()
+    max_item_updated_at = db.scalar(
+        select(func.max(BucketMigrationItem.updated_at)).where(
+            BucketMigrationItem.migration_id == migration_id
+        )
     )
-    max_event_id = (
-        db.query(func.max(BucketMigrationEvent.id))
-        .filter(BucketMigrationEvent.migration_id == migration_id)
-        .scalar()
+    max_event_id = db.scalar(
+        select(func.max(BucketMigrationEvent.id)).where(
+            BucketMigrationEvent.migration_id == migration_id
+        )
     )
     migration_updated_at = migration.updated_at if migration is not None else None
     return (
