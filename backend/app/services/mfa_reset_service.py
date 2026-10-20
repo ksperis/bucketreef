@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.db import AuthChallenge, RecoveryCode, User, WebAuthnCredential
@@ -22,15 +23,21 @@ class MfaResetService:
         self.db = db
 
     def reset(self, user: User, *, reason: str) -> MfaResetResult:
-        passkeys_removed = self.db.query(WebAuthnCredential).filter(
-            WebAuthnCredential.user_id == user.id,
-        ).delete(synchronize_session=False)
-        recovery_codes_removed = self.db.query(RecoveryCode).filter(
-            RecoveryCode.user_id == user.id,
-        ).delete(synchronize_session=False)
-        challenges_removed = self.db.query(AuthChallenge).filter(
-            AuthChallenge.user_id == user.id,
-        ).delete(synchronize_session=False)
+        passkeys_removed = self.db.execute(
+            delete(WebAuthnCredential)
+            .where(WebAuthnCredential.user_id == user.id)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        recovery_codes_removed = self.db.execute(
+            delete(RecoveryCode)
+            .where(RecoveryCode.user_id == user.id)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        challenges_removed = self.db.execute(
+            delete(AuthChallenge)
+            .where(AuthChallenge.user_id == user.id)
+            .execution_options(synchronize_session=False)
+        ).rowcount
         user.auth_version += 1
         self.db.add(user)
         self.db.commit()
