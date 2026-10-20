@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 bucket migration execution strategy column
+
+Migration `0179_bucket_migration_execution_strategy` replaces the generic
+`execution_plan_json` blob with a nullable `execution_strategy` column on
+bucket migration items. Earlier cleanup reduced the plan to one runtime value;
+precheck pass/fail state and blocking diagnostics already live in the migration
+precheck report.
+
+Deploy the migration and backend together. Draft items keep a null strategy
+until precheck assigns one, and runnable items require an explicit supported
+strategy. Downgrade reconstructs the former JSON payload from the strategy and
+the persisted precheck report.
+
 ## 2026-10 canonical bucket migration execution strategy
 
 Migration `0178_canonical_bucket_migration_plan_strategy` makes the execution

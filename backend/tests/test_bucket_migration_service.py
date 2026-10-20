@@ -196,24 +196,12 @@ def _bucket_profile_stub(
     }
 
 
-def _current_only_execution_plan() -> str:
-    return json.dumps(
-        {
-            "strategy": "current_only",
-            "supported": True,
-            "blocking_codes": [],
-        }
-    )
+def _current_only_execution_strategy() -> str:
+    return "current_only"
 
 
-def _version_aware_execution_plan() -> str:
-    return json.dumps(
-        {
-            "strategy": "version_aware",
-            "supported": True,
-            "blocking_codes": [],
-        }
-    )
+def _version_aware_execution_strategy() -> str:
+    return "version_aware"
 
 
 def _version_entry(
@@ -628,7 +616,7 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert all(item.error_message is None for item in by_source.values())
     assert all(item.source_snapshot_json is None for item in by_source.values())
     assert all(item.target_snapshot_json is None for item in by_source.values())
-    assert all(item.execution_plan_json is None for item in by_source.values())
+    assert all(item.execution_strategy is None for item in by_source.values())
     assert any(event.message == "Migration configuration updated." for event in updated.events)
 
 
@@ -1419,7 +1407,7 @@ def test_failed_strong_transfer_verification_retains_source(db_session):
     item = migration.items[0]
     item.status = "running"
     item.step = "verify"
-    item.execution_plan_json = _current_only_execution_plan()
+    item.execution_strategy = _current_only_execution_strategy()
     db_session.commit()
 
     service._compare_buckets_streamed = lambda *_args, **_kwargs: SimpleNamespace(  # type: ignore[method-assign]
@@ -1467,7 +1455,7 @@ def test_verified_copy_retains_source_even_when_strong_check_is_selected(db_sess
     item = migration.items[0]
     item.status = "running"
     item.step = "verify"
-    item.execution_plan_json = _current_only_execution_plan()
+    item.execution_strategy = _current_only_execution_strategy()
     db_session.commit()
 
     service._compare_buckets_streamed = lambda *_args, **_kwargs: SimpleNamespace(  # type: ignore[method-assign]
@@ -1518,7 +1506,7 @@ def test_verified_copy_retains_source_without_optional_strong_check(db_session):
     item = migration.items[0]
     item.status = "running"
     item.step = "verify"
-    item.execution_plan_json = _current_only_execution_plan()
+    item.execution_strategy = _current_only_execution_strategy()
     db_session.commit()
 
     service._compare_buckets_streamed = lambda *_args, **_kwargs: SimpleNamespace(  # type: ignore[method-assign]
@@ -1643,13 +1631,7 @@ def test_run_precheck_passed_then_start_allowed(db_session):
     assert "messages" not in report["items"][0]
     assert "source_identity" not in report["items"][0]
     assert "target_identity" not in report["items"][0]
-    assert migration.items[0].execution_plan_json is not None
-    execution_plan = json.loads(migration.items[0].execution_plan_json)
-    assert "report_version" not in execution_plan
-    assert "blocked" not in execution_plan
-    assert "delete_source_safe" not in execution_plan
-    assert "rollback_safe" not in execution_plan
-    assert "same_endpoint_copy_safe" not in execution_plan
+    assert migration.items[0].execution_strategy == "current_only"
     queued = service.start_migration(migration.id, configuration_revision=1, confirm_write_interruption=True)
     assert queued.status == "queued"
 
@@ -2181,7 +2163,7 @@ def test_sync_bucket_uses_stream_copy_when_same_endpoint_copy_option_is_disabled
         target_bucket="bucket-a-dst",
         objects_copied=0,
         objects_deleted=0,
-        execution_plan_json=_current_only_execution_plan(),
+        execution_strategy=_current_only_execution_strategy(),
         replication_state_json=None,
         updated_at=None,
     )
@@ -2257,7 +2239,7 @@ def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session
         target_bucket="bucket-b",
         objects_copied=0,
         objects_deleted=0,
-        execution_plan_json=_current_only_execution_plan(),
+        execution_strategy=_current_only_execution_strategy(),
         replication_state_json=None,
         updated_at=None,
     )
@@ -2386,7 +2368,7 @@ def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_ma
         last_heartbeat_at=None,
     )
     item = SimpleNamespace(
-        execution_plan_json=_version_aware_execution_plan(),
+        execution_strategy=_version_aware_execution_strategy(),
         source_snapshot_json=json.dumps({"versioning": {"status": "Enabled"}}),
         replication_state_json=None,
         objects_copied=0,
@@ -2647,7 +2629,7 @@ def test_sync_bucket_version_aware_same_endpoint_uses_copy_source_version_id(db_
         last_heartbeat_at=None,
     )
     item = SimpleNamespace(
-        execution_plan_json=_version_aware_execution_plan(),
+        execution_strategy=_version_aware_execution_strategy(),
         source_snapshot_json=json.dumps({"versioning": {"status": "Enabled"}}),
         replication_state_json=None,
         objects_copied=0,
@@ -2749,7 +2731,7 @@ def test_sync_bucket_version_aware_presync_stores_watermark_and_cutover_replays_
         last_heartbeat_at=None,
     )
     item = SimpleNamespace(
-        execution_plan_json=_version_aware_execution_plan(),
+        execution_strategy=_version_aware_execution_strategy(),
         source_snapshot_json=json.dumps({"versioning": {"status": "Enabled"}}),
         replication_state_json=None,
         objects_copied=0,
@@ -2923,7 +2905,7 @@ def test_sync_bucket_version_aware_cutover_fallbacks_purge_before_full_replay(
             last_heartbeat_at=None,
         )
         item = SimpleNamespace(
-            execution_plan_json=_version_aware_execution_plan(),
+            execution_strategy=_version_aware_execution_strategy(),
             source_snapshot_json=json.dumps({"versioning": {"status": "Enabled"}}),
             replication_state_json=replication_state_json,
             objects_copied=0,
@@ -3212,7 +3194,7 @@ def test_finalize_target_versioning_state_suspends_target_for_version_aware_copy
     service = BucketMigrationService(db_session)
     migration = SimpleNamespace(copy_bucket_settings=True)
     item = SimpleNamespace(
-        execution_plan_json=_version_aware_execution_plan(),
+        execution_strategy=_version_aware_execution_strategy(),
         source_snapshot_json=json.dumps({"versioning": {"status": "Suspended"}}),
         replication_state_json=None,
     )
@@ -3579,7 +3561,7 @@ def test_sync_bucket_updates_object_counters_incrementally(db_session):
         user,
     )
     item = migration.items[0]
-    item.execution_plan_json = _current_only_execution_plan()
+    item.execution_strategy = _current_only_execution_strategy()
 
     source_ctx = SimpleNamespace(
         context_id=str(source.id),
@@ -3666,7 +3648,7 @@ def test_sync_bucket_force_flushes_progress_when_pause_is_requested(db_session):
         user,
     )
     item = migration.items[0]
-    item.execution_plan_json = _current_only_execution_plan()
+    item.execution_strategy = _current_only_execution_strategy()
 
     source_ctx = SimpleNamespace(
         context_id=str(source.id),
@@ -3871,7 +3853,7 @@ def test_apply_target_lock_fails_when_lock_cannot_be_applied(db_session):
     item = migration.items[0]
     item.status = "running"
     item.step = "apply_target_lock"
-    item.execution_plan_json = _current_only_execution_plan()
+    item.execution_strategy = _current_only_execution_strategy()
     db_session.commit()
 
     service._apply_target_write_lock_policy = (  # type: ignore[method-assign]

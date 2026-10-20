@@ -3,22 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
 from types import SimpleNamespace
 
 import pytest
 
 from app.services.bucket_migration_service import BucketMigrationService
-
-
-def _execution_plan() -> str:
-    return json.dumps(
-        {
-            "strategy": "current_only",
-            "supported": True,
-            "blocking_codes": [],
-        }
-    )
 
 
 def _migration(**overrides):
@@ -36,7 +25,7 @@ def _migration(**overrides):
 
 def _item(*, step: str):
     return SimpleNamespace(
-        execution_plan_json=_execution_plan(),
+        execution_strategy="current_only",
         source_bucket="bucket-a",
         target_bucket="bucket-b",
         status="running",
@@ -160,22 +149,16 @@ def test_run_item_rejects_unknown_step(db_session):
     "strategy",
     [None, "", 42],
 )
-def test_execution_plan_requires_explicit_string_strategy(db_session, strategy):
+def test_execution_strategy_requires_explicit_string_value(db_session, strategy):
     service = BucketMigrationService(db_session)
     item = _item(step="sync")
-    plan = {
-        "supported": True,
-        "blocking_codes": [],
-    }
-    if strategy is not None:
-        plan["strategy"] = strategy
-    item.execution_plan_json = json.dumps(plan)
+    item.execution_strategy = strategy
 
     with pytest.raises(
         RuntimeError,
-        match="^Execution plan is missing a valid strategy",
+        match="^Migration item is missing a valid execution strategy",
     ):
-        service._assert_item_execution_plan_supported(item)
+        service._assert_item_execution_strategy_supported(item)
 
 
 def test_verify_step_fails_non_clean_diff(db_session):
