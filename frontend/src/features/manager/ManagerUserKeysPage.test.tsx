@@ -8,10 +8,10 @@ import ManagerUserKeysPage from "./ManagerUserKeysPage";
 const listKeysMock = vi.fn();
 const createKeyMock = vi.fn();
 const updateMetadataMock = vi.fn();
-const useS3AccountContextMock = vi.fn();
+const useExecutionContextMock = vi.fn();
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => useS3AccountContextMock(),
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => useExecutionContextMock(),
 }));
 
 vi.mock("../../api/managerIamUsers", async () => {
@@ -39,7 +39,7 @@ function renderPage() {
 describe("ManagerUserKeysPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-2",
       requiresContextSelection: true,
@@ -92,7 +92,7 @@ describe("ManagerUserKeysPage", () => {
 
   it("creates and edits BucketReef metadata when enabled for the account", async () => {
     const user = userEvent.setup();
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-2",
       requiresContextSelection: true,
@@ -146,7 +146,7 @@ describe("ManagerUserKeysPage", () => {
 
   it("shows and submits provider-side expiration without enabling metadata", async () => {
     const user = userEvent.setup();
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-2",
       requiresContextSelection: true,
@@ -180,7 +180,7 @@ describe("ManagerUserKeysPage", () => {
   });
 
   it("keeps an expired inactive key disabled until its expiration changes", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-2",
       requiresContextSelection: true,

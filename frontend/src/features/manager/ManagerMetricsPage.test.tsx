@@ -6,7 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import ManagerMetricsPage from "./ManagerMetricsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
-const useS3AccountContextMock = vi.fn();
+const useExecutionContextMock = vi.fn();
 const useManagerStatsMock = vi.fn();
 const fetchManagerUsageHistoryTrendsMock = vi.fn();
 const getManagerUsageStatsAggregateMock = vi.fn();
@@ -17,8 +17,8 @@ let bucketUsageStatsEnabled = false;
 let costEnabled = false;
 let costEstimationEnabled = false;
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => useS3AccountContextMock(),
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => useExecutionContextMock(),
 }));
 
 vi.mock("./useManagerStats", () => ({
@@ -217,7 +217,7 @@ describe("ManagerMetricsPage", () => {
   beforeEach(() => {
     setSessionUserCache(null);
     useManagerStatsMock.mockReset();
-    useS3AccountContextMock.mockReset();
+    useExecutionContextMock.mockReset();
     fetchManagerUsageHistoryTrendsMock.mockReset();
     getManagerUsageStatsAggregateMock.mockReset();
     streamManagerUsageStatsAggregateMock.mockReset();
@@ -244,7 +244,7 @@ describe("ManagerMetricsPage", () => {
   });
 
   it("renders usage and traffic widgets for eligible connection context", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useManagerStatsMock.mockReturnValue(buildStatsResult());
 
     render(
@@ -264,7 +264,7 @@ describe("ManagerMetricsPage", () => {
   });
 
   it("shows backend reason when metrics are unavailable for selected context", () => {
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({
         managerStatsEnabled: false,
         managerStatsMessage: "Metrics are unavailable: unable to resolve RGW identity for this connection.",
@@ -287,7 +287,7 @@ describe("ManagerMetricsPage", () => {
   });
 
   it("keeps disabled storage analytics inside a storage card", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext({ capabilities: { metrics: false, usage: true } }));
+    useExecutionContextMock.mockReturnValue(buildContext({ capabilities: { metrics: false, usage: true } }));
     useManagerStatsMock.mockReturnValue(buildStatsResult({ stats: null }));
 
     render(
@@ -308,7 +308,7 @@ describe("ManagerMetricsPage", () => {
   });
 
   it("keeps disabled traffic analytics inside a traffic card", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext({ capabilities: { metrics: true, usage: false } }));
+    useExecutionContextMock.mockReturnValue(buildContext({ capabilities: { metrics: true, usage: false } }));
     useManagerStatsMock.mockReturnValue(buildStatsResult());
 
     render(
@@ -332,7 +332,7 @@ describe("ManagerMetricsPage", () => {
   });
 
   it("keeps the full-page empty state when all metrics are disabled", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext({ capabilities: { metrics: false, usage: false } }));
+    useExecutionContextMock.mockReturnValue(buildContext({ capabilities: { metrics: false, usage: false } }));
     useManagerStatsMock.mockReturnValue(buildStatsResult({ stats: null }));
 
     render(
@@ -347,7 +347,7 @@ describe("ManagerMetricsPage", () => {
   });
 
   it("keeps manager stats errors inside the storage card", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useManagerStatsMock.mockReturnValue(
       buildStatsResult({
         stats: null,
@@ -373,7 +373,7 @@ describe("ManagerMetricsPage", () => {
 
   it("renders usage history trends for eligible account contexts", async () => {
     usageHistoryEnabled = true;
-    useS3AccountContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
+    useExecutionContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
     useManagerStatsMock.mockReturnValue(buildStatsResult());
 
     render(
@@ -401,7 +401,7 @@ describe("ManagerMetricsPage", () => {
         points: [],
       })
     );
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useManagerStatsMock.mockReturnValue(buildStatsResult());
 
     render(
@@ -417,7 +417,7 @@ describe("ManagerMetricsPage", () => {
 
   it("hides usage history trends when the feature is disabled", () => {
     usageHistoryEnabled = false;
-    useS3AccountContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
+    useExecutionContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
     useManagerStatsMock.mockReturnValue(buildStatsResult());
 
     render(
@@ -434,7 +434,7 @@ describe("ManagerMetricsPage", () => {
   it("shows Cost for an opted-in account context", async () => {
     costEnabled = true;
     costEstimationEnabled = true;
-    useS3AccountContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
+    useExecutionContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
     useManagerStatsMock.mockReturnValue(buildStatsResult());
 
     render(
@@ -453,7 +453,7 @@ describe("ManagerMetricsPage", () => {
   it("hides Cost until the selected Manager context opts in", () => {
     costEnabled = true;
     costEstimationEnabled = false;
-    useS3AccountContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
+    useExecutionContextMock.mockReturnValue(buildContext({ contextId: "1", accessMode: "account" }));
     useManagerStatsMock.mockReturnValue(buildStatsResult());
 
     render(
@@ -469,7 +469,7 @@ describe("ManagerMetricsPage", () => {
   it("renders account usage composition and recalculates all account buckets when usage stats are enabled", async () => {
     bucketUsageStatsEnabled = true;
     setManagerUser();
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useManagerStatsMock.mockReturnValue(buildStatsResult());
 
     render(
@@ -503,7 +503,7 @@ describe("ManagerMetricsPage", () => {
   it("cancels an account usage stats recalculation without reporting an error", async () => {
     bucketUsageStatsEnabled = true;
     setManagerUser();
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useManagerStatsMock.mockReturnValue(buildStatsResult());
     streamManagerUsageStatsAggregateMock.mockImplementationOnce(
       (_contextId: string, _payload: unknown, options: { signal: AbortSignal }) =>

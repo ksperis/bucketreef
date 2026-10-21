@@ -20,7 +20,7 @@ import UiDetails from "../../../components/ui/UiDetails";
 import UiInput from "../../../components/ui/UiInput";
 import UiSelect from "../../../components/ui/UiSelect";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { useS3AccountContext } from "../S3AccountContext";
+import { useExecutionContext } from "../ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "../managerBreadcrumbs";
 import { useManagerContexts } from "../useManagerContexts";
 import { useCrossEndpointSelection, useManagerSourceBuckets } from "./hooks";
@@ -35,7 +35,7 @@ export default function ManagerMigrationWizardPage() {
   const editId = /^\d+$/.test(params.get("from") ?? "")
     ? Number(params.get("from"))
     : null;
-  const { selectedContextId } = useS3AccountContext();
+  const { selectedContextId } = useExecutionContext();
   const [sourceId, setSourceId] = useState(selectedContextId ?? "");
   const { contexts, contextsLoading, contextsError } = useManagerContexts();
   const { sourceBuckets, bucketsLoading, bucketsError } =

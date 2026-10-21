@@ -11,7 +11,7 @@ import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
 import type { NamingValidationProfile } from "../../utils/resourceNames";
 
-type S3AccountContextType = {
+type ExecutionContextState = {
   namingValidationProfile: NamingValidationProfile | null;
   contexts: ExecutionContext[];
   contextsLoaded: boolean;
@@ -37,7 +37,7 @@ type S3AccountContextType = {
   managerFeatureStates: Record<string, FeatureState> | null;
 };
 
-const S3AccountContext = createContext<S3AccountContextType>({
+const ExecutionContextStateContext = createContext<ExecutionContextState>({
   namingValidationProfile: null,
   contexts: [],
   contextsLoaded: false,
@@ -63,14 +63,14 @@ const S3AccountContext = createContext<S3AccountContextType>({
   managerFeatureStates: null,
 });
 
-type S3AccountProviderScope = "manager" | "browser";
+type ExecutionContextProviderScope = "manager" | "browser";
 
-type S3AccountProviderProps = {
+type ExecutionContextProviderProps = {
   children: ReactNode;
-  scope?: S3AccountProviderScope;
+  scope?: ExecutionContextProviderScope;
 };
 
-export function S3AccountProvider({ children, scope = "manager" }: S3AccountProviderProps) {
+export function ExecutionContextProvider({ children, scope = "manager" }: ExecutionContextProviderProps) {
   const executionContextStorageKey = scope === "browser"
     ? CLIENT_STORAGE_KEYS.selectedBrowserExecutionContext
     : CLIENT_STORAGE_KEYS.selectedManagerExecutionContext;
@@ -177,7 +177,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   }, [contextIdForApi, hasExecutionContext]);
 
   return (
-    <S3AccountContext.Provider
+    <ExecutionContextStateContext.Provider
       value={{
         namingValidationProfile,
         contexts,
@@ -205,10 +205,10 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
       }}
     >
       {children}
-    </S3AccountContext.Provider>
+    </ExecutionContextStateContext.Provider>
   );
 }
 
-export function useS3AccountContext() {
-  return useContext(S3AccountContext);
+export function useExecutionContext() {
+  return useContext(ExecutionContextStateContext);
 }

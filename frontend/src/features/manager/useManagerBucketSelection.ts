@@ -8,10 +8,10 @@ import { listBuckets } from "../../api/managerBuckets";
 import type { Bucket } from "../../api/bucketContracts";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 
 export function useManagerBucketSelection() {
-  const { contexts, selectedContextId, requiresContextSelection } = useS3AccountContext();
+  const { contexts, selectedContextId, requiresContextSelection } = useExecutionContext();
   const sourceContextId = selectedContextId ?? "";
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [loading, setLoading] = useState(false);

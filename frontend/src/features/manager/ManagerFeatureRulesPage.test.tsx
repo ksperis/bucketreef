@@ -5,11 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ManagerFeatureRulesPage from "./ManagerFeatureRulesPage";
 
-const useS3AccountContextMock = vi.fn();
+const useExecutionContextMock = vi.fn();
 const listFeatureRuleInventoryMock = vi.fn();
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => useS3AccountContextMock(),
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => useExecutionContextMock(),
 }));
 
 vi.mock("../../api/managerBuckets", async () => {
@@ -31,7 +31,7 @@ function renderPage() {
 describe("ManagerFeatureRulesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -197,7 +197,7 @@ describe("ManagerFeatureRulesPage", () => {
     expect(screen.getByRole("dialog")).toBeVisible();
     let finish!: (value: unknown) => void;
     listFeatureRuleInventoryMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    useS3AccountContextMock.mockReturnValue({ contexts: [], selectedContextId: "account-2",
+    useExecutionContextMock.mockReturnValue({ contexts: [], selectedContextId: "account-2",
       requiresContextSelection: false, contextIdForApi: "account-2" });
     view.rerender(<MemoryRouter><ManagerFeatureRulesPage /></MemoryRouter>);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

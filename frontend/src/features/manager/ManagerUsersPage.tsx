@@ -6,7 +6,7 @@ import { iamNameFormatError } from "../../utils/resourceNames";
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
 import {
@@ -59,7 +59,7 @@ export default function ManagerUsersPage() {
     accessMode,
     managerPrivateAccessEnabled,
     namingValidationProfile,
-  } = useS3AccountContext();
+  } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const {

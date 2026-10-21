@@ -10,7 +10,7 @@ import { getWorkspaceAccess } from "./api/executionContexts";
 import { fetchCurrentUser } from "./api/users";
 import { useGeneralSettings } from "./components/GeneralSettingsContext";
 import { cx, uiCardClass } from "./components/ui/styles";
-import { useS3AccountContext } from "./features/manager/S3AccountContext";
+import { useExecutionContext } from "./features/manager/ExecutionContextProvider";
 import FeatureDisabledPage from "./features/shared/FeatureDisabledPage";
 import { useSession } from "./auth/SessionProvider";
 import {
@@ -245,7 +245,7 @@ export function RequireBrowserSurface({ surface }: { surface: BrowserSurface }) 
 }
 
 export function RequireManagerIamFeature() {
-  const { contexts, selectedContextId, requiresContextSelection, hasExecutionContext } = useS3AccountContext();
+  const { contexts, selectedContextId, requiresContextSelection, hasExecutionContext } = useExecutionContext();
   if (!requiresContextSelection || !hasExecutionContext) {
     return <Outlet />;
   }
@@ -304,7 +304,7 @@ export function RequireManagerMigrationFeature() {
 
 export function RequireManagerBucketCompareFeature() {
   const { generalSettings, loading } = useGeneralSettings();
-  const { requiresContextSelection } = useS3AccountContext();
+  const { requiresContextSelection } = useExecutionContext();
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
@@ -317,7 +317,7 @@ export function RequireManagerBucketCompareFeature() {
 
 export function RequireManagerBucketIntegrityFeature() {
   const { generalSettings, loading } = useGeneralSettings();
-  const { requiresContextSelection } = useS3AccountContext();
+  const { requiresContextSelection } = useExecutionContext();
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
@@ -330,7 +330,7 @@ export function RequireManagerBucketIntegrityFeature() {
 
 export function RequireManagerBucketPurgeFeature() {
   const { generalSettings, loading } = useGeneralSettings();
-  const { requiresContextSelection } = useS3AccountContext();
+  const { requiresContextSelection } = useExecutionContext();
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,

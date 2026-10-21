@@ -17,7 +17,7 @@ import { setSessionUserCache, type SessionUser } from "../../utils/workspaces";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 import type { EffectiveUserAccess, ManagerToolAccess } from "../../api/users";
 
-const useS3AccountContextMock = vi.fn();
+const useExecutionContextMock = vi.fn();
 const useGeneralSettingsMock = vi.fn();
 
 let capturedNavSections: SidebarSection[] = [];
@@ -34,9 +34,9 @@ let capturedAccountSelectorProps: {
   showTriggerTags?: boolean;
 } | null = null;
 
-vi.mock("./S3AccountContext", () => ({
-  S3AccountProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useS3AccountContext: () => useS3AccountContextMock(),
+vi.mock("./ExecutionContextProvider", () => ({
+  ExecutionContextProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  useExecutionContext: () => useExecutionContextMock(),
 }));
 
 vi.mock("../../components/GeneralSettingsContext", () => ({
@@ -180,14 +180,14 @@ describe("ManagerLayout", () => {
     capturedNavSections = [];
     capturedTopbarControlDescriptors = [];
     capturedAccountSelectorProps = null;
-    useS3AccountContextMock.mockReset();
+    useExecutionContextMock.mockReset();
     useGeneralSettingsMock.mockReset();
     localStorage.clear();
   });
 
   it("hides embedded Browser navigation unless the active context is explicitly enabled", () => {
     setStoredManagerUser();
-    useS3AccountContextMock.mockReturnValue(buildContext({ managerBrowserEnabled: false }));
+    useExecutionContextMock.mockReturnValue(buildContext({ managerBrowserEnabled: false }));
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
 
     render(
@@ -201,7 +201,7 @@ describe("ManagerLayout", () => {
 
   it("keeps Dashboard ungrouped and places Monitoring after operational sections", () => {
     setStoredManagerUser();
-    useS3AccountContextMock.mockReturnValue(buildContext({
+    useExecutionContextMock.mockReturnValue(buildContext({
       managerFeatureStates: { activity_history: { enabled: true, source: "platform" } },
     }));
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
@@ -216,7 +216,7 @@ describe("ManagerLayout", () => {
   });
 
   it("shows Activity when the selected execution context has effective activity history enabled", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext({
+    useExecutionContextMock.mockReturnValue(buildContext({
       contexts: [{ id: "account-1", display_name: "Account", storage_endpoint_capabilities: {} }],
       selectedContextId: "account-1",
       selectedContextKind: "account",
@@ -231,7 +231,7 @@ describe("ManagerLayout", () => {
   });
 
   it("shows Activity for RGW User contexts when effective activity history is enabled", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext({
+    useExecutionContextMock.mockReturnValue(buildContext({
       managerFeatureStates: { activity_history: { enabled: true, source: "platform" } },
     }));
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
@@ -243,7 +243,7 @@ describe("ManagerLayout", () => {
 
   it("shows Ceph section above Tools when manager_ceph_keys_enabled is true", () => {
     setStoredManagerUser();
-    useS3AccountContextMock.mockReturnValue(buildContext({ managerCephKeysEnabled: true }));
+    useExecutionContextMock.mockReturnValue(buildContext({ managerCephKeysEnabled: true }));
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
 
     render(
@@ -263,7 +263,7 @@ describe("ManagerLayout", () => {
 
   it("hides Ceph section when manager_ceph_keys_enabled is false", () => {
     setStoredManagerUser();
-    useS3AccountContextMock.mockReturnValue(buildContext({ managerCephKeysEnabled: false }));
+    useExecutionContextMock.mockReturnValue(buildContext({ managerCephKeysEnabled: false }));
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
 
     render(
@@ -286,7 +286,7 @@ describe("ManagerLayout", () => {
         feature_rules: false,
       },
     });
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({ managerCephKeysEnabled: false, managerPrivateAccessEnabled: true })
     );
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
@@ -303,7 +303,7 @@ describe("ManagerLayout", () => {
 
   it("hides Ceph access-key navigation for RGW account contexts", () => {
     setStoredManagerUser();
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({
         selectedContextKind: "account",
         managerCephKeysEnabled: false,
@@ -331,7 +331,7 @@ describe("ManagerLayout", () => {
         feature_rules: true,
       },
     });
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({
       generalSettings: buildGeneralSettings({
         manager_feature_policies: {
@@ -364,7 +364,7 @@ describe("ManagerLayout", () => {
         feature_rules: false,
       },
     });
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({
       generalSettings: buildGeneralSettings({
         manager_feature_policies: {
@@ -397,7 +397,7 @@ describe("ManagerLayout", () => {
         feature_rules: true,
       },
     });
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({
       generalSettings: buildGeneralSettings({
         manager_feature_policies: {
@@ -436,7 +436,7 @@ describe("ManagerLayout", () => {
         feature_rules: false,
       },
     });
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({
       generalSettings: buildGeneralSettings(),
     });
@@ -464,7 +464,7 @@ describe("ManagerLayout", () => {
         feature_rules: false,
       },
     });
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
 
     render(
@@ -486,7 +486,7 @@ describe("ManagerLayout", () => {
         feature_rules: true,
       },
     });
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
 
     render(
@@ -500,7 +500,7 @@ describe("ManagerLayout", () => {
   });
 
   it("keeps Usage & Metrics enabled while manager metrics context is loading when usage stats are enabled", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext({
+    useExecutionContextMock.mockReturnValue(buildContext({
       managerStatsEnabled: null,
       managerFeatureStates: { bucket_usage_stats: { enabled: true, source: "platform" } },
     }));
@@ -520,7 +520,7 @@ describe("ManagerLayout", () => {
   });
 
   it("uses backend metrics message when Usage & Metrics is disabled", () => {
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({
         managerStatsEnabled: false,
         managerStatsMessage: "Manager metrics are temporarily blocked for this account.",
@@ -544,7 +544,7 @@ describe("ManagerLayout", () => {
   });
 
   it("uses a default message when Usage & Metrics is disabled without backend reason", () => {
-    useS3AccountContextMock.mockReturnValue(buildContext({ managerStatsEnabled: false, managerStatsMessage: null }));
+    useExecutionContextMock.mockReturnValue(buildContext({ managerStatsEnabled: false, managerStatsMessage: null }));
     useGeneralSettingsMock.mockReturnValue({
       generalSettings: buildGeneralSettings(),
     });
@@ -563,7 +563,7 @@ describe("ManagerLayout", () => {
   });
 
   it("shows endpoint capability hint when metrics capabilities are unavailable", () => {
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({
         managerStatsEnabled: true,
         contexts: [
@@ -593,7 +593,7 @@ describe("ManagerLayout", () => {
   });
 
   it("shows IAM navigation for IAM-capable connection contexts", () => {
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({
         contexts: [
           {
@@ -627,7 +627,7 @@ describe("ManagerLayout", () => {
         can_manage_buckets: true,
       },
     });
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({
         contexts: [
           {
@@ -656,7 +656,7 @@ describe("ManagerLayout", () => {
   });
 
   it("keeps the manager account context selector in the topbar controls", () => {
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({
         contexts: [
           { id: "ctx-1", display_name: "Primary", storage_endpoint_capabilities: {} },
@@ -701,7 +701,7 @@ it("retains the mounted form until context navigation is confirmed", async () =>
   const user = userEvent.setup();
   setStoredManagerUser();
   const eagerSelection = vi.fn();
-  useS3AccountContextMock.mockImplementation(() => {
+  useExecutionContextMock.mockImplementation(() => {
     const { search } = useLocation();
     return buildContext({
       contexts: [{ id: "s3u-1", display_name: "S3 User 1" }, { id: "conn-2", display_name: "Connection 2" }],

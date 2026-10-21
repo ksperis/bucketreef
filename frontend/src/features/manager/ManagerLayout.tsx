@@ -10,7 +10,7 @@ import TopbarContextAccountSelector, {
 } from "../../components/TopbarContextAccountSelector";
 import TopbarStaticAccountControl from "../../components/TopbarStaticAccountControl";
 import { useShellI18n } from "../../components/shellMessages";
-import { S3AccountProvider, useS3AccountContext } from "./S3AccountContext";
+import { ExecutionContextProvider, useExecutionContext } from "./ExecutionContextProvider";
 import { SidebarSection } from "../../components/Sidebar";
 import { formatAccountLabel } from "../shared/storageEndpointLabel";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
@@ -59,7 +59,7 @@ function ManagerShell() {
     managerCephKeysEnabled,
     managerPrivateAccessEnabled,
     managerFeatureStates,
-  } = useS3AccountContext();
+  } = useExecutionContext();
   const { generalSettings } = useGeneralSettings();
   const { text: shellText } = useShellI18n();
   const navigate = useNavigate();
@@ -285,8 +285,8 @@ function ManagerShell() {
 
 export default function ManagerLayout() {
   return (
-    <S3AccountProvider>
+    <ExecutionContextProvider>
       <ManagerShell />
-    </S3AccountProvider>
+    </ExecutionContextProvider>
   );
 }

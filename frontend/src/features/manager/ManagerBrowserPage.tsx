@@ -8,7 +8,7 @@ import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
 import BrowserEmbed from "../browser/BrowserEmbed";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { useManagerI18n } from "./managerI18n";
 
 export default function ManagerBrowserPage() {
@@ -24,7 +24,7 @@ export default function ManagerBrowserPage() {
     accessMode,
     managerBrowserEnabled,
     managerBrowserMessage,
-  } = useS3AccountContext();
+  } = useExecutionContext();
   const [selectedBrowserBucketName, setSelectedBrowserBucketName] = useState("");
   const selectedContext = contexts.find((context) => context.id === selectedContextId) ?? null;
   const breadcrumbs = selectedBrowserBucketName

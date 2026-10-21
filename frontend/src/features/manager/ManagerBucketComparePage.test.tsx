@@ -29,8 +29,8 @@ vi.mock("./useManagerContexts", () => ({
   }),
 }));
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => ({ managerBrowserEnabled: true }),
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => ({ managerBrowserEnabled: true }),
 }));
 
 vi.mock("../../components/GeneralSettingsContext", () => ({

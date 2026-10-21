@@ -14,7 +14,7 @@ import PageBanner from "../../components/PageBanner";
 import DataTableShell, { dataTableDefaultActionProps, type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import TopicCreateDialog from "./TopicCreateDialog";
 import TopicDeleteDialog from "./TopicDeleteDialog";
@@ -25,7 +25,7 @@ type TopicAction = { kind: "create"; accountId: S3ExecutionContextSelector }
 
 export default function TopicsPage() {
   const { text } = useManagerI18n();
-  const { contexts, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const { contexts, contextIdForApi, requiresContextSelection, accessMode } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const selectedS3Account = contexts.find(account => account.id === contextIdForApi);
   const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;

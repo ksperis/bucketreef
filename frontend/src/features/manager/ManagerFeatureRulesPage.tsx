@@ -22,7 +22,7 @@ import {
 } from "../../api/managerBuckets";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { extractApiError } from "../../utils/apiError";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import FeatureRulesTable from "./FeatureRulesTable";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
@@ -62,7 +62,7 @@ function ruleSearchText(row: FeatureRuleInventoryBucket): string {
 
 export default function ManagerFeatureRulesPage() {
   const { text } = useManagerI18n();
-  const { contexts, selectedContextId, requiresContextSelection, contextIdForApi } = useS3AccountContext();
+  const { contexts, selectedContextId, requiresContextSelection, contextIdForApi } = useExecutionContext();
   const [feature, setFeature] = useState<FeatureRuleFeature>("lifecycle");
   const [statusFilterValue, setStatusFilterValue] = useState<StatusFilter>("all");
   const [filter, setFilter] = useState("");

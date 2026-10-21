@@ -11,7 +11,7 @@ import ManagerDashboard from "./ManagerDashboard";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 
-const useS3AccountContextMock = vi.fn();
+const useExecutionContextMock = vi.fn();
 const useManagerStatsMock = vi.fn();
 const useIamOverviewMock = vi.fn();
 const listBucketsMock = vi.fn();
@@ -28,8 +28,8 @@ let bucketPurgeEnabled = false;
 const MANAGER_BUCKET_COLUMNS_SESSION_STORAGE_KEY = "manager.bucket_list.columns.session.v1";
 const ACTIVITY_FEATURE_STATES = { activity_history: { enabled: true, source: "platform" } };
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => useS3AccountContextMock(),
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => useExecutionContextMock(),
 }));
 
 vi.mock("./useManagerStats", () => ({
@@ -223,7 +223,7 @@ function setManagerUser({ bucketPurge = false }: { bucketPurge?: boolean } = {})
 }
 
 function setSelectedManagerAccountContext() {
-  useS3AccountContextMock.mockReturnValue({
+  useExecutionContextMock.mockReturnValue({
     contexts: [
       {
         id: "account-1",
@@ -286,7 +286,7 @@ describe("manager shell pages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setSessionUserCache(null);
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [],
       selectedContextId: null,
       requiresContextSelection: true,
@@ -355,7 +355,7 @@ describe("manager shell pages", () => {
   });
 
   it("keeps manager dashboard cards visible without fallback values when metrics are unavailable", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "conn-1",
@@ -399,7 +399,7 @@ describe("manager shell pages", () => {
   });
 
   it("shows IAM resource actions in quota status for IAM-capable connection contexts", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "conn-1",
@@ -443,7 +443,7 @@ describe("manager shell pages", () => {
   });
 
   it("keeps the redesigned dashboard structure stable when storage metrics are disabled", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -489,7 +489,7 @@ describe("manager shell pages", () => {
 
   it("renders the compact data types card when bucket usage stats are enabled", async () => {
     setManagerUser();
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -546,7 +546,7 @@ describe("manager shell pages", () => {
   it("keeps the compact data types card quiet when usage stats fail to load", async () => {
     getManagerUsageStatsAggregateMock.mockRejectedValue(new Error("Network Error"));
     setManagerUser();
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -584,7 +584,7 @@ describe("manager shell pages", () => {
 
   it("hides the dashboard data types card when bucket usage stats are disabled", async () => {
     setManagerUser();
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -623,7 +623,7 @@ describe("manager shell pages", () => {
 
   it("renders upload and download volumes from manager traffic usage", async () => {
     fetchManagerTrafficMock.mockResolvedValue(managerTrafficResponse(2048, 4096));
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -681,7 +681,7 @@ describe("manager shell pages", () => {
       }
       return Promise.resolve(managerTrafficResponse(256, 512, { window: "day", end, series: [trafficPoint(end, 256, 512)] }));
     });
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -738,7 +738,7 @@ describe("manager shell pages", () => {
       }
       return Promise.resolve(managerTrafficResponse(512, 512, { window: "day", end, series: [trafficPoint(end, 512, 512)] }));
     });
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -774,7 +774,7 @@ describe("manager shell pages", () => {
 
   it("keeps real zero upload and download volumes visible", async () => {
     fetchManagerTrafficMock.mockResolvedValue(managerTrafficResponse(0, 0));
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -808,7 +808,7 @@ describe("manager shell pages", () => {
 
   it("keeps upload and download traffic silent when usage loading fails", async () => {
     fetchManagerTrafficMock.mockRejectedValue(new Error("traffic unavailable"));
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -856,7 +856,7 @@ describe("manager shell pages", () => {
         user_email: "manager@example.com",
       },
     ]);
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -916,7 +916,7 @@ describe("manager shell pages", () => {
         user_email: "manager@example.com",
       },
     ]);
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -954,7 +954,7 @@ describe("manager shell pages", () => {
   });
 
   it("shows an empty recent activity state only after an empty successful response", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -988,7 +988,7 @@ describe("manager shell pages", () => {
 
   it("keeps recent activity silent when audit activity loading fails", async () => {
     listManagerActivityMock.mockRejectedValue(new Error("activity unavailable"));
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -1056,7 +1056,7 @@ describe("manager shell pages", () => {
       loading: false,
       error: null,
     });
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -1145,7 +1145,7 @@ describe("manager shell pages", () => {
       loading: false,
       error: null,
     });
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -1194,7 +1194,7 @@ describe("manager shell pages", () => {
   });
 
   it("adds the selected bucket to the manager browser breadcrumb", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -1236,7 +1236,7 @@ describe("manager shell pages", () => {
   });
 
   it("does not mount the data plane while Manager Browser access is loading or denied", () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [{ id: "account-1", name: "Account Alpha", type: "account" }],
       selectedContextId: "account-1",
       hasExecutionContext: true,
@@ -1257,7 +1257,7 @@ describe("manager shell pages", () => {
     expect(screen.getByText("Explicit data access is required.")).toBeInTheDocument();
     expect(screen.queryByTestId("browser-embed")).not.toBeInTheDocument();
 
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [{ id: "account-1", name: "Account Alpha", type: "account" }],
       selectedContextId: "account-1",
       hasExecutionContext: true,
@@ -1379,7 +1379,7 @@ describe("manager shell pages", () => {
         },
       },
     ]);
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
@@ -1737,7 +1737,7 @@ describe("manager shell pages", () => {
       lifecycle_rules: [{ id: "archive-rule", status: "Enabled", prefix: "logs/" }],
       cors_rules: [],
     });
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "account-1",
