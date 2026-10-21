@@ -41,7 +41,7 @@ describe("ManagerUserKeysPage", () => {
     vi.clearAllMocks();
     useS3AccountContextMock.mockReturnValue({
       selectedS3AccountType: "tenant",
-      accountIdForApi: "acc-2",
+      contextIdForApi: "acc-2",
       requiresS3AccountSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: false,
@@ -94,7 +94,7 @@ describe("ManagerUserKeysPage", () => {
     const user = userEvent.setup();
     useS3AccountContextMock.mockReturnValue({
       selectedS3AccountType: "tenant",
-      accountIdForApi: "acc-2",
+      contextIdForApi: "acc-2",
       requiresS3AccountSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: true,
@@ -148,7 +148,7 @@ describe("ManagerUserKeysPage", () => {
     const user = userEvent.setup();
     useS3AccountContextMock.mockReturnValue({
       selectedS3AccountType: "tenant",
-      accountIdForApi: "acc-2",
+      contextIdForApi: "acc-2",
       requiresS3AccountSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: false,
@@ -182,7 +182,7 @@ describe("ManagerUserKeysPage", () => {
   it("keeps an expired inactive key disabled until its expiration changes", async () => {
     useS3AccountContextMock.mockReturnValue({
       selectedS3AccountType: "tenant",
-      accountIdForApi: "acc-2",
+      contextIdForApi: "acc-2",
       requiresS3AccountSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: false,

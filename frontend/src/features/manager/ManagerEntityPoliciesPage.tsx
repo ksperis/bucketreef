@@ -99,8 +99,8 @@ export default function ManagerEntityPoliciesPage({
   } as const;
   const params = useParams();
   const rawEntityName = params[routeParam];
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
 
   const [attached, setAttached] = useState<IamPolicy[]>([]);
@@ -156,13 +156,13 @@ export default function ManagerEntityPoliciesPage({
       return;
     }
     if (rawEntityName) {
-      load(accountIdForApi, rawEntityName);
+      load(contextIdForApi, rawEntityName);
     }
-  }, [accessMode, accountIdForApi, isS3User, load, needsS3AccountSelection, rawEntityName]);
+  }, [accessMode, contextIdForApi, isS3User, load, needsS3AccountSelection, rawEntityName]);
 
   const handleRefresh = () => {
     if (needsS3AccountSelection || !rawEntityName) return;
-    load(accountIdForApi, rawEntityName);
+    load(contextIdForApi, rawEntityName);
   };
 
   const handleAttach = async (event: FormEvent) => {
@@ -174,8 +174,8 @@ export default function ManagerEntityPoliciesPage({
     setError(null);
     setActionMessage(null);
     try {
-      await attachPolicyToEntity(accountIdForApi, rawEntityName, policy);
-      await load(accountIdForApi, rawEntityName);
+      await attachPolicyToEntity(contextIdForApi, rawEntityName, policy);
+      await load(contextIdForApi, rawEntityName);
       setActionMessage(text("Policy attached"));
     } catch (err) {
       setError(extractApiError(err, text("Unexpected error")));
@@ -190,8 +190,8 @@ export default function ManagerEntityPoliciesPage({
     setError(null);
     setActionMessage(null);
     try {
-      await detachPolicyFromEntity(accountIdForApi, rawEntityName, policyArn);
-      await load(accountIdForApi, rawEntityName);
+      await detachPolicyFromEntity(contextIdForApi, rawEntityName, policyArn);
+      await load(contextIdForApi, rawEntityName);
       setActionMessage(text("Policy detached"));
     } catch (err) {
       setError(extractApiError(err, text("Unexpected error")));
@@ -216,17 +216,17 @@ export default function ManagerEntityPoliciesPage({
 
   const loadInlinePolicies = useCallback(async () => {
     if (!rawEntityName || needsS3AccountSelection) return [];
-    return listInlinePoliciesForEntity(accountIdForApi, rawEntityName);
-  }, [accountIdForApi, listInlinePoliciesForEntity, needsS3AccountSelection, rawEntityName]);
+    return listInlinePoliciesForEntity(contextIdForApi, rawEntityName);
+  }, [contextIdForApi, listInlinePoliciesForEntity, needsS3AccountSelection, rawEntityName]);
 
   const saveInlinePolicy = async (name: string, document: Record<string, unknown>) => {
     if (!rawEntityName) return;
-    await putInlinePolicyForEntity(accountIdForApi, rawEntityName, name, document);
+    await putInlinePolicyForEntity(contextIdForApi, rawEntityName, name, document);
   };
 
   const removeInlinePolicy = async (name: string) => {
     if (!rawEntityName) return;
-    await deleteInlinePolicyForEntity(accountIdForApi, rawEntityName, name);
+    await deleteInlinePolicyForEntity(contextIdForApi, rawEntityName, name);
   };
 
   if (isS3User) {
@@ -328,7 +328,7 @@ export default function ManagerEntityPoliciesPage({
           deletePolicy={removeInlinePolicy}
           disabled={needsS3AccountSelection}
           disabledReason={text("Select an account before editing {entity} inline policies.", { entity: singularLabel })}
-          key={`${config.singularLabel}-inline-${accountIdForApi ?? "none"}-${rawEntityName ?? ""}`}
+          key={`${config.singularLabel}-inline-${contextIdForApi ?? "none"}-${rawEntityName ?? ""}`}
         />
 
         <SettingsSection presentation="compact" title={text("Attached policies")} description={text("Attach/detach managed policies for this {entity}.", { entity: singularLabel })}>

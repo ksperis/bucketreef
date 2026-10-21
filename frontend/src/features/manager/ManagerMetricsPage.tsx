@@ -58,7 +58,7 @@ export default function ManagerMetricsPage() {
     selectedS3AccountId,
     hasS3AccountContext,
     requiresS3AccountSelection,
-    accountIdForApi,
+    contextIdForApi,
     accessMode,
     managerStatsEnabled,
     managerStatsMessage,
@@ -92,7 +92,7 @@ export default function ManagerMetricsPage() {
       : null;
 
   const { stats, loading, error } = useManagerStats(
-    accountIdForApi,
+    contextIdForApi,
     canShowUsageBreakdowns,
     accessMode ?? "default"
   );
@@ -129,7 +129,7 @@ export default function ManagerMetricsPage() {
     let cancelled = false;
     setCostLoading(true);
     setCostError(null);
-    getManagerCostMe(month, accountIdForApi)
+    getManagerCostMe(month, contextIdForApi)
       .then((data) => {
         if (!cancelled) setCostDetail(data);
       })
@@ -145,7 +145,7 @@ export default function ManagerMetricsPage() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, canShowCostEstimation, month, text]);
+  }, [contextIdForApi, canShowCostEstimation, month, text]);
 
   const loadUsageStatsAggregate = useCallback(async () => {
     if (!canLoadUsageStatsAggregate) {
@@ -157,7 +157,7 @@ export default function ManagerMetricsPage() {
     setUsageStatsLoading(true);
     setUsageStatsError(null);
     try {
-      const data = await getManagerUsageStatsAggregate(accountIdForApi);
+      const data = await getManagerUsageStatsAggregate(contextIdForApi);
       setUsageStatsAggregate(data.aggregate);
     } catch (err) {
       setUsageStatsAggregate(null);
@@ -165,7 +165,7 @@ export default function ManagerMetricsPage() {
     } finally {
       setUsageStatsLoading(false);
     }
-  }, [accountIdForApi, canLoadUsageStatsAggregate, text]);
+  }, [contextIdForApi, canLoadUsageStatsAggregate, text]);
 
   useEffect(() => {
     void loadUsageStatsAggregate();
@@ -179,7 +179,7 @@ export default function ManagerMetricsPage() {
     setUsageStatsError(null);
     try {
       await streamManagerUsageStatsAggregate(
-        accountIdForApi,
+        contextIdForApi,
         { parallelism: 8 },
         { signal: controller.signal },
       );
@@ -194,7 +194,7 @@ export default function ManagerMetricsPage() {
         setUsageStatsRecalculating(false);
       }
     }
-  }, [accountIdForApi, canLoadUsageStatsAggregate, loadUsageStatsAggregate, text, usageStatsRecalculating]);
+  }, [contextIdForApi, canLoadUsageStatsAggregate, loadUsageStatsAggregate, text, usageStatsRecalculating]);
 
   const handleCancelUsageStats = useCallback(() => {
     usageStatsAbortRef.current?.abort();
@@ -204,7 +204,7 @@ export default function ManagerMetricsPage() {
     return () => {
       usageStatsAbortRef.current?.abort();
     };
-  }, [accountIdForApi, canLoadUsageStatsAggregate]);
+  }, [contextIdForApi, canLoadUsageStatsAggregate]);
 
   useEffect(() => {
     if (!showUsageHistoryTrends) {
@@ -216,7 +216,7 @@ export default function ManagerMetricsPage() {
     let cancelled = false;
     setUsageHistoryLoading(true);
     setUsageHistoryError(null);
-    fetchManagerUsageHistoryTrends(accountIdForApi, usageHistoryWindow)
+    fetchManagerUsageHistoryTrends(contextIdForApi, usageHistoryWindow)
       .then((data) => {
         if (!cancelled) setUsageHistoryTrends(data);
       })
@@ -232,7 +232,7 @@ export default function ManagerMetricsPage() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, showUsageHistoryTrends, text, usageHistoryWindow]);
+  }, [contextIdForApi, showUsageHistoryTrends, text, usageHistoryWindow]);
 
   const usageStatsAggregateSection = canLoadUsageStatsAggregate ? (
     <BucketUsageStatsAggregateCard
@@ -418,7 +418,7 @@ export default function ManagerMetricsPage() {
           ) : null}
           {showTrafficAnalytics && (
             <TrafficAnalytics
-              accountId={accountIdForApi}
+              accountId={contextIdForApi}
               enabled={showTrafficAnalytics}
               visible={activeTab === "traffic"}
             />

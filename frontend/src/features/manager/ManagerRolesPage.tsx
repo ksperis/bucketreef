@@ -46,8 +46,8 @@ import { useManagerI18n } from "./managerI18n";
 export default function ManagerRolesPage() {
   const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [roleFilter, setRoleFilter] = useState("");
   const {
@@ -121,10 +121,10 @@ export default function ManagerRolesPage() {
       setLoading(false);
       return;
     }
-    load(accountIdForApi);
-    loadPolicies(accountIdForApi);
+    load(contextIdForApi);
+    loadPolicies(contextIdForApi);
     resetInlinePolicyDraftEditor();
-  }, [accountIdForApi, needsS3AccountSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, setLoading, setRoles]);
+  }, [contextIdForApi, needsS3AccountSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, setLoading, setRoles]);
 
   useEffect(() => {
     if (selectedPolicies.length > 0) {
@@ -176,7 +176,7 @@ export default function ManagerRolesPage() {
     setActionMessage(null);
     try {
       const roleName = advancedName.trim();
-      await createIamRole(accountIdForApi, {
+      await createIamRole(contextIdForApi, {
         name: roleName,
         path: trimmedPath === "" ? undefined : trimmedPath,
         assume_role_policy_document: advancedPolicy.document,
@@ -188,7 +188,7 @@ export default function ManagerRolesPage() {
         for (const arn of selectedPolicies) {
           const policy = policies.find((p) => p.arn === arn);
           if (policy) {
-            await attachRolePolicy(accountIdForApi, roleName, policy);
+            await attachRolePolicy(contextIdForApi, roleName, policy);
           }
         }
       }
@@ -203,7 +203,7 @@ export default function ManagerRolesPage() {
       resetInlinePolicyDraftEditor();
       setShowCreateForm(false);
       setActionMessage(text("Role created"));
-      await load(accountIdForApi);
+      await load(contextIdForApi);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {
@@ -217,9 +217,9 @@ export default function ManagerRolesPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await deleteIamRole(accountIdForApi, name);
+      await deleteIamRole(contextIdForApi, name);
       setActionMessage(text("Role deleted"));
-      await load(accountIdForApi);
+      await load(contextIdForApi);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {

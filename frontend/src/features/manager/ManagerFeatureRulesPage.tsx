@@ -62,7 +62,7 @@ function ruleSearchText(row: FeatureRuleInventoryBucket): string {
 
 export default function ManagerFeatureRulesPage() {
   const { text } = useManagerI18n();
-  const { accounts, selectedS3AccountId, requiresS3AccountSelection, accountIdForApi } = useS3AccountContext();
+  const { accounts, selectedS3AccountId, requiresS3AccountSelection, contextIdForApi } = useS3AccountContext();
   const [feature, setFeature] = useState<FeatureRuleFeature>("lifecycle");
   const [statusFilterValue, setStatusFilterValue] = useState<StatusFilter>("all");
   const [filter, setFilter] = useState("");
@@ -77,7 +77,7 @@ export default function ManagerFeatureRulesPage() {
     [accounts, selectedS3AccountId]
   );
   const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
 
   useEffect(() => {
     if (feature === "notifications" && !snsFeatureEnabled) {
@@ -115,11 +115,11 @@ export default function ManagerFeatureRulesPage() {
       setError(null);
       return;
     }
-    void load(accountIdForApi ?? null);
+    void load(contextIdForApi);
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, feature, needsS3AccountSelection, text]);
+  }, [contextIdForApi, feature, needsS3AccountSelection, text]);
 
   const filteredItems = useMemo(() => {
     const needle = filter.trim().toLowerCase();

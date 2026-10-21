@@ -54,13 +54,13 @@ export default function ManagerUsersPage() {
   const {
     selectedS3AccountType,
     selectedS3AccountName,
-    accountIdForApi,
+    contextIdForApi,
     requiresS3AccountSelection,
     accessMode,
     managerPrivateAccessEnabled,
     namingValidationProfile,
   } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const {
     error,
@@ -145,9 +145,9 @@ export default function ManagerUsersPage() {
       setLoading(false);
       return;
     }
-    load(accountIdForApi);
-    loadGroups(accountIdForApi);
-    loadPolicies(accountIdForApi);
+    load(contextIdForApi);
+    loadGroups(contextIdForApi);
+    loadPolicies(contextIdForApi);
     setSelectedGroups([]);
     setSelectedPolicies([]);
     setPolicySearch("");
@@ -155,7 +155,7 @@ export default function ManagerUsersPage() {
     setShowPolicyOptions(false);
     resetInlinePolicyDraftEditor();
   }, [
-    accountIdForApi,
+    contextIdForApi,
     accessMode,
     load,
     loadGroups,
@@ -241,7 +241,7 @@ export default function ManagerUsersPage() {
     setCreatedForUser(null);
     try {
       const created = await createIamUser(
-        accountIdForApi,
+        contextIdForApi,
         advancedName.trim(),
         createKey,
         selectedGroups,
@@ -261,7 +261,7 @@ export default function ManagerUsersPage() {
         setCreatedForUser(created.name);
       }
       setActionMessage(text("User created"));
-      await load(accountIdForApi);
+      await load(contextIdForApi);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {
@@ -275,9 +275,9 @@ export default function ManagerUsersPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await deleteIamUser(accountIdForApi, name);
+      await deleteIamUser(contextIdForApi, name);
       setActionMessage(text("User deleted"));
-      await load(accountIdForApi);
+      await load(contextIdForApi);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {
@@ -642,7 +642,7 @@ export default function ManagerUsersPage() {
         <CreateManagedPrivateAccessModal
           namingValidationProfile={namingValidationProfile}
           variant="iam"
-          accountId={accountIdForApi}
+          accountId={contextIdForApi}
           contextName={selectedS3AccountName}
           groups={groups}
           policies={policies}

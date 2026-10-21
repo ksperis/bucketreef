@@ -12,7 +12,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   context.value = {
     accounts: [], selectedS3AccountId: "acc-7", selectedS3AccountType: "account",
-    accountIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default",
+    contextIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default",
   };
   api.list.mockResolvedValue([{ name: "ReadOnly", arn: "arn:aws:iam::acc-7:policy/ReadOnly" }]);
   api.create.mockResolvedValue({ name: "New-policy" });

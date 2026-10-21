@@ -148,7 +148,7 @@ function managerCephAccountContext(accountId: string) {
       },
     ],
     selectedS3AccountId: accountId,
-    accountIdForApi: accountId,
+    contextIdForApi: accountId,
     requiresS3AccountSelection: true,
     accessMode: "admin",
     managerBucketQuotaEnabled: true,
@@ -168,7 +168,7 @@ describe("BucketDetailPage replication state", () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [],
       selectedS3AccountId: null,
-      accountIdForApi: null,
+      contextIdForApi: null,
       requiresS3AccountSelection: false,
       accessMode: "admin",
       managerBucketQuotaEnabled: false,
@@ -644,7 +644,7 @@ describe("BucketDetailPage replication state", () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [],
       selectedS3AccountId: null,
-      accountIdForApi: null,
+      contextIdForApi: null,
       requiresS3AccountSelection: true,
       accessMode: "admin",
       managerBucketQuotaEnabled: false,
@@ -865,7 +865,7 @@ describe("BucketDetailPage replication state", () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [{ id: "ceph-account", name: "Ceph account", endpoint_provider: "ceph" }],
       selectedS3AccountId: "ceph-account",
-      accountIdForApi: "ceph-account",
+      contextIdForApi: "ceph-account",
       requiresS3AccountSelection: true,
       accessMode: "admin",
       managerBucketQuotaEnabled: false,
@@ -907,7 +907,7 @@ describe("BucketDetailPage replication state", () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [{ id: "ceph-account", name: "Ceph account", endpoint_provider: "ceph" }],
       selectedS3AccountId: "ceph-account",
-      accountIdForApi: "ceph-account",
+      contextIdForApi: "ceph-account",
       requiresS3AccountSelection: true,
       accessMode: "admin",
       managerBucketQuotaEnabled: true,
@@ -1627,7 +1627,7 @@ describe("BucketDetailPage replication state", () => {
         },
       ],
       selectedS3AccountId: "conn-aws",
-      accountIdForApi: "conn-aws",
+      contextIdForApi: "conn-aws",
       requiresS3AccountSelection: true,
       accessMode: "connection",
       managerBucketQuotaEnabled: false,

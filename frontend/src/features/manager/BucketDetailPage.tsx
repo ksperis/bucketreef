@@ -128,7 +128,7 @@ export function BucketDetailContent(props: BucketDetailPageProps) {
     props.mode ?? "manager",
     bucketName ?? null,
     props.accountIdOverride ?? null,
-    s3AccountContext.accountIdForApi ?? null,
+    s3AccountContext.contextIdForApi,
     s3AccountContext.selectedS3AccountId ?? null,
     s3AccountContext.requiresS3AccountSelection
       ? null
@@ -205,7 +205,7 @@ function BucketDetailPageContent({
   const {
     accounts,
     selectedS3AccountId,
-    accountIdForApi,
+    contextIdForApi,
     requiresS3AccountSelection,
     managerBucketQuotaEnabled,
     managerStatsEnabled,
@@ -229,7 +229,7 @@ function BucketDetailPageContent({
     return null;
   }, [accountIdOverride, accounts, isCephAdmin, requiresS3AccountSelection, selectedS3AccountId]);
   const isCephEndpoint = isCephAdmin || selectedS3Account?.endpoint_provider === "ceph";
-  const accountId = accountIdOverride ?? accountIdForApi ?? null;
+  const accountId = accountIdOverride ?? contextIdForApi;
   const hasAccountContext = !requiresS3AccountSelection || accountId !== null;
   const endpointId = selectedEndpointId ?? null;
   const hasCephContext = Boolean(endpointId);
@@ -1423,7 +1423,7 @@ function BucketDetailPageContent({
                       <PageBanner tone="warning">{text("Select an endpoint and a bucket to view detailed metrics.")}</PageBanner>
                     )
                   ) : hasAccountContext && bucketName ? (
-                    <TrafficAnalytics accountId={accountIdForApi} bucketName={bucketName} enabled={hasAccountContext} />
+                    <TrafficAnalytics accountId={contextIdForApi} bucketName={bucketName} enabled={hasAccountContext} />
                   ) : (
                     <PageBanner tone="warning">{text("Select an account and a bucket to view detailed metrics.")}</PageBanner>
                   ))}

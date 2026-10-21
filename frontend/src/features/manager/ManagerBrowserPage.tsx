@@ -17,7 +17,7 @@ export default function ManagerBrowserPage() {
     accounts,
     selectedS3AccountId,
     hasS3AccountContext,
-    accountIdForApi,
+    contextIdForApi,
     selectedS3AccountType,
     accessError,
     iamIdentity,
@@ -68,7 +68,7 @@ export default function ManagerBrowserPage() {
             ) : null}
             <div className="min-h-0 flex-1">
               <BrowserEmbed
-                contextIdForApi={accountIdForApi}
+                contextIdForApi={contextIdForApi}
                 executionContextKind={selectedContext?.kind ?? (selectedS3AccountType === "s3_user" ? "s3_user" : null)}
                 hasContext
                 workspaceSurface="manager"

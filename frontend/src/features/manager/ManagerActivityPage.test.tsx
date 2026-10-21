@@ -18,7 +18,7 @@ vi.mock("./S3AccountContext", () => ({
 
 function accountContext(overrides?: Record<string, unknown>) {
   return {
-    accountIdForApi: "account-1",
+    contextIdForApi: "account-1",
     contextsLoaded: true,
     hasS3AccountContext: true,
     selectedS3AccountType: "tenant",
@@ -113,7 +113,7 @@ describe("ManagerActivityPage", () => {
 
   it("loads activity for an enabled RGW User context", async () => {
     useS3AccountContextMock.mockReturnValue(accountContext({
-      accountIdForApi: "s3u-8",
+      contextIdForApi: "s3u-8",
       selectedS3AccountType: "s3_user",
     }));
     listManagerActivityMock.mockResolvedValue([activity(8, {
@@ -152,7 +152,7 @@ describe("ManagerActivityPage", () => {
 
   it("waits for the execution-context catalogue before deciding that no context is available", async () => {
     useS3AccountContextMock.mockReturnValue(accountContext({
-      accountIdForApi: null,
+      contextIdForApi: null,
       contextsLoaded: false,
       hasS3AccountContext: false,
       managerFeatureStates: null,

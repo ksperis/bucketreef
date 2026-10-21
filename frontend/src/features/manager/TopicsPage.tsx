@@ -25,9 +25,9 @@ type TopicAction = { kind: "create"; accountId: S3ExecutionContextSelector }
 
 export default function TopicsPage() {
   const { text } = useManagerI18n();
-  const { accounts, selectedS3AccountId, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
-  const selectedS3Account = accounts.find(account => String(account.id) === String(accountIdForApi ?? selectedS3AccountId));
+  const { accounts, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
+  const selectedS3Account = accounts.find(account => account.id === contextIdForApi);
   const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;
   const [topics, setTopics] = useState<Topic[]>([]);
   const [topicFilter, setTopicFilter] = useState("");
@@ -36,8 +36,8 @@ export default function TopicsPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [active, setActive] = useState<TopicAction | null>(null);
   const requestSequence = useRef(0);
-  const currentAccount = useRef(accountIdForApi);
-  currentAccount.current = accountIdForApi;
+  const currentAccount = useRef(contextIdForApi);
+  currentAccount.current = contextIdForApi;
   const fetchTopics = useCallback(async (accountId: S3ExecutionContextSelector) => {
     const request = ++requestSequence.current;
     setLoading(true); setError(null);
@@ -53,9 +53,9 @@ export default function TopicsPage() {
   useEffect(() => {
     setActionMessage(null);
     if (needsS3AccountSelection) { setTopics([]); setLoading(false); }
-    else void fetchTopics(accountIdForApi ?? null);
+    else void fetchTopics(contextIdForApi);
     return () => { requestSequence.current += 1; };
-  }, [accountIdForApi, needsS3AccountSelection, accessMode, fetchTopics]);
+  }, [contextIdForApi, needsS3AccountSelection, accessMode, fetchTopics]);
   const close = () => setActive(null);
   const refreshAfterMutation = (accountId: S3ExecutionContextSelector, message: string) => {
     setActive(null);
@@ -101,7 +101,7 @@ export default function TopicsPage() {
           <ListActionButton
             type="button"
             variant="danger"
-            onClick={() => setActive({ kind: "delete", accountId: accountIdForApi, topic })}
+            onClick={() => setActive({ kind: "delete", accountId: contextIdForApi, topic })}
           >
             {text("Delete")}
           </ListActionButton>
@@ -120,7 +120,7 @@ export default function TopicsPage() {
             ? [
                 {
                   label: text("Create topic"),
-                  onClick: () => setActive({ kind: "create", accountId: accountIdForApi }),
+                  onClick: () => setActive({ kind: "create", accountId: contextIdForApi }),
                 },
               ]
             : []
@@ -183,9 +183,9 @@ export default function TopicsPage() {
         </ListPageSection>
       )}
 
-    {active?.kind === "create" && <TopicCreateDialog accountId={active.accountId} currentAccountId={accountIdForApi}
+    {active?.kind === "create" && <TopicCreateDialog accountId={active.accountId} currentAccountId={contextIdForApi}
       onClose={close} onCreated={name => refreshAfterMutation(active.accountId, text("Topic '{name}' created.", { name }))} />}
-    {active?.kind === "delete" && <TopicDeleteDialog accountId={active.accountId} currentAccountId={accountIdForApi}
+    {active?.kind === "delete" && <TopicDeleteDialog accountId={active.accountId} currentAccountId={contextIdForApi}
       topic={active.topic} onClose={close}
       onDeleted={() => refreshAfterMutation(active.accountId, text("Topic '{name}' deleted.", { name: active.topic.name }))} />}
   </div>;

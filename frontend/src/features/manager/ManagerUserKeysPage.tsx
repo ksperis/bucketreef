@@ -36,13 +36,13 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   const { userName } = useParams<{ userName: string }>();
   const {
     selectedS3AccountType,
-    accountIdForApi,
+    contextIdForApi,
     requiresS3AccountSelection,
     accessMode,
     managerAccessKeyMetadataEnabled,
     managerAccessKeyExpirationEnabled,
   } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [keys, setKeys] = useState<AccessKey[]>([]);
   const [loading, setLoading] = useState(false);
@@ -89,9 +89,9 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
       return;
     }
     if (userName) {
-      load(accountIdForApi, userName);
+      load(contextIdForApi, userName);
     }
-  }, [accountIdForApi, needsS3AccountSelection, isS3User, userName, accessMode, load]);
+  }, [contextIdForApi, needsS3AccountSelection, isS3User, userName, accessMode, load]);
 
   const createKey = async (metadata?: AccessKeyMetadataInput) => {
     if (needsS3AccountSelection || !userName) return;
@@ -100,10 +100,10 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     setActionMessage(null);
     try {
       const key = metadata
-        ? await createIamAccessKey(accountIdForApi, userName, metadata)
-        : await createIamAccessKey(accountIdForApi, userName);
+        ? await createIamAccessKey(contextIdForApi, userName, metadata)
+        : await createIamAccessKey(contextIdForApi, userName);
       setCreatedKey(key);
-      await load(accountIdForApi, userName);
+      await load(contextIdForApi, userName);
       setActionMessage(text("Access key created"));
       setMetadataDialog(null);
       setMetadataError(null);
@@ -131,8 +131,8 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     setBusy(`metadata:${key.access_key_id}`);
     setMetadataError(null);
     try {
-      await updateIamAccessKeyMetadata(accountIdForApi, userName, key.access_key_id, metadata);
-      await load(accountIdForApi, userName);
+      await updateIamAccessKeyMetadata(contextIdForApi, userName, key.access_key_id, metadata);
+      await load(contextIdForApi, userName);
       setMetadataDialog(null);
       setActionMessage(text("Access-key details updated"));
     } catch (err) {
@@ -148,8 +148,8 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     setError(null);
     setActionMessage(null);
     try {
-      await deleteIamAccessKey(accountIdForApi, userName, keyId);
-      await load(accountIdForApi, userName);
+      await deleteIamAccessKey(contextIdForApi, userName, keyId);
+      await load(contextIdForApi, userName);
       setActionMessage(text("Access key deleted"));
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
@@ -164,8 +164,8 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     setError(null);
     setActionMessage(null);
     try {
-      await updateIamAccessKeyStatus(accountIdForApi, userName, keyId, nextActive);
-      await load(accountIdForApi, userName);
+      await updateIamAccessKeyStatus(contextIdForApi, userName, keyId, nextActive);
+      await load(contextIdForApi, userName);
       setActionMessage(text(nextActive ? "Access key enabled" : "Access key disabled"));
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));

@@ -43,7 +43,7 @@ export default function ManagerCephKeysPage() {
   const { text } = useManagerI18n();
   const {
     hasS3AccountContext,
-    accountIdForApi,
+    contextIdForApi,
     selectedS3AccountName,
     selectedS3AccountType,
     managerCephKeysEnabled,
@@ -79,7 +79,7 @@ export default function ManagerCephKeysPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listManagerCephAccessKeys(accountIdForApi);
+      const data = await listManagerCephAccessKeys(contextIdForApi);
       setKeys(data);
     } catch (err) {
       setError(parseError(err));
@@ -87,7 +87,7 @@ export default function ManagerCephKeysPage() {
     } finally {
       setLoading(false);
     }
-  }, [accountIdForApi, canManageCephKeys]);
+  }, [contextIdForApi, canManageCephKeys]);
 
   useEffect(() => {
     setCreatedKey(null);
@@ -102,8 +102,8 @@ export default function ManagerCephKeysPage() {
     setActionMessage(null);
     try {
       const key = metadata
-        ? await createManagerCephAccessKey(accountIdForApi, metadata)
-        : await createManagerCephAccessKey(accountIdForApi);
+        ? await createManagerCephAccessKey(contextIdForApi, metadata)
+        : await createManagerCephAccessKey(contextIdForApi);
       setCreatedKey(key);
       setActionMessage(text("Access key created"));
       await loadKeys();
@@ -133,7 +133,7 @@ export default function ManagerCephKeysPage() {
     setBusy(`metadata:${key.access_key_id}`);
     setMetadataError(null);
     try {
-      await updateManagerCephAccessKeyMetadata(accountIdForApi, key.access_key_id, metadata);
+      await updateManagerCephAccessKeyMetadata(contextIdForApi, key.access_key_id, metadata);
       await loadKeys();
       setMetadataDialog(null);
       setActionMessage(text("Access-key details updated"));
@@ -151,7 +151,7 @@ export default function ManagerCephKeysPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await updateManagerCephAccessKeyStatus(accountIdForApi, key.access_key_id, !currentlyActive);
+      await updateManagerCephAccessKeyStatus(contextIdForApi, key.access_key_id, !currentlyActive);
       setActionMessage(text(currentlyActive ? "Access key disabled" : "Access key enabled"));
       await loadKeys();
     } catch (err) {
@@ -167,7 +167,7 @@ export default function ManagerCephKeysPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await deleteManagerCephAccessKey(accountIdForApi, key.access_key_id);
+      await deleteManagerCephAccessKey(contextIdForApi, key.access_key_id);
       setActionMessage(text("Access key deleted"));
       await loadKeys();
     } catch (err) {
@@ -460,7 +460,7 @@ export default function ManagerCephKeysPage() {
       {canProvisionManagedPrivateAccess && showPrivateAccessModal && (
         <CreateManagedPrivateAccessModal
           variant="rgw_user"
-          accountId={accountIdForApi}
+          accountId={contextIdForApi}
           contextName={selectedS3AccountName}
           onClose={() => setShowPrivateAccessModal(false)}
           onCreated={(name) => {
