@@ -148,6 +148,7 @@ export function useBrowserObjectListing({
   const [showObjectsIssueTechnicalDetails, setShowObjectsIssueTechnicalDetails] =
     useState(false);
   const [isVersioningEnabled, setIsVersioningEnabled] = useState(false);
+  const [versioningResolved, setVersioningResolved] = useState(false);
   const objectsRequestSeqRef = useRef(0);
   const objectsAbortControllerRef = useRef<AbortController | null>(null);
   const objectsSearchDebounceRef = useRef<number | null>(null);
@@ -734,6 +735,7 @@ export function useBrowserObjectListing({
   ]);
 
   useEffect(() => {
+    setVersioningResolved(false);
     if (contextSwitchInFlight || !bucketName || !enabled) {
       setIsVersioningEnabled(false);
       return;
@@ -745,9 +747,12 @@ export function useBrowserObjectListing({
         setIsVersioningEnabled(
           data.status === "Enabled" || data.status === "Suspended",
         );
+        setVersioningResolved(true);
       })
       .catch(() => {
-        if (active) setIsVersioningEnabled(false);
+        if (!active) return;
+        setIsVersioningEnabled(false);
+        setVersioningResolved(true);
       });
     return () => {
       active = false;
@@ -778,6 +783,7 @@ export function useBrowserObjectListing({
     deletedObjectsIsTruncated,
     deletedPrefixes,
     isVersioningEnabled,
+    versioningResolved,
     loadMore,
     loadObjects,
     objects,

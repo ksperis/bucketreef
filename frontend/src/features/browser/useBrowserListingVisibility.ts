@@ -18,17 +18,21 @@ export function useBrowserListingVisibility({
   const showDeletedObjects =
     deletedObjectsOptions?.visible ?? internalShowDeletedObjects;
 
-  const hideDeletedObjects = useCallback(() => {
-    setInternalShowDeletedObjects(false);
-  }, []);
-
-  const toggleDeletedObjects = useCallback(() => {
-    const visible = !showDeletedObjects;
+  const setDeletedObjectsVisible = useCallback((visible: boolean) => {
+    if (visible === showDeletedObjects) return;
     if (deletedObjectsOptions?.visible === undefined) {
       setInternalShowDeletedObjects(visible);
     }
     deletedObjectsOptions?.onVisibilityChange?.(visible);
   }, [deletedObjectsOptions, showDeletedObjects]);
+
+  const hideDeletedObjects = useCallback(() => {
+    setDeletedObjectsVisible(false);
+  }, [setDeletedObjectsVisible]);
+
+  const toggleDeletedObjects = useCallback(() => {
+    setDeletedObjectsVisible(!showDeletedObjects);
+  }, [setDeletedObjectsVisible, showDeletedObjects]);
 
   const toggleFolderItems = useCallback(() => {
     setShowFolderItems((visible) => !visible);
