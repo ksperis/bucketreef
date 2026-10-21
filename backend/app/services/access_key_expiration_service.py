@@ -2,10 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from typing import Literal
+
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.core.sensitive_data import sanitize_error_detail
+from app.core.sensitive_data import sanitize_persisted_error
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.db.enums import StorageProvider
 from app.services.audit_service import AuditService
@@ -58,10 +60,10 @@ class AccessKeyExpirationService:
                 return self._process_s3_user(row)
             raise PermanentExpirationError("Access-key expiration has no valid resource scope")
         except PermanentExpirationError as exc:
-            self._mark_blocked(row, exc)
+            self._mark_failure(row, exc, state="blocked")
             return "blocked"
         except Exception as exc:  # noqa: BLE001 - each due key must be retried independently
-            self._mark_retry(row, exc)
+            self._mark_failure(row, exc, state="retrying")
             return "retried"
 
     def _process_iam(self, row: ManagerAccessKeyMetadata) -> str:
@@ -166,24 +168,20 @@ class AccessKeyExpirationService:
             user_role="system",
         )
 
-    def _mark_retry(self, row: ManagerAccessKeyMetadata, exc: Exception) -> None:
+    def _mark_failure(
+        self,
+        row: ManagerAccessKeyMetadata,
+        exc: Exception,
+        *,
+        state: Literal["retrying", "blocked"],
+    ) -> None:
         self.db.rollback()
         persisted = self.db.get(ManagerAccessKeyMetadata, row.id)
         if persisted is None:
             return
-        persisted.expiration_state = "retrying"
+        persisted.expiration_state = state
         persisted.expiration_last_attempt_at = utcnow()
-        persisted.expiration_last_error = str(sanitize_error_detail(str(exc)))
-        self.db.commit()
-
-    def _mark_blocked(self, row: ManagerAccessKeyMetadata, exc: Exception) -> None:
-        self.db.rollback()
-        persisted = self.db.get(ManagerAccessKeyMetadata, row.id)
-        if persisted is None:
-            return
-        persisted.expiration_state = "blocked"
-        persisted.expiration_last_attempt_at = utcnow()
-        persisted.expiration_last_error = str(sanitize_error_detail(str(exc)))
+        persisted.expiration_last_error = sanitize_persisted_error(exc)
         self.db.commit()
 
     def _remove_missing(self, row: ManagerAccessKeyMetadata) -> str:
