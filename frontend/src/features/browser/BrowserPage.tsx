@@ -20,7 +20,6 @@ import { readStoredUser } from "../../utils/workspaces";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import { useBrowserContext } from "./BrowserContext";
-import { useBrowserSidebarSlot } from "./BrowserLayout";
 import BrowserBulkAttributesModal from "./BrowserBulkAttributesModal";
 import BrowserObjectExplorer from "./BrowserObjectExplorer";
 import BrowserObjectSearchHeader from "./BrowserObjectSearchHeader";
@@ -168,7 +167,6 @@ export default function BrowserPage({
 }: BrowserPageProps = {}) {
   const { text, intlLocale } = useBrowserI18n();
   const browserContext = useBrowserContext();
-  const { setSidebarBody } = useBrowserSidebarSlot();
   const selectedContext = browserContext.selectedContext;
   const location = useLocation();
   const workspaceSurface =
@@ -1152,7 +1150,8 @@ export default function BrowserPage({
     onWarning: setWarningMessage,
   });
 
-  const renderWorkspaceSidebarBody = useBrowserWorkspaceSidebarBody({
+  useBrowserWorkspaceSidebarBody({
+    enabled: showWorkspaceSidebar,
     favorites: {
       accountUser,
       bucketDetailsByName: isStorageSpaceContext ? bucketDetailsByName : undefined,
@@ -1191,17 +1190,6 @@ export default function BrowserPage({
     panelViewportRef: bucketPanelViewportRef,
     loadMoreSentinelRef: bucketPanelLoadMoreSentinelRef,
   });
-
-  useLayoutEffect(() => {
-    if (!showWorkspaceSidebar) {
-      setSidebarBody(null);
-      return;
-    }
-    setSidebarBody(renderWorkspaceSidebarBody);
-    return () => {
-      setSidebarBody(null);
-    };
-  }, [renderWorkspaceSidebarBody, setSidebarBody, showWorkspaceSidebar]);
 
   const handleRefresh = () => {
     if (!hasExecutionContext) return;
