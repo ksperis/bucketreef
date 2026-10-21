@@ -15,8 +15,8 @@ export default function ManagerRoleWorkspacePage() {
   const { text } = useManagerI18n();
   const location = useLocation();
   const { roleName } = useParams<{ roleName: string }>();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection } = useS3AccountContext();
-  const needsSelection = requiresS3AccountSelection && !accountIdForApi;
+  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection } = useS3AccountContext();
+  const needsSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const name = (() => {
     if (!roleName) return "";
@@ -69,8 +69,8 @@ export default function ManagerRoleWorkspacePage() {
     >
       {activeTab === "general" && (
         <ManagerRoleEditor
-          key={`${accountIdForApi}:${name}:general`}
-          accountId={accountIdForApi}
+          key={`${contextIdForApi}:${name}:general`}
+          accountId={contextIdForApi}
           roleName={name}
           mode="general"
           embedded
@@ -80,8 +80,8 @@ export default function ManagerRoleWorkspacePage() {
       )}
       {activeTab === "trust" && (
         <ManagerRoleEditor
-          key={`${accountIdForApi}:${name}:trust`}
-          accountId={accountIdForApi}
+          key={`${contextIdForApi}:${name}:trust`}
+          accountId={contextIdForApi}
           roleName={name}
           mode="trust"
           embedded

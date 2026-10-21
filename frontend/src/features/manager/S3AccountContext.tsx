@@ -3,7 +3,6 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { ExecutionContext } from "../../api/executionContexts";
 import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerContext";
 import type { FeatureState } from "../../api/featurePolicies";
@@ -19,7 +18,7 @@ type S3AccountContextType = {
   selectedS3AccountId: string | null;
   requiresS3AccountSelection: boolean;
   hasS3AccountContext: boolean;
-  accountIdForApi: S3ExecutionContextSelector;
+  contextIdForApi: string | null;
   sessionS3AccountName: string | null;
   selectedS3AccountName: string | null;
   selectedS3AccountType: string | null;
@@ -45,7 +44,7 @@ const S3AccountContext = createContext<S3AccountContextType>({
   selectedS3AccountId: null,
   requiresS3AccountSelection: true,
   hasS3AccountContext: false,
-  accountIdForApi: null,
+  contextIdForApi: null,
   sessionS3AccountName: null,
   selectedS3AccountName: null,
   selectedS3AccountType: null,
@@ -102,7 +101,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         ? "Access to browser contexts is denied for this user."
         : "Access to manager is denied for this user.",
   });
-  const [namingProfileState, setNamingProfileState] = useState<{ accountId: S3ExecutionContextSelector; profile: NamingValidationProfile } | null>(null);
+  const [namingProfileState, setNamingProfileState] = useState<{ contextId: string | null; profile: NamingValidationProfile } | null>(null);
   const [iamIdentity, setIamIdentity] = useState<string | null>(null);
   const [accessMode, setAccessModeState] = useState<ManagerAccessMode | null>(null);
   const [managerStatsEnabled, setManagerStatsEnabled] = useState<boolean | null>(null);
@@ -116,11 +115,11 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
   const [managerFeatureStates, setManagerFeatureStates] = useState<Record<string, FeatureState> | null>(null);
   const hasS3AccountContext = requiresS3AccountSelection ? selectedS3Account !== null : true;
-  const accountIdForApi: S3ExecutionContextSelector = requiresS3AccountSelection ? selectedS3AccountId : null;
+  const contextIdForApi = requiresS3AccountSelection ? selectedS3AccountId : null;
   const selectedS3AccountName = selectedS3Account?.display_name ?? sessionAccountName;
   const selectedS3AccountType = deriveS3AccountType(selectedS3Account);
 
-  const namingValidationProfile = hasS3AccountContext && namingProfileState?.accountId === accountIdForApi
+  const namingValidationProfile = hasS3AccountContext && namingProfileState?.contextId === contextIdForApi
     ? namingProfileState.profile : null;
 
   useEffect(() => {
@@ -151,10 +150,10 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     setManagerAccessKeyExpirationEnabled(null);
     setManagerPrivateAccessEnabled(null);
     setManagerFeatureStates(null);
-    fetchManagerContext(accountIdForApi)
+    fetchManagerContext(contextIdForApi)
       .then((data) => {
         if (!isMounted) return;
-        setNamingProfileState({ accountId: accountIdForApi, profile: data.naming_validation_profile ?? "standard" });
+        setNamingProfileState({ contextId: contextIdForApi, profile: data.naming_validation_profile ?? "standard" });
         setIamIdentity(data.iam_identity ?? null);
         setAccessModeState(data.access_mode);
         setManagerStatsEnabled(Boolean(data.manager_stats_enabled));
@@ -186,7 +185,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     return () => {
       isMounted = false;
     };
-  }, [accountIdForApi, hasS3AccountContext]);
+  }, [contextIdForApi, hasS3AccountContext]);
 
   return (
     <S3AccountContext.Provider
@@ -197,7 +196,7 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         selectedS3AccountId,
         requiresS3AccountSelection,
         hasS3AccountContext,
-        accountIdForApi,
+        contextIdForApi,
         sessionS3AccountName: sessionAccountName,
         selectedS3AccountName,
         selectedS3AccountType,

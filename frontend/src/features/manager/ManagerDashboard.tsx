@@ -642,7 +642,7 @@ export default function ManagerDashboard() {
     selectedS3AccountType,
     hasS3AccountContext,
     requiresS3AccountSelection,
-    accountIdForApi,
+    contextIdForApi,
     accessMode,
     managerStatsEnabled,
     managerStatsMessage,
@@ -688,12 +688,12 @@ export default function ManagerDashboard() {
     managerFeatureStates?.bucket_usage_stats?.enabled === true;
   const refreshKey = `${accessMode ?? "default"}:${refreshNonce}`;
   const { stats, loading, error } = useManagerStats(
-    accountIdForApi,
+    contextIdForApi,
     usageFeatureEnabled && hasContext,
     refreshKey
   );
   const { overview: iamOverview, loading: iamLoading, error: iamError } = useIamOverview(
-    accountIdForApi,
+    contextIdForApi,
     canManageIam,
     hasContext,
     refreshKey
@@ -706,7 +706,7 @@ export default function ManagerDashboard() {
     }
     let cancelled = false;
     setManagerLimits(null);
-    fetchManagerContext(accountIdForApi, { includeLimits: true })
+    fetchManagerContext(contextIdForApi, { includeLimits: true })
       .then((context) => {
         if (!cancelled) setManagerLimits(context);
       })
@@ -716,7 +716,7 @@ export default function ManagerDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, hasContext, refreshNonce]);
+  }, [contextIdForApi, hasContext, refreshNonce]);
 
   useEffect(() => {
     if (!hasContext) {
@@ -734,7 +734,7 @@ export default function ManagerDashboard() {
     let cancelled = false;
     setWorkspaceHealthLoading(true);
     setWorkspaceHealthError(null);
-    fetchManagerWorkspaceHealthOverview(accountIdForApi)
+    fetchManagerWorkspaceHealthOverview(contextIdForApi)
       .then((data) => {
         if (cancelled) return;
         setWorkspaceHealth(data);
@@ -750,7 +750,7 @@ export default function ManagerDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, generalSettings.endpoint_status_enabled, hasContext, refreshNonce, text]);
+  }, [contextIdForApi, generalSettings.endpoint_status_enabled, hasContext, refreshNonce, text]);
 
   useEffect(() => {
     if (!hasContext) {
@@ -762,7 +762,7 @@ export default function ManagerDashboard() {
     let cancelled = false;
     setBucketCountLoading(true);
     setBucketCountError(null);
-    listBuckets(accountIdForApi, { with_stats: false })
+    listBuckets(contextIdForApi, { with_stats: false })
       .then((items) => {
         if (cancelled) return;
         setBuckets(items);
@@ -778,7 +778,7 @@ export default function ManagerDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, hasContext, refreshNonce, text]);
+  }, [contextIdForApi, hasContext, refreshNonce, text]);
 
   useEffect(() => {
     if (!hasContext || !activityHistoryEnabled) {
@@ -790,7 +790,7 @@ export default function ManagerDashboard() {
     let cancelled = false;
     setActivityLoading(true);
     setActivityError(null);
-    listManagerActivity(accountIdForApi, { limit: 5 })
+    listManagerActivity(contextIdForApi, { limit: 5 })
       .then((items) => {
         if (cancelled) return;
         setActivityLogs(items);
@@ -806,7 +806,7 @@ export default function ManagerDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, activityHistoryEnabled, hasContext, refreshNonce, text]);
+  }, [contextIdForApi, activityHistoryEnabled, hasContext, refreshNonce, text]);
 
   useEffect(() => {
     if (!hasContext || !trafficFeatureEnabled) {
@@ -821,7 +821,7 @@ export default function ManagerDashboard() {
     setTrafficError(null);
     Promise.allSettled(
       TRAFFIC_TREND_WINDOWS.map((option) =>
-        fetchManagerTraffic(accountIdForApi, option.window).then((data) => [option.window, data] as const)
+        fetchManagerTraffic(contextIdForApi, option.window).then((data) => [option.window, data] as const)
       )
     )
       .then((results) => {
@@ -850,7 +850,7 @@ export default function ManagerDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, hasContext, refreshNonce, text, trafficFeatureEnabled]);
+  }, [contextIdForApi, hasContext, refreshNonce, text, trafficFeatureEnabled]);
 
   useEffect(() => {
     if (!hasContext || !usageFeatureEnabled) {
@@ -860,7 +860,7 @@ export default function ManagerDashboard() {
     }
     let cancelled = false;
     setUsageTrendsLoading(true);
-    fetchManagerUsageTrends(accountIdForApi)
+    fetchManagerUsageTrends(contextIdForApi)
       .then((data) => {
         if (!cancelled) setUsageTrends(data);
       })
@@ -873,7 +873,7 @@ export default function ManagerDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, hasContext, refreshNonce, usageFeatureEnabled]);
+  }, [contextIdForApi, hasContext, refreshNonce, usageFeatureEnabled]);
 
   useEffect(() => {
     if (!canLoadUsageStatsDataTypes) {
@@ -883,7 +883,7 @@ export default function ManagerDashboard() {
     }
     let cancelled = false;
     setUsageStatsLoading(true);
-    getManagerUsageStatsAggregate(accountIdForApi)
+    getManagerUsageStatsAggregate(contextIdForApi)
       .then((data) => {
         if (!cancelled) setUsageStatsAggregate(data.aggregate);
       })
@@ -898,7 +898,7 @@ export default function ManagerDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, canLoadUsageStatsDataTypes, refreshNonce]);
+  }, [contextIdForApi, canLoadUsageStatsDataTypes, refreshNonce]);
 
   const accountLabel = selected
     ? formatAccountLabel(selected)

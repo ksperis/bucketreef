@@ -41,7 +41,7 @@ describe("ManagerFeatureRulesPage", () => {
       ],
       selectedS3AccountId: "account-1",
       requiresS3AccountSelection: false,
-      accountIdForApi: "account-1",
+      contextIdForApi: "account-1",
     });
     listFeatureRuleInventoryMock.mockResolvedValue([]);
   });
@@ -198,7 +198,7 @@ describe("ManagerFeatureRulesPage", () => {
     let finish!: (value: unknown) => void;
     listFeatureRuleInventoryMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
     useS3AccountContextMock.mockReturnValue({ accounts: [], selectedS3AccountId: "account-2",
-      requiresS3AccountSelection: false, accountIdForApi: "account-2" });
+      requiresS3AccountSelection: false, contextIdForApi: "account-2" });
     view.rerender(<MemoryRouter><ManagerFeatureRulesPage /></MemoryRouter>);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByText("old-bucket")).not.toBeInTheDocument();

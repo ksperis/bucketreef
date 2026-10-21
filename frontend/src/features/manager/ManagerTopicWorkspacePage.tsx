@@ -20,9 +20,9 @@ export default function ManagerTopicWorkspacePage() {
   const { topicName } = useParams<{ topicName: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { accounts, selectedS3AccountId, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsSelection = requiresS3AccountSelection && !accountIdForApi;
-  const selectedS3Account = accounts.find(account => String(account.id) === String(accountIdForApi ?? selectedS3AccountId));
+  const { accounts, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const needsSelection = requiresS3AccountSelection && !contextIdForApi;
+  const selectedS3Account = accounts.find(account => account.id === contextIdForApi);
   const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;
   const name = useMemo(() => {
     if (!topicName) return "";
@@ -41,7 +41,7 @@ export default function ManagerTopicWorkspacePage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void listTopics(accountIdForApi)
+    void listTopics(contextIdForApi)
       .then((topics) => {
         if (cancelled) return;
         setTopic(topics.find((candidate) => candidate.name === name) ?? null);
@@ -51,7 +51,7 @@ export default function ManagerTopicWorkspacePage() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [accessMode, accountIdForApi, name, needsSelection, snsFeatureEnabled, text]);
+  }, [accessMode, contextIdForApi, name, needsSelection, snsFeatureEnabled, text]);
 
   if (needsSelection) {
     return (
@@ -106,8 +106,8 @@ export default function ManagerTopicWorkspacePage() {
       {activeTab === "configuration" && (
         <TopicAttributesEditor
           embedded
-          accountId={accountIdForApi}
-          currentAccountId={accountIdForApi}
+          accountId={contextIdForApi}
+          currentAccountId={contextIdForApi}
           topic={topic}
           onClose={() => navigate("/manager/topics")}
           onSaved={(configuration) => setTopic((current) => current ? { ...current, configuration } : current)}
@@ -116,8 +116,8 @@ export default function ManagerTopicWorkspacePage() {
       {activeTab === "policy" && (
         <TopicPolicyEditor
           embedded
-          accountId={accountIdForApi}
-          currentAccountId={accountIdForApi}
+          accountId={contextIdForApi}
+          currentAccountId={contextIdForApi}
           topic={topic}
           onClose={() => navigate("/manager/topics")}
         />

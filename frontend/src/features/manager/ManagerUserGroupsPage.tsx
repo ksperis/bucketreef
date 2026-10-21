@@ -20,8 +20,8 @@ import { useS3AccountContext } from "./S3AccountContext";
 export default function ManagerUserGroupsPage() {
   const { text } = useManagerI18n();
   const { userName } = useParams<{ userName: string }>();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const decodedUser = useMemo(() => {
     if (!userName) return "";
@@ -61,8 +61,8 @@ export default function ManagerUserGroupsPage() {
       setLoading(false);
       return;
     }
-    void load(accountIdForApi, userName);
-  }, [accessMode, accountIdForApi, isS3User, load, needsS3AccountSelection, userName]);
+    void load(contextIdForApi, userName);
+  }, [accessMode, contextIdForApi, isS3User, load, needsS3AccountSelection, userName]);
 
   const availableGroups = useMemo(
     () => allGroups.filter((group) => !groups.some((current) => current.name === group.name)),
@@ -80,9 +80,9 @@ export default function ManagerUserGroupsPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await addIamGroupUser(accountIdForApi, newGroup, userName);
+      await addIamGroupUser(contextIdForApi, newGroup, userName);
       setNewGroup("");
-      await load(accountIdForApi, userName);
+      await load(contextIdForApi, userName);
       setActionMessage(text("User added to group"));
     } catch (err) {
       setError(extractApiError(err, text("Unable to update IAM group membership.")));
@@ -97,8 +97,8 @@ export default function ManagerUserGroupsPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await removeIamGroupUser(accountIdForApi, groupName, userName);
-      await load(accountIdForApi, userName);
+      await removeIamGroupUser(contextIdForApi, groupName, userName);
+      await load(contextIdForApi, userName);
       setActionMessage(text("User removed from group"));
     } catch (err) {
       setError(extractApiError(err, text("Unable to update IAM group membership.")));

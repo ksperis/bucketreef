@@ -16,7 +16,7 @@ const api = vi.hoisted(() => ({
 vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => ({
     selectedS3AccountType: "account",
-    accountIdForApi: "acc-7",
+    contextIdForApi: "acc-7",
     requiresS3AccountSelection: true,
     accessMode: "default",
   }),

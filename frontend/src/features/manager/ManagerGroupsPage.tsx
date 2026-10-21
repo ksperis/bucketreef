@@ -37,8 +37,8 @@ import { useManagerI18n } from "./managerI18n";
 export default function ManagerGroupsPage() {
   const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [groupFilter, setGroupFilter] = useState("");
   const {
@@ -102,10 +102,10 @@ export default function ManagerGroupsPage() {
       setLoading(false);
       return;
     }
-    load(accountIdForApi);
-    loadPolicies(accountIdForApi);
+    load(contextIdForApi);
+    loadPolicies(contextIdForApi);
     resetInlinePolicyDraftEditor();
-  }, [accountIdForApi, needsS3AccountSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, setGroups, setLoading]);
+  }, [contextIdForApi, needsS3AccountSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, setGroups, setLoading]);
 
   useEffect(() => {
     if (selectedPolicies.length > 0) {
@@ -140,12 +140,12 @@ export default function ManagerGroupsPage() {
     setActionMessage(null);
     try {
       const groupName = advancedName.trim();
-      await createIamGroup(accountIdForApi, groupName, inlineDrafts);
+      await createIamGroup(contextIdForApi, groupName, inlineDrafts);
       if (selectedPolicies.length > 0) {
         for (const arn of selectedPolicies) {
           const policy = policies.find((p) => p.arn === arn);
           if (policy) {
-            await attachGroupPolicy(accountIdForApi, groupName, policy);
+            await attachGroupPolicy(contextIdForApi, groupName, policy);
           }
         }
       }
@@ -156,7 +156,7 @@ export default function ManagerGroupsPage() {
       resetInlinePolicyDraftEditor();
       setShowCreateForm(false);
       setActionMessage(text("Group created"));
-      await load(accountIdForApi);
+      await load(contextIdForApi);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {
@@ -170,9 +170,9 @@ export default function ManagerGroupsPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await deleteIamGroup(accountIdForApi, name);
+      await deleteIamGroup(contextIdForApi, name);
       setActionMessage(text("Group deleted"));
-      await load(accountIdForApi);
+      await load(contextIdForApi);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {

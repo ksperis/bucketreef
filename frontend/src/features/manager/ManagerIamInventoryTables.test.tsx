@@ -74,7 +74,7 @@ describe("Manager IAM inventory tables", () => {
       ],
       selectedS3AccountId: "acc-1",
       selectedS3AccountType: "tenant",
-      accountIdForApi: "acc-1",
+      contextIdForApi: "acc-1",
       requiresS3AccountSelection: true,
       accessMode: "default",
       iamIdentity: null,

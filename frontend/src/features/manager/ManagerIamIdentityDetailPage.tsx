@@ -24,8 +24,8 @@ export default function ManagerIamIdentityDetailPage({ kind, embedded = false }:
   const params = useParams<{ userName?: string; groupName?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsSelection = requiresS3AccountSelection && !accountIdForApi;
+  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const needsSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const encodedName = kind === "user" ? params.userName : params.groupName;
   const entityName = useMemo(() => {
@@ -46,7 +46,7 @@ export default function ManagerIamIdentityDetailPage({ kind, embedded = false }:
     if (!entityName || needsSelection || isS3User) return;
     let cancelled = false;
     setLoading(true); setError(null); setSaved(false);
-    const request = kind === "user" ? getIamUser(accountIdForApi, entityName) : getIamGroup(accountIdForApi, entityName);
+    const request = kind === "user" ? getIamUser(contextIdForApi, entityName) : getIamGroup(contextIdForApi, entityName);
     void request.then((loaded) => {
       if (cancelled) return;
       setEntity(loaded);
@@ -57,7 +57,7 @@ export default function ManagerIamIdentityDetailPage({ kind, embedded = false }:
       if (!cancelled) setError(extractApiError(err, kind === "user" ? "Unable to load IAM user." : "Unable to load IAM group."));
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [accessMode, accountIdForApi, entityName, isS3User, kind, needsSelection]);
+  }, [accessMode, contextIdForApi, entityName, isS3User, kind, needsSelection]);
 
   if (isS3User || needsSelection || !entityName) {
     return <PageShell title={text(kind === "user" ? "IAM user details" : "IAM group details")}
@@ -77,8 +77,8 @@ export default function ManagerIamIdentityDetailPage({ kind, embedded = false }:
     setSaving(true); setError(null); setSaved(false);
     try {
       const updated = kind === "user"
-        ? await updateIamUser(accountIdForApi, entityName, { name: name.trim(), path: path.trim() })
-        : await updateIamGroup(accountIdForApi, entityName, { name: name.trim(), path: path.trim() });
+        ? await updateIamUser(contextIdForApi, entityName, { name: name.trim(), path: path.trim() })
+        : await updateIamGroup(contextIdForApi, entityName, { name: name.trim(), path: path.trim() });
       setEntity(updated); setName(updated.name); setPath(updated.path ?? "/");
       setInitial(stableSignature({ name: updated.name, path: updated.path ?? "/" }));
       setSaved(true);

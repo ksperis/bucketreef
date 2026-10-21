@@ -39,7 +39,7 @@ function statusLabel(status: ManagerActivityEntry["status"]): string {
 export default function ManagerActivityPage() {
   const { text, intlLocale } = useManagerI18n();
   const {
-    accountIdForApi,
+    contextIdForApi,
     contextsLoaded,
     hasS3AccountContext,
     managerFeatureStates,
@@ -71,7 +71,7 @@ export default function ManagerActivityPage() {
       setLoading(true);
       setError(null);
       setLoadMoreError(null);
-      listManagerActivity(accountIdForApi, {
+      listManagerActivity(contextIdForApi, {
         limit: PAGE_SIZE,
         search,
         status: status || undefined,
@@ -95,7 +95,7 @@ export default function ManagerActivityPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [accountIdForApi, activityEnabled, hasS3AccountContext, refreshNonce, search, status, text]);
+  }, [contextIdForApi, activityEnabled, hasS3AccountContext, refreshNonce, search, status, text]);
 
   const loadOlder = useCallback(async () => {
     const cursor = entries.at(-1)?.id;
@@ -103,7 +103,7 @@ export default function ManagerActivityPage() {
     setLoadingMore(true);
     setLoadMoreError(null);
     try {
-      const items = await listManagerActivity(accountIdForApi, {
+      const items = await listManagerActivity(contextIdForApi, {
         limit: PAGE_SIZE,
         cursor,
         search,
@@ -119,7 +119,7 @@ export default function ManagerActivityPage() {
     } finally {
       setLoadingMore(false);
     }
-  }, [accountIdForApi, entries, loadingMore, search, status, text]);
+  }, [contextIdForApi, entries, loadingMore, search, status, text]);
 
   const columns = useMemo<DataTableColumn<ManagerActivityEntry>[]>(() => [
     {

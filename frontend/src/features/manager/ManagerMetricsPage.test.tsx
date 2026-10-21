@@ -96,7 +96,7 @@ function buildContext({
     selectedS3AccountId: contextId,
     requiresS3AccountSelection: true,
     hasS3AccountContext: true,
-    accountIdForApi: contextId,
+    contextIdForApi: contextId,
     accessMode,
     managerStatsEnabled,
     managerStatsMessage,

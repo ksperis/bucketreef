@@ -24,8 +24,8 @@ import { useManagerI18n } from "./managerI18n";
 export default function ManagerGroupUsersPage({ embedded = false }: { embedded?: boolean }) {
   const { text } = useManagerI18n();
   const { groupName } = useParams<{ groupName: string }>();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
 
   const [users, setUsers] = useState<IAMUser[]>([]);
@@ -71,9 +71,9 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
       return;
     }
     if (groupName) {
-      load(accountIdForApi, groupName);
+      load(contextIdForApi, groupName);
     }
-  }, [accountIdForApi, isS3User, needsS3AccountSelection, groupName, accessMode, load]);
+  }, [contextIdForApi, isS3User, needsS3AccountSelection, groupName, accessMode, load]);
 
   const availableUsers = useMemo(
     () => allUsers.filter((u) => !users.some((member) => member.name === u.name)),
@@ -94,9 +94,9 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
     setError(null);
     setActionMessage(null);
     try {
-      await addIamGroupUser(accountIdForApi, groupName, newUser.trim());
+      await addIamGroupUser(contextIdForApi, groupName, newUser.trim());
       setNewUser("");
-      await load(accountIdForApi, groupName);
+      await load(contextIdForApi, groupName);
       setActionMessage(text("User added to group"));
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
@@ -111,8 +111,8 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
     setError(null);
     setActionMessage(null);
     try {
-      await removeIamGroupUser(accountIdForApi, groupName, userName);
-      await load(accountIdForApi, groupName);
+      await removeIamGroupUser(contextIdForApi, groupName, userName);
+      await load(contextIdForApi, groupName);
       setActionMessage(text("User removed from group"));
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
@@ -161,7 +161,7 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
   const handleRefresh = () => {
     if (needsS3AccountSelection) return;
     if (groupName) {
-      load(accountIdForApi, groupName);
+      load(contextIdForApi, groupName);
     }
   };
 

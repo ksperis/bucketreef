@@ -40,11 +40,11 @@ export default function PoliciesPage() {
     accounts = [],
     selectedS3AccountId = null,
     selectedS3AccountType,
-    accountIdForApi,
+    contextIdForApi,
     requiresS3AccountSelection,
     accessMode,
   } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
+  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const selectedContext = accounts.find((context) => context.id === selectedS3AccountId) ?? null;
   const createManagedPolicyUnsupported = selectedContext?.endpoint_provider === "ceph";
@@ -87,8 +87,8 @@ export default function PoliciesPage() {
       setLoading(false);
       return;
     }
-    load(accountIdForApi);
-  }, [accountIdForApi, needsS3AccountSelection, accessMode, load, setLoading, setPolicies]);
+    load(contextIdForApi);
+  }, [contextIdForApi, needsS3AccountSelection, accessMode, load, setLoading, setPolicies]);
 
   const nameFormatError = iamNameFormatError(advancedName.trim(), "policy");
 
@@ -104,12 +104,12 @@ export default function PoliciesPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await createIamPolicy(accountIdForApi, advancedName.trim(), parsedDocument!);
+      await createIamPolicy(contextIdForApi, advancedName.trim(), parsedDocument!);
       setAdvancedName("");
       setDocumentText(DEFAULT_POLICY_DOCUMENT);
       setShowCreateForm(false);
       setActionMessage(text("Policy created"));
-      await load(accountIdForApi);
+      await load(contextIdForApi);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {
