@@ -30,7 +30,6 @@ export function useBrowserSelection({
   listItems,
   scopeKey,
 }: UseBrowserSelectionOptions) {
-  const [, setActiveItem] = useState<BrowserItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(
     null,
@@ -62,15 +61,8 @@ export function useBrowserSelection({
     [],
   );
 
-  const activateItem = useCallback((item: BrowserItem | null) => {
-    setActiveItem(item);
-  }, []);
-
-  const clearActiveItem = useCallback(() => setActiveItem(null), []);
-
   const clearSelection = useCallback(() => {
     applyRowSelection([], null, null);
-    setActiveItem(null);
   }, [applyRowSelection]);
 
   const selectSingleRow = useCallback(
@@ -225,9 +217,6 @@ export function useBrowserSelection({
           ? activeRowId
           : (nextIds[0] ?? null),
       );
-      setActiveItem((current) =>
-        current && removedIds.has(current.id) ? null : current,
-      );
     },
     [
       activeRowId,
@@ -350,7 +339,6 @@ export function useBrowserSelection({
     setSelectedIds([]);
     setSelectionAnchorId(null);
     setActiveRowId(null);
-    setActiveItem(null);
   }, [scopeKey]);
 
   useEffect(() => {
@@ -363,9 +351,6 @@ export function useBrowserSelection({
     ) {
       setSelectedIds(nextIds);
     }
-    setActiveItem((current) =>
-      current && items.some((item) => item.id === current.id) ? current : null,
-    );
   }, [items, selectedIds]);
 
   useEffect(() => {
@@ -385,9 +370,7 @@ export function useBrowserSelection({
   }, [listItems, selectedIds]);
 
   return {
-    activateItem,
     allSelected,
-    clearActiveItem,
     clearSelection,
     handleItemCheckboxClick,
     handleItemSelectionClick,

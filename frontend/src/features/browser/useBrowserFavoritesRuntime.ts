@@ -29,7 +29,6 @@ type UseBrowserFavoritesRuntimeOptions = {
   requestTransition: (transition: () => void) => boolean;
   setBucketName: (bucketName: string) => void;
   setPrefix: (prefix: string) => void;
-  clearActiveItem: () => void;
   onStatus?: (message: string) => void;
   onWarning?: (message: string) => void;
 };
@@ -47,7 +46,6 @@ export function useBrowserFavoritesRuntime({
   requestTransition,
   setBucketName,
   setPrefix,
-  clearActiveItem,
   onStatus,
   onWarning,
 }: UseBrowserFavoritesRuntimeOptions) {
@@ -104,10 +102,8 @@ export function useBrowserFavoritesRuntime({
           setBucketName(favorite.bucket);
           setPrefix(favorite.prefix);
         }
-        clearActiveItem();
       }),
     [
-      clearActiveItem,
       context,
       location.hash,
       location.pathname,

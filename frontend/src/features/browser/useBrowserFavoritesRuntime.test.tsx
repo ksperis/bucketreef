@@ -86,7 +86,6 @@ const options = () => ({
   }),
   setBucketName: vi.fn(),
   setPrefix: vi.fn(),
-  clearActiveItem: vi.fn(),
   onStatus: vi.fn(),
   onWarning: vi.fn(),
 });
@@ -140,7 +139,6 @@ describe("useBrowserFavoritesRuntime", () => {
     expect(runtimeOptions.requestTransition).toHaveBeenCalledTimes(1);
     expect(runtimeOptions.setBucketName).toHaveBeenCalledWith("archive");
     expect(runtimeOptions.setPrefix).toHaveBeenCalledWith("reports/");
-    expect(runtimeOptions.clearActiveItem).toHaveBeenCalledTimes(1);
     expect(currentLocation).toBe(
       "/browser?ctx=101&bucket=archive&prefix=old%2F&view=grid#details",
     );
@@ -163,7 +161,6 @@ describe("useBrowserFavoritesRuntime", () => {
 
     expect(runtimeOptions.setBucketName).not.toHaveBeenCalled();
     expect(runtimeOptions.setPrefix).not.toHaveBeenCalled();
-    expect(runtimeOptions.clearActiveItem).toHaveBeenCalledTimes(1);
     expect(currentLocation).toBe(
       "/browser?ctx=202&bucket=reports&prefix=2026%2F&view=grid#details",
     );
