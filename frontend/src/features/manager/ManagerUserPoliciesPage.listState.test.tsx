@@ -18,7 +18,7 @@ vi.mock("./ExecutionContextProvider", () => ({
 }));
 
 vi.mock("../../api/managerIamPolicies", () => ({
-  listIamPolicies: (accountId: unknown) => listIamPoliciesMock(accountId),
+  listIamPolicies: (contextId: unknown) => listIamPoliciesMock(contextId),
 }));
 
 vi.mock("../../api/managerIamUsers", () => ({
@@ -26,7 +26,7 @@ vi.mock("../../api/managerIamUsers", () => ({
   deleteUserInlinePolicy: vi.fn(),
   detachUserPolicy: (...args: unknown[]) => detachUserPolicyMock(...args),
   listUserInlinePolicies: vi.fn(async () => []),
-  listUserPolicies: (accountId: unknown, userName: string) => listUserPoliciesMock(accountId, userName),
+  listUserPolicies: (contextId: unknown, userName: string) => listUserPoliciesMock(contextId, userName),
   putUserInlinePolicy: vi.fn(),
 }));
 

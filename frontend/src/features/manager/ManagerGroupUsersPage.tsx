@@ -46,13 +46,13 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
     }
   }, [groupName]);
 
-  const load = useCallback(async (accountId: S3ExecutionContextSelector, targetGroup: string) => {
+  const load = useCallback(async (contextId: S3ExecutionContextSelector, targetGroup: string) => {
     setLoading(true);
     setError(null);
     try {
       const [members, existingUsers] = await Promise.all([
-        listIamGroupUsers(accountId, targetGroup),
-        listIamUsers(accountId),
+        listIamGroupUsers(contextId, targetGroup),
+        listIamUsers(contextId),
       ]);
       setUsers(members);
       setAllUsers(existingUsers);

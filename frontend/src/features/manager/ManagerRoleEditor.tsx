@@ -37,8 +37,8 @@ function sameTags(left: IAMTag[], right: IAMTag[]): boolean {
 }
 
 /** A mounted role/executor owns the request and draft until save or dismissal. */
-export default function ManagerRoleEditor({ accountId, roleName, onClose, onSaved, mode = "all", embedded = false }: {
-  accountId: S3ExecutionContextSelector;
+export default function ManagerRoleEditor({ contextId, roleName, onClose, onSaved, mode = "all", embedded = false }: {
+  contextId: S3ExecutionContextSelector;
   roleName: string;
   onClose: () => void;
   onSaved: () => void;
@@ -47,7 +47,7 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
 }) {
   const { text } = useManagerI18n();
   const load = useCallback(async () => {
-    const role = await getIamRole(accountId, roleName);
+    const role = await getIamRole(contextId, roleName);
     return {
       arn: role.arn ?? "",
       path: role.path ?? DEFAULT_ROLE_PATH,
@@ -55,7 +55,7 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
       maxSessionDuration: role.max_session_duration ?? 3600,
       tags: role.tags ?? [],
     };
-  }, [accountId, roleName]);
+  }, [contextId, roleName]);
   const { baseline, draft, setDraft, accept, dirty: draftDirty, loading, loadError, retry } = useSettingsRemoteDraft(
     () => ({ arn: "", path: DEFAULT_ROLE_PATH, policy: DEFAULT_ASSUME_ROLE_DOCUMENT, maxSessionDuration: 3600, tags: [] as IAMTag[] }), load, "Unable to load role details.",
   );
@@ -91,7 +91,7 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
         roleChanges.max_session_duration = draft.maxSessionDuration;
       }
       if (Object.keys(roleChanges).length > 0) {
-        await updateIamRole(accountId, roleName, roleChanges);
+        await updateIamRole(contextId, roleName, roleChanges);
       }
       if (mode !== "trust") {
         const currentByKey = tagsByKey(baseline.tags);
@@ -100,11 +100,11 @@ export default function ManagerRoleEditor({ accountId, roleName, onClose, onSave
           const currentTags = currentByKey.get(key) ?? [];
           const desiredTags = desiredByKey.get(key) ?? [];
           if (sameTags(currentTags, desiredTags)) continue;
-          if (currentTags.length > 0) await deleteRoleTag(accountId, roleName, key);
-          if (desiredTags.length > 0) await putRoleTags(accountId, roleName, desiredTags);
+          if (currentTags.length > 0) await deleteRoleTag(contextId, roleName, key);
+          if (desiredTags.length > 0) await putRoleTags(contextId, roleName, desiredTags);
         }
       }
-      const role = await getIamRole(accountId, roleName);
+      const role = await getIamRole(contextId, roleName);
       accept({
         arn: role.arn ?? "",
         path: role.path ?? DEFAULT_ROLE_PATH,

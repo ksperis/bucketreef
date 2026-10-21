@@ -70,7 +70,7 @@ export default function ManagerRoleWorkspacePage() {
       {activeTab === "general" && (
         <ManagerRoleEditor
           key={`${contextIdForApi}:${name}:general`}
-          accountId={contextIdForApi}
+          contextId={contextIdForApi}
           roleName={name}
           mode="general"
           embedded
@@ -81,7 +81,7 @@ export default function ManagerRoleWorkspacePage() {
       {activeTab === "trust" && (
         <ManagerRoleEditor
           key={`${contextIdForApi}:${name}:trust`}
-          accountId={contextIdForApi}
+          contextId={contextIdForApi}
           roleName={name}
           mode="trust"
           embedded

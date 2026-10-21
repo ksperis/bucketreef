@@ -69,11 +69,11 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     return true;
   };
 
-  const load = useCallback(async (accountId: S3ExecutionContextSelector, targetUser: string) => {
+  const load = useCallback(async (contextId: S3ExecutionContextSelector, targetUser: string) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listIamAccessKeys(accountId, targetUser);
+      const data = await listIamAccessKeys(contextId, targetUser);
       setKeys(data);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));

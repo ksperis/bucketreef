@@ -36,13 +36,13 @@ export default function ManagerUserGroupsPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const membershipConfirmation = useConfirmActionDialog();
 
-  const load = useCallback(async (accountId: S3ExecutionContextSelector, targetUser: string) => {
+  const load = useCallback(async (contextId: S3ExecutionContextSelector, targetUser: string) => {
     setLoading(true);
     setError(null);
     try {
       const [user, availableGroups] = await Promise.all([
-        getIamUser(accountId, targetUser),
-        listIamGroups(accountId),
+        getIamUser(contextId, targetUser),
+        listIamGroups(contextId),
       ]);
       const membership = new Set(user.groups ?? []);
       setAllGroups(availableGroups);

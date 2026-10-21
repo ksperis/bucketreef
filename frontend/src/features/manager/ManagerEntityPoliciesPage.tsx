@@ -33,17 +33,17 @@ type PageAction = {
 type ManagerEntityPoliciesPageProps = {
   entityType: ManagerPolicyEntityType;
   routeParam: "userName" | "groupName" | "roleName";
-  listPoliciesForEntity: (accountId: S3ExecutionContextSelector, entityName: string) => Promise<IamPolicy[]>;
-  attachPolicyToEntity: (accountId: S3ExecutionContextSelector, entityName: string, policy: IamPolicy) => Promise<IamPolicy>;
-  detachPolicyFromEntity: (accountId: S3ExecutionContextSelector, entityName: string, policyArn: string) => Promise<void>;
-  listInlinePoliciesForEntity: (accountId: S3ExecutionContextSelector, entityName: string) => Promise<{ name: string; document: Record<string, unknown> }[]>;
+  listPoliciesForEntity: (contextId: S3ExecutionContextSelector, entityName: string) => Promise<IamPolicy[]>;
+  attachPolicyToEntity: (contextId: S3ExecutionContextSelector, entityName: string, policy: IamPolicy) => Promise<IamPolicy>;
+  detachPolicyFromEntity: (contextId: S3ExecutionContextSelector, entityName: string, policyArn: string) => Promise<void>;
+  listInlinePoliciesForEntity: (contextId: S3ExecutionContextSelector, entityName: string) => Promise<{ name: string; document: Record<string, unknown> }[]>;
   putInlinePolicyForEntity: (
-    accountId: S3ExecutionContextSelector,
+    contextId: S3ExecutionContextSelector,
     entityName: string,
     policyName: string,
     document: Record<string, unknown>
   ) => Promise<{ name: string; document: Record<string, unknown> }>;
-  deleteInlinePolicyForEntity: (accountId: S3ExecutionContextSelector, entityName: string, policyName: string) => Promise<void>;
+  deleteInlinePolicyForEntity: (contextId: S3ExecutionContextSelector, entityName: string, policyName: string) => Promise<void>;
   extraActions?: (entityName: string) => PageAction[];
   embedded?: boolean;
 };
@@ -123,13 +123,13 @@ export default function ManagerEntityPoliciesPage({
 
   const noPoliciesAvailable = available.length === 0;
 
-  const load = useCallback(async (accountId: S3ExecutionContextSelector, entityName: string) => {
+  const load = useCallback(async (contextId: S3ExecutionContextSelector, entityName: string) => {
     setLoading(true);
     setError(null);
     try {
       const [attachedPolicies, allPolicies] = await Promise.all([
-        listPoliciesForEntity(accountId, entityName),
-        listIamPolicies(accountId),
+        listPoliciesForEntity(contextId, entityName),
+        listIamPolicies(contextId),
       ]);
       setAttached(attachedPolicies);
       setAvailable(allPolicies);
