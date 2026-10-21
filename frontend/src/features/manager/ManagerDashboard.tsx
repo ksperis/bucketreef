@@ -742,7 +742,7 @@ export default function ManagerDashboard() {
       .catch((err) => {
         if (cancelled) return;
         setWorkspaceHealth(null);
-        setWorkspaceHealthError(extractApiError(err, text("Unable to load endpoint health for this account.")));
+        setWorkspaceHealthError(extractApiError(err, text("Unable to load endpoint health for this context.")));
       })
       .finally(() => {
         if (!cancelled) setWorkspaceHealthLoading(false);
@@ -903,7 +903,7 @@ export default function ManagerDashboard() {
   const contextLabel = selected
     ? formatAccountLabel(selected)
     : sessionAccountName ?? "S3 session";
-  const noContextReason = !hasContext ? text("Select an account to display live values.") : null;
+  const noContextReason = !hasContext ? text("Select a context to display live values.") : null;
   const metricsUnavailableReason =
     noContextReason ||
     (managerStatsEnabled === null
@@ -1031,7 +1031,7 @@ export default function ManagerDashboard() {
     <div className="ui-dashboard-compact" data-testid="manager-dashboard">
       <PageHeader
         title={text("Manager dashboard")}
-        description={text("Overview of {account} storage account and resources.", { account: contextLabel })}
+        description={text("Overview of storage resources for {context}.", { context: contextLabel })}
         breadcrumbs={managerPageBreadcrumbs(text, "dashboard")}
         rightContent={
           <div className="flex items-center gap-3">

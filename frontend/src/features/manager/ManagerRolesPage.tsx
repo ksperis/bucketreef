@@ -231,7 +231,7 @@ export default function ManagerRolesPage() {
     if (needsContextSelection) return;
     deleteConfirmation.requestConfirmation({
       title: text("Delete IAM role?"),
-      description: text("Permanently remove this IAM role from the selected account."),
+      description: text("Permanently remove this IAM role from the selected context."),
       confirmLabel: text("Delete role"),
       details: [{ label: text("IAM role"), value: name }],
       impacts: ["Workloads that assume this role will no longer receive its permissions."],
@@ -368,8 +368,8 @@ export default function ManagerRolesPage() {
 
       {needsContextSelection ? (
         <PageEmptyState
-          title={text("Select an account before managing IAM roles")}
-          description={text("Roles are defined per execution context. Choose an account to list trust relationships and attached policies.")}
+          title={text("Select a context before managing IAM roles")}
+          description={text("Roles are defined per execution context. Choose a context to list trust relationships and attached policies.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />

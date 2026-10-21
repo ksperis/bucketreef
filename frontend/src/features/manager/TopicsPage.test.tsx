@@ -53,9 +53,9 @@ describe("TopicsPage", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Select an account before managing SNS topics")).toBeInTheDocument();
+    expect(screen.getByText("Select a context before managing SNS topics")).toBeInTheDocument();
     expect(screen.queryByText("Execution context")).not.toBeInTheDocument();
-    expect(screen.queryByText("Select an account to manage its topics.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Select a context to manage its topics.")).not.toBeInTheDocument();
   });
 
   it("confirms before deleting a notification topic", async () => {

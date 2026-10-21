@@ -236,13 +236,13 @@ export default function ManagerMetricsPage() {
 
   const usageStatsAggregateSection = canLoadUsageStatsAggregate ? (
     <BucketUsageStatsAggregateCard
-      title={text("Account usage composition")}
-      description={text("Latest calculated bucket snapshots for the active account context.")}
+      title={text("Usage composition")}
+      description={text("Latest calculated bucket snapshots for the active execution context.")}
       aggregate={usageStatsAggregate}
       loading={usageStatsLoading}
       error={usageStatsError}
       recalculating={usageStatsRecalculating}
-      recalculateLabel={text("Recalculate account")}
+      recalculateLabel={text("Recalculate usage composition")}
       text={text}
       onCancel={handleCancelUsageStats}
       onRecalculate={handleRecalculateUsageStats}
@@ -274,8 +274,8 @@ export default function ManagerMetricsPage() {
     >
       {!hasContext ? (
         <PageEmptyState
-          title={text("Select an account to view usage and metrics")}
-          description={text("Usage composition and Manager metrics depend on an execution context. Choose an account to load bucket usage, storage, and traffic analytics.")}
+          title={text("Select a context to view usage and metrics")}
+          description={text("Usage composition and Manager metrics depend on an execution context. Choose a context to load bucket usage, storage, and traffic analytics.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />

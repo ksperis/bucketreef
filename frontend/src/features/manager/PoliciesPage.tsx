@@ -151,7 +151,7 @@ export default function PoliciesPage() {
     <div className={workflowPageHostClass(showCreateForm)}>
       <PageHeader actionPresentation="listing"
         title={text("IAM Policies")}
-        description={text("List and create Ceph IAM policies for the selected account.")}
+        description={text("List and create Ceph IAM policies for the selected context.")}
         breadcrumbs={managerPageBreadcrumbs(text, "policies")}
         actions={
           canCreateManagedPolicy
@@ -175,8 +175,8 @@ export default function PoliciesPage() {
 
       {needsContextSelection ? (
         <PageEmptyState
-          title={text("Select an account before managing IAM policies")}
-          description={text("Policies are created inside an execution context. Choose an account to list, create, and attach managed IAM policies.")}
+          title={text("Select a context before managing IAM policies")}
+          description={text("Policies are created inside an execution context. Choose a context to list, create, and attach managed IAM policies.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />

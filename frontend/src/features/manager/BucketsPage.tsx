@@ -615,7 +615,7 @@ export default function BucketsPage() {
     locationConstraint?: string
   ): Promise<{ created: boolean }> => {
     if (needsContextSelection) {
-      setActionError(text("Select an account before creating a bucket."));
+      setActionError(text("Select a context before creating a bucket."));
       return { created: false };
     }
     setCreating(true);
@@ -876,7 +876,7 @@ export default function BucketsPage() {
 
       {needsContextSelection ? (
         <PageEmptyState
-          title={text("Select an account before managing buckets")}
+          title={text("Select a context before managing buckets")}
           description={text("The bucket list, quota details, and destructive actions stay disabled until a manager execution context is selected.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"

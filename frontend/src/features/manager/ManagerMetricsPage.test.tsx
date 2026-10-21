@@ -466,7 +466,7 @@ describe("ManagerMetricsPage", () => {
     expect(getManagerCostMeMock).not.toHaveBeenCalled();
   });
 
-  it("renders account usage composition and recalculates all account buckets when usage stats are enabled", async () => {
+  it("renders context usage composition and recalculates all context buckets when usage stats are enabled", async () => {
     bucketUsageStatsEnabled = true;
     setManagerUser();
     useExecutionContextMock.mockReturnValue(buildContext());
@@ -480,13 +480,13 @@ describe("ManagerMetricsPage", () => {
 
     expect(screen.getByText("Bucket breakdown (storage)")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Usage composition" }));
-    await screen.findByText("Account usage composition");
+    await screen.findByRole("heading", { name: "Usage composition" });
     expect(screen.queryByText("Bucket breakdown (storage)")).not.toBeInTheDocument();
     expect(screen.getByText("1 / 2 buckets covered")).toBeInTheDocument();
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();
     expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledWith("conn-1");
 
-    const recalculateButton = screen.getByRole("button", { name: "Recalculate account" });
+    const recalculateButton = screen.getByRole("button", { name: "Recalculate usage composition" });
     expect(recalculateButton).toHaveClass("h-7");
     fireEvent.click(recalculateButton);
 
@@ -500,7 +500,7 @@ describe("ManagerMetricsPage", () => {
     await waitFor(() => expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledTimes(2));
   });
 
-  it("cancels an account usage stats recalculation without reporting an error", async () => {
+  it("cancels a context usage stats recalculation without reporting an error", async () => {
     bucketUsageStatsEnabled = true;
     setManagerUser();
     useExecutionContextMock.mockReturnValue(buildContext());
@@ -523,8 +523,8 @@ describe("ManagerMetricsPage", () => {
     );
 
     fireEvent.click(screen.getByRole("tab", { name: "Usage composition" }));
-    await screen.findByText("Account usage composition");
-    fireEvent.click(screen.getByRole("button", { name: "Recalculate account" }));
+    await screen.findByRole("heading", { name: "Usage composition" });
+    fireEvent.click(screen.getByRole("button", { name: "Recalculate usage composition" }));
 
     const cancelButton = await screen.findByRole("button", { name: "Cancel calculation" });
     expect(cancelButton).toHaveClass("h-7");
@@ -534,7 +534,7 @@ describe("ManagerMetricsPage", () => {
     fireEvent.click(cancelButton);
 
     await waitFor(() => expect(options.signal.aborted).toBe(true));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Recalculate account" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Recalculate usage composition" })).toBeInTheDocument());
     expect(screen.queryByText("Unable to recalculate usage composition.")).not.toBeInTheDocument();
     expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledTimes(1);
   });

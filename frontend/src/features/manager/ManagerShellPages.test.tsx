@@ -343,7 +343,7 @@ describe("manager shell pages", () => {
     expect(screen.queryByText("Recent activity")).not.toBeInTheDocument();
     expect(screen.getByText("Transfer")).toBeInTheDocument();
     expect(screen.queryByText("Active transfers")).not.toBeInTheDocument();
-    expect(screen.queryByText("Select an account to display live values.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Select a context to display live values.")).not.toBeInTheDocument();
     expect(screen.queryByText("5.3 TB")).not.toBeInTheDocument();
     expect(screen.queryByText("128")).not.toBeInTheDocument();
     expect(screen.queryByText("backup-prod")).not.toBeInTheDocument();
@@ -1284,7 +1284,7 @@ describe("manager shell pages", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Select an account before managing buckets")).toBeInTheDocument();
+    expect(screen.getByText("Select a context before managing buckets")).toBeInTheDocument();
     expect(screen.queryByText("Execution context")).not.toBeInTheDocument();
   });
 

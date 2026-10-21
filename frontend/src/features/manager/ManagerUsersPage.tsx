@@ -289,7 +289,7 @@ export default function ManagerUsersPage() {
     if (needsContextSelection) return;
     deleteConfirmation.requestConfirmation({
       title: text("Delete IAM user?"),
-      description: text("Permanently remove this IAM user from the selected account."),
+      description: text("Permanently remove this IAM user from the selected context."),
       confirmLabel: text("Delete user"),
       details: [{ label: text("IAM user"), value: name }],
       impacts: ["Credentials and permissions attached to this user will no longer grant access."],
@@ -509,8 +509,8 @@ export default function ManagerUsersPage() {
 
       {needsContextSelection ? (
         <PageEmptyState
-          title={text("Select an account before managing IAM users")}
-          description={text("Users are created within an execution context. Choose an account to list identities, generate keys, and attach policies.")}
+          title={text("Select a context before managing IAM users")}
+          description={text("Users are created within an execution context. Choose a context to list identities, generate keys, and attach policies.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />

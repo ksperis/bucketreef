@@ -375,7 +375,7 @@ export default function ManagerCephKeysPage() {
 
       {!hasExecutionContext ? (
         <PageEmptyState
-          title={text("Select an account before managing Ceph access keys")}
+          title={text("Select a context before managing Ceph access keys")}
           description={text("Ceph access keys are scoped to the active execution context. Choose a managed S3 user context before opening key inventory.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
