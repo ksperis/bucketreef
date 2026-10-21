@@ -6,6 +6,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.bucket_listing import BucketListingSummary
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_config_backup import (
@@ -75,7 +76,7 @@ class BucketConfigBackupService:
                     quota_loader,
                 )
             except Exception as exc:  # noqa: BLE001 - backup files should carry per-feature failures.
-                errors[feature] = str(exc)
+                errors[feature] = sanitized_error_log_detail(exc)
 
         return BucketConfigBackupBucket(name=bucket_name, configuration=configuration, errors=errors)
 
