@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from app.core.sensitive_data import sanitize_error_detail
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.bucket_filter import BucketFilterQuery
 
 
@@ -100,7 +100,7 @@ def parse_filter(raw: str | None) -> tuple[str | None, BucketFilterQuery | None]
             try:
                 return None, BucketFilterQuery.model_validate(parsed)
             except ValidationError as exc:
-                raise BucketListingFilterError(str(sanitize_error_detail(str(exc)))) from exc
+                raise BucketListingFilterError(sanitized_error_log_detail(exc)) from exc
     return text, None
 
 

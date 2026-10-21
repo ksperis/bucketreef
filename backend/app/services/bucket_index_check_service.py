@@ -6,7 +6,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from time import monotonic
 from typing import Callable
 
-from app.core.sensitive_data import sanitize_error_detail
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.ceph_admin import (
     CephAdminBucketIndexCheckBatchBucketResult,
     CephAdminBucketIndexCheckBatchProgress,
@@ -80,7 +80,7 @@ class BucketIndexCheckService:
                 tenant=target.tenant,
                 status="failed",
                 duration_seconds=monotonic() - started,
-                message=str(sanitize_error_detail(str(exc))),
+                message=sanitized_error_log_detail(exc),
             )
 
     def _collect_results(
