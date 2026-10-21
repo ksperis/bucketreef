@@ -425,20 +425,23 @@ export default function BrowserPage({
     activeSearchStatusChips,
     changeSearchScope,
     clearSearchFilters,
+    closeSearchOptionsMenu,
     filter,
     hasActiveSearchFilters,
     hasAdvancedSearchOptionsActive,
     hasSearchQuery,
     isSearchingInWholeBucket,
     searchCaseSensitive,
+    searchControlRef,
     searchExactMatch,
+    searchOptionsButtonRef,
+    searchOptionsMenuRef,
     searchRecursive,
     searchScope,
     setFilter,
     setSearchCaseSensitive,
     setSearchExactMatch,
     setSearchRecursive,
-    setShowSearchOptionsMenu,
     setStorageFilter,
     setTypeFilter,
     showSearchOptionsMenu,
@@ -614,9 +617,6 @@ export default function BrowserPage({
     setStatusMessage,
   });
   const bucketMenuRef = useRef<HTMLDivElement | null>(null);
-  const searchOptionsMenuRef = useRef<HTMLDivElement | null>(null);
-  const searchControlRef = useRef<HTMLDivElement | null>(null);
-  const searchOptionsButtonRef = useRef<HTMLButtonElement | null>(null);
   const objectsListViewportRef = useRef<HTMLDivElement | null>(null);
   const bucketMenuFilterRef = useRef<HTMLInputElement | null>(null);
   const contextIdForApiRef = useRef(contextIdForApi);
@@ -706,12 +706,6 @@ export default function BrowserPage({
       bucketMenuFilterRef.current?.focus();
     }
   }, [showBucketMenu]);
-
-  useDismissibleLayer({
-    open: showSearchOptionsMenu,
-    insideRefs: [searchControlRef, searchOptionsMenuRef],
-    onDismiss: reason => { setShowSearchOptionsMenu(false); if (reason === "escape") searchOptionsButtonRef.current?.focus(); },
-  });
 
   useEffect(() => {
     if (isVersioningEnabled) return;
@@ -1728,7 +1722,7 @@ export default function BrowserPage({
       onTypeFilterChange={setTypeFilter}
       onStorageFilterChange={setStorageFilter}
       onClear={clearSearchFilters}
-      onClose={() => setShowSearchOptionsMenu(false)}
+      onClose={closeSearchOptionsMenu}
     />
   );
 
