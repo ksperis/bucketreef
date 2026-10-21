@@ -44,8 +44,8 @@ export default function ManagerCephKeysPage() {
   const {
     hasS3AccountContext,
     contextIdForApi,
-    selectedS3AccountName,
-    selectedS3AccountType,
+    selectedContextName,
+    selectedContextKind,
     managerCephKeysEnabled,
     managerAccessKeyMetadataEnabled,
     managerAccessKeyExpirationEnabled,
@@ -65,7 +65,7 @@ export default function ManagerCephKeysPage() {
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const keyConfirmation = useConfirmActionDialog();
 
-  const isS3UserContext = selectedS3AccountType === "s3_user";
+  const isS3UserContext = selectedContextKind === "s3_user";
   const canManageCephKeys = Boolean(hasS3AccountContext && isS3UserContext && managerCephKeysEnabled);
   const canProvisionManagedPrivateAccess = Boolean(
     hasS3AccountContext && isS3UserContext && managerPrivateAccessEnabled
@@ -206,7 +206,7 @@ export default function ManagerCephKeysPage() {
       impactLabel: text("Impact"),
       closeLabel: text("Close modal"),
       details: [
-        { label: text("Context"), value: selectedS3AccountName || "Current S3 User" },
+        { label: text("Context"), value: selectedContextName || "Current S3 User" },
         { label: text("Access key"), value: key.access_key_id, mono: true },
       ],
       impacts: [text("Applications using this key will immediately lose access.")],
@@ -461,7 +461,7 @@ export default function ManagerCephKeysPage() {
         <CreateManagedPrivateAccessModal
           variant="rgw_user"
           accountId={contextIdForApi}
-          contextName={selectedS3AccountName}
+          contextName={selectedContextName}
           onClose={() => setShowPrivateAccessModal(false)}
           onCreated={(name) => {
             setActionMessage(`Private connection ${name} created without exposing its secret.`);

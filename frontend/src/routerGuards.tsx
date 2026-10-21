@@ -245,11 +245,11 @@ export function RequireBrowserSurface({ surface }: { surface: BrowserSurface }) 
 }
 
 export function RequireManagerIamFeature() {
-  const { accounts, selectedS3AccountId, requiresS3AccountSelection, hasS3AccountContext } = useS3AccountContext();
+  const { accounts, selectedContextId, requiresS3AccountSelection, hasS3AccountContext } = useS3AccountContext();
   if (!requiresS3AccountSelection || !hasS3AccountContext) {
     return <Outlet />;
   }
-  const selected = accounts.find((account) => account.id === selectedS3AccountId) ?? null;
+  const selected = accounts.find((account) => account.id === selectedContextId) ?? null;
   const iamEnabled = selected?.storage_endpoint_capabilities?.iam !== false;
   if (!iamEnabled) {
     return <FeatureDisabledPage feature="IAM" />;

@@ -62,7 +62,7 @@ function ruleSearchText(row: FeatureRuleInventoryBucket): string {
 
 export default function ManagerFeatureRulesPage() {
   const { text } = useManagerI18n();
-  const { accounts, selectedS3AccountId, requiresS3AccountSelection, contextIdForApi } = useS3AccountContext();
+  const { accounts, selectedContextId, requiresS3AccountSelection, contextIdForApi } = useS3AccountContext();
   const [feature, setFeature] = useState<FeatureRuleFeature>("lifecycle");
   const [statusFilterValue, setStatusFilterValue] = useState<StatusFilter>("all");
   const [filter, setFilter] = useState("");
@@ -73,8 +73,8 @@ export default function ManagerFeatureRulesPage() {
   const ruleJsonRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedS3Account = useMemo(
-    () => accounts.find((account) => account.id === selectedS3AccountId),
-    [accounts, selectedS3AccountId]
+    () => accounts.find((account) => account.id === selectedContextId),
+    [accounts, selectedContextId]
   );
   const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;
   const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;

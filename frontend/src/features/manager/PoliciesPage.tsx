@@ -38,15 +38,15 @@ export default function PoliciesPage() {
   const { text } = useManagerI18n();
   const {
     accounts = [],
-    selectedS3AccountId = null,
-    selectedS3AccountType,
+    selectedContextId = null,
+    selectedContextKind,
     contextIdForApi,
     requiresS3AccountSelection,
     accessMode,
   } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
-  const isS3User = selectedS3AccountType === "s3_user";
-  const selectedContext = accounts.find((context) => context.id === selectedS3AccountId) ?? null;
+  const isS3User = selectedContextKind === "s3_user";
+  const selectedContext = accounts.find((context) => context.id === selectedContextId) ?? null;
   const createManagedPolicyUnsupported = selectedContext?.endpoint_provider === "ceph";
   const canCreateManagedPolicy = !needsS3AccountSelection && !isS3User && !createManagedPolicyUnsupported;
   const [policyFilter, setPolicyFilter] = useState("");

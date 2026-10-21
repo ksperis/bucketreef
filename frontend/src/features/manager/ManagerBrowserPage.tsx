@@ -15,10 +15,10 @@ export default function ManagerBrowserPage() {
   const { text } = useManagerI18n();
   const {
     accounts,
-    selectedS3AccountId,
+    selectedContextId,
     hasS3AccountContext,
     contextIdForApi,
-    selectedS3AccountType,
+    selectedContextKind,
     accessError,
     iamIdentity,
     accessMode,
@@ -26,7 +26,7 @@ export default function ManagerBrowserPage() {
     managerBrowserMessage,
   } = useS3AccountContext();
   const [selectedBrowserBucketName, setSelectedBrowserBucketName] = useState("");
-  const selectedContext = accounts.find((context) => context.id === selectedS3AccountId) ?? null;
+  const selectedContext = accounts.find((context) => context.id === selectedContextId) ?? null;
   const breadcrumbs = selectedBrowserBucketName
     ? managerPageBreadcrumbs(text, "browser", { label: selectedBrowserBucketName })
     : managerPageBreadcrumbs(text, "browser");
@@ -69,7 +69,7 @@ export default function ManagerBrowserPage() {
             <div className="min-h-0 flex-1">
               <BrowserEmbed
                 contextIdForApi={contextIdForApi}
-                executionContextKind={selectedContext?.kind ?? (selectedS3AccountType === "s3_user" ? "s3_user" : null)}
+                executionContextKind={selectedContextKind}
                 hasContext
                 workspaceSurface="manager"
                 functionalProfile="advanced"

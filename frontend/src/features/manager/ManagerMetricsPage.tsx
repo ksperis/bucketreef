@@ -55,7 +55,7 @@ export default function ManagerMetricsPage() {
   const [costError, setCostError] = useState<string | null>(null);
   const {
     accounts,
-    selectedS3AccountId,
+    selectedContextId,
     hasS3AccountContext,
     requiresS3AccountSelection,
     contextIdForApi,
@@ -66,8 +66,8 @@ export default function ManagerMetricsPage() {
   } = useS3AccountContext();
 
   const selected = useMemo(
-    () => accounts.find((a) => a.id === selectedS3AccountId),
-    [accounts, selectedS3AccountId]
+    () => accounts.find((a) => a.id === selectedContextId),
+    [accounts, selectedContextId]
   );
   const hasContext = hasS3AccountContext;
   const endpointCaps = selected?.storage_endpoint_capabilities ?? null;

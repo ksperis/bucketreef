@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { ExecutionContext } from "../../api/executionContexts";
+import type { ExecutionContext } from "../../api/executionContexts";
 import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerContext";
 import type { FeatureState } from "../../api/featurePolicies";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
@@ -15,13 +15,13 @@ type S3AccountContextType = {
   namingValidationProfile: NamingValidationProfile | null;
   accounts: ExecutionContext[];
   contextsLoaded: boolean;
-  selectedS3AccountId: string | null;
+  selectedContextId: string | null;
   requiresS3AccountSelection: boolean;
   hasS3AccountContext: boolean;
   contextIdForApi: string | null;
   sessionS3AccountName: string | null;
-  selectedS3AccountName: string | null;
-  selectedS3AccountType: string | null;
+  selectedContextName: string | null;
+  selectedContextKind: ExecutionContext["kind"] | null;
   accessError?: string | null;
   iamIdentity: string | null;
   accessMode: ManagerAccessMode | null;
@@ -41,13 +41,13 @@ const S3AccountContext = createContext<S3AccountContextType>({
   namingValidationProfile: null,
   accounts: [],
   contextsLoaded: false,
-  selectedS3AccountId: null,
+  selectedContextId: null,
   requiresS3AccountSelection: true,
   hasS3AccountContext: false,
   contextIdForApi: null,
   sessionS3AccountName: null,
-  selectedS3AccountName: null,
-  selectedS3AccountType: null,
+  selectedContextName: null,
+  selectedContextKind: null,
   accessError: null,
   iamIdentity: null,
   accessMode: null,
@@ -70,17 +70,6 @@ type S3AccountProviderProps = {
   scope?: S3AccountProviderScope;
 };
 
-function deriveS3AccountType(context: ExecutionContext | null | undefined): string | null {
-  if (!context) return null;
-  if (context.kind === "connection") {
-    return "connection";
-  }
-  if (context.kind === "s3_user") {
-    return "s3_user";
-  }
-  return "tenant";
-}
-
 export function S3AccountProvider({ children, scope = "manager" }: S3AccountProviderProps) {
   const executionContextStorageKey = scope === "browser"
     ? CLIENT_STORAGE_KEYS.selectedBrowserExecutionContext
@@ -88,8 +77,8 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const {
     contexts: accounts,
     contextsLoaded,
-    selectedContextId: selectedS3AccountId,
-    selectedContext: selectedS3Account,
+    selectedContextId,
+    selectedContext,
     requiresSelection: requiresS3AccountSelection,
     accessError,
     sessionAccountName,
@@ -114,10 +103,10 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const [managerAccessKeyExpirationEnabled, setManagerAccessKeyExpirationEnabled] = useState<boolean | null>(null);
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
   const [managerFeatureStates, setManagerFeatureStates] = useState<Record<string, FeatureState> | null>(null);
-  const hasS3AccountContext = requiresS3AccountSelection ? selectedS3Account !== null : true;
-  const contextIdForApi = requiresS3AccountSelection ? selectedS3AccountId : null;
-  const selectedS3AccountName = selectedS3Account?.display_name ?? sessionAccountName;
-  const selectedS3AccountType = deriveS3AccountType(selectedS3Account);
+  const hasS3AccountContext = requiresS3AccountSelection ? selectedContext !== null : true;
+  const contextIdForApi = requiresS3AccountSelection ? selectedContextId : null;
+  const selectedContextName = selectedContext?.display_name ?? sessionAccountName;
+  const selectedContextKind = selectedContext?.kind ?? null;
 
   const namingValidationProfile = hasS3AccountContext && namingProfileState?.contextId === contextIdForApi
     ? namingProfileState.profile : null;
@@ -193,13 +182,13 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
         namingValidationProfile,
         accounts,
         contextsLoaded,
-        selectedS3AccountId,
+        selectedContextId,
         requiresS3AccountSelection,
         hasS3AccountContext,
         contextIdForApi,
         sessionS3AccountName: sessionAccountName,
-        selectedS3AccountName,
-        selectedS3AccountType,
+        selectedContextName,
+        selectedContextKind,
         accessError,
         iamIdentity,
         accessMode,

@@ -46,9 +46,9 @@ import { useManagerI18n } from "./managerI18n";
 export default function ManagerRolesPage() {
   const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
-  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
+  const { selectedContextKind, contextIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
-  const isS3User = selectedS3AccountType === "s3_user";
+  const isS3User = selectedContextKind === "s3_user";
   const [roleFilter, setRoleFilter] = useState("");
   const {
     error,

@@ -203,7 +203,7 @@ export default function BucketsPage() {
   const { text, intlLocale } = useManagerI18n();
   const {
     accounts,
-    selectedS3AccountId,
+    selectedContextId,
     requiresS3AccountSelection,
     sessionS3AccountName,
     contextIdForApi,
@@ -242,8 +242,8 @@ export default function BucketsPage() {
   const [enrichingColumns, setEnrichingColumns] = useState(false);
 
   const selectedS3Account = useMemo(
-    () => accounts.find((a) => a.id === selectedS3AccountId),
-    [accounts, selectedS3AccountId]
+    () => accounts.find((a) => a.id === selectedContextId),
+    [accounts, selectedContextId]
   );
   const endpointCaps = selectedS3Account?.storage_endpoint_capabilities ?? null;
   const usageFeatureEnabled = endpointCaps ? endpointCaps.metrics !== false : true;

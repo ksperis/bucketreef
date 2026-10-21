@@ -39,7 +39,7 @@ describe("ManagerFeatureRulesPage", () => {
           storage_endpoint_capabilities: { sns: true },
         },
       ],
-      selectedS3AccountId: "account-1",
+      selectedContextId: "account-1",
       requiresS3AccountSelection: false,
       contextIdForApi: "account-1",
     });
@@ -197,7 +197,7 @@ describe("ManagerFeatureRulesPage", () => {
     expect(screen.getByRole("dialog")).toBeVisible();
     let finish!: (value: unknown) => void;
     listFeatureRuleInventoryMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    useS3AccountContextMock.mockReturnValue({ accounts: [], selectedS3AccountId: "account-2",
+    useS3AccountContextMock.mockReturnValue({ accounts: [], selectedContextId: "account-2",
       requiresS3AccountSelection: false, contextIdForApi: "account-2" });
     view.rerender(<MemoryRouter><ManagerFeatureRulesPage /></MemoryRouter>);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

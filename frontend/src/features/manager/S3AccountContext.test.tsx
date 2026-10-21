@@ -47,15 +47,15 @@ const CONTEXTS: ExecutionContext[] = [
 ];
 
 function Probe() {
-  const { selectedS3AccountId, selectedS3AccountType, namingValidationProfile } = useS3AccountContext();
+  const { selectedContextId, selectedContextKind, namingValidationProfile } = useS3AccountContext();
   const location = useLocation();
   const navigate = useNavigate();
   return (
     <>
-      <div data-testid="selected">{selectedS3AccountId ?? "null"}</div>
+      <div data-testid="selected">{selectedContextId ?? "null"}</div>
       <div data-testid="naming-profile">{namingValidationProfile ?? "pending"}</div>
       <button type="button" onClick={() => navigate("/manager?ctx=s3u-2")}>Switch context</button>
-      <div data-testid="selected-type">{selectedS3AccountType ?? "null"}</div>
+      <div data-testid="selected-type">{selectedContextKind ?? "null"}</div>
       <div data-testid="location">{`${location.pathname}${location.search}`}</div>
       <button type="button" onClick={() => navigate("/manager/next")}>Navigate without context</button>
     </>
@@ -126,7 +126,7 @@ describe("S3AccountProvider", () => {
     renderProvider("/manager");
 
     await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("s3u-misleading"));
-    expect(screen.getByTestId("selected-type")).toHaveTextContent("tenant");
+    expect(screen.getByTestId("selected-type")).toHaveTextContent("account");
   });
 
   it("uses the context kind instead of a connection ID prefix", async () => {

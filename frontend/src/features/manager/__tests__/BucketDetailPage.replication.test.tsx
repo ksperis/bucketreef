@@ -147,7 +147,7 @@ function managerCephAccountContext(accountId: string) {
         },
       },
     ],
-    selectedS3AccountId: accountId,
+    selectedContextId: accountId,
     contextIdForApi: accountId,
     requiresS3AccountSelection: true,
     accessMode: "admin",
@@ -167,7 +167,7 @@ describe("BucketDetailPage replication state", () => {
     window.localStorage.clear();
     useS3AccountContextMock.mockReturnValue({
       accounts: [],
-      selectedS3AccountId: null,
+      selectedContextId: null,
       contextIdForApi: null,
       requiresS3AccountSelection: false,
       accessMode: "admin",
@@ -643,7 +643,7 @@ describe("BucketDetailPage replication state", () => {
   it("renders the Manager bucket detail header with a working buckets return action", () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [],
-      selectedS3AccountId: null,
+      selectedContextId: null,
       contextIdForApi: null,
       requiresS3AccountSelection: true,
       accessMode: "admin",
@@ -864,7 +864,7 @@ describe("BucketDetailPage replication state", () => {
   it("hides Manager quota configuration without bucket quota access", async () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [{ id: "ceph-account", name: "Ceph account", endpoint_provider: "ceph" }],
-      selectedS3AccountId: "ceph-account",
+      selectedContextId: "ceph-account",
       contextIdForApi: "ceph-account",
       requiresS3AccountSelection: true,
       accessMode: "admin",
@@ -906,7 +906,7 @@ describe("BucketDetailPage replication state", () => {
     });
     useS3AccountContextMock.mockReturnValue({
       accounts: [{ id: "ceph-account", name: "Ceph account", endpoint_provider: "ceph" }],
-      selectedS3AccountId: "ceph-account",
+      selectedContextId: "ceph-account",
       contextIdForApi: "ceph-account",
       requiresS3AccountSelection: true,
       accessMode: "admin",
@@ -1626,7 +1626,7 @@ describe("BucketDetailPage replication state", () => {
           capabilities: { can_manage_iam: false, sts_capable: false, admin_api_capable: false },
         },
       ],
-      selectedS3AccountId: "conn-aws",
+      selectedContextId: "conn-aws",
       contextIdForApi: "conn-aws",
       requiresS3AccountSelection: true,
       accessMode: "connection",

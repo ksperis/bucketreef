@@ -20,9 +20,9 @@ import { useS3AccountContext } from "./S3AccountContext";
 export default function ManagerUserGroupsPage() {
   const { text } = useManagerI18n();
   const { userName } = useParams<{ userName: string }>();
-  const { selectedS3AccountType, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
+  const { selectedContextKind, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
-  const isS3User = selectedS3AccountType === "s3_user";
+  const isS3User = selectedContextKind === "s3_user";
   const decodedUser = useMemo(() => {
     if (!userName) return "";
     try { return decodeURIComponent(userName); } catch { return userName; }

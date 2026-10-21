@@ -35,8 +35,8 @@ export default function ManagerMigrationWizardPage() {
   const editId = /^\d+$/.test(params.get("from") ?? "")
     ? Number(params.get("from"))
     : null;
-  const { selectedS3AccountId } = useS3AccountContext();
-  const [sourceId, setSourceId] = useState(selectedS3AccountId ?? "");
+  const { selectedContextId } = useS3AccountContext();
+  const [sourceId, setSourceId] = useState(selectedContextId ?? "");
   const { contexts, contextsLoading, contextsError } = useManagerContexts();
   const { sourceBuckets, bucketsLoading, bucketsError } =
     useManagerSourceBuckets(sourceId);
@@ -64,7 +64,7 @@ export default function ManagerMigrationWizardPage() {
   const source = contexts.find((entry) => entry.id === sourceId) ?? null;
   const target = contexts.find((entry) => entry.id === targetId) ?? null;
   const crossEndpoint = useCrossEndpointSelection(source, target);
-  const contextChanged = Boolean(sourceId && selectedS3AccountId !== sourceId);
+  const contextChanged = Boolean(sourceId && selectedContextId !== sourceId);
   const translatedTargetNameError = (name: string) => {
     const validationError = targetNameError(name);
     return validationError ? text(validationError) : null;
@@ -101,8 +101,8 @@ export default function ManagerMigrationWizardPage() {
   );
 
   useEffect(() => {
-    if (!sourceId && !dirty) setSourceId(selectedS3AccountId ?? "");
-  }, [selectedS3AccountId, sourceId, dirty]);
+    if (!sourceId && !dirty) setSourceId(selectedContextId ?? "");
+  }, [selectedContextId, sourceId, dirty]);
   useEffect(() => {
     if (error) errorRef.current?.focus();
   }, [error]);

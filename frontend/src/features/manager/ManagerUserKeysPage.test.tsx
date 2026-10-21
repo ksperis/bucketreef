@@ -40,7 +40,7 @@ describe("ManagerUserKeysPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useS3AccountContextMock.mockReturnValue({
-      selectedS3AccountType: "tenant",
+      selectedContextKind: "account",
       contextIdForApi: "acc-2",
       requiresS3AccountSelection: true,
       accessMode: "admin",
@@ -93,7 +93,7 @@ describe("ManagerUserKeysPage", () => {
   it("creates and edits BucketReef metadata when enabled for the account", async () => {
     const user = userEvent.setup();
     useS3AccountContextMock.mockReturnValue({
-      selectedS3AccountType: "tenant",
+      selectedContextKind: "account",
       contextIdForApi: "acc-2",
       requiresS3AccountSelection: true,
       accessMode: "admin",
@@ -147,7 +147,7 @@ describe("ManagerUserKeysPage", () => {
   it("shows and submits provider-side expiration without enabling metadata", async () => {
     const user = userEvent.setup();
     useS3AccountContextMock.mockReturnValue({
-      selectedS3AccountType: "tenant",
+      selectedContextKind: "account",
       contextIdForApi: "acc-2",
       requiresS3AccountSelection: true,
       accessMode: "admin",
@@ -181,7 +181,7 @@ describe("ManagerUserKeysPage", () => {
 
   it("keeps an expired inactive key disabled until its expiration changes", async () => {
     useS3AccountContextMock.mockReturnValue({
-      selectedS3AccountType: "tenant",
+      selectedContextKind: "account",
       contextIdForApi: "acc-2",
       requiresS3AccountSelection: true,
       accessMode: "admin",

@@ -35,7 +35,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   const { text, intlLocale } = useManagerI18n();
   const { userName } = useParams<{ userName: string }>();
   const {
-    selectedS3AccountType,
+    selectedContextKind,
     contextIdForApi,
     requiresS3AccountSelection,
     accessMode,
@@ -43,7 +43,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     managerAccessKeyExpirationEnabled,
   } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
-  const isS3User = selectedS3AccountType === "s3_user";
+  const isS3User = selectedContextKind === "s3_user";
   const [keys, setKeys] = useState<AccessKey[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

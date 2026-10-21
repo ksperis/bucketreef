@@ -48,7 +48,7 @@ describe("ManagerGroupUsersPage", () => {
     listIamUsersMock.mockReset();
     removeIamGroupUserMock.mockReset().mockResolvedValue(undefined);
     useS3AccountContextMock.mockReturnValue({
-      selectedS3AccountType: "tenant",
+      selectedContextKind: "account",
       contextIdForApi: "acc-1",
       requiresS3AccountSelection: false,
       accessMode: "default",
