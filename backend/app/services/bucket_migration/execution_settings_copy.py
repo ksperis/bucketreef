@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.services.s3_execution_context import S3ExecutionTarget
 
@@ -48,13 +49,14 @@ class _BucketSettingsCopyRunner:
             try:
                 operation.action()
             except Exception as exc:  # noqa: BLE001
-                failures.append(f"{operation.name}: {exc}")
+                error_detail = sanitized_error_log_detail(exc)
+                failures.append(f"{operation.name}: {error_detail}")
                 self.service._add_event(
                     self.migration,
                     item=self.item,
                     level="error",
                     message=operation.failure_message,
-                    metadata={"error": str(exc), "setting": operation.name},
+                    metadata={"error": error_detail, "setting": operation.name},
                 )
 
         if failures:

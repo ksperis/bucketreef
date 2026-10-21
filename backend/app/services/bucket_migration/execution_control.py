@@ -120,9 +120,10 @@ class BucketMigrationExecutionControlMixin:
                 ).first()
                 if failed_item is None:
                     continue
+                error_detail = sanitized_error_log_detail(exc)
                 failed_item.status = "failed"
                 failed_item.error_message = _truncate_optional_db_text(
-                    sanitized_error_log_detail(exc),
+                    error_detail,
                     max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
                 )
                 failed_item.finished_at = utcnow()
@@ -132,7 +133,7 @@ class BucketMigrationExecutionControlMixin:
                     item=failed_item,
                     level="error",
                     message="Item failed.",
-                    metadata={"error": str(exc), "step": failed_item.step},
+                    metadata={"error": error_detail, "step": failed_item.step},
                 )
                 self._commit()
 

@@ -729,6 +729,32 @@ def test_finished_cutover_does_not_wait_for_another_cutover(prepared):
     assert migration.status == "completed"
 
 
+def test_finalize_sanitizes_target_lock_release_errors(prepared):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    migration.status = "running"
+    item.status = "completed"
+    item.target_lock_applied = True
+    item.target_policy_backup_json = "{}"
+    service._commit()
+    service._restore_target_write_lock_policy = Mock(
+        side_effect=RuntimeError(
+            "secret_key=TOPSECRET endpoint=https://private.example.test/admin"
+        )
+    )
+
+    service._finalize_or_wait_cutover(
+        migration,
+        target_ctx=service._resolve_context(migration.target_context_id),
+    )
+
+    assert migration.status == "completed_with_errors"
+    assert migration.error_message is not None
+    assert "TOPSECRET" not in migration.error_message
+    assert "private.example.test" not in migration.error_message
+    assert "secret_key=<redacted> endpoint=<redacted-url>" in migration.error_message
+
+
 def test_finalize_honors_pause_requested_after_item_stops(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
