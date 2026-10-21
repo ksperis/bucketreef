@@ -204,3 +204,36 @@ def test_copy_bucket_settings_continues_after_failure_and_aggregates(db_session)
             },
         }
     ]
+
+
+def test_copy_bucket_settings_sanitizes_aggregated_failure(db_session):
+    settings = _SettingsStub()
+    settings.set_bucket_encryption = lambda *_args: (_ for _ in ()).throw(
+        RuntimeError(
+            "secret_key=TOPSECRET endpoint=https://private.example.test/admin"
+        )
+    )
+    service = BucketMigrationService(db_session)
+    service._configuration = settings  # type: ignore[assignment]
+    events: list[dict[str, object]] = []
+    service._add_event = (  # type: ignore[method-assign]
+        lambda *_args, **kwargs: events.append(kwargs)
+    )
+
+    with pytest.raises(RuntimeError) as error:
+        service._copy_bucket_settings(
+            object(),
+            "source-bucket",
+            object(),
+            "target-bucket",
+            SimpleNamespace(),
+            SimpleNamespace(execution_strategy="current_only"),
+        )
+
+    assert "TOPSECRET" not in str(error.value)
+    assert "private.example.test" not in str(error.value)
+    assert "secret_key=<redacted> endpoint=<redacted-url>" in str(error.value)
+    assert events[0]["metadata"] == {
+        "error": "secret_key=<redacted> endpoint=<redacted-url>",
+        "setting": "encryption",
+    }

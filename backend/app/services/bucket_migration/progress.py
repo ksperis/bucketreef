@@ -232,13 +232,14 @@ class BucketMigrationProgressMixin:
                     message="Target write-lock policy released.",
                 )
             except Exception as exc:  # noqa: BLE001
-                errors.append(f"{item.target_bucket}: {exc}")
+                error_detail = sanitized_error_log_detail(exc)
+                errors.append(f"{item.target_bucket}: {error_detail}")
                 self._add_event(
                     migration,
                     item=item,
                     level="warning",
                     message="Unable to release target write-lock policy.",
-                    metadata={"error": str(exc)},
+                    metadata={"error": error_detail},
                 )
         return errors
 
@@ -278,13 +279,14 @@ class BucketMigrationProgressMixin:
                     message="Source read-only policy restored.",
                 )
             except Exception as exc:  # noqa: BLE001
-                errors.append(f"{item.source_bucket}: {exc}")
+                error_detail = sanitized_error_log_detail(exc)
+                errors.append(f"{item.source_bucket}: {error_detail}")
                 self._add_event(
                     migration,
                     item=item,
                     level="warning",
                     message="Unable to restore source read-only policy.",
-                    metadata={"error": str(exc)},
+                    metadata={"error": error_detail},
                 )
         return errors
 
