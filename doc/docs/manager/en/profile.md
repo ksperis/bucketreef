@@ -9,6 +9,11 @@ From **Profile and preferences** you can choose your avatar, language, theme,
 default workspace, quota-email preference, and whether selector tags appear in
 the Manager context selector on this browser.
 
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/manager-profile.light.png" alt="Manager profile showing personal preferences while the active account context remains visible" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/manager-profile.dark.png" alt="Manager profile showing personal preferences while the active account context remains visible" loading="lazy">
+</div>
+
 ## Private S3 connections
 
 When private connections are enabled for your user, the profile inventory lets
@@ -39,10 +44,3 @@ notifications from your effective view.
 - [Manager guide](index.md)
 - [Start here](getting-started/index.md)
 - [Feature availability](help/feature-availability.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/user-overview.light.png" alt="User profile with preferences and private S3 connections" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/user-overview.dark.png" alt="User profile with preferences and private S3 connections" loading="lazy">
-</div>

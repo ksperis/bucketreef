@@ -453,6 +453,15 @@ body {
   border-radius: var(--docs-radius);
 }
 
+.md-typeset .docs-workflow-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--docs-border);
+  border-radius: var(--docs-radius);
+}
+
 @media screen and (min-width: 76.25em) {
   .md-sidebar {
     height: auto;

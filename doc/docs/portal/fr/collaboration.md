@@ -39,6 +39,14 @@ Portal indique les espaces actifs auxquels elle accède et si l'accès provient
 de la propriété de l'espace, d'une attribution directe, de l'appartenance au
 projet ou du rôle Portal Manager.
 
+La liste des membres du projet indique également si l'accès de chacun est
+direct, hérité d'un groupe ou fourni par les deux sources.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-collaborators.light.png" alt="Liste des collaborateurs Portal avec le rôle de projet et la source d'accès directe ou par groupe" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-collaborators.dark.png" alt="Liste des collaborateurs Portal avec le rôle de projet et la source d'accès directe ou par groupe" loading="lazy">
+</div>
+
 ## Liens externes
 
 Lorsque le partage externe est activé, créez un lien depuis le fichier à
@@ -55,10 +63,3 @@ liens déjà existants. Vérifiez-les et révoquez-les explicitement si nécessa
 - [Fichiers](files/index.md)
 - [Demandes](help-requests.md)
 - [Disponibilité des fonctions](help/feature-availability.md)
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-storage-spaces.light.png" alt="Espaces de stockage Portal et points d'entrée de la collaboration" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-storage-spaces.dark.png" alt="Espaces de stockage Portal et points d'entrée de la collaboration" loading="lazy">
-</div>

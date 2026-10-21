@@ -47,6 +47,15 @@ export type DocScreenshotScenario = {
   user: AuthUser;
   storage: LocalStorageSeed;
   actions?: ScenarioAction[];
+  capture?: {
+    selector: string;
+    padding?: number;
+  };
+  workflowVideo?: {
+    outputBasename: string;
+    pauseAfterActionMs?: number;
+    finalPauseMs?: number;
+  };
   mockRules: MockRule[];
   postScreenshotWaitMs?: number;
   postScreenshotActions?: ScenarioAction[];

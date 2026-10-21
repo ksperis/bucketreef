@@ -29,6 +29,11 @@ le Server Access Logging est activé.
    requêtes S3 par date, action, espace, chemin, identité ou résultat, ou pour
    exporter les journaux bruts du fournisseur.
 
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-history.light.png" alt="Vue Activité de l'historique Portal avec les changements de gouvernance, les espaces concernés et les actions de détail" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-history.dark.png" alt="Vue Activité de l'historique Portal avec les changements de gouvernance, les espaces concernés et les actions de détail" loading="lazy">
+</div>
+
 ## Résultat attendu
 
 Vous pouvez expliquer les changements récents de gouvernance dans Portal et,
@@ -64,13 +69,3 @@ l'espace concerné. Les opérations sur les objets n'apparaissent jamais dans Ac
 - [Espaces de stockage](spaces/index.md)
 - [Fichiers](files/index.md)
 - [Dépannage](help/troubleshooting.md)
-
-## Exemple visuel
-
-Cette page réutilise la capture du tableau de bord Portal car elle montre la
-carte d'activité dans son contexte.
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/workspace-portal.light.png" alt="Tableau de bord Portal avec activité de gouvernance, partages, utilisation et alertes" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/workspace-portal.dark.png" alt="Tableau de bord Portal avec activité de gouvernance, partages, utilisation et alertes" loading="lazy">
-</div>

@@ -27,6 +27,14 @@ Open the bucket from the account or connection that should own the configuration
 5. Save changes in each section.
 6. Use **Refresh** and the bucket summary to verify the expected state.
 
+The bucket detail overview keeps the main configuration sections and their
+current states visible before you open an editor.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/manager-bucket-configuration.light.png" alt="Manager bucket detail overview with configuration sections and their current states" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/manager-bucket-configuration.dark.png" alt="Manager bucket detail overview with configuration sections and their current states" loading="lazy">
+</div>
+
 ## Configuration and draft states
 
 Each section saves independently. **Configured** uses the theme accent to make
@@ -83,10 +91,3 @@ access for the specific setting.
 
 - [Feature: Buckets](index.md)
 - [Workspace: Manager](../index.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/manager-bucket-configuration.light.png" alt="Manager bucket list with configure action" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/manager-bucket-configuration.dark.png" alt="Manager bucket list with configure action" loading="lazy">
-</div>

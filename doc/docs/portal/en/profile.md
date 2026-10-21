@@ -14,6 +14,11 @@ Profile images can come from your uploaded image, your linked identity, or
 Gravatar depending on your preference. Choose initials if you do not want an
 external profile image to be loaded.
 
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-profile.light.png" alt="Portal profile showing personal preferences while the selected project remains visible" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-profile.dark.png" alt="Portal profile showing personal preferences while the selected project remains visible" loading="lazy">
+</div>
+
 ## Sign-in security
 
 Use **Security** to manage the sign-in methods available to your own account,
@@ -38,10 +43,3 @@ to the Manager workspace.
 - [Storage Spaces](spaces/index.md)
 - [Storage health](storage-health.md)
 - [Troubleshooting](help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/user-overview.light.png" alt="User profile and sign-in security settings" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/user-overview.dark.png" alt="User profile and sign-in security settings" loading="lazy">
-</div>

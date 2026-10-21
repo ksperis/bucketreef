@@ -205,6 +205,7 @@ const GENERAL_SETTINGS = {
   allow_login_access_keys: false,
   allow_login_endpoint_list: true,
   allow_login_custom_endpoint: false,
+  allow_user_profile_name_edit: true,
 };
 
 const LOGIN_SETTINGS = {
@@ -247,6 +248,34 @@ const EXECUTION_CONTEXTS = [
     },
     capabilities: {
       can_manage_iam: true,
+      sts_capable: false,
+      admin_api_capable: true,
+    },
+  },
+  {
+    kind: "s3_user",
+    id: "s3u-903",
+    display_name: "platform-admin",
+    tags: [{ id: 961, label: "managed", color_key: "sky", scope: "standard" }],
+    endpoint_tags: [{ id: 962, label: "prod", color_key: "emerald", scope: "standard" }],
+    manager_account_is_admin: false,
+    rgw_account_id: "RGW-HELIOS",
+    endpoint_id: 11,
+    endpoint_name: "Default",
+    endpoint_is_default: true,
+    endpoint_provider: "ceph",
+    endpoint_url: "https://s3-default.docs.example.com",
+    storage_endpoint_capabilities: {
+      iam: true,
+      sns: true,
+      usage: true,
+      metrics: true,
+      static_website: true,
+      sts: false,
+      replication: true,
+    },
+    capabilities: {
+      can_manage_iam: false,
       sts_capable: false,
       admin_api_capable: true,
     },
@@ -1658,13 +1687,21 @@ export function buildBaseRules(): MockRule[] {
       id: "manager-context",
       path: /^\/manager\/context$/,
       body: ({ url }) => {
-        const accountId = url.searchParams.get("account_id") ?? "acc-helios";
+        const accountId = url.searchParams.get("context_id") ?? url.searchParams.get("account_id") ?? "acc-helios";
         const isConnection = accountId.startsWith("conn-");
+        const isS3User = accountId.startsWith("s3u-");
         return {
-          access_mode: isConnection ? "connection" : "admin",
-          iam_identity: isConnection ? "conn-blueharbor" : "helios-admin",
+          feature_states: {
+            activity_history: { enabled: true, source: "platform" },
+          },
+          access_mode: isConnection ? "connection" : isS3User ? "s3_user" : "admin",
+          iam_identity: isConnection ? "conn-blueharbor" : isS3User ? "platform-admin" : "helios-admin",
           manager_stats_enabled: true,
           manager_browser_enabled: true,
+          manager_ceph_keys_enabled: isS3User,
+          manager_access_key_metadata_enabled: isS3User,
+          manager_access_key_expiration_enabled: isS3User,
+          manager_private_access_enabled: isS3User,
           quota_max_size_gb: isConnection ? null : 3,
           quota_max_objects: isConnection ? null : 4000,
           max_buckets: isConnection ? null : 4,
@@ -1891,6 +1928,47 @@ export function buildBaseRules(): MockRule[] {
           account_name: "Helios Retail",
           status: "success",
           user_email: "platform.admin@example.com",
+        },
+      ],
+    },
+    {
+      id: "manager-ceph-keys",
+      path: /^\/manager\/ceph\/keys$/,
+      body: [
+        {
+          access_key_id: "AKIAHELIOSIFACE01",
+          status: "Active",
+          created_at: "2026-01-15T10:00:00Z",
+          is_ui_managed: true,
+          is_active: true,
+          is_private_access_managed: false,
+          name: "BucketReef interface",
+          notes: "Used by the managed S3 User context",
+          expires_at: null,
+        },
+        {
+          access_key_id: "AKIAHELIOSOPS001",
+          status: "Active",
+          created_at: "2026-03-01T09:30:00Z",
+          is_ui_managed: false,
+          is_active: true,
+          is_private_access_managed: false,
+          name: "Operations client",
+          notes: "External backup validation",
+          expires_at: "2026-06-30T22:00:00Z",
+          expiration_state: "scheduled",
+        },
+        {
+          access_key_id: "AKIAHELIOSPRIVATE",
+          status: "Active",
+          created_at: "2026-03-05T11:00:00Z",
+          is_ui_managed: false,
+          is_active: true,
+          is_private_access_managed: true,
+          managed_connection_id: 42,
+          name: "My private access",
+          notes: null,
+          expires_at: null,
         },
       ],
     },

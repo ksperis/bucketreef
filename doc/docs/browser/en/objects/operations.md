@@ -49,6 +49,14 @@ Select the execution context before choosing a bucket. The same bucket name may 
      frontend-driven and transfers items one by one.
    - Cross-context move deletes the source only after the destination copy is verified.
 
+The following short capture shows the complete multi-object selection and
+delete workflow through the completed entry in **Operations overview**.
+
+<video class="docs-workflow-video" controls autoplay muted loop playsinline preload="metadata">
+  <source src="/assets/screenshots/user/feature-objects-browser.workflow.webm" type="video/webm">
+  Your browser does not support the workflow video. The written steps above describe the same operation.
+</video>
+
 ## Action access
 
 - Path actions include upload, folder creation, paste, versions, restore,
@@ -143,13 +151,6 @@ after a network failure.
 - [Workspace: Browser](../index.md)
 - [Feature: Object versions in Browser](versions.md)
 - [Troubleshooting](../help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-objects-browser.light.png" alt="Browser operations overview showing a running delete on selected objects" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-objects-browser.dark.png" alt="Browser operations overview showing a running delete on selected objects" loading="lazy">
-</div>
 
 ## Selection scope
 

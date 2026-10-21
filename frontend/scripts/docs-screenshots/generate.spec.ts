@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, type Page } from "@playwright/test";
+import { test, type Browser, type Page } from "@playwright/test";
 
 import { waitForStableDashboardDonut } from "./chartCapture";
 import { registerApiMocks } from "./mockApi";
@@ -63,6 +63,46 @@ async function runAction(page: Page, action: ScenarioAction) {
   }
 }
 
+async function screenshotScenario(
+  page: Page,
+  scenario: DocScreenshotScenario,
+  outputPath: string,
+) {
+  if (!scenario.capture) {
+    await page.screenshot({ path: outputPath, fullPage: false });
+    return;
+  }
+
+  const target = page.locator(scenario.capture.selector).first();
+  await target.waitFor({ state: "visible", timeout: ACTION_TIMEOUT_MS });
+  const box = await target.boundingBox();
+  if (!box) {
+    throw new Error(
+      `Unable to resolve screenshot bounds for selector "${scenario.capture.selector}"`,
+    );
+  }
+
+  const viewport = page.viewportSize();
+  if (!viewport) {
+    throw new Error("Documentation screenshot page has no viewport");
+  }
+  const padding = Math.max(0, scenario.capture.padding ?? 24);
+  const x = Math.max(0, Math.floor(box.x - padding));
+  const y = Math.max(0, Math.floor(box.y - padding));
+  const right = Math.min(viewport.width, Math.ceil(box.x + box.width + padding));
+  const bottom = Math.min(viewport.height, Math.ceil(box.y + box.height + padding));
+
+  await page.screenshot({
+    path: outputPath,
+    clip: {
+      x,
+      y,
+      width: right - x,
+      height: bottom - y,
+    },
+  });
+}
+
 async function captureScenarioVariant(
   basePage: Page,
   scenario: DocScreenshotScenario,
@@ -117,7 +157,7 @@ async function captureScenarioVariant(
       if (scenario.route === "/manager") await waitForStableDashboardDonut(page);
 
       const outputPath = path.join(SCREENSHOT_DIR, `${scenario.outputBasename}.${variant}.png`);
-      await page.screenshot({ path: outputPath, fullPage: false });
+      await screenshotScenario(page, scenario, outputPath);
       if (scenario.postScreenshotWaitMs && scenario.postScreenshotWaitMs > 0) {
         await page.waitForTimeout(scenario.postScreenshotWaitMs);
       }
@@ -135,13 +175,83 @@ async function captureScenarioVariant(
   }
 }
 
+async function captureScenarioWorkflowVideo(browser: Browser, scenario: DocScreenshotScenario) {
+  if (!scenario.workflowVideo) return;
+
+  const temporaryVideoDir = path.join(
+    SCREENSHOT_DIR,
+    `.video-${scenario.id}-${process.pid}`,
+  );
+  const context = await browser.newContext({
+    baseURL: "http://127.0.0.1:4173",
+    viewport: { width: 1728, height: 972 },
+    locale: "en-US",
+    timezoneId: "UTC",
+    recordVideo: {
+      dir: temporaryVideoDir,
+      size: { width: 1440, height: 810 },
+    },
+  });
+  const page = await context.newPage();
+  const runtimeErrors: string[] = [];
+  page.on("pageerror", (error) => runtimeErrors.push(`[pageerror] ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") runtimeErrors.push(`[console.error] ${message.text()}`);
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400) {
+      runtimeErrors.push(
+        `[http ${response.status()}] ${response.request().method()} ${response.url()}`,
+      );
+    }
+  });
+
+  try {
+    await page.emulateMedia({ colorScheme: "light" });
+    const mockRegistry = await registerApiMocks(
+      page,
+      scenario.mockRules,
+      `${scenario.id}.workflow`,
+      scenario.user,
+    );
+    await seedUiPreferences(page, { ...scenario.storage, theme: "light" });
+    await page.goto(scenario.route, { waitUntil: "domcontentloaded" });
+    await page.locator(scenario.waitFor).first().waitFor({ state: "visible", timeout: 30_000 });
+    await page.waitForTimeout(600);
+
+    const pauseAfterActionMs = scenario.workflowVideo.pauseAfterActionMs ?? 650;
+    for (const action of scenario.actions ?? []) {
+      await runAction(page, action);
+      if (action.type !== "wait") await page.waitForTimeout(pauseAfterActionMs);
+    }
+    await page.waitForTimeout(scenario.workflowVideo.finalPauseMs ?? 1_500);
+    mockRegistry.assertNoUnmatched();
+
+    const video = page.video();
+    await context.close();
+    if (!video) throw new Error(`Workflow video was not recorded for ${scenario.id}`);
+    await video.saveAs(
+      path.join(SCREENSHOT_DIR, `${scenario.workflowVideo.outputBasename}.webm`),
+    );
+  } catch (error) {
+    if (!page.isClosed()) {
+      await writeDebugArtifacts(page, `${scenario.id}.workflow`, runtimeErrors);
+      await context.close();
+    }
+    throw error;
+  } finally {
+    await fs.rm(temporaryVideoDir, { recursive: true, force: true });
+  }
+}
+
 test.describe.configure({ mode: "serial" });
 
 for (const scenario of scenarios) {
-  test(`docs screenshot: ${scenario.id}`, async ({ page }) => {
+  test(`docs screenshot: ${scenario.id}`, async ({ browser, page }) => {
     await fs.mkdir(SCREENSHOT_DIR, { recursive: true });
     for (const variant of SCREENSHOT_VARIANTS) {
       await captureScenarioVariant(page, scenario, variant);
     }
+    await captureScenarioWorkflowVideo(browser, scenario);
   });
 }

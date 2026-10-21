@@ -1,6 +1,7 @@
 import { buildBaseRules } from "./fixtures/base";
 import type { DocScreenshotScenario, LocalStorageSeed, MockRule } from "./types";
 import { adminUser, storageOpsAdminUser, storageUser, superAdminUser } from "./fixtures/users";
+import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../src/api/featurePolicies";
 
 function baseStorage(): LocalStorageSeed {
   return {
@@ -131,6 +132,74 @@ const browserDelayedDeleteRule: MockRule = {
     };
   },
 };
+
+const managerBucketDetailRules: MockRule[] = [
+  {
+    id: "manager-bucket-detail-stats",
+    path: /^\/manager\/buckets\/[^/]+\/stats$/,
+    body: {
+      name: "helios-retail-logs",
+      owner: "RGW58084876167649330",
+      owner_name: "Helios Platform",
+      used_bytes: 182_554_321,
+      object_count: 1284,
+    },
+  },
+  {
+    id: "manager-bucket-detail-versioning",
+    path: /^\/manager\/buckets\/[^/]+\/versioning$/,
+    body: { status: "Enabled", enabled: true },
+  },
+  {
+    id: "manager-bucket-detail-object-lock",
+    path: /^\/manager\/buckets\/[^/]+\/object-lock$/,
+    body: { enabled: false, mode: null, days: null, years: null },
+  },
+  {
+    id: "manager-bucket-detail-lifecycle",
+    path: /^\/manager\/buckets\/[^/]+\/lifecycle$/,
+    body: {
+      rules: [
+        {
+          ID: "expire-old-logs",
+          Status: "Enabled",
+          Filter: { Prefix: "archive/" },
+          Expiration: { Days: 90 },
+        },
+      ],
+    },
+  },
+  {
+    id: "manager-bucket-detail-notifications",
+    path: /^\/manager\/buckets\/[^/]+\/notifications$/,
+    body: { configuration: {} },
+  },
+  {
+    id: "manager-bucket-detail-replication",
+    path: /^\/manager\/buckets\/[^/]+\/replication$/,
+    body: { configuration: {} },
+  },
+  {
+    id: "manager-bucket-detail-acl",
+    path: /^\/manager\/buckets\/[^/]+\/acl$/,
+    body: { owner: "RGW58084876167649330", grants: [] },
+  },
+  {
+    id: "manager-bucket-detail-cors",
+    path: /^\/manager\/buckets\/[^/]+\/cors$/,
+    body: { rules: [] },
+  },
+  {
+    id: "manager-bucket-detail-public-access",
+    path: /^\/manager\/buckets\/[^/]+\/public-access-block$/,
+    body: {
+      block_public_acls: true,
+      ignore_public_acls: true,
+      block_public_policy: true,
+      restrict_public_buckets: true,
+    },
+  },
+];
 
 const noManagerContextsRule: MockRule = {
   id: "no-manager-contexts",
@@ -295,6 +364,10 @@ const bucketPurgeEnabledGeneralSettingsRule: MockRule = {
   id: "settings-general-bucket-purge-enabled",
   path: /^\/settings\/general$/,
   body: {
+    manager_feature_policies: {
+      ...DEFAULT_MANAGER_FEATURE_POLICIES,
+      bucket_purge: "default_on",
+    },
     manager_enabled: true,
     ceph_admin_enabled: true,
     browser_enabled: true,
@@ -820,6 +893,39 @@ export const scenarios: DocScreenshotScenario[] = [
     mockRules: withBaseRules(),
   },
   {
+    id: "manager-profile",
+    docPage: "manager/en/profile.md",
+    route: "/manager/profile",
+    outputBasename: "manager-profile",
+    waitFor: "h1:has-text('My profile')",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
+    actions: [{ type: "wait", selector: "text=Personal details" }],
+    mockRules: withBaseRules(),
+  },
+  {
+    id: "portal-profile",
+    docPage: "portal/en/profile.md",
+    route: "/portal/profile",
+    outputBasename: "portal-profile",
+    waitFor: "h1:has-text('My profile')",
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
+    actions: [{ type: "wait", selector: "text=Personal details" }],
+    mockRules: withBaseRules(),
+  },
+  {
+    id: "browser-profile",
+    docPage: "browser/en/profile.md",
+    route: "/browser/profile",
+    outputBasename: "browser-profile",
+    waitFor: "h1:has-text('My profile')",
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "browser" },
+    actions: [{ type: "wait", selector: "text=Personal details" }],
+    mockRules: withBaseRules(),
+  },
+  {
     id: "start-here",
     docPage: "user/start-here.md",
     route: "/admin",
@@ -950,6 +1056,41 @@ export const scenarios: DocScreenshotScenario[] = [
     mockRules: withBaseRules(),
   },
   {
+    id: "manager-activity",
+    docPage: "manager/en/activity.md",
+    route: "/manager?ctx=acc-helios",
+    outputBasename: "manager-activity",
+    waitFor: "h1:has-text('Manager dashboard')",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
+    actions: [
+      { type: "wait", selector: "a[href='/manager/activity']" },
+      { type: "click", selector: "a[href='/manager/activity']" },
+      { type: "wait", selector: "h1:has-text('Activity history')" },
+      { type: "wait", selector: "text=helios-retail-logs" },
+      { type: "wait", selector: "text=backup-operator" },
+    ],
+    mockRules: withBaseRules(),
+  },
+  {
+    id: "manager-access-keys",
+    docPage: "manager/en/iam/access-keys.md",
+    route: "/manager/ceph/keys",
+    outputBasename: "manager-access-keys",
+    waitFor: "h1:has-text('Ceph access keys')",
+    user: adminUser,
+    storage: {
+      ...baseStorage(),
+      selectedWorkspace: "manager",
+      selectedManagerExecutionContextId: "s3u-903",
+    },
+    actions: [
+      { type: "wait", selector: "text=Operations client" },
+      { type: "wait", selector: "button:has-text('Create my private access')" },
+    ],
+    mockRules: withBaseRules(),
+  },
+  {
     id: "workspace-browser",
     docPage: "user/workspace-browser.md",
     route: "/browser?bucket=helios-retail-logs",
@@ -973,6 +1114,57 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "wait", selector: "text=genomics-2026" },
       { type: "wait", selector: "text=Recent activity" },
     ],
+    mockRules: withBaseRules(),
+  },
+  {
+    id: "portal-collaborators",
+    docPage: "portal/en/collaboration.md",
+    route: "/portal/shares",
+    outputBasename: "portal-collaborators",
+    waitFor: "h1:has-text('Collaborators')",
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
+    actions: [
+      { type: "wait", selector: "text=Alice Martin" },
+      { type: "wait", selector: "text=Chen Wei" },
+    ],
+    mockRules: withBaseRules(),
+  },
+  {
+    id: "portal-history",
+    docPage: "portal/en/activity.md",
+    route: "/portal/history",
+    outputBasename: "portal-history",
+    waitFor: "h1:has-text('History')",
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
+    actions: [{ type: "wait", selector: "[aria-label='Recent activity']" }],
+    mockRules: withBaseRules(),
+  },
+  {
+    id: "portal-help-requests",
+    docPage: "portal/en/help-requests.md",
+    route: "/portal/requests",
+    outputBasename: "portal-help-requests",
+    waitFor: "h1:has-text('Help requests')",
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
+    actions: [{ type: "wait", selector: "text=History (3)" }],
+    mockRules: withBaseRules(),
+  },
+  {
+    id: "portal-object-versions",
+    docPage: "portal/en/files/versions.md",
+    route: "/portal/storage-spaces/genomics-2026?prefix=raw-data%2F2024%2F03%2F&object=raw-data%2F2024%2F03%2Fsample_001.fastq.gz&object_view=history",
+    outputBasename: "portal-object-versions",
+    waitFor: "[role='complementary'] h2:has-text('sample_001.fastq.gz')",
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
+    actions: [
+      { type: "wait", selector: "ol[aria-label='File versions']" },
+      { type: "wait", selector: "text=Previous version" },
+    ],
+    capture: { selector: "[role='complementary']", padding: 24 },
     mockRules: withBaseRules(),
   },
   {
@@ -1048,6 +1240,7 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "wait", selector: "text=Cyberduck / Mountain Duck" },
       { type: "wait", selector: "text=WinSCP" },
     ],
+    capture: { selector: "[role='dialog']", padding: 28 },
     mockRules: withBaseRules(),
   },
   {
@@ -1131,12 +1324,13 @@ export const scenarios: DocScreenshotScenario[] = [
   {
     id: "howto-manager-bucket-configuration",
     docPage: "user/howto-manager-bucket-configuration.md",
-    route: "/manager/buckets",
+    route: "/manager/buckets/helios-retail-logs",
     outputBasename: "manager-bucket-configuration",
-    waitFor: "h1:has-text('Buckets')",
+    waitFor: "h1:has-text('helios-retail-logs')",
     user: adminUser,
     storage: { ...baseStorage(), selectedWorkspace: "manager" },
-    mockRules: withBaseRules(),
+    actions: [{ type: "wait", selector: "text=Versioning" }],
+    mockRules: withBaseRules(...managerBucketDetailRules),
   },
   {
     id: "feature-iam",
@@ -1167,8 +1361,8 @@ export const scenarios: DocScreenshotScenario[] = [
     },
     actions: [
       { type: "wait", selector: "text=report-2026-03-08.json" },
-      { type: "click", selector: "input[aria-label='Select all']" },
-      { type: "click", selector: "[aria-label='Browser actions bar'] button:has-text('Delete')" },
+      { type: "click", selector: "input[aria-label='Select loaded items']" },
+      { type: "click", selector: "button[aria-label='Delete']" },
       { type: "wait", selector: "text=Delete objects" },
       { type: "click", selector: "[role='dialog'] button:has-text('Delete')" },
       { type: "wait", selector: "section[aria-label='Operations']" },
@@ -1179,6 +1373,11 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "wait", selector: "text=errors-2026-03-08.log" },
     ],
     mockRules: withBaseRules(browserDelayedDeleteRule),
+    workflowVideo: {
+      outputBasename: "feature-objects-browser.workflow",
+      pauseAfterActionMs: 700,
+      finalPauseMs: 1800,
+    },
     postScreenshotWaitMs: 2500,
     postScreenshotActions: [
       { type: "click", selector: "[role='dialog'] button:has-text('Close')" },
@@ -1205,7 +1404,7 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "wait", selector: "text=report-2026-03-08.json" },
       { type: "click", selector: "button[aria-label='More actions for report-2026-03-08.json']" },
       { type: "click", selector: "[role='menu'] button:has-text('Versions')" },
-      { type: "wait", selector: "text=Object details · report-2026-03-08.json" },
+      { type: "wait", selector: "[role='complementary'] h2[title='report-2026-03-08.json']" },
       { type: "wait", selector: "[role='tab'][aria-selected='true']:has-text('Versions')" },
       { type: "wait", selector: "text=v: v-2026-03-08-0715" },
     ],
@@ -1213,6 +1412,7 @@ export const scenarios: DocScreenshotScenario[] = [
       browserVersioningEnabledRule,
       browserObjectVersionsRule,
     ),
+    capture: { selector: "[role='complementary']", padding: 20 },
   },
   {
     id: "feature-topics",
@@ -1333,6 +1533,7 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "click", selector: "button:has-text('Purge selected')" },
       { type: "wait", selector: "text=Type PURGE 1 BUCKETS" },
     ],
+    capture: { selector: ".workflow-page-content", padding: 28 },
     mockRules: withBaseRules(bucketPurgeEnabledGeneralSettingsRule),
   },
   {

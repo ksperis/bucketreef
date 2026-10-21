@@ -59,6 +59,14 @@ This is different from:
 8. Review the audit trail for create, status-change, provisioning, cleanup, or
    delete actions.
 
+The key inventory distinguishes the locked BucketReef interface key, ordinary
+external-client keys, expiration state, and keys owned by private access.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/manager-access-keys.light.png" alt="Ceph access-key inventory for a Manager S3 User context with interface, external-client and private-access keys" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/manager-access-keys.dark.png" alt="Ceph access-key inventory for a Manager S3 User context with interface, external-client and private-access keys" loading="lazy">
+</div>
+
 ## Expected result
 
 The S3 User access key inventory matches the intended external-client access
@@ -134,14 +142,3 @@ credentials.
 - [Feature: Key Rotation in Admin](/admin/en/platform/key-rotation/)
 - [Feature availability](../help/feature-availability.md)
 - [Ops / Ceph RGW backend notes](/admin/en/storage/backends/ceph-rgw/)
-
-## Visual example
-
-This page reuses the Manager workspace screenshot because Ceph access keys are a
-Manager context tool, and the important first step is selecting the correct
-execution context.
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/workspace-manager.light.png" alt="Manager workspace with buckets, topics and migration tools" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/workspace-manager.dark.png" alt="Manager workspace with buckets, topics and migration tools" loading="lazy">
-</div>

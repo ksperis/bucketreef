@@ -16,6 +16,14 @@ that was deleted from a Portal Storage Space.
 When available, **Show deleted files** helps you locate files whose current state
 is deleted but whose history can still be restored.
 
+The History tab keeps the current and previous versions together and exposes the
+restore action directly on the version you select.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-object-versions.light.png" alt="Portal file History tab focused on the current and previous versions with a restore action" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-object-versions.dark.png" alt="Portal file History tab focused on the current and previous versions with a restore action" loading="lazy">
+</div>
+
 ## When history is unavailable
 
 A Storage Space can only show versions that the underlying storage keeps and
@@ -31,10 +39,3 @@ no longer needed.
 - [Files](index.md)
 - [Delete files safely](safe-deletion.md)
 - [Troubleshooting](../help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-object-versions-browser.light.png" alt="File version history with previous versions and delete markers" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-object-versions-browser.dark.png" alt="File version history with previous versions and delete markers" loading="lazy">
-</div>
