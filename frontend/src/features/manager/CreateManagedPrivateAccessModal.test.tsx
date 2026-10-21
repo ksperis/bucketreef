@@ -44,7 +44,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     render(
       <CreateManagedPrivateAccessModal
         variant="iam"
-        accountId="acc-7"
+        contextId="acc-7"
         contextName="account-test"
         groups={[{ name: "readers" }]}
         policies={[{ name: "ReadOnly", arn: "arn:policy:readonly" }]}
@@ -89,7 +89,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     render(
       <CreateManagedPrivateAccessModal
         variant="iam"
-        accountId="acc-7"
+        contextId="acc-7"
         groups={[{ name: "readers" }]}
         policies={[{ name: "ReadOnly", arn: "arn:policy:readonly" }]}
         onClose={vi.fn()}
@@ -125,7 +125,7 @@ describe("CreateManagedPrivateAccessModal", () => {
 
   it("blocks private access for invalid Ceph inline names and clears the error after correction", async () => {
     const user = userEvent.setup();
-    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" contextName="account-test"
+    render(<CreateManagedPrivateAccessModal variant="iam" contextId="acc-7" contextName="account-test"
       namingValidationProfile="ceph" onClose={vi.fn()} onCreated={vi.fn()} />);
     await user.click(screen.getByText("Advanced configuration"));
     const name = screen.getByLabelText("Inline policy name");
@@ -153,7 +153,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     render(
       <CreateManagedPrivateAccessModal
         variant="rgw_user"
-        accountId="s3u-9"
+        contextId="s3u-9"
         contextName="rgw-user-test"
         onClose={vi.fn()}
         onCreated={vi.fn()}
@@ -184,7 +184,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     render(
       <CreateManagedPrivateAccessModal
         variant="rgw_user"
-        accountId="s3u-9"
+        contextId="s3u-9"
         onClose={vi.fn()}
         onCreated={vi.fn()}
       />
@@ -202,7 +202,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     const { container } = render(
       <CreateManagedPrivateAccessModal
         variant="iam"
-        accountId="acc-7"
+        contextId="acc-7"
         onClose={vi.fn()}
         onCreated={vi.fn()}
       />
@@ -213,7 +213,7 @@ describe("CreateManagedPrivateAccessModal", () => {
   it("protects an unadded inline draft on every dismissal path and can discard it", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" onClose={onClose} onCreated={vi.fn()} />);
+    render(<CreateManagedPrivateAccessModal variant="iam" contextId="acc-7" onClose={onClose} onCreated={vi.fn()} />);
     const dialog = screen.getByRole("dialog", { name: "Create my private access" });
     await user.click(screen.getByText("Advanced configuration"));
     await user.type(screen.getByLabelText("Inline policy name"), "unadded-draft");
@@ -238,7 +238,7 @@ describe("CreateManagedPrivateAccessModal", () => {
   it("does not treat opening advanced configuration or restoring defaults as a dirty draft", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" onClose={onClose} onCreated={vi.fn()} />);
+    render(<CreateManagedPrivateAccessModal variant="iam" contextId="acc-7" onClose={onClose} onCreated={vi.fn()} />);
     await user.click(screen.getByText("Advanced configuration"));
     await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
     await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
@@ -250,12 +250,12 @@ describe("CreateManagedPrivateAccessModal", () => {
   it.each(["iam", "rgw_user"] as const)("freezes the %s draft and dismissal until failure, then retries the same context and payload", async (variant) => {
     const user = userEvent.setup();
     const api = variant === "iam" ? createIamMock : createRgwUserMock;
-    const accountId = variant === "iam" ? "acc-7" : "s3u-9";
+    const contextId = variant === "iam" ? "acc-7" : "s3u-9";
     let reject!: (reason: Error) => void;
     api.mockImplementationOnce(() => new Promise((_, rejectRequest) => { reject = rejectRequest; }));
     const onClose = vi.fn();
     const onCreated = vi.fn();
-    render(<CreateManagedPrivateAccessModal variant={variant} accountId={accountId} onClose={onClose} onCreated={onCreated} />);
+    render(<CreateManagedPrivateAccessModal variant={variant} contextId={contextId} onClose={onClose} onCreated={onCreated} />);
     const dialog = screen.getByRole("dialog");
     await user.click(screen.getByText("Advanced configuration"));
     await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
@@ -277,13 +277,13 @@ describe("CreateManagedPrivateAccessModal", () => {
     fireEvent.submit(form);
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
     expect(api.mock.calls[1]).toEqual(originalCall);
-    expect(originalCall[0]).toBe(accountId);
+    expect(originalCall[0]).toBe(contextId);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("validates a blank connection name beside the field and clears the error when corrected", async () => {
     const user = userEvent.setup();
-    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" onClose={vi.fn()} onCreated={vi.fn()} />);
+    render(<CreateManagedPrivateAccessModal variant="iam" contextId="acc-7" onClose={vi.fn()} onCreated={vi.fn()} />);
     const name = screen.getByLabelText("Connection name");
     await user.clear(name);
     await user.type(name, "   ");
@@ -297,7 +297,7 @@ describe("CreateManagedPrivateAccessModal", () => {
 
   it("keeps inline object validation and unique names local to the draft fields", async () => {
     const user = userEvent.setup();
-    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" onClose={vi.fn()} onCreated={vi.fn()} />);
+    render(<CreateManagedPrivateAccessModal variant="iam" contextId="acc-7" onClose={vi.fn()} onCreated={vi.fn()} />);
     await user.click(screen.getByText("Advanced configuration"));
     const name = screen.getByLabelText("Inline policy name");
     const document = screen.getByLabelText("Inline policy document");
@@ -324,7 +324,7 @@ describe("CreateManagedPrivateAccessModal", () => {
 
   it("reveals and focuses workspace validation when advanced configuration is closed", async () => {
     const user = userEvent.setup();
-    render(<CreateManagedPrivateAccessModal variant="rgw_user" accountId="s3u-9" onClose={vi.fn()} onCreated={vi.fn()} />);
+    render(<CreateManagedPrivateAccessModal variant="rgw_user" contextId="s3u-9" onClose={vi.fn()} onCreated={vi.fn()} />);
     const advanced = screen.getByText("Advanced configuration");
     await user.click(advanced);
     await user.click(screen.getByRole("checkbox", { name: "Access browser" }));

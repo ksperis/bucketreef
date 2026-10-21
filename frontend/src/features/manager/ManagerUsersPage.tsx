@@ -642,7 +642,7 @@ export default function ManagerUsersPage() {
         <CreateManagedPrivateAccessModal
           namingValidationProfile={namingValidationProfile}
           variant="iam"
-          accountId={contextIdForApi}
+          contextId={contextIdForApi}
           contextName={selectedContextName}
           groups={groups}
           policies={policies}
