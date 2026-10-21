@@ -117,6 +117,25 @@ def test_expired_report_cannot_start(prepared):
         service.start_migration(migration.id, configuration_revision=1)
 
 
+def test_start_persists_sanitized_precondition_errors(prepared):
+    service, migration, _ = prepared
+    service.run_precheck(migration.id, active_checks=True)
+    service._revalidate_transfer_preconditions = Mock(
+        side_effect=ValueError(
+            "secret_key=TOPSECRET endpoint=https://private.example.test/admin"
+        )
+    )
+
+    with pytest.raises(ValueError, match="TOPSECRET"):
+        service.start_migration(migration.id, configuration_revision=1)
+
+    report = json.loads(migration.precheck_report_json)
+    assert report["checks"][0]["code"] == "start_precondition_changed"
+    assert report["checks"][0]["message"] == (
+        "secret_key=<redacted> endpoint=<redacted-url>"
+    )
+
+
 def test_immediate_copy_requires_interruption_confirmation(prepared):
     service, migration, _ = prepared
     migration.mode = "one_shot"
