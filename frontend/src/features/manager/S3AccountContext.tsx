@@ -97,12 +97,10 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   } = useExecutionContextCatalog({
     scope,
     storageKey: executionContextStorageKey,
-    selectionPolicy: "first-available",
     accessDeniedMessage:
       scope === "browser"
         ? "Access to browser contexts is denied for this user."
         : "Access to manager is denied for this user.",
-    revokedSelectionMessage: "The previously selected Manager context is no longer authorized.",
   });
   const [namingProfileState, setNamingProfileState] = useState<{ accountId: S3ExecutionContextSelector; profile: NamingValidationProfile } | null>(null);
   const [iamIdentity, setIamIdentity] = useState<string | null>(null);
