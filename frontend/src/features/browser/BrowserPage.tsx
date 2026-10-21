@@ -111,7 +111,7 @@ import {
   MIN_FOLDERS_PANEL_WIDTH_PX,
   readStoredBrowserRootUiState,
 } from "./browserRootUiState";
-import { VERSIONS_LIST_HARD_LIMIT, storageClassOptions } from "./browserConstants";
+import { storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import { getSelectionInfo, normalizePrefix } from "./browserUtils";
 import {
@@ -921,13 +921,6 @@ export default function BrowserPage({
     return [...ordered, ...unknown];
   }, [availableStorageClasses]);
 
-  const handleVersionsHardLimit = useCallback(() => {
-    setWarningMessage(
-      text("Versions listing is limited to {count} entries. Narrow your path to continue.", {
-        count: VERSIONS_LIST_HARD_LIMIT.toLocaleString(intlLocale),
-      }),
-    );
-  }, [intlLocale, setWarningMessage, text]);
   const {
     canLoadMore: canLoadMorePrefixVersions,
     close: closePrefixVersions,
@@ -943,7 +936,7 @@ export default function BrowserPage({
     contextId: contextIdForApi,
     bucketName,
     contextEnabled: hasExecutionContext,
-    onHardLimit: handleVersionsHardLimit,
+    onWarning: setWarningMessage,
     prefix: normalizedPrefix,
     requestOptions: browserRequestOptions,
     versioningEnabled: isVersioningEnabled,

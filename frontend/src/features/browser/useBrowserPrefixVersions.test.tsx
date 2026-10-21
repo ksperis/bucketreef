@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
+import { VERSIONS_LIST_HARD_LIMIT } from "./browserConstants";
 import { useBrowserPrefixVersions } from "./useBrowserPrefixVersions";
 
 const apiMocks = vi.hoisted(() => ({
@@ -41,14 +42,17 @@ function response(
   };
 }
 
-function renderPrefixVersions(versioningEnabled = true) {
+function renderPrefixVersions(
+  versioningEnabled = true,
+  onWarning = vi.fn(),
+) {
   return renderHook(
     ({ enabled }) =>
       useBrowserPrefixVersions({
         contextId: "acc-1",
         bucketName: "bucket-a",
         contextEnabled: true,
-        onHardLimit: vi.fn(),
+        onWarning,
         prefix: "docs/",
         versioningEnabled: enabled,
       }),
@@ -110,5 +114,27 @@ describe("useBrowserPrefixVersions", () => {
     rerender({ enabled: false });
 
     await waitFor(() => expect(result.current.visible).toBe(false));
+  });
+
+  it("owns the warning emitted when the versions hard limit is reached", async () => {
+    const onWarning = vi.fn();
+    apiMocks.listObjectVersions.mockResolvedValue(
+      response(
+        Array.from({ length: VERSIONS_LIST_HARD_LIMIT + 1 }, (_, index) =>
+          version(`v${index}`),
+        ),
+      ),
+    );
+    const { result } = renderPrefixVersions(true, onWarning);
+
+    act(() => result.current.open());
+
+    await waitFor(() => {
+      expect(onWarning).toHaveBeenCalledWith(
+        "Versions listing is limited to 5,000 entries. Narrow your path to continue.",
+      );
+    });
+    expect(result.current.rows).toHaveLength(VERSIONS_LIST_HARD_LIMIT);
+    expect(result.current.canLoadMore).toBe(false);
   });
 });
