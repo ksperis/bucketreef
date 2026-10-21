@@ -1,0 +1,308 @@
+erDiagram
+    %% Generated from backend/app/db SQLAlchemy models via app.db.Base.metadata.
+    %% Domain: Identity and UI access.
+    %% PK=primary key, FK=foreign key, UK=single-column unique, NN=not nullable.
+    users {
+        integer id PK "NN"
+        varchar email UK "NN"
+        varchar full_name
+        varchar picture_url
+        varchar avatar_preference "NN; default=auto"
+        blob avatar_image
+        varchar avatar_content_type
+        datetime avatar_updated_at
+        varchar hashed_password
+        integer auth_version "NN; default=1"
+        boolean is_active
+        varchar role "NN; default=ui_user"
+        boolean can_access_ceph_admin "NN; default=0"
+        boolean can_access_storage_ops "NN; default=0"
+        boolean can_access_manager_bucket_compare "NN; default=0"
+        boolean can_access_manager_bucket_integrity_check "NN; default=0"
+        boolean can_access_manager_bucket_migration "NN; default=0"
+        boolean can_access_manager_feature_rules "NN; default=0"
+        boolean can_access_manager_bucket_purge "NN; default=0"
+        boolean can_create_manual_private_connections "NN; default=0"
+        boolean can_provision_managed_private_connections "NN; default=0"
+        boolean browser_advanced_features_enabled "NN; default=0"
+        datetime created_at
+        datetime updated_at "NN"
+        datetime last_login_at
+        varchar ui_language
+        boolean quota_alerts_enabled "NN; default=1"
+        boolean quota_alerts_global_watch "NN; default=0"
+        text ui_preferences_json "NN; default={}"
+    }
+    ui_groups {
+        integer id PK "NN"
+        varchar name UK "NN"
+        text description
+        varchar avatar_source "NN; default=initials"
+        varchar avatar_icon
+        blob avatar_image
+        varchar avatar_content_type
+        datetime avatar_updated_at
+        boolean can_access_ceph_admin "NN; default=0"
+        boolean can_access_storage_ops "NN; default=0"
+        boolean can_access_manager_bucket_compare "NN; default=0"
+        boolean can_access_manager_bucket_integrity_check "NN; default=0"
+        boolean can_access_manager_bucket_migration "NN; default=0"
+        boolean can_access_manager_feature_rules "NN; default=0"
+        boolean can_access_manager_bucket_purge "NN; default=0"
+        boolean can_create_manual_private_connections "NN; default=0"
+        boolean can_provision_managed_private_connections "NN; default=0"
+        boolean browser_advanced_features_enabled "NN; default=0"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    user_ui_groups {
+        integer id PK "NN"
+        integer user_id FK "NN"
+        integer group_id FK "NN"
+        datetime created_at "NN"
+    }
+    api_tokens {
+        varchar id PK "NN"
+        varchar jti UK "NN"
+        varchar token_hash UK "NN"
+        integer user_id FK "NN"
+        varchar name "NN"
+        text scopes_json "NN; default=[]"
+        integer auth_version "NN; default=1"
+        datetime created_at "NN"
+        datetime last_used_at
+        datetime expires_at "NN"
+        datetime revoked_at
+    }
+    auth_sessions {
+        varchar id PK "NN"
+        integer user_id FK
+        varchar s3_session_id FK
+        varchar principal_type "NN"
+        varchar auth_type "NN"
+        integer auth_version "NN; default=1"
+        datetime created_at "NN"
+        datetime last_activity_at "NN"
+        datetime idle_expires_at "NN"
+        datetime absolute_expires_at "NN"
+        datetime mfa_verified_at
+        varchar ip_address
+        text user_agent
+        varchar csrf_token_hash "NN"
+        datetime revoked_at
+        varchar revoke_reason
+    }
+    refresh_tokens {
+        varchar id PK "NN"
+        varchar family_id "NN"
+        varchar auth_session_id FK "NN"
+        varchar parent_id FK
+        varchar token_hash UK "NN"
+        datetime created_at "NN"
+        datetime expires_at "NN"
+        datetime used_at
+        varchar replaced_by_id FK
+        datetime revoked_at
+        varchar revoke_reason
+    }
+    external_identities {
+        varchar id PK "NN"
+        integer user_id FK "NN"
+        varchar provider_type "NN"
+        varchar provider_id "NN"
+        varchar subject "NN"
+        varchar email
+        boolean email_verified "NN; default=0"
+        datetime created_at "NN"
+        datetime last_login_at
+        datetime revoked_at
+        varchar link_source "NN; default=jit"
+    }
+    external_identity_link_requests {
+        varchar id PK "NN"
+        integer user_id FK "NN"
+        varchar provider_type "NN"
+        varchar provider_id "NN"
+        varchar subject "NN"
+        varchar email "NN"
+        varchar display_name
+        varchar picture_url
+        varchar status "NN; default=pending"
+        datetime created_at "NN"
+        datetime expires_at "NN"
+        datetime decided_at
+        integer decided_by_user_id FK
+        varchar decision_reason
+        varchar decision_source
+    }
+    webauthn_credentials {
+        varchar id PK "NN"
+        integer user_id FK "NN"
+        varchar credential_id UK "NN"
+        text public_key "NN"
+        integer sign_count "NN; default=0"
+        text transports_json "NN; default=[]"
+        varchar name "NN"
+        datetime created_at "NN"
+        datetime last_used_at
+        datetime revoked_at
+    }
+    auth_challenges {
+        varchar id PK "NN"
+        integer user_id FK "NN"
+        varchar binding_sid
+        varchar purpose "NN"
+        varchar challenge_hash UK "NN"
+        text payload_json "NN; default={}"
+        datetime created_at "NN"
+        datetime expires_at "NN"
+        datetime consumed_at
+    }
+    recovery_codes {
+        varchar id PK "NN"
+        integer user_id FK "NN"
+        varchar code_hash UK "NN"
+        datetime created_at "NN"
+        datetime consumed_at
+    }
+    auth_rate_limits {
+        varchar id PK "NN"
+        varchar bucket_key "NN"
+        datetime window_started_at "NN"
+        integer attempts "NN; default=0"
+        datetime updated_at "NN"
+    }
+    first_admin_bootstrap {
+        integer id PK "NN"
+        varchar_64 token_digest
+        datetime issued_at
+        datetime expires_at
+        datetime consumed_at
+        integer created_user_id FK
+    }
+    s3_sessions {
+        varchar id PK "NN"
+        varchar access_key_enc
+        varchar secret_key_enc
+        varchar access_key_hash "NN"
+        varchar actor_type "NN"
+        varchar role "NN"
+        varchar account_id
+        varchar account_name
+        varchar user_uid
+        text capabilities "NN"
+        datetime created_at "NN"
+        datetime last_used_at "NN"
+        datetime idle_expires_at "NN"
+        datetime absolute_expires_at "NN"
+        datetime revoked_at
+        varchar revoke_reason
+    }
+    oidc_providers {
+        integer id PK "NN"
+        varchar provider_id UK "NN"
+        varchar display_name "NN"
+        varchar discovery_url "NN"
+        varchar client_id "NN"
+        varchar client_secret
+        varchar redirect_uri "NN"
+        text scopes_json "NN; default=['openid','email','profile']"
+        varchar prompt
+        boolean enabled "NN"
+        varchar icon_url
+        boolean use_pkce "NN"
+        boolean use_nonce "NN"
+        varchar linking_policy "NN; default=manual"
+        text trusted_email_domains_json "NN; default=[]"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    oidc_login_states {
+        varchar state PK "NN"
+        varchar provider "NN"
+        varchar code_verifier "NN"
+        varchar nonce
+        varchar redirect_path
+        varchar redirect_uri
+        datetime created_at "NN"
+    }
+    oidc_authorization_codes {
+        varchar id PK "NN"
+        varchar provider "NN"
+        varchar code_hash UK "NN"
+        datetime created_at "NN"
+        datetime expires_at "NN"
+    }
+    ldap_providers {
+        integer id PK "NN"
+        varchar provider_id UK "NN"
+        varchar display_name "NN"
+        varchar url "NN"
+        varchar bind_dn
+        varchar bind_password
+        varchar user_base_dn "NN"
+        text user_filter "NN"
+        varchar email_attribute "NN"
+        varchar name_attribute
+        varchar subject_attribute
+        boolean start_tls "NN"
+        boolean tls_verify "NN"
+        varchar tls_ca_file
+        boolean allow_legacy_tls "NN"
+        float timeout_seconds "NN"
+        boolean enabled "NN"
+        boolean allow_insecure "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    browser_favorites {
+        varchar_36 id PK "NN"
+        integer user_id FK "NN"
+        varchar_24 surface "NN"
+        varchar_120 name "NN"
+        varchar_24 workspace "NN"
+        varchar_256 context "NN"
+        varchar_255 bucket "NN"
+        varchar_1024 prefix "NN"
+        integer revision "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    onboarding_preferences {
+        integer user_id PK, FK "NN"
+        boolean dismissed "NN"
+        datetime initial_setup_completed_at
+        datetime updated_at "NN"
+    }
+    onboarding_journeys {
+        varchar_36 id PK "NN"
+        integer user_id FK "NN"
+        integer revision "NN"
+        text draft_json "NN"
+        text resources_json "NN"
+        text evidence_json "NN"
+        text readiness_json "NN"
+        varchar_40 pending_step
+        datetime configured_at
+        datetime validated_at
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    user_ui_groups }o--|| users : "user_id to id"
+    user_ui_groups }o--|| ui_groups : "group_id to id"
+    api_tokens }o--|| users : "user_id to id"
+    auth_sessions }o--o| users : "user_id to id; ON DELETE CASCADE"
+    auth_sessions }o--o| s3_sessions : "s3_session_id to id; ON DELETE CASCADE"
+    refresh_tokens }o--|| auth_sessions : "auth_session_id to id; ON DELETE CASCADE"
+    refresh_tokens }o--o| refresh_tokens : "parent_id to id; ON DELETE SET NULL"
+    refresh_tokens }o--o| refresh_tokens : "replaced_by_id to id; ON DELETE SET NULL"
+    external_identities }o--|| users : "user_id to id; ON DELETE CASCADE"
+    external_identity_link_requests }o--|| users : "user_id to id; ON DELETE CASCADE"
+    external_identity_link_requests }o--o| users : "decided_by_user_id to id; ON DELETE SET NULL"
+    webauthn_credentials }o--|| users : "user_id to id; ON DELETE CASCADE"
+    auth_challenges }o--|| users : "user_id to id; ON DELETE CASCADE"
+    recovery_codes }o--|| users : "user_id to id; ON DELETE CASCADE"
+    first_admin_bootstrap }o--o| users : "created_user_id to id; ON DELETE SET NULL"
+    browser_favorites }o--|| users : "user_id to id; ON DELETE CASCADE"
+    onboarding_preferences o|--|| users : "user_id to id; ON DELETE CASCADE"
+    onboarding_journeys }o--|| users : "user_id to id; ON DELETE CASCADE"

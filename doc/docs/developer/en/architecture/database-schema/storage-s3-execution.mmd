@@ -1,0 +1,250 @@
+erDiagram
+    %% Generated from backend/app/db SQLAlchemy models via app.db.Base.metadata.
+    %% Domain: Storage and S3 execution.
+    %% PK=primary key, FK=foreign key, UK=single-column unique, NN=not nullable.
+    storage_endpoints {
+        integer id PK "NN"
+        varchar name UK "NN"
+        varchar endpoint_url UK "NN"
+        varchar region
+        varchar provider "NN"
+        varchar admin_access_key
+        varchar admin_secret_key
+        varchar_32 identity_namespace UK "NN"
+        boolean ceph_admin_allowed "NN; default=0"
+        text features_config
+        float latitude
+        float longitude
+        boolean force_path_style "NN; default=0"
+        boolean verify_tls "NN; default=1"
+        boolean is_default "NN; default=0"
+        boolean is_editable "NN; default=1"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    endpoint_service_identities {
+        integer id PK "NN"
+        integer endpoint_id FK "NN"
+        varchar_24 kind "NN"
+        varchar_16 mode "NN"
+        varchar_128 rgw_uid
+        varchar access_key
+        varchar secret_key
+        varchar_128 provenance
+        varchar_24 status "NN"
+        varchar_256 last_error
+        datetime last_reconciled_at
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    key_rotation_intents {
+        integer id PK "NN"
+        integer endpoint_id FK "NN"
+        varchar_32 key_type "NN"
+        integer target_id "NN"
+        varchar rgw_uid "NN"
+        varchar tenant
+        varchar rgw_endpoint "NN"
+        varchar old_access_key "NN"
+        varchar new_access_key "NN"
+        varchar new_secret_key "NN"
+        boolean deactivate_only "NN"
+        varchar_16 phase "NN"
+        varchar actor_email "NN"
+        varchar_256 last_error
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    manager_access_key_metadata {
+        integer id PK "NN"
+        integer account_id FK
+        integer s3_user_id FK
+        varchar_256 principal_name
+        varchar_256 access_key_id "NN"
+        varchar_128 name
+        text notes
+        datetime expires_at
+        varchar_32 expiration_state
+        datetime expiration_enforced_at
+        datetime expiration_last_attempt_at
+        text expiration_last_error
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    s3_accounts {
+        integer id PK "NN"
+        varchar name "NN"
+        varchar rgw_account_id UK "NN"
+        varchar rgw_tenant "NN; default="
+        varchar email
+        varchar rgw_access_key
+        varchar rgw_secret_key
+        varchar rgw_user_uid "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+        integer storage_endpoint_id FK "NN"
+        text portal_settings_override
+        boolean portal_settings_delegated "NN; default=0"
+        boolean portal_collaborator_role_management_delegated "NN; default=0"
+        boolean portal_collaborator_addition_delegated "NN; default=0"
+        boolean allow_bucket_quota_management
+        boolean allow_access_key_metadata
+        boolean allow_access_key_expiration
+        boolean allow_activity_history
+        boolean allow_rgw_usage_metrics
+        boolean allow_cost_estimation
+        boolean allow_bucket_usage_stats
+        boolean allow_bucket_usage_stats_collection
+    }
+    user_s3_accounts {
+        integer id PK "NN"
+        integer user_id FK "NN"
+        integer account_id FK "NN"
+        varchar manager_role
+        varchar portal_role
+        boolean allow_manager_browser_data_access "NN; default=0"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    account_iam_users {
+        integer id PK "NN"
+        integer user_id FK "NN"
+        integer account_id FK "NN"
+        varchar iam_user_id UK "NN"
+        varchar iam_username
+        varchar active_access_key
+        varchar active_secret_key
+        datetime created_at "NN"
+    }
+    s3_users {
+        integer id PK "NN"
+        varchar name "NN"
+        varchar rgw_user_uid "NN"
+        varchar rgw_tenant "NN; default="
+        varchar email
+        varchar rgw_access_key "NN"
+        varchar rgw_secret_key "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+        integer storage_endpoint_id FK "NN"
+        boolean allow_bucket_quota_management
+        boolean allow_access_key_management
+        boolean allow_access_key_metadata
+        boolean allow_access_key_expiration
+        boolean allow_activity_history
+        boolean allow_rgw_usage_metrics
+        boolean allow_cost_estimation
+        boolean allow_managed_private_connection_provisioning
+    }
+    user_s3_users {
+        integer id PK "NN"
+        integer user_id FK "NN"
+        integer s3_user_id FK "NN"
+        boolean allow_manager_browser_data_access "NN; default=0"
+    }
+    s3_connections {
+        integer id PK "NN"
+        integer created_by_user_id FK "NN"
+        varchar name "NN"
+        boolean is_shared "NN; default=0"
+        boolean is_active "NN; default=1"
+        boolean access_manager "NN; default=0"
+        boolean access_browser "NN; default=1"
+        boolean allow_activity_history
+        boolean remediation_required "NN; default=0"
+        varchar remediation_reason
+        boolean server_managed "NN; default=0"
+        varchar rgw_user_uid
+        varchar rgw_tenant
+        varchar rgw_account_id
+        integer storage_endpoint_id FK
+        text custom_endpoint_config
+        varchar access_key_id "NN"
+        varchar secret_access_key "NN"
+        varchar session_token
+        datetime expires_at
+        text capabilities_json "NN; default={'can_manage_iam':false}"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+        datetime last_used_at
+    }
+    user_s3_connections {
+        integer id PK "NN"
+        integer user_id FK "NN"
+        integer s3_connection_id FK "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    managed_private_accesses {
+        integer id PK "NN"
+        integer owner_user_id FK "NN"
+        varchar source_context_type "NN"
+        integer source_context_id "NN"
+        varchar remote_principal_type "NN"
+        varchar remote_principal_identifier "NN"
+        varchar iam_username
+        varchar access_key_id
+        integer s3_connection_id FK, UK
+        varchar state "NN; default=provisioning"
+        text cleanup_error
+        text iam_groups_json "NN; default=[]"
+        text iam_managed_policies_json "NN; default=[]"
+        text iam_inline_policy_names_json "NN; default=[]"
+        boolean created_remote_principal "NN; default=0"
+        boolean created_access_key "NN; default=0"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    ui_group_s3_accounts {
+        integer id PK "NN"
+        integer group_id FK "NN"
+        integer account_id FK "NN"
+        varchar manager_role
+        varchar portal_role
+        boolean allow_manager_browser_data_access "NN; default=0"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    ui_group_s3_users {
+        integer id PK "NN"
+        integer group_id FK "NN"
+        integer s3_user_id FK "NN"
+        boolean allow_manager_browser_data_access "NN; default=0"
+    }
+    ui_group_s3_connections {
+        integer id PK "NN"
+        integer group_id FK "NN"
+        integer s3_connection_id FK "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    ui_groups {
+        integer id PK "external reference"
+    }
+    users {
+        integer id PK "external reference"
+    }
+    endpoint_service_identities }o--|| storage_endpoints : "endpoint_id to id; ON DELETE CASCADE"
+    key_rotation_intents }o--|| storage_endpoints : "endpoint_id to id; ON DELETE CASCADE"
+    manager_access_key_metadata }o--o| s3_accounts : "account_id to id; ON DELETE CASCADE"
+    manager_access_key_metadata }o--o| s3_users : "s3_user_id to id; ON DELETE CASCADE"
+    s3_accounts }o--|| storage_endpoints : "storage_endpoint_id to id"
+    user_s3_accounts }o--|| users : "user_id to id"
+    user_s3_accounts }o--|| s3_accounts : "account_id to id"
+    account_iam_users }o--|| users : "user_id to id"
+    account_iam_users }o--|| s3_accounts : "account_id to id"
+    s3_users }o--|| storage_endpoints : "storage_endpoint_id to id"
+    user_s3_users }o--|| users : "user_id to id"
+    user_s3_users }o--|| s3_users : "s3_user_id to id"
+    s3_connections }o--|| users : "created_by_user_id to id"
+    s3_connections }o--o| storage_endpoints : "storage_endpoint_id to id"
+    user_s3_connections }o--|| users : "user_id to id"
+    user_s3_connections }o--|| s3_connections : "s3_connection_id to id"
+    managed_private_accesses }o--|| users : "owner_user_id to id"
+    managed_private_accesses o|--o| s3_connections : "s3_connection_id to id; ON DELETE SET NULL"
+    ui_group_s3_accounts }o--|| ui_groups : "group_id to id"
+    ui_group_s3_accounts }o--|| s3_accounts : "account_id to id"
+    ui_group_s3_users }o--|| ui_groups : "group_id to id"
+    ui_group_s3_users }o--|| s3_users : "s3_user_id to id"
+    ui_group_s3_connections }o--|| ui_groups : "group_id to id"
+    ui_group_s3_connections }o--|| s3_connections : "s3_connection_id to id"

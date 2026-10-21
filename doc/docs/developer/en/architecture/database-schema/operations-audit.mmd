@@ -1,0 +1,226 @@
+erDiagram
+    %% Generated from backend/app/db SQLAlchemy models via app.db.Base.metadata.
+    %% Domain: Operations and audit.
+    %% PK=primary key, FK=foreign key, UK=single-column unique, NN=not nullable.
+    audit_logs {
+        integer id PK "NN"
+        datetime created_at "NN"
+        integer user_id FK
+        varchar user_email "NN"
+        varchar user_role "NN"
+        varchar scope "NN"
+        varchar action "NN"
+        varchar entity_type
+        varchar entity_id
+        varchar context_kind
+        varchar context_id
+        varchar context_name
+        varchar status "NN"
+        varchar message
+        text metadata_json
+        varchar request_id
+        varchar ip_address
+        varchar user_agent
+    }
+    user_notifications {
+        integer id PK "NN"
+        integer user_id FK "NN"
+        varchar notification_type "NN"
+        varchar severity "NN"
+        varchar title "NN"
+        text message "NN"
+        varchar subject_type
+        integer storage_endpoint_id FK
+        integer s3_account_id FK
+        integer s3_user_id FK
+        varchar event_key "NN"
+        text payload_json "NN; default={}"
+        datetime created_at "NN"
+        datetime read_at
+    }
+    webhook_endpoints {
+        integer id PK "NN"
+        varchar name UK "NN"
+        text url "NN"
+        boolean enabled "NN; default=0"
+        varchar signing_secret
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    webhook_endpoint_subscriptions {
+        integer id PK "NN"
+        integer endpoint_id FK "NN"
+        varchar event_type "NN"
+    }
+    webhook_deliveries {
+        integer id PK "NN"
+        varchar delivery_id UK "NN"
+        varchar event_id "NN"
+        integer endpoint_id FK "NN"
+        varchar event_type "NN"
+        text payload_json "NN"
+        boolean is_test "NN; default=0"
+        varchar status "NN; default=pending"
+        integer attempt_count "NN; default=0"
+        datetime next_attempt_at "NN"
+        integer last_http_status
+        text last_error
+        datetime created_at "NN"
+        datetime updated_at "NN"
+        datetime delivered_at
+    }
+    bucket_migrations {
+        integer id PK "NN"
+        integer created_by_user_id FK
+        varchar source_context_id "NN"
+        varchar target_context_id "NN"
+        varchar mode "NN; default=pre_sync"
+        boolean copy_bucket_settings "NN; default=0"
+        boolean delete_source "NN; default=0"
+        boolean strong_integrity_check "NN; default=0"
+        boolean lock_target_writes "NN; default=1"
+        boolean use_same_endpoint_copy "NN; default=0"
+        boolean auto_grant_source_read_for_copy "NN; default=0"
+        varchar mapping_prefix
+        varchar status "NN; default=draft"
+        boolean pause_requested "NN; default=0"
+        boolean cancel_requested "NN; default=0"
+        varchar worker_lease_owner
+        datetime worker_lease_until
+        varchar precheck_status "NN; default=pending"
+        text precheck_report_json
+        datetime precheck_checked_at
+        integer workflow_version "NN; default=2"
+        integer configuration_revision "NN; default=1"
+        integer checked_revision
+        varchar preparation_status "NN; default=unverified"
+        boolean preparation_active_checks "NN; default=0"
+        integer preparation_completed_items "NN; default=0"
+        datetime preparation_requested_at
+        varchar maintenance_operation
+        varchar maintenance_status "NN; default=idle"
+        text maintenance_error
+        integer maintenance_requested_by_user_id FK
+        integer parallelism_max "NN; default=16"
+        integer total_items "NN; default=0"
+        integer completed_items "NN; default=0"
+        integer failed_items "NN; default=0"
+        integer skipped_items "NN; default=0"
+        integer awaiting_items "NN; default=0"
+        varchar error_message
+        datetime started_at
+        datetime finished_at
+        datetime last_heartbeat_at
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    bucket_migration_items {
+        integer id PK "NN"
+        integer migration_id FK "NN"
+        varchar source_bucket "NN"
+        varchar target_bucket "NN"
+        varchar status "NN; default=pending"
+        varchar step "NN; default=create_bucket"
+        boolean pre_sync_done "NN; default=0"
+        boolean read_only_applied "NN; default=0"
+        boolean target_lock_applied "NN; default=0"
+        boolean target_bucket_exists "NN; default=0"
+        boolean target_created_by_migration "NN; default=0"
+        text preparation_effects_json
+        boolean source_deleted "NN; default=0"
+        varchar cleanup_status "NN; default=idle"
+        text cleanup_error
+        text cleanup_verification_json
+        integer objects_copied "NN; default=0"
+        integer objects_deleted "NN; default=0"
+        integer source_count
+        integer target_count
+        integer matched_count
+        integer different_count
+        integer only_source_count
+        integer only_target_count
+        text diff_sample_json
+        text source_snapshot_json
+        text target_snapshot_json
+        varchar execution_strategy
+        text replication_state_json
+        text source_policy_backup_json
+        text target_policy_backup_json
+        varchar error_message
+        datetime started_at
+        datetime finished_at
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    bucket_migration_events {
+        integer id PK "NN"
+        integer migration_id FK "NN"
+        integer item_id FK
+        varchar level "NN; default=info"
+        text message "NN"
+        text metadata_json
+        datetime created_at "NN"
+    }
+    bucket_usage_stats_snapshots {
+        integer id PK "NN"
+        varchar scope_kind "NN"
+        varchar scope_id "NN"
+        varchar scope_name
+        varchar bucket_name "NN"
+        varchar scan_mode "NN; default=versions"
+        boolean version_listing_available "NN; default=1"
+        integer object_version_count "NN; default=0"
+        integer current_version_count "NN; default=0"
+        integer noncurrent_version_count "NN; default=0"
+        integer delete_marker_count "NN; default=0"
+        integer total_bytes "NN; default=0"
+        integer current_bytes "NN; default=0"
+        integer noncurrent_bytes "NN; default=0"
+        text data_type_distribution_json "NN"
+        text storage_class_distribution_json "NN"
+        text size_distribution_json "NN"
+        text age_distribution_json "NN"
+        text current_noncurrent_distribution_json "NN"
+        text warnings_json
+        datetime calculated_at "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    backend_operation_leases {
+        varchar operation_name PK "NN"
+        varchar lease_owner "NN"
+        datetime lease_until "NN"
+        datetime acquired_at "NN"
+        datetime updated_at "NN"
+        text metadata_json
+    }
+    app_settings {
+        varchar key PK "NN"
+        text payload_json "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    s3_accounts {
+        integer id PK "external reference"
+    }
+    s3_users {
+        integer id PK "external reference"
+    }
+    storage_endpoints {
+        integer id PK "external reference"
+    }
+    users {
+        integer id PK "external reference"
+    }
+    audit_logs }o--o| users : "user_id to id"
+    user_notifications }o--|| users : "user_id to id; ON DELETE CASCADE"
+    user_notifications }o--o| storage_endpoints : "storage_endpoint_id to id"
+    user_notifications }o--o| s3_accounts : "s3_account_id to id"
+    user_notifications }o--o| s3_users : "s3_user_id to id"
+    webhook_endpoint_subscriptions }o--|| webhook_endpoints : "endpoint_id to id; ON DELETE CASCADE"
+    webhook_deliveries }o--|| webhook_endpoints : "endpoint_id to id; ON DELETE CASCADE"
+    bucket_migrations }o--o| users : "created_by_user_id to id"
+    bucket_migrations }o--o| users : "maintenance_requested_by_user_id to id"
+    bucket_migration_items }o--|| bucket_migrations : "migration_id to id"
+    bucket_migration_events }o--|| bucket_migrations : "migration_id to id"
+    bucket_migration_events }o--o| bucket_migration_items : "item_id to id"
