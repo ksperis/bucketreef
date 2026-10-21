@@ -19,7 +19,7 @@ const listRoleInlinePoliciesMock = vi.fn();
 
 vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => ({
-    selectedS3AccountType: "tenant",
+    selectedContextKind: "account",
     contextIdForApi: "acc-1",
     requiresS3AccountSelection: false,
     accessMode: "regular",

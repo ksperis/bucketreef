@@ -21,7 +21,7 @@ function accountContext(overrides?: Record<string, unknown>) {
     contextIdForApi: "account-1",
     contextsLoaded: true,
     hasS3AccountContext: true,
-    selectedS3AccountType: "tenant",
+    selectedContextKind: "account",
     managerFeatureStates: {
       activity_history: { enabled: true, source: "platform" },
     },
@@ -114,7 +114,7 @@ describe("ManagerActivityPage", () => {
   it("loads activity for an enabled RGW User context", async () => {
     useS3AccountContextMock.mockReturnValue(accountContext({
       contextIdForApi: "s3u-8",
-      selectedS3AccountType: "s3_user",
+      selectedContextKind: "s3_user",
     }));
     listManagerActivityMock.mockResolvedValue([activity(8, {
       context_kind: "s3_user",
@@ -135,7 +135,7 @@ describe("ManagerActivityPage", () => {
 
   it("redirects disabled contexts to the Manager dashboard", async () => {
     useS3AccountContextMock.mockReturnValue(accountContext({
-      selectedS3AccountType: "s3_user",
+      selectedContextKind: "s3_user",
       managerFeatureStates: { activity_history: { enabled: false, source: "resource" } },
     }));
     render(

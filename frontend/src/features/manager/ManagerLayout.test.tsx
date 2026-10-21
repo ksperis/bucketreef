@@ -99,11 +99,11 @@ function buildContext(overrides?: Record<string, unknown>) {
         storage_endpoint_capabilities: { iam: false, usage: false, metrics: false, sns: false },
       },
     ],
-    selectedS3AccountId: "s3u-1",
+    selectedContextId: "s3u-1",
     setSelectedS3AccountId: vi.fn(),
     requiresS3AccountSelection: true,
     sessionS3AccountName: null,
-    selectedS3AccountType: "s3_user",
+    selectedContextKind: "s3_user",
     accessError: null,
     iamIdentity: "uid-1",
     accessMode: "s3_user",
@@ -218,8 +218,8 @@ describe("ManagerLayout", () => {
   it("shows Activity when the selected execution context has effective activity history enabled", () => {
     useS3AccountContextMock.mockReturnValue(buildContext({
       accounts: [{ id: "account-1", display_name: "Account", storage_endpoint_capabilities: {} }],
-      selectedS3AccountId: "account-1",
-      selectedS3AccountType: "tenant",
+      selectedContextId: "account-1",
+      selectedContextKind: "account",
       accessMode: "admin",
       managerFeatureStates: { activity_history: { enabled: true, source: "platform" } },
     }));
@@ -305,7 +305,7 @@ describe("ManagerLayout", () => {
     setStoredManagerUser();
     useS3AccountContextMock.mockReturnValue(
       buildContext({
-        selectedS3AccountType: "tenant",
+        selectedContextKind: "account",
         managerCephKeysEnabled: false,
         managerPrivateAccessEnabled: true,
       })
@@ -602,8 +602,8 @@ describe("ManagerLayout", () => {
             storage_endpoint_capabilities: { iam: true, usage: false, metrics: false, sns: false },
           },
         ],
-        selectedS3AccountId: "conn-1",
-        selectedS3AccountType: "connection",
+        selectedContextId: "conn-1",
+        selectedContextKind: "connection",
         accessMode: "connection",
         managerStatsEnabled: false,
       })
@@ -637,8 +637,8 @@ describe("ManagerLayout", () => {
             capabilities: { can_manage_iam: true, sts_capable: false, admin_api_capable: false },
           },
         ],
-        selectedS3AccountId: "conn-1",
-        selectedS3AccountType: "connection",
+        selectedContextId: "conn-1",
+        selectedContextKind: "connection",
         accessMode: "connection",
         managerStatsEnabled: false,
       })
@@ -662,8 +662,8 @@ describe("ManagerLayout", () => {
           { id: "ctx-1", display_name: "Primary", storage_endpoint_capabilities: {} },
           { id: "ctx-2", display_name: "Archive", storage_endpoint_capabilities: {} },
         ],
-        selectedS3AccountId: "ctx-1",
-        selectedS3AccountType: "connection",
+        selectedContextId: "ctx-1",
+        selectedContextKind: "connection",
         accessMode: "connection",
         iamIdentity: "ak-1",
       })
@@ -705,7 +705,7 @@ it("retains the mounted form until context navigation is confirmed", async () =>
     const { search } = useLocation();
     return buildContext({
       accounts: [{ id: "s3u-1", display_name: "S3 User 1" }, { id: "conn-2", display_name: "Connection 2" }],
-      selectedS3AccountId: new URLSearchParams(search).get("ctx"),
+      selectedContextId: new URLSearchParams(search).get("ctx"),
       setSelectedS3AccountId: eagerSelection,
     });
   });

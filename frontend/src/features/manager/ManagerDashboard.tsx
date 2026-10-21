@@ -637,9 +637,9 @@ export default function ManagerDashboard() {
   const { generalSettings } = useGeneralSettings();
   const {
     accounts,
-    selectedS3AccountId,
+    selectedContextId,
     sessionS3AccountName,
-    selectedS3AccountType,
+    selectedContextKind,
     hasS3AccountContext,
     requiresS3AccountSelection,
     contextIdForApi,
@@ -670,8 +670,8 @@ export default function ManagerDashboard() {
   const [managerLimits, setManagerLimits] = useState<ManagerContext | null>(null);
 
   const selected = useMemo(
-    () => accounts.find((account) => account.id === selectedS3AccountId),
-    [accounts, selectedS3AccountId]
+    () => accounts.find((account) => account.id === selectedContextId),
+    [accounts, selectedContextId]
   );
   const hasContext = hasS3AccountContext;
   const endpointCaps = selected?.storage_endpoint_capabilities ?? null;
@@ -679,7 +679,7 @@ export default function ManagerDashboard() {
   const contextCanManageIam = selected?.capabilities?.can_manage_iam !== false;
   const usageFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.metrics !== false : true);
   const trafficFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.usage !== false : true);
-  const isS3User = selectedS3AccountType === "s3_user";
+  const isS3User = selectedContextKind === "s3_user";
   const activityHistoryEnabled = hasContext && managerFeatureStates?.activity_history?.enabled === true;
   const canManageIam = !isS3User && contextCanManageIam && iamFeatureEnabled;
   const canLoadUsageStatsDataTypes =

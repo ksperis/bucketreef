@@ -46,10 +46,10 @@ function ManagerShell() {
   });
   const {
     accounts,
-    selectedS3AccountId,
+    selectedContextId,
     requiresS3AccountSelection,
     sessionS3AccountName,
-    selectedS3AccountType,
+    selectedContextKind,
     accessError,
     iamIdentity,
     accessMode,
@@ -64,7 +64,7 @@ function ManagerShell() {
   const { text: shellText } = useShellI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const selected = accounts.find((a) => a.id === selectedS3AccountId);
+  const selected = accounts.find((a) => a.id === selectedContextId);
   const showSelector = requiresS3AccountSelection && accounts.length > 1;
   const storedUser = readStoredUser();
   const userCapabilities = (storedUser?.capabilities as SessionCapabilities | undefined) ?? null;
@@ -74,7 +74,7 @@ function ManagerShell() {
     can_manage_buckets: contextCapabilities?.can_manage_buckets ?? userCapabilities?.can_manage_buckets ?? true,
     can_view_traffic: contextCapabilities?.can_view_traffic ?? userCapabilities?.can_view_traffic ?? true,
   };
-  const isS3User = selectedS3AccountType === "s3_user";
+  const isS3User = selectedContextKind === "s3_user";
   const canViewActivityHistory = managerFeatureStates?.activity_history?.enabled === true;
   const canManageBuckets = capabilities.can_manage_buckets !== false;
   const canAccessBucketCompare =
@@ -124,7 +124,7 @@ function ManagerShell() {
     ? accessMode === "connection"
       ? text("S3 Identity: {identity}", { identity: iamIdentity })
       : text("IAM Identity: {identity}", { identity: iamIdentity })
-    : selectedS3AccountType === "s3_user" && sessionS3AccountName
+    : selectedContextKind === "s3_user" && sessionS3AccountName
       ? text("S3 user account: {account}", { account: sessionS3AccountName })
       : null;
 
@@ -134,7 +134,7 @@ function ManagerShell() {
 
   const handleS3AccountChange = (selectedValue: string) => {
     const value = selectedValue || null;
-    if (value === selectedS3AccountId) return;
+    if (value === selectedContextId) return;
     // Commit the URL navigation before changing the executor. An eager context
     // update remounts the keyed Outlet and destroys its unsaved-changes guard.
     const nextParams = new URLSearchParams(searchParams);
@@ -158,7 +158,7 @@ function ManagerShell() {
         requiresS3AccountSelection && showSelector ? (
           <TopbarContextAccountSelector
             contexts={accounts}
-            selectedContextId={selectedS3AccountId}
+            selectedContextId={selectedContextId}
             onContextChange={handleS3AccountChange}
             selectedLabel={selectedLabel}
             identityLabel={identityLabel}
@@ -277,7 +277,7 @@ function ManagerShell() {
             {text("Access denied for /manager. Check your account permissions or contact an administrator.")}
           </div>
         )}
-        <Outlet key={`${selectedS3AccountId ?? "session"}:${accessMode ?? "default"}`} />
+        <Outlet key={`${selectedContextId ?? "session"}:${accessMode ?? "default"}`} />
       </>
     </Layout>
   );

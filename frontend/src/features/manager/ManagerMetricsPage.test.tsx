@@ -93,7 +93,7 @@ function buildContext({
         storage_endpoint_capabilities: capabilities,
       },
     ],
-    selectedS3AccountId: contextId,
+    selectedContextId: contextId,
     requiresS3AccountSelection: true,
     hasS3AccountContext: true,
     contextIdForApi: contextId,

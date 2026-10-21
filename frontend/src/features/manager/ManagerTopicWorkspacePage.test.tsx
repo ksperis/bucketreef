@@ -44,7 +44,7 @@ describe("ManagerTopicWorkspacePage", () => {
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     useS3AccountContextMock.mockReturnValue({
       accounts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: true } }],
-      selectedS3AccountId: "conn-7",
+      selectedContextId: "conn-7",
       contextIdForApi: "conn-7",
       requiresS3AccountSelection: false,
       accessMode: "default",
@@ -94,7 +94,7 @@ describe("ManagerTopicWorkspacePage", () => {
   it("keeps SNS capability gating on the resource workspace", async () => {
     useS3AccountContextMock.mockReturnValue({
       accounts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: false } }],
-      selectedS3AccountId: "conn-7",
+      selectedContextId: "conn-7",
       contextIdForApi: "conn-7",
       requiresS3AccountSelection: false,
       accessMode: "default",

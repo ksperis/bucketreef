@@ -40,8 +40,8 @@ const SORT_PRIORITY: Record<BucketMigrationStatus, number> = {
 export default function ManagerMigrationsListPage() {
   const { text } = useManagerI18n();
   const navigate = useNavigate();
-  const { selectedS3AccountId, requiresS3AccountSelection } = useS3AccountContext();
-  const sourceContextId = selectedS3AccountId ?? "";
+  const { selectedContextId, requiresS3AccountSelection } = useS3AccountContext();
+  const sourceContextId = selectedContextId ?? "";
 
   const { contextLabelById, contextsLoading, contextsError } = useManagerContexts();
   const { migrations, migrationsLoading, migrationsError } = useManagerMigrationsList(sourceContextId);

@@ -11,7 +11,7 @@ vi.mock("../../api/managerIamPolicies", () => ({ listIamPolicies: api.list, crea
 beforeEach(() => {
   vi.resetAllMocks();
   context.value = {
-    accounts: [], selectedS3AccountId: "acc-7", selectedS3AccountType: "account",
+    accounts: [], selectedContextId: "acc-7", selectedContextKind: "account",
     contextIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default",
   };
   api.list.mockResolvedValue([{ name: "ReadOnly", arn: "arn:aws:iam::acc-7:policy/ReadOnly" }]);

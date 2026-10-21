@@ -31,7 +31,7 @@ const secondaryContext = {
 
 let accountContext = {
   accounts: [primaryContext, secondaryContext],
-  selectedS3AccountId: primaryContext.id as string | null,
+  selectedContextId: primaryContext.id as string | null,
   requiresS3AccountSelection: true,
 };
 
@@ -48,7 +48,7 @@ describe("useManagerBucketSelection", () => {
     listBucketsMock.mockReset();
     accountContext = {
       accounts: [primaryContext, secondaryContext],
-      selectedS3AccountId: primaryContext.id,
+      selectedContextId: primaryContext.id,
       requiresS3AccountSelection: true,
     };
   });
@@ -96,7 +96,7 @@ describe("useManagerBucketSelection", () => {
 
     accountContext = {
       ...accountContext,
-      selectedS3AccountId: secondaryContext.id,
+      selectedContextId: secondaryContext.id,
     };
     rerender();
 
@@ -117,7 +117,7 @@ describe("useManagerBucketSelection", () => {
 
     accountContext = {
       ...accountContext,
-      selectedS3AccountId: null,
+      selectedContextId: null,
     };
     rerender();
     expect(result.current.filteredBuckets).toEqual([]);

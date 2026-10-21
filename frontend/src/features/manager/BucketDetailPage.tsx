@@ -129,7 +129,7 @@ export function BucketDetailContent(props: BucketDetailPageProps) {
     bucketName ?? null,
     props.accountIdOverride ?? null,
     s3AccountContext.contextIdForApi,
-    s3AccountContext.selectedS3AccountId ?? null,
+    s3AccountContext.selectedContextId ?? null,
     s3AccountContext.requiresS3AccountSelection
       ? null
       : (s3AccountContext.accounts[0]?.id ?? null),
@@ -204,7 +204,7 @@ function BucketDetailPageContent({
   const isCephAdmin = mode === "ceph-admin";
   const {
     accounts,
-    selectedS3AccountId,
+    selectedContextId,
     contextIdForApi,
     requiresS3AccountSelection,
     managerBucketQuotaEnabled,
@@ -220,14 +220,14 @@ function BucketDetailPageContent({
     if (accountIdOverride) {
       return accounts.find((account) => account.id === accountIdOverride) ?? null;
     }
-    if (selectedS3AccountId) {
-      return accounts.find((account) => account.id === selectedS3AccountId) ?? null;
+    if (selectedContextId) {
+      return accounts.find((account) => account.id === selectedContextId) ?? null;
     }
     if (!requiresS3AccountSelection && accounts.length > 0) {
       return accounts[0];
     }
     return null;
-  }, [accountIdOverride, accounts, isCephAdmin, requiresS3AccountSelection, selectedS3AccountId]);
+  }, [accountIdOverride, accounts, isCephAdmin, requiresS3AccountSelection, selectedContextId]);
   const isCephEndpoint = isCephAdmin || selectedS3Account?.endpoint_provider === "ceph";
   const accountId = accountIdOverride ?? contextIdForApi;
   const hasAccountContext = !requiresS3AccountSelection || accountId !== null;

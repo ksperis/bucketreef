@@ -36,7 +36,7 @@ describe("TopicsPage", () => {
     createTopicMock.mockReset();
     useS3AccountContextMock.mockReturnValue({
       accounts: [],
-      selectedS3AccountId: null,
+      selectedContextId: null,
       contextIdForApi: null,
       requiresS3AccountSelection: true,
       sessionS3AccountName: null,
@@ -63,7 +63,7 @@ describe("TopicsPage", () => {
     const topicArn = "arn:aws:sns:us-east-1:lab:topic-events";
     useS3AccountContextMock.mockReturnValue({
       accounts: [{ id: "7", display_name: "Lab account", storage_endpoint_capabilities: { sns: true } }],
-      selectedS3AccountId: "7",
+      selectedContextId: "7",
       contextIdForApi: "7",
       requiresS3AccountSelection: false,
       sessionS3AccountName: null,
@@ -129,7 +129,7 @@ describe("TopicsPage", () => {
           storage_endpoint_capabilities: { sns: true },
         },
       ],
-      selectedS3AccountId: "7",
+      selectedContextId: "7",
       contextIdForApi: "7",
       requiresS3AccountSelection: false,
       sessionS3AccountName: null,
@@ -211,7 +211,7 @@ describe("TopicsPage", () => {
 
 
 it("marks invalid standard topic names immediately and blocks their creation", async () => {
-  useS3AccountContextMock.mockReturnValue({ accounts: [], selectedS3AccountId: "7", contextIdForApi: "7", requiresS3AccountSelection: true });
+  useS3AccountContextMock.mockReturnValue({ accounts: [], selectedContextId: "7", contextIdForApi: "7", requiresS3AccountSelection: true });
   listTopicsMock.mockResolvedValue([]);
   createTopicMock.mockResolvedValue({ name: "valid_topic-1", arn: "arn:aws:sns:us-east-1:lab:valid_topic-1" });
   render(<MemoryRouter><TopicsPage /></MemoryRouter>);
