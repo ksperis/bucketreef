@@ -9,13 +9,14 @@ import {
   VERSIONS_LIST_HARD_LIMIT,
   VERSIONS_PAGE_SIZE,
 } from "./browserConstants";
+import { useBrowserI18n } from "./browserI18n";
 import { useBrowserVersionListing } from "./useBrowserVersionListing";
 
 type UseBrowserPrefixVersionsOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName: string;
   contextEnabled: boolean;
-  onHardLimit: () => void;
+  onWarning: (message: string) => void;
   prefix: string;
   requestOptions?: BrowserRequestOptions;
   versioningEnabled: boolean;
@@ -25,12 +26,23 @@ export function useBrowserPrefixVersions({
   contextId,
   bucketName,
   contextEnabled,
-  onHardLimit,
+  onWarning,
   prefix,
   requestOptions,
   versioningEnabled,
 }: UseBrowserPrefixVersionsOptions) {
+  const { text, intlLocale } = useBrowserI18n();
   const [visible, setVisible] = useState(false);
+  const handleHardLimit = useCallback(() => {
+    onWarning(
+      text(
+        "Versions listing is limited to {count} entries. Narrow your path to continue.",
+        {
+          count: VERSIONS_LIST_HARD_LIMIT.toLocaleString(intlLocale),
+        },
+      ),
+    );
+  }, [intlLocale, onWarning, text]);
   const { canLoadMore, error, load, loading, rows } =
     useBrowserVersionListing({
       contextId,
@@ -39,7 +51,7 @@ export function useBrowserPrefixVersions({
       enabled: visible && contextEnabled && versioningEnabled,
       errorMessage: "Unable to list versions for this prefix.",
       hardLimit: VERSIONS_LIST_HARD_LIMIT,
-      onHardLimit,
+      onHardLimit: handleHardLimit,
       pageSize: VERSIONS_PAGE_SIZE,
       prefix,
       requestOptions,
