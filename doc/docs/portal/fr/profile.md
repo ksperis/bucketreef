@@ -14,6 +14,11 @@ Selon votre préférence, votre image de profil peut provenir d'une image
 importée, de votre identité liée ou de Gravatar. Choisissez les initiales si vous
 ne souhaitez pas charger une image de profil externe.
 
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-profile.light.png" alt="Profil Portal avec les préférences personnelles et le projet sélectionné toujours visible" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-profile.dark.png" alt="Profil Portal avec les préférences personnelles et le projet sélectionné toujours visible" loading="lazy">
+</div>
+
 ## Sécurité de connexion
 
 Utilisez **Sécurité** pour gérer les méthodes de connexion de votre propre
@@ -38,10 +43,3 @@ Un rôle Portal Manager reste un rôle Portal et ne donne pas accès au workspac
 - [Espaces de stockage](spaces/index.md)
 - [État du stockage](storage-health.md)
 - [Dépannage](help/troubleshooting.md)
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/user-overview.light.png" alt="Profil utilisateur et paramètres de sécurité de connexion" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/user-overview.dark.png" alt="Profil utilisateur et paramètres de sécurité de connexion" loading="lazy">
-</div>

@@ -36,6 +36,14 @@ From **Portal > Collaborators**, open a person's access review. Portal explains
 the active spaces they can access and whether that access comes from ownership,
 a direct grant, project membership, or the Portal Manager role.
 
+The project-members list also shows whether each member's project access is
+direct, group-based, or a combination of both.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-collaborators.light.png" alt="Portal collaborators list showing project roles and direct or group access sources" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-collaborators.dark.png" alt="Portal collaborators list showing project roles and direct or group access sources" loading="lazy">
+</div>
+
 ## External links
 
 When external sharing is enabled, create a new link from the file being shared.
@@ -51,10 +59,3 @@ exist; review and revoke those links explicitly when required.
 - [Files](files/index.md)
 - [Help requests](help-requests.md)
 - [Feature availability](help/feature-availability.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-storage-spaces.light.png" alt="Portal Storage Spaces and collaboration entry points" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-storage-spaces.dark.png" alt="Portal Storage Spaces and collaboration entry points" loading="lazy">
-</div>

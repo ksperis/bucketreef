@@ -57,6 +57,14 @@ approved entry for traceability.
 7. Open request details to read admin messages, execution errors, or the final
    result.
 
+The request history keeps pending and completed requests together, including
+the reason and administrator messages when those details are available.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-help-requests.light.png" alt="Portal Help requests history with pending and approved collaborator and storage-limit requests" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-help-requests.dark.png" alt="Portal Help requests history with pending and approved collaborator and storage-limit requests" loading="lazy">
+</div>
+
 ## Statuses
 
 | Status | Meaning |
@@ -89,12 +97,3 @@ preserves any other project-setting changes made since the request was created.
 - [Workspace: Portal](index.md)
 - [Portal: Collaborators](collaboration.md)
 - [Portal: Storage Health](storage-health.md)
-
-## Visual example
-
-This page reuses the Portal dashboard screenshot because it shows the Help requests entry point and the surrounding Portal context.
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/workspace-portal.light.png" alt="Portal Storage Workspace dashboard with usage, governance activity, shares, help requests, and alerts" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/workspace-portal.dark.png" alt="Portal Storage Workspace dashboard with usage, governance activity, shares, help requests, and alerts" loading="lazy">
-</div>

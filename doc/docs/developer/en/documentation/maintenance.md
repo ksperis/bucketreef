@@ -227,11 +227,19 @@ A guide page that needs a theme-aware screenshot uses the canonical asset path:
 ```
 
 Pages are not required to contain exactly one screenshot. A concise task page
-may need none, while a deliberate gallery may contain several. The checker
-validates every themed block that is actually referenced across all five guide
-trees, verifies matching light/dark basenames, canonical `/assets/...` paths,
-file existence, and 1728x972 dimensions. It also detects unreferenced screenshot
-files.
+may need none, while a deliberate gallery may contain several. Prefer placing a
+visual beside the workflow step it explains instead of collecting screenshots
+under a generic visual-example section. Full-page screenshots use the 1728x972
+reference viewport; focused captures may crop to the relevant panel or dialog.
+The checker validates every themed block that is actually referenced across all
+five guide trees, verifies matching light/dark basenames and dimensions,
+canonical `/assets/...` paths, and file existence. It also detects unreferenced
+screenshot and workflow-video files.
+
+Short WebM workflow captures may be used when motion clarifies a multi-step
+interaction better than several static screenshots. Keep them exceptional,
+muted, and paired with complete written instructions so the animation remains
+illustrative rather than required.
 
 Generate the maintained application screenshots with:
 

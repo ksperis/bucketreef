@@ -28,6 +28,11 @@ object requests when Server Access Logging is enabled.
 7. As a Portal Manager, select **Access logs** to filter S3 requests by date,
    action, space, path, identity, or result, or export the raw provider logs.
 
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-history.light.png" alt="Portal History activity view with governance changes, affected spaces and detail actions" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-history.dark.png" alt="Portal History activity view with governance changes, affected spaces and detail actions" loading="lazy">
+</div>
+
 ## Expected result
 
 You can explain recent Portal governance changes and, when provider logging is
@@ -60,12 +65,3 @@ never appear in Activity.
 - [Portal: Storage Spaces](spaces/index.md)
 - [Portal: Files](files/index.md)
 - [Troubleshooting](help/troubleshooting.md)
-
-## Visual example
-
-This page reuses the Portal dashboard screenshot because it shows the activity card and the surrounding Portal context.
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/workspace-portal.light.png" alt="Portal Storage Workspace dashboard with governance activity, shares, usage, and alerts" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/workspace-portal.dark.png" alt="Portal Storage Workspace dashboard with governance activity, shares, usage, and alerts" loading="lazy">
-</div>

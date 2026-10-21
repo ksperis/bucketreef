@@ -29,6 +29,7 @@ const markdownFiles = (await Promise.all(
 
 const errors = [];
 const referencedScreenshots = new Set();
+const referencedVideos = new Set();
 let themedBlockCount = 0;
 
 const stripFencedCodeBlocks = (content) => content.replace(/^```[\s\S]*?^```$/gm, "");
@@ -63,6 +64,11 @@ const extractReadmeScreenshotReferences = (content) => (
     .map((match) => match[1])
 );
 
+const extractWorkflowVideoReferences = (content) => (
+  [...content.matchAll(/src=["']\/assets\/screenshots\/user\/([^"']+\.webm)["']/g)]
+    .map((match) => match[1])
+);
+
 const pngSize = async (filePath) => {
   const buffer = await fs.readFile(filePath);
   const signature = buffer.subarray(0, 8);
@@ -81,12 +87,21 @@ for (const filePath of markdownFiles) {
   const content = stripFencedCodeBlocks(await fs.readFile(filePath, "utf8"));
   const matches = extractThemedScreenshotReferences(content);
   const legacyMatches = extractLegacyScreenshotReferences(content);
+  const videoMatches = extractWorkflowVideoReferences(content);
 
   if (legacyMatches.length > 0) {
     errors.push(`${pageName}: found legacy screenshot reference(s): ${legacyMatches.join(", ")}`);
   }
 
   themedBlockCount += matches.length;
+  for (const fileName of videoMatches) {
+    referencedVideos.add(fileName);
+    try {
+      await fs.access(path.join(screenshotsDir, fileName));
+    } catch {
+      errors.push(`${pageName}: missing workflow video file ${fileName}`);
+    }
+  }
   for (const [index, reference] of matches.entries()) {
     if (!reference.light || !reference.dark) {
       errors.push(`${pageName}: themed screenshot block ${index + 1} must include both light and dark variants`);
@@ -99,6 +114,7 @@ for (const filePath of markdownFiles) {
       errors.push(`${pageName}: themed screenshot block ${index + 1} must use matching light/dark basenames`);
     }
 
+    const dimensions = [];
     for (const variant of variants) {
       const imageName = variant.fileName;
       referencedScreenshots.add(imageName);
@@ -118,12 +134,25 @@ for (const filePath of markdownFiles) {
 
       try {
         const { width, height } = await pngSize(resolvedPath);
-        if (width !== 1728 || height !== 972) {
-          errors.push(`${pageName}: screenshot ${imageName} has ${width}x${height}, expected 1728x972`);
+        dimensions.push({ imageName, width, height });
+        if (width <= 0 || height <= 0 || width > 1728 || height > 972) {
+          errors.push(
+            `${pageName}: screenshot ${imageName} has invalid bounds ${width}x${height} (maximum 1728x972)`
+          );
         }
       } catch (error) {
         errors.push(`${pageName}: unable to validate ${imageName} (${error instanceof Error ? error.message : String(error)})`);
       }
+    }
+    if (
+      dimensions.length === 2
+      && (dimensions[0].width !== dimensions[1].width || dimensions[0].height !== dimensions[1].height)
+    ) {
+      errors.push(
+        `${pageName}: themed screenshot block ${index + 1} must use matching light/dark dimensions `
+        + `(${dimensions[0].imageName} is ${dimensions[0].width}x${dimensions[0].height}; `
+        + `${dimensions[1].imageName} is ${dimensions[1].width}x${dimensions[1].height})`
+      );
     }
   }
 }
@@ -145,6 +174,13 @@ const unexpectedScreenshots = [...screenshotFiles]
   .sort();
 if (unexpectedScreenshots.length > 0) {
   errors.push(`unexpected screenshot file(s): ${unexpectedScreenshots.join(", ")}`);
+}
+const videoFiles = new Set((await fs.readdir(screenshotsDir)).filter((name) => name.endsWith(".webm")));
+const unexpectedVideos = [...videoFiles]
+  .filter((name) => !referencedVideos.has(name))
+  .sort();
+if (unexpectedVideos.length > 0) {
+  errors.push(`unexpected workflow video file(s): ${unexpectedVideos.join(", ")}`);
 }
 
 if (errors.length > 0) {

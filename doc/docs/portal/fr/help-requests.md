@@ -55,6 +55,14 @@ approuvée afin d'assurer la traçabilité.
 6. Suivez l'état de la demande dans la liste.
 7. Ouvrez ses détails pour lire les messages de l'Admin, les erreurs d'exécution ou le résultat final.
 
+L'historique regroupe les demandes en attente et terminées, avec leur motif et
+les messages de l'Admin lorsque ces informations sont disponibles.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-help-requests.light.png" alt="Historique des demandes Portal avec des demandes de collaborateur et de limite de stockage en attente ou approuvées" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-help-requests.dark.png" alt="Historique des demandes Portal avec des demandes de collaborateur et de limite de stockage en attente ou approuvées" loading="lazy">
+</div>
+
 ## États
 
 | État | Signification |
@@ -90,13 +98,3 @@ depuis la création de la demande.
 - [Guide Portal](index.md)
 - [Collaborateurs](collaboration.md)
 - [État du stockage](storage-health.md)
-
-## Exemple visuel
-
-Cette page réutilise la capture du tableau de bord Portal car elle montre le
-point d'entrée des Demandes dans son contexte.
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/workspace-portal.light.png" alt="Tableau de bord Portal avec utilisation, activité, partages, demandes et alertes" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/workspace-portal.dark.png" alt="Tableau de bord Portal avec utilisation, activité, partages, demandes et alertes" loading="lazy">
-</div>
