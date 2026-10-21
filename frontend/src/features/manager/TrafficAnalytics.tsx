@@ -55,7 +55,7 @@ const REQUEST_COLORS: Record<string, string> = {
 
 const CATEGORY_COLORS = ["#4F46E5", "#14B8A6", "#F97316", "#0EA5E9", "#F59E0B", "#EC4899"];
 type TrafficAnalyticsProps = {
-  accountId?: S3ExecutionContextSelector;
+  contextId?: S3ExecutionContextSelector;
   endpointId?: number | null;
   bucketName?: string;
   scope?: "manager" | "ceph-admin";
@@ -64,7 +64,7 @@ type TrafficAnalyticsProps = {
 };
 
 export default function TrafficAnalytics({
-  accountId,
+  contextId,
   endpointId,
   bucketName,
   scope = "manager",
@@ -99,7 +99,7 @@ export default function TrafficAnalytics({
           }
           data = await fetchCephAdminClusterTraffic(endpointId, window, bucketName);
         } else {
-          data = await fetchManagerTraffic(accountId ?? null, window, bucketName);
+          data = await fetchManagerTraffic(contextId ?? null, window, bucketName);
         }
         if (!cancelled) {
           setTraffic(data);
@@ -119,7 +119,7 @@ export default function TrafficAnalytics({
     return () => {
       cancelled = true;
     };
-  }, [accountId, endpointId, window, bucketName, scope, enabled, text]);
+  }, [contextId, endpointId, window, bucketName, scope, enabled, text]);
 
   const totals = traffic?.totals;
   const hasSeries = (traffic?.series ?? []).length > 0;

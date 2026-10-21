@@ -13,7 +13,7 @@ import { extractApiError } from "../../../utils/apiError";
 import { parentS3Prefix } from "../../../utils/s3Prefix";
 
 type UseBucketObjectsControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -21,7 +21,7 @@ type UseBucketObjectsControllerOptions = {
 };
 
 export function useBucketObjectsController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -41,7 +41,7 @@ export function useBucketObjectsController({
     setPrefixes([]);
     setError(null);
     setLoading(false);
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   const load = useCallback(
     async (prefix: string) => {
@@ -68,7 +68,7 @@ export function useBucketObjectsController({
             prefix,
           );
         } else {
-          data = await listManagerObjects(accountId, bucketName, prefix);
+          data = await listManagerObjects(contextId, bucketName, prefix);
         }
         if (requestId !== requestIdRef.current) return;
         setObjects(
@@ -89,7 +89,7 @@ export function useBucketObjectsController({
         }
       }
     },
-    [accountId, bucketName, cephAdmin, enabled, endpointId],
+    [contextId, bucketName, cephAdmin, enabled, endpointId],
   );
 
   const refresh = useCallback(

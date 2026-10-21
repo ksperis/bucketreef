@@ -201,7 +201,7 @@ function bucketArnSuggestion(name: string): SettingsAutocompleteSuggestion {
 }
 
 export function BucketFeatureSuggestionsProvider({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -209,7 +209,7 @@ export function BucketFeatureSuggestionsProvider({
   topicsEnabled,
   children,
 }: {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -234,7 +234,7 @@ export function BucketFeatureSuggestionsProvider({
     topicsRef.current = null;
     setObservedStorageClasses([]);
     setObservedSuffixes([]);
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   const observeObjects = useCallback((listing: ObjectListingShape) => {
     const storageClasses = listing.objects
@@ -266,7 +266,7 @@ export function BucketFeatureSuggestionsProvider({
         try {
           const data = cephAdmin
             ? await listCephAdminBucketObjects(endpointId as number, bucketName, prefix)
-            : await listManagerObjects(accountId, bucketName, prefix);
+            : await listManagerObjects(contextId, bucketName, prefix);
           if (generationRef.current !== generation) return { objects: [], prefixes: [] };
           const listing: ObjectListingShape = {
             objects: data.objects.map((object) => ({
@@ -285,7 +285,7 @@ export function BucketFeatureSuggestionsProvider({
       objectCacheRef.current.set(prefix, request);
       return request;
     },
-    [accountId, bucketName, cephAdmin, enabled, endpointId, observeObjects],
+    [contextId, bucketName, cephAdmin, enabled, endpointId, observeObjects],
   );
 
   const loadPrefixSuggestions = useCallback(
@@ -340,7 +340,7 @@ export function BucketFeatureSuggestionsProvider({
       }
 
       if (!managerBucketsRef.current) {
-        managerBucketsRef.current = listBuckets(accountId, { with_stats: false })
+        managerBucketsRef.current = listBuckets(contextId, { with_stats: false })
           .then((data) =>
             generationRef.current === generation ? data.map((bucket) => bucket.name) : [],
           )
@@ -351,7 +351,7 @@ export function BucketFeatureSuggestionsProvider({
       }
       return managerBucketsRef.current;
     },
-    [accountId, cephAdmin, enabled, endpointId],
+    [contextId, cephAdmin, enabled, endpointId],
   );
 
   const loadBucketSuggestions = useCallback(
@@ -372,7 +372,7 @@ export function BucketFeatureSuggestionsProvider({
       if (!enabled || cephAdmin || !topicsEnabled) return [];
       const generation = generationRef.current;
       if (!topicsRef.current) {
-        topicsRef.current = listTopics(accountId)
+        topicsRef.current = listTopics(contextId)
           .then((topics) =>
             generationRef.current === generation
               ? topics.map((topic) => ({
@@ -390,7 +390,7 @@ export function BucketFeatureSuggestionsProvider({
       }
       return topicsRef.current;
     },
-    [accountId, cephAdmin, enabled, topicsEnabled],
+    [contextId, cephAdmin, enabled, topicsEnabled],
   );
 
   const policyResourceSuggestions = useMemo<SettingsAutocompleteSuggestion[]>(() => {

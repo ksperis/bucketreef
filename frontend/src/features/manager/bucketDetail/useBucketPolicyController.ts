@@ -35,7 +35,7 @@ import {
 } from "./policyEditorModel";
 
 type UseBucketPolicyControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -68,7 +68,7 @@ function nextStatementSid(policy: PolicyDocumentRecord): string {
 }
 
 export function useBucketPolicyController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -106,7 +106,7 @@ export function useBucketPolicyController({
         ? endpointId
           ? await getCephAdminBucketPolicy(endpointId, bucketName)
           : { policy: null }
-        : await getBucketPolicy(accountId, bucketName);
+        : await getBucketPolicy(contextId, bucketName);
       applyBaseline(data.policy);
     } catch (loadFailure) {
       applyBaseline({});
@@ -114,7 +114,7 @@ export function useBucketPolicyController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: PolicyDocumentRecord,
@@ -252,7 +252,7 @@ export function useBucketPolicyController({
         if (!endpointId) return null;
         await deleteCephAdminBucketPolicy(endpointId, bucketName);
       } else {
-        await deleteBucketPolicy(accountId, bucketName);
+        await deleteBucketPolicy(contextId, bucketName);
       }
       return {};
     }
@@ -260,9 +260,9 @@ export function useBucketPolicyController({
       ? endpointId
         ? await putCephAdminBucketPolicy(endpointId, bucketName, nextPolicy)
         : { policy: nextPolicy }
-      : await putBucketPolicy(accountId, bucketName, nextPolicy);
+      : await putBucketPolicy(contextId, bucketName, nextPolicy);
     return normalizePolicy(saved.policy ?? nextPolicy);
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   const removeStatementDirect = useCallback(async (index: number) => {
     if (saving) return;
@@ -343,7 +343,7 @@ export function useBucketPolicyController({
         if (!endpointId) return;
         await deleteCephAdminBucketPolicy(endpointId, bucketName);
       } else {
-        await deleteBucketPolicy(accountId, bucketName);
+        await deleteBucketPolicy(contextId, bucketName);
       }
       applyBaseline({});
       setStatus("Bucket policy deleted");
@@ -352,7 +352,7 @@ export function useBucketPolicyController({
     } finally {
       setDeleting(false);
     }
-  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
   const statements = useMemo(() => policyStatements(policy), [policy]);
   const baselineSignature = stableBucketJsonSignature(policy);

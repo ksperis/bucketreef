@@ -32,7 +32,7 @@ function renderAccessLogging(
 ) {
   return renderHook(() =>
     useBucketAccessLoggingController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -54,7 +54,7 @@ describe("useBucketAccessLoggingController", () => {
       target_prefix: "archive/",
     });
     apiMocks.putBucketLogging.mockImplementation(
-      async (_accountId: string, _bucketName: string, payload: unknown) => payload,
+      async (_contextId: string, _bucketName: string, payload: unknown) => payload,
     );
     const { result } = renderAccessLogging();
 

@@ -34,7 +34,7 @@ function renderNotifications(
 ) {
   return renderHook(() =>
     useBucketNotificationsController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -181,7 +181,7 @@ describe("useBucketNotificationsController", () => {
     };
     apiMocks.getBucketNotifications.mockResolvedValue({ configuration: initial });
     apiMocks.putBucketNotifications.mockImplementation(
-      (_accountId, _bucketName, configuration) => Promise.resolve({ configuration }),
+      (_contextId, _bucketName, configuration) => Promise.resolve({ configuration }),
     );
     const { result } = renderNotifications();
 
@@ -253,7 +253,7 @@ describe("useBucketNotificationsController", () => {
     apiMocks.getBucketNotifications.mockResolvedValue({ configuration: initial });
     apiMocks.putBucketNotifications
       .mockRejectedValueOnce(new Error("temporary failure"))
-      .mockImplementationOnce((_accountId, _bucketName, configuration) =>
+      .mockImplementationOnce((_contextId, _bucketName, configuration) =>
         Promise.resolve({ configuration }),
       );
     const { result } = renderNotifications();

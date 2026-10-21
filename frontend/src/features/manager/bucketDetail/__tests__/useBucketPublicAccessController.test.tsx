@@ -28,7 +28,7 @@ function renderPublicAccess(
 ) {
   return renderHook(() =>
     useBucketPublicAccessController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,

@@ -113,7 +113,7 @@ export default function StorageOpsBucketDetailPage() {
         <BucketDetailPage
           mode="manager"
           bucketNameOverride={bucketName}
-          accountIdOverride={contextId}
+          contextIdOverride={contextId}
           hideQuotaTab
           embedded
           hideObjectsTab

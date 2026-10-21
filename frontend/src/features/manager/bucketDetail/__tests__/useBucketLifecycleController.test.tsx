@@ -31,7 +31,7 @@ function renderLifecycle(
 ) {
   return renderHook(() =>
     useBucketLifecycleController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -56,7 +56,7 @@ describe("useBucketLifecycleController", () => {
   it("keeps Manager visual edits local until Save and then persists the complete configuration", async () => {
     apiMocks.getBucketLifecycle.mockResolvedValue({ rules: [existingRule] });
     apiMocks.putBucketLifecycle.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
+      (_contextId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
     );
     const { result } = renderLifecycle();
 
@@ -86,7 +86,7 @@ describe("useBucketLifecycleController", () => {
 
   it("persists an explicit empty prefix when a visual rule applies to the whole bucket", async () => {
     apiMocks.putBucketLifecycle.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
+      (_contextId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
     );
     const { result } = renderLifecycle();
 
@@ -140,7 +140,7 @@ describe("useBucketLifecycleController", () => {
     const simpleRule = { ...existingRule, ID: "simple" };
     apiMocks.getBucketLifecycle.mockResolvedValue({ rules: [advancedRule] });
     apiMocks.putBucketLifecycle.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
+      (_contextId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
     );
     const { result } = renderLifecycle();
 
@@ -175,7 +175,7 @@ describe("useBucketLifecycleController", () => {
     const secondRule = { ...existingRule, ID: "second" };
     apiMocks.getBucketLifecycle.mockResolvedValue({ rules: [advancedRule, secondRule] });
     apiMocks.putBucketLifecycle.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
+      (_contextId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
     );
     const { result } = renderLifecycle();
 
@@ -251,7 +251,7 @@ describe("useBucketLifecycleController", () => {
 
   it("blocks an incomplete transition and preserves a storage class entered before Days", async () => {
     apiMocks.putBucketLifecycle.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
+      (_contextId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
     );
     const { result } = renderLifecycle();
 
@@ -317,7 +317,7 @@ describe("useBucketLifecycleController", () => {
     expect(result.current.editorError).toContain("save failed");
 
     apiMocks.putBucketLifecycle.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
+      (_contextId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
     );
     await act(async () => result.current.saveDraft());
     expect(apiMocks.putBucketLifecycle).toHaveBeenCalledTimes(2);

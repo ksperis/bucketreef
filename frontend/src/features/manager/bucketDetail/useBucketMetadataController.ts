@@ -10,7 +10,7 @@ import { listCephAdminBuckets } from "../../../api/cephAdminBuckets";
 import { extractApiError } from "../../../utils/apiError";
 
 type UseBucketMetadataControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -19,7 +19,7 @@ type UseBucketMetadataControllerOptions = {
 };
 
 export function useBucketMetadataController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -36,7 +36,7 @@ export function useBucketMetadataController({
     setBucket(null);
     setError(null);
     setLoading(false);
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId, withStats]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId, withStats]);
 
   const refresh = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -70,7 +70,7 @@ export function useBucketMetadataController({
             }
           : null;
       } else {
-        nextBucket = await getBucketStats(accountId, bucketName, {
+        nextBucket = await getBucketStats(contextId, bucketName, {
           with_stats: withStats,
         });
       }
@@ -86,7 +86,7 @@ export function useBucketMetadataController({
         setLoading(false);
       }
     }
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId, withStats]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId, withStats]);
 
   return {
     bucket,

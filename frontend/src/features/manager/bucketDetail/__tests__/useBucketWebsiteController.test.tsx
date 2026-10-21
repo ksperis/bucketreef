@@ -32,7 +32,7 @@ function renderWebsite(
 ) {
   return renderHook(() =>
     useBucketWebsiteController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "site-assets",
       cephAdmin: false,
       enabled: true,

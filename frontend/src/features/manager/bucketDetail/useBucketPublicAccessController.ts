@@ -20,7 +20,7 @@ import {
 } from "./bucketFeatureState";
 
 type UseBucketPublicAccessControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -52,7 +52,7 @@ function normalize(config?: BucketPublicAccessBlock | null) {
 }
 
 export function useBucketPublicAccessController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -86,7 +86,7 @@ export function useBucketPublicAccessController({
         ? endpointId
           ? await getCephAdminBucketPublicAccessBlock(endpointId, bucketName)
           : defaultPublicAccessBlock
-        : await getBucketPublicAccessBlock(accountId, bucketName);
+        : await getBucketPublicAccessBlock(contextId, bucketName);
       apply(data);
     } catch (loadError) {
       apply();
@@ -99,7 +99,7 @@ export function useBucketPublicAccessController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
 
   const save = async () => {
     if (!bucketName || !enabled) return;
@@ -116,7 +116,7 @@ export function useBucketPublicAccessController({
               payload,
             )
           : payload
-        : await updateBucketPublicAccessBlock(accountId, bucketName, payload);
+        : await updateBucketPublicAccessBlock(contextId, bucketName, payload);
       apply(saved);
       setStatus("Public access block updated.");
     } catch (saveError) {

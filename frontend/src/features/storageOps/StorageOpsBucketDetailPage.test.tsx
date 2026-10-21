@@ -108,7 +108,7 @@ describe("StorageOpsBucketDetailPage", () => {
     expect(props).toMatchObject({
       mode: "manager",
       bucketNameOverride: "bucket-a",
-      accountIdOverride: "account-1",
+      contextIdOverride: "account-1",
       hideQuotaTab: true,
       embedded: true,
       hideObjectsTab: true,

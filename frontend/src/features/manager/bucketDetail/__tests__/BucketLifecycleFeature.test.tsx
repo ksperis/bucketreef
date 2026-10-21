@@ -26,7 +26,7 @@ vi.mock("../../../../api/cephAdminBucketDetails", () => ({
 
 function LifecycleHarness() {
   const controller = useBucketLifecycleController({
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "reports",
     cephAdmin: false,
     enabled: true,

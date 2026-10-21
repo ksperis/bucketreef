@@ -19,7 +19,7 @@ import {
 } from "../../shared/bucketUsageStatsMessage";
 
 type UseBucketUsageStatsControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -27,7 +27,7 @@ type UseBucketUsageStatsControllerOptions = {
 };
 
 export function useBucketUsageStatsController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -59,7 +59,7 @@ export function useBucketUsageStatsController({
         }
         data = await getCephAdminBucketUsageStats(endpointId, bucketName);
       } else {
-        data = await getManagerBucketUsageStats(accountId, bucketName);
+        data = await getManagerBucketUsageStats(contextId, bucketName);
       }
       setSnapshot(data.snapshot ?? null);
     } catch (loadFailure) {
@@ -68,7 +68,7 @@ export function useBucketUsageStatsController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   const recalculate = useCallback(async () => {
     if (!bucketName || !enabled || recalculating || (cephAdmin && !endpointId)) return;
@@ -85,7 +85,7 @@ export function useBucketUsageStatsController({
         );
       } else {
         await streamManagerBucketUsageStatsForBucket(
-          accountId,
+          contextId,
           bucketName,
           { signal: controller.signal },
         );
@@ -106,7 +106,7 @@ export function useBucketUsageStatsController({
         setRecalculating(false);
       }
     }
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId, load, recalculating]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId, load, recalculating]);
 
   const cancelRecalculation = useCallback(() => {
     recalculationAbortRef.current?.abort();
@@ -116,7 +116,7 @@ export function useBucketUsageStatsController({
     return () => {
       recalculationAbortRef.current?.abort();
     };
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   return {
     cancelRecalculation,

@@ -42,7 +42,7 @@ import {
 } from "./replicationEditorModel";
 
 type UseBucketReplicationControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -82,7 +82,7 @@ function validateEditableRules(
 }
 
 export function useBucketReplicationController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -120,7 +120,7 @@ export function useBucketReplicationController({
         ? endpointId
           ? await getCephAdminBucketReplication(endpointId, bucketName)
           : { configuration: {} }
-        : await getBucketReplication(accountId, bucketName);
+        : await getBucketReplication(contextId, bucketName);
       applyBaseline(data.configuration);
     } catch (loadFailure) {
       applyBaseline({});
@@ -133,7 +133,7 @@ export function useBucketReplicationController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: Record<string, unknown>,
@@ -272,15 +272,15 @@ export function useBucketReplicationController({
       if (cephAdmin) {
         await deleteCephAdminBucketReplication(endpointId as number, bucketName);
       } else {
-        await deleteBucketReplication(accountId, bucketName);
+        await deleteBucketReplication(contextId, bucketName);
       }
       return {};
     }
     const saved = cephAdmin
       ? await putCephAdminBucketReplication(endpointId as number, bucketName, nextConfiguration)
-      : await putBucketReplication(accountId, bucketName, nextConfiguration);
+      : await putBucketReplication(contextId, bucketName, nextConfiguration);
     return normalizeReplicationEditorConfiguration(saved.configuration ?? nextConfiguration);
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   const persistDirectConfiguration = useCallback(async (
     nextConfiguration: Record<string, unknown>,

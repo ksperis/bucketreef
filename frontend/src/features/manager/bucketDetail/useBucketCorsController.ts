@@ -27,7 +27,7 @@ import {
 } from "./corsEditorModel";
 
 type UseBucketCorsControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -51,7 +51,7 @@ function rulesText(rules: CorsRuleRecord[]): string {
 }
 
 export function useBucketCorsController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -92,7 +92,7 @@ export function useBucketCorsController({
         }
         data = await getCephAdminBucketCors(endpointId, bucketName);
       } else {
-        data = await getBucketCors(accountId, bucketName);
+        data = await getBucketCors(contextId, bucketName);
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
@@ -103,7 +103,7 @@ export function useBucketCorsController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: CorsRuleRecord[],
@@ -194,15 +194,15 @@ export function useBucketCorsController({
       if (cephAdmin) {
         await deleteCephAdminBucketCors(endpointId as number, bucketName);
       } else {
-        await deleteBucketCors(accountId, bucketName);
+        await deleteBucketCors(contextId, bucketName);
       }
       return [];
     }
     const saved = cephAdmin
       ? await putCephAdminBucketCors(endpointId as number, bucketName, nextRules)
-      : await putBucketCors(accountId, bucketName, nextRules);
+      : await putBucketCors(contextId, bucketName, nextRules);
     return normalizeRules(saved.rules ?? nextRules);
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   const removeRuleDirect = useCallback(async (index: number) => {
     if (saving) return;

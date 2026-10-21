@@ -38,7 +38,7 @@ vi.mock("../BucketFeatureSuggestions", () => ({
 
 function CorsHarness() {
   const controller = useBucketCorsController({
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "source-bucket",
     cephAdmin: false,
     enabled: true,
@@ -49,7 +49,7 @@ function CorsHarness() {
 
 function NotificationsHarness() {
   const controller = useBucketNotificationsController({
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "source-bucket",
     cephAdmin: false,
     enabled: true,
@@ -60,7 +60,7 @@ function NotificationsHarness() {
 
 function WebsiteHarness() {
   const controller = useBucketWebsiteController({
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "source-bucket",
     cephAdmin: false,
     enabled: true,
@@ -78,7 +78,7 @@ function WebsiteHarness() {
 
 function AccessLoggingHarness() {
   const controller = useBucketAccessLoggingController({
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "source-bucket",
     cephAdmin: false,
     enabled: true,
@@ -94,7 +94,7 @@ function AccessLoggingHarness() {
 
 function ReplicationHarness() {
   const controller = useBucketReplicationController({
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "source-bucket",
     cephAdmin: false,
     enabled: true,

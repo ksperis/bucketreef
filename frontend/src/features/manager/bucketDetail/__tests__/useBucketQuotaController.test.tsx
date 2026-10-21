@@ -23,7 +23,7 @@ function renderQuota(
   const onSaved = vi.fn().mockResolvedValue(undefined);
   const rendered = renderHook(() =>
     useBucketQuotaController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       editable: true,
@@ -45,7 +45,7 @@ describe("useBucketQuotaController", () => {
 
   it("synchronizes and saves a Manager quota without requiring an account selector", async () => {
     apiMocks.updateBucketQuota.mockResolvedValue(undefined);
-    const { onSaved, result } = renderQuota({ accountId: null });
+    const { onSaved, result } = renderQuota({ contextId: null });
 
     expect(result.current.maxSize).toBe("2");
     expect(result.current.unit).toBe("GiB");
@@ -113,7 +113,7 @@ describe("useBucketQuotaController", () => {
 
   it("resynchronizes the draft when the bucket context changes", () => {
     const initial = {
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       maxObjects: 1_000,
       maxSizeBytes: 2 * 1024 ** 3,
@@ -133,7 +133,7 @@ describe("useBucketQuotaController", () => {
     act(() => result.current.updateMaxSize("99"));
 
     rerender({
-      accountId: "acc-2",
+      contextId: "acc-2",
       bucketName: "reports",
       maxObjects: 24,
       maxSizeBytes: 512 * 1024 ** 2,

@@ -951,7 +951,7 @@ describe("BucketDetailPage replication state", () => {
       <MemoryRouter>
         <BucketDetailPage
           bucketNameOverride="demo-bucket"
-          accountIdOverride="conn-aws"
+          contextIdOverride="conn-aws"
           hideQuotaTab
           embedded
           hideObjectsTab

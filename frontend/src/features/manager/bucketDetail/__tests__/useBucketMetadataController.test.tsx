@@ -21,7 +21,7 @@ function renderMetadata(
 ) {
   return renderHook(() =>
     useBucketMetadataController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -111,7 +111,7 @@ describe("useBucketMetadataController", () => {
     apiMocks.getBucketStats
       .mockReturnValueOnce(oldBucket)
       .mockResolvedValueOnce({ name: "new-bucket" });
-    const initial = { accountId: "acc-1", bucketName: "old-bucket" };
+    const initial = { contextId: "acc-1", bucketName: "old-bucket" };
     const { result, rerender } = renderHook(
       (props: typeof initial) =>
         useBucketMetadataController({
@@ -128,7 +128,7 @@ describe("useBucketMetadataController", () => {
     act(() => {
       pendingOldLoad = result.current.refresh();
     });
-    rerender({ accountId: "acc-2", bucketName: "new-bucket" });
+    rerender({ contextId: "acc-2", bucketName: "new-bucket" });
     await act(async () => result.current.refresh());
 
     await act(async () => {

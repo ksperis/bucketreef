@@ -27,7 +27,7 @@ import {
 } from "./lifecycleEditorModel";
 
 type UseBucketLifecycleControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -62,7 +62,7 @@ function rulesText(rules: LifecycleRuleRecord[]): string {
 }
 
 export function useBucketLifecycleController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -107,7 +107,7 @@ export function useBucketLifecycleController({
         }
         data = await getCephAdminBucketLifecycle(endpointId, bucketName);
       } else {
-        data = await getBucketLifecycle(accountId, bucketName);
+        data = await getBucketLifecycle(contextId, bucketName);
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
@@ -116,7 +116,7 @@ export function useBucketLifecycleController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: LifecycleRuleRecord[],
@@ -228,15 +228,15 @@ export function useBucketLifecycleController({
       if (cephAdmin) {
         await deleteCephAdminBucketLifecycle(endpointId as number, bucketName);
       } else {
-        await deleteBucketLifecycle(accountId, bucketName);
+        await deleteBucketLifecycle(contextId, bucketName);
       }
       return [];
     }
     const saved = cephAdmin
       ? await putCephAdminBucketLifecycle(endpointId as number, bucketName, nextRules)
-      : await putBucketLifecycle(accountId, bucketName, nextRules);
+      : await putBucketLifecycle(contextId, bucketName, nextRules);
     return normalizeRules(saved.rules ?? nextRules);
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   const persistDirectRules = useCallback(async (
     nextRules: LifecycleRuleRecord[],

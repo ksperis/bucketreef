@@ -39,7 +39,7 @@ const simplePolicy = {
 
 function PolicyHarness() {
   const controller = useBucketPolicyController({
-    accountId: "acc-1",
+    contextId: "acc-1",
     bucketName: "reports",
     cephAdmin: false,
     enabled: true,
@@ -160,7 +160,7 @@ describe("BucketPolicyFeature", () => {
   it("adds a suggested S3 action and persists the same native policy shape", async () => {
     apiMocks.getBucketPolicy.mockResolvedValue({ policy: simplePolicy });
     apiMocks.putBucketPolicy.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+      (_contextId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
     );
     const user = userEvent.setup();
     renderPolicyFeature();
@@ -229,7 +229,7 @@ describe("BucketPolicyFeature", () => {
       },
     });
     apiMocks.putBucketPolicy.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+      (_contextId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
     );
     const user = userEvent.setup();
     renderPolicyFeature();

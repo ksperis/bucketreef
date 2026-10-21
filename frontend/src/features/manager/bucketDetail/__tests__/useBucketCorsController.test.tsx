@@ -31,7 +31,7 @@ function renderCors(
 ) {
   return renderHook(() =>
     useBucketCorsController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -50,7 +50,7 @@ describe("useBucketCorsController", () => {
     apiMocks.getBucketCors.mockResolvedValue({
       rules: [{ AllowedMethods: ["GET"], AllowedOrigins: ["https://old.example"] }],
     });
-    apiMocks.putBucketCors.mockImplementation(async (_accountId, _bucketName, rules) => ({ rules }));
+    apiMocks.putBucketCors.mockImplementation(async (_contextId, _bucketName, rules) => ({ rules }));
     const { result } = renderCors();
 
     await act(async () => result.current.load());
@@ -137,7 +137,7 @@ describe("useBucketCorsController", () => {
       CustomExtension: { preserve: [1, 2, 3] },
     };
     apiMocks.getBucketCors.mockResolvedValue({ rules: [advancedRule] });
-    apiMocks.putBucketCors.mockImplementation(async (_accountId, _bucketName, rules) => ({ rules }));
+    apiMocks.putBucketCors.mockImplementation(async (_contextId, _bucketName, rules) => ({ rules }));
     const { result } = renderCors();
 
     await act(async () => result.current.load());
@@ -173,7 +173,7 @@ describe("useBucketCorsController", () => {
         advancedRule,
       ],
     });
-    apiMocks.putBucketCors.mockImplementation(async (_accountId, _bucketName, rules) => ({ rules }));
+    apiMocks.putBucketCors.mockImplementation(async (_contextId, _bucketName, rules) => ({ rules }));
     const { result } = renderCors();
 
     await act(async () => result.current.load());
@@ -221,7 +221,7 @@ describe("useBucketCorsController", () => {
     });
     apiMocks.putBucketCors
       .mockRejectedValueOnce(new Error("Temporary failure"))
-      .mockImplementationOnce(async (_accountId, _bucketName, rules) => ({ rules }));
+      .mockImplementationOnce(async (_contextId, _bucketName, rules) => ({ rules }));
     const { result } = renderCors();
 
     await act(async () => result.current.load());

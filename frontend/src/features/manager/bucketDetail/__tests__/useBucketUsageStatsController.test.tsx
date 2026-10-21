@@ -25,7 +25,7 @@ function renderUsageStats(
 ) {
   return renderHook(() =>
     useBucketUsageStatsController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -98,7 +98,7 @@ describe("useBucketUsageStatsController", () => {
 
   it("cancels an in-flight bucket usage stats recalculation", async () => {
     apiMocks.streamManagerBucketUsageStatsForBucket.mockImplementationOnce(
-      (_accountId: string, _bucketName: string, options: { signal: AbortSignal }) =>
+      (_contextId: string, _bucketName: string, options: { signal: AbortSignal }) =>
         new Promise((_resolve, reject) => {
           options.signal.addEventListener(
             "abort",
