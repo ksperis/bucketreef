@@ -17,6 +17,7 @@ from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.sensitive_data import sanitize_error_detail
 from app.utils.http_errors import (
     http_exception_from_exception,
+    is_upstream_timeout,
     raise_bad_gateway_from_runtime,
     raise_http_error_from_value_error,
     raise_bad_request_from_value_error,
@@ -77,6 +78,19 @@ def test_raise_bad_gateway_from_runtime_uses_structured_causes(cause, expected_s
 
     assert raised.value.status_code == expected_status
     assert raised.value.detail == "upstream request failed"
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (RequestsTimeout("request timed out"), True),
+        (RequestsConnectionError("socket unavailable"), False),
+        (RequestsConnectionError("connection timeout"), True),
+        (RuntimeError("read timeout"), True),
+    ],
+)
+def test_is_upstream_timeout_uses_timeout_text_without_changing_connection_semantics(error, expected):
+    assert is_upstream_timeout(error) is expected
 
 
 def test_raise_bad_request_from_value_error_redacts_sensitive_user_input():
