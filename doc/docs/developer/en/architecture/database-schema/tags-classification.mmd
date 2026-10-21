@@ -1,0 +1,83 @@
+erDiagram
+    %% Generated from backend/app/db SQLAlchemy models via app.db.Base.metadata.
+    %% Domain: Tags and classification.
+    %% PK=primary key, FK=foreign key, UK=single-column unique, NN=not nullable.
+    tag_definitions {
+        integer id PK "NN"
+        varchar domain_kind "NN"
+        integer owner_user_id FK
+        varchar label "NN"
+        varchar label_key "NN"
+        varchar color_key "NN"
+        varchar scope "NN; default=standard"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    bucket_ui_tag_assignments {
+        integer id PK "NN"
+        integer storage_endpoint_id FK "NN"
+        varchar tenant_key "NN; default="
+        varchar bucket_name "NN"
+        integer tag_definition_id FK "NN"
+        integer position "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    storage_endpoint_tags {
+        integer id PK "NN"
+        integer storage_endpoint_id FK "NN"
+        integer tag_definition_id FK "NN"
+        integer position "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    s3_account_tags {
+        integer id PK "NN"
+        integer account_id FK "NN"
+        integer tag_definition_id FK "NN"
+        integer position "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    s3_user_tags {
+        integer id PK "NN"
+        integer s3_user_id FK "NN"
+        integer tag_definition_id FK "NN"
+        integer position "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    s3_connection_tags {
+        integer id PK "NN"
+        integer s3_connection_id FK "NN"
+        integer tag_definition_id FK "NN"
+        integer position "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    s3_accounts {
+        integer id PK "external reference"
+    }
+    s3_connections {
+        integer id PK "external reference"
+    }
+    s3_users {
+        integer id PK "external reference"
+    }
+    storage_endpoints {
+        integer id PK "external reference"
+    }
+    users {
+        integer id PK "external reference"
+    }
+    tag_definitions }o--o| users : "owner_user_id to id"
+    bucket_ui_tag_assignments }o--|| storage_endpoints : "storage_endpoint_id to id; ON DELETE CASCADE"
+    bucket_ui_tag_assignments }o--|| tag_definitions : "tag_definition_id to id; ON DELETE CASCADE"
+    storage_endpoint_tags }o--|| storage_endpoints : "storage_endpoint_id to id; ON DELETE CASCADE"
+    storage_endpoint_tags }o--|| tag_definitions : "tag_definition_id to id; ON DELETE CASCADE"
+    s3_account_tags }o--|| s3_accounts : "account_id to id; ON DELETE CASCADE"
+    s3_account_tags }o--|| tag_definitions : "tag_definition_id to id; ON DELETE CASCADE"
+    s3_user_tags }o--|| s3_users : "s3_user_id to id; ON DELETE CASCADE"
+    s3_user_tags }o--|| tag_definitions : "tag_definition_id to id; ON DELETE CASCADE"
+    s3_connection_tags }o--|| s3_connections : "s3_connection_id to id; ON DELETE CASCADE"
+    s3_connection_tags }o--|| tag_definitions : "tag_definition_id to id; ON DELETE CASCADE"

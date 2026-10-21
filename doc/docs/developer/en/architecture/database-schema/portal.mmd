@@ -1,0 +1,111 @@
+erDiagram
+    %% Generated from backend/app/db SQLAlchemy models via app.db.Base.metadata.
+    %% Domain: Portal.
+    %% PK=primary key, FK=foreign key, UK=single-column unique, NN=not nullable.
+    portal_storage_space_metadata {
+        integer id PK "NN"
+        integer account_id FK "NN"
+        varchar bucket_name "NN"
+        varchar display_name
+        text description
+        integer owner_user_id FK
+        varchar visibility "NN"
+        varchar share_scope "NN"
+        varchar account_member_role
+        varchar project_key
+        varchar dataset_label
+        varchar icon_source "NN; default=preset"
+        varchar icon_preset "NN; default=bucket"
+        blob icon_image
+        varchar icon_content_type
+        datetime icon_updated_at
+        varchar origin "NN"
+        boolean name_editable "NN"
+        datetime archived_at
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    portal_storage_space_grants {
+        integer id PK "NN"
+        integer storage_space_metadata_id FK "NN"
+        integer user_id FK "NN"
+        varchar role "NN"
+        integer created_by_user_id FK
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    portal_public_links {
+        integer id PK "NN"
+        varchar token UK "NN"
+        integer account_id FK "NN"
+        varchar bucket_name "NN"
+        text object_key "NN"
+        varchar label
+        integer created_by_user_id FK
+        varchar created_by_email
+        datetime expires_at
+        datetime revoked_at
+        datetime created_at "NN"
+    }
+    portal_external_access_credentials {
+        integer id PK "NN"
+        integer account_id FK "NN"
+        integer storage_space_metadata_id FK "NN"
+        varchar bucket_name "NN"
+        integer created_by_user_id FK
+        varchar external_email "NN"
+        varchar permission "NN"
+        varchar iam_user_id
+        varchar iam_username UK "NN"
+        varchar access_key_id UK "NN"
+        varchar status "NN; default=Active"
+        datetime revoked_at
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    portal_admin_requests {
+        integer id PK "NN"
+        integer account_id FK "NN"
+        integer requester_user_id FK
+        varchar requester_email "NN"
+        varchar request_type "NN"
+        varchar status "NN; default=pending"
+        text payload_json "NN"
+        text result_json
+        text error_message
+        integer decided_by_user_id FK
+        varchar decided_by_email
+        datetime decided_at
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    portal_admin_request_messages {
+        integer id PK "NN"
+        integer request_id FK "NN"
+        integer author_user_id FK
+        varchar author_email "NN"
+        varchar author_role
+        text message "NN"
+        datetime created_at "NN"
+    }
+    s3_accounts {
+        integer id PK "external reference"
+    }
+    users {
+        integer id PK "external reference"
+    }
+    portal_storage_space_metadata }o--|| s3_accounts : "account_id to id; ON DELETE CASCADE"
+    portal_storage_space_metadata }o--o| users : "owner_user_id to id"
+    portal_storage_space_grants }o--|| portal_storage_space_metadata : "storage_space_metadata_id to id; ON DELETE CASCADE"
+    portal_storage_space_grants }o--|| users : "user_id to id; ON DELETE CASCADE"
+    portal_storage_space_grants }o--o| users : "created_by_user_id to id"
+    portal_public_links }o--|| s3_accounts : "account_id to id; ON DELETE CASCADE"
+    portal_public_links }o--o| users : "created_by_user_id to id"
+    portal_external_access_credentials }o--|| s3_accounts : "account_id to id; ON DELETE CASCADE"
+    portal_external_access_credentials }o--|| portal_storage_space_metadata : "storage_space_metadata_id to id; ON DELETE CASCADE"
+    portal_external_access_credentials }o--o| users : "created_by_user_id to id; ON DELETE SET NULL"
+    portal_admin_requests }o--|| s3_accounts : "account_id to id; ON DELETE CASCADE"
+    portal_admin_requests }o--o| users : "requester_user_id to id; ON DELETE SET NULL"
+    portal_admin_requests }o--o| users : "decided_by_user_id to id; ON DELETE SET NULL"
+    portal_admin_request_messages }o--|| portal_admin_requests : "request_id to id; ON DELETE CASCADE"
+    portal_admin_request_messages }o--o| users : "author_user_id to id; ON DELETE SET NULL"

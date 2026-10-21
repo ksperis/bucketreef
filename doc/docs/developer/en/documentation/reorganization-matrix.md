@@ -197,9 +197,10 @@ pages use their canonical destinations, while `Rewrite` and `Split` pages have
 been refocused for their audience so Portal, Manager, Browser, and
 Administration searches no longer depend on a mixed User Guide.
 
-Auxiliary editable D2 sources were migrated with their owning guide: database
-schema sources are under `developer/en/architecture/` and deployment-diagram
-sources are under `admin/en/install/diagrams/`.
+Database-schema documentation now generates Mermaid sources under
+`developer/en/architecture/database-schema/` plus a complete ChartDB JSON from
+SQLAlchemy metadata. Deployment diagrams keep their editable D2 sources under
+`admin/en/install/diagrams/`.
 
 Shared documentation assets remain under `doc/docs/assets/` and guide pages use
 canonical `/assets/...` references. Screenshot validation scans every published

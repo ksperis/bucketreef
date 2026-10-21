@@ -15,73 +15,103 @@
 
 ## Schema diagrams
 
-The database schema diagrams are generated from the SQLAlchemy metadata in
-`backend/app/db`. The overview keeps all tables and foreign-key topology in a
-single readable image; detailed slices show full column lists.
+The database diagrams are generated from `app.db.Base.metadata`. The Mermaid
+views are rendered directly by the Developer Guide, while the complete ChartDB
+diagram contains every table, column, constraint, index and foreign-key
+relationship in one interactive model.
 
-Regenerate both the D2 sources and published SVGs after a model change:
+Regenerate the Mermaid and ChartDB sources after a model change:
 
 ```bash
-backend/.venv/bin/python backend/scripts/generate_database_schema_docs.py --render
+backend/.venv/bin/python backend/scripts/generate_database_schema_docs.py
 ```
 
-Use `--check` to verify that the committed D2 sources still match the current
-SQLAlchemy metadata without modifying files. The generator requires every
-metadata table to belong to exactly one documented domain, so newly added tables
-cannot silently disappear from these diagrams.
+Use `--check` to verify that committed generated files still match the current
+SQLAlchemy metadata without modifying files. Every metadata table must belong to
+exactly one documented domain, so a new table cannot silently disappear from
+the diagrams.
 
-[![Database schema overview](/assets/diagrams/database-schema/overview.svg)](/assets/diagrams/database-schema/overview.svg)
+### Overview
 
-### Detailed slices
+```mermaid
+--8<-- "doc/docs/developer/en/architecture/database-schema/overview.mmd"
+```
 
-<details>
+### Detailed Mermaid views
+
+The detailed views include all columns in their local domain. Cross-domain
+foreign keys keep a minimal external entity so the relationship remains visible
+without duplicating another domain's full table definition.
+
+<details markdown="1">
   <summary>Identity and UI access</summary>
-  <a href="/assets/diagrams/database-schema/identity-ui-access.svg">
-    <img src="/assets/diagrams/database-schema/identity-ui-access.svg" alt="Identity and UI access database schema" loading="lazy">
-  </a>
+
+```mermaid
+--8<-- "doc/docs/developer/en/architecture/database-schema/identity-ui-access.mmd"
+```
+
 </details>
 
-<details>
+<details markdown="1">
   <summary>Storage and S3 execution</summary>
-  <a href="/assets/diagrams/database-schema/storage-s3-execution.svg">
-    <img src="/assets/diagrams/database-schema/storage-s3-execution.svg" alt="Storage and S3 execution database schema" loading="lazy">
-  </a>
+
+```mermaid
+--8<-- "doc/docs/developer/en/architecture/database-schema/storage-s3-execution.mmd"
+```
+
 </details>
 
-<details>
+<details markdown="1">
   <summary>Tags and classification</summary>
-  <a href="/assets/diagrams/database-schema/tags-classification.svg">
-    <img src="/assets/diagrams/database-schema/tags-classification.svg" alt="Tags and classification database schema" loading="lazy">
-  </a>
+
+```mermaid
+--8<-- "doc/docs/developer/en/architecture/database-schema/tags-classification.mmd"
+```
+
 </details>
 
-<details>
+<details markdown="1">
   <summary>Portal</summary>
-  <a href="/assets/diagrams/database-schema/portal.svg">
-    <img src="/assets/diagrams/database-schema/portal.svg" alt="Portal database schema" loading="lazy">
-  </a>
+
+```mermaid
+--8<-- "doc/docs/developer/en/architecture/database-schema/portal.mmd"
+```
+
 </details>
 
-<details>
+<details markdown="1">
   <summary>Operations and audit</summary>
-  <a href="/assets/diagrams/database-schema/operations-audit.svg">
-    <img src="/assets/diagrams/database-schema/operations-audit.svg" alt="Operations and audit database schema" loading="lazy">
-  </a>
+
+```mermaid
+--8<-- "doc/docs/developer/en/architecture/database-schema/operations-audit.mmd"
+```
+
 </details>
 
-<details>
-  <summary>Observability, quota, and cost</summary>
-  <a href="/assets/diagrams/database-schema/observability-quota-cost.svg">
-    <img src="/assets/diagrams/database-schema/observability-quota-cost.svg" alt="Observability quota and cost database schema" loading="lazy">
-  </a>
+<details markdown="1">
+  <summary>Observability, quota and cost</summary>
+
+```mermaid
+--8<-- "doc/docs/developer/en/architecture/database-schema/observability-quota-cost.mmd"
+```
+
 </details>
 
-<details>
-  <summary>Full monolithic fallback</summary>
-  <a href="/assets/diagrams/database-schema/full.svg">
-    <img src="/assets/diagrams/database-schema/full.svg" alt="Full database schema" loading="lazy">
-  </a>
-</details>
+### Complete interactive model in ChartDB
+
+[Download the generated ChartDB diagram](/assets/diagrams/database-schema/bucketreef-database.chartdb.json){ .md-button }
+
+Open [ChartDB](https://app.chartdb.io/), choose **Import diagram**, and select
+the downloaded JSON file. The generated canvas groups every application table
+into the same six documented domains using native ChartDB Areas. Tables are
+expanded and laid out deterministically so regenerating an unchanged model does
+not move them or create noisy diffs.
+
+The ChartDB file uses SQLite as its interchange dialect because SQLite is the
+default local BucketReef database and ChartDB's JSON import workflow requires a
+concrete database type. The SQLAlchemy model remains shared with PostgreSQL, and
+the generated diagram is a structural model rather than a claim about the
+production database engine.
 
 ## Operational note
 

@@ -164,10 +164,14 @@ Do not calculate `../` depth from a guide page to `doc/docs/assets/`; every guid
 is published below its own route root while assets are copied to the global
 `/assets/` location.
 
-Editable D2 diagram sources stay with the guide that owns their subject:
-database-schema sources live under `developer/en/architecture/`, while
-production-deployment D2 sources live under `admin/en/install/diagrams/`.
-Rendered SVGs remain shared assets under `doc/docs/assets/diagrams/`.
+Generated database-schema Mermaid sources stay under
+`developer/en/architecture/database-schema/`, and the complete ChartDB JSON is
+published under `doc/docs/assets/diagrams/database-schema/`. Regenerate both
+from SQLAlchemy metadata with
+`backend/.venv/bin/python backend/scripts/generate_database_schema_docs.py`.
+Production-deployment diagrams continue to use editable D2 sources under
+`admin/en/install/diagrams/`, with their rendered SVGs under the shared assets
+tree.
 
 ## Coverage expectations
 

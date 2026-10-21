@@ -1,0 +1,179 @@
+erDiagram
+    %% Generated from backend/app/db SQLAlchemy models via app.db.Base.metadata.
+    %% Domain: Observability quota and cost.
+    %% PK=primary key, FK=foreign key, UK=single-column unique, NN=not nullable.
+    endpoint_health_checks {
+        integer id PK "NN"
+        integer storage_endpoint_id FK "NN"
+        datetime checked_at "NN"
+        integer http_status
+        integer latency_ms
+        varchar check_mode "NN; default=http"
+        varchar status "NN"
+        varchar error_message
+    }
+    endpoint_health_latest {
+        integer id PK "NN"
+        integer storage_endpoint_id FK "NN"
+        varchar check_mode "NN; default=http"
+        varchar check_type "NN; default=availability"
+        varchar scope "NN; default=endpoint"
+        datetime checked_at "NN"
+        varchar status "NN"
+        integer latency_ms
+        integer http_status
+        varchar error_message
+        integer min_latency_ms
+        integer avg_latency_ms
+        integer max_latency_ms
+        integer latency_sample_count "NN; default=0"
+        integer availability_24h
+        datetime updated_at "NN"
+    }
+    endpoint_health_status_segments {
+        integer id PK "NN"
+        integer storage_endpoint_id FK "NN"
+        varchar check_mode "NN; default=http"
+        varchar check_type "NN; default=availability"
+        varchar scope "NN; default=endpoint"
+        varchar status "NN"
+        datetime started_at "NN"
+        datetime ended_at
+        integer checks_count "NN; default=0"
+        integer min_latency_ms
+        integer avg_latency_ms
+        integer max_latency_ms
+        integer latency_sample_count "NN; default=0"
+        datetime updated_at "NN"
+    }
+    endpoint_health_rollups {
+        integer id PK "NN"
+        integer storage_endpoint_id FK "NN"
+        varchar check_mode "NN; default=http"
+        varchar check_type "NN; default=availability"
+        varchar scope "NN; default=endpoint"
+        integer resolution_seconds "NN; default=300"
+        datetime bucket_start "NN"
+        integer up_count "NN; default=0"
+        integer degraded_count "NN; default=0"
+        integer down_count "NN; default=0"
+        integer unknown_count "NN; default=0"
+        integer latency_avg_ms
+        integer latency_p95_ms
+        integer latency_sample_count "NN; default=0"
+        datetime updated_at "NN"
+    }
+    quota_usage_hourly {
+        integer id PK "NN"
+        datetime hour_ts "NN"
+        integer storage_endpoint_id FK "NN"
+        integer s3_account_id FK
+        integer s3_user_id FK
+        bigint used_bytes "NN; default=0"
+        bigint used_objects "NN; default=0"
+        integer bucket_count
+        bigint quota_size_bytes
+        bigint quota_objects
+        numeric_8_3 usage_ratio_pct
+        datetime collected_at "NN"
+    }
+    quota_usage_daily {
+        integer id PK "NN"
+        date day "NN"
+        integer storage_endpoint_id FK "NN"
+        integer s3_account_id FK
+        integer s3_user_id FK
+        bigint last_used_bytes "NN; default=0"
+        bigint last_used_objects "NN; default=0"
+        integer bucket_count
+        numeric_8_3 max_ratio_pct
+        integer samples_count "NN; default=1"
+        datetime updated_at "NN"
+    }
+    quota_alert_states {
+        integer id PK "NN"
+        integer storage_endpoint_id FK "NN"
+        integer s3_account_id FK
+        integer s3_user_id FK
+        varchar last_level "NN; default=normal"
+        numeric_8_3 last_ratio_pct
+        datetime last_checked_at "NN"
+        varchar last_notified_level
+        datetime last_notified_at
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    cost_usage_daily {
+        integer id PK "NN"
+        date day "NN"
+        integer storage_endpoint_id FK "NN"
+        integer s3_account_id FK
+        integer s3_user_id FK
+        bigint bytes_in "NN; default=0"
+        bigint bytes_out "NN; default=0"
+        bigint ops_total "NN; default=0"
+        text ops_breakdown
+        varchar source "NN"
+        datetime collected_at "NN"
+    }
+    cost_storage_daily {
+        integer id PK "NN"
+        date day "NN"
+        integer storage_endpoint_id FK "NN"
+        integer s3_account_id FK
+        integer s3_user_id FK
+        bigint total_bytes "NN; default=0"
+        bigint total_objects "NN; default=0"
+        text by_bucket
+        varchar source "NN"
+        datetime collected_at "NN"
+    }
+    cost_models {
+        integer id PK "NN"
+        varchar currency "NN; default=EUR"
+        numeric_12_6 storage_gb_month_price "NN"
+        numeric_12_6 egress_gb_price "NN"
+        numeric_12_6 ingress_gb_price "NN"
+        numeric_12_6 requests_per_1000_price "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    cost_endpoint_overrides {
+        integer id PK "NN"
+        integer storage_endpoint_id FK, UK "NN"
+        numeric_12_6 storage_gb_month_price "NN"
+        numeric_12_6 egress_gb_price "NN"
+        numeric_12_6 ingress_gb_price "NN"
+        numeric_12_6 requests_per_1000_price "NN"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
+    s3_accounts {
+        integer id PK "external reference"
+    }
+    s3_users {
+        integer id PK "external reference"
+    }
+    storage_endpoints {
+        integer id PK "external reference"
+    }
+    endpoint_health_checks }o--|| storage_endpoints : "storage_endpoint_id to id"
+    endpoint_health_latest }o--|| storage_endpoints : "storage_endpoint_id to id"
+    endpoint_health_status_segments }o--|| storage_endpoints : "storage_endpoint_id to id"
+    endpoint_health_rollups }o--|| storage_endpoints : "storage_endpoint_id to id"
+    quota_usage_hourly }o--|| storage_endpoints : "storage_endpoint_id to id"
+    quota_usage_hourly }o--o| s3_accounts : "s3_account_id to id"
+    quota_usage_hourly }o--o| s3_users : "s3_user_id to id"
+    quota_usage_daily }o--|| storage_endpoints : "storage_endpoint_id to id"
+    quota_usage_daily }o--o| s3_accounts : "s3_account_id to id"
+    quota_usage_daily }o--o| s3_users : "s3_user_id to id"
+    quota_alert_states }o--|| storage_endpoints : "storage_endpoint_id to id"
+    quota_alert_states }o--o| s3_accounts : "s3_account_id to id"
+    quota_alert_states }o--o| s3_users : "s3_user_id to id"
+    cost_usage_daily }o--|| storage_endpoints : "storage_endpoint_id to id"
+    cost_usage_daily }o--o| s3_accounts : "s3_account_id to id"
+    cost_usage_daily }o--o| s3_users : "s3_user_id to id"
+    cost_storage_daily }o--|| storage_endpoints : "storage_endpoint_id to id"
+    cost_storage_daily }o--o| s3_accounts : "s3_account_id to id"
+    cost_storage_daily }o--o| s3_users : "s3_user_id to id"
+    cost_endpoint_overrides o|--|| storage_endpoints : "storage_endpoint_id to id; ON DELETE CASCADE"
