@@ -37,8 +37,8 @@ import { useManagerI18n } from "./managerI18n";
 export default function ManagerGroupsPage() {
   const { text } = useManagerI18n();
   const deleteConfirmation = useConfirmActionDialog();
-  const { selectedContextKind, contextIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
+  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode, namingValidationProfile } = useS3AccountContext();
+  const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const [groupFilter, setGroupFilter] = useState("");
   const {
@@ -96,7 +96,7 @@ export default function ManagerGroupsPage() {
   );
 
   useEffect(() => {
-    if (needsS3AccountSelection) {
+    if (needsContextSelection) {
       setGroups([]);
       setPolicies([]);
       setLoading(false);
@@ -105,7 +105,7 @@ export default function ManagerGroupsPage() {
     load(contextIdForApi);
     loadPolicies(contextIdForApi);
     resetInlinePolicyDraftEditor();
-  }, [contextIdForApi, needsS3AccountSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, setGroups, setLoading]);
+  }, [contextIdForApi, needsContextSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, setGroups, setLoading]);
 
   useEffect(() => {
     if (selectedPolicies.length > 0) {
@@ -129,7 +129,7 @@ export default function ManagerGroupsPage() {
 
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (needsS3AccountSelection || busy !== null) return;
+    if (needsContextSelection || busy !== null) return;
     setAdvancedValidationAttempted(true);
     if (!advancedName.trim() || nameFormatError || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
@@ -165,7 +165,7 @@ export default function ManagerGroupsPage() {
   };
 
   const deleteGroup = async (name: string) => {
-    if (needsS3AccountSelection) return;
+    if (needsContextSelection) return;
     setBusy(name);
     setError(null);
     setActionMessage(null);
@@ -181,7 +181,7 @@ export default function ManagerGroupsPage() {
   };
 
   const handleDelete = (name: string) => {
-    if (needsS3AccountSelection) return;
+    if (needsContextSelection) return;
     deleteConfirmation.requestConfirmation({
       title: text("Delete IAM group?"),
       description: text("Permanently remove this IAM group from the selected account."),
@@ -289,7 +289,7 @@ export default function ManagerGroupsPage() {
         description={text("Manage groups using the account root keys.")}
         breadcrumbs={managerPageBreadcrumbs(text, "groups")}
         actions={
-          !needsS3AccountSelection && !isS3User
+          !needsContextSelection && !isS3User
             ? [
                 {
                   label: text("Create group"),
@@ -303,7 +303,7 @@ export default function ManagerGroupsPage() {
       {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
-      {needsS3AccountSelection ? (
+      {needsContextSelection ? (
         <PageEmptyState
           title={text("Select an account before managing IAM groups")}
           description={text("Groups are scoped to an execution context. Choose an account to list membership containers and attach shared policies.")}
@@ -353,7 +353,7 @@ export default function ManagerGroupsPage() {
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
-          busy={busy !== null} disabled={needsS3AccountSelection || namingValidationProfile === null}
+          busy={busy !== null} disabled={needsContextSelection || namingValidationProfile === null}
           submitLabel={text("Create group")} busyLabel={text("Creating...")}
         >
           <SettingsSection title={text("Identity")} presentation="compact">

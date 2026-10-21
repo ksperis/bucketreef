@@ -25,9 +25,9 @@ type TopicAction = { kind: "create"; accountId: S3ExecutionContextSelector }
 
 export default function TopicsPage() {
   const { text } = useManagerI18n();
-  const { accounts, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
-  const selectedS3Account = accounts.find(account => account.id === contextIdForApi);
+  const { contexts, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const needsContextSelection = requiresContextSelection && !contextIdForApi;
+  const selectedS3Account = contexts.find(account => account.id === contextIdForApi);
   const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;
   const [topics, setTopics] = useState<Topic[]>([]);
   const [topicFilter, setTopicFilter] = useState("");
@@ -52,10 +52,10 @@ export default function TopicsPage() {
   }, [text]);
   useEffect(() => {
     setActionMessage(null);
-    if (needsS3AccountSelection) { setTopics([]); setLoading(false); }
+    if (needsContextSelection) { setTopics([]); setLoading(false); }
     else void fetchTopics(contextIdForApi);
     return () => { requestSequence.current += 1; };
-  }, [contextIdForApi, needsS3AccountSelection, accessMode, fetchTopics]);
+  }, [contextIdForApi, needsContextSelection, accessMode, fetchTopics]);
   const close = () => setActive(null);
   const refreshAfterMutation = (accountId: S3ExecutionContextSelector, message: string) => {
     setActive(null);
@@ -116,7 +116,7 @@ export default function TopicsPage() {
         description={text("List, create, and secure account-owned SNS topics.")}
         breadcrumbs={managerPageBreadcrumbs(text, "topics")}
         actions={
-          !needsS3AccountSelection && snsFeatureEnabled
+          !needsContextSelection && snsFeatureEnabled
             ? [
                 {
                   label: text("Create topic"),
@@ -142,7 +142,7 @@ export default function TopicsPage() {
 
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
-      {needsS3AccountSelection ? (
+      {needsContextSelection ? (
         <PageEmptyState
           title={text("Select an account before managing SNS topics")}
           description={text("SNS topics are created within an execution context. Choose an account to list topics and update notification settings.")}

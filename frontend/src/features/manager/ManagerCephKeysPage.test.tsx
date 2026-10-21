@@ -26,7 +26,7 @@ vi.mock("../../api/managerCephKeys", () => ({
 
 function buildContext(overrides?: Record<string, unknown>) {
   return {
-    hasS3AccountContext: true,
+    hasExecutionContext: true,
     contextIdForApi: "s3u-11",
     selectedContextName: "RGW user test",
     selectedContextKind: "s3_user",

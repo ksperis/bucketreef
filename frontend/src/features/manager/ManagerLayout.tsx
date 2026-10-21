@@ -45,10 +45,10 @@ function ManagerShell() {
     label: text(page.label),
   });
   const {
-    accounts,
+    contexts,
     selectedContextId,
-    requiresS3AccountSelection,
-    sessionS3AccountName,
+    requiresContextSelection,
+    sessionAccountName,
     selectedContextKind,
     accessError,
     iamIdentity,
@@ -64,8 +64,8 @@ function ManagerShell() {
   const { text: shellText } = useShellI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const selected = accounts.find((a) => a.id === selectedContextId);
-  const showSelector = requiresS3AccountSelection && accounts.length > 1;
+  const selected = contexts.find((a) => a.id === selectedContextId);
+  const showSelector = requiresContextSelection && contexts.length > 1;
   const storedUser = readStoredUser();
   const userCapabilities = (storedUser?.capabilities as SessionCapabilities | undefined) ?? null;
   const contextCapabilities = (selected?.capabilities as Partial<SessionCapabilities> | undefined) ?? null;
@@ -78,11 +78,11 @@ function ManagerShell() {
   const canViewActivityHistory = managerFeatureStates?.activity_history?.enabled === true;
   const canManageBuckets = capabilities.can_manage_buckets !== false;
   const canAccessBucketCompare =
-    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_compare) && Boolean(requiresS3AccountSelection);
+    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_compare) && Boolean(requiresContextSelection);
   const canAccessBucketIntegrity =
-    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_integrity_check) && Boolean(requiresS3AccountSelection);
+    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_integrity_check) && Boolean(requiresContextSelection);
   const canAccessBucketPurge =
-    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge) && Boolean(requiresS3AccountSelection);
+    canManageBuckets && isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge) && Boolean(requiresContextSelection);
   const userRole = storedUser?.role ?? null;
   const managerToolAccess = getManagerToolAccess(storedUser);
   const canAccessMigration =
@@ -104,7 +104,7 @@ function ManagerShell() {
   const snsFeatureEnabled = endpointCaps ? endpointCaps.sns !== false : true;
   const canViewUsageStatsMenu =
     canManageBuckets &&
-    Boolean(requiresS3AccountSelection) &&
+    Boolean(requiresContextSelection) &&
     managerFeatureStates?.bucket_usage_stats?.enabled === true;
   const canViewMetricsMenu =
     canViewUsageStatsMenu || (Boolean(managerStatsEnabled) && (usageFeatureEnabled || metricsFeatureEnabled));
@@ -124,8 +124,8 @@ function ManagerShell() {
     ? accessMode === "connection"
       ? text("S3 Identity: {identity}", { identity: iamIdentity })
       : text("IAM Identity: {identity}", { identity: iamIdentity })
-    : selectedContextKind === "s3_user" && sessionS3AccountName
-      ? text("S3 user account: {account}", { account: sessionS3AccountName })
+    : selectedContextKind === "s3_user" && sessionAccountName
+      ? text("S3 user account: {account}", { account: sessionAccountName })
       : null;
 
   const selectedLabel = selected
@@ -155,9 +155,9 @@ function ManagerShell() {
       estimatedIconWidth: 36,
       estimatedLabelWidth: TOPBAR_CONTEXT_SELECTOR_ESTIMATED_LABEL_WIDTH,
       renderControl: (mode) =>
-        requiresS3AccountSelection && showSelector ? (
+        requiresContextSelection && showSelector ? (
           <TopbarContextAccountSelector
-            contexts={accounts}
+            contexts={contexts}
             selectedContextId={selectedContextId}
             onContextChange={handleS3AccountChange}
             selectedLabel={selectedLabel}

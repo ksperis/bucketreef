@@ -20,9 +20,9 @@ export default function ManagerTopicWorkspacePage() {
   const { topicName } = useParams<{ topicName: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { accounts, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsSelection = requiresS3AccountSelection && !contextIdForApi;
-  const selectedS3Account = accounts.find(account => account.id === contextIdForApi);
+  const { contexts, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const needsSelection = requiresContextSelection && !contextIdForApi;
+  const selectedS3Account = contexts.find(account => account.id === contextIdForApi);
   const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;
   const name = useMemo(() => {
     if (!topicName) return "";

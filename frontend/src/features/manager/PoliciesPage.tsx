@@ -37,18 +37,18 @@ const DEFAULT_POLICY_DOCUMENT = JSON.stringify(
 export default function PoliciesPage() {
   const { text } = useManagerI18n();
   const {
-    accounts = [],
+    contexts = [],
     selectedContextId = null,
     selectedContextKind,
     contextIdForApi,
-    requiresS3AccountSelection,
+    requiresContextSelection,
     accessMode,
   } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
+  const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
-  const selectedContext = accounts.find((context) => context.id === selectedContextId) ?? null;
+  const selectedContext = contexts.find((context) => context.id === selectedContextId) ?? null;
   const createManagedPolicyUnsupported = selectedContext?.endpoint_provider === "ceph";
-  const canCreateManagedPolicy = !needsS3AccountSelection && !isS3User && !createManagedPolicyUnsupported;
+  const canCreateManagedPolicy = !needsContextSelection && !isS3User && !createManagedPolicyUnsupported;
   const [policyFilter, setPolicyFilter] = useState("");
   const {
     error,
@@ -82,19 +82,19 @@ export default function PoliciesPage() {
   );
 
   useEffect(() => {
-    if (needsS3AccountSelection) {
+    if (needsContextSelection) {
       setPolicies([]);
       setLoading(false);
       return;
     }
     load(contextIdForApi);
-  }, [contextIdForApi, needsS3AccountSelection, accessMode, load, setLoading, setPolicies]);
+  }, [contextIdForApi, needsContextSelection, accessMode, load, setLoading, setPolicies]);
 
   const nameFormatError = iamNameFormatError(advancedName.trim(), "policy");
 
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (needsS3AccountSelection || isS3User || creating) return;
+    if (needsContextSelection || isS3User || creating) return;
     setValidationAttempted(true);
     if (!advancedName.trim() || nameFormatError || documentError) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
@@ -173,7 +173,7 @@ export default function PoliciesPage() {
         </PageBanner>
       )}
 
-      {needsS3AccountSelection ? (
+      {needsContextSelection ? (
         <PageEmptyState
           title={text("Select an account before managing IAM policies")}
           description={text("Policies are created inside an execution context. Choose an account to list, create, and attach managed IAM policies.")}
@@ -223,7 +223,7 @@ export default function PoliciesPage() {
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
-          busy={creating} disabled={needsS3AccountSelection || isS3User}
+          busy={creating} disabled={needsContextSelection || isS3User}
           submitLabel={text("Create policy")} busyLabel={text("Creating...")}
         >
           <SettingsSection title={text("Identity")} presentation="compact">

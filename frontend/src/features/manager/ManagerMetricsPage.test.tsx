@@ -86,7 +86,7 @@ function buildContext({
   accessMode?: string;
 } = {}) {
   return {
-    accounts: [
+    contexts: [
       {
         id: contextId,
         display_name: "Ceph connection",
@@ -94,8 +94,8 @@ function buildContext({
       },
     ],
     selectedContextId: contextId,
-    requiresS3AccountSelection: true,
-    hasS3AccountContext: true,
+    requiresContextSelection: true,
+    hasExecutionContext: true,
     contextIdForApi: contextId,
     accessMode,
     managerStatsEnabled,

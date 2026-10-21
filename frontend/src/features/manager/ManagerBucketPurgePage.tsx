@@ -23,7 +23,7 @@ export default function ManagerBucketPurgePage() {
     filter,
     filteredBuckets,
     loading,
-    requiresS3AccountSelection,
+    requiresContextSelection,
     selectedBuckets,
     selectedTargets,
     selectAllFiltered,
@@ -45,7 +45,7 @@ export default function ManagerBucketPurgePage() {
 
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
-      {!requiresS3AccountSelection ? (
+      {!requiresContextSelection ? (
         <PageEmptyState
           title={text("Bucket purge is unavailable in session mode")}
           description={text("This tool needs a persistent execution context so the selected buckets can be purged with the same manager identity.")}

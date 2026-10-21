@@ -92,7 +92,7 @@ vi.mock("../shared/storageEndpointLabel", () => ({
 
 function buildContext(overrides?: Record<string, unknown>) {
   return {
-    accounts: [
+    contexts: [
       {
         id: "s3u-1",
         display_name: "Managed S3 User",
@@ -101,8 +101,8 @@ function buildContext(overrides?: Record<string, unknown>) {
     ],
     selectedContextId: "s3u-1",
     setSelectedS3AccountId: vi.fn(),
-    requiresS3AccountSelection: true,
-    sessionS3AccountName: null,
+    requiresContextSelection: true,
+    sessionAccountName: null,
     selectedContextKind: "s3_user",
     accessError: null,
     iamIdentity: "uid-1",
@@ -217,7 +217,7 @@ describe("ManagerLayout", () => {
 
   it("shows Activity when the selected execution context has effective activity history enabled", () => {
     useS3AccountContextMock.mockReturnValue(buildContext({
-      accounts: [{ id: "account-1", display_name: "Account", storage_endpoint_capabilities: {} }],
+      contexts: [{ id: "account-1", display_name: "Account", storage_endpoint_capabilities: {} }],
       selectedContextId: "account-1",
       selectedContextKind: "account",
       accessMode: "admin",
@@ -566,7 +566,7 @@ describe("ManagerLayout", () => {
     useS3AccountContextMock.mockReturnValue(
       buildContext({
         managerStatsEnabled: true,
-        accounts: [
+        contexts: [
           {
             id: "s3u-1",
             display_name: "Managed S3 User",
@@ -595,7 +595,7 @@ describe("ManagerLayout", () => {
   it("shows IAM navigation for IAM-capable connection contexts", () => {
     useS3AccountContextMock.mockReturnValue(
       buildContext({
-        accounts: [
+        contexts: [
           {
             id: "conn-1",
             display_name: "AWS/tests3",
@@ -629,7 +629,7 @@ describe("ManagerLayout", () => {
     });
     useS3AccountContextMock.mockReturnValue(
       buildContext({
-        accounts: [
+        contexts: [
           {
             id: "conn-1",
             display_name: "AWS/tests3",
@@ -658,7 +658,7 @@ describe("ManagerLayout", () => {
   it("keeps the manager account context selector in the topbar controls", () => {
     useS3AccountContextMock.mockReturnValue(
       buildContext({
-        accounts: [
+        contexts: [
           { id: "ctx-1", display_name: "Primary", storage_endpoint_capabilities: {} },
           { id: "ctx-2", display_name: "Archive", storage_endpoint_capabilities: {} },
         ],
@@ -704,7 +704,7 @@ it("retains the mounted form until context navigation is confirmed", async () =>
   useS3AccountContextMock.mockImplementation(() => {
     const { search } = useLocation();
     return buildContext({
-      accounts: [{ id: "s3u-1", display_name: "S3 User 1" }, { id: "conn-2", display_name: "Connection 2" }],
+      contexts: [{ id: "s3u-1", display_name: "S3 User 1" }, { id: "conn-2", display_name: "Connection 2" }],
       selectedContextId: new URLSearchParams(search).get("ctx"),
       setSelectedS3AccountId: eagerSelection,
     });

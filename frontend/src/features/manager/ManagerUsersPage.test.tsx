@@ -50,7 +50,7 @@ describe("ManagerUsersPage", () => {
     createIamUserMock.mockReset();
     deleteIamUserMock.mockReset();
     useS3AccountContextMock.mockReturnValue({
-      accounts: [
+      contexts: [
         {
           id: "s3u-1",
           kind: "s3_user",
@@ -61,10 +61,10 @@ describe("ManagerUsersPage", () => {
       selectedContextId: "s3u-1",
       selectedContextKind: "s3_user",
       contextIdForApi: "s3u-1",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "default",
       iamIdentity: null,
-      sessionS3AccountName: null,
+      sessionAccountName: null,
     });
     listIamUsersMock.mockResolvedValue([]);
     listIamGroupsMock.mockResolvedValue([]);
@@ -90,7 +90,7 @@ describe("ManagerUsersPage", () => {
 
   it("renders IAM users with the shared responsive inventory table", async () => {
     useS3AccountContextMock.mockReturnValue({
-      accounts: [
+      contexts: [
         {
           id: "acc-1",
           kind: "account",
@@ -101,10 +101,10 @@ describe("ManagerUsersPage", () => {
       selectedContextId: "acc-1",
       selectedContextKind: "account",
       contextIdForApi: "acc-1",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "default",
       iamIdentity: null,
-      sessionS3AccountName: null,
+      sessionAccountName: null,
     });
     listIamUsersMock.mockResolvedValue([
       {
@@ -151,7 +151,7 @@ describe("ManagerUsersPage", () => {
 
   it("keeps saved inline policy drafts visible in the create user modal", async () => {
     useS3AccountContextMock.mockReturnValue({
-      accounts: [
+      contexts: [
         {
           id: "acc-1",
           kind: "account",
@@ -162,10 +162,10 @@ describe("ManagerUsersPage", () => {
       selectedContextId: "acc-1",
       selectedContextKind: "account",
       contextIdForApi: "acc-1",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "default",
       iamIdentity: null,
-      sessionS3AccountName: null,
+      sessionAccountName: null,
     });
     listIamUsersMock.mockResolvedValue([]);
     listIamGroupsMock.mockResolvedValue([]);
@@ -199,7 +199,7 @@ describe("ManagerUsersPage", () => {
 
   it("renders a single attach policies section in the create user modal", async () => {
     useS3AccountContextMock.mockReturnValue({
-      accounts: [
+      contexts: [
         {
           id: "acc-1",
           kind: "account",
@@ -210,10 +210,10 @@ describe("ManagerUsersPage", () => {
       selectedContextId: "acc-1",
       selectedContextKind: "account",
       contextIdForApi: "acc-1",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "default",
       iamIdentity: null,
-      sessionS3AccountName: null,
+      sessionAccountName: null,
     });
 
     render(
@@ -235,7 +235,7 @@ describe("ManagerUsersPage", () => {
 
   it("shows created access keys in the shared one-time secret panel", async () => {
     useS3AccountContextMock.mockReturnValue({
-      accounts: [
+      contexts: [
         {
           id: "acc-1",
           kind: "account",
@@ -246,10 +246,10 @@ describe("ManagerUsersPage", () => {
       selectedContextId: "acc-1",
       selectedContextKind: "account",
       contextIdForApi: "acc-1",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "default",
       iamIdentity: null,
-      sessionS3AccountName: null,
+      sessionAccountName: null,
     });
     createIamUserMock.mockResolvedValue({
       name: "bob",
@@ -285,15 +285,15 @@ describe("ManagerUsersPage", () => {
 
   it("shows the managed private access action only when the backend enables it", async () => {
     useS3AccountContextMock.mockReturnValue({
-      accounts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
+      contexts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
       selectedContextId: "acc-1",
       selectedContextName: "Tenant account",
       selectedContextKind: "account",
       contextIdForApi: "acc-1",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "default",
       iamIdentity: null,
-      sessionS3AccountName: null,
+      sessionAccountName: null,
       managerPrivateAccessEnabled: true,
     });
 
@@ -314,14 +314,14 @@ describe("ManagerUsersPage", () => {
 
   it("marks managed IAM identities and routes deletion through their private connection", async () => {
     useS3AccountContextMock.mockReturnValue({
-      accounts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
+      contexts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
       selectedContextId: "acc-1",
       selectedContextKind: "account",
       contextIdForApi: "acc-1",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "default",
       iamIdentity: null,
-      sessionS3AccountName: null,
+      sessionAccountName: null,
     });
     listIamUsersMock.mockResolvedValue([
       {

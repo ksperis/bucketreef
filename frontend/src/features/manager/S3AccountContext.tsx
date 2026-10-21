@@ -13,13 +13,13 @@ import type { NamingValidationProfile } from "../../utils/resourceNames";
 
 type S3AccountContextType = {
   namingValidationProfile: NamingValidationProfile | null;
-  accounts: ExecutionContext[];
+  contexts: ExecutionContext[];
   contextsLoaded: boolean;
   selectedContextId: string | null;
-  requiresS3AccountSelection: boolean;
-  hasS3AccountContext: boolean;
+  requiresContextSelection: boolean;
+  hasExecutionContext: boolean;
   contextIdForApi: string | null;
-  sessionS3AccountName: string | null;
+  sessionAccountName: string | null;
   selectedContextName: string | null;
   selectedContextKind: ExecutionContext["kind"] | null;
   accessError?: string | null;
@@ -39,13 +39,13 @@ type S3AccountContextType = {
 
 const S3AccountContext = createContext<S3AccountContextType>({
   namingValidationProfile: null,
-  accounts: [],
+  contexts: [],
   contextsLoaded: false,
   selectedContextId: null,
-  requiresS3AccountSelection: true,
-  hasS3AccountContext: false,
+  requiresContextSelection: true,
+  hasExecutionContext: false,
   contextIdForApi: null,
-  sessionS3AccountName: null,
+  sessionAccountName: null,
   selectedContextName: null,
   selectedContextKind: null,
   accessError: null,
@@ -75,11 +75,11 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     ? CLIENT_STORAGE_KEYS.selectedBrowserExecutionContext
     : CLIENT_STORAGE_KEYS.selectedManagerExecutionContext;
   const {
-    contexts: accounts,
+    contexts,
     contextsLoaded,
     selectedContextId,
     selectedContext,
-    requiresSelection: requiresS3AccountSelection,
+    requiresSelection: requiresContextSelection,
     accessError,
     sessionAccountName,
   } = useExecutionContextCatalog({
@@ -103,17 +103,17 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
   const [managerAccessKeyExpirationEnabled, setManagerAccessKeyExpirationEnabled] = useState<boolean | null>(null);
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
   const [managerFeatureStates, setManagerFeatureStates] = useState<Record<string, FeatureState> | null>(null);
-  const hasS3AccountContext = requiresS3AccountSelection ? selectedContext !== null : true;
-  const contextIdForApi = requiresS3AccountSelection ? selectedContextId : null;
+  const hasExecutionContext = requiresContextSelection ? selectedContext !== null : true;
+  const contextIdForApi = requiresContextSelection ? selectedContextId : null;
   const selectedContextName = selectedContext?.display_name ?? sessionAccountName;
   const selectedContextKind = selectedContext?.kind ?? null;
 
-  const namingValidationProfile = hasS3AccountContext && namingProfileState?.contextId === contextIdForApi
+  const namingValidationProfile = hasExecutionContext && namingProfileState?.contextId === contextIdForApi
     ? namingProfileState.profile : null;
 
   useEffect(() => {
     setNamingProfileState(null);
-    if (!hasS3AccountContext) {
+    if (!hasExecutionContext) {
       setIamIdentity(null);
       setAccessModeState(null);
       setManagerStatsEnabled(null);
@@ -174,19 +174,19 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     return () => {
       isMounted = false;
     };
-  }, [contextIdForApi, hasS3AccountContext]);
+  }, [contextIdForApi, hasExecutionContext]);
 
   return (
     <S3AccountContext.Provider
       value={{
         namingValidationProfile,
-        accounts,
+        contexts,
         contextsLoaded,
         selectedContextId,
-        requiresS3AccountSelection,
-        hasS3AccountContext,
+        requiresContextSelection,
+        hasExecutionContext,
         contextIdForApi,
-        sessionS3AccountName: sessionAccountName,
+        sessionAccountName,
         selectedContextName,
         selectedContextKind,
         accessError,

@@ -11,8 +11,8 @@ vi.mock("../../api/managerIamPolicies", () => ({ listIamPolicies: api.list, crea
 beforeEach(() => {
   vi.resetAllMocks();
   context.value = {
-    accounts: [], selectedContextId: "acc-7", selectedContextKind: "account",
-    contextIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default",
+    contexts: [], selectedContextId: "acc-7", selectedContextKind: "account",
+    contextIdForApi: "acc-7", requiresContextSelection: true, accessMode: "default",
   };
   api.list.mockResolvedValue([{ name: "ReadOnly", arn: "arn:aws:iam::acc-7:policy/ReadOnly" }]);
   api.create.mockResolvedValue({ name: "New-policy" });
@@ -81,7 +81,7 @@ it("keeps or discards the draft through the shared close confirmation", async ()
 it("does not offer managed policy creation on Ceph endpoints", async () => {
   context.value = {
     ...context.value,
-    accounts: [{ id: "acc-7", endpoint_provider: "ceph" }],
+    contexts: [{ id: "acc-7", endpoint_provider: "ceph" }],
   };
 
   render(<MemoryRouter><PoliciesPage /></MemoryRouter>);

@@ -69,7 +69,7 @@ describe("ManagerBucketComparePage", () => {
       filter: "",
       filteredBuckets: [{ name: "alpha" }, { name: "beta" }],
       loading: false,
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       selectedBucketList: ["alpha"],
       selectedBuckets: new Set(["alpha"]),
       selectAllFiltered,

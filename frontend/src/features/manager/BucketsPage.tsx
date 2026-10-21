@@ -202,10 +202,10 @@ const persistVisibleColumns = (value: ColumnId[]) => {
 export default function BucketsPage() {
   const { text, intlLocale } = useManagerI18n();
   const {
-    accounts,
+    contexts,
     selectedContextId,
-    requiresS3AccountSelection,
-    sessionS3AccountName,
+    requiresContextSelection,
+    sessionAccountName,
     contextIdForApi,
   } = useS3AccountContext();
   const { generalSettings } = useGeneralSettings();
@@ -242,8 +242,8 @@ export default function BucketsPage() {
   const [enrichingColumns, setEnrichingColumns] = useState(false);
 
   const selectedS3Account = useMemo(
-    () => accounts.find((a) => a.id === selectedContextId),
-    [accounts, selectedContextId]
+    () => contexts.find((a) => a.id === selectedContextId),
+    [contexts, selectedContextId]
   );
   const endpointCaps = selectedS3Account?.storage_endpoint_capabilities ?? null;
   const usageFeatureEnabled = endpointCaps ? endpointCaps.metrics !== false : true;
@@ -287,10 +287,10 @@ export default function BucketsPage() {
   );
   const accountLabel = selectedS3Account
     ? formatAccountLabel(selectedS3Account)
-    : requiresS3AccountSelection
+    : requiresContextSelection
       ? "Not selected"
-      : sessionS3AccountName || "S3 session";
-  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
+      : sessionAccountName || "S3 session";
+  const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const canDeleteBucketWithPurge =
     isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge) && Boolean(managerToolAccess?.bucket_purge);
 
@@ -399,7 +399,7 @@ export default function BucketsPage() {
   };
 
   const loadFeatureTooltip = (bucket: BucketListRow, featureKey: ManagerFeatureKey) => {
-    if (needsS3AccountSelection) return;
+    if (needsContextSelection) return;
     const key = featureTooltipCacheKey(bucket, featureKey);
     const current = featureTooltipState[key];
     if (current?.status === "ready" || current?.status === "loading") return;
@@ -535,7 +535,7 @@ export default function BucketsPage() {
 
   useEffect(() => {
     fetchAbortRef.current?.abort();
-    if (needsS3AccountSelection) {
+    if (needsContextSelection) {
       fetchRequestRef.current += 1;
       setLoading(false);
       setEnrichingColumns(false);
@@ -556,7 +556,7 @@ export default function BucketsPage() {
     }
     fetchBuckets(contextIdForApi);
     return () => fetchAbortRef.current?.abort();
-  }, [contextIdForApi, fetchBuckets, needsS3AccountSelection]);
+  }, [contextIdForApi, fetchBuckets, needsContextSelection]);
 
   useEffect(() => {
     setActiveFeatureTooltipKey(null);
@@ -614,7 +614,7 @@ export default function BucketsPage() {
     versioning: boolean,
     locationConstraint?: string
   ): Promise<{ created: boolean }> => {
-    if (needsS3AccountSelection) {
+    if (needsContextSelection) {
       setActionError(text("Select an account before creating a bucket."));
       return { created: false };
     }
@@ -638,7 +638,7 @@ export default function BucketsPage() {
   };
 
   const requestDelete = (name: string) => {
-    if (needsS3AccountSelection) return;
+    if (needsContextSelection) return;
     const targetBucket = buckets.find((b) => b.name === name);
     const objectCount = targetBucket?.object_count;
     if ((objectCount ?? 0) > 0) {
@@ -874,7 +874,7 @@ export default function BucketsPage() {
       {actionError && <PageBanner tone="error">{text(actionError)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
-      {needsS3AccountSelection ? (
+      {needsContextSelection ? (
         <PageEmptyState
           title={text("Select an account before managing buckets")}
           description={text("The bucket list, quota details, and destructive actions stay disabled until a manager execution context is selected.")}
@@ -971,7 +971,7 @@ export default function BucketsPage() {
       )}
 
       {showCreateForm && (
-        <BucketCreateWorkflow contextLabel={accountLabel} needsContext={needsS3AccountSelection}
+        <BucketCreateWorkflow contextLabel={accountLabel} needsContext={needsContextSelection}
           busy={creating} error={actionError} onCreate={performCreate} onClose={() => setShowCreateForm(false)} />
       )}
     </div>

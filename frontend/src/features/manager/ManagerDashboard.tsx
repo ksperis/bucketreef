@@ -636,12 +636,12 @@ export default function ManagerDashboard() {
   const { text, intlLocale } = useManagerI18n();
   const { generalSettings } = useGeneralSettings();
   const {
-    accounts,
+    contexts,
     selectedContextId,
-    sessionS3AccountName,
+    sessionAccountName,
     selectedContextKind,
-    hasS3AccountContext,
-    requiresS3AccountSelection,
+    hasExecutionContext,
+    requiresContextSelection,
     contextIdForApi,
     accessMode,
     managerStatsEnabled,
@@ -670,10 +670,10 @@ export default function ManagerDashboard() {
   const [managerLimits, setManagerLimits] = useState<ManagerContext | null>(null);
 
   const selected = useMemo(
-    () => accounts.find((account) => account.id === selectedContextId),
-    [accounts, selectedContextId]
+    () => contexts.find((account) => account.id === selectedContextId),
+    [contexts, selectedContextId]
   );
-  const hasContext = hasS3AccountContext;
+  const hasContext = hasExecutionContext;
   const endpointCaps = selected?.storage_endpoint_capabilities ?? null;
   const iamFeatureEnabled = endpointCaps ? endpointCaps.iam !== false : true;
   const contextCanManageIam = selected?.capabilities?.can_manage_iam !== false;
@@ -684,7 +684,7 @@ export default function ManagerDashboard() {
   const canManageIam = !isS3User && contextCanManageIam && iamFeatureEnabled;
   const canLoadUsageStatsDataTypes =
     hasContext &&
-    Boolean(requiresS3AccountSelection) &&
+    Boolean(requiresContextSelection) &&
     managerFeatureStates?.bucket_usage_stats?.enabled === true;
   const refreshKey = `${accessMode ?? "default"}:${refreshNonce}`;
   const { stats, loading, error } = useManagerStats(
@@ -902,7 +902,7 @@ export default function ManagerDashboard() {
 
   const accountLabel = selected
     ? formatAccountLabel(selected)
-    : sessionS3AccountName ?? "S3 session";
+    : sessionAccountName ?? "S3 session";
   const noContextReason = !hasContext ? text("Select an account to display live values.") : null;
   const metricsUnavailableReason =
     noContextReason ||

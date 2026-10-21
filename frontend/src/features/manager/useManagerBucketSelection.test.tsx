@@ -30,9 +30,9 @@ const secondaryContext = {
 } satisfies ExecutionContext;
 
 let accountContext = {
-  accounts: [primaryContext, secondaryContext],
+  contexts: [primaryContext, secondaryContext],
   selectedContextId: primaryContext.id as string | null,
-  requiresS3AccountSelection: true,
+  requiresContextSelection: true,
 };
 
 vi.mock("../../api/managerBuckets", () => ({
@@ -47,9 +47,9 @@ describe("useManagerBucketSelection", () => {
   beforeEach(() => {
     listBucketsMock.mockReset();
     accountContext = {
-      accounts: [primaryContext, secondaryContext],
+      contexts: [primaryContext, secondaryContext],
       selectedContextId: primaryContext.id,
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
     };
   });
 

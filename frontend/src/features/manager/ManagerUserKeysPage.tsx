@@ -37,12 +37,12 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   const {
     selectedContextKind,
     contextIdForApi,
-    requiresS3AccountSelection,
+    requiresContextSelection,
     accessMode,
     managerAccessKeyMetadataEnabled,
     managerAccessKeyExpirationEnabled,
   } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
+  const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const [keys, setKeys] = useState<AccessKey[]>([]);
   const [loading, setLoading] = useState(false);
@@ -83,7 +83,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   }, []);
 
   useEffect(() => {
-    if (needsS3AccountSelection || isS3User) {
+    if (needsContextSelection || isS3User) {
       setKeys([]);
       setLoading(false);
       return;
@@ -91,10 +91,10 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     if (userName) {
       load(contextIdForApi, userName);
     }
-  }, [contextIdForApi, needsS3AccountSelection, isS3User, userName, accessMode, load]);
+  }, [contextIdForApi, needsContextSelection, isS3User, userName, accessMode, load]);
 
   const createKey = async (metadata?: AccessKeyMetadataInput) => {
-    if (needsS3AccountSelection || !userName) return;
+    if (needsContextSelection || !userName) return;
     setBusy("create");
     setError(null);
     setActionMessage(null);
@@ -143,7 +143,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   };
 
   const deleteKey = async (keyId: string) => {
-    if (needsS3AccountSelection || !userName) return;
+    if (needsContextSelection || !userName) return;
     setBusy(`delete:${keyId}`);
     setError(null);
     setActionMessage(null);
@@ -159,7 +159,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   };
 
   const toggleKey = async (keyId: string, nextActive: boolean) => {
-    if (needsS3AccountSelection || !userName) return;
+    if (needsContextSelection || !userName) return;
     setBusy(`toggle:${keyId}`);
     setError(null);
     setActionMessage(null);
@@ -343,7 +343,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     return <div className="ui-body text-slate-600">{text("User not specified.")}</div>;
   }
 
-  if (needsS3AccountSelection) {
+  if (needsContextSelection) {
     return <div className="ui-body text-slate-600">{text("Select an account before managing keys.")}</div>;
   }
 

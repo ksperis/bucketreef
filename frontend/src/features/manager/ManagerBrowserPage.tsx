@@ -14,9 +14,9 @@ import { useManagerI18n } from "./managerI18n";
 export default function ManagerBrowserPage() {
   const { text } = useManagerI18n();
   const {
-    accounts,
+    contexts,
     selectedContextId,
-    hasS3AccountContext,
+    hasExecutionContext,
     contextIdForApi,
     selectedContextKind,
     accessError,
@@ -26,7 +26,7 @@ export default function ManagerBrowserPage() {
     managerBrowserMessage,
   } = useS3AccountContext();
   const [selectedBrowserBucketName, setSelectedBrowserBucketName] = useState("");
-  const selectedContext = accounts.find((context) => context.id === selectedContextId) ?? null;
+  const selectedContext = contexts.find((context) => context.id === selectedContextId) ?? null;
   const breadcrumbs = selectedBrowserBucketName
     ? managerPageBreadcrumbs(text, "browser", { label: selectedBrowserBucketName })
     : managerPageBreadcrumbs(text, "browser");
@@ -39,7 +39,7 @@ export default function ManagerBrowserPage() {
         breadcrumbs={breadcrumbs}
       />
       <div className="min-h-0 flex-1">
-        {!hasS3AccountContext ? (
+        {!hasExecutionContext ? (
           <PageEmptyState
             title={text("Select a Manager context")}
             description={accessError ?? "Use the Manager selector in the topbar to choose a context."}

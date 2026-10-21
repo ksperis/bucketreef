@@ -19,7 +19,7 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => ({ selectedContextId: "acc-7", selectedContextKind: "account",
-    namingValidationProfile: api.namingProfile, contextIdForApi: "acc-7", requiresS3AccountSelection: true, accessMode: "default" }),
+    namingValidationProfile: api.namingProfile, contextIdForApi: "acc-7", requiresContextSelection: true, accessMode: "default" }),
 }));
 vi.mock("../../api/managerIamUsers", async (original) => ({
   ...await original<typeof import("../../api/managerIamUsers")>(),

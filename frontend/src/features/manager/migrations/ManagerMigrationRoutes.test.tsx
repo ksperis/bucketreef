@@ -48,7 +48,7 @@ vi.mock("../../../api/managerMigrations", async () => {
 vi.mock("../S3AccountContext", () => ({
   useS3AccountContext: () => ({
     selectedContextId: "src-ctx",
-    requiresS3AccountSelection: true,
+    requiresContextSelection: true,
   }),
 }));
 

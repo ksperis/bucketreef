@@ -29,7 +29,7 @@ export default function ManagerBucketComparePage() {
     filter,
     filteredBuckets,
     loading: bucketsLoading,
-    requiresS3AccountSelection,
+    requiresContextSelection,
     selectedBucketList,
     selectedBuckets,
     selectAllFiltered,
@@ -59,7 +59,7 @@ export default function ManagerBucketComparePage() {
       {contextsError && <PageBanner tone="error">{text(contextsError)}</PageBanner>}
       {bucketsError && <PageBanner tone="error">{text(bucketsError)}</PageBanner>}
 
-      {!requiresS3AccountSelection ? (
+      {!requiresContextSelection ? (
         <PageEmptyState
           title={text("Bucket compare is unavailable in session mode")}
           description={text("This tool needs a persistent execution context so it can load a source inventory and compare it against other manager contexts.")}

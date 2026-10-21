@@ -20,7 +20,7 @@ function accountContext(overrides?: Record<string, unknown>) {
   return {
     contextIdForApi: "account-1",
     contextsLoaded: true,
-    hasS3AccountContext: true,
+    hasExecutionContext: true,
     selectedContextKind: "account",
     managerFeatureStates: {
       activity_history: { enabled: true, source: "platform" },
@@ -154,7 +154,7 @@ describe("ManagerActivityPage", () => {
     useS3AccountContextMock.mockReturnValue(accountContext({
       contextIdForApi: null,
       contextsLoaded: false,
-      hasS3AccountContext: false,
+      hasExecutionContext: false,
       managerFeatureStates: null,
     }));
     const view = render(

@@ -64,7 +64,7 @@ describe("Manager IAM inventory tables", () => {
     deleteIamGroupMock.mockReset();
     deleteIamRoleMock.mockReset();
     useS3AccountContextMock.mockReturnValue({
-      accounts: [
+      contexts: [
         {
           id: "acc-1",
           kind: "account",
@@ -75,10 +75,10 @@ describe("Manager IAM inventory tables", () => {
       selectedContextId: "acc-1",
       selectedContextKind: "account",
       contextIdForApi: "acc-1",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "default",
       iamIdentity: null,
-      sessionS3AccountName: null,
+      sessionAccountName: null,
     });
     listIamGroupsMock.mockResolvedValue([]);
     listIamRolesMock.mockResolvedValue([]);

@@ -130,9 +130,9 @@ export function BucketDetailContent(props: BucketDetailPageProps) {
     props.accountIdOverride ?? null,
     s3AccountContext.contextIdForApi,
     s3AccountContext.selectedContextId ?? null,
-    s3AccountContext.requiresS3AccountSelection
+    s3AccountContext.requiresContextSelection
       ? null
-      : (s3AccountContext.accounts[0]?.id ?? null),
+      : (s3AccountContext.contexts[0]?.id ?? null),
     s3AccountContext.accessMode,
     cephAdminEndpoint.selectedEndpointId ?? null,
   ]);
@@ -203,10 +203,10 @@ function BucketDetailPageContent({
   const bucketName = bucketNameOverride ?? routeBucketName;
   const isCephAdmin = mode === "ceph-admin";
   const {
-    accounts,
+    contexts,
     selectedContextId,
     contextIdForApi,
-    requiresS3AccountSelection,
+    requiresContextSelection,
     managerBucketQuotaEnabled,
     managerStatsEnabled,
     managerStatsMessage,
@@ -218,19 +218,19 @@ function BucketDetailPageContent({
   const selectedS3Account = useMemo(() => {
     if (isCephAdmin) return null;
     if (accountIdOverride) {
-      return accounts.find((account) => account.id === accountIdOverride) ?? null;
+      return contexts.find((account) => account.id === accountIdOverride) ?? null;
     }
     if (selectedContextId) {
-      return accounts.find((account) => account.id === selectedContextId) ?? null;
+      return contexts.find((account) => account.id === selectedContextId) ?? null;
     }
-    if (!requiresS3AccountSelection && accounts.length > 0) {
-      return accounts[0];
+    if (!requiresContextSelection && contexts.length > 0) {
+      return contexts[0];
     }
     return null;
-  }, [accountIdOverride, accounts, isCephAdmin, requiresS3AccountSelection, selectedContextId]);
+  }, [accountIdOverride, contexts, isCephAdmin, requiresContextSelection, selectedContextId]);
   const isCephEndpoint = isCephAdmin || selectedS3Account?.endpoint_provider === "ceph";
   const accountId = accountIdOverride ?? contextIdForApi;
-  const hasAccountContext = !requiresS3AccountSelection || accountId !== null;
+  const hasAccountContext = !requiresContextSelection || accountId !== null;
   const endpointId = selectedEndpointId ?? null;
   const hasCephContext = Boolean(endpointId);
   const hasContext = isCephAdmin ? hasCephContext : hasAccountContext;

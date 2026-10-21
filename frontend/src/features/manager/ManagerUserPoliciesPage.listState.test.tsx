@@ -11,9 +11,9 @@ vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => ({
     selectedContextKind: "account",
     contextIdForApi: "acc-1",
-    requiresS3AccountSelection: false,
+    requiresContextSelection: false,
     accessMode: "regular",
-    accounts: [],
+    contexts: [],
   }),
 }));
 

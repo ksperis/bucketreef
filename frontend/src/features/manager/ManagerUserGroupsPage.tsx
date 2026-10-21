@@ -20,8 +20,8 @@ import { useS3AccountContext } from "./S3AccountContext";
 export default function ManagerUserGroupsPage() {
   const { text } = useManagerI18n();
   const { userName } = useParams<{ userName: string }>();
-  const { selectedContextKind, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
+  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const decodedUser = useMemo(() => {
     if (!userName) return "";
@@ -55,14 +55,14 @@ export default function ManagerUserGroupsPage() {
   }, [text]);
 
   useEffect(() => {
-    if (!userName || needsS3AccountSelection || isS3User) {
+    if (!userName || needsContextSelection || isS3User) {
       setGroups([]);
       setAllGroups([]);
       setLoading(false);
       return;
     }
     void load(contextIdForApi, userName);
-  }, [accessMode, contextIdForApi, isS3User, load, needsS3AccountSelection, userName]);
+  }, [accessMode, contextIdForApi, isS3User, load, needsContextSelection, userName]);
 
   const availableGroups = useMemo(
     () => allGroups.filter((group) => !groups.some((current) => current.name === group.name)),
@@ -143,7 +143,7 @@ export default function ManagerUserGroupsPage() {
     return <PageBanner tone="info">{text("IAM users are not available for standalone S3 users. Select an S3 Account to continue.")}</PageBanner>;
   }
   if (!userName) return <div className="ui-body text-slate-600">{text("User not specified.")}</div>;
-  if (needsS3AccountSelection) return <div className="ui-body text-slate-600">{text("Select an account before managing groups.")}</div>;
+  if (needsContextSelection) return <div className="ui-body text-slate-600">{text("Select an account before managing groups.")}</div>;
 
   return (
     <div className="space-y-4">

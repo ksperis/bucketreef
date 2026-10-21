@@ -42,7 +42,7 @@ describe("ManagerUserKeysPage", () => {
     useS3AccountContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-2",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: false,
       managerAccessKeyExpirationEnabled: false,
@@ -95,7 +95,7 @@ describe("ManagerUserKeysPage", () => {
     useS3AccountContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-2",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: true,
     });
@@ -149,7 +149,7 @@ describe("ManagerUserKeysPage", () => {
     useS3AccountContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-2",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: false,
       managerAccessKeyExpirationEnabled: true,
@@ -183,7 +183,7 @@ describe("ManagerUserKeysPage", () => {
     useS3AccountContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-2",
-      requiresS3AccountSelection: true,
+      requiresContextSelection: true,
       accessMode: "admin",
       managerAccessKeyMetadataEnabled: false,
       managerAccessKeyExpirationEnabled: true,

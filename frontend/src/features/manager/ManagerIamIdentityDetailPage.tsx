@@ -24,8 +24,8 @@ export default function ManagerIamIdentityDetailPage({ kind, embedded = false }:
   const params = useParams<{ userName?: string; groupName?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { selectedContextKind, contextIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
-  const needsSelection = requiresS3AccountSelection && !contextIdForApi;
+  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const needsSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const encodedName = kind === "user" ? params.userName : params.groupName;
   const entityName = useMemo(() => {
