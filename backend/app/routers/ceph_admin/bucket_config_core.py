@@ -73,7 +73,6 @@ def update_versioning(
         ctx,
         bucket_name,
         config_area="versioning",
-        action=bucket_config_actions.update_bucket_versioning_config,
         payload=payload,
     )
 
@@ -151,7 +150,6 @@ def put_object_lock(
         ctx,
         bucket_name,
         config_area="object_lock",
-        action=bucket_config_actions.put_bucket_object_lock_config,
         payload=payload,
     )
 
@@ -182,7 +180,6 @@ def put_bucket_encryption(
         ctx,
         bucket_name,
         config_area="encryption",
-        action=bucket_config_actions.put_bucket_encryption_config,
         payload=payload,
     )
 
@@ -197,5 +194,4 @@ def delete_bucket_encryption(
         ctx,
         bucket_name,
         config_area="encryption",
-        action=bucket_config_actions.delete_bucket_encryption_config,
     )

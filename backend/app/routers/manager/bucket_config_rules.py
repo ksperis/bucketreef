@@ -55,8 +55,7 @@ def put_lifecycle(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_lifecycle",
-        action=bucket_config_actions.put_bucket_lifecycle_config,
+        config_area="lifecycle",
         payload=payload,
     )
 
@@ -72,8 +71,7 @@ def delete_lifecycle(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_lifecycle",
-        action=bucket_config_actions.delete_bucket_lifecycle_config,
+        config_area="lifecycle",
     )
 
 
@@ -103,8 +101,7 @@ def put_cors(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_cors",
-        action=bucket_config_actions.put_bucket_cors_config,
+        config_area="cors",
         payload=payload,
     )
 
@@ -120,8 +117,7 @@ def delete_cors(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_cors",
-        action=bucket_config_actions.delete_bucket_cors_config,
+        config_area="cors",
     )
 
 
@@ -151,8 +147,7 @@ def put_notifications(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_notifications",
-        action=bucket_config_actions.put_bucket_notifications_config,
+        config_area="notifications",
         payload=payload,
     )
 
@@ -168,8 +163,7 @@ def delete_notifications(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_notifications",
-        action=bucket_config_actions.delete_bucket_notifications_config,
+        config_area="notifications",
     )
 
 
@@ -201,8 +195,7 @@ def put_replication(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_replication",
-        action=bucket_config_actions.put_bucket_replication_config,
+        config_area="replication",
         payload=payload,
     )
 
@@ -219,8 +212,7 @@ def delete_replication(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_replication",
-        action=bucket_config_actions.delete_bucket_replication_config,
+        config_area="replication",
     )
 
 
@@ -250,8 +242,7 @@ def put_logging(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_logging",
-        action=bucket_config_actions.put_bucket_logging_config,
+        config_area="logging",
         payload=payload,
     )
 
@@ -267,8 +258,7 @@ def delete_logging(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_logging",
-        action=bucket_config_actions.delete_bucket_logging_config,
+        config_area="logging",
     )
 
 
@@ -298,8 +288,7 @@ def put_website(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_website",
-        action=bucket_config_actions.put_bucket_website_config,
+        config_area="website",
         payload=payload,
     )
 
@@ -315,8 +304,7 @@ def delete_website(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_website",
-        action=bucket_config_actions.delete_bucket_website_config,
+        config_area="website",
     )
 
 
@@ -346,8 +334,7 @@ def put_tags(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_tags",
-        action=bucket_config_actions.put_bucket_tags_config,
+        config_area="tags",
         payload=payload,
     )
 
@@ -363,6 +350,5 @@ def delete_tags(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_tags",
-        action=bucket_config_actions.delete_bucket_tags_config,
+        config_area="tags",
     )

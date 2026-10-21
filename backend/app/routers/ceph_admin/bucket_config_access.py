@@ -51,7 +51,6 @@ def put_policy(
         ctx,
         bucket_name,
         config_area="policy",
-        action=bucket_config_actions.put_bucket_policy_config,
         payload=payload,
     )
 
@@ -65,7 +64,6 @@ def delete_policy(
         ctx,
         bucket_name,
         config_area="policy",
-        action=bucket_config_actions.delete_bucket_policy_config,
     )
 
 
@@ -93,7 +91,6 @@ def put_acl(
         ctx,
         bucket_name,
         config_area="acl",
-        action=bucket_config_actions.put_bucket_acl_config,
         payload=payload,
     )
 
@@ -122,7 +119,6 @@ def put_public_access_block(
         ctx,
         bucket_name,
         config_area="public_access_block",
-        action=bucket_config_actions.put_bucket_public_access_block_config,
         payload=payload,
     )
 
