@@ -9,9 +9,9 @@ import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { topicNameFormatError } from "../../utils/resourceNames";
 import { useManagerI18n } from "./managerI18n";
 
-export default function TopicCreateDialog({ accountId, currentAccountId, onCreated, onClose }: {
-  accountId: S3ExecutionContextSelector;
-  currentAccountId: S3ExecutionContextSelector;
+export default function TopicCreateDialog({ contextId, currentContextId, onCreated, onClose }: {
+  contextId: S3ExecutionContextSelector;
+  currentContextId: S3ExecutionContextSelector;
   onCreated: (name: string) => void;
   onClose: () => void;
 }) {
@@ -20,8 +20,8 @@ export default function TopicCreateDialog({ accountId, currentAccountId, onCreat
   const [nameError, setNameError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (currentAccountId !== accountId && !name) onClose();
-  }, [accountId, currentAccountId, name, onClose]);
+    if (currentContextId !== contextId && !name) onClose();
+  }, [contextId, currentContextId, name, onClose]);
   const nameFormatError = topicNameFormatError(name.trim());
   return <SettingsFormDialog title={text("Create SNS topic")} draftKey={name} onClose={onClose}
     error={error} submitLabel={text("Create topic")} onSubmit={async (event) => {
@@ -32,7 +32,7 @@ export default function TopicCreateDialog({ accountId, currentAccountId, onCreat
       setNameError(null);
       setError(null);
       try {
-        await createTopic(accountId, { name: trimmedName });
+        await createTopic(contextId, { name: trimmedName });
         onCreated(trimmedName);
       } catch (error) {
         setError(extractApiError(error, text("Unable to create topic.")));

@@ -20,8 +20,8 @@ import TopicCreateDialog from "./TopicCreateDialog";
 import TopicDeleteDialog from "./TopicDeleteDialog";
 import { useManagerI18n } from "./managerI18n";
 
-type TopicAction = { kind: "create"; accountId: S3ExecutionContextSelector }
-  | { kind: "delete"; accountId: S3ExecutionContextSelector; topic: Topic };
+type TopicAction = { kind: "create"; contextId: S3ExecutionContextSelector }
+  | { kind: "delete"; contextId: S3ExecutionContextSelector; topic: Topic };
 
 export default function TopicsPage() {
   const { text } = useManagerI18n();
@@ -36,13 +36,13 @@ export default function TopicsPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [active, setActive] = useState<TopicAction | null>(null);
   const requestSequence = useRef(0);
-  const currentAccount = useRef(contextIdForApi);
-  currentAccount.current = contextIdForApi;
-  const fetchTopics = useCallback(async (accountId: S3ExecutionContextSelector) => {
+  const currentContext = useRef(contextIdForApi);
+  currentContext.current = contextIdForApi;
+  const fetchTopics = useCallback(async (contextId: S3ExecutionContextSelector) => {
     const request = ++requestSequence.current;
     setLoading(true); setError(null);
     try {
-      const data = await listTopics(accountId);
+      const data = await listTopics(contextId);
       if (request === requestSequence.current) setTopics(data);
     } catch (error) {
       if (request === requestSequence.current) { setTopics([]); setError(extractApiError(error, text("Unable to load topics."))); }
@@ -57,11 +57,11 @@ export default function TopicsPage() {
     return () => { requestSequence.current += 1; };
   }, [contextIdForApi, needsContextSelection, accessMode, fetchTopics]);
   const close = () => setActive(null);
-  const refreshAfterMutation = (accountId: S3ExecutionContextSelector, message: string) => {
+  const refreshAfterMutation = (contextId: S3ExecutionContextSelector, message: string) => {
     setActive(null);
-    if (currentAccount.current !== accountId) return;
+    if (currentContext.current !== contextId) return;
     setActionMessage(message);
-    void fetchTopics(accountId);
+    void fetchTopics(contextId);
   };
   const filteredTopics = useMemo(() => {
     const needle = topicFilter.trim().toLowerCase();
@@ -101,7 +101,7 @@ export default function TopicsPage() {
           <ListActionButton
             type="button"
             variant="danger"
-            onClick={() => setActive({ kind: "delete", accountId: contextIdForApi, topic })}
+            onClick={() => setActive({ kind: "delete", contextId: contextIdForApi, topic })}
           >
             {text("Delete")}
           </ListActionButton>
@@ -120,7 +120,7 @@ export default function TopicsPage() {
             ? [
                 {
                   label: text("Create topic"),
-                  onClick: () => setActive({ kind: "create", accountId: contextIdForApi }),
+                  onClick: () => setActive({ kind: "create", contextId: contextIdForApi }),
                 },
               ]
             : []
@@ -183,10 +183,10 @@ export default function TopicsPage() {
         </ListPageSection>
       )}
 
-    {active?.kind === "create" && <TopicCreateDialog accountId={active.accountId} currentAccountId={contextIdForApi}
-      onClose={close} onCreated={name => refreshAfterMutation(active.accountId, text("Topic '{name}' created.", { name }))} />}
-    {active?.kind === "delete" && <TopicDeleteDialog accountId={active.accountId} currentAccountId={contextIdForApi}
+    {active?.kind === "create" && <TopicCreateDialog contextId={active.contextId} currentContextId={contextIdForApi}
+      onClose={close} onCreated={name => refreshAfterMutation(active.contextId, text("Topic '{name}' created.", { name }))} />}
+    {active?.kind === "delete" && <TopicDeleteDialog contextId={active.contextId} currentContextId={contextIdForApi}
       topic={active.topic} onClose={close}
-      onDeleted={() => refreshAfterMutation(active.accountId, text("Topic '{name}' deleted.", { name: active.topic.name }))} />}
+      onDeleted={() => refreshAfterMutation(active.contextId, text("Topic '{name}' deleted.", { name: active.topic.name }))} />}
   </div>;
 }

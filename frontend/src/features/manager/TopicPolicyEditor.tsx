@@ -14,9 +14,9 @@ import { useManagerI18n } from "./managerI18n";
 
 const defaultPolicy = JSON.stringify({ Version: "2012-10-17", Statement: [] }, null, 2);
 
-export default function TopicPolicyEditor({ accountId, currentAccountId, topic, onClose, embedded = false }: {
-  accountId: S3ExecutionContextSelector;
-  currentAccountId: S3ExecutionContextSelector;
+export default function TopicPolicyEditor({ contextId, currentContextId, topic, onClose, embedded = false }: {
+  contextId: S3ExecutionContextSelector;
+  currentContextId: S3ExecutionContextSelector;
   topic: Topic;
   onClose: () => void;
   embedded?: boolean;
@@ -24,9 +24,9 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
   const { text } = useManagerI18n();
   const exampleId = useId();
   const load = useCallback(async () => {
-    const { policy } = await getTopicPolicy(accountId, topic.arn);
+    const { policy } = await getTopicPolicy(contextId, topic.arn);
     return policy && Object.keys(policy).length ? JSON.stringify(policy, null, 2) : defaultPolicy;
-  }, [accountId, topic.arn]);
+  }, [contextId, topic.arn]);
   const { draft, setDraft, setBaseline, dirty, loading, loadError, retry } = useSettingsRemoteDraft(() => defaultPolicy, load, "Unable to load topic settings.");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +35,8 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
   const [showExample, setShowExample] = useState(false);
   const fieldsDisabled = loading || saving || Boolean(loadError);
   useEffect(() => {
-    if (currentAccountId !== accountId && !dirty && !saving) onClose();
-  }, [accountId, currentAccountId, dirty, onClose, saving]);
+    if (currentContextId !== contextId && !dirty && !saving) onClose();
+  }, [contextId, currentContextId, dirty, onClose, saving]);
   const update = (value: string) => {
     setDraft(value); setValidationError(null); setStatus(null); setError(null);
   };
@@ -60,7 +60,7 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
     setValidationError(null);
     setSaving(true);
     try {
-      await updateTopicPolicy(accountId, topic.arn, parsed as Record<string, unknown>);
+      await updateTopicPolicy(contextId, topic.arn, parsed as Record<string, unknown>);
       setBaseline(draft);
       setStatus(text("Policy updated."));
     } catch (error) { setError(extractApiError(error, text("Unable to update topic policy."))); }
