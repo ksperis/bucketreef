@@ -98,7 +98,7 @@ describe("ManagerFeatureRulesPage", () => {
   });
 
   it("renders bucket tags with tag-specific labels", async () => {
-    listFeatureRuleInventoryMock.mockImplementation((_accountId: unknown, feature: unknown) =>
+    listFeatureRuleInventoryMock.mockImplementation((_contextId: unknown, feature: unknown) =>
       Promise.resolve(
         feature === "tags"
           ? [

@@ -460,7 +460,7 @@ export default function ManagerCephKeysPage() {
       {canProvisionManagedPrivateAccess && showPrivateAccessModal && (
         <CreateManagedPrivateAccessModal
           variant="rgw_user"
-          accountId={contextIdForApi}
+          contextId={contextIdForApi}
           contextName={selectedContextName}
           onClose={() => setShowPrivateAccessModal(false)}
           onCreated={(name) => {

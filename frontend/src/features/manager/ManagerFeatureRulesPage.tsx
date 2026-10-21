@@ -73,7 +73,7 @@ export default function ManagerFeatureRulesPage() {
   const ruleJsonRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedContext = useMemo(
-    () => contexts.find((account) => account.id === selectedContextId),
+    () => contexts.find((context) => context.id === selectedContextId),
     [contexts, selectedContextId]
   );
   const snsFeatureEnabled = selectedContext?.storage_endpoint_capabilities?.sns !== false;
@@ -89,11 +89,11 @@ export default function ManagerFeatureRulesPage() {
     let cancelled = false;
     setSelectedRule(null);
     setItems([]);
-    async function load(accountId: S3ExecutionContextSelector) {
+    async function load(contextId: S3ExecutionContextSelector) {
       setLoading(true);
       setError(null);
       try {
-        const result = await listFeatureRuleInventory(accountId, feature);
+        const result = await listFeatureRuleInventory(contextId, feature);
         if (!cancelled) {
           setItems(result);
         }

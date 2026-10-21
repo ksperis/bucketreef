@@ -331,8 +331,8 @@ export default function BucketsPage() {
     if (cached) return cached;
     const inflight = bucketPropertiesInflightRef.current[bucketKey];
     if (inflight) return inflight;
-    const accountId = contextIdForApi;
-    const promise = getBucketProperties(accountId, bucket.name)
+    const contextId = contextIdForApi;
+    const promise = getBucketProperties(contextId, bucket.name)
       .then((properties) => {
         bucketPropertiesCacheRef.current[bucketKey] = properties;
         return properties;
@@ -345,7 +345,7 @@ export default function BucketsPage() {
   };
 
   const buildFeatureTooltipLines = async (bucket: BucketListRow, featureKey: ManagerFeatureKey): Promise<string[]> => {
-    const accountId = contextIdForApi;
+    const contextId = contextIdForApi;
 
     if (featureKey === "versioning") {
       const properties = await getBucketPropertiesCached(bucket);
@@ -371,27 +371,27 @@ export default function BucketsPage() {
       const properties = await getBucketPropertiesCached(bucket);
       const inlineRules = Array.isArray(properties.cors_rules) ? properties.cors_rules : null;
       if (inlineRules) return buildCorsRuleSummaryLines(inlineRules);
-      const cors = await getBucketCors(accountId, bucket.name);
+      const cors = await getBucketCors(contextId, bucket.name);
       return buildCorsRuleSummaryLines(cors.rules);
     }
 
     if (featureKey === "static_website") {
-      const website = await getBucketWebsite(accountId, bucket.name);
+      const website = await getBucketWebsite(contextId, bucket.name);
       return buildWebsiteSummaryLines(website as Record<string, unknown>);
     }
 
     if (featureKey === "bucket_policy") {
-      const policy = await getBucketPolicy(accountId, bucket.name);
+      const policy = await getBucketPolicy(contextId, bucket.name);
       return buildBucketPolicySummaryLines(policy.policy);
     }
 
     if (featureKey === "access_logging") {
-      const logging = await getBucketLogging(accountId, bucket.name);
+      const logging = await getBucketLogging(contextId, bucket.name);
       return buildLoggingSummaryLines(logging as Record<string, unknown>);
     }
 
     if (featureKey === "notifications") {
-      const notifications = await getBucketNotifications(accountId, bucket.name);
+      const notifications = await getBucketNotifications(contextId, bucket.name);
       return buildNotificationSummaryLines(notifications.configuration);
     }
 
@@ -480,7 +480,7 @@ export default function BucketsPage() {
     );
   };
 
-  const fetchBuckets = useCallback(async (accountId: S3ExecutionContextSelector) => {
+  const fetchBuckets = useCallback(async (contextId: S3ExecutionContextSelector) => {
     fetchAbortRef.current?.abort();
     const controller = new AbortController();
     fetchAbortRef.current = controller;
@@ -490,7 +490,7 @@ export default function BucketsPage() {
     setLoading(true);
     setEnrichingColumns(false);
     try {
-      const baseData = await listBuckets(accountId, {
+      const baseData = await listBuckets(contextId, {
         with_stats: requiresStats,
         signal: controller.signal,
       });
@@ -505,7 +505,7 @@ export default function BucketsPage() {
 
       setEnrichingColumns(true);
       try {
-        const enrichedData = await listBuckets(accountId, {
+        const enrichedData = await listBuckets(contextId, {
           include: includeParams,
           with_stats: requiresStats,
           signal: controller.signal,

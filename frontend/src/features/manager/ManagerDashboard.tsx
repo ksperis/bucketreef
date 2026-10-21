@@ -670,7 +670,7 @@ export default function ManagerDashboard() {
   const [managerLimits, setManagerLimits] = useState<ManagerContext | null>(null);
 
   const selected = useMemo(
-    () => contexts.find((account) => account.id === selectedContextId),
+    () => contexts.find((context) => context.id === selectedContextId),
     [contexts, selectedContextId]
   );
   const hasContext = hasExecutionContext;

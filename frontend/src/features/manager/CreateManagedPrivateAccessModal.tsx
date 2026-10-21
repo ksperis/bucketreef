@@ -34,7 +34,7 @@ const INLINE_POLICY_TEMPLATE = '{\n  "Version": "2012-10-17",\n  "Statement": []
 type Props = {
   variant: "iam" | "rgw_user";
   namingValidationProfile?: NamingValidationProfile | null;
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   contextName?: string | null;
   groups?: IAMGroup[];
   policies?: IamPolicy[];
@@ -45,7 +45,7 @@ type Props = {
 export default function CreateManagedPrivateAccessModal({
   variant,
   namingValidationProfile = "standard",
-  accountId,
+  contextId,
   contextName,
   groups = [],
   policies = [],
@@ -177,13 +177,13 @@ export default function CreateManagedPrivateAccessModal({
         access_manager: accessManager,
       };
       const result = variant === "iam"
-        ? await createManagedIAMPrivateAccess(accountId, {
+        ? await createManagedIAMPrivateAccess(contextId, {
             ...base,
             groups: selectedGroups,
             managed_policies: selectedPolicies,
             inline_policies: inlinePolicies,
           })
-        : await createManagedRGWUserPrivateAccess(accountId, base);
+        : await createManagedRGWUserPrivateAccess(contextId, base);
       notifyExecutionContextsRefresh();
       onCreated(result.connection.name);
       onClose();
