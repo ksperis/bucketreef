@@ -9,7 +9,7 @@ import { useParams } from "react-router-dom";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { IAMUser, listIamUsers } from "../../api/managerIamUsers";
 import { addIamGroupUser, listIamGroupUsers, removeIamGroupUser } from "../../api/managerIamGroups";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import PageShell from "../../components/PageShell";
 import PageBanner from "../../components/PageBanner";
@@ -24,7 +24,7 @@ import { useManagerI18n } from "./managerI18n";
 export default function ManagerGroupUsersPage({ embedded = false }: { embedded?: boolean }) {
   const { text } = useManagerI18n();
   const { groupName } = useParams<{ groupName: string }>();
-  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
 

@@ -28,7 +28,7 @@ import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
 import AccessKeyMetadataDialog from "./AccessKeyMetadataDialog";
@@ -51,7 +51,7 @@ export default function ManagerCephKeysPage() {
     managerAccessKeyExpirationEnabled,
     managerPrivateAccessEnabled,
     accessMode,
-  } = useS3AccountContext();
+  } = useExecutionContext();
 
   const [keys, setKeys] = useState<ManagerCephAccessKey[]>([]);
   const [loading, setLoading] = useState(false);

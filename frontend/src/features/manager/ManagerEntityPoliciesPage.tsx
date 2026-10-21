@@ -17,7 +17,7 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import InlinePolicyEditor from "./InlinePolicyEditor";
 import UiSelect from "../../components/ui/UiSelect";
 import { SettingsButton } from "../../components/settings/SettingsControls";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
 
@@ -99,7 +99,7 @@ export default function ManagerEntityPoliciesPage({
   } as const;
   const params = useParams();
   const rawEntityName = params[routeParam];
-  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode, namingValidationProfile } = useS3AccountContext();
+  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode, namingValidationProfile } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
 

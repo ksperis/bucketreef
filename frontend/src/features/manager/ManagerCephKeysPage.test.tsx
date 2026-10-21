@@ -5,15 +5,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ManagerCephKeysPage from "./ManagerCephKeysPage";
 
-const useS3AccountContextMock = vi.fn();
+const useExecutionContextMock = vi.fn();
 const listManagerCephAccessKeysMock = vi.fn();
 const createManagerCephAccessKeyMock = vi.fn();
 const updateManagerCephAccessKeyMetadataMock = vi.fn();
 const updateManagerCephAccessKeyStatusMock = vi.fn();
 const deleteManagerCephAccessKeyMock = vi.fn();
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => useS3AccountContextMock(),
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => useExecutionContextMock(),
 }));
 
 vi.mock("../../api/managerCephKeys", () => ({
@@ -42,7 +42,7 @@ function buildContext(overrides?: Record<string, unknown>) {
 describe("ManagerCephKeysPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useS3AccountContextMock.mockReturnValue(buildContext());
+    useExecutionContextMock.mockReturnValue(buildContext());
     listManagerCephAccessKeysMock.mockResolvedValue([
       {
         access_key_id: "AK-PORTAL",
@@ -113,7 +113,7 @@ describe("ManagerCephKeysPage", () => {
 
   it("shows the server-managed provisioning action only when enabled by the context", async () => {
     const user = userEvent.setup();
-    useS3AccountContextMock.mockReturnValue(buildContext({ managerPrivateAccessEnabled: true }));
+    useExecutionContextMock.mockReturnValue(buildContext({ managerPrivateAccessEnabled: true }));
 
     render(<ManagerCephKeysPage />);
 
@@ -128,7 +128,7 @@ describe("ManagerCephKeysPage", () => {
 
   it("allows managed provisioning without exposing the Ceph key inventory", async () => {
     const user = userEvent.setup();
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({ managerCephKeysEnabled: false, managerPrivateAccessEnabled: true })
     );
 
@@ -182,7 +182,7 @@ describe("ManagerCephKeysPage", () => {
 
   it("creates, displays and edits BucketReef metadata when enabled", async () => {
     const user = userEvent.setup();
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({ managerAccessKeyMetadataEnabled: true })
     );
     listManagerCephAccessKeysMock.mockResolvedValue([
@@ -233,7 +233,7 @@ describe("ManagerCephKeysPage", () => {
 
   it("creates a key with expiration when expiration is the only optional key feature", async () => {
     const user = userEvent.setup();
-    useS3AccountContextMock.mockReturnValue(
+    useExecutionContextMock.mockReturnValue(
       buildContext({
         managerAccessKeyMetadataEnabled: false,
         managerAccessKeyExpirationEnabled: true,

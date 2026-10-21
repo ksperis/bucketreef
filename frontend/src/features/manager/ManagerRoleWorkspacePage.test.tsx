@@ -12,8 +12,8 @@ const api = vi.hoisted(() => ({
   deleteTag: vi.fn(),
 }));
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => ({
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => ({
     selectedContextKind: "account",
     contextIdForApi: "acc-7",
     requiresContextSelection: false,

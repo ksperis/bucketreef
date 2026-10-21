@@ -10,7 +10,7 @@ import PageBanner from "../../../components/PageBanner";
 import PageEmptyState from "../../../components/PageEmptyState";
 import PageShell from "../../../components/PageShell";
 import { type BucketMigrationStatus } from "../../../api/managerMigrations";
-import { useS3AccountContext } from "../S3AccountContext";
+import { useExecutionContext } from "../ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "../managerBreadcrumbs";
 import { useManagerContexts } from "../useManagerContexts";
 import { useManagerMigrationsList } from "./hooks";
@@ -40,7 +40,7 @@ const SORT_PRIORITY: Record<BucketMigrationStatus, number> = {
 export default function ManagerMigrationsListPage() {
   const { text } = useManagerI18n();
   const navigate = useNavigate();
-  const { selectedContextId, requiresContextSelection } = useS3AccountContext();
+  const { selectedContextId, requiresContextSelection } = useExecutionContext();
   const sourceContextId = selectedContextId ?? "";
 
   const { contextLabelById, contextsLoading, contextsError } = useManagerContexts();

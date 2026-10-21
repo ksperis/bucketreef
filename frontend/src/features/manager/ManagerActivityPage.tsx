@@ -20,7 +20,7 @@ import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import { managerActivityPresentation, managerActivityTarget } from "./managerActivityPresentation";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 
 const PAGE_SIZE = 20;
 
@@ -43,7 +43,7 @@ export default function ManagerActivityPage() {
     contextsLoaded,
     hasExecutionContext,
     managerFeatureStates,
-  } = useS3AccountContext();
+  } = useExecutionContext();
   const [entries, setEntries] = useState<ManagerActivityEntry[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"" | AuditStatus>("");

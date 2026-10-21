@@ -39,8 +39,8 @@ vi.mock("../../api/managerBuckets", () => ({
   listBuckets: (...args: unknown[]) => listBucketsMock(...args),
 }));
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => accountContext,
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => accountContext,
 }));
 
 describe("useManagerBucketSelection", () => {

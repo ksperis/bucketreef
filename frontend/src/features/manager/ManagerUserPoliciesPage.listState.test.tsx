@@ -7,8 +7,8 @@ const listIamPoliciesMock = vi.fn();
 const listUserPoliciesMock = vi.fn();
 const detachUserPolicyMock = vi.fn();
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => ({
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => ({
     selectedContextKind: "account",
     contextIdForApi: "acc-1",
     requiresContextSelection: false,

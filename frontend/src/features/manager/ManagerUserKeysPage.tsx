@@ -15,7 +15,7 @@ import {
   updateIamAccessKeyMetadata,
   updateIamAccessKeyStatus,
 } from "../../api/managerIamUsers";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import ListPageSection from "../../components/list/ListPageSection";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
@@ -41,7 +41,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     accessMode,
     managerAccessKeyMetadataEnabled,
     managerAccessKeyExpirationEnabled,
-  } = useS3AccountContext();
+  } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const [keys, setKeys] = useState<AccessKey[]>([]);

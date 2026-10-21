@@ -4,15 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ManagerUsersPage from "./ManagerUsersPage";
 
-const useS3AccountContextMock = vi.fn();
+const useExecutionContextMock = vi.fn();
 const listIamUsersMock = vi.fn();
 const listIamGroupsMock = vi.fn();
 const listIamPoliciesMock = vi.fn();
 const createIamUserMock = vi.fn();
 const deleteIamUserMock = vi.fn();
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => useS3AccountContextMock(),
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => useExecutionContextMock(),
 }));
 
 vi.mock("../../api/managerIamUsers", async () => {
@@ -43,13 +43,13 @@ vi.mock("../../api/managerIamPolicies", async () => {
 
 describe("ManagerUsersPage", () => {
   beforeEach(() => {
-    useS3AccountContextMock.mockReset();
+    useExecutionContextMock.mockReset();
     listIamUsersMock.mockReset();
     listIamGroupsMock.mockReset();
     listIamPoliciesMock.mockReset();
     createIamUserMock.mockReset();
     deleteIamUserMock.mockReset();
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "s3u-1",
@@ -89,7 +89,7 @@ describe("ManagerUsersPage", () => {
   });
 
   it("renders IAM users with the shared responsive inventory table", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "acc-1",
@@ -150,7 +150,7 @@ describe("ManagerUsersPage", () => {
   });
 
   it("keeps saved inline policy drafts visible in the create user modal", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "acc-1",
@@ -198,7 +198,7 @@ describe("ManagerUsersPage", () => {
   });
 
   it("renders a single attach policies section in the create user modal", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "acc-1",
@@ -234,7 +234,7 @@ describe("ManagerUsersPage", () => {
   });
 
   it("shows created access keys in the shared one-time secret panel", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [
         {
           id: "acc-1",
@@ -284,7 +284,7 @@ describe("ManagerUsersPage", () => {
   });
 
   it("shows the managed private access action only when the backend enables it", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
       selectedContextId: "acc-1",
       selectedContextName: "Tenant account",
@@ -313,7 +313,7 @@ describe("ManagerUsersPage", () => {
   });
 
   it("marks managed IAM identities and routes deletion through their private connection", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
       selectedContextId: "acc-1",
       selectedContextKind: "account",

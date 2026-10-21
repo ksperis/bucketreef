@@ -7,7 +7,7 @@ import ManagerRoleEditor from "./ManagerRoleEditor";
 import ManagerRolePoliciesPage from "./ManagerRolePoliciesPage";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 
 type RoleTab = "general" | "trust" | "policies";
 
@@ -15,7 +15,7 @@ export default function ManagerRoleWorkspacePage() {
   const { text } = useManagerI18n();
   const location = useLocation();
   const { roleName } = useParams<{ roleName: string }>();
-  const { selectedContextKind, contextIdForApi, requiresContextSelection } = useS3AccountContext();
+  const { selectedContextKind, contextIdForApi, requiresContextSelection } = useExecutionContext();
   const needsSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const name = (() => {

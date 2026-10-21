@@ -31,7 +31,7 @@ import type {
   BucketTag,
 } from "../../api/bucketContracts";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
@@ -207,7 +207,7 @@ export default function BucketsPage() {
     requiresContextSelection,
     sessionAccountName,
     contextIdForApi,
-  } = useS3AccountContext();
+  } = useExecutionContext();
   const { generalSettings } = useGeneralSettings();
   const storedUser = readStoredUser();
   const managerToolAccess = getManagerToolAccess(storedUser);

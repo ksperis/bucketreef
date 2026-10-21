@@ -11,7 +11,7 @@ import TopicAttributesEditor from "./TopicAttributesEditor";
 import TopicPolicyEditor from "./TopicPolicyEditor";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 
 type TopicTab = "configuration" | "policy";
 
@@ -20,7 +20,7 @@ export default function ManagerTopicWorkspacePage() {
   const { topicName } = useParams<{ topicName: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { contexts, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const { contexts, contextIdForApi, requiresContextSelection, accessMode } = useExecutionContext();
   const needsSelection = requiresContextSelection && !contextIdForApi;
   const selectedS3Account = contexts.find(account => account.id === contextIdForApi);
   const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;

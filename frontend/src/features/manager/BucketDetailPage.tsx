@@ -22,7 +22,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { formatCompactNumber } from "../../utils/format";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import TrafficAnalytics from "./TrafficAnalytics";
 import BucketUsageStatsPanel from "../shared/BucketUsageStatsPanel";
 import PropertySummaryChip, { PropertySummaryTone } from "../../components/PropertySummaryChip";
@@ -115,25 +115,25 @@ type BucketDetailPageContentProps = BucketDetailPageProps & {
   cephAdminEndpoint: ReturnType<typeof useCephAdminEndpoint>;
   onActiveTabChange: (tab: BucketDetailTabId) => void;
   routeBucketName?: string;
-  s3AccountContext: ReturnType<typeof useS3AccountContext>;
+  executionContext: ReturnType<typeof useExecutionContext>;
 };
 
 export function BucketDetailContent(props: BucketDetailPageProps) {
   const [activeTab, setActiveTab] = useState<BucketDetailTabId>("overview");
   const params = useParams<{ bucketName: string }>();
-  const s3AccountContext = useS3AccountContext();
+  const executionContext = useExecutionContext();
   const cephAdminEndpoint = useCephAdminEndpoint();
   const bucketName = props.bucketNameOverride ?? params.bucketName;
   const contextKey = JSON.stringify([
     props.mode ?? "manager",
     bucketName ?? null,
     props.accountIdOverride ?? null,
-    s3AccountContext.contextIdForApi,
-    s3AccountContext.selectedContextId ?? null,
-    s3AccountContext.requiresContextSelection
+    executionContext.contextIdForApi,
+    executionContext.selectedContextId ?? null,
+    executionContext.requiresContextSelection
       ? null
-      : (s3AccountContext.contexts[0]?.id ?? null),
-    s3AccountContext.accessMode,
+      : (executionContext.contexts[0]?.id ?? null),
+    executionContext.accessMode,
     cephAdminEndpoint.selectedEndpointId ?? null,
   ]);
 
@@ -145,7 +145,7 @@ export function BucketDetailContent(props: BucketDetailPageProps) {
       cephAdminEndpoint={cephAdminEndpoint}
       onActiveTabChange={setActiveTab}
       routeBucketName={params.bucketName}
-      s3AccountContext={s3AccountContext}
+      executionContext={executionContext}
     />
   );
 }
@@ -195,7 +195,7 @@ function BucketDetailPageContent({
   cephAdminEndpoint,
   onActiveTabChange,
   routeBucketName,
-  s3AccountContext,
+  executionContext,
 }: BucketDetailPageContentProps) {
   const { text, intlLocale } = useManagerI18n();
   const { generalSettings } = useGeneralSettings();
@@ -211,7 +211,7 @@ function BucketDetailPageContent({
     managerStatsEnabled,
     managerStatsMessage,
     managerBrowserEnabled,
-  } = s3AccountContext;
+  } = executionContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
 

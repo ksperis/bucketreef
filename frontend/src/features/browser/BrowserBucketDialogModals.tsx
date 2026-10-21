@@ -21,7 +21,7 @@ import {
   normalizeS3BucketNameInput,
 } from "../../utils/s3BucketName";
 import { BucketDetailContent } from "../manager/BucketDetailPage";
-import { S3AccountProvider } from "../manager/S3AccountContext";
+import { ExecutionContextProvider } from "../manager/ExecutionContextProvider";
 import { resolveSseCustomerKeyInputType } from "./sseCustomerKeyActions";
 import DetailsDrawerShell from "../shared/DetailsDrawerShell";
 import BrowserBucketDetailsContent from "./BrowserBucketDetailsContent";
@@ -133,7 +133,7 @@ export function BrowserBucketConfigurationDrawer({
       ) : workspaceSurface === "manager" ? (
         content
       ) : (
-        <S3AccountProvider scope="browser">{content}</S3AccountProvider>
+        <ExecutionContextProvider scope="browser">{content}</ExecutionContextProvider>
       )}
       {closeGuard.confirmationDialog}
     </DetailsDrawerShell>

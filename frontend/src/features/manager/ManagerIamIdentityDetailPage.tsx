@@ -12,7 +12,7 @@ import { extractApiError } from "../../utils/apiError";
 import { iamNameFormatError } from "../../utils/resourceNames";
 import { stableSignature } from "../../utils/stableSignature";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { iamPathFormatError } from "./iamIdentityForm";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
@@ -24,7 +24,7 @@ export default function ManagerIamIdentityDetailPage({ kind, embedded = false }:
   const params = useParams<{ userName?: string; groupName?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useExecutionContext();
   const needsSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const encodedName = kind === "user" ? params.userName : params.groupName;

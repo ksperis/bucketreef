@@ -12,10 +12,10 @@ const api = vi.hoisted(() => ({
   getPolicy: vi.fn(),
   updatePolicy: vi.fn(),
 }));
-const useS3AccountContextMock = vi.fn();
+const useExecutionContextMock = vi.fn();
 
-vi.mock("./S3AccountContext", () => ({
-  useS3AccountContext: () => useS3AccountContextMock(),
+vi.mock("./ExecutionContextProvider", () => ({
+  useExecutionContext: () => useExecutionContextMock(),
 }));
 
 vi.mock("../../api/topics", async (original) => ({
@@ -42,7 +42,7 @@ describe("ManagerTopicWorkspacePage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: true } }],
       selectedContextId: "conn-7",
       contextIdForApi: "conn-7",
@@ -92,7 +92,7 @@ describe("ManagerTopicWorkspacePage", () => {
   });
 
   it("keeps SNS capability gating on the resource workspace", async () => {
-    useS3AccountContextMock.mockReturnValue({
+    useExecutionContextMock.mockReturnValue({
       contexts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: false } }],
       selectedContextId: "conn-7",
       contextIdForApi: "conn-7",

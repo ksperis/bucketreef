@@ -77,7 +77,7 @@ import { formatAccountLabel } from "../shared/storageEndpointLabel";
 import { BucketUsageStatsDataTypesCard } from "../shared/BucketUsageStatsVisuals";
 import { useIamOverview } from "./useIamOverview";
 import { useManagerStats } from "./useManagerStats";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { managerActivityPresentation, managerActivityTarget } from "./managerActivityPresentation";
 import { useManagerI18n } from "./managerI18n";
@@ -647,7 +647,7 @@ export default function ManagerDashboard() {
     managerStatsEnabled,
     managerStatsMessage,
     managerFeatureStates,
-  } = useS3AccountContext();
+  } = useExecutionContext();
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
   const [workspaceHealth, setWorkspaceHealth] = useState<WorkspaceEndpointHealthOverviewResponse | null>(null);

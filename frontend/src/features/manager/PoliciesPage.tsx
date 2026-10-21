@@ -4,7 +4,7 @@
  */
 import { iamNameFormatError } from "../../utils/resourceNames";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { IamPolicy, createIamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -43,7 +43,7 @@ export default function PoliciesPage() {
     contextIdForApi,
     requiresContextSelection,
     accessMode,
-  } = useS3AccountContext();
+  } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const selectedContext = contexts.find((context) => context.id === selectedContextId) ?? null;

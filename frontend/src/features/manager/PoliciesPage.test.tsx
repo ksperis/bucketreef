@@ -5,7 +5,7 @@ import PoliciesPage from "./PoliciesPage";
 
 const api = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn() }));
 const context = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
-vi.mock("./S3AccountContext", () => ({ useS3AccountContext: () => context.value }));
+vi.mock("./ExecutionContextProvider", () => ({ useExecutionContext: () => context.value }));
 vi.mock("../../api/managerIamPolicies", () => ({ listIamPolicies: api.list, createIamPolicy: api.create }));
 
 beforeEach(() => {

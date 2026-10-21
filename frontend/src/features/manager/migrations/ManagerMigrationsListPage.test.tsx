@@ -15,8 +15,8 @@ vi.mock("../useManagerContexts", () => ({
   useManagerContexts: () => mockUseManagerContexts(),
 }));
 
-vi.mock("../S3AccountContext", () => ({
-  useS3AccountContext: () => ({
+vi.mock("../ExecutionContextProvider", () => ({
+  useExecutionContext: () => ({
     selectedContextId: "src-ctx",
     requiresContextSelection: true,
   }),

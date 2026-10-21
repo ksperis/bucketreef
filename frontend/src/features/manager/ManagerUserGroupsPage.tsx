@@ -15,12 +15,12 @@ import UiSelect from "../../components/ui/UiSelect";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { extractApiError } from "../../utils/apiError";
 import { useManagerI18n } from "./managerI18n";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 
 export default function ManagerUserGroupsPage() {
   const { text } = useManagerI18n();
   const { userName } = useParams<{ userName: string }>();
-  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useS3AccountContext();
+  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const decodedUser = useMemo(() => {

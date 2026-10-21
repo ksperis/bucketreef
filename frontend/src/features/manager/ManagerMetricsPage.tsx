@@ -29,7 +29,7 @@ import { currentUtcMonthInputValue } from "../../utils/dateInputValues";
 import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
 import TrafficAnalytics from "./TrafficAnalytics";
-import { useS3AccountContext } from "./S3AccountContext";
+import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerStats } from "./useManagerStats";
 import { useManagerI18n } from "./managerI18n";
@@ -63,7 +63,7 @@ export default function ManagerMetricsPage() {
     managerStatsEnabled,
     managerStatsMessage,
     managerFeatureStates,
-  } = useS3AccountContext();
+  } = useExecutionContext();
 
   const selected = useMemo(
     () => contexts.find((a) => a.id === selectedContextId),
