@@ -554,7 +554,12 @@ def test_failed_local_creation_compensates_remote_resources(db_session, monkeypa
     monkeypatch.setattr(
         service,
         "_create_connection",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("db failed secret_access_key=LEAK-ME")),
+        lambda **_kwargs: (_ for _ in ()).throw(
+            RuntimeError(
+                "db failed secret_access_key=LEAK-ME "
+                "endpoint=https://private.example.test/admin"
+            )
+        ),
     )
 
     with pytest.raises(ManagedPrivateAccessError, match="Unable to create") as raised:
@@ -564,6 +569,9 @@ def test_failed_local_creation_compensates_remote_resources(db_session, monkeypa
     provisioning = db_session.query(ManagedPrivateAccess).one()
     assert provisioning.state == "failed"
     assert provisioning.s3_connection_id is None
+    assert provisioning.cleanup_error == (
+        "db failed secret_access_key=<redacted> endpoint=<redacted-url>"
+    )
     assert fake.deleted_keys == [(provisioning.iam_username, "AK-MANAGED")]
     assert fake.deleted_users == [provisioning.iam_username]
     actions = [row.action for row in db_session.query(AuditLog).order_by(AuditLog.id).all()]
