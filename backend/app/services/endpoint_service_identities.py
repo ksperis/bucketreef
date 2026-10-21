@@ -13,6 +13,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import AppSetting, EndpointServiceIdentity, StorageEndpoint, User
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services.audit_service import AuditService
@@ -356,7 +357,10 @@ class EndpointServiceIdentityService:
                 identity.status, identity.last_error = "ready", None
                 self._audit(endpoint, identity, "validated")
             except ValueError as exc:
-                identity.status, identity.last_error = "error", str(exc)
+                identity.status, identity.last_error = (
+                    "error",
+                    sanitized_error_log_detail(exc),
+                )
             except RGWAdminError as exc:
                 failure = classify_rgw_credential_failure(exc)
                 identity.status = "error"
@@ -537,7 +541,7 @@ class EndpointServiceIdentityService:
                 continue
             identity.status = "error"
             identity.last_error = (
-                f"Unable to configure {kind}: {exc}"
+                f"Unable to configure {kind}: {sanitized_error_log_detail(exc)}"
                 if failure == "misconfigured"
                 else "Admin Ops validation failed; check its required read permissions and RGW connectivity."
             )
@@ -570,7 +574,7 @@ class EndpointServiceIdentityService:
             if not (unavailable and identity.status == "ready"):
                 identity.status = "error"
             identity.last_error = (
-                f"Unable to configure {kind}: {exc}"
+                f"Unable to configure {kind}: {sanitized_error_log_detail(exc)}"
                 if failure == "misconfigured"
                 else f"{kind} validation is temporarily unavailable; existing credentials remain configured."
                 if unavailable and identity.status == "ready"
