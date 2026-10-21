@@ -156,7 +156,7 @@ export default function ManagerFeatureRulesPage() {
 
       {needsContextSelection ? (
         <PageEmptyState
-          title={text("Select an account before inventorying feature rules")}
+          title={text("Select a context before inventorying feature rules")}
           description={text("The rule inventory uses the selected manager execution context to read bucket configuration.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"

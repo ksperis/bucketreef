@@ -130,7 +130,7 @@ function ManagerShell() {
 
   const selectedLabel = selected
     ? formatAccountLabel(selected)
-      : text("No account selected");
+      : text("No context selected");
 
   const handleS3AccountChange = (selectedValue: string) => {
     const value = selectedValue || null;

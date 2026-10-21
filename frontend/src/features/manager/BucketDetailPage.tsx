@@ -1425,7 +1425,7 @@ function BucketDetailPageContent({
                   ) : hasManagerExecutionContext && bucketName ? (
                     <TrafficAnalytics accountId={contextIdForApi} bucketName={bucketName} enabled={hasManagerExecutionContext} />
                   ) : (
-                    <PageBanner tone="warning">{text("Select an account and a bucket to view detailed metrics.")}</PageBanner>
+                    <PageBanner tone="warning">{text("Select a context and a bucket to view detailed metrics.")}</PageBanner>
                   ))}
               </div>
             ),

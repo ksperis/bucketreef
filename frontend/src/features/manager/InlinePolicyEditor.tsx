@@ -289,7 +289,7 @@ export default function InlinePolicyEditor({
             {text(loading ? "Refreshing..." : "Refresh")}
           </SettingsButton>
         </div>
-        {disabled && <UiInlineMessage tone="warning">{disabledReason ?? text("Select an account before editing inline policies.")}</UiInlineMessage>}
+        {disabled && <UiInlineMessage tone="warning">{disabledReason ?? text("Select a context before editing inline policies.")}</UiInlineMessage>}
         {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
         {message && <UiInlineMessage tone="success" className="[overflow-wrap:anywhere]">{message}</UiInlineMessage>}
         <div className="settings-stack">

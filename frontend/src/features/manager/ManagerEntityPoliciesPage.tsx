@@ -255,7 +255,7 @@ export default function ManagerEntityPoliciesPage({
   }
 
   if (needsContextSelection) {
-    return <div className="ui-body text-slate-600">{text("Select an account before managing {entities}.", { entities: pluralLabel })}</div>;
+    return <div className="ui-body text-slate-600">{text("Select a context before managing {entities}.", { entities: pluralLabel })}</div>;
   }
 
   const options = available.map((policy) => ({ value: policy.arn, label: policy.name }));
@@ -327,7 +327,7 @@ export default function ManagerEntityPoliciesPage({
           savePolicy={saveInlinePolicy}
           deletePolicy={removeInlinePolicy}
           disabled={needsContextSelection}
-          disabledReason={text("Select an account before editing {entity} inline policies.", { entity: singularLabel })}
+          disabledReason={text("Select a context before editing {entity} inline policies.", { entity: singularLabel })}
           key={`${config.singularLabel}-inline-${contextIdForApi ?? "none"}-${rawEntityName ?? ""}`}
         />
 

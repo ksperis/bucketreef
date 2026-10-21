@@ -31,7 +31,7 @@ export default function TopicDeleteDialog({ accountId, currentAccountId, topic, 
     finally { submitting.current = false; setBusy(false); }
   };
   return <><ConfirmActionDialog title={text("Delete notification topic?")}
-    description={text("Permanently remove this SNS topic from the selected account.")}
+    description={text("Permanently remove this SNS topic from the selected context.")}
     confirmLabel={text("Delete topic")} loading={busy} error={error}
     details={[{ label: text("Topic"), value: topic.name }, { label: text("ARN"), value: topic.arn, mono: true }]}
     impacts={["Bucket notifications targeting this topic will no longer be delivered."]}

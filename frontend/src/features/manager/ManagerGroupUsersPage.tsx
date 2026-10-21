@@ -155,7 +155,7 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
   }
 
   if (needsContextSelection) {
-    return <div className="ui-body text-slate-600">{text("Select an account before managing groups.")}</div>;
+    return <div className="ui-body text-slate-600">{text("Select a context before managing groups.")}</div>;
   }
 
   const handleRefresh = () => {

@@ -26,8 +26,8 @@ export default function ManagerRoleWorkspacePage() {
   if (needsSelection) {
     return (
       <PageEmptyState
-        title={text("Select an account before managing IAM roles")}
-        description={text("Roles are defined per execution context. Choose an account to edit this role.")}
+        title={text("Select a context before managing IAM roles")}
+        description={text("Roles are defined per execution context. Choose a context to edit this role.")}
         primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
         tone="warning"
       />

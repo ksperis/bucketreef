@@ -344,7 +344,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   }
 
   if (needsContextSelection) {
-    return <div className="ui-body text-slate-600">{text("Select an account before managing keys.")}</div>;
+    return <div className="ui-body text-slate-600">{text("Select a context before managing keys.")}</div>;
   }
 
   const content = <>

@@ -184,7 +184,7 @@ export default function ManagerGroupsPage() {
     if (needsContextSelection) return;
     deleteConfirmation.requestConfirmation({
       title: text("Delete IAM group?"),
-      description: text("Permanently remove this IAM group from the selected account."),
+      description: text("Permanently remove this IAM group from the selected context."),
       confirmLabel: text("Delete group"),
       details: [{ label: text("IAM group"), value: name }],
       impacts: ["Members will lose permissions inherited only through this group."],
@@ -305,8 +305,8 @@ export default function ManagerGroupsPage() {
 
       {needsContextSelection ? (
         <PageEmptyState
-          title={text("Select an account before managing IAM groups")}
-          description={text("Groups are scoped to an execution context. Choose an account to list membership containers and attach shared policies.")}
+          title={text("Select a context before managing IAM groups")}
+          description={text("Groups are scoped to an execution context. Choose a context to list membership containers and attach shared policies.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />

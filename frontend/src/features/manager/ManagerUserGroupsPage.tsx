@@ -143,7 +143,7 @@ export default function ManagerUserGroupsPage() {
     return <PageBanner tone="info">{text("IAM users are not available for standalone S3 users. Select an S3 Account to continue.")}</PageBanner>;
   }
   if (!userName) return <div className="ui-body text-slate-600">{text("User not specified.")}</div>;
-  if (needsContextSelection) return <div className="ui-body text-slate-600">{text("Select an account before managing groups.")}</div>;
+  if (needsContextSelection) return <div className="ui-body text-slate-600">{text("Select a context before managing groups.")}</div>;
 
   return (
     <div className="space-y-4">

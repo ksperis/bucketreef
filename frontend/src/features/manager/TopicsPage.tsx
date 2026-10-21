@@ -144,8 +144,8 @@ export default function TopicsPage() {
 
       {needsContextSelection ? (
         <PageEmptyState
-          title={text("Select an account before managing SNS topics")}
-          description={text("SNS topics are created within an execution context. Choose an account to list topics and update notification settings.")}
+          title={text("Select a context before managing SNS topics")}
+          description={text("SNS topics are created within an execution context. Choose a context to list topics and update notification settings.")}
           primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
           tone="warning"
         />

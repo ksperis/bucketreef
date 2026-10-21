@@ -56,8 +56,8 @@ export default function ManagerTopicWorkspacePage() {
   if (needsSelection) {
     return (
       <PageEmptyState
-        title={text("Select an account before managing SNS topics")}
-        description={text("SNS topics are created within an execution context. Choose an account to manage this topic.")}
+        title={text("Select a context before managing SNS topics")}
+        description={text("SNS topics are created within an execution context. Choose a context to manage this topic.")}
         primaryAction={{ label: text("Open dashboard"), to: "/manager" }}
         tone="warning"
       />
