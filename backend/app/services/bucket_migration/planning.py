@@ -14,6 +14,7 @@ from sqlalchemy import or_, select, update
 from .workflow import require_action
 
 from app.core.domain_errors import BucketMigrationNotFoundError
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem, User
 from app.models.bucket_migration import (
     BucketMigrationCreateRequest,
@@ -524,7 +525,7 @@ class BucketMigrationPlanningMixin:
                     severity="error",
                     blocking=True,
                     scope="migration",
-                    message=str(exc),
+                    message=sanitized_error_log_detail(exc),
                 )
             ]
             report["errors"] = max(1, report.get("errors", 0))

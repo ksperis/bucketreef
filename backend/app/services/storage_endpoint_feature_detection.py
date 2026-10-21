@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.domain_errors import StorageEndpointNotFoundError
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import StorageEndpoint
 from app.models.storage_endpoint import (
     StorageEndpointCredentialCheck,
@@ -486,7 +487,7 @@ class StorageEndpointFeatureDetector:
             except ValueError as exc:
                 result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
                     status="denied",
-                    message=str(exc),
+                    message=sanitized_error_log_detail(exc),
                 )
             except RGWAdminError as exc:
                 result.credential_checks.ceph_admin = self._failed_check(

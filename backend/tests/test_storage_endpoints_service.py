@@ -1304,6 +1304,36 @@ def test_detect_features_classifies_denied_unavailable_and_unprivileged_credenti
     assert result.credential_checks.supervision.status == "unavailable"
 
 
+def test_detect_features_sanitizes_ceph_admin_validation_errors(db_session, monkeypatch):
+    class FakeRGWClient:
+        def get_user_by_access_key(self, *_args, **_kwargs):
+            return {"user_id": "ceph-admin", "admin": True, "system": False}
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **_kwargs: FakeRGWClient(),
+    )
+    monkeypatch.setattr(
+        "app.services.storage_endpoint_feature_detection.EndpointServiceIdentityService.validate_payload",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("secret_key=TOPSECRET endpoint=https://private.example.test/admin")
+        ),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            ceph_admin_access_key="CEPH-AK",
+            ceph_admin_secret_key="CEPH-SK",
+        )
+    )
+
+    assert result.credential_checks.ceph_admin.status == "denied"
+    assert result.credential_checks.ceph_admin.message == (
+        "secret_key=<redacted> endpoint=<redacted-url>"
+    )
+
+
 @pytest.mark.parametrize(
     "error,expected_status,expected_message",
     [
