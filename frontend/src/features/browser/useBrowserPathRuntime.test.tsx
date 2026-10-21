@@ -55,7 +55,6 @@ const options = () => ({
     return true;
   }),
   setPrefix: vi.fn(),
-  clearActiveItem: vi.fn(),
   selectionReady: true,
   contextSwitchInFlight: false,
   normalizedPath: "/browser",
@@ -109,7 +108,6 @@ describe("useBrowserPathRuntime", () => {
 
     expect(runtimeOptions.requestTransition).toHaveBeenCalledTimes(1);
     expect(runtimeOptions.setPrefix).toHaveBeenCalledWith("reports/2026/q1/");
-    expect(runtimeOptions.clearActiveItem).toHaveBeenCalledTimes(1);
     expect(mocks.record).toHaveBeenCalledWith("reports/2026/q1/");
   });
 
@@ -137,7 +135,6 @@ describe("useBrowserPathRuntime", () => {
       });
     });
     expect(runtimeOptions.setPrefix).toHaveBeenCalledWith("reports/");
-    expect(runtimeOptions.clearActiveItem).toHaveBeenCalledTimes(1);
     expect(mocks.cancel).toHaveBeenCalledTimes(1);
 
     vi.clearAllMocks();
@@ -148,7 +145,6 @@ describe("useBrowserPathRuntime", () => {
       });
     });
     expect(runtimeOptions.setPrefix).not.toHaveBeenCalled();
-    expect(runtimeOptions.clearActiveItem).toHaveBeenCalledTimes(1);
     expect(mocks.cancel).toHaveBeenCalledTimes(1);
 
     vi.clearAllMocks();

@@ -6,7 +6,6 @@ function createOptions() {
   return {
     bucketConfigurationEnabled: true,
     bucketManagementEnabled: true,
-    clearActiveItem: vi.fn(),
     closeBucketMenu: vi.fn(),
     openBucketConfigurationTarget: vi.fn(),
     openCreateBucketForm: vi.fn(),
@@ -33,17 +32,17 @@ describe("useBrowserBucketInteractions", () => {
     expect(options.closeBucketMenu).toHaveBeenCalledOnce();
     expect(options.requestDetailsDrawerTransition).toHaveBeenCalledOnce();
     expect(options.selectBucket).toHaveBeenCalledWith("archive");
-    expect(options.clearActiveItem).toHaveBeenCalledOnce();
   });
 
-  it("does not clear the active item when the bucket selection does not change", () => {
+  it("still routes unchanged bucket selections through the transition contract", () => {
     const options = createOptions();
     options.selectBucket.mockReturnValue(false);
     const { result } = renderHook(() => useBrowserBucketInteractions(options));
 
     act(() => result.current.selectBucketFromMenu("archive"));
 
-    expect(options.clearActiveItem).not.toHaveBeenCalled();
+    expect(options.requestDetailsDrawerTransition).toHaveBeenCalledOnce();
+    expect(options.selectBucket).toHaveBeenCalledWith("archive");
   });
 
   it("resets the bucket menu before opening create and configuration flows", () => {

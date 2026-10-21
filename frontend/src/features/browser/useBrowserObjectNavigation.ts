@@ -23,7 +23,6 @@ type UseBrowserObjectNavigationOptions = {
   isStorageSpaceContext: boolean;
   listItems: BrowserItem[];
   objectDetailsTarget: ObjectDetailsTarget;
-  onActivateItem: (item: BrowserItem) => void;
   onLoadedFilesChange?: (keys: string[]) => void;
   onOpenFolder: (prefix: string) => void;
   onOpenObjectDetails?: (target: BrowserObjectDetailsRouteTarget) => void;
@@ -43,7 +42,6 @@ export function useBrowserObjectNavigation({
   isStorageSpaceContext,
   listItems,
   objectDetailsTarget,
-  onActivateItem,
   onLoadedFilesChange,
   onOpenFolder,
   onOpenObjectDetails,
@@ -95,7 +93,6 @@ export function useBrowserObjectNavigation({
       if (!resolution.initialTab) return;
       const initialTab = resolution.initialTab;
       requestDetailsDrawerTransition(() => {
-        onActivateItem(item);
         openObjectDetailsTarget(item, initialTab, intent);
       });
     },
@@ -103,7 +100,6 @@ export function useBrowserObjectNavigation({
       bucketName,
       functionalProfile,
       isStorageSpaceContext,
-      onActivateItem,
       onOpenObjectDetails,
       openObjectDetailsTarget,
       requestDetailsDrawerTransition,
@@ -142,7 +138,6 @@ export function useBrowserObjectNavigation({
       if (item.type === "folder") {
         if (functionalProfile !== "advanced") return;
         requestDetailsDrawerTransition(() => {
-          onActivateItem(item);
           openObjectDetailsTarget(item, "details");
         });
         return;
@@ -158,7 +153,6 @@ export function useBrowserObjectNavigation({
     },
     [
       functionalProfile,
-      onActivateItem,
       openObjectDetails,
       openObjectDetailsTarget,
       requestDetailsDrawerTransition,
