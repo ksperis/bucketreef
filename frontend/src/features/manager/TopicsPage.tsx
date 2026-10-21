@@ -27,8 +27,8 @@ export default function TopicsPage() {
   const { text } = useManagerI18n();
   const { contexts, contextIdForApi, requiresContextSelection, accessMode } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
-  const selectedS3Account = contexts.find(account => account.id === contextIdForApi);
-  const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;
+  const selectedContext = contexts.find(context => context.id === contextIdForApi);
+  const snsFeatureEnabled = selectedContext?.storage_endpoint_capabilities?.sns !== false;
   const [topics, setTopics] = useState<Topic[]>([]);
   const [topicFilter, setTopicFilter] = useState("");
   const [loading, setLoading] = useState(true);
