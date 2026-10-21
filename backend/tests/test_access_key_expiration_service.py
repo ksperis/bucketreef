@@ -168,6 +168,27 @@ def test_provider_failure_is_retried_without_marking_key_expired(db_session, mon
     assert "temporary provider outage" in (row.expiration_last_error or "")
 
 
+def test_provider_failure_persists_only_sanitized_error_details(db_session, monkeypatch):
+    endpoint = _endpoint(db_session)
+    s3_user = _s3_user(db_session, endpoint)
+    row = _due_s3_user_row(db_session, s3_user)
+    fake = _FakeS3UsersService(
+        db_session,
+        failure=ValueError("secret_key=TOPSECRET endpoint=https://private.example.test/admin"),
+    )
+    monkeypatch.setattr(access_key_expiration_service, "S3UsersService", lambda _db: fake)
+    _patch_audit(monkeypatch)
+
+    result = AccessKeyExpirationService(db_session).run_due()
+
+    db_session.refresh(row)
+    assert result["retried"] == 1
+    assert row.expiration_state == "retrying"
+    assert row.expiration_last_error == "secret_key=<redacted> endpoint=<redacted-url>"
+    assert "TOPSECRET" not in (row.expiration_last_error or "")
+    assert "private.example.test" not in (row.expiration_last_error or "")
+
+
 def test_interface_key_is_blocked_without_provider_mutation(db_session, monkeypatch):
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
