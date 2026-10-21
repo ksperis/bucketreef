@@ -62,21 +62,25 @@ def raise_bad_gateway_from_runtime(exc: RuntimeError) -> NoReturn:
     raise_http_exception_from_exception(_upstream_status_code(exc), exc)
 
 
+def _has_timeout_message(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return any(marker in message for marker in ("timed out", "timeout", "read timeout"))
+
+
 def is_upstream_timeout(exc: Exception) -> bool:
     structured_status = _structured_upstream_status_code(exc)
     if structured_status == status.HTTP_504_GATEWAY_TIMEOUT:
         return True
-    message = str(exc).lower()
-    return any(marker in message for marker in ("timed out", "timeout", "read timeout"))
+    return _has_timeout_message(exc)
 
 
 def _upstream_status_code(exc: Exception) -> int:
     structured_status = _structured_upstream_status_code(exc)
     if structured_status is not None:
         return structured_status
-    message = str(exc).lower()
-    if any(marker in message for marker in ("timed out", "timeout", "read timeout")):
+    if _has_timeout_message(exc):
         return status.HTTP_504_GATEWAY_TIMEOUT
+    message = str(exc).lower()
     if any(
         marker in message
         for marker in (
